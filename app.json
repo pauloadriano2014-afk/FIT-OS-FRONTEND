@@ -1,0 +1,66 @@
+{
+  "expo": {
+    "name": "PA TEAM",
+    "slug": "pa-team-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.pauloadriano.team"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#000000"
+      },
+      "package": "com.pauloadriano.team",
+      "permissions": [
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#CCFF00"
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir acesso à câmera para check-in e scanner."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3bb9485f-4a11-490d-a2f8-ed3f0a3778c5"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3bb9485f-4a11-490d-a2f8-ed3f0a3778c5"
+    }
+  }
+}
