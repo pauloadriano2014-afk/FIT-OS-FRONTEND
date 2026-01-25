@@ -23,17 +23,16 @@
       },
       "package": "com.pauloadriano.team",
       "permissions": [
-        "CAMERA",
-        "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO",
-        "CAMERA",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
       "edgeToEdgeEnabled": true
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "publicPath": "/"
     },
     "plugins": [
       "expo-font",
