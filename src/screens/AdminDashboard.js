@@ -164,7 +164,7 @@ export default function AdminDashboard({ navigation }) {
 
   return (
     <RootComponent style={rootStyle}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
       
       <View style={styles.header}>
         <View>
@@ -199,8 +199,9 @@ export default function AdminDashboard({ navigation }) {
                 />
                 <FlatList 
                     data={filteredAlunos} keyExtractor={item => item.id}
-                    contentContainerStyle={{ paddingBottom: 150 }} 
-                    showsVerticalScrollIndicator={false} // 🔥 BARRA INVISÍVEL
+                    // 🔥 CORREÇÃO DE ENQUADRAMENTO
+                    contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
+                    showsVerticalScrollIndicator={false}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor="#CCFF00" />}
                     renderItem={renderAluno}
                     ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado.</Text>}
@@ -211,7 +212,8 @@ export default function AdminDashboard({ navigation }) {
         {activeTab === 'CHECKINS' && (
             <FlatList 
                 data={checkins} keyExtractor={item => item.id}
-                contentContainerStyle={{ paddingBottom: 150 }}
+                // 🔥 CORREÇÃO DE ENQUADRAMENTO
+                contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor="#CCFF00" />}
                 renderItem={renderCheckinItem}
@@ -222,7 +224,8 @@ export default function AdminDashboard({ navigation }) {
         {activeTab === 'FEED' && (
             <FlatList 
                 data={feed} keyExtractor={item => item.id}
-                contentContainerStyle={{ paddingBottom: 150 }}
+                // 🔥 CORREÇÃO DE ENQUADRAMENTO
+                contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
                 showsVerticalScrollIndicator={false}
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor="#CCFF00" />}
                 renderItem={renderFeedItem}
@@ -233,7 +236,8 @@ export default function AdminDashboard({ navigation }) {
         {activeTab === 'GESTAO' && (
             <ScrollView 
                 style={{ flex: 1 }} 
-                contentContainerStyle={{ flexGrow: 1, paddingBottom: 150 }} 
+                // 🔥 CORREÇÃO DE ENQUADRAMENTO
+                contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} 
                 showsVerticalScrollIndicator={false}
             >
                 <View style={styles.gridGestao}>
@@ -349,7 +353,8 @@ const styles = StyleSheet.create({
   tabTextActive: { color: '#FFF' },
   badgeCount: { backgroundColor:'#FF3B30', paddingHorizontal:6, borderRadius:10, height:16, justifyContent:'center', marginLeft:5 },
   badgeText: { color:'#FFF', fontSize:9, fontWeight:'bold' },
-  searchBar: { backgroundColor: '#1A1A1A', color: '#FFF', padding: 15, borderRadius: 12, marginBottom: 15, outlineStyle: 'none' },
+  // 🔥 CORREÇÃO: Margem para alinhar a busca com o header
+  searchBar: { backgroundColor: '#1A1A1A', color: '#FFF', padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
   feedCard: { backgroundColor: '#111', padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1, borderColor: '#222' },
   iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   feedUser: { color: '#CCFF00', fontWeight: 'bold', fontSize: 14 },
