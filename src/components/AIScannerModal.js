@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Animated, Alert, ActivityIndicator, Dimensions, Platform, Vibration } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Dimensions, Platform, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
 const { height } = Dimensions.get('window');
@@ -27,20 +27,21 @@ export default function ScannerIA({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
   const [loadingIA, setLoadingIA] = useState(false);
-  const [userLevel, setUserLevel] = useState('Iniciante');
+  // Removido estado de userLevel
   const [countdown, setCountdown] = useState(0);
 
   const cameraRef = useRef(null);
   const scanAnim = useRef(new Animated.Value(0)).current;
   const currentInstruction = getInstruction(exerciseName);
 
-  // Solicita permissão automaticamente ao abrir a tela
+  // Solicita permissão automaticamente
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
         requestPermission();
     }
   }, [permission]);
 
+  // Animação do Laser
   useEffect(() => {
     if (isScanning) {
         Animated.loop(
@@ -64,8 +65,8 @@ export default function ScannerIA({ navigation, route }) {
       setIsScanning(true);
       
       const video = await cameraRef.current.recordAsync({ 
-          quality: '480p', 
-          maxDuration: 15, // 🔥 AUMENTADO PARA 15 SEGUNDOS
+          quality: '480p', // Qualidade leve
+          maxDuration: 10, // 🔥 10 SEGUNDOS (Otimizado para o servidor)
           mute: true 
       });
 
@@ -81,11 +82,11 @@ export default function ScannerIA({ navigation, route }) {
 
       formData.append('video', { uri, name: filename, type });
       formData.append('exerciseName', exerciseName);
-      formData.append('userLevel', userLevel); 
+      // Removido envio de userLevel
 
       console.log("Enviando vídeo para análise...");
 
-      const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
+      const response = await fetch('[https://fitos-final.onrender.com/api/analyze](https://fitos-final.onrender.com/api/analyze)', {
         method: 'POST',
         body: formData,
         headers: {
@@ -93,20 +94,22 @@ export default function ScannerIA({ navigation, route }) {
         },
       });
 
-      // Tratamento de erro caso venha vazio (para evitar aquele erro do JSON Parse)
+      // Tratamento de erro caso venha vazio
       const textResponse = await response.text();
       let data;
       try {
           data = JSON.parse(textResponse);
       } catch (e) {
-          throw new Error("Erro no servidor: Resposta inválida da IA.");
+          // Se não for JSON, cria um objeto fake com o texto
+          data = { feedback: textResponse, score: 0 };
       }
 
       setLoadingIA(false);
 
-      if (response.ok && data.feedback) {
-        Alert.alert("🤖 COACH FIT OS", data.feedback, [
-            { text: "OK", onPress: () => navigation.goBack() }
+      if (response.ok) {
+        // Exibe o feedback vindo do JSON ou texto puro
+        Alert.alert("🤖 COACH FIT OS", data.feedback || "Análise concluída.", [
+            { text: "ENTENDI", onPress: () => navigation.goBack() }
         ]);
       } else {
         throw new Error(data.details || "A IA não conseguiu analisar.");
@@ -122,9 +125,9 @@ export default function ScannerIA({ navigation, route }) {
   const startCountdown = () => {
     if (isScanning || countdown > 0) return;
     
-    // 🔥 INICIA CONTAGEM DE 10 SEGUNDOS
-    setCountdown(10);
-    Vibration.vibrate(100); // Vibra no primeiro segundo
+    // 🔥 INICIA CONTAGEM DE 7 SEGUNDOS (Mais dinâmico)
+    setCountdown(7);
+    Vibration.vibrate(100); 
 
     const interval = setInterval(() => {
       setCountdown((prev) => {
@@ -133,7 +136,6 @@ export default function ScannerIA({ navigation, route }) {
           executeRecording();
           return 0;
         }
-        // 📳 VIBRA CURTO A CADA SEGUNDO PARA AVISAR
         Vibration.vibrate(100); 
         return prev - 1;
       });
@@ -175,17 +177,7 @@ export default function ScannerIA({ navigation, route }) {
             <Text style={styles.instructionText}>{currentInstruction}</Text>
         </View>
 
-        <View style={styles.levelContainer}>
-            {['Iniciante', 'Intermediário', 'Avançado'].map((lvl) => (
-                <TouchableOpacity 
-                key={lvl}
-                style={[styles.levelBtn, userLevel === lvl && styles.levelBtnActive]} 
-                onPress={() => setUserLevel(lvl)}
-                >
-                <Text style={[styles.levelBtnText, userLevel === lvl && styles.levelBtnTextActive]}>{lvl}</Text>
-                </TouchableOpacity>
-            ))}
-        </View>
+        {/* Removido o levelContainer daqui */}
 
         <View style={styles.cameraContainer}>
             <CameraView 
@@ -220,7 +212,6 @@ export default function ScannerIA({ navigation, route }) {
                 disabled={countdown > 0}
             >
                 <Text style={styles.recordText}>
-                    {/* 🔥 TEXTO ATUALIZADO */}
                     {isScanning ? "PARAR AGORA" : countdown > 0 ? "POSICIONE O CELULAR" : "INICIAR ANÁLISE (10s)"}
                 </Text>
             </TouchableOpacity>
@@ -238,11 +229,6 @@ const styles = StyleSheet.create({
   exerciseNameText: { color: '#fff', fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
   instructionBox: { backgroundColor: '#111', padding: 15, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
   instructionText: { color: '#CCFF00', fontSize: 13, fontWeight: 'bold', textAlign: 'center' },
-  levelContainer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
-  levelBtn: { paddingVertical: 8, paddingHorizontal: 12, marginHorizontal: 4, borderRadius: 8, backgroundColor: '#111', borderWidth: 1, borderColor: '#333' },
-  levelBtnActive: { borderColor: '#CCFF00', backgroundColor: '#1A1A00' },
-  levelBtnText: { color: '#666', fontSize: 11, fontWeight: 'bold' },
-  levelBtnTextActive: { color: '#CCFF00' },
   cameraContainer: { flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: '#111', marginBottom: 20 },
   camera: { flex: 1 },
   laserLine: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: '#CCFF00', zIndex: 10, shadowColor: '#CCFF00', shadowOpacity: 0.8, shadowRadius: 10 },
