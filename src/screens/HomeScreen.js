@@ -1,8 +1,27 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, StatusBar, RefreshControl, ActivityIndicator, Alert, Platform, Image } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  SafeAreaView, 
+  ScrollView, 
+  TouchableOpacity, 
+  StatusBar, 
+  RefreshControl, 
+  ActivityIndicator, 
+  Alert, 
+  Platform, 
+  Image,
+  Modal,                // Novo
+  TextInput,            // Novo
+  KeyboardAvoidingView, // Novo
+  FlatList,             // Novo
+  Keyboard              // Novo
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient'; // Para o botão do Chat ficar Premium
 
 export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -17,6 +36,15 @@ export default function HomeScreen({ navigation }) {
   
   const [waterDrank, setWaterDrank] = useState(0);
   const [waterGoal, setWaterGoal] = useState(3000); 
+
+  // 🔥 STATES DO CHATBOT (NOVO)
+  const [chatVisible, setChatVisible] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [messages, setMessages] = useState([
+    { id: 1, text: "Fala, monstro! 👊 Sou o PA Coach AI. Precisa de ajuda com o treino ou dieta hoje?", sender: 'ai' }
+  ]);
+  const flatListRef = useRef(null);
 
   const currentLevel = Math.floor(xp / 1000) + 1;
   const nextLevelXP = 1000;
@@ -193,6 +221,96 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  // 🔥 LÓGICA DO CHATBOT
+  const handleSendChat = async () => {
+    if (!chatInput.trim()) return;
+
+    const userMsg = { id: Date.now(), text: chatInput, sender: 'user' };
+    setMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setIsTyping(true);
+
+    // Rolar para baixo
+    setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+
+    try {
+        // 2. Prepara os dados do aluno para a IA saber com quem fala
+        // Tenta pegar da anamnese, se não tiver usa padrão
+        const gender = userData?.anamneses?.[0]?.genero || userData?.gender || 'Não informado';
+        const goal = userData?.anamneses?.[0]?.objetivo || userData?.goal || 'Melhorar o shape';
+        const userLevelTitle = levelData.title; // Ex: "Projeto Mutante"
+
+        // 3. Chama o seu Backend (que chama o Gemini)
+        // ATENÇÃO: Verifique se a URL base está correta
+        const res = await fetch('https://fitos-final.onrender.com/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message: userMsg.text,
+                userName: userName,
+                userGender: gender,
+                userGoal: goal,
+                userLevel: userLevelTitle
+            })
+        });
+
+        const data = await res.json();
+        
+        // 4. Recebe a resposta e mostra
+        if (data.reply) {
+             const aiMsg = { id: Date.now() + 1, text: data.reply, sender: 'ai' };
+             setMessages(prev => [...prev, aiMsg]);
+        } else {
+             throw new Error("Sem resposta da IA");
+        }
+
+    } catch (error) {
+        console.log("Erro Chat:", error);
+        const errorMsg = { id: Date.now() + 1, text: "Falha na comunicação com a base, atleta. Tente novamente.", sender: 'ai' };
+        setMessages(prev => [...prev, errorMsg]);
+    } finally {
+        setIsTyping(false);
+        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+    }
+  };
+
+    // LÓGICA FAKE INTELIGENTE (Substituir por API depois)
+    setTimeout(() => {
+        let replyText = "Entendido! Vamos focar nisso. O que mais você precisa?";
+        const lowerInput = userMsg.text.toLowerCase();
+
+        if (lowerInput.includes('oi') || lowerInput.includes('olá')) {
+            replyText = `Fala ${userName}! Bora esmagar hoje? Qual é o treino?`;
+        } else if (lowerInput.includes('treino') || lowerInput.includes('fazer')) {
+            replyText = "Se for treino de força, capricha na execução. Se for cardio, mantém a intensidade. Quer que eu sugira algo?";
+        } else if (lowerInput.includes('dieta') || lowerInput.includes('fome')) {
+            replyText = "Fome é sinal que o metabolismo tá girando! Mas segura a onda, bebe água e foca na proteína.";
+        } else if (lowerInput.includes('dor') || lowerInput.includes('machuquei')) {
+            replyText = "Opa, cuidado. Dor de lesão é sinal de PARE. Dor de treino é sinal de CONTINUE. Sabe diferenciar?";
+        }
+
+        const aiMsg = { id: Date.now() + 1, text: replyText, sender: 'ai' };
+        setMessages(prev => [...prev, aiMsg]);
+        setIsTyping(false);
+        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
+    }, 1500); 
+  };
+
+  const renderChatMessage = ({ item }) => {
+    const isAi = item.sender === 'ai';
+    return (
+        <View style={[
+            styles.chatBubble, 
+            isAi ? styles.chatBubbleAi : styles.chatBubbleUser
+        ]}>
+            {isAi && <Text style={styles.chatSenderName}>PA COACH</Text>}
+            <Text style={[styles.chatText, isAi ? {color:'#FFF'} : {color:'#000'}]}>
+                {item.text}
+            </Text>
+        </View>
+    );
+  };
+
   const progressPercent = Math.min((waterDrank / waterGoal) * 100, 100);
   const isWaterLow = waterDrank < (waterGoal * 0.3); 
 
@@ -202,7 +320,7 @@ export default function HomeScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <ScrollView 
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }} 
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }} // Aumentei paddingBottom pra não cobrir conteudo com FAB
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor="#CCFF00"/>}
       >
         <View style={styles.header}>
@@ -332,9 +450,74 @@ export default function HomeScreen({ navigation }) {
         </View>
 
       </ScrollView>
+
+      {/* 🔥 FAB DO CHATBOT */}
+      <TouchableOpacity 
+        style={styles.fabChat} 
+        onPress={() => setChatVisible(true)}
+      >
+        <LinearGradient
+            colors={['#CCFF00', '#99CC00']}
+            style={styles.fabGradient}
+        >
+            <MaterialCommunityIcons name="robot" size={32} color="#000" />
+        </LinearGradient>
+      </TouchableOpacity>
+
+      {/* 🔥 MODAL DO CHATBOT */}
+      <Modal visible={chatVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+            style={styles.chatModalContainer}
+        >
+            <View style={styles.chatContent}>
+                {/* Header Chat */}
+                <View style={styles.chatHeader}>
+                    <View style={{flexDirection:'row', alignItems:'center'}}>
+                        <View style={styles.chatAvatar}>
+                            <MaterialCommunityIcons name="robot" size={24} color="#000" />
+                        </View>
+                        <View>
+                            <Text style={styles.chatTitle}>PA COACH AI</Text>
+                            <Text style={styles.chatStatus}>Online agora</Text>
+                        </View>
+                    </View>
+                    <TouchableOpacity onPress={() => setChatVisible(false)} style={{padding:5}}>
+                        <MaterialCommunityIcons name="close" size={24} color="#FFF" />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Lista de Mensagens */}
+                <FlatList
+                    ref={flatListRef}
+                    data={messages}
+                    keyExtractor={item => item.id.toString()}
+                    renderItem={renderChatMessage}
+                    contentContainerStyle={{padding: 15}}
+                    style={{flex: 1}}
+                />
+
+                {/* Input Area */}
+                <View style={styles.chatInputArea}>
+                    <TextInput 
+                        style={styles.chatInput}
+                        placeholder="Pergunte sobre treinos..."
+                        placeholderTextColor="#666"
+                        value={chatInput}
+                        onChangeText={setChatInput}
+                        onSubmitEditing={handleSendChat}
+                    />
+                    <TouchableOpacity style={styles.chatSendBtn} onPress={handleSendChat} disabled={isTyping}>
+                        {isTyping ? <ActivityIndicator color="#000" size="small" /> : <MaterialCommunityIcons name="send" size={20} color="#000" />}
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
     </SafeAreaView>
   );
-}
+
 
 const styles = StyleSheet.create({
   container: { 
@@ -395,4 +578,25 @@ const styles = StyleSheet.create({
   flixCta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   flixCtaText: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold' },
   flixBgIcon: { position: 'absolute', right: -20, bottom: -20, opacity: 0.5 },
+
+  // 🔥 ESTILOS DO CHATBOT (NOVO)
+  fabChat: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, zIndex: 999, elevation: 10, shadowColor: '#CCFF00', shadowOpacity: 0.3, shadowRadius: 10 },
+  fabGradient: { width: '100%', height: '100%', borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
+  
+  chatModalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
+  chatContent: { backgroundColor: '#111', height: '80%', borderTopLeftRadius: 25, borderTopRightRadius: 25, overflow: 'hidden', borderWidth: 1, borderColor: '#333' },
+  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#1A1A1A', borderBottomWidth: 1, borderBottomColor: '#333' },
+  chatAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#CCFF00', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  chatTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  chatStatus: { color: '#CCFF00', fontSize: 10 },
+  
+  chatInputArea: { flexDirection: 'row', padding: 15, backgroundColor: '#1A1A1A', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#333' },
+  chatInput: { flex: 1, backgroundColor: '#000', color: '#FFF', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, marginRight: 10, borderWidth: 1, borderColor: '#333' },
+  chatSendBtn: { backgroundColor: '#CCFF00', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+
+  chatBubble: { padding: 12, borderRadius: 15, marginBottom: 10, maxWidth: '80%' },
+  chatBubbleAi: { backgroundColor: '#222', alignSelf: 'flex-start', borderBottomLeftRadius: 2, borderWidth: 1, borderColor: '#333' },
+  chatBubbleUser: { backgroundColor: '#CCFF00', alignSelf: 'flex-end', borderBottomRightRadius: 2 },
+  chatSenderName: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold', marginBottom: 4 },
+  chatText: { fontSize: 14 }
 });
