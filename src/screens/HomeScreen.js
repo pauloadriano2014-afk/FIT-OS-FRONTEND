@@ -12,16 +12,16 @@ import {
   Alert, 
   Platform, 
   Image,
-  Modal,                // Novo
-  TextInput,            // Novo
-  KeyboardAvoidingView, // Novo
-  FlatList,             // Novo
-  Keyboard              // Novo
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  FlatList,
+  Keyboard
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient'; // Para o botão do Chat ficar Premium
+import { LinearGradient } from 'expo-linear-gradient';
 
 export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -37,7 +37,7 @@ export default function HomeScreen({ navigation }) {
   const [waterDrank, setWaterDrank] = useState(0);
   const [waterGoal, setWaterGoal] = useState(3000); 
 
-  // 🔥 STATES DO CHATBOT (NOVO)
+  // 🔥 STATES DO CHATBOT
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -50,7 +50,7 @@ export default function HomeScreen({ navigation }) {
   const nextLevelXP = 1000;
   const currentLevelProgress = xp % 1000;
 
-  // 🔥 FUNÇÃO ATUALIZADA: RETORNA TÍTULO E LEGENDA
+  // 🔥 FUNÇÃO: RETORNA TÍTULO E LEGENDA
   const getLevelData = (level) => {
       if (level <= 5) return { title: "Inimigo do Sofá 🛋️", desc: "Saiu da inércia. O começo é o mais difícil!" };
       if (level <= 10) return { title: "Em Obras 🚧", desc: "Está construindo o shape, tijolo por tijolo." };
@@ -234,14 +234,12 @@ export default function HomeScreen({ navigation }) {
     setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
 
     try {
-        // 2. Prepara os dados do aluno para a IA saber com quem fala
-        // Tenta pegar da anamnese, se não tiver usa padrão
+        // Prepara dados
         const gender = userData?.anamneses?.[0]?.genero || userData?.gender || 'Não informado';
         const goal = userData?.anamneses?.[0]?.objetivo || userData?.goal || 'Melhorar o shape';
-        const userLevelTitle = levelData.title; // Ex: "Projeto Mutante"
+        const userLevelTitle = levelData.title; 
 
-        // 3. Chama o seu Backend (que chama o Gemini)
-        // ATENÇÃO: Verifique se a URL base está correta
+        // Chama Backend
         const res = await fetch('https://fitos-final.onrender.com/api/ai/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -256,7 +254,6 @@ export default function HomeScreen({ navigation }) {
 
         const data = await res.json();
         
-        // 4. Recebe a resposta e mostra
         if (data.reply) {
              const aiMsg = { id: Date.now() + 1, text: data.reply, sender: 'ai' };
              setMessages(prev => [...prev, aiMsg]);
@@ -272,28 +269,6 @@ export default function HomeScreen({ navigation }) {
         setIsTyping(false);
         setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
     }
-  };
-
-    // LÓGICA FAKE INTELIGENTE (Substituir por API depois)
-    setTimeout(() => {
-        let replyText = "Entendido! Vamos focar nisso. O que mais você precisa?";
-        const lowerInput = userMsg.text.toLowerCase();
-
-        if (lowerInput.includes('oi') || lowerInput.includes('olá')) {
-            replyText = `Fala ${userName}! Bora esmagar hoje? Qual é o treino?`;
-        } else if (lowerInput.includes('treino') || lowerInput.includes('fazer')) {
-            replyText = "Se for treino de força, capricha na execução. Se for cardio, mantém a intensidade. Quer que eu sugira algo?";
-        } else if (lowerInput.includes('dieta') || lowerInput.includes('fome')) {
-            replyText = "Fome é sinal que o metabolismo tá girando! Mas segura a onda, bebe água e foca na proteína.";
-        } else if (lowerInput.includes('dor') || lowerInput.includes('machuquei')) {
-            replyText = "Opa, cuidado. Dor de lesão é sinal de PARE. Dor de treino é sinal de CONTINUE. Sabe diferenciar?";
-        }
-
-        const aiMsg = { id: Date.now() + 1, text: replyText, sender: 'ai' };
-        setMessages(prev => [...prev, aiMsg]);
-        setIsTyping(false);
-        setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
-    }, 1500); 
   };
 
   const renderChatMessage = ({ item }) => {
@@ -320,7 +295,7 @@ export default function HomeScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <ScrollView 
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }} // Aumentei paddingBottom pra não cobrir conteudo com FAB
+        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor="#CCFF00"/>}
       >
         <View style={styles.header}>
@@ -329,7 +304,6 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.name}>{userName.toUpperCase()} ⚡</Text>
           </View>
           
-          {/* 🔥 AGORA O BADGE É CLICÁVEL E MOSTRA A LEGENDA */}
           <TouchableOpacity 
             style={styles.statusBadge} 
             onPress={() => Alert.alert(levelData.title, levelData.desc)}
@@ -517,7 +491,7 @@ export default function HomeScreen({ navigation }) {
 
     </SafeAreaView>
   );
-
+}
 
 const styles = StyleSheet.create({
   container: { 
@@ -530,7 +504,6 @@ const styles = StyleSheet.create({
   greeting: { color: '#888', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
   name: { color: '#FFF', fontSize: 24, fontWeight: '900' },
   
-  // 🔥 ESTILO DO BADGE (CLICÁVEL)
   statusBadge: { backgroundColor: '#111', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1, borderColor: '#333' },
   statusText: { color: '#CCFF00', fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   
@@ -579,7 +552,6 @@ const styles = StyleSheet.create({
   flixCtaText: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold' },
   flixBgIcon: { position: 'absolute', right: -20, bottom: -20, opacity: 0.5 },
 
-  // 🔥 ESTILOS DO CHATBOT (NOVO)
   fabChat: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, zIndex: 999, elevation: 10, shadowColor: '#CCFF00', shadowOpacity: 0.3, shadowRadius: 10 },
   fabGradient: { width: '100%', height: '100%', borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
   
