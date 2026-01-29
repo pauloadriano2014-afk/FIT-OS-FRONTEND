@@ -14,13 +14,13 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
+const ADMIN_EMAIL = 'paulo_adriano2014@live.com';
+
 export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-
-  const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
-  const ADMIN_EMAIL = 'paulo_adriano2014@live.com';
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -28,6 +28,7 @@ export default function LoginScreen({ navigation }) {
     }
 
     setLoading(true);
+
     try {
       const response = await fetch(RENDER_URL, {
         method: 'POST',
@@ -46,31 +47,37 @@ export default function LoginScreen({ navigation }) {
       }
 
       const emailLogado = data.user.email.toLowerCase().trim();
-      const emailAdmin = ADMIN_EMAIL.toLowerCase().trim();
-      const role = emailLogado === emailAdmin ? 'admin' : 'aluno';
+      const isAdmin = emailLogado === ADMIN_EMAIL.toLowerCase();
+      const role = isAdmin ? 'admin' : 'student';
 
-      // 🔥 PERSISTÊNCIA CORRETA
+      // 🔥 LIMPA QUALQUER SESSÃO ANTIGA
+      await AsyncStorage.multiRemove(['user', 'role']);
+
+      // 🔥 SALVA SESSÃO NOVA (EXPLÍCITA)
       await AsyncStorage.multiSet([
         ['user', JSON.stringify(data.user)],
         ['role', role]
       ]);
 
-      // 🔥 NAVEGAÇÃO
-      if (role === 'admin') {
+      console.log('✅ Login OK:', role, emailLogado);
+
+      // 🔥 ADMIN: FLUXO ISOLADO
+      if (isAdmin) {
         navigation.replace('AdminDashboard');
         return;
       }
 
+      // 🔥 ALUNO: FLUXO NORMAL
       const temAnamnese =
         data.user.anamneses && data.user.anamneses.length > 0;
 
       if (temAnamnese) {
-        navigation.replace('Main');
+        navigation.replace('Main', { userData: data.user });
       } else {
         if (data.user.plan_tier === 'vip') {
-          navigation.replace('AnamneseVIP');
+          navigation.replace('AnamneseVIP', { userData: data.user });
         } else {
-          navigation.replace('Anamnese');
+          navigation.replace('Anamnese', { userData: data.user });
         }
       }
     } catch (e) {
@@ -144,6 +151,8 @@ export default function LoginScreen({ navigation }) {
     </KeyboardAvoidingView>
   );
 }
+
+/* ================= STYLES ================= */
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
