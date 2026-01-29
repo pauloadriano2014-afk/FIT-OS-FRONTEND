@@ -11,13 +11,13 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 
 /* ================= TELAS ================= */
 
-// Auth
+// AUTH
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
 
-// Aluno
+// ALUNO
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -26,12 +26,12 @@ import CheckInScreen from './src/screens/CheckInScreen';
 import UserHistoryScreen from './src/screens/UserHistoryScreen';
 import PAFlixScreen from './src/screens/PAFlixScreen';
 
-// Treino
+// TREINO
 import RoutineDetailsScreen from './src/screens/RoutineDetailsScreen';
 import DayWorkoutScreen from './src/screens/DayWorkoutScreen';
 import FinishScreen from './src/screens/FinishScreen';
 
-// Admin
+// ADMIN
 import AdminDashboard from './src/screens/AdminDashboard';
 import MontarTreinoAdmin from './src/screens/MontarTreinoAdmin';
 import BibliotecaAdmin from './src/screens/BibliotecaAdmin';
@@ -40,19 +40,17 @@ import AdminUserOptions from './src/screens/AdminUserOptions';
 import AdminEvolutionScreen from './src/screens/AdminEvolutionScreen';
 import AdminAddContent from './src/screens/AdminAddContent';
 
-// Global
+// GLOBAL
 import AIScannerModal from './src/components/AIScannerModal';
 
-/* ================= CONFIG ================= */
-
-const ADMIN_EMAIL = 'paulo_adriano2014@live.com';
+/* ================= NOTIFICATIONS ================= */
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+    shouldSetBadge: false
+  })
 });
 
 async function registerForPushNotificationsAsync() {
@@ -63,7 +61,7 @@ async function registerForPushNotificationsAsync() {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
+      importance: Notifications.AndroidImportance.MAX
     });
   }
 
@@ -85,6 +83,7 @@ async function registerForPushNotificationsAsync() {
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
+/* ---------- ALUNO TABS ---------- */
 function StudentTabs({ route }) {
   const userData = route.params?.userData;
   const insets = useSafeAreaInsets();
@@ -96,7 +95,7 @@ function StudentTabs({ route }) {
         tabBarStyle: {
           backgroundColor: '#080808',
           height: 70 + insets.bottom,
-          paddingBottom: insets.bottom,
+          paddingBottom: insets.bottom
         },
         tabBarActiveTintColor: '#CCFF00',
         tabBarInactiveTintColor: '#555',
@@ -106,7 +105,7 @@ function StudentTabs({ route }) {
             Treinos: 'dumbbell',
             'PA FLIX': 'play-circle-outline',
             Evolução: 'chart-line',
-            Perfil: 'account',
+            Perfil: 'account'
           };
           return (
             <MaterialCommunityIcons
@@ -115,7 +114,7 @@ function StudentTabs({ route }) {
               color={color}
             />
           );
-        },
+        }
       })}
     >
       <Tab.Screen name="Início" component={HomeScreen} initialParams={{ userData }} />
@@ -134,6 +133,7 @@ export default function App() {
   const [initialRoute, setInitialRoute] = useState('Login');
   const [savedUser, setSavedUser] = useState(null);
 
+  /* ---------- RESTAURA SESSÃO (CRÍTICO) ---------- */
   useEffect(() => {
     const restoreSession = async () => {
       try {
@@ -146,14 +146,16 @@ export default function App() {
 
           if (role === 'admin') {
             setInitialRoute('AdminDashboard');
-          } else {
+          } else if (role === 'student') {
             setInitialRoute('Main');
+          } else {
+            setInitialRoute('Login');
           }
 
           console.log('🔄 Sessão restaurada:', role, user.email);
         }
       } catch (e) {
-        console.log('Erro ao restaurar sessão', e);
+        console.log('Erro ao restaurar sessão:', e);
       } finally {
         setLoading(false);
       }
@@ -162,32 +164,48 @@ export default function App() {
     restoreSession();
   }, []);
 
+  /* ---------- PUSH TOKEN ---------- */
   useEffect(() => {
-    if (savedUser) {
+    if (!loading && savedUser) {
       registerForPushNotificationsAsync().then((token) => {
         if (token) {
           fetch('https://fitos-final.onrender.com/api/user/push-token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: savedUser.id, token }),
+            body: JSON.stringify({
+              userId: savedUser.id,
+              token
+            })
           }).catch(() => {});
         }
       });
     }
-  }, [savedUser]);
+  }, [loading, savedUser]);
 
+  /* ---------- LOADING ---------- */
   if (loading) {
     return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#000',
+          justifyContent: 'center',
+          alignItems: 'center'
+        }}
+      >
         <ActivityIndicator size="large" color="#CCFF00" />
       </View>
     );
   }
 
+  /* ---------- NAVIGATION ---------- */
   return (
     <SafeAreaProvider>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+        <Stack.Navigator
+          initialRouteName={initialRoute}
+          screenOptions={{ headerShown: false }}
+        >
           {/* AUTH */}
           <Stack.Screen name="Login" component={LoginScreen} />
           <Stack.Screen name="Register" component={RegisterScreen} />
@@ -195,7 +213,11 @@ export default function App() {
           <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
 
           {/* ALUNO */}
-          <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
+          <Stack.Screen
+            name="Main"
+            component={StudentTabs}
+            initialParams={{ userData: savedUser }}
+          />
           <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
           <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
           <Stack.Screen name="FinishScreen" component={FinishScreen} />
