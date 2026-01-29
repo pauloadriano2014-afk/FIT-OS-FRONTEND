@@ -55,10 +55,19 @@ export default function AdminDashboard({ navigation }) {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['user', 'token']);
-    navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-  };
+  // 🔥 LOGOUT DEFINITIVO
+const handleLogout = async () => {
+  await AsyncStorage.multiRemove(['user', 'role']);
+
+  if (Platform.OS === 'web') {
+    window.location.replace('/');
+  } else {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Login' }]
+    });
+  }
+};
 
   const handleDeleteLog = (logId) => {
       Alert.alert("Remover", "Deseja ocultar este item do feed?", [
@@ -160,7 +169,10 @@ export default function AdminDashboard({ navigation }) {
 
   // 🔥 LÓGICA DA BIBLIOTECA (Raiz Dinâmica)
   const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
-  const rootStyle = Platform.OS === 'web' ? { height: '100vh', width: '100%', overflow: 'hidden', backgroundColor: '#000' } : { flex: 1, backgroundColor: '#000' };
+  const rootStyle =
+  Platform.OS === 'web'
+    ? { height: '100vh', width: '100%', backgroundColor: '#000' }
+    : { flex: 1, backgroundColor: '#000' };
 
   return (
     <RootComponent style={rootStyle}>
