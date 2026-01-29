@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Dimensions, Platform, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { uploadAsync } from 'expo-file-system/legacy'; // Mantendo o legacy que funcionou
+
+// Importação da API Legada (Necessária para funcionar o uploadType: 1)
+import { uploadAsync } from 'expo-file-system/legacy'; 
 
 const { height } = Dimensions.get('window');
 
@@ -40,6 +42,7 @@ export default function ScannerIA({ navigation, route }) {
     }
   }, [permission]);
 
+  // Animação do Laser
   useEffect(() => {
     if (isScanning) {
         Animated.loop(
@@ -62,7 +65,7 @@ export default function ScannerIA({ navigation, route }) {
       
       const video = await cameraRef.current.recordAsync({ 
           quality: '480p', 
-          maxDuration: 6, 
+          maxDuration: 6, // 6 segundos é o ideal para o peso do arquivo
           mute: true 
       });
 
@@ -71,14 +74,11 @@ export default function ScannerIA({ navigation, route }) {
 
       console.log("Iniciando Upload (Legacy API)...", video.uri);
 
-      // 🚀 UPLOAD BLINDADO COM INTEIRO
+      // 🚀 UPLOAD BLINDADO
       const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', video.uri, {
         fieldName: 'video',
         httpMethod: 'POST',
-        // 👇 AQUI ESTÁ O SEGREDO:
-        // 0 = BINARY
-        // 1 = MULTIPART (O que queremos)
-        uploadType: 1, 
+        uploadType: 1, // 1 = MULTIPART (O segredo para funcionar no Android)
         parameters: {
             'exerciseName': exerciseName,
             'userLevel': 'Geral'
@@ -97,13 +97,13 @@ export default function ScannerIA({ navigation, route }) {
              data = { feedback: uploadResult.body };
         }
 
-        Alert.alert("🤖 COACH FIT OS", data.feedback, [
+        // 🤖 NOME CORRIGIDO PARA SUA MARCA
+        Alert.alert("💀 COACH PAULO TEAM", data.feedback, [
             { text: "ENTENDI", onPress: () => navigation.goBack() }
         ]);
       } else {
-        // Tenta ler o erro do servidor
         const errorData = JSON.parse(uploadResult.body || "{}");
-        throw new Error(errorData.error || errorData.details || "Erro no servidor (Status " + uploadResult.status + ")");
+        throw new Error(errorData.error || errorData.details || "Erro no servidor.");
       }
 
     } catch (error) {
@@ -187,8 +187,7 @@ export default function ScannerIA({ navigation, route }) {
             {loadingIA && (
                 <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#CCFF00" />
-                <Text style={styles.loadingText}>ENVIANDO E ANALISANDO...</Text>
-                <Text style={{color:'#666', fontSize:10, marginTop:5}}>Isso pode levar alguns segundos.</Text>
+                <Text style={styles.loadingText}>ENVIANDO PARA O COACH...</Text>
                 </View>
             )}
         </View>
