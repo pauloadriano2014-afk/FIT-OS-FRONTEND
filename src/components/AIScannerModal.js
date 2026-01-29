@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Dimensions, Platform, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { uploadAsync } from 'expo-file-system/legacy'; // Mantendo o legacy que funcionou
 
 const { height } = Dimensions.get('window');
 
@@ -27,21 +28,18 @@ export default function ScannerIA({ navigation, route }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
   const [loadingIA, setLoadingIA] = useState(false);
-  // Removido estado de userLevel
   const [countdown, setCountdown] = useState(0);
 
   const cameraRef = useRef(null);
   const scanAnim = useRef(new Animated.Value(0)).current;
   const currentInstruction = getInstruction(exerciseName);
 
-  // Solicita permissão automaticamente
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) {
         requestPermission();
     }
   }, [permission]);
 
-  // Animação do Laser
   useEffect(() => {
     if (isScanning) {
         Animated.loop(
@@ -59,73 +57,65 @@ export default function ScannerIA({ navigation, route }) {
   const executeRecording = async () => {
     if (!cameraRef.current) return;
     try {
-      // 📳 VIBRAR LONGO PARA AVISAR QUE COMEÇOU A GRAVAR
       Vibration.vibrate(500);
-      
       setIsScanning(true);
       
       const video = await cameraRef.current.recordAsync({ 
-          quality: '480p', // Qualidade leve
-          maxDuration: 10, // 🔥 10 SEGUNDOS (Otimizado para o servidor)
+          quality: '480p', 
+          maxDuration: 6, 
           mute: true 
       });
 
       setIsScanning(false);
       setLoadingIA(true);
 
-      const formData = new FormData();
-      
-      const uri = Platform.OS === 'android' ? video.uri : video.uri.replace('file://', '');
-      const filename = video.uri.split('/').pop();
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `video/${match[1]}` : `video/mp4`;
+      console.log("Iniciando Upload (Legacy API)...", video.uri);
 
-      formData.append('video', { uri, name: filename, type });
-      formData.append('exerciseName', exerciseName);
-      // Removido envio de userLevel
-
-      console.log("Enviando vídeo para análise...");
-
-      const response = await fetch('[https://fitos-final.onrender.com/api/analyze](https://fitos-final.onrender.com/api/analyze)', {
-        method: 'POST',
-        body: formData,
-        headers: {
-            'Accept': 'application/json',
+      // 🚀 UPLOAD BLINDADO COM INTEIRO
+      const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', video.uri, {
+        fieldName: 'video',
+        httpMethod: 'POST',
+        // 👇 AQUI ESTÁ O SEGREDO:
+        // 0 = BINARY
+        // 1 = MULTIPART (O que queremos)
+        uploadType: 1, 
+        parameters: {
+            'exerciseName': exerciseName,
+            'userLevel': 'Geral'
         },
       });
 
-      // Tratamento de erro caso venha vazio
-      const textResponse = await response.text();
-      let data;
-      try {
-          data = JSON.parse(textResponse);
-      } catch (e) {
-          // Se não for JSON, cria um objeto fake com o texto
-          data = { feedback: textResponse, score: 0 };
-      }
+      console.log("Status Upload:", uploadResult.status);
 
       setLoadingIA(false);
 
-      if (response.ok) {
-        // Exibe o feedback vindo do JSON ou texto puro
-        Alert.alert("🤖 COACH FIT OS", data.feedback || "Análise concluída.", [
+      if (uploadResult.status === 200) {
+        let data;
+        try {
+             data = JSON.parse(uploadResult.body);
+        } catch (e) {
+             data = { feedback: uploadResult.body };
+        }
+
+        Alert.alert("🤖 COACH FIT OS", data.feedback, [
             { text: "ENTENDI", onPress: () => navigation.goBack() }
         ]);
       } else {
-        throw new Error(data.details || "A IA não conseguiu analisar.");
+        // Tenta ler o erro do servidor
+        const errorData = JSON.parse(uploadResult.body || "{}");
+        throw new Error(errorData.error || errorData.details || "Erro no servidor (Status " + uploadResult.status + ")");
       }
+
     } catch (error) {
       console.error("Erro Scanner:", error);
       setIsScanning(false);
       setLoadingIA(false);
-      Alert.alert("Erro", "Falha no envio. Tente novamente.");
+      Alert.alert("Erro", "Falha no envio: " + error.message);
     }
   };
 
   const startCountdown = () => {
     if (isScanning || countdown > 0) return;
-    
-    // 🔥 INICIA CONTAGEM DE 7 SEGUNDOS (Mais dinâmico)
     setCountdown(7);
     Vibration.vibrate(100); 
 
@@ -162,7 +152,6 @@ export default function ScannerIA({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-        {/* Header */}
         <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <Text style={styles.backText}>VOLTAR</Text>
@@ -176,8 +165,6 @@ export default function ScannerIA({ navigation, route }) {
         <View style={styles.instructionBox}>
             <Text style={styles.instructionText}>{currentInstruction}</Text>
         </View>
-
-        {/* Removido o levelContainer daqui */}
 
         <View style={styles.cameraContainer}>
             <CameraView 
@@ -200,7 +187,8 @@ export default function ScannerIA({ navigation, route }) {
             {loadingIA && (
                 <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#CCFF00" />
-                <Text style={styles.loadingText}>ANALISANDO MOVIMENTO...</Text>
+                <Text style={styles.loadingText}>ENVIANDO E ANALISANDO...</Text>
+                <Text style={{color:'#666', fontSize:10, marginTop:5}}>Isso pode levar alguns segundos.</Text>
                 </View>
             )}
         </View>
@@ -212,7 +200,7 @@ export default function ScannerIA({ navigation, route }) {
                 disabled={countdown > 0}
             >
                 <Text style={styles.recordText}>
-                    {isScanning ? "PARAR AGORA" : countdown > 0 ? "POSICIONE O CELULAR" : "INICIAR ANÁLISE (10s)"}
+                    {isScanning ? "PARAR AGORA" : countdown > 0 ? "POSICIONE O CELULAR" : "INICIAR ANÁLISE (6s)"}
                 </Text>
             </TouchableOpacity>
         )}

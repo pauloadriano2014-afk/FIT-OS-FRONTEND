@@ -25,17 +25,6 @@ const calculate1RM = (weight, reps) => {
     return Math.round(weight * (1 + reps / 30));
 };
 
-const parseRepsToInt = (reps) => {
-    if (typeof reps === 'number') return reps;
-    if (!reps) return 10;
-    const clean = String(reps).replace(/[^0-9-]/g, '');
-    if (clean.includes('-')) {
-        const [min, max] = clean.split('-');
-        if (min && max) return Math.round((parseInt(min) + parseInt(max)) / 2);
-    }
-    return parseInt(clean) || 10;
-};
-
 const formatTime = (totalSeconds) => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
@@ -101,6 +90,18 @@ export default function DayWorkoutScreen({ route, navigation }) {
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
+  // 🔥 AUTO-SAVE: Salva o progresso localmente sempre que lastWeights muda
+  useEffect(() => {
+    const saveProgress = async () => {
+        if (Object.keys(lastWeights).length > 0) {
+            const key = `draft_workout_${workoutId}_${day}`;
+            await AsyncStorage.setItem(key, JSON.stringify(lastWeights));
+        }
+    };
+    const timer = setTimeout(saveProgress, 500); // Debounce de 500ms
+    return () => clearTimeout(timer);
+  }, [lastWeights, workoutId, day]);
+
   const fetchWorkoutData = async () => {
     try {
       setLoading(true);
@@ -108,12 +109,28 @@ export default function DayWorkoutScreen({ route, navigation }) {
       if (!stored) { setLoading(false); return; }
       const user = JSON.parse(stored);
       setUserData(user);
+
+      // 1. Busca dados do servidor
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`);
       const data = await response.json();
+      
       if (response.ok && data && data.exercises) {
         const filteredExercises = data.exercises.filter(item => item.day === day);
         setExercisesToShow(filteredExercises);
         if (data.lastWeights) setHistoryWeights(data.lastWeights);
+
+        // 2. 🔥 RECUPERAÇÃO DE RASCUNHO (AUTO-SAVE)
+        // Se o aluno saiu e voltou (YouTube Music crash), recuperamos aqui
+        const draftKey = `draft_workout_${workoutId}_${day}`;
+        const draft = await AsyncStorage.getItem(draftKey);
+        
+        if (draft) {
+            const parsedDraft = JSON.parse(draft);
+            setLastWeights(parsedDraft);
+            console.log("Rascunho recuperado com sucesso!");
+            // Opcional: Avisar o usuário
+            // Alert.alert("Bem-vindo de volta", "Seu progresso foi restaurado.");
+        }
       }
     } catch (error) { console.log("Erro fetch:", error); } 
     finally { setLoading(false); }
@@ -163,7 +180,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
           const requiredSets = ex.sets || 3;
 
           for (let i = 1; i <= requiredSets; i++) {
-              // Verifica se existe alguma chave que comece com o número da série
               const keys = Object.keys(inputs);
               const hasData = keys.some(k => String(k) === String(i) || String(k).startsWith(`${i}_`));
 
@@ -200,12 +216,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 Object.keys(userInputs).forEach(setKey => {
                     const val = userInputs[setKey];
                     if (val !== undefined && val !== null && val !== '') {
-                        // 🔥 FIX CRÍTICO: Garante que 'index' seja um inteiro puro para o banco
-                        // Se setKey for "1_MAIN", vira 1. Se for "2", vira 2.
                         const cleanIndex = parseInt(setKey); 
-                        
                         setsData.push({ 
-                            index: isNaN(cleanIndex) ? 1 : cleanIndex, // Fallback de segurança
+                            index: isNaN(cleanIndex) ? 1 : cleanIndex, 
                             weight: val, 
                             reps: ex.reps 
                         });
@@ -225,6 +238,11 @@ export default function DayWorkoutScreen({ route, navigation }) {
         const json = await res.json();
         if (res.ok) {
             setFinishModalVisible(false);
+            
+            // 🔥 LIMPA O RASCUNHO AO FINALIZAR COM SUCESSO
+            const draftKey = `draft_workout_${workoutId}_${day}`;
+            await AsyncStorage.removeItem(draftKey);
+
             if (json.newTotalXP) {
                 const updatedUser = { ...userData, currentXP: json.newTotalXP };
                 await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
@@ -241,13 +259,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#000" />
-      
-      {/* 🔥 KEYBOARD AVOIDING VIEW ADICIONADO AQUI */}
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" /></TouchableOpacity>
             <View style={{flex:1, alignItems: 'center'}}><Text style={styles.headerLabel}>{workoutName?.toUpperCase()}</Text><Text style={styles.headerTitle}>TREINO {day}</Text></View><View style={{width: 40}} />
@@ -291,7 +303,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
           </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAIS (MANTIDOS) */}
       <Modal visible={techModalVisible} transparent animationType="fade" onRequestClose={() => setTechModalVisible(false)}><View style={styles.modalOverlay}><View style={[styles.modalContent, { borderColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#444' }]}><Text style={[styles.modalTitle, { color: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF' }]}>{selectedTech ? TECH_GUIDE[selectedTech]?.title : ''}</Text><View style={styles.divider} /><Text style={styles.modalExplanation}>{selectedTech ? TECH_GUIDE[selectedTech]?.desc : ''}</Text><TouchableOpacity style={styles.finishConfirmBtn} onPress={() => setTechModalVisible(false)}><Text style={styles.finishConfirmText}>ENTENDI</Text></TouchableOpacity></View></View></Modal>
       
       <Modal visible={finishModalVisible} animationType="slide" transparent>
@@ -389,7 +400,4 @@ const styles = StyleSheet.create({
   shareBtnText: { color: '#000', fontWeight: '900', fontSize: 12 },
   closeShareBtn: { padding: 10 },
   closeShareText: { color: '#666', fontWeight: 'bold', fontSize: 12 },
-  toolsRow: { flexDirection: 'row', gap: 10, marginTop: 10, alignSelf:'flex-start' },
-  toolBtnText: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
-  toolBtnLabel: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
 });
