@@ -1,32 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, FlatList, 
-  TextInput, Modal, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions, StatusBar, ImageBackground 
+  TextInput, Modal, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context'; // Importando do pacote correto
 
-// --- CONFIG DAS CAPAS ---
-const categoryCovers = {
-  "Peito": "https://i.imgur.com/lQBvvJ9.jpeg",
-  "Costas": "https://i.imgur.com/pZKX9Iw.png",
-  "Pernas": "https://i.imgur.com/Mr6YnIv.jpeg",
-  "Ombros": "https://i.imgur.com/029r6Tt.jpeg",
-  "Bíceps": "https://i.imgur.com/JFOWsVj.jpeg",
-  "Tríceps": "https://i.imgur.com/fw0yC9n.jpeg",
-  "Abdômen": "https://i.imgur.com/U0yGzvA.jpeg",
-  "Cardio": "https://i.imgur.com/7j0z7bT.jpeg",
-  "Antebraço": "https://i.imgur.com/HzigSSQ.jpeg",
-  "Mobilidade": "https://i.imgur.com/t30EizZ.png",
-  "TODOS": "https://i.imgur.com/uL3pTeW.png"
-};
-
+// --- CONFIG ---
 const SPACING = 10; 
 const HORIZONTAL_PADDING = 15; 
-const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
 
-// --- HELPERS (Originais) ---
+const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
+
+// --- HELPERS ---
 const isYoutubeUrl = (url) => url && (url.includes('youtube.com') || url.includes('youtu.be'));
 const getYoutubeId = (url) => {
     if (!url) return null;
@@ -42,7 +29,7 @@ const getCloudflareThumb = (url) => {
     return null;
 };
 
-// --- CARD COMPONENT (Original com Estilo Novo) ---
+// --- CARD COMPONENT ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
     const isYT = isYoutubeUrl(item.videoUrl);
     const ytId = isYT ? getYoutubeId(item.videoUrl) : null;
@@ -59,13 +46,13 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
                     <>
                         <Image source={{ uri: thumbUrl }} style={styles.thumbContent} resizeMode="cover" />
                         <View style={styles.playOverlay}>
-                            <MaterialCommunityIcons name="play-circle" size={32} color="#CCFF00" />
+                            <MaterialCommunityIcons name="play-circle" size={32} color="rgba(255, 255, 255, 0.9)" />
                         </View>
                     </>
                 ) : (
                     <View style={styles.placeholderBox}>
-                        <MaterialCommunityIcons name="video-outline" size={28} color="#333" />
-                        <Text style={styles.placeholderText}>SEM VÍDEO</Text>
+                        <MaterialCommunityIcons name="video-outline" size={28} color="#555" />
+                        <Text style={styles.placeholderText}>SEM CAPA</Text>
                     </View>
                 )}
             </View>
@@ -73,11 +60,11 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
             <View style={styles.cardFooter}>
                 <View style={{flex: 1, marginRight: 5}}>
                     <Text style={styles.gridName} numberOfLines={2}>{item.name}</Text>
-                    <Text style={styles.gridCat}>{item.category.toUpperCase()}</Text>
+                    <Text style={styles.gridCat}>{item.category}</Text>
                 </View>
                 <View style={styles.cardActions}>
                     <TouchableOpacity onPress={() => onEdit(item)} style={styles.actionBtn}>
-                        <MaterialCommunityIcons name="pencil" size={16} color="#666" />
+                        <MaterialCommunityIcons name="pencil" size={16} color="#CCFF00" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => onDelete(item.id)} style={[styles.actionBtn, { borderColor: '#FF3B30' }]}>
                         <MaterialCommunityIcons name="trash-can-outline" size={16} color="#FF3B30" />
@@ -91,6 +78,7 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 export default function BibliotecaAdmin({ navigation }) {
   const { width } = useWindowDimensions();
   
+  // Responsividade
   const getNumColumns = () => {
       if (width > 1200) return 5; 
       if (width > 900) return 4;  
@@ -157,16 +145,23 @@ export default function BibliotecaAdmin({ navigation }) {
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Erro", "Nome obrigatório");
       setSaving(true);
+      
+      const isEditing = !!formExercise.id;
+      const url = 'https://fitos-final.onrender.com/api/exercise';
+      const method = isEditing ? 'PUT' : 'POST';
+
       try {
-          const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
-              method: !!formExercise.id ? 'PUT' : 'POST',
+          const res = await fetch(url, {
+              method: method,
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(formExercise)
           });
+
           if (res.ok) {
               setModalVisible(false);
               fetchLibrary();
-          }
+              Alert.alert("Sucesso", isEditing ? "Atualizado!" : "Criado!");
+          } else { throw new Error("Erro"); }
       } catch (e) { Alert.alert("Erro", e.message); } 
       finally { setSaving(false); }
   };
@@ -183,19 +178,20 @@ export default function BibliotecaAdmin({ navigation }) {
       return matchText && matchCat;
   });
 
+  // --- COMPONENTE ROOT DINÂMICO ---
+  // Na web usamos View 100vh. No mobile usamos SafeAreaView flex:1.
   const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
   const rootStyle = Platform.OS === 'web' ? { height: '100vh', width: '100%', overflow: 'hidden', backgroundColor: '#000' } : { flex: 1, backgroundColor: '#000' };
 
   return (
     <RootComponent style={rootStyle}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
         
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
               <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>BIBLIOTECA</Text>
-          <TouchableOpacity onPress={fetchLibrary} style={styles.backBtn}>
+          <TouchableOpacity onPress={fetchLibrary}>
               <MaterialCommunityIcons name="refresh" size={24} color="#CCFF00" />
           </TouchableOpacity>
         </View>
@@ -203,12 +199,12 @@ export default function BibliotecaAdmin({ navigation }) {
         <View style={styles.searchContainer}>
             <MaterialCommunityIcons name="magnify" size={20} color="#666" />
             <TextInput 
-              style={styles.searchInput} placeholder="Buscar exercício..." placeholderTextColor="#666"
+              style={styles.searchInput} placeholder="Buscar..." placeholderTextColor="#666"
               value={filterText} onChangeText={setFilterText} 
             />
         </View>
 
-        <View style={{height: 50, marginBottom: 15}}>
+        <View style={{height: 50, borderBottomWidth:1, borderBottomColor:'#222', marginBottom: 10}}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{paddingHorizontal: 15}}>
                 {categories.map(cat => (
                     <TouchableOpacity 
@@ -217,26 +213,14 @@ export default function BibliotecaAdmin({ navigation }) {
                         onPress={() => setSelectedCat(cat)}
                     >
                         <Text style={[styles.tabText, selectedCat === cat && styles.tabTextActive]}>{cat.toUpperCase()}</Text>
+                        {selectedCat === cat && <View style={styles.activeLine} />}
                     </TouchableOpacity>
                 ))}
             </ScrollView>
         </View>
 
+        {/* LISTA PRINCIPAL - FLEX 1 É O SEGREDO DO SCROLL */}
         <View style={{ flex: 1 }}>
-            {/* CAPA DA CATEGORIA (Visual Novo) */}
-            <View style={{ paddingHorizontal: 15, marginBottom: 15 }}>
-              <ImageBackground 
-                source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} 
-                style={styles.categoryCover}
-                imageStyle={{ borderRadius: 15 }}
-              >
-                <View style={styles.coverOverlay}>
-                  <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
-                  <Text style={styles.coverCount}>{filteredList.length} EXERCÍCIOS</Text>
-                </View>
-              </ImageBackground>
-            </View>
-
             {loading ? <ActivityIndicator color="#CCFF00" style={{marginTop:50}} /> : (
                 <FlatList
                   key={`grid-${numColumns}`} 
@@ -244,7 +228,7 @@ export default function BibliotecaAdmin({ navigation }) {
                   keyExtractor={item => item.id}
                   numColumns={numColumns}
                   columnWrapperStyle={{gap: SPACING}} 
-                  contentContainerStyle={{paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 150}}
+                  contentContainerStyle={{paddingHorizontal: HORIZONTAL_PADDING, paddingBottom: 150, flexGrow: 1}}
                   renderItem={({ item }) => (
                       <ExerciseCard 
                           item={item} width={itemWidth} 
@@ -254,7 +238,6 @@ export default function BibliotecaAdmin({ navigation }) {
                       />
                   )}
                   ListEmptyComponent={<Text style={styles.emptyText}>Nada encontrado.</Text>}
-                  showsVerticalScrollIndicator={false}
                 />
             )}
         </View>
@@ -263,6 +246,7 @@ export default function BibliotecaAdmin({ navigation }) {
             <MaterialCommunityIcons name="plus" size={30} color="#000" />
         </TouchableOpacity>
 
+        {/* MODAL CRIAR/EDITAR */}
         <Modal visible={modalVisible} animationType="slide">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalContainer}>
                 <SafeAreaView style={{flex:1}}>
@@ -296,19 +280,23 @@ export default function BibliotecaAdmin({ navigation }) {
             </KeyboardAvoidingView>
         </Modal>
 
+        {/* 🔥 MODAL VÍDEO (CORRIGIDO: CONTAIN + CENTRALIZADO) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent>
           <View style={styles.videoOverlay}>
               <TouchableOpacity style={styles.backdropClose} onPress={() => { setVideoModalVisible(false); setCurrentVideo(null); }} />
+              
               <View style={styles.videoContent}>
                   <TouchableOpacity style={styles.closeVideoBtn} onPress={() => { setVideoModalVisible(false); setCurrentVideo(null); }}>
                       <MaterialCommunityIcons name="close" size={26} color="#FFF" />
                   </TouchableOpacity>
+                  
                   {currentVideo && (
                       <Video
                           ref={videoRef}
                           style={styles.videoPlayer}
                           source={{ uri: currentVideo }}
                           useNativeControls={true}
+                          // 🔥 ISSO GARANTE QUE O VÍDEO APAREÇA INTEIRO (SEM CORTES)
                           resizeMode={ResizeMode.CONTAIN} 
                           isLooping
                           shouldPlay
@@ -317,50 +305,60 @@ export default function BibliotecaAdmin({ navigation }) {
               </View>
           </View>
         </Modal>
+
     </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
+  
   header: { padding: 20, paddingTop: Platform.OS === 'web' ? 20 : 10, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
-  backBtn: { width: 40, height: 40, backgroundColor: '#111', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { color:'#FFF', fontWeight:'900', fontSize:16, letterSpacing:1 },
   
-  searchContainer: { flexDirection:'row', backgroundColor:'#111', marginHorizontal:15, marginBottom:15, padding:12, borderRadius:12, alignItems:'center', borderWidth:1, borderColor:'#222' },
+  searchContainer: { flexDirection:'row', backgroundColor:'#161616', marginHorizontal:15, marginBottom:10, padding:12, borderRadius:12, alignItems:'center', borderWidth:1, borderColor:'#222' },
   searchInput: { color:'#FFF', marginLeft:10, flex:1, fontWeight:'bold', outlineStyle: 'none' }, 
 
-  tabItem: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, marginRight: 8, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
-  tabItemActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  tabText: { color: '#666', fontWeight: 'bold', fontSize: 11 },
-  tabTextActive: { color: '#000' },
+  tabItem: { paddingHorizontal: 15, justifyContent:'center', height: '100%', marginRight: 5 },
+  tabText: { color: '#666', fontWeight: 'bold', fontSize: 13, letterSpacing: 0.5 },
+  tabTextActive: { color: '#FFF' },
+  activeLine: { position: 'absolute', bottom: 0, left: 15, right: 15, height: 3, backgroundColor: '#CCFF00', borderRadius: 2 },
 
-  categoryCover: { height: 100, width: '100%', justifyContent: 'flex-end', overflow: 'hidden' },
-  coverOverlay: { backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, height: '100%', justifyContent: 'flex-end', borderRadius: 15 },
-  coverTitle: { color: '#FFF', fontSize: 20, fontWeight: '900' },
-  coverCount: { color: '#CCFF00', fontSize: 9, fontWeight: 'bold' },
-
-  gridCard: { backgroundColor: '#111', borderRadius: 12, overflow: 'hidden', borderWidth:1, borderColor:'#1a1a1a' },
-  thumbnailBox: { width: '100%', backgroundColor: '#000', justifyContent:'center', alignItems:'center', position:'relative' },
-  thumbContent: { width: '100%', height: '100%', opacity: 0.6 },
+  gridCard: { backgroundColor: '#161616', borderRadius: 12, overflow: 'hidden', borderWidth:1, borderColor:'#222' },
+  thumbnailBox: { width: '100%', backgroundColor: '#111', justifyContent:'center', alignItems:'center', position:'relative' },
+  thumbContent: { width: '100%', height: '100%', opacity: 0.8 },
   placeholderBox: { flex:1, justifyContent:'center', alignItems:'center', gap:5 },
-  placeholderText: { color:'#333', fontSize:8, fontWeight:'bold' },
+  placeholderText: { color:'#444', fontSize:9, fontWeight:'bold' },
   playOverlay: { position: 'absolute', bottom:10, right:10 },
 
-  cardFooter: { padding: 10 },
-  gridName: { color: '#FFF', fontSize: 12, fontWeight: 'bold', marginBottom: 2, height: 32 },
-  gridCat: { color: '#444', fontSize: 9, fontWeight: 'bold' },
-  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 8, borderTopWidth: 0.5, borderTopColor: '#222', paddingTop: 8 },
-  actionBtn: { padding: 4 },
+  cardFooter: { padding: 10, paddingVertical: 12, flexDirection: 'row', justifyContent:'space-between', alignItems:'flex-end' },
+  gridName: { color: '#FFF', fontSize: 12, fontWeight: 'bold', marginBottom: 4, lineHeight: 16 },
+  gridCat: { color: '#666', fontSize: 10, fontWeight: 'bold' },
+  cardActions: { flexDirection: 'row', gap: 5 },
+  actionBtn: { padding: 6, backgroundColor:'#222', borderRadius: 6, borderWidth:1, borderColor:'#333' },
 
   emptyText: { color:'#666', textAlign:'center', marginTop:50, fontStyle:'italic' },
   fab: { position:'absolute', bottom:30, right:20, width:60, height:60, borderRadius:30, backgroundColor:'#CCFF00', justifyContent:'center', alignItems:'center', elevation:10, cursor: 'pointer', zIndex: 999 },
 
+  // 🔥 MODAL VÍDEO CENTRALIZADO
   videoOverlay: { flex:1, backgroundColor:'rgba(0,0,0,0.9)', justifyContent:'center', alignItems: 'center' },
   backdropClose: { position:'absolute', top:0, left:0, right:0, bottom:0 }, 
-  videoContent: { width: '100%', height: '100%', justifyContent:'center', alignItems:'center' },
-  videoPlayer: { width: '100%', height: '100%' },
-  closeVideoBtn: { position: 'absolute', top: 20, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 10, zIndex: 1000 },
+  videoContent: { 
+      width: '100%', 
+      height: '100%', 
+      justifyContent:'center', 
+      alignItems:'center',
+  },
+  videoPlayer: { width: '100%', height: '100%' }, // Flexível dentro do container
+  closeVideoBtn: { 
+      position: 'absolute', 
+      top: 20, 
+      right: 20, 
+      backgroundColor: 'rgba(0,0,0,0.5)', 
+      borderRadius: 20, 
+      padding: 10,
+      zIndex: 1000
+  },
 
   catChip: { paddingHorizontal:14, paddingVertical:6, borderRadius:20, borderWidth:1, borderColor:'#333', backgroundColor:'#111', justifyContent:'center', height:32 },
   catChipActive: { backgroundColor:'#CCFF00', borderColor:'#CCFF00' },
