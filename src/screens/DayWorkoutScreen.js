@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
   ActivityIndicator, Alert, Modal, StatusBar, Dimensions, TextInput, 
-  KeyboardAvoidingView, Platform, ImageBackground 
+  KeyboardAvoidingView, Platform, ImageBackground, Image 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -58,7 +58,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const [finishModalVisible, setFinishModalVisible] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
-  const [sessionStats, setSessionStats] = useState({ xp: 0, time: '0m', count: 0 });
+  const [sessionStats, setSessionStats] = useState({ xp: 0, time: '0m', count: 0, volume: 0 });
   const [rpe, setRpe] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
   const viewShotRef = useRef();
@@ -72,20 +72,79 @@ export default function DayWorkoutScreen({ route, navigation }) {
   ];
 
   const TECH_GUIDE = {
-    'DROPSET': { id: 'DROPSET', title: 'DROP-SET', color: '#FF3B30', icon: 'arrow-down-bold', desc: 'Realize até a falha, reduza carga e repita.' },
-    'RESTPAUSE': { id: 'RESTPAUSE', title: 'REST-PAUSE', color: '#FF9500', icon: 'timer-sand', desc: 'Falhe, descanse 20s, falhe de novo.' },
-    'BISET': { id: 'BISET', title: 'BI-SET', color: '#CCFF00', icon: 'link-variant', desc: 'Execute dois exercícios diferentes em sequência.' },
-    '21': { id: '21', title: 'MÉTODO 21', color: '#32ADE6', icon: 'numeric-7-box-multiple-outline', desc: '7 baixas, 7 altas, 7 completas.' },
-    'CLUSTERSET': { id: 'CLUSTERSET', title: 'CLUSTER SET', color: '#BF5AF2', icon: 'chart-bar', desc: 'Blocos de reps com descanso curto.' },
-    'GVT': { id: 'GVT', title: 'GVT', color: '#00FF7F', icon: 'numeric-10-box-multiple', desc: '10 séries de 10 repetições.' },
-    'NORMAL': { id: 'NORMAL', title: 'SÉRIE NORMAL', color: '#333333', icon: 'dumbbell', desc: 'Execução padrão.' }
-  };
+  'DROPSET': { 
+    id: 'DROPSET', 
+    title: 'DROP-SET (SÉRIE DESCENDENTE)', 
+    color: '#FF3B30', 
+    icon: 'arrow-down-bold', 
+    desc: 'O objetivo aqui é o estresse metabólico máximo. \n\nCOMO FAZER: Realize o exercício até a falha técnica. Sem descansar, reduza a carga em 20-30% e continue até falhar novamente. \n\nPOR QUE: Isso recruta fibras musculares que sobraram da série principal e aumenta o pump, sinalizando mais hipertrofia.' 
+  },
+  'RESTPAUSE': { 
+    id: 'RESTPAUSE', 
+    title: 'REST-PAUSE (PAUSA-DESCANSO)', 
+    color: '#FF9500', 
+    icon: 'timer-sand', 
+    desc: 'Técnica para alta intensidade com cargas pesadas. \n\nCOMO FAZER: Vá até a falha. Descanse exatamente 15 a 20 segundos (apenas 3-5 respirações fundas) e volte a fazer o máximo de reps que conseguir com a mesma carga. \n\nPOR QUE: Permite que você realize mais repetições totais com uma carga que normalmente você falharia cedo.' 
+  },
+  'BISET': { 
+    id: 'BISET', 
+    title: 'BI-SET (SÉRIE COMPOSTA)', 
+    color: '#CCFF00', 
+    icon: 'link-variant', 
+    desc: 'Eficiência e densidade de treino. \n\nCOMO FAZER: Execute os dois exercícios marcados em sequência, sem nenhum descanso entre eles. Só descanse após terminar o segundo. \n\nPOR QUE: Aumenta o gasto calórico e mantém a musculatura sob tensão por mais tempo, otimizando seu tempo na academia.' 
+  },
+  '21': { 
+    id: '21', 
+    title: 'MÉTODO 21 (EXAUSTÃO PARCIAL)', 
+    color: '#32ADE6', 
+    icon: 'numeric-7-box-multiple-outline', 
+    desc: 'Foco total em tempo sob tensão. \n\nCOMO FAZER: 7 reps apenas na metade inferior do movimento, 7 reps apenas na metade superior e, por fim, 7 reps completas. \n\nPOR QUE: Explora diferentes pontos de força da musculatura e gera um acúmulo severo de lactato, essencial para o crescimento.' 
+  },
+  'CLUSTERSET': { 
+    id: 'CLUSTERSET', 
+    title: 'CLUSTER SET', 
+    color: '#BF5AF2', 
+    icon: 'chart-bar', 
+    desc: 'Quebrando a barreira da força. \n\nCOMO FAZER: Em vez de uma série direta, faça pequenos blocos de 2-4 reps com descansos de 10-15s entre eles até completar o total. \n\nPOR QUE: Mantém a velocidade da execução e a qualidade técnica lá no alto, mesmo usando cargas próximas do seu limite máximo.' 
+  },
+  'GVT': { 
+    id: 'GVT', 
+    title: 'GVT (GERMAN VOLUME TRAINING)', 
+    color: '#00FF7F', 
+    icon: 'numeric-10-box-multiple', 
+    desc: 'O clássico de 10x10. \n\nCOMO FAZER: 10 séries de 10 repetições com a mesma carga e descanso rigoroso de 60s. \n\nPOR QUE: Hipertrofia por volume acumulado. O corpo é forçado a se adaptar a uma carga de trabalho massiva em um único músculo.' 
+  },
+  'NORMAL': { 
+    id: 'NORMAL', 
+    title: 'EXECUÇÃO PADRÃO', 
+    color: '#333333', 
+    icon: 'dumbbell', 
+    desc: 'Foco na cadência e controle. \n\nCOMO FAZER: Realize as séries e repetições prescritas com foco total na fase excêntrica (descida) do movimento. \n\nPOR QUE: Construção de base sólida e consciência corporal.' 
+  }
+};
 
   useFocusEffect( useCallback(() => { fetchWorkoutData(); }, []) );
 
+  // 🔥 LÓGICA DE TEMPO REAL: Recupera o início se o app fechou
+  useEffect(() => {
+    const syncTimer = async () => {
+        const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}`);
+        if (savedStart) {
+          const now = Date.now();
+          const diff = Math.floor((now - parseInt(savedStart)) / 1000);
+          setElapsedSeconds(diff); // Dá o "pulo" para o tempo real
+        }
+      };
+      syncTimer();
+    }, [workoutId]);
+
   useEffect(() => {
     let interval = null;
-    if (isTimerRunning) { interval = setInterval(() => { setElapsedSeconds(prev => prev + 1); }, 1000); } 
+    if (isTimerRunning) { 
+        interval = setInterval(() => { 
+            setElapsedSeconds(prev => prev + 1); 
+        }, 1000); 
+    } 
     else { clearInterval(interval); }
     return () => clearInterval(interval);
   }, [isTimerRunning]);
@@ -120,7 +179,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
         if (data.lastWeights) setHistoryWeights(data.lastWeights);
 
         // 2. 🔥 RECUPERAÇÃO DE RASCUNHO (AUTO-SAVE)
-        // Se o aluno saiu e voltou (YouTube Music crash), recuperamos aqui
         const draftKey = `draft_workout_${workoutId}_${day}`;
         const draft = await AsyncStorage.getItem(draftKey);
         
@@ -128,8 +186,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             const parsedDraft = JSON.parse(draft);
             setLastWeights(parsedDraft);
             console.log("Rascunho recuperado com sucesso!");
-            // Opcional: Avisar o usuário
-            // Alert.alert("Bem-vindo de volta", "Seu progresso foi restaurado.");
         }
       }
     } catch (error) { console.log("Erro fetch:", error); } 
@@ -203,11 +259,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const proceedToFinish = () => { setIsTimerRunning(false); setFinishModalVisible(true); };
 
-  const submitFinish = async () => {
+const submitFinish = async () => {
     if (!rpe) { Alert.alert("Atenção", "Selecione o RPE."); return; }
     try {
         setLoading(true);
         const exercisesDone = [];
+        let totalVolume = 0; 
         
         exercisesToShow.forEach(ex => {
             const userInputs = lastWeights[ex.id]; 
@@ -217,10 +274,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     const val = userInputs[setKey];
                     if (val !== undefined && val !== null && val !== '') {
                         const cleanIndex = parseInt(setKey); 
+                        const weightVal = parseFloat(val) || 0;
+                        const repsVal = ex.reps || 10;
+                        
+                        totalVolume += (weightVal * repsVal);
+
                         setsData.push({ 
                             index: isNaN(cleanIndex) ? 1 : cleanIndex, 
                             weight: val, 
-                            reps: ex.reps 
+                            reps: repsVal
                         });
                     }
                 });
@@ -228,30 +290,108 @@ export default function DayWorkoutScreen({ route, navigation }) {
             }
         });
 
-        const finalWorkoutName = FOCUS_NAMES[day] || `Treino ${day}`;
+        const finalWorkoutName = workoutName || FOCUS_NAMES[day] || `Treino ${day}`;
         const durationInMinutes = Math.ceil(elapsedSeconds / 60);
 
         const res = await fetch('https://fitos-final.onrender.com/api/workout/finish', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ userId: userData.id, workoutId: workoutId, day: day, workoutName: finalWorkoutName.toUpperCase(), exercisesData: exercisesDone, duration: durationInMinutes, rpe: rpe, feedback: feedbackText })
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                userId: userData.id, 
+                workoutId: workoutId, 
+                day: day, 
+                workoutName: finalWorkoutName.toUpperCase(), 
+                exercisesData: exercisesDone, 
+                duration: durationInMinutes, 
+                rpe: rpe, 
+                feedback: feedbackText 
+            })
         });
+
         const json = await res.json();
+
         if (res.ok) {
-            setFinishModalVisible(false);
+            // 🔥 1. PARA O CRONÔMETRO
+            setIsTimerRunning(false); await AsyncStorage.setItem('@last_completed_day', day.toUpperCase());
+            setElapsedSeconds(0);
+            await AsyncStorage.setItem('@last_completed_day', day.toUpperCase()); // Salva "D", por exemplo
+            await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
+            await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
             
-            // 🔥 LIMPA O RASCUNHO AO FINALIZAR COM SUCESSO
-            const draftKey = `draft_workout_${workoutId}_${day}`;
-            await AsyncStorage.removeItem(draftKey);
+            // 🔥 2. LIMPA TUDO DO DISCO (Rascunho e Tempo de Início)
+            await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
+            await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
+
+            // 🔥 3. ZERA O CONTADOR LOCAL
+            setElapsedSeconds(0);
 
             if (json.newTotalXP) {
                 const updatedUser = { ...userData, currentXP: json.newTotalXP };
                 await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
             }
-            setSessionStats({ xp: json.xpGained || 150, time: `${durationInMinutes}m`, count: exercisesDone.length });
-            setShareModalVisible(true);
-        } else { Alert.alert("Erro", "Falha ao salvar. Tente novamente."); }
-    } catch (e) { Alert.alert("Erro", "Falha de conexão."); } 
-    finally { setLoading(false); }
+const rpeObj = RPE_OPTIONS.find(o => o.val === rpe);
+        const statsParaOModal = { 
+            xp: 150, 
+            time: `${durationInMinutes}m`, 
+            count: exercisesDone.length,
+            rpeLabel: rpeObj ? rpeObj.label : "CONCLUÍDO",
+            focus: workoutName || FOCUS_NAMES[day] || "GERAL"
+        };
+
+        try {
+            const res = await fetch('https://fitos-final.onrender.com/api/workout/finish', {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ 
+                    userId: userData.id, 
+                    workoutId: workoutId, 
+                    day: day, 
+                    workoutName: finalWorkoutName.toUpperCase(), 
+                    exercisesData: exercisesDone, 
+                    duration: durationInMinutes, 
+                    rpe: rpe, 
+                    feedback: feedbackText 
+                })
+            });
+
+            const json = await res.json();
+
+            if (res.ok) {
+                // Sucesso no servidor
+                if (json.newTotalXP) {
+                    const updatedUser = { ...userData, currentXP: json.newTotalXP };
+                    await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+                }
+                statsParaOModal.xp = json.xpGained || 150;
+            }
+        } catch (e) {
+            console.log("Erro de rede, mas gerando card local...");
+        }
+
+        // 🔥 FINALIZAÇÃO INDEPENDENTE DE REDE
+        setIsTimerRunning(false);
+        setElapsedSeconds(0);
+        await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
+        await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
+        
+        setSessionStats(statsParaOModal);
+        setFinishModalVisible(false);
+        setShareModalVisible(true);
+        } else { 
+            Alert.alert("Erro", "Falha ao salvar no servidor."); 
+        }
+    } catch (e) { 
+        Alert.alert("Erro", "Falha de conexão. O treino foi salvo localmente."); 
+    } finally { 
+        setLoading(false); 
+    }
+  };
+
+  // 🔥 FUNÇÃO DE INÍCIO COM TIMESTAMP
+  const handleStartTimer = async () => {
+    const startTime = Date.now().toString();
+    await AsyncStorage.setItem(`@workout_start_${workoutId}`, startTime);
+    setIsTimerRunning(true);
   };
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#CCFF00" /></View>;
@@ -268,7 +408,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
           <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.timerContainer}>
                 {!isTimerRunning && elapsedSeconds === 0 ? (
-                    <TouchableOpacity style={styles.startBtn} onPress={() => setIsTimerRunning(true)}><MaterialCommunityIcons name="play" size={30} color="#000" /><Text style={styles.startBtnText}>INICIAR TREINO</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.startBtn} onPress={handleStartTimer}><MaterialCommunityIcons name="play" size={30} color="#000" /><Text style={styles.startBtnText}>INICIAR TREINO</Text></TouchableOpacity>
                 ) : (
                     <View style={[styles.timerDisplay, {borderColor: '#CCFF00'}]}><Text style={styles.timerLabel}>TEMPO DECORRIDO</Text><Text style={styles.timerValue}>{formatTime(elapsedSeconds)}</Text></View>
                 )}
@@ -303,7 +443,46 @@ export default function DayWorkoutScreen({ route, navigation }) {
           </ScrollView>
       </KeyboardAvoidingView>
 
-      <Modal visible={techModalVisible} transparent animationType="fade" onRequestClose={() => setTechModalVisible(false)}><View style={styles.modalOverlay}><View style={[styles.modalContent, { borderColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#444' }]}><Text style={[styles.modalTitle, { color: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF' }]}>{selectedTech ? TECH_GUIDE[selectedTech]?.title : ''}</Text><View style={styles.divider} /><Text style={styles.modalExplanation}>{selectedTech ? TECH_GUIDE[selectedTech]?.desc : ''}</Text><TouchableOpacity style={styles.finishConfirmBtn} onPress={() => setTechModalVisible(false)}><Text style={styles.finishConfirmText}>ENTENDI</Text></TouchableOpacity></View></View></Modal>
+      <Modal 
+  visible={techModalVisible} 
+  transparent 
+  animationType="slide" 
+  onRequestClose={() => setTechModalVisible(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={[
+      styles.modalContent, 
+      { borderColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#444', maxHeight: '80%' }
+    ]}>
+      {/* ScrollView para o texto não vazar */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15}}>
+           <MaterialCommunityIcons 
+             name={selectedTech ? TECH_GUIDE[selectedTech]?.icon : 'dumbbell'} 
+             size={28} 
+             color={selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF'} 
+           />
+           <Text style={[styles.modalTitle, { color: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF', marginBottom: 0 }]}>
+             {selectedTech ? TECH_GUIDE[selectedTech]?.title : ''}
+           </Text>
+        </View>
+        
+        <View style={styles.divider} />
+        
+        <Text style={[styles.modalExplanation, { color: '#EEE', fontSize: 14, lineHeight: 22 }]}>
+          {selectedTech ? TECH_GUIDE[selectedTech]?.desc : ''}
+        </Text>
+      </ScrollView>
+
+      <TouchableOpacity 
+        style={[styles.finishConfirmBtn, { backgroundColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#CCFF00' }]} 
+        onPress={() => setTechModalVisible(false)}
+      >
+        <Text style={[styles.finishConfirmText, { color: '#000' }]}>ENTENDI, BORA MOER!</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
       
       <Modal visible={finishModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
@@ -323,13 +502,50 @@ export default function DayWorkoutScreen({ route, navigation }) {
       <Modal visible={shareModalVisible} animationType="fade" transparent={false}>
         <ImageBackground source={{uri: 'https://img.freepik.com/free-photo/dark-gym-background_23-2150330606.jpg'}} style={styles.shareContainer} blurRadius={10}>
             <View style={styles.shareOverlay}>
-                <View style={styles.shareHeader}><Text style={styles.shareBrand}>PA TEAM</Text><Text style={styles.shareDate}>{new Date().toLocaleDateString('pt-BR')}</Text></View>
+                <View style={styles.shareHeader}>
+                    <Text style={styles.shareBrand}>COACH PAULO TEAM</Text>
+                    <Text style={styles.shareDate}>{new Date().toLocaleDateString('pt-BR')}</Text>
+                </View>
                 <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 0.9 }}>
-                    <View style={styles.shareCardVisual}><MaterialCommunityIcons name="check-decagram" size={80} color="#CCFF00" style={{marginBottom:10}} /><Text style={styles.shareTitle}>TREINO{'\n'}CONCLUÍDO</Text><Text style={styles.shareSubtitle}>{FOCUS_NAMES[day] || workoutName} • DIA {day}</Text>
-                        <View style={styles.statsRow}><View style={styles.statBox}><Text style={styles.statValue}>+{sessionStats.xp}</Text><Text style={styles.statLabel}>XP</Text></View><View style={[styles.statBox, {borderLeftWidth:1, borderRightWidth:1, borderColor:'#333'}]}><Text style={styles.statValue}>{sessionStats.time}</Text><Text style={styles.statLabel}>TEMPO</Text></View><View style={styles.statBox}><Text style={styles.statValue}>{sessionStats.count}</Text><Text style={styles.statLabel}>EXERCÍCIOS</Text></View></View>
+                    <View style={styles.shareCardVisual}>
+                        <Image source={require('../../assets/icon.png')} style={{width: 80, height: 80, marginBottom: 15}} resizeMode="contain" />
+                        <Text style={styles.shareTitle}>TREINO{'\n'}CONCLUÍDO</Text>
+                        <Text style={styles.shareSubtitle}>{(workoutName || FOCUS_NAMES[day])?.toUpperCase()} • DIA {day}</Text>
+                        
+                        <View style={styles.statsRow}>
+    <View style={styles.statBox}>
+        <Text style={styles.statValue}>+{sessionStats.xp}</Text>
+        <Text style={styles.statLabel}>XP GANHO</Text>
+    </View>
+
+    <View style={[styles.statBox, {borderLeftWidth:1, borderRightWidth:1, borderColor:'#222'}]}>
+        <Text style={styles.statValue}>{sessionStats.time}</Text>
+        <Text style={styles.statLabel}>TEMPO</Text>
+    </View>
+
+    <View style={styles.statBox}>
+    <Text 
+        style={[styles.statValue, { fontSize: 13, color: '#CCFF00' }]} 
+        numberOfLines={1}
+        adjustsFontSizeToFit={true} // 🔥 Diminui a letra sozinho se não couber
+        minimumFontScale={0.5}      // 🔥 Permite reduzir até metade do tamanho
+    >
+        {sessionStats.rpeLabel || 'MÁXIMO'}
+    </Text>
+    <Text style={styles.statLabel}>ESFORÇO</Text>
+</View>
+</View>
                     </View>
                 </ViewShot>
-                <View style={styles.shareFooter}><TouchableOpacity style={styles.shareBtnReal} onPress={handleShareCard}><MaterialCommunityIcons name="instagram" size={24} color="#000" /><Text style={styles.shareBtnText}>COMPARTILHAR NO INSTA</Text></TouchableOpacity><TouchableOpacity style={styles.closeShareBtn} onPress={() => { setShareModalVisible(false); navigation.navigate('Main'); }}><Text style={styles.closeShareText}>FECHAR E SAIR</Text></TouchableOpacity></View>
+                <View style={styles.shareFooter}>
+                    <TouchableOpacity style={styles.shareBtnReal} onPress={handleShareCard}>
+                        <MaterialCommunityIcons name="instagram" size={24} color="#000" />
+                        <Text style={styles.shareBtnText}>COMPARTILHAR NO INSTA</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.closeShareBtn} onPress={() => { setShareModalVisible(false); navigation.navigate('Main'); }}>
+                        <Text style={styles.closeShareText}>FECHAR E SAIR</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </ImageBackground>
       </Modal>
@@ -356,10 +572,23 @@ const styles = StyleSheet.create({
   timerValue: { color: '#FFF', fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] },
   finishBtn: { backgroundColor: '#CCFF00', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginTop: 20, gap: 10 },
   finishBtnText: { color: '#000', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#111', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25, borderColor: '#222', borderWidth: 1 },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.85)', 
+    justifyContent: 'center', // Centraliza para não vazar pra baixo
+    padding: 20 
+  },
+  modalContent: { 
+    backgroundColor: '#111', 
+    padding: 25, 
+    borderRadius: 25, // Bordas arredondadas em tudo
+    borderColor: '#222', 
+    borderWidth: 1, 
+    maxHeight: '80%', // Trava a altura para o ScrollView funcionar
+    width: '100%' 
+  },
   modalTitle: { fontSize: 16, fontWeight: '900', color:'#FFF', marginBottom: 5, letterSpacing: 1 },
-  modalExplanation: { color:'#888', fontSize:12, marginBottom:15, lineHeight: 20 },
+  modalExplanation: { color:'#EEE', fontSize:14, marginBottom:15, lineHeight: 22 },
   label: { color:'#666', fontSize:10, fontWeight:'bold', marginBottom:8 },
   inputCalc: { backgroundColor: '#000', color: '#FFF', fontSize: 16, fontWeight: 'bold', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#333', textAlign: 'center' },
   resultBox: { backgroundColor: '#1A1A1A', padding: 20, borderRadius: 15, alignItems: 'center', borderWidth: 1, borderColor: '#CCFF00' },
@@ -387,15 +616,42 @@ const styles = StyleSheet.create({
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   shareBrand: { color: '#CCFF00', fontWeight: '900', fontSize: 20, fontStyle: 'italic', letterSpacing: 1 },
   shareDate: { color: '#888', fontWeight: 'bold', fontSize: 12 },
-  shareCardVisual: { backgroundColor: '#111', padding: 20, borderRadius: 20, alignItems: 'center', width: '100%', borderWidth: 1, borderColor: '#333' },
+  shareCardVisual: { backgroundColor: '#111', padding: 25, borderRadius: 30, alignItems: 'center', width: '100%', borderWidth: 1, borderColor: '#333', shadowColor: '#CCFF00', shadowOpacity: 0.2, shadowRadius: 20 },
   shareTitle: { color: '#FFF', fontSize: 42, fontWeight: '900', textAlign: 'center', lineHeight: 42, marginBottom: 10 },
   shareSubtitle: { color: '#AAA', fontSize: 14, fontWeight: 'bold', letterSpacing: 2, marginBottom: 40 },
-  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-between', backgroundColor: '#000', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#333' },
-  statBox: { alignItems: 'center', flex: 1 },
-  statValue: { color: '#FFF', fontSize: 22, fontWeight: '900' },
-  statLabel: { color: '#666', fontSize: 10, fontWeight: 'bold', marginTop: 5 },
+  statsRow: { 
+    flexDirection: 'row', 
+    width: '100%', 
+    justifyContent: 'space-between', 
+    backgroundColor: '#000', 
+    paddingVertical: 20, // Aumentei o respiro vertical
+    paddingHorizontal: 10, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    borderColor: '#333',
+    marginTop: 20
+  },
+  statBox: { 
+    flex: 1, // Faz cada coluna ocupar exatamente 1/3
+    alignItems: 'center', 
+    justifyContent: 'center',
+    paddingHorizontal: 8
+     
+  },
+  statValue: { 
+    color: '#FFF', 
+    fontSize: 14, // Reduzi um pouco para garantir que caiba sem quebrar linha
+    fontWeight: '900',
+    textAlign: 'center'
+  },
+  statLabel: { 
+    color: '#666', 
+    fontSize: 8, 
+    fontWeight: 'bold', 
+    marginTop: 5,
+    textTransform: 'uppercase'
+  },
   shareFooter: { alignItems: 'center', gap: 15 },
-  shareHint: { color: '#CCFF00', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
   shareBtnReal: { flexDirection: 'row', backgroundColor: '#FFF', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, alignItems: 'center', gap: 10 },
   shareBtnText: { color: '#000', fontWeight: '900', fontSize: 12 },
   closeShareBtn: { padding: 10 },

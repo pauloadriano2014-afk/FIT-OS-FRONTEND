@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Alert, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Alert, StatusBar, Image, ImageBackground } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ViewShot from "react-native-view-shot";
 import * as Sharing from 'expo-sharing';
@@ -7,8 +7,8 @@ import * as Sharing from 'expo-sharing';
 const { width } = Dimensions.get('window');
 
 export default function FinishScreen({ route, navigation }) {
-  // Recebe os dados vindos do DayWorkoutScreen
-  const { workoutName, day, xp, duration, volume } = route.params || {};
+  // 🔥 RECEBE OS NOVOS DADOS DO DAYWORKOUT: rpeLabel e focus
+  const { workoutName, day, xp, duration, rpeLabel, focus } = route.params || {};
   
   const viewShotRef = useRef();
   const [loading, setLoading] = useState(false);
@@ -17,116 +17,139 @@ export default function FinishScreen({ route, navigation }) {
     setLoading(true);
     try {
       if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert("Erro", "Compartilhamento não disponível neste dispositivo.");
+        Alert.alert("Erro", "Compartilhamento não disponível.");
         return;
       }
-      
-      // Captura a imagem do Card
       const uri = await viewShotRef.current.capture();
-      
-      // Abre o menu de compartilhamento nativo
       await Sharing.shareAsync(uri);
     } catch (error) {
-      console.log(error);
-      Alert.alert("Erro", "Não foi possível gerar a imagem.");
+      Alert.alert("Erro", "Falha ao gerar card.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-      <View style={styles.content}>
-        
-        <Text style={styles.title}>TREINO CONCLUÍDO! 🔥</Text>
-        <Text style={styles.subtitle}>Confira seu desempenho:</Text>
-
-        {/* --- ÁREA QUE SERÁ TRANSFORMADA EM IMAGEM --- */}
-        <ViewShot ref={viewShotRef} style={styles.shareCard} options={{ format: "jpg", quality: 0.9 }}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" />
+      
+      <ImageBackground 
+        source={{uri: 'https://img.freepik.com/free-photo/dark-gym-background_23-2150330606.jpg'}} 
+        style={styles.bg} 
+        blurRadius={15}
+      >
+        <SafeAreaView style={styles.overlay}>
+          <View style={styles.content}>
             
-            <View style={styles.cardHeader}>
-                <MaterialCommunityIcons name="check-decagram" size={40} color="#000" />
-                <View>
-                    <Text style={styles.brandName}>FITOS TEAM</Text>
-                    <Text style={styles.date}>{new Date().toLocaleDateString('pt-BR')}</Text>
+            <MaterialCommunityIcons name="trophy-variant" size={60} color="#CCFF00" />
+            <Text style={styles.title}>TREINO PAGO! 🔥</Text>
+            <Text style={styles.subtitle}>Sua consistência é o que gera resultados.</Text>
+
+            {/* CARD PARA COMPARTILHAR */}
+            <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 0.9 }}>
+              <View style={styles.shareCard}>
+                <Image 
+                  source={require('../../assets/icon.png')} 
+                  style={styles.logo} 
+                  resizeMode="contain" 
+                />
+                
+                <Text style={styles.workoutTitle}>{workoutName || "TREINO DO DIA"}</Text>
+                
+                {/* 🔥 NOVO: EXIBE O FOCO DO TREINO */}
+                <View style={styles.focusBadge}>
+                    <Text style={styles.focusBadgeText}>FOCO: {focus || 'GERAL'}</Text>
                 </View>
+
+                <View style={styles.dayBadge}>
+                    <Text style={styles.dayBadgeText}>DIA {day} FINALIZADO</Text>
+                </View>
+
+                <View style={styles.statsRow}>
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>+{xp || 0}</Text>
+                    <Text style={styles.statLab}>XP GANHO</Text>
+                  </View>
+                  
+                  <View style={styles.divider} />
+                  
+                  <View style={styles.statBox}>
+                    <Text style={styles.statVal}>{duration || '0'}m</Text>
+                    <Text style={styles.statLab}>MINUTOS</Text>
+                  </View>
+                  
+                  <View style={styles.divider} />
+                  
+                  {/* 🔥 TROCADO: SAI VOLUME (NaN), ENTRA INTENSIDADE (RPE) */}
+                  <View style={styles.statBox}>
+                    <Text style={[styles.statVal, {fontSize: 12, color: '#CCFF00'}]}>{rpeLabel || 'MÁXIMA'}</Text>
+                    <Text style={styles.statLab}>INTENSIDADE</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.brandFooter}>COACH PAULO TEAM</Text>
+              </View>
+            </ViewShot>
+
+            <View style={styles.footer}>
+              <TouchableOpacity style={styles.shareBtn} onPress={handleShare} disabled={loading}>
+                <MaterialCommunityIcons name="instagram" size={24} color="#000" />
+                <Text style={styles.shareBtnText}>{loading ? "PREPARANDO..." : "COMPARTILHAR NO INSTA"}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Main')}>
+                <Text style={styles.backBtnText}>VOLTAR PARA O INÍCIO</Text>
+              </TouchableOpacity>
             </View>
 
-            <Text style={styles.workoutName}>{workoutName || "TREINO"}</Text>
-            <Text style={styles.workoutDay}>DIA {day} FINALIZADO</Text>
-
-            <View style={styles.statsRow}>
-                <View style={styles.stat}>
-                    <Text style={styles.statValue}>+{xp || 0}</Text>
-                    <Text style={styles.statLabel}>XP GANHO</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.stat}>
-                    <Text style={styles.statValue}>{duration || '60m'}</Text>
-                    <Text style={styles.statLabel}>TEMPO</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.stat}>
-                    <Text style={styles.statValue}>{Math.round((volume || 0)/1000)}k</Text>
-                    <Text style={styles.statLabel}>KG TOTAL</Text>
-                </View>
-            </View>
-
-            <View style={styles.footerBrand}>
-                <Text style={styles.footerText}>Treino registrado via App Fitos</Text>
-            </View>
-
-        </ViewShot>
-        {/* --------------------------------------------- */}
-
-        <View style={styles.buttonsContainer}>
-            <TouchableOpacity style={styles.shareBtn} onPress={handleShare} disabled={loading}>
-                <MaterialCommunityIcons name="share-variant" size={24} color="#000" />
-                <Text style={styles.shareBtnText}>{loading ? "GERANDO..." : "COMPARTILHAR CARD"}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.closeBtn} onPress={() => navigation.navigate('Main')}>
-                <Text style={styles.closeBtnText}>VOLTAR PARA O INÍCIO</Text>
-            </TouchableOpacity>
-        </View>
-
-      </View>
-    </SafeAreaView>
+          </View>
+        </SafeAreaView>
+      </ImageBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 },
+  bg: { flex: 1 },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)' },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 25 },
   
-  title: { color: '#CCFF00', fontSize: 24, fontWeight: '900', marginBottom: 5 },
-  subtitle: { color: '#888', fontSize: 14, marginBottom: 30 },
+  title: { color: '#CCFF00', fontSize: 28, fontWeight: '900', marginTop: 15, letterSpacing: 1 },
+  subtitle: { color: '#888', fontSize: 14, textAlign: 'center', marginBottom: 40 },
 
-  // CARD AMARELO
-  shareCard: { width: width * 0.85, backgroundColor: '#CCFF00', borderRadius: 20, padding: 30, alignItems: 'center' },
+  shareCard: { 
+    width: width * 0.88, 
+    backgroundColor: '#111', 
+    borderRadius: 35, 
+    padding: 30, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: '#222',
+    shadowColor: '#CCFF00',
+    shadowOpacity: 0.15,
+    shadowRadius: 30
+  },
+  logo: { width: 80, height: 80, marginBottom: 20 },
+  workoutTitle: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center' },
   
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20, width: '100%' },
-  brandName: { fontSize: 18, fontWeight: '900', color: '#000' },
-  date: { fontSize: 10, fontWeight: 'bold', color: '#444' },
+  focusBadge: { marginTop: 5 },
+  focusBadgeText: { color: '#666', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
+
+  dayBadge: { backgroundColor: '#CCFF00', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, marginTop: 15, marginBottom: 25 },
+  dayBadgeText: { color: '#000', fontSize: 10, fontWeight: '900' },
+
+  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', backgroundColor: '#000', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#222' },
+  statBox: { alignItems: 'center', flex: 1 },
+  statVal: { color: '#FFF', fontSize: 18, fontWeight: '900' },
+  statLab: { color: '#555', fontSize: 9, fontWeight: 'bold', marginTop: 4 },
+  divider: { width: 1, height: 30, backgroundColor: '#222' },
   
-  workoutName: { color: '#000', fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 5 },
-  workoutDay: { color: '#000', fontSize: 12, fontWeight: 'bold', marginBottom: 25, backgroundColor: 'rgba(0,0,0,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  brandFooter: { color: '#333', fontSize: 12, fontWeight: 'bold', letterSpacing: 4, marginTop: 30 },
 
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%', backgroundColor: '#FFF', padding: 15, borderRadius: 15 },
-  stat: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 18, fontWeight: '900', color: '#000' },
-  statLabel: { fontSize: 9, fontWeight: 'bold', color: '#666' },
-  divider: { width: 1, height: '100%', backgroundColor: '#EEE' },
-
-  footerBrand: { marginTop: 15 },
-  footerText: { fontSize: 8, fontWeight: 'bold', color: 'rgba(0,0,0,0.4)' },
-
-  // BOTOES
-  buttonsContainer: { width: '100%', marginTop: 40, gap: 15 },
-  shareBtn: { flexDirection: 'row', backgroundColor: '#FFF', padding: 18, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 10 },
-  shareBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
-  
-  closeBtn: { padding: 15, alignItems: 'center' },
-  closeBtnText: { color: '#666', fontWeight: 'bold' }
+  footer: { width: '100%', marginTop: 50 },
+  shareBtn: { backgroundColor: '#CCFF00', flexDirection: 'row', padding: 18, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  shareBtnText: { color: '#000', fontWeight: '900', fontSize: 15 },
+  backBtn: { marginTop: 20, padding: 10 },
+  backBtnText: { color: '#666', textAlign: 'center', fontWeight: 'bold', fontSize: 14 }
 });

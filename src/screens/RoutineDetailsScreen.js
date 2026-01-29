@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, Dimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
+
+const { width } = Dimensions.get('window');
 
 const getIconByMuscle = (muscleString = "") => {
     const m = muscleString.toLowerCase();
@@ -10,6 +12,7 @@ const getIconByMuscle = (muscleString = "") => {
     if (m.includes('costas')) return 'rowing';
     if (m.includes('peito')) return 'dumbbell';
     if (m.includes('braço') || m.includes('biceps')) return 'arm-flex';
+    if (m.includes('ombro')) return 'arrow-up-bold-hexagon-outline';
     return 'flash';
 };
 
@@ -17,8 +20,6 @@ export default function RoutineDetailsScreen({ route, navigation }) {
   const { workoutId, workoutName } = route.params;
   const [loading, setLoading] = useState(true);
   const [workoutDays, setWorkoutDays] = useState([]);
-  
-  // 🔥 Novo estado para saber a data do último treino
   const [lastLogDate, setLastLogDate] = useState(null);
 
   useFocusEffect(
@@ -27,23 +28,21 @@ export default function RoutineDetailsScreen({ route, navigation }) {
     }, [])
   );
 
-  const fetchRoutineDetails = async () => {
+const fetchRoutineDetails = async () => {
     try {
       const stored = await AsyncStorage.getItem('user');
       if (!stored) return;
       const user = JSON.parse(stored);
       
-      const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`);
+      // 🔥 RECUPERA O DIA QUE O USUÁRIO ACABOU DE FINALIZAR LOCALMENTE
+      const localLastDay = await AsyncStorage.getItem('@last_completed_day');
+      
+      // Adicionamos um timestamp no final da URL para evitar cache do navegador/celular
+      const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${new Date().getTime()}`);
       const data = await response.json();
 
       if (response.ok && data && data.exercises) {
-        // 🔥 Salva a data do lastLog se existir
-        if (data.lastLog && data.lastLog.date) {
-            setLastLogDate(data.lastLog.date);
-        } else {
-            setLastLogDate(null);
-        }
-
+        // 1. Mapeia os exercícios por dia
         const groups = data.exercises.reduce((acc, item) => {
           const day = item.day || 'A';
           if (!acc[day]) acc[day] = { day: day, muscleGroups: new Set(), exerciseCount: 0 };
@@ -53,97 +52,119 @@ export default function RoutineDetailsScreen({ route, navigation }) {
         }, {});
         
         const sorted = Object.values(groups).sort((a, b) => a.day.localeCompare(b.day));
-        
-        // Lógica de Progresso
-        const doneDaysSet = new Set();
-        
-        if (data.lastLog && data.lastLog.day) {
-             const lastDayChar = data.lastLog.day;
-             const indexLast = sorted.findIndex(d => d.day === lastDayChar);
-             if (indexLast !== -1) {
-                 for(let i=0; i<=indexLast; i++) doneDaysSet.add(sorted[i].day);
-             } else {
-                 doneDaysSet.add(lastDayChar);
-             }
-        }
 
+        // 2. LÓGICA DE VERIFICAÇÃO INDIVIDUAL (A MAIS SEGURA)
         const daysWithStatus = sorted.map((d) => {
             const dayKey = String(d.day).trim().toUpperCase();
-            const isDone = doneDaysSet.has(dayKey);
+            
+            // 🔥 PRIORIDADE: Se o celular diz que o dia local >= dia do card, marca verde.
+            const serverLastDay = data.lastLog && data.lastLog.day ? data.lastLog.day.toUpperCase() : 'OFF';
+            const effectiveLastDay = localLastDay || serverLastDay;
+            
+            // Comparação Alfabética: Se dayKey (ex: B) for menor ou igual a effectiveLastDay (ex: D), isDone = true
+            const isDone = localLastDay ? (dayKey.charCodeAt(0) <= localLastDay.charCodeAt(0)) : d.completed;
+
             return { ...d, isDone, isNext: false };
         });
 
+        // 3. SEGUNDA VALIDAÇÃO (CASO O BACKEND SÓ MANDE O ÚLTIMO)
+        if (data.lastLog && data.lastLog.day) {
+            const lastDayChar = data.lastLog.day.toUpperCase();
+            const lastIndex = daysWithStatus.findIndex(d => d.day === lastDayChar);
+            if (lastIndex !== -1) {
+                for (let i = 0; i <= lastIndex; i++) {
+                    daysWithStatus[i].isDone = true;
+                }
+            }
+        }
+
+        // 4. DEFINE O PRÓXIMO TREINO
         let nextIndex = daysWithStatus.findIndex(x => !x.isDone);
-        if (nextIndex === -1 && daysWithStatus.length > 0) nextIndex = 0;
+        if (nextIndex === -1 && daysWithStatus.length > 0) {
+            nextIndex = 0;
+        }
         if (nextIndex !== -1) daysWithStatus[nextIndex].isNext = true;
         
         setWorkoutDays(daysWithStatus);
       }
-    } catch (error) { console.log(error); } finally { setLoading(false); }
+    } catch (error) { 
+        console.log("Erro ao buscar detalhes:", error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
-  const renderMetroItem = ({ item, index }) => {
+  const renderCardItem = ({ item }) => {
+    const isDescanso = item.day === 'OFF' || item.name?.toUpperCase()?.includes('DESCANSO');
+  const isCardio = item.name?.toUpperCase()?.includes('CARDIO');
     const muscleGroupsStr = Array.from(item.muscleGroups).join(', ');
     const iconName = getIconByMuscle(muscleGroupsStr);
-    const isLastItem = index === workoutDays.length - 1;
 
-    const lineColor = item.isDone ? '#CCFF00' : '#333';
-    const dotColor = item.isDone ? '#CCFF00' : (item.isNext ? '#FFF' : '#333');
-    const dotBg = item.isDone ? '#CCFF00' : '#000';
-
-    // 🔥 LÓGICA INTELIGENTE DE DATA 🔥
-    let badgeText = "SUGESTÃO DE HOJE";
-    
-    // Se este item é o próximo...
-    if (item.isNext) {
-        // ... verificamos se o último treino foi HOJE
-        if (lastLogDate) {
-            const lastDate = new Date(lastLogDate);
-            const today = new Date();
-            
-            // Compara Dia, Mês e Ano
-            const isToday = lastDate.getDate() === today.getDate() &&
-                            lastDate.getMonth() === today.getMonth() &&
-                            lastDate.getFullYear() === today.getFullYear();
-
-            if (isToday) {
-                badgeText = "SUGESTÃO PARA AMANHÃ";
-            }
-        }
-    }
-
+    if (isDescanso) {
     return (
-      <View style={styles.metroContainer}>
-        <View style={styles.metroLeft}>
-            {!isLastItem && <View style={[styles.metroLine, { backgroundColor: lineColor }]} />}
-            <View style={[styles.metroNode, { borderColor: dotColor, backgroundColor: dotBg }]}>
-                {item.isDone && <MaterialCommunityIcons name="check" size={14} color="#000" />}
-                {item.isNext && !item.isDone && <View style={styles.pulseDot} />}
-            </View>
-        </View>
+      <View style={styles.cardDescanso}>
+        <Text>🛌 DIA DE OFF</Text>
+        <Text style={styles.textApoio}>Recupere suas energias!</Text>
+      </View>
+    );
+  }
 
-        <TouchableOpacity 
-          style={[styles.card, item.isNext && styles.activeCard]} 
-          onPress={() => navigation.navigate('DayWorkout', { 
-              workoutId, day: item.day, workoutName: workoutName 
-          })}
-        >
-          <View style={styles.headerRow}>
-              <Text style={[styles.cardTitle, (item.isDone || item.isNext) && {color: item.isDone ? '#CCFF00' : '#FFF'}]}>TREINO {item.day}</Text>
-              <MaterialCommunityIcons name={iconName} size={22} color={(item.isDone || item.isNext) ? "#CCFF00" : "#666"} />
-          </View>
-          
-          <Text style={styles.cardSubtitle}>{muscleGroupsStr || 'Fullbody'}</Text>
-          
-          <View style={styles.footerRow}>
-             <Text style={styles.cardMeta}>{item.exerciseCount} exercícios</Text>
-             {/* 🔥 EXIBE O TEXTO DINÂMICO AQUI */}
-             {item.isNext && <View style={[styles.startBadge, badgeText.includes("AMANHÃ") && {backgroundColor:'#333'}]}>
-                 <Text style={[styles.startText, badgeText.includes("AMANHÃ") && {color:'#FFF'}]}>{badgeText}</Text>
-             </View>}
-          </View>
+  if (isCardio) {
+    return (
+      <View style={styles.cardCardio}>
+        <Text>🏃 CARDIO DO DIA</Text>
+        <TouchableOpacity onPress={marcarComoFeito}>
+           <Text>CONCLUIR</Text>
         </TouchableOpacity>
       </View>
+    );
+  }
+
+    // Variáveis de Estilo do Card
+    const cardColor = item.isDone ? '#CCFF00' : (item.isNext ? '#FFF' : '#333');
+    const bgOpacity = item.isDone ? '#1A2200' : '#111';
+
+    return (
+      <TouchableOpacity 
+        style={[
+            styles.card, 
+            { backgroundColor: bgOpacity, borderColor: item.isDone ? '#CCFF00' : '#222' },
+            item.isNext && !item.isDone && styles.nextCardShadow
+        ]} 
+        onPress={() => navigation.navigate('DayWorkout', { workoutId, day: item.day, workoutName: workoutName })}
+      >
+        <View style={styles.cardHeader}>
+            <View style={[styles.iconCircle, { backgroundColor: item.isDone ? '#CCFF00' : '#222' }]}>
+                <MaterialCommunityIcons 
+                    name={item.isDone ? "check-bold" : iconName} 
+                    size={24} 
+                    color={item.isDone ? "#000" : "#666"} 
+                />
+            </View>
+            <View style={styles.headerInfo}>
+                <Text style={[styles.dayText, { color: item.isDone ? '#CCFF00' : '#FFF' }]}>TREINO {item.day}</Text>
+                <Text style={styles.muscleText}>{muscleGroupsStr || 'Geral'}</Text>
+            </View>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#333" />
+        </View>
+
+        <View style={styles.cardFooter}>
+            <View style={styles.metaInfo}>
+                <MaterialCommunityIcons name="dumbbell" size={14} color="#555" />
+                <Text style={styles.metaText}>{item.exerciseCount} EXERCÍCIOS</Text>
+            </View>
+            
+            {item.isDone ? (
+                <View style={styles.statusBadgeDone}>
+                    <Text style={styles.statusTextDone}>CONCLUÍDO</Text>
+                </View>
+            ) : item.isNext ? (
+                <View style={styles.statusBadgeNext}>
+                    <Text style={styles.statusTextNext}>PRÓXIMA MISSÃO</Text>
+                </View>
+            ) : null}
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -154,15 +175,20 @@ export default function RoutineDetailsScreen({ route, navigation }) {
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
+            <MaterialCommunityIcons name="close" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{workoutName?.toUpperCase()}</Text>
+        <View>
+            <Text style={styles.headerLabel}>CRONOGRAMA DE TREINOS</Text>
+            <Text style={styles.headerTitle}>{workoutName?.toUpperCase()}</Text>
+        </View>
       </View>
+
       <FlatList 
         data={workoutDays} 
-        renderItem={renderMetroItem} 
+        renderItem={renderCardItem} 
         keyExtractor={item => item.day} 
         contentContainerStyle={styles.list} 
+        showsVerticalScrollIndicator={false}
       />
     </SafeAreaView>
   );
@@ -172,21 +198,37 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor:'#000' },
   header: { padding: 20, flexDirection: 'row', alignItems: 'center', gap: 15, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
-  backBtn: { padding: 5 },
-  headerTitle: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  backBtn: { width: 40, height: 40, backgroundColor: '#111', borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  headerLabel: { color: '#666', fontSize: 10, fontWeight: 'bold' },
+  headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '900' },
   list: { padding: 20, paddingBottom: 50 },
-  metroContainer: { flexDirection: 'row', minHeight: 120 }, 
-  metroLeft: { width: 40, alignItems: 'center' },
-  metroLine: { position: 'absolute', top: 30, bottom: -30, width: 3, zIndex: -1 }, 
-  metroNode: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, justifyContent: 'center', alignItems: 'center', marginTop: 15, zIndex: 2 },
-  pulseDot: { width: 8, height: 8, backgroundColor: '#FFF', borderRadius: 4 },
-  card: { flex: 1, backgroundColor: '#111', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#222', marginBottom: 20 },
-  activeCard: { borderColor: '#FFF', backgroundColor: '#161810', shadowColor: '#CCFF00', shadowOpacity: 0.1, shadowRadius: 10 }, 
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  cardTitle: { color: '#888', fontSize: 18, fontWeight: '900' },
-  cardSubtitle: { color: '#666', fontSize: 12, marginBottom: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
-  footerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' },
-  cardMeta: { color: '#555', fontSize: 10, fontWeight: 'bold' },
-  startBadge: { backgroundColor: '#CCFF00', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  startText: { color: '#000', fontSize: 9, fontWeight: '900' }
+  
+  card: { 
+    borderRadius: 20, 
+    padding: 20, 
+    marginBottom: 15, 
+    borderWidth: 1.5,
+  },
+  nextCardShadow: {
+    shadowColor: '#CCFF00',
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 5,
+    borderColor: '#444'
+  },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 20 },
+  iconCircle: { width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  headerInfo: { flex: 1 },
+  dayText: { fontSize: 20, fontWeight: '900' },
+  muscleText: { color: '#666', fontSize: 12, textTransform: 'uppercase', marginTop: 2 },
+  
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  metaInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  metaText: { color: '#555', fontSize: 11, fontWeight: 'bold' },
+  
+  statusBadgeDone: { backgroundColor: 'rgba(204, 255, 0, 0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  statusTextDone: { color: '#CCFF00', fontSize: 10, fontWeight: '900' },
+  
+  statusBadgeNext: { backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  statusTextNext: { color: '#000', fontSize: 10, fontWeight: '900' }
 });

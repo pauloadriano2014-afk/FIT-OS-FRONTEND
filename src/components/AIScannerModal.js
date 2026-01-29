@@ -9,19 +9,34 @@ const { height } = Dimensions.get('window');
 
 const getInstruction = (exercise) => {
   const name = exercise?.toLowerCase() || "";
-  if (name.includes("agachamento") || name.includes("terra") || name.includes("stiff") || name.includes("afundo") || name.includes("leg press")) {
-    return "📸 POSIÇÃO: LADO. Afaste 3m na altura do quadril.";
+
+  // 1. ELEVAÇÃO LATERAL e FRONTAL (Melhor de FRENTE)
+  if (name.includes("elevação lateral") || name.includes("frontal") || name.includes("abdução")) {
+    return "📸 POSIÇÃO: FRENTE. Celular apoiado na altura do peito.";
   }
-  if (name.includes("supino") || name.includes("fly") || name.includes("peitoral")) {
-    return "📸 POSIÇÃO: DIAGONAL (45°). Celular à frente e de lado.";
+
+  // 2. COSTAS/POSTERIOR (Melhor de COSTAS)
+  if (name.includes("remada") || name.includes("puxada") || name.includes("costas") || name.includes("inverso") || name.includes("dorsal")) {
+    return "📸 POSIÇÃO: COSTAS ou LADO. Mostre as escápulas.";
   }
-  if (name.includes("rosca") || name.includes("tríceps") || name.includes("bíceps") || name.includes("desenvolvimento")) {
-    return "📸 POSIÇÃO: FRENTE ou LADO. Do quadril até acima da cabeça.";
+
+  // 3. AGACHAMENTOS/PERNAS (Melhor de LADO)
+  if (name.includes("agachamento") || name.includes("terra") || name.includes("stiff") || name.includes("afundo") || name.includes("leg") || name.includes("búlgaro")) {
+    return "📸 POSIÇÃO: LADO/DIAGONAL. Afaste 3m para ver quadril e joelho.";
   }
-  if (name.includes("remada") || name.includes("puxada") || name.includes("costas")) {
-    return "📸 POSIÇÃO: LADO ou COSTAS. Mostre a escápula.";
+
+  // 4. PEITORAL/SUPINOS (Melhor na DIAGONAL)
+  if (name.includes("supino") || name.includes("fly") || name.includes("peitoral") || name.includes("crossover")) {
+    return "📸 POSIÇÃO: DIAGONAL (45°). De cima para baixo se possível.";
   }
-  return "📸 POSIÇÃO: LADO. Corpo inteiro na tela.";
+
+  // 5. BRAÇOS/BÍCEPS/TRÍCEPS (FRENTE ou LADO)
+  if (name.includes("rosca") || name.includes("tríceps") || name.includes("bíceps") || name.includes("coice") || name.includes("testa")) {
+    return "📸 POSIÇÃO: LADO ou FRENTE. Foque no cotovelo.";
+  }
+
+  // Padrão genérico
+  return "📸 POSIÇÃO: DIAGONAL. Corpo inteiro na tela.";
 };
 
 export default function ScannerIA({ navigation, route }) {

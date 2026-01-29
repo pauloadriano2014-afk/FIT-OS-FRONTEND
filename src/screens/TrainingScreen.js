@@ -60,7 +60,8 @@ export default function TrainingScreen({ navigation }) {
   const [rpe, setRpe] = useState(5); 
   const [cardioDone, setCardioDone] = useState(false);
 
-  const fetchRoutines = async () => {
+  // 🔥 NOME DA FUNÇÃO SINCRONIZADO
+  const fetchWorkouts = async () => {
     try {
       const stored = await AsyncStorage.getItem('user');
       if (!stored) { setLoading(false); return; }
@@ -87,7 +88,7 @@ export default function TrainingScreen({ navigation }) {
       }
 
     } catch (error) {
-      console.log("Erro fetchRoutines:", error);
+      console.log("Erro fetchWorkouts:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -96,7 +97,7 @@ export default function TrainingScreen({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
-      fetchRoutines();
+      fetchWorkouts();
     }, [])
   );
 
@@ -106,10 +107,9 @@ export default function TrainingScreen({ navigation }) {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchRoutines();
+    fetchWorkouts(); // 🔥 Chamando a função correta
   }, []);
 
-  // 🔥 NOVA FUNÇÃO: GERENCIA O FEEDBACK AO CLICAR NA SENSAÇÃO
   const handleEnergySelect = (level) => {
       setEnergyLevel(level);
 
@@ -192,7 +192,6 @@ export default function TrainingScreen({ navigation }) {
             <Text style={styles.headerTitle}>PAINEL DO <Text style={{color:'#CCFF00'}}>ALUNO</Text></Text>
         </View>
 
-        {/* 1. READINESS */}
         <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>COMO VOCÊ ESTÁ SE SENTINDO HOJE?</Text>
             <View style={styles.readinessRow}>
@@ -200,7 +199,7 @@ export default function TrainingScreen({ navigation }) {
                     <TouchableOpacity 
                         key={level} 
                         style={[styles.energyBtn, energyLevel === level && styles[`energyBtn${level}`]]}
-                        onPress={() => handleEnergySelect(level)} // 🔥 Chama a função com o alerta
+                        onPress={() => handleEnergySelect(level)} 
                     >
                         <Text style={{fontSize:22}}>{level === 'low' ? '😫' : level === 'medium' ? '😐' : '😤'}</Text>
                         <Text style={styles.energyLabel}>{level === 'low' ? 'Cansado(a)' : level === 'medium' ? 'Disciplinado(a)' : 'Motivado(a)'}</Text>
@@ -209,7 +208,6 @@ export default function TrainingScreen({ navigation }) {
             </View>
         </View>
 
-        {/* 2. TIMELINE SEMANAL INTELIGENTE */}
         <View style={styles.timelineBox}>
             <View style={styles.timelineLine} />
             <View style={styles.timelineRow}>
@@ -238,7 +236,6 @@ export default function TrainingScreen({ navigation }) {
             </View>
         </View>
 
-        {/* 3. HERO CARD (TREINO DO DIA) */}
         {activeProgram ? (
             <View style={[styles.heroCard, isTodayDone && {borderColor:'#CCFF00', backgroundColor:'#161810'}]}>
                 <View style={styles.heroHeader}>
@@ -254,9 +251,13 @@ export default function TrainingScreen({ navigation }) {
                         </Text>
                     </View>
                     
-                    <TouchableOpacity onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name })}>
-                        <Text style={styles.viewCycleLink}>Ver Ciclo{'\n'}Completo</Text>
-                    </TouchableOpacity>
+                    <TouchableOpacity 
+  style={styles.viewCycleBtn} // 🔥 Mudamos o estilo de texto para um botão
+  onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name })}
+>
+  <Text style={styles.viewCycleText}>VER TREINO COMPLETO</Text>
+  <MaterialCommunityIcons name="eye-outline" size={14} color="#CCFF00" />
+</TouchableOpacity>
                 </View>
 
                 <View style={styles.anatomyBox}>
@@ -312,7 +313,6 @@ export default function TrainingScreen({ navigation }) {
             </View>
         )}
 
-        {/* 4. DICA */}
         <View style={styles.tipBox}>
             <View style={{flexDirection:'row', alignItems:'center', gap:8, marginBottom:5}}>
                 <MaterialCommunityIcons name="comment-quote" size={18} color="#CCFF00" />
@@ -321,7 +321,6 @@ export default function TrainingScreen({ navigation }) {
             <Text style={styles.tipText}>"{dailyTip}"</Text>
         </View>
 
-        {/* 5. CARDIO */}
         <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>CARDIO & PERFORMANCE</Text>
             <View style={styles.cardioCard}>
@@ -356,7 +355,6 @@ export default function TrainingScreen({ navigation }) {
         </View>
       </ScrollView>
 
-      {/* MODAL CARDIO */}
       <Modal visible={cardioModalOpen} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCardioModalOpen(false)}>
             <View style={styles.modalContent}>
@@ -404,6 +402,24 @@ const styles = StyleSheet.create({
   heroLabel: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold' },
   heroTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
   heroSubtitle: { color: '#888', fontSize: 12 },
+  viewCycleText: {
+    color: '#CCFF00', // Verde limão da sua marca
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5
+  },
+  viewCycleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1A1A1A', // Um cinza levemente mais claro que o fundo
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+    gap: 6,
+    alignSelf: 'flex-start' // Garante que ele não ocupe a largura toda
+  },
   viewCycleLink: { color: '#666', fontSize: 10, textAlign: 'right', textDecorationLine: 'underline' },
   anatomyBox: { flexDirection: 'row', gap: 15 },
   anatomyInfo: { flex: 1 },
@@ -447,4 +463,6 @@ const styles = StyleSheet.create({
   modalTitle: { color: '#FFF', fontWeight: '900', marginBottom: 20, textAlign: 'center' },
   modalItem: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#333' },
   modalItemText: { color: '#FFF', fontWeight: 'bold' }
+  
+
 });
