@@ -19,8 +19,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-// 🔥 Importante: Mantendo a consistência com o AdminDashboard
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BlurView } from 'expo-blur'; // Opcional, para efeito de vidro
 
 // --- CONFIGURAÇÃO DAS CAPAS E CATEGORIAS ---
 const categoryCovers = {
@@ -44,7 +44,7 @@ const categories = [
     'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
 ];
 
-// --- COMPONENTE DO CARD (MEMOIZADO PARA PERFORMANCE) ---
+// --- COMPONENTE DO CARD ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
     return (
         <View style={[styles.exerciseCard, { width: width }]}>
@@ -92,16 +92,13 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 });
 
 export default function BibliotecaAdmin({ navigation }) {
-  // 🔥 HOOKS DE RESPONSIVIDADE
   const { width } = useWindowDimensions();
   
-  // --- ESTADOS ---
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
   const [selectedCat, setSelectedCat] = useState('TODOS');
   
-  // Estados do Modal de Cadastro/Edição
   const [modalVisible, setModalVisible] = useState(false);
   const [formExercise, setFormExercise] = useState({ 
       id: null, 
@@ -111,11 +108,9 @@ export default function BibliotecaAdmin({ navigation }) {
   });
   const [saving, setSaving] = useState(false);
 
-  // Estados do Modal de Vídeo
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
 
-  // --- LÓGICA DE GRID RESPONSIVO ---
   const getNumColumns = () => {
       if (width > 1000) return 3; 
       if (width > 700) return 2;  
@@ -123,13 +118,10 @@ export default function BibliotecaAdmin({ navigation }) {
   };
   
   const numColumns = getNumColumns();
-  
-  // Cálculo exato da largura do card considerando paddings e gaps
   const itemWidth = numColumns > 1 
       ? (width - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / numColumns
       : (width - (HORIZONTAL_PADDING * 2));
 
-  // --- EFEITOS E BUSCA DE DADOS ---
   useEffect(() => { 
       fetchLibrary(); 
   }, []);
@@ -137,10 +129,8 @@ export default function BibliotecaAdmin({ navigation }) {
   const fetchLibrary = async () => {
     setLoading(true);
     try {
-        // Adicionando timestamp para evitar cache
         const res = await fetch('https://fitos-final.onrender.com/api/admin/data?t=' + Date.now());
         const data = await res.json();
-        
         if (data.exercises) {
             setExercises(data.exercises.reverse()); 
         }
@@ -151,11 +141,12 @@ export default function BibliotecaAdmin({ navigation }) {
     }
   };
 
-  // --- FUNÇÕES DE AÇÃO ---
-
+  // 🔥 CORREÇÃO DA EXCLUSÃO NA WEB E MOBILE
   const handleDelete = useCallback((id) => {
       if(Platform.OS === 'web') {
-          if(confirm("Deseja realmente apagar este exercício?")) {
+          // Na Web, usamos window.confirm que bloqueia a execução até a resposta
+          const confirmDelete = window.confirm("Deseja realmente apagar este exercício?");
+          if (confirmDelete) {
               deleteItem(id);
           }
       } else {
@@ -168,79 +159,58 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const deleteItem = async (id) => {
       try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { 
-              method: 'DELETE' 
-          });
+          // Tenta na rota nova e na antiga por garantia
+          let res = await fetch(`https://fitos-final.onrender.com/api/admin/exercise?id=${id}`, { method: 'DELETE' });
+          
+          if (!res.ok) {
+             // Fallback para rota antiga se a nova falhar (404)
+             res = await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { method: 'DELETE' });
+          }
           
           if (res.ok) {
-              fetchLibrary();
+              // Atualiza a lista localmente para parecer instantâneo
+              setExercises(prev => prev.filter(item => item.id !== id));
+              // Depois busca do servidor para garantir
+              fetchLibrary(); 
+              if(Platform.OS !== 'web') Alert.alert("Sucesso", "Exercício removido.");
           } else {
-              Alert.alert("Erro", "Não foi possível excluir o exercício.");
+              Alert.alert("Erro", "Não foi possível excluir.");
           }
       } catch (e) { 
           Alert.alert("Erro de Conexão", "Verifique sua internet."); 
       }
   };
 
-  // 🔥 LÓGICA DE SALVAMENTO BLINDADA (MANTIDA INTEGRALMENTE)
   const handleSaveOrUpdate = async () => {
-      if (!formExercise.name) {
-          return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
-      }
-      
+      if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
       setSaving(true);
-      
       try {
-          // Rota da API (ajuste se necessário no backend)
           const apiUrl = 'https://fitos-final.onrender.com/api/exercise'; 
-          
-          console.log("Tentando salvar em:", apiUrl);
-
           const res = await fetch(apiUrl, {
               method: !!formExercise.id ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(formExercise)
           });
-
-          // Lemos a resposta como TEXTO primeiro para evitar crash de JSON
           const textResponse = await res.text();
-
           try {
-              // Tentamos converter para JSON
               const jsonResponse = JSON.parse(textResponse);
-              
               if (res.ok) {
                   setModalVisible(false);
                   fetchLibrary();
-                  Alert.alert("Sucesso", "Exercício salvo com sucesso!");
+                  Alert.alert("Sucesso", "Exercício salvo!");
               } else {
-                  // Erro tratado pelo backend (ex: nome duplicado)
                   Alert.alert("Atenção", jsonResponse.error || "O servidor recusou os dados.");
               }
           } catch (jsonError) {
-              // Se falhar o parse JSON, é porque veio HTML (Erro 404 ou 500)
-              console.log("Resposta não-JSON recebida:", textResponse);
-              
-              if(textResponse.includes("404")) {
-                  Alert.alert("Erro 404", "A rota da API não foi encontrada. Verifique se o arquivo /api/exercise existe no Backend.");
-              } else if (textResponse.includes("500")) {
-                  Alert.alert("Erro 500", "Erro interno do servidor. Tente novamente mais tarde.");
-              } else {
-                  Alert.alert("Erro Crítico", "O servidor devolveu uma resposta inválida.");
-              }
+              if(textResponse.includes("404")) Alert.alert("Erro 404", "Rota API não encontrada.");
+              else Alert.alert("Erro Crítico", "Erro no servidor.");
           }
-
-      } catch (e) { 
-          Alert.alert("Erro de Conexão", "Falha ao conectar com o servidor: " + e.message); 
-      } finally { 
-          setSaving(false); 
-      }
+      } catch (e) { Alert.alert("Erro de Conexão", e.message); } 
+      finally { setSaving(false); }
   };
 
   const openVideoPreview = useCallback((url) => {
-      if (!url || url.length < 5) {
-          return Alert.alert("Vídeo Indisponível", "Este exercício não possui link de vídeo cadastrado.");
-      }
+      if (!url || url.length < 5) return Alert.alert("Vídeo Indisponível", "Sem link cadastrado.");
       setCurrentVideo(url);
       setVideoModalVisible(true);
   }, []);
@@ -251,21 +221,15 @@ export default function BibliotecaAdmin({ navigation }) {
       return matchText && matchCat;
   });
 
-  // --- ESTRUTURA DE LAYOUT (IGUAL AO DASHBOARD) ---
-  
-  // Seleciona o componente Raiz baseado na plataforma
   const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
-  
-  // Define o estilo da Raiz
   const rootStyle = Platform.OS === 'web'
-    ? { height: '100vh', width: '100%', backgroundColor: '#000' } // Web: Ocupa 100% da janela
-    : { flex: 1, backgroundColor: '#000' }; // Mobile: Flex padrão
+    ? { height: '100vh', width: '100%', backgroundColor: '#000' }
+    : { flex: 1, backgroundColor: '#000' };
 
   return (
     <RootComponent style={rootStyle}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         
-        {/* HEADER */}
         <View style={styles.header}>
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -276,76 +240,42 @@ export default function BibliotecaAdmin({ navigation }) {
                     <Text style={styles.headerSubtitle}>GERENCIAMENTO</Text>
                 </View>
             </View>
-            
             <TouchableOpacity onPress={fetchLibrary} style={styles.backBtn}>
                 <MaterialCommunityIcons name="refresh" size={24} color="#CCFF00" />
             </TouchableOpacity>
         </View>
 
-        {/* BARRA DE BUSCA */}
         <View style={styles.searchBox}>
             <MaterialCommunityIcons name="magnify" size={20} color="#666" />
             <TextInput 
-              style={styles.searchInput} 
-              placeholder="Buscar exercício..." 
-              placeholderTextColor="#666"
-              value={filterText} 
-              onChangeText={setFilterText} 
+              style={styles.searchInput} placeholder="Buscar exercício..." placeholderTextColor="#666"
+              value={filterText} onChangeText={setFilterText} 
             />
         </View>
 
-        {/* LISTA DE CATEGORIAS (SCROLL HORIZONTAL) */}
         <View style={{ height: 45, marginBottom: 15 }}>
-            <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false} 
-                contentContainerStyle={{ paddingHorizontal: 20 }}
-            >
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {categories.map(cat => (
-                    <TouchableOpacity 
-                        key={cat} 
-                        style={[styles.catTab, selectedCat === cat && styles.catTabActive]}
-                        onPress={() => setSelectedCat(cat)}
-                    >
-                        <Text style={[styles.catTabText, selectedCat === cat && styles.catTabTextActive]}>
-                            {cat}
-                        </Text>
+                    <TouchableOpacity key={cat} style={[styles.catTab, selectedCat === cat && styles.catTabActive]} onPress={() => setSelectedCat(cat)}>
+                        <Text style={[styles.catTabText, selectedCat === cat && styles.catTabTextActive]}>{cat}</Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
         </View>
 
-        {/* CONTAINER DA LISTA PRINCIPAL */}
         <View style={{ flex: 1, position: 'relative' }}>
-            {loading ? (
-                <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} size="large" />
-            ) : (
+            {loading ? <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} size="large" /> : (
                 <FlatList
                   key={`grid-${numColumns}`} 
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
-                  
-                  // 🔥 CONFIGURAÇÃO CRÍTICA PARA SCROLL WEB FUNCIONAR
-                  contentContainerStyle={{ 
-                      paddingBottom: 150, // Espaço para não cobrir o último item
-                      paddingHorizontal: 20,
-                      flexGrow: 1
-                  }}
-                  
-                  // 🔥 CORREÇÃO DE LAYOUT GRID
+                  contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20, flexGrow: 1 }}
                   columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
-                  
                   showsVerticalScrollIndicator={false}
-                  
-                  // CABEÇALHO DA LISTA (IMAGEM)
                   ListHeaderComponent={
                     <View style={{ marginBottom: 20 }}>
-                        <ImageBackground 
-                            source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} 
-                            style={styles.categoryCover}
-                            imageStyle={{ borderRadius: 20 }}
-                        >
+                        <ImageBackground source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} style={styles.categoryCover} imageStyle={{ borderRadius: 20 }}>
                             <View style={styles.coverOverlay}>
                                 <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
                                 <Text style={styles.coverCount}>{filteredList.length} EXERCÍCIOS</Text>
@@ -353,128 +283,75 @@ export default function BibliotecaAdmin({ navigation }) {
                         </ImageBackground>
                     </View>
                   }
-                  
                   renderItem={({ item }) => (
-                      <ExerciseCard 
-                          item={item} 
-                          width={itemWidth} 
-                          onPress={openVideoPreview}
-                          onEdit={(ex) => { setFormExercise(ex); setModalVisible(true); }}
-                          onDelete={handleDelete}
-                      />
+                      <ExerciseCard item={item} width={itemWidth} onPress={openVideoPreview} onEdit={(ex) => { setFormExercise(ex); setModalVisible(true); }} onDelete={handleDelete} />
                   )}
-                  
-                  ListEmptyComponent={
-                      <Text style={styles.emptyText}>Nenhum exercício encontrado nesta categoria.</Text>
-                  }
+                  ListEmptyComponent={<Text style={styles.emptyText}>Nenhum exercício encontrado nesta categoria.</Text>}
                 />
             )}
         </View>
 
-        {/* BOTÃO FLUTUANTE (FAB) */}
-        {/* Usando absolute na Web para garantir que fique visível */}
         <TouchableOpacity 
             style={[styles.fab, Platform.OS === 'web' ? { position: 'absolute' } : {}]} 
-            onPress={() => { 
-                setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); 
-                setModalVisible(true); 
-            }}
+            onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); setModalVisible(true); }}
         >
             <MaterialCommunityIcons name="plus" size={32} color="#000" />
         </TouchableOpacity>
 
         {/* MODAL CRIAR/EDITAR */}
-        <Modal 
-            visible={modalVisible} 
-            animationType="slide"
-            onRequestClose={() => setModalVisible(false)}
-        >
+        <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
           <View style={styles.modalContent}>
             <SafeAreaView style={{flex:1}}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>
-                    {formExercise.id ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}
-                </Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}>
-                    <MaterialCommunityIcons name="close" size={24} color="#FFF" />
-                </TouchableOpacity>
+                <Text style={styles.modalTitle}>{formExercise.id ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}</Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF" /></TouchableOpacity>
               </View>
-              
               <ScrollView style={{ padding: 20 }}>
                 <Text style={styles.label}>NOME DO EXERCÍCIO</Text>
-                <TextInput 
-                    style={styles.input} 
-                    value={formExercise.name} 
-                    onChangeText={t => setFormExercise({...formExercise, name: t})} 
-                    placeholder="Ex: Supino Reto com Halteres" 
-                    placeholderTextColor="#444" 
-                />
-                
+                <TextInput style={styles.input} value={formExercise.name} onChangeText={t => setFormExercise({...formExercise, name: t})} placeholder="Ex: Supino Reto com Halteres" placeholderTextColor="#444" />
                 <Text style={styles.label}>GRUPO MUSCULAR</Text>
                 <View style={styles.chipRow}>
                   {categories.filter(c => c !== 'TODOS').map(c => (
-                    <TouchableOpacity 
-                        key={c} 
-                        style={[styles.chip, formExercise.category === c && styles.chipActive]} 
-                        onPress={() => setFormExercise({...formExercise, category: c})}
-                    >
-                      <Text style={[styles.chipText, formExercise.category === c && { color: '#000' }]}>
-                        {c}
-                      </Text>
+                    <TouchableOpacity key={c} style={[styles.chip, formExercise.category === c && styles.chipActive]} onPress={() => setFormExercise({...formExercise, category: c})}>
+                      <Text style={[styles.chipText, formExercise.category === c && { color: '#000' }]}>{c}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
-
-                <Text style={styles.label}>URL DO VÍDEO (Direct Link, YouTube, Cloudinary)</Text>
-                <TextInput 
-                    style={styles.input} 
-                    value={formExercise.videoUrl} 
-                    onChangeText={t => setFormExercise({...formExercise, videoUrl: t})} 
-                    placeholder="https://..." 
-                    placeholderTextColor="#444" 
-                    autoCapitalize="none" 
-                />
-
-                <TouchableOpacity 
-                    style={styles.saveBtn} 
-                    onPress={handleSaveOrUpdate} 
-                    disabled={saving}
-                >
-                  {saving ? (
-                      <ActivityIndicator color="#000" />
-                  ) : (
-                      <Text style={styles.saveBtnText}>SALVAR NA BIBLIOTECA</Text>
-                  )}
+                <Text style={styles.label}>URL DO VÍDEO</Text>
+                <TextInput style={styles.input} value={formExercise.videoUrl} onChangeText={t => setFormExercise({...formExercise, videoUrl: t})} placeholder="https://..." placeholderTextColor="#444" autoCapitalize="none" />
+                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveOrUpdate} disabled={saving}>
+                  {saving ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>SALVAR NA BIBLIOTECA</Text>}
                 </TouchableOpacity>
               </ScrollView>
             </SafeAreaView>
           </View>
         </Modal>
 
-        {/* VIDEO PREVIEW MODAL */}
-        <Modal 
-            visible={videoModalVisible} 
-            transparent 
-            animationType="fade"
-            onRequestClose={() => setVideoModalVisible(false)}
-        >
+        {/* 🔥 MODAL DE VÍDEO MODERNIZADO 🔥 */}
+        <Modal visible={videoModalVisible} transparent animationType="fade" onRequestClose={() => setVideoModalVisible(false)}>
           <View style={styles.videoBackdrop}>
-             <TouchableOpacity 
-                style={[styles.closeFullVideo, Platform.OS === 'web' ? { top: 40 } : { top: 60 }]} 
-                onPress={() => setVideoModalVisible(false)}
-             >
-               <MaterialCommunityIcons name="close" size={30} color="#FFF" />
-             </TouchableOpacity>
-             
-             {currentVideo && (
-                 <Video 
-                    source={{ uri: currentVideo }} 
-                    style={styles.fullVideo} 
-                    useNativeControls 
-                    resizeMode={ResizeMode.CONTAIN} 
-                    shouldPlay 
-                 />
-             )}
+             {/* Efeito de Vidro ou Fundo Escuro Moderno */}
+             <View style={styles.videoContainerModern}>
+                 <View style={styles.videoHeaderModern}>
+                     <Text style={styles.videoTitleModern}>VISUALIZAÇÃO</Text>
+                     <TouchableOpacity style={styles.closeBtnModern} onPress={() => setVideoModalVisible(false)}>
+                         <MaterialCommunityIcons name="close" size={20} color="#000" />
+                     </TouchableOpacity>
+                 </View>
+                 
+                 <View style={styles.videoWrapper}>
+                     {currentVideo && (
+                         <Video 
+                            source={{ uri: currentVideo }} 
+                            style={styles.fullVideo} 
+                            useNativeControls 
+                            resizeMode={ResizeMode.CONTAIN} 
+                            shouldPlay 
+                            isLooping
+                         />
+                     )}
+                 </View>
+             </View>
           </View>
         </Modal>
     </RootComponent>
@@ -482,259 +359,48 @@ export default function BibliotecaAdmin({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // Configuração do Header para Web e Mobile
-  header: { 
-      paddingTop: Platform.OS === 'web' ? 20 : 60, 
-      paddingHorizontal: 20, 
-      paddingBottom: 20, 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      alignItems: 'center' 
-  },
-  headerTitle: { 
-      color: '#FFF', 
-      fontSize: 22, 
-      fontWeight: '900' 
-  },
-  headerSubtitle: { 
-      color: '#666', 
-      fontSize: 10, 
-      letterSpacing: 1, 
-      fontWeight: 'bold' 
-  },
-  backBtn: { 
-      padding: 10, 
-      backgroundColor: '#1A1A1A', 
-      borderRadius: 8, 
-      justifyContent: 'center', 
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: '#222'
-  },
+  header: { paddingTop: Platform.OS === 'web' ? 20 : 60, paddingHorizontal: 20, paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  headerTitle: { color: '#FFF', fontSize: 22, fontWeight: '900' },
+  headerSubtitle: { color: '#666', fontSize: 10, letterSpacing: 1, fontWeight: 'bold' },
+  backBtn: { padding: 10, backgroundColor: '#1A1A1A', borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A1A', marginHorizontal: 20, marginBottom: 20, paddingHorizontal: 15, height: 50, borderRadius: 12, borderWidth: 1, borderColor: '#222' },
+  searchInput: { flex: 1, color: '#FFF', marginLeft: 10, fontWeight: 'bold', outlineStyle: 'none' },
+  catTab: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, marginRight: 10, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
+  catTabActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
+  catTabText: { color: '#666', fontWeight: 'bold', fontSize: 12 },
+  catTabTextActive: { color: '#000' },
+  categoryCover: { height: 120, width: '100%', justifyContent: 'flex-end', overflow: 'hidden' },
+  coverOverlay: { backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, height: '100%', justifyContent: 'flex-end', borderRadius: 20 },
+  coverTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
+  coverCount: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
+  exerciseCard: { backgroundColor: '#111', borderRadius: 15, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#1a1a1a' },
+  cardInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBox: { width: 40, height: 40, backgroundColor: '#000', borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
+  exerciseName: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
+  exerciseSub: { color: '#444', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
+  videoPlayBtn: { width: 35, height: 35, backgroundColor: '#CCFF00', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15, marginTop: 10, borderTopWidth: 1, borderTopColor: '#1a1a1a', paddingTop: 10 },
+  actionBtn: { padding: 5 },
+  fab: { position: 'absolute', bottom: 30, right: 20, width: 65, height: 65, borderRadius: 33, backgroundColor: '#CCFF00', justifyContent: 'center', alignItems: 'center', elevation: 8, zIndex: 999 },
+  emptyText: { color:'#666', textAlign:'center', marginTop:50, fontStyle:'italic' },
+  modalContent: { flex: 1, backgroundColor: '#000' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#111' },
+  modalTitle: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+  label: { color: '#444', fontSize: 10, fontWeight: 'bold', marginTop: 20, marginBottom: 8 },
+  input: { backgroundColor: '#111', borderRadius: 12, padding: 15, color: '#FFF', fontWeight: 'bold', borderWidth: 1, borderColor: '#222' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
+  chipActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
+  chipText: { color: '#666', fontSize: 11, fontWeight: 'bold' },
+  saveBtn: { backgroundColor: '#CCFF00', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 30 },
+  saveBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
   
-  searchBox: { 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      backgroundColor: '#1A1A1A', 
-      marginHorizontal: 20, 
-      marginBottom: 20, 
-      paddingHorizontal: 15, 
-      height: 50, 
-      borderRadius: 12, 
-      borderWidth: 1, 
-      borderColor: '#222' 
-  },
-  searchInput: { 
-      flex: 1, 
-      color: '#FFF', 
-      marginLeft: 10, 
-      fontWeight: 'bold', 
-      outlineStyle: 'none' 
-  },
-
-  catTab: { 
-      paddingHorizontal: 20, 
-      paddingVertical: 8, 
-      borderRadius: 20, 
-      marginRight: 10, 
-      backgroundColor: '#111', 
-      borderWidth: 1, 
-      borderColor: '#222' 
-  },
-  catTabActive: { 
-      backgroundColor: '#CCFF00', 
-      borderColor: '#CCFF00' 
-  },
-  catTabText: { 
-      color: '#666', 
-      fontWeight: 'bold', 
-      fontSize: 12 
-  },
-  catTabTextActive: { 
-      color: '#000' 
-  },
-
-  categoryCover: { 
-      height: 120, 
-      width: '100%', 
-      justifyContent: 'flex-end', 
-      overflow: 'hidden' 
-  },
-  coverOverlay: { 
-      backgroundColor: 'rgba(0,0,0,0.6)', 
-      padding: 15, 
-      height: '100%', 
-      justifyContent: 'flex-end', 
-      borderRadius: 20 
-  },
-  coverTitle: { 
-      color: '#FFF', 
-      fontSize: 24, 
-      fontWeight: '900' 
-  },
-  coverCount: { 
-      color: '#CCFF00', 
-      fontSize: 10, 
-      fontWeight: 'bold', 
-      marginTop: 2 
-  },
-
-  exerciseCard: { 
-      backgroundColor: '#111', 
-      borderRadius: 15, 
-      padding: 15, 
-      marginBottom: 15, 
-      borderWidth: 1, 
-      borderColor: '#1a1a1a' 
-  },
-  cardInfo: { 
-      flexDirection: 'row', 
-      alignItems: 'center', 
-      gap: 12 
-  },
-  iconBox: { 
-      width: 40, 
-      height: 40, 
-      backgroundColor: '#000', 
-      borderRadius: 10, 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      borderWidth: 1, 
-      borderColor: '#222' 
-  },
-  exerciseName: { 
-      color: '#FFF', 
-      fontSize: 14, 
-      fontWeight: 'bold' 
-  },
-  exerciseSub: { 
-      color: '#444', 
-      fontSize: 10, 
-      fontWeight: 'bold', 
-      marginTop: 2 
-  },
-  videoPlayBtn: { 
-      width: 35, 
-      height: 35, 
-      backgroundColor: '#CCFF00', 
-      borderRadius: 10, 
-      justifyContent: 'center', 
-      alignItems: 'center' 
-  },
-  
-  cardActions: { 
-      flexDirection: 'row', 
-      justifyContent: 'flex-end', 
-      gap: 15, 
-      marginTop: 10, 
-      borderTopWidth: 1, 
-      borderTopColor: '#1a1a1a', 
-      paddingTop: 10 
-  },
-  actionBtn: { 
-      padding: 5 
-  },
-
-  fab: { 
-      position: 'absolute', 
-      bottom: 30, 
-      right: 20, 
-      width: 65, 
-      height: 65, 
-      borderRadius: 33, 
-      backgroundColor: '#CCFF00', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      elevation: 8, 
-      zIndex: 999 
-  },
-  
-  emptyText: { 
-      color:'#666', 
-      textAlign:'center', 
-      marginTop:50, 
-      fontStyle:'italic' 
-  },
-
-  modalContent: { 
-      flex: 1, 
-      backgroundColor: '#000' 
-  },
-  modalHeader: { 
-      flexDirection: 'row', 
-      justifyContent: 'space-between', 
-      padding: 20, 
-      borderBottomWidth: 1, 
-      borderBottomColor: '#111' 
-  },
-  modalTitle: { 
-      color: '#FFF', 
-      fontSize: 16, 
-      fontWeight: '900' 
-  },
-  label: { 
-      color: '#444', 
-      fontSize: 10, 
-      fontWeight: 'bold', 
-      marginTop: 20, 
-      marginBottom: 8 
-  },
-  input: { 
-      backgroundColor: '#111', 
-      borderRadius: 12, 
-      padding: 15, 
-      color: '#FFF', 
-      fontWeight: 'bold', 
-      borderWidth: 1, 
-      borderColor: '#222' 
-  },
-  chipRow: { 
-      flexDirection: 'row', 
-      flexWrap: 'wrap', 
-      gap: 8 
-  },
-  chip: { 
-      paddingHorizontal: 12, 
-      paddingVertical: 6, 
-      borderRadius: 8, 
-      backgroundColor: '#111', 
-      borderWidth: 1, 
-      borderColor: '#222' 
-  },
-  chipActive: { 
-      backgroundColor: '#CCFF00', 
-      borderColor: '#CCFF00' 
-  },
-  chipText: { 
-      color: '#666', 
-      fontSize: 11, 
-      fontWeight: 'bold' 
-  },
-  saveBtn: { 
-      backgroundColor: '#CCFF00', 
-      padding: 20, 
-      borderRadius: 15, 
-      alignItems: 'center', 
-      marginTop: 30 
-  },
-  saveBtnText: { 
-      color: '#000', 
-      fontWeight: '900', 
-      fontSize: 14 
-  },
-
-  videoBackdrop: { 
-      flex: 1, 
-      backgroundColor: '#000', 
-      justifyContent: 'center' 
-  },
-  fullVideo: { 
-      width: '100%', 
-      height: '80%' 
-  },
-  closeFullVideo: { 
-      position: 'absolute', 
-      right: 20, 
-      zIndex: 10 
-  },
+  // 🔥 ESTILOS MODERNOS DO MODAL DE VÍDEO
+  videoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  videoContainerModern: { width: '100%', maxWidth: 800, aspectRatio: 16/9, backgroundColor: '#000', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#333' },
+  videoHeaderModern: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: 'rgba(20,20,20,0.95)', borderBottomWidth: 1, borderBottomColor: '#333' },
+  videoTitleModern: { color: '#FFF', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
+  closeBtnModern: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#CCFF00', justifyContent: 'center', alignItems: 'center' },
+  videoWrapper: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
+  fullVideo: { width: '100%', height: '100%' },
 });

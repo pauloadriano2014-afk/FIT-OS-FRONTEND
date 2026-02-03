@@ -512,36 +512,37 @@ const submitFinish = async () => {
 
       <Modal visible={calcModalVisible} transparent animationType="slide"><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}><View style={styles.modalContent}><View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:15, alignItems:'center'}}><Text style={styles.modalTitle}>ESTIMATIVA DE CARGA (1RM)</Text><TouchableOpacity onPress={()=>setCalcModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF"/></TouchableOpacity></View><Text style={{color:'#888', marginBottom:20, fontSize:13}}>Insira um peso e repetições que você já fez para descobrir a carga ideal.</Text><View style={{flexDirection:'row', gap:15, marginBottom:20}}><View style={{flex:1}}><Text style={styles.label}>CARGA JÁ FEITA (KG)</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcWeight} onChangeText={setCalcWeight} placeholder="Ex: 50" placeholderTextColor="#333"/></View><View style={{flex:1}}><Text style={styles.label}>REPS FEITAS</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcReps} onChangeText={setCalcReps} placeholder="Ex: 10" placeholderTextColor="#333"/></View></View>{oneRM > 0 && <View style={styles.resultBox}><Text style={styles.rmLabel}>{oneRM} KG <Text style={{fontSize:12, color:'#666'}}>MÁXIMO TEÓRICO</Text></Text><View style={{width:'100%', gap:12, marginTop:10}}><View style={styles.resRow}><Text style={styles.pLabel}>Para Hipertrofia (8-12 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.75)} kg</Text></View><View style={styles.resRow}><Text style={styles.pLabel}>Para Força (1-5 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.90)} kg</Text></View></View></View>}</View></KeyboardAvoidingView></Modal>
       
-      {/* --- MODAL DE VÍDEO BLINDADO (SUBSTITUIR O ANTIGO) --- */}
+      {/* 🔥🔥🔥 MODAL DE VÍDEO NOVO ESTILO (MODERNIZADO) 🔥🔥🔥 */}
       <Modal 
         visible={videoModalVisible} 
-        animationType="slide" 
+        animationType="fade" 
         transparent
         onRequestClose={() => {
             setVideoModalVisible(false);
-            setCurrentVideoUrl(null); // 🔥 Limpa a URL para matar o processo do vídeo
+            setCurrentVideoUrl(null);
         }}
       >
         <View style={styles.videoOverlay}>
-            <SafeAreaView style={{flex:1}}>
-                <View style={styles.videoHeader}>
-                    <Text style={styles.videoHeaderTitle}>VÍDEO TÉCNICO</Text>
-                    <TouchableOpacity onPress={() => {
-                        setVideoModalVisible(false);
-                        setCurrentVideoUrl(null); // 🔥 Importante: Limpar ao fechar
-                    }}>
-                        <MaterialCommunityIcons name="close" size={28} color="#FFF"/>
-                    </TouchableOpacity>
-                </View>
-                
-                <View style={styles.playerContainer}>
-                    {/* 🔥 SEGURANÇA MÁXIMA: O componente Video só nasce se tiver URL e o modal estiver aberto */}
+            {/* BOTÃO FLUTUANTE DE FECHAR (ESTILO NETFLIX/YOUTUBE MOBILE) */}
+            <TouchableOpacity 
+                style={styles.closeVideoBtnModern}
+                onPress={() => {
+                    setVideoModalVisible(false);
+                    setCurrentVideoUrl(null);
+                }}
+            >
+                <MaterialCommunityIcons name="close" size={24} color="#000" />
+            </TouchableOpacity>
+
+            {/* CONTAINER CENTRALIZADO DO VÍDEO */}
+            <View style={styles.videoContainerModern}>
+                <View style={styles.videoWrapperModern}>
                     {videoModalVisible && currentVideoUrl ? (
                         <>
                             {videoLoading && <ActivityIndicator color="#CCFF00" size="large" style={styles.videoAbsoluteLoader} />}
                             <Video 
                                 ref={videoRef} 
-                                style={styles.videoPlayer} 
+                                style={styles.videoPlayerModern} 
                                 source={{ uri: currentVideoUrl }} 
                                 useNativeControls 
                                 resizeMode={ResizeMode.CONTAIN} 
@@ -551,14 +552,13 @@ const submitFinish = async () => {
                                 onLoad={() => setVideoLoading(false)} 
                                 onError={(e) => {
                                     setVideoLoading(false);
-                                    // console.log("Erro video:", e); // Opcional
                                     Alert.alert("Aviso", "Não foi possível carregar o vídeo. Verifique sua conexão.");
                                 }}
                             />
                         </>
                     ) : null}
                 </View>
-            </SafeAreaView>
+            </View>
         </View>
       </Modal>
     </SafeAreaView>
@@ -619,12 +619,21 @@ const styles = StyleSheet.create({
   feedbackInput: { backgroundColor: '#050505', color: '#FFF', padding: 15, borderRadius: 10, height: 80, textAlignVertical: 'top', borderWidth: 1, borderColor: '#222' },
   finishConfirmBtn: { backgroundColor: '#CCFF00', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   finishConfirmText: { color: '#000', fontWeight: '900', fontSize: 14 },
-  videoOverlay: { flex: 1, backgroundColor: '#000' },
+  
+  // 🔥 ESTILOS MODERNOS DO VÍDEO
+  videoOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   videoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 40 },
   videoHeaderTitle: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
   playerContainer: { flex: 1, justifyContent: 'center' },
   videoPlayer: { width: width, height: width * 1.77 },
-  videoAbsoluteLoader: { position: 'absolute', zIndex: 1 },
+  
+  // Novos Estilos
+  videoContainerModern: { width: '100%', aspectRatio: 16/9, backgroundColor: '#000', justifyContent:'center', alignItems:'center' },
+  videoWrapperModern: { width: '100%', height: '100%', backgroundColor: '#000' },
+  videoPlayerModern: { width: '100%', height: '100%' },
+  videoAbsoluteLoader: { position: 'absolute', top: '45%', left: '45%', zIndex: 10 },
+  closeVideoBtnModern: { position: 'absolute', top: 50, right: 20, zIndex: 99, backgroundColor: '#CCFF00', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.8, shadowRadius: 2, elevation: 5 },
+
   shareContainer: { flex: 1, width: '100%', height: '100%' },
   shareOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'space-between', paddingVertical: 60, paddingHorizontal: 30 },
   shareHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
