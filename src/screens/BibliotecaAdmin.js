@@ -21,7 +21,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-// --- CONFIGURAÇÃO DAS CAPAS E CATEGORIAS ---
 const categoryCovers = {
   "Peito": "https://i.imgur.com/lQBvvJ9.jpeg",
   "Costas": "https://i.imgur.com/pZKX9Iw.png",
@@ -43,7 +42,6 @@ const categories = [
     'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
 ];
 
-// --- COMPONENTE DO CARD ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
     return (
         <View style={[styles.exerciseCard, { width: width }]}>
@@ -107,7 +105,6 @@ export default function BibliotecaAdmin({ navigation }) {
   });
   const [saving, setSaving] = useState(false);
 
-  // Estados do Modal de Vídeo Moderno
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
 
@@ -141,10 +138,8 @@ export default function BibliotecaAdmin({ navigation }) {
     }
   };
 
-  // 🔥 EXCLUSÃO SEGURA (WEB COMPATIBLE)
   const handleDelete = useCallback((id) => {
       if(Platform.OS === 'web') {
-          // Window.confirm bloqueia a thread na Web, garantindo que o usuário responda
           const confirmDelete = window.confirm("Deseja realmente apagar este exercício?");
           if (confirmDelete) {
               deleteItem(id);
@@ -159,20 +154,20 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const deleteItem = async (id) => {
       try {
-          // Tenta excluir (primeiro rota admin, fallback rota normal)
-          let res = await fetch(`https://fitos-final.onrender.com/api/admin/exercise?id=${id}`, { method: 'DELETE' });
-          if (!res.ok) {
-             res = await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { method: 'DELETE' });
-          }
+          // Tenta excluir (primeiro rota normal, fallback rota admin)
+          // Ajustado para garantir que o ID é passado corretamente
+          const url = `https://fitos-final.onrender.com/api/exercise?id=${id}`;
+          
+          const res = await fetch(url, { method: 'DELETE' });
           
           if (res.ok) {
-              // Remove da lista visualmente na hora
               setExercises(prev => prev.filter(item => item.id !== id));
-              // Atualiza do servidor em background
               fetchLibrary(); 
               if(Platform.OS !== 'web') Alert.alert("Sucesso", "Exercício removido.");
           } else {
-              Alert.alert("Erro", "Não foi possível excluir o exercício.");
+              const errorText = await res.text();
+              console.log("Erro ao excluir:", errorText);
+              Alert.alert("Erro", "Não foi possível excluir: " + (errorText || "Erro desconhecido"));
           }
       } catch (e) { 
           Alert.alert("Erro de Conexão", "Verifique sua internet."); 
@@ -348,7 +343,7 @@ export default function BibliotecaAdmin({ navigation }) {
           </View>
         </Modal>
 
-        {/* 🔥 MODAL DE VÍDEO MODERNIZADO (SEM EXPO-BLUR) 🔥 */}
+        {/* MODAL DE VÍDEO MODERNIZADO - ADMIN */}
         <Modal visible={videoModalVisible} transparent animationType="fade" onRequestClose={() => setVideoModalVisible(false)}>
           <View style={styles.videoBackdrop}>
              <View style={styles.videoContainerModern}>
@@ -415,7 +410,7 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#CCFF00', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 30 },
   saveBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
   
-  // 🔥 ESTILOS MODERNOS DO MODAL DE VÍDEO (SEM BLUR)
+  // ESTILOS DE VÍDEO
   videoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   videoContainerModern: { width: '100%', maxWidth: 800, aspectRatio: 16/9, backgroundColor: '#000', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#333' },
   videoHeaderModern: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#111', borderBottomWidth: 1, borderBottomColor: '#333' },

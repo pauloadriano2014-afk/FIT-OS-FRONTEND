@@ -13,7 +13,7 @@ import { ExerciseCard } from '../components/ExerciseCard';
 import ViewShot from "react-native-view-shot";
 import * as Sharing from 'expo-sharing';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const FOCUS_NAMES = {
     'A': 'Superiores', 'B': 'Costas & Bíceps', 'C': 'Pernas Completo',
@@ -477,23 +477,16 @@ const submitFinish = async () => {
                                 <Text style={styles.statValue}>+{sessionStats.xp}</Text>
                                 <Text style={styles.statLabel}>XP GANHO</Text>
                             </View>
-
                             <View style={[styles.statBox, {borderLeftWidth:1, borderRightWidth:1, borderColor:'#222'}]}>
                                 <Text style={styles.statValue}>{sessionStats.time}</Text>
                                 <Text style={styles.statLabel}>TEMPO</Text>
                             </View>
-
                             <View style={styles.statBox}>
-                            <Text 
-                                style={[styles.statValue, { fontSize: 13, color: '#CCFF00' }]} 
-                                numberOfLines={1}
-                                adjustsFontSizeToFit={true} // 🔥 Ajusta fonte se necessário
-                                minimumFontScale={0.5}
-                            >
-                                {sessionStats.rpeLabel || 'MÁXIMO'}
-                            </Text>
-                            <Text style={styles.statLabel}>ESFORÇO</Text>
-                        </View>
+                                <Text style={[styles.statValue, { fontSize: 13, color: '#CCFF00' }]} numberOfLines={1} adjustsFontSizeToFit={true} minimumFontScale={0.5}>
+                                    {sessionStats.rpeLabel || 'MÁXIMO'}
+                                </Text>
+                                <Text style={styles.statLabel}>ESFORÇO</Text>
+                            </View>
                         </View>
                     </View>
                 </ViewShot>
@@ -512,7 +505,13 @@ const submitFinish = async () => {
 
       <Modal visible={calcModalVisible} transparent animationType="slide"><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}><View style={styles.modalContent}><View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:15, alignItems:'center'}}><Text style={styles.modalTitle}>ESTIMATIVA DE CARGA (1RM)</Text><TouchableOpacity onPress={()=>setCalcModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF"/></TouchableOpacity></View><Text style={{color:'#888', marginBottom:20, fontSize:13}}>Insira um peso e repetições que você já fez para descobrir a carga ideal.</Text><View style={{flexDirection:'row', gap:15, marginBottom:20}}><View style={{flex:1}}><Text style={styles.label}>CARGA JÁ FEITA (KG)</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcWeight} onChangeText={setCalcWeight} placeholder="Ex: 50" placeholderTextColor="#333"/></View><View style={{flex:1}}><Text style={styles.label}>REPS FEITAS</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcReps} onChangeText={setCalcReps} placeholder="Ex: 10" placeholderTextColor="#333"/></View></View>{oneRM > 0 && <View style={styles.resultBox}><Text style={styles.rmLabel}>{oneRM} KG <Text style={{fontSize:12, color:'#666'}}>MÁXIMO TEÓRICO</Text></Text><View style={{width:'100%', gap:12, marginTop:10}}><View style={styles.resRow}><Text style={styles.pLabel}>Para Hipertrofia (8-12 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.75)} kg</Text></View><View style={styles.resRow}><Text style={styles.pLabel}>Para Força (1-5 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.90)} kg</Text></View></View></View>}</View></KeyboardAvoidingView></Modal>
       
-      {/* 🔥🔥🔥 MODAL DE VÍDEO NOVO ESTILO (MODERNIZADO) 🔥🔥🔥 */}
+      {/* 🔥🔥🔥 MODAL DE VÍDEO NOVO ESTILO (NETFLIX/YOUTUBE MOBILE) 🔥🔥🔥 */}
+      {/* Ajustes: 
+          1. Fundo escuro translúcido.
+          2. Container de vídeo ocupando 80% da altura e 100% da largura.
+          3. ResizeMode CONTAIN para não cortar vídeos verticais.
+          4. Botão de fechar flutuante.
+      */}
       <Modal 
         visible={videoModalVisible} 
         animationType="fade" 
@@ -522,10 +521,9 @@ const submitFinish = async () => {
             setCurrentVideoUrl(null);
         }}
       >
-        <View style={styles.videoOverlay}>
-            {/* BOTÃO FLUTUANTE DE FECHAR (ESTILO NETFLIX/YOUTUBE MOBILE) */}
+        <View style={styles.videoOverlayModern}>
             <TouchableOpacity 
-                style={styles.closeVideoBtnModern}
+                style={styles.closeVideoBtnModern} 
                 onPress={() => {
                     setVideoModalVisible(false);
                     setCurrentVideoUrl(null);
@@ -534,30 +532,27 @@ const submitFinish = async () => {
                 <MaterialCommunityIcons name="close" size={24} color="#000" />
             </TouchableOpacity>
 
-            {/* CONTAINER CENTRALIZADO DO VÍDEO */}
-            <View style={styles.videoContainerModern}>
-                <View style={styles.videoWrapperModern}>
-                    {videoModalVisible && currentVideoUrl ? (
-                        <>
-                            {videoLoading && <ActivityIndicator color="#CCFF00" size="large" style={styles.videoAbsoluteLoader} />}
-                            <Video 
-                                ref={videoRef} 
-                                style={styles.videoPlayerModern} 
-                                source={{ uri: currentVideoUrl }} 
-                                useNativeControls 
-                                resizeMode={ResizeMode.CONTAIN} 
-                                shouldPlay 
-                                isLooping 
-                                onLoadStart={() => setVideoLoading(true)}
-                                onLoad={() => setVideoLoading(false)} 
-                                onError={(e) => {
-                                    setVideoLoading(false);
-                                    Alert.alert("Aviso", "Não foi possível carregar o vídeo. Verifique sua conexão.");
-                                }}
-                            />
-                        </>
-                    ) : null}
-                </View>
+            <View style={styles.videoWrapperModern}>
+                {videoModalVisible && currentVideoUrl ? (
+                    <>
+                        {videoLoading && <ActivityIndicator color="#CCFF00" size="large" style={styles.videoAbsoluteLoader} />}
+                        <Video 
+                            ref={videoRef} 
+                            style={styles.videoPlayerModern} 
+                            source={{ uri: currentVideoUrl }} 
+                            useNativeControls 
+                            resizeMode={ResizeMode.CONTAIN} 
+                            shouldPlay 
+                            isLooping 
+                            onLoadStart={() => setVideoLoading(true)}
+                            onLoad={() => setVideoLoading(false)} 
+                            onError={(e) => {
+                                setVideoLoading(false);
+                                Alert.alert("Aviso", "Não foi possível carregar o vídeo. Verifique sua conexão.");
+                            }}
+                        />
+                    </>
+                ) : null}
             </View>
         </View>
       </Modal>
@@ -620,18 +615,13 @@ const styles = StyleSheet.create({
   finishConfirmBtn: { backgroundColor: '#CCFF00', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   finishConfirmText: { color: '#000', fontWeight: '900', fontSize: 14 },
   
-  // 🔥 ESTILOS MODERNOS DO VÍDEO
-  videoOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
-  videoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, paddingTop: 40 },
-  videoHeaderTitle: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
-  playerContainer: { flex: 1, justifyContent: 'center' },
-  videoPlayer: { width: width, height: width * 1.77 },
-  
-  // Novos Estilos
-  videoContainerModern: { width: '100%', aspectRatio: 16/9, backgroundColor: '#000', justifyContent:'center', alignItems:'center' },
-  videoWrapperModern: { width: '100%', height: '100%', backgroundColor: '#000' },
+  // 🔥 NOVOS ESTILOS PARA O MODAL DE VÍDEO (SEM BLUR, FULLSCREEN STYLE)
+  videoOverlayModern: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
+  // 80% da altura e 100% da largura para ocupar bem a tela
+  videoWrapperModern: { width: '100%', height: '80%', backgroundColor: '#000', overflow: 'hidden' }, 
   videoPlayerModern: { width: '100%', height: '100%' },
   videoAbsoluteLoader: { position: 'absolute', top: '45%', left: '45%', zIndex: 10 },
+  // Botão flutuante
   closeVideoBtnModern: { position: 'absolute', top: 50, right: 20, zIndex: 99, backgroundColor: '#CCFF00', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.8, shadowRadius: 2, elevation: 5 },
 
   shareContainer: { flex: 1, width: '100%', height: '100%' },
@@ -642,37 +632,10 @@ const styles = StyleSheet.create({
   shareCardVisual: { backgroundColor: '#111', padding: 25, borderRadius: 30, alignItems: 'center', width: '100%', borderWidth: 1, borderColor: '#333', shadowColor: '#CCFF00', shadowOpacity: 0.2, shadowRadius: 20 },
   shareTitle: { color: '#FFF', fontSize: 42, fontWeight: '900', textAlign: 'center', lineHeight: 42, marginBottom: 10 },
   shareSubtitle: { color: '#AAA', fontSize: 14, fontWeight: 'bold', letterSpacing: 2, marginBottom: 40 },
-  statsRow: { 
-    flexDirection: 'row', 
-    width: '100%', 
-    justifyContent: 'space-between', 
-    backgroundColor: '#000', 
-    paddingVertical: 20, 
-    paddingHorizontal: 10, 
-    borderRadius: 20, 
-    borderWidth: 1, 
-    borderColor: '#333',
-    marginTop: 20
-  },
-  statBox: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center',
-    paddingHorizontal: 8
-  },
-  statValue: { 
-    color: '#FFF', 
-    fontSize: 14, 
-    fontWeight: '900',
-    textAlign: 'center'
-  },
-  statLabel: { 
-    color: '#666', 
-    fontSize: 8, 
-    fontWeight: 'bold', 
-    marginTop: 5,
-    textTransform: 'uppercase'
-  },
+  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-between', backgroundColor: '#000', paddingVertical: 20, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#333', marginTop: 20 },
+  statBox: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  statValue: { color: '#FFF', fontSize: 14, fontWeight: '900', textAlign: 'center' },
+  statLabel: { color: '#666', fontSize: 8, fontWeight: 'bold', marginTop: 5, textTransform: 'uppercase' },
   shareFooter: { alignItems: 'center', gap: 15 },
   shareBtnReal: { flexDirection: 'row', backgroundColor: '#FFF', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 30, alignItems: 'center', gap: 10 },
   shareBtnText: { color: '#000', fontWeight: '900', fontSize: 12 },
