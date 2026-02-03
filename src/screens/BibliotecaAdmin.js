@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-import { SafeAreaView } from 'react-native-safe-area-context';
+// 🔥 Hook essencial para topos de iPhone e Android
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- CONFIG DAS CAPAS ---
 const categoryCovers = {
@@ -26,28 +27,8 @@ const SPACING = 15;
 const HORIZONTAL_PADDING = 20; 
 const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
 
-// --- HELPERS ORIGINAIS ---
-const isYoutubeUrl = (url) => url && (url.includes('youtube.com') || url.includes('youtu.be'));
-const getYoutubeId = (url) => {
-    if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-};
-const getCloudflareThumb = (url) => {
-    if (url && url.includes('cloudflarestream.com')) {
-        const videoId = url.split('cloudflarestream.com/')[1].split('/')[0];
-        return `https://customer-2q2ev93325619920.cloudflarestream.com/${videoId}/thumbnails/thumbnail.jpg`;
-    }
-    return null;
-};
-
 // --- CARD COMPONENT ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
-    const isYT = isYoutubeUrl(item.videoUrl);
-    const ytId = isYT ? getYoutubeId(item.videoUrl) : null;
-    // const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : getCloudflareThumb(item.videoUrl);
-
     return (
         <View style={[styles.exerciseCard, { width: width }]}>
           <View style={styles.cardInfo}>
@@ -90,7 +71,11 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 }, (prev, next) => prev.item.id === next.item.id && prev.item.videoUrl === next.item.videoUrl && prev.width === next.width);
 
 export default function BibliotecaAdmin({ navigation }) {
-  const { width } = useWindowDimensions();
+  // 🔥 FIX WEB: Pegamos a altura da janela
+  const { width, height } = useWindowDimensions();
+  // 🔥 FIX IPHONE: Insets para garantir que não corte no notch
+  const insets = useSafeAreaInsets();
+  
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
@@ -103,7 +88,7 @@ export default function BibliotecaAdmin({ navigation }) {
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
 
-  // Responsividade
+  // Responsividade Grid
   const getNumColumns = () => {
       if (width > 1000) return 3; 
       if (width > 700) return 2;  
@@ -111,9 +96,6 @@ export default function BibliotecaAdmin({ navigation }) {
   };
   
   const numColumns = getNumColumns();
-  // 🔥 CORREÇÃO LÓGICA DE ESPAÇAMENTO
-  // Se for 1 coluna, o item ocupa a largura total menos padding
-  // Se for >1, descontamos o gap
   const itemWidth = numColumns > 1 
       ? (width - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / numColumns
       : (width - (HORIZONTAL_PADDING * 2));
@@ -150,20 +132,48 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Erro", "Nome obrigatório");
+      
       setSaving(true);
       try {
-          const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
+          // 🔥 ROTA CORRETA BASEADA NO SEU CÓDIGO DO BACKEND
+          const apiUrl = 'https://fitos-final.onrender.com/api/exercise'; 
+          
+          console.log("Enviando para:", apiUrl);
+
+          const res = await fetch(apiUrl, {
               method: !!formExercise.id ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(formExercise)
           });
-          if (res.ok) {
-              setModalVisible(false);
-              fetchLibrary();
-              Alert.alert("Sucesso", "Operação realizada!");
+
+          // Lemos como texto primeiro para debug seguro
+          const textResponse = await res.text();
+
+          try {
+              const jsonResponse = JSON.parse(textResponse);
+              
+              if (res.ok) {
+                  setModalVisible(false);
+                  fetchLibrary();
+                  Alert.alert("Sucesso", "Operação realizada com sucesso!");
+              } else {
+                  Alert.alert("Erro", jsonResponse.error || "Erro no servidor.");
+              }
+          } catch (jsonError) {
+              console.log("Resposta HTML:", textResponse);
+              if(textResponse.includes("404")) {
+                  Alert.alert("Erro 404", "O servidor na nuvem ainda não tem a rota '/api/exercise'. Você fez o DEPLOY do backend novo?");
+              } else {
+                  Alert.alert("Erro Crítico", "O servidor devolveu um erro inesperado.");
+              }
           }
-      } catch (e) { Alert.alert("Erro", e.message); } 
-      finally { setSaving(false); }
+
+      } catch (e) { 
+          Alert.alert("Erro de Conexão", e.message); 
+      } 
+      finally { 
+          setSaving(false); 
+      }
   };
 
   const openVideoPreview = useCallback((url) => {
@@ -178,14 +188,21 @@ export default function BibliotecaAdmin({ navigation }) {
       return matchText && matchCat;
   });
 
-  const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
-  // 🔥 CORREÇÃO WEB MOBILE: Usar flex: 1 ao invés de 100vh evita problemas com barra de endereço
-  const rootStyle = { flex: 1, backgroundColor: '#000' };
+  // 🔥 CONFIGURAÇÃO DO SCROLL WEB E SAFE AREA
+  const rootStyle = { 
+      flex: 1, 
+      backgroundColor: '#000',
+      // Na Web, altura fixa da janela para o scroll interno funcionar
+      height: Platform.OS === 'web' ? height : '100%',
+      // No Mobile, padding top seguro para não cortar no iPhone
+      paddingTop: Platform.OS === 'web' ? 0 : insets.top
+  };
 
   return (
-    <RootComponent style={rootStyle}>
+    <View style={rootStyle}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         
+        {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
@@ -196,6 +213,7 @@ export default function BibliotecaAdmin({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* BUSCA */}
         <View style={styles.searchBox}>
             <MaterialCommunityIcons name="magnify" size={20} color="#666" />
             <TextInput 
@@ -204,6 +222,7 @@ export default function BibliotecaAdmin({ navigation }) {
             />
         </View>
 
+        {/* CATEGORIAS */}
         <View style={{ height: 45, marginBottom: 15 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {categories.map(cat => (
@@ -218,6 +237,7 @@ export default function BibliotecaAdmin({ navigation }) {
             </ScrollView>
         </View>
 
+        {/* LISTA PRINCIPAL */}
         <View style={{ flex: 1 }}>
             {loading ? <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} /> : (
                 <FlatList
@@ -225,13 +245,13 @@ export default function BibliotecaAdmin({ navigation }) {
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
-                  // 🔥 CORREÇÃO CRÍTICA AQUI:
-                  // Se numColumns for 1, columnWrapperStyle TEM que ser undefined.
-                  // Movemos o paddingHorizontal para o contentContainerStyle.
+                  // 🔥 FIX WEB: flex: 1 aqui garante que o scroll funcione dentro da caixa
+                  style={{ flex: 1 }}
                   columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
                   contentContainerStyle={{ 
                       paddingBottom: 150, 
-                      paddingHorizontal: HORIZONTAL_PADDING 
+                      paddingHorizontal: HORIZONTAL_PADDING,
+                      flexGrow: 1 
                   }}
                   showsVerticalScrollIndicator={false}
                   ListHeaderComponent={
@@ -261,6 +281,7 @@ export default function BibliotecaAdmin({ navigation }) {
             )}
         </View>
 
+        {/* BOTÃO FLUTUANTE (FAB) */}
         <TouchableOpacity style={styles.fab} onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); setModalVisible(true); }}>
             <MaterialCommunityIcons name="plus" size={32} color="#000" />
         </TouchableOpacity>
@@ -268,7 +289,8 @@ export default function BibliotecaAdmin({ navigation }) {
         {/* MODAL CRIAR/EDITAR */}
         <Modal visible={modalVisible} animationType="slide">
           <View style={styles.modalContent}>
-            <SafeAreaView style={{flex:1}}>
+            {/* SAFE AREA PARA MODAL NO IPHONE */}
+            <SafeAreaView style={{flex:1, paddingTop: Platform.OS === 'android' ? 20 : 0}}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{formExercise.id ? 'EDITAR' : 'NOVO EXERCÍCIO'}</Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF" /></TouchableOpacity>
@@ -300,19 +322,21 @@ export default function BibliotecaAdmin({ navigation }) {
         {/* VIDEO PREVIEW */}
         <Modal visible={videoModalVisible} transparent animationType="fade">
           <View style={styles.videoBackdrop}>
-             <TouchableOpacity style={styles.closeFullVideo} onPress={() => setVideoModalVisible(false)}>
+             <TouchableOpacity style={[styles.closeFullVideo, { top: insets.top + 20 }]} onPress={() => setVideoModalVisible(false)}>
                <MaterialCommunityIcons name="close" size={30} color="#FFF" />
              </TouchableOpacity>
-             <Video source={{ uri: currentVideo }} style={styles.fullVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay />
+             {currentVideo && (
+                 <Video source={{ uri: currentVideo }} style={styles.fullVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay />
+             )}
           </View>
         </Modal>
-    </RootComponent>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'web' ? 20 : 10 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 10 },
   backBtn: { width: 40, height: 40, backgroundColor: '#111', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   
@@ -357,5 +381,5 @@ const styles = StyleSheet.create({
 
   videoBackdrop: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
   fullVideo: { width: '100%', height: '80%' },
-  closeFullVideo: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
+  closeFullVideo: { position: 'absolute', right: 20, zIndex: 10 },
 });
