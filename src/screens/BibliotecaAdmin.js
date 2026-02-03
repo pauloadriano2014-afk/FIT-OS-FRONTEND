@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-// 🔥 IMPORTANTE: Usando o hook para garantir o topo perfeito em qualquer iPhone/Android
+// 🔥 Hook essencial para topos de iPhone e Android
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- CONFIG DAS CAPAS ---
@@ -71,8 +71,9 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 }, (prev, next) => prev.item.id === next.item.id && prev.item.videoUrl === next.item.videoUrl && prev.width === next.width);
 
 export default function BibliotecaAdmin({ navigation }) {
-  const { width } = useWindowDimensions();
-  // 🔥 HOOK DE SEGURANÇA VISUAL (Calcula o entalhe do iPhone ou barra do Android)
+  // 🔥 FIX WEB SCROLL: Pegamos a altura da janela
+  const { width, height } = useWindowDimensions();
+  // 🔥 FIX IPHONE: Insets para garantir que não corte no notch
   const insets = useSafeAreaInsets();
   
   const [exercises, setExercises] = useState([]);
@@ -87,7 +88,7 @@ export default function BibliotecaAdmin({ navigation }) {
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
 
-  // Responsividade
+  // Responsividade Grid
   const getNumColumns = () => {
       if (width > 1000) return 3; 
       if (width > 700) return 2;  
@@ -124,25 +125,31 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const deleteItem = async (id) => {
       try {
-          await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { method: 'DELETE' });
+          // 🔥 TENTATIVA DE FIX 404: Usei /admin/exercise aqui também, por precaução
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/exercise?id=${id}`, { method: 'DELETE' });
+          if(!res.ok) {
+             // Se falhar no admin, tenta na rota antiga só pra garantir
+             await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { method: 'DELETE' });
+          }
           fetchLibrary();
       } catch (e) { Alert.alert("Erro ao excluir"); }
   };
 
-  // 🔥🔥🔥 CORREÇÃO DO ERRO DE JSON (TRATAMENTO DE ERRO REAL) 🔥🔥🔥
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Erro", "Nome obrigatório");
       
       setSaving(true);
       try {
-          const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
+          // 🔥🔥🔥 CORREÇÃO DA URL: Adicionei '/admin' pois a rota anterior dava 404
+          const apiUrl = 'https://fitos-final.onrender.com/api/admin/exercise'; 
+          
+          const res = await fetch(apiUrl, {
               method: !!formExercise.id ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(formExercise)
           });
 
-          // Primeiro pegamos o TEXTO, pois se der erro 500, vem HTML, não JSON
-          const textResponse = await res.text();
+          const textResponse = await res.text(); // Lemos como texto para não quebrar se vier HTML
 
           try {
               const jsonResponse = JSON.parse(textResponse);
@@ -155,9 +162,13 @@ export default function BibliotecaAdmin({ navigation }) {
                   Alert.alert("Erro do Servidor", jsonResponse.error || "O servidor recusou os dados.");
               }
           } catch (jsonError) {
-              // Se caiu aqui, é porque o servidor devolveu HTML (Erro fatal ou crash)
-              console.log("Erro HTML Recebido:", textResponse);
-              Alert.alert("Erro Crítico", "O servidor caiu ou devolveu um erro inesperado. Tente uma URL de vídeo menor ou verifique sua conexão.");
+              // Se não for JSON, é erro HTML (404 ou 500)
+              console.log("Resposta HTML:", textResponse);
+              if(textResponse.includes("404")) {
+                  Alert.alert("Erro de Rota (404)", "O endereço da API está incorreto. Contate o suporte.");
+              } else {
+                  Alert.alert("Erro Crítico", "O servidor devolveu um erro inesperado.");
+              }
           }
 
       } catch (e) { 
@@ -180,21 +191,22 @@ export default function BibliotecaAdmin({ navigation }) {
       return matchText && matchCat;
   });
 
-  // Estilo do container principal
+  // Estilo Dinâmico do Container (Web vs Mobile)
   const rootStyle = { 
       flex: 1, 
       backgroundColor: '#000',
-      // Na Web, forçamos a altura da janela para o scroll interno funcionar e o FAB aparecer
-      height: Platform.OS === 'web' ? '100vh' : '100%',
-      // No Mobile, usamos padding top dinâmico baseado no notch (insets.top)
-      paddingTop: Platform.OS !== 'web' ? insets.top : 0
+      // Web: Altura fixa da janela para permitir scroll interno
+      // Mobile: Flex 1 padrão
+      height: Platform.OS === 'web' ? height : '100%',
+      // Mobile: Padding Top seguro (Notch)
+      paddingTop: Platform.OS === 'web' ? 0 : insets.top
   };
 
   return (
     <View style={rootStyle}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         
-        {/* HEADER COM PADDING LATERAL */}
+        {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
@@ -205,6 +217,7 @@ export default function BibliotecaAdmin({ navigation }) {
           </TouchableOpacity>
         </View>
 
+        {/* SEARCH */}
         <View style={styles.searchBox}>
             <MaterialCommunityIcons name="magnify" size={20} color="#666" />
             <TextInput 
@@ -213,6 +226,7 @@ export default function BibliotecaAdmin({ navigation }) {
             />
         </View>
 
+        {/* CATEGORIAS */}
         <View style={{ height: 45, marginBottom: 15 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {categories.map(cat => (
@@ -227,7 +241,7 @@ export default function BibliotecaAdmin({ navigation }) {
             </ScrollView>
         </View>
 
-        {/* CONTAINER DA LISTA - FLEX 1 PARA OCUPAR O RESTO DA TELA */}
+        {/* LISTA DE EXERCÍCIOS */}
         <View style={{ flex: 1 }}>
             {loading ? <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} /> : (
                 <FlatList
@@ -235,7 +249,7 @@ export default function BibliotecaAdmin({ navigation }) {
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
-                  // 🔥 IMPORTANTE PARA WEB: flex: 1 no estilo da lista
+                  // 🔥 WEB FIX: flex: 1 para ativar scroll
                   style={{ flex: 1 }}
                   columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
                   contentContainerStyle={{ 
@@ -271,6 +285,7 @@ export default function BibliotecaAdmin({ navigation }) {
             )}
         </View>
 
+        {/* FAB ADD BUTTON */}
         <TouchableOpacity style={styles.fab} onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); setModalVisible(true); }}>
             <MaterialCommunityIcons name="plus" size={32} color="#000" />
         </TouchableOpacity>
@@ -278,8 +293,8 @@ export default function BibliotecaAdmin({ navigation }) {
         {/* MODAL CRIAR/EDITAR */}
         <Modal visible={modalVisible} animationType="slide">
           <View style={styles.modalContent}>
-            {/* SafeAreaView dentro do Modal para garantir topo no iPhone também */}
-            <SafeAreaView style={{flex:1}}>
+            {/* SAFE AREA DENTRO DO MODAL PARA IPHONE */}
+            <SafeAreaView style={{flex:1, paddingTop: Platform.OS === 'android' ? 20 : 0 }}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{formExercise.id ? 'EDITAR' : 'NOVO EXERCÍCIO'}</Text>
                 <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF" /></TouchableOpacity>
@@ -311,6 +326,7 @@ export default function BibliotecaAdmin({ navigation }) {
         {/* VIDEO PREVIEW */}
         <Modal visible={videoModalVisible} transparent animationType="fade">
           <View style={styles.videoBackdrop}>
+             {/* FECHAR VÍDEO NO LUGAR CERTO */}
              <TouchableOpacity style={[styles.closeFullVideo, { top: insets.top + 20 }]} onPress={() => setVideoModalVisible(false)}>
                <MaterialCommunityIcons name="close" size={30} color="#FFF" />
              </TouchableOpacity>
@@ -370,5 +386,5 @@ const styles = StyleSheet.create({
 
   videoBackdrop: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
   fullVideo: { width: '100%', height: '80%' },
-  closeFullVideo: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
+  closeFullVideo: { position: 'absolute', right: 20, zIndex: 10 },
 });
