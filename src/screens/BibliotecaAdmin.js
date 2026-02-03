@@ -5,7 +5,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-import { SafeAreaView } from 'react-native-safe-area-context';
+// 🔥 IMPORTANTE: Usando o hook para garantir o topo perfeito em qualquer iPhone/Android
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- CONFIG DAS CAPAS ---
 const categoryCovers = {
@@ -25,15 +26,6 @@ const categoryCovers = {
 const SPACING = 15; 
 const HORIZONTAL_PADDING = 20; 
 const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
-
-// --- HELPERS ORIGINAIS ---
-const isYoutubeUrl = (url) => url && (url.includes('youtube.com') || url.includes('youtu.be'));
-const getYoutubeId = (url) => {
-    if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
-};
 
 // --- CARD COMPONENT ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
@@ -80,6 +72,9 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 
 export default function BibliotecaAdmin({ navigation }) {
   const { width } = useWindowDimensions();
+  // 🔥 HOOK DE SEGURANÇA VISUAL (Calcula o entalhe do iPhone ou barra do Android)
+  const insets = useSafeAreaInsets();
+  
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
@@ -134,6 +129,7 @@ export default function BibliotecaAdmin({ navigation }) {
       } catch (e) { Alert.alert("Erro ao excluir"); }
   };
 
+  // 🔥🔥🔥 CORREÇÃO DO ERRO DE JSON (TRATAMENTO DE ERRO REAL) 🔥🔥🔥
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Erro", "Nome obrigatório");
       
@@ -145,15 +141,25 @@ export default function BibliotecaAdmin({ navigation }) {
               body: JSON.stringify(formExercise)
           });
 
-          const jsonResponse = await res.json(); 
+          // Primeiro pegamos o TEXTO, pois se der erro 500, vem HTML, não JSON
+          const textResponse = await res.text();
 
-          if (res.ok) {
-              setModalVisible(false);
-              fetchLibrary();
-              Alert.alert("Sucesso", "Operação realizada!");
-          } else {
-              Alert.alert("Erro ao Salvar", jsonResponse.error || "Ocorreu um erro no servidor.");
+          try {
+              const jsonResponse = JSON.parse(textResponse);
+              
+              if (res.ok) {
+                  setModalVisible(false);
+                  fetchLibrary();
+                  Alert.alert("Sucesso", "Operação realizada com sucesso!");
+              } else {
+                  Alert.alert("Erro do Servidor", jsonResponse.error || "O servidor recusou os dados.");
+              }
+          } catch (jsonError) {
+              // Se caiu aqui, é porque o servidor devolveu HTML (Erro fatal ou crash)
+              console.log("Erro HTML Recebido:", textResponse);
+              Alert.alert("Erro Crítico", "O servidor caiu ou devolveu um erro inesperado. Tente uma URL de vídeo menor ou verifique sua conexão.");
           }
+
       } catch (e) { 
           Alert.alert("Erro de Conexão", e.message); 
       } 
@@ -174,20 +180,21 @@ export default function BibliotecaAdmin({ navigation }) {
       return matchText && matchCat;
   });
 
-  const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
-  
-  // 🔥 CORREÇÃO WEB 1: Definir altura como 100vh para ocupar a janela e esconder barra de rolagem DUPLA
+  // Estilo do container principal
   const rootStyle = { 
       flex: 1, 
       backgroundColor: '#000',
+      // Na Web, forçamos a altura da janela para o scroll interno funcionar e o FAB aparecer
       height: Platform.OS === 'web' ? '100vh' : '100%',
-      overflow: 'hidden' 
+      // No Mobile, usamos padding top dinâmico baseado no notch (insets.top)
+      paddingTop: Platform.OS !== 'web' ? insets.top : 0
   };
 
   return (
-    <RootComponent style={rootStyle}>
+    <View style={rootStyle}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         
+        {/* HEADER COM PADDING LATERAL */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
@@ -220,6 +227,7 @@ export default function BibliotecaAdmin({ navigation }) {
             </ScrollView>
         </View>
 
+        {/* CONTAINER DA LISTA - FLEX 1 PARA OCUPAR O RESTO DA TELA */}
         <View style={{ flex: 1 }}>
             {loading ? <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} /> : (
                 <FlatList
@@ -227,13 +235,13 @@ export default function BibliotecaAdmin({ navigation }) {
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
-                  // 🔥 CORREÇÃO WEB 2: style={{ flex: 1 }} OBRIGATÓRIO aqui para ativar o scroll interno
+                  // 🔥 IMPORTANTE PARA WEB: flex: 1 no estilo da lista
                   style={{ flex: 1 }}
                   columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
                   contentContainerStyle={{ 
                       paddingBottom: 150, 
                       paddingHorizontal: HORIZONTAL_PADDING,
-                      flexGrow: 1 // Garante que o container cresça
+                      flexGrow: 1 
                   }}
                   showsVerticalScrollIndicator={false}
                   ListHeaderComponent={
@@ -270,6 +278,7 @@ export default function BibliotecaAdmin({ navigation }) {
         {/* MODAL CRIAR/EDITAR */}
         <Modal visible={modalVisible} animationType="slide">
           <View style={styles.modalContent}>
+            {/* SafeAreaView dentro do Modal para garantir topo no iPhone também */}
             <SafeAreaView style={{flex:1}}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>{formExercise.id ? 'EDITAR' : 'NOVO EXERCÍCIO'}</Text>
@@ -302,7 +311,7 @@ export default function BibliotecaAdmin({ navigation }) {
         {/* VIDEO PREVIEW */}
         <Modal visible={videoModalVisible} transparent animationType="fade">
           <View style={styles.videoBackdrop}>
-             <TouchableOpacity style={styles.closeFullVideo} onPress={() => setVideoModalVisible(false)}>
+             <TouchableOpacity style={[styles.closeFullVideo, { top: insets.top + 20 }]} onPress={() => setVideoModalVisible(false)}>
                <MaterialCommunityIcons name="close" size={30} color="#FFF" />
              </TouchableOpacity>
              {currentVideo && (
@@ -310,13 +319,13 @@ export default function BibliotecaAdmin({ navigation }) {
              )}
           </View>
         </Modal>
-    </RootComponent>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: Platform.OS === 'web' ? 20 : 10 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 10 },
   backBtn: { width: 40, height: 40, backgroundColor: '#111', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   
