@@ -20,7 +20,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BlurView } from 'expo-blur'; // Opcional, para efeito de vidro
 
 // --- CONFIGURAÇÃO DAS CAPAS E CATEGORIAS ---
 const categoryCovers = {
@@ -108,6 +107,7 @@ export default function BibliotecaAdmin({ navigation }) {
   });
   const [saving, setSaving] = useState(false);
 
+  // Estados do Modal de Vídeo Moderno
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
 
@@ -141,10 +141,10 @@ export default function BibliotecaAdmin({ navigation }) {
     }
   };
 
-  // 🔥 CORREÇÃO DA EXCLUSÃO NA WEB E MOBILE
+  // 🔥 EXCLUSÃO SEGURA (WEB COMPATIBLE)
   const handleDelete = useCallback((id) => {
       if(Platform.OS === 'web') {
-          // Na Web, usamos window.confirm que bloqueia a execução até a resposta
+          // Window.confirm bloqueia a thread na Web, garantindo que o usuário responda
           const confirmDelete = window.confirm("Deseja realmente apagar este exercício?");
           if (confirmDelete) {
               deleteItem(id);
@@ -159,22 +159,20 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const deleteItem = async (id) => {
       try {
-          // Tenta na rota nova e na antiga por garantia
+          // Tenta excluir (primeiro rota admin, fallback rota normal)
           let res = await fetch(`https://fitos-final.onrender.com/api/admin/exercise?id=${id}`, { method: 'DELETE' });
-          
           if (!res.ok) {
-             // Fallback para rota antiga se a nova falhar (404)
              res = await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { method: 'DELETE' });
           }
           
           if (res.ok) {
-              // Atualiza a lista localmente para parecer instantâneo
+              // Remove da lista visualmente na hora
               setExercises(prev => prev.filter(item => item.id !== id));
-              // Depois busca do servidor para garantir
+              // Atualiza do servidor em background
               fetchLibrary(); 
               if(Platform.OS !== 'web') Alert.alert("Sucesso", "Exercício removido.");
           } else {
-              Alert.alert("Erro", "Não foi possível excluir.");
+              Alert.alert("Erro", "Não foi possível excluir o exercício.");
           }
       } catch (e) { 
           Alert.alert("Erro de Conexão", "Verifique sua internet."); 
@@ -183,34 +181,44 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
+      
       setSaving(true);
       try {
           const apiUrl = 'https://fitos-final.onrender.com/api/exercise'; 
+          
           const res = await fetch(apiUrl, {
               method: !!formExercise.id ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(formExercise)
           });
+
           const textResponse = await res.text();
+
           try {
               const jsonResponse = JSON.parse(textResponse);
               if (res.ok) {
                   setModalVisible(false);
                   fetchLibrary();
-                  Alert.alert("Sucesso", "Exercício salvo!");
+                  Alert.alert("Sucesso", "Exercício salvo com sucesso!");
               } else {
                   Alert.alert("Atenção", jsonResponse.error || "O servidor recusou os dados.");
               }
           } catch (jsonError) {
-              if(textResponse.includes("404")) Alert.alert("Erro 404", "Rota API não encontrada.");
-              else Alert.alert("Erro Crítico", "Erro no servidor.");
+              if(textResponse.includes("404")) {
+                  Alert.alert("Erro 404", "Rota API não encontrada.");
+              } else {
+                  Alert.alert("Erro Crítico", "Erro no servidor.");
+              }
           }
-      } catch (e) { Alert.alert("Erro de Conexão", e.message); } 
-      finally { setSaving(false); }
+      } catch (e) { 
+          Alert.alert("Erro de Conexão", e.message); 
+      } finally { 
+          setSaving(false); 
+      }
   };
 
   const openVideoPreview = useCallback((url) => {
-      if (!url || url.length < 5) return Alert.alert("Vídeo Indisponível", "Sem link cadastrado.");
+      if (!url || url.length < 5) return Alert.alert("Vídeo Indisponível", "Este exercício não possui vídeo.");
       setCurrentVideo(url);
       setVideoModalVisible(true);
   }, []);
@@ -256,7 +264,11 @@ export default function BibliotecaAdmin({ navigation }) {
         <View style={{ height: 45, marginBottom: 15 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
                 {categories.map(cat => (
-                    <TouchableOpacity key={cat} style={[styles.catTab, selectedCat === cat && styles.catTabActive]} onPress={() => setSelectedCat(cat)}>
+                    <TouchableOpacity 
+                        key={cat} 
+                        style={[styles.catTab, selectedCat === cat && styles.catTabActive]}
+                        onPress={() => setSelectedCat(cat)}
+                    >
                         <Text style={[styles.catTabText, selectedCat === cat && styles.catTabTextActive]}>{cat}</Text>
                     </TouchableOpacity>
                 ))}
@@ -275,7 +287,11 @@ export default function BibliotecaAdmin({ navigation }) {
                   showsVerticalScrollIndicator={false}
                   ListHeaderComponent={
                     <View style={{ marginBottom: 20 }}>
-                        <ImageBackground source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} style={styles.categoryCover} imageStyle={{ borderRadius: 20 }}>
+                        <ImageBackground 
+                            source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} 
+                            style={styles.categoryCover}
+                            imageStyle={{ borderRadius: 20 }}
+                        >
                             <View style={styles.coverOverlay}>
                                 <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
                                 <Text style={styles.coverCount}>{filteredList.length} EXERCÍCIOS</Text>
@@ -284,7 +300,12 @@ export default function BibliotecaAdmin({ navigation }) {
                     </View>
                   }
                   renderItem={({ item }) => (
-                      <ExerciseCard item={item} width={itemWidth} onPress={openVideoPreview} onEdit={(ex) => { setFormExercise(ex); setModalVisible(true); }} onDelete={handleDelete} />
+                      <ExerciseCard 
+                          item={item} width={itemWidth} 
+                          onPress={openVideoPreview}
+                          onEdit={(ex) => { setFormExercise(ex); setModalVisible(true); }}
+                          onDelete={handleDelete}
+                      />
                   )}
                   ListEmptyComponent={<Text style={styles.emptyText}>Nenhum exercício encontrado nesta categoria.</Text>}
                 />
@@ -327,10 +348,9 @@ export default function BibliotecaAdmin({ navigation }) {
           </View>
         </Modal>
 
-        {/* 🔥 MODAL DE VÍDEO MODERNIZADO 🔥 */}
+        {/* 🔥 MODAL DE VÍDEO MODERNIZADO (SEM EXPO-BLUR) 🔥 */}
         <Modal visible={videoModalVisible} transparent animationType="fade" onRequestClose={() => setVideoModalVisible(false)}>
           <View style={styles.videoBackdrop}>
-             {/* Efeito de Vidro ou Fundo Escuro Moderno */}
              <View style={styles.videoContainerModern}>
                  <View style={styles.videoHeaderModern}>
                      <Text style={styles.videoTitleModern}>VISUALIZAÇÃO</Text>
@@ -395,10 +415,10 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: '#CCFF00', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 30 },
   saveBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
   
-  // 🔥 ESTILOS MODERNOS DO MODAL DE VÍDEO
-  videoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  // 🔥 ESTILOS MODERNOS DO MODAL DE VÍDEO (SEM BLUR)
+  videoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   videoContainerModern: { width: '100%', maxWidth: 800, aspectRatio: 16/9, backgroundColor: '#000', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#333' },
-  videoHeaderModern: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: 'rgba(20,20,20,0.95)', borderBottomWidth: 1, borderBottomColor: '#333' },
+  videoHeaderModern: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#111', borderBottomWidth: 1, borderBottomColor: '#333' },
   videoTitleModern: { color: '#FFF', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
   closeBtnModern: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#CCFF00', justifyContent: 'center', alignItems: 'center' },
   videoWrapper: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
