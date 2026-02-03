@@ -79,8 +79,7 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 }, (prev, next) => prev.item.id === next.item.id && prev.item.videoUrl === next.item.videoUrl && prev.width === next.width);
 
 export default function BibliotecaAdmin({ navigation }) {
-  // 🔥 CORREÇÃO WEB: Pegamos a altura exata da janela
-  const { width, height } = useWindowDimensions();
+  const { width } = useWindowDimensions();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
@@ -151,7 +150,7 @@ export default function BibliotecaAdmin({ navigation }) {
           if (res.ok) {
               setModalVisible(false);
               fetchLibrary();
-              Alert.alert("Sucesso", "Operação realizada com sucesso!");
+              Alert.alert("Sucesso", "Operação realizada!");
           } else {
               Alert.alert("Erro ao Salvar", jsonResponse.error || "Ocorreu um erro no servidor.");
           }
@@ -177,13 +176,12 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
   
-  // 🔥 CORREÇÃO WEB: Na Web definimos a altura EXATA da janela
-  // No celular usamos '100%' ou flex:1
+  // 🔥 CORREÇÃO WEB 1: Definir altura como 100vh para ocupar a janela e esconder barra de rolagem DUPLA
   const rootStyle = { 
       flex: 1, 
       backgroundColor: '#000',
-      height: Platform.OS === 'web' ? height : '100%',
-      overflow: 'hidden' // Garante que nada vaze
+      height: Platform.OS === 'web' ? '100vh' : '100%',
+      overflow: 'hidden' 
   };
 
   return (
@@ -229,10 +227,13 @@ export default function BibliotecaAdmin({ navigation }) {
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
+                  // 🔥 CORREÇÃO WEB 2: style={{ flex: 1 }} OBRIGATÓRIO aqui para ativar o scroll interno
+                  style={{ flex: 1 }}
                   columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
                   contentContainerStyle={{ 
                       paddingBottom: 150, 
-                      paddingHorizontal: HORIZONTAL_PADDING 
+                      paddingHorizontal: HORIZONTAL_PADDING,
+                      flexGrow: 1 // Garante que o container cresça
                   }}
                   showsVerticalScrollIndicator={false}
                   ListHeaderComponent={
