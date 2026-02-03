@@ -1,14 +1,28 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  View, Text, StyleSheet, TouchableOpacity, FlatList, 
-  TextInput, Modal, Image, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView, useWindowDimensions, StatusBar, ImageBackground 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  FlatList, 
+  TextInput, 
+  Modal, 
+  Image, 
+  ActivityIndicator, 
+  Alert, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  useWindowDimensions, 
+  StatusBar, 
+  ImageBackground 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
-// 🔥 Hook essencial para topos de iPhone e Android
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+// 🔥 Importante: Mantendo a consistência com o AdminDashboard
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-// --- CONFIG DAS CAPAS ---
+// --- CONFIGURAÇÃO DAS CAPAS E CATEGORIAS ---
 const categoryCovers = {
   "Peito": "https://i.imgur.com/lQBvvJ9.jpeg",
   "Costas": "https://i.imgur.com/pZKX9Iw.png",
@@ -25,9 +39,12 @@ const categoryCovers = {
 
 const SPACING = 15; 
 const HORIZONTAL_PADDING = 20; 
-const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
+const categories = [
+    'TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 
+    'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
+];
 
-// --- CARD COMPONENT ---
+// --- COMPONENTE DO CARD (MEMOIZADO PARA PERFORMANCE) ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
     return (
         <View style={[styles.exerciseCard, { width: width }]}>
@@ -68,27 +85,37 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
           </View>
         </View>
     );
-}, (prev, next) => prev.item.id === next.item.id && prev.item.videoUrl === next.item.videoUrl && prev.width === next.width);
+}, (prev, next) => {
+    return prev.item.id === next.item.id && 
+           prev.item.videoUrl === next.item.videoUrl && 
+           prev.width === next.width;
+});
 
 export default function BibliotecaAdmin({ navigation }) {
-  // 🔥 FIX WEB: Pegamos a altura da janela
-  const { width, height } = useWindowDimensions();
-  // 🔥 FIX IPHONE: Insets para garantir que não corte no notch
-  const insets = useSafeAreaInsets();
+  // 🔥 HOOKS DE RESPONSIVIDADE
+  const { width } = useWindowDimensions();
   
+  // --- ESTADOS ---
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
   const [selectedCat, setSelectedCat] = useState('TODOS');
   
+  // Estados do Modal de Cadastro/Edição
   const [modalVisible, setModalVisible] = useState(false);
-  const [formExercise, setFormExercise] = useState({ id: null, name: '', category: 'Peito', videoUrl: '' });
+  const [formExercise, setFormExercise] = useState({ 
+      id: null, 
+      name: '', 
+      category: 'Peito', 
+      videoUrl: '' 
+  });
   const [saving, setSaving] = useState(false);
 
+  // Estados do Modal de Vídeo
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
 
-  // Responsividade Grid
+  // --- LÓGICA DE GRID RESPONSIVO ---
   const getNumColumns = () => {
       if (width > 1000) return 3; 
       if (width > 700) return 2;  
@@ -96,28 +123,44 @@ export default function BibliotecaAdmin({ navigation }) {
   };
   
   const numColumns = getNumColumns();
+  
+  // Cálculo exato da largura do card considerando paddings e gaps
   const itemWidth = numColumns > 1 
       ? (width - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / numColumns
       : (width - (HORIZONTAL_PADDING * 2));
 
-  useEffect(() => { fetchLibrary(); }, []);
+  // --- EFEITOS E BUSCA DE DADOS ---
+  useEffect(() => { 
+      fetchLibrary(); 
+  }, []);
 
   const fetchLibrary = async () => {
     setLoading(true);
     try {
+        // Adicionando timestamp para evitar cache
         const res = await fetch('https://fitos-final.onrender.com/api/admin/data?t=' + Date.now());
         const data = await res.json();
-        if (data.exercises) setExercises(data.exercises.reverse()); 
-    } catch (error) { console.log(error); } 
-    finally { setLoading(false); }
+        
+        if (data.exercises) {
+            setExercises(data.exercises.reverse()); 
+        }
+    } catch (error) { 
+        console.log("Erro ao buscar biblioteca:", error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
+
+  // --- FUNÇÕES DE AÇÃO ---
 
   const handleDelete = useCallback((id) => {
       if(Platform.OS === 'web') {
-          if(confirm("Deseja realmente apagar este exercício?")) deleteItem(id);
+          if(confirm("Deseja realmente apagar este exercício?")) {
+              deleteItem(id);
+          }
       } else {
-          Alert.alert("Excluir", "Tem certeza?", [
-              { text: "Cancelar" },
+          Alert.alert("Excluir Exercício", "Tem certeza que deseja remover este item permanentemente?", [
+              { text: "Cancelar", style: "cancel" },
               { text: "Sim, apagar", style: 'destructive', onPress: () => deleteItem(id) }
           ]);
       }
@@ -125,20 +168,33 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const deleteItem = async (id) => {
       try {
-          await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { method: 'DELETE' });
-          fetchLibrary();
-      } catch (e) { Alert.alert("Erro ao excluir"); }
+          const res = await fetch(`https://fitos-final.onrender.com/api/exercise?id=${id}`, { 
+              method: 'DELETE' 
+          });
+          
+          if (res.ok) {
+              fetchLibrary();
+          } else {
+              Alert.alert("Erro", "Não foi possível excluir o exercício.");
+          }
+      } catch (e) { 
+          Alert.alert("Erro de Conexão", "Verifique sua internet."); 
+      }
   };
 
+  // 🔥 LÓGICA DE SALVAMENTO BLINDADA (MANTIDA INTEGRALMENTE)
   const handleSaveOrUpdate = async () => {
-      if (!formExercise.name) return Alert.alert("Erro", "Nome obrigatório");
+      if (!formExercise.name) {
+          return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
+      }
       
       setSaving(true);
+      
       try {
-          // 🔥 ROTA CORRETA BASEADA NO SEU CÓDIGO DO BACKEND
+          // Rota da API (ajuste se necessário no backend)
           const apiUrl = 'https://fitos-final.onrender.com/api/exercise'; 
           
-          console.log("Enviando para:", apiUrl);
+          console.log("Tentando salvar em:", apiUrl);
 
           const res = await fetch(apiUrl, {
               method: !!formExercise.id ? 'PUT' : 'POST',
@@ -146,38 +202,45 @@ export default function BibliotecaAdmin({ navigation }) {
               body: JSON.stringify(formExercise)
           });
 
-          // Lemos como texto primeiro para debug seguro
+          // Lemos a resposta como TEXTO primeiro para evitar crash de JSON
           const textResponse = await res.text();
 
           try {
+              // Tentamos converter para JSON
               const jsonResponse = JSON.parse(textResponse);
               
               if (res.ok) {
                   setModalVisible(false);
                   fetchLibrary();
-                  Alert.alert("Sucesso", "Operação realizada com sucesso!");
+                  Alert.alert("Sucesso", "Exercício salvo com sucesso!");
               } else {
-                  Alert.alert("Erro", jsonResponse.error || "Erro no servidor.");
+                  // Erro tratado pelo backend (ex: nome duplicado)
+                  Alert.alert("Atenção", jsonResponse.error || "O servidor recusou os dados.");
               }
           } catch (jsonError) {
-              console.log("Resposta HTML:", textResponse);
+              // Se falhar o parse JSON, é porque veio HTML (Erro 404 ou 500)
+              console.log("Resposta não-JSON recebida:", textResponse);
+              
               if(textResponse.includes("404")) {
-                  Alert.alert("Erro 404", "O servidor na nuvem ainda não tem a rota '/api/exercise'. Você fez o DEPLOY do backend novo?");
+                  Alert.alert("Erro 404", "A rota da API não foi encontrada. Verifique se o arquivo /api/exercise existe no Backend.");
+              } else if (textResponse.includes("500")) {
+                  Alert.alert("Erro 500", "Erro interno do servidor. Tente novamente mais tarde.");
               } else {
-                  Alert.alert("Erro Crítico", "O servidor devolveu um erro inesperado.");
+                  Alert.alert("Erro Crítico", "O servidor devolveu uma resposta inválida.");
               }
           }
 
       } catch (e) { 
-          Alert.alert("Erro de Conexão", e.message); 
-      } 
-      finally { 
+          Alert.alert("Erro de Conexão", "Falha ao conectar com o servidor: " + e.message); 
+      } finally { 
           setSaving(false); 
       }
   };
 
   const openVideoPreview = useCallback((url) => {
-      if (!url) return Alert.alert("Ops", "Sem vídeo.");
+      if (!url || url.length < 5) {
+          return Alert.alert("Vídeo Indisponível", "Este exercício não possui link de vídeo cadastrado.");
+      }
       setCurrentVideo(url);
       setVideoModalVisible(true);
   }, []);
@@ -188,72 +251,94 @@ export default function BibliotecaAdmin({ navigation }) {
       return matchText && matchCat;
   });
 
-  // 🔥 CONFIGURAÇÃO DO SCROLL WEB E SAFE AREA
-  const rootStyle = { 
-      flex: 1, 
-      backgroundColor: '#000',
-      // Na Web, altura fixa da janela para o scroll interno funcionar
-      height: Platform.OS === 'web' ? height : '100%',
-      // No Mobile, padding top seguro para não cortar no iPhone
-      paddingTop: Platform.OS === 'web' ? 0 : insets.top
-  };
+  // --- ESTRUTURA DE LAYOUT (IGUAL AO DASHBOARD) ---
+  
+  // Seleciona o componente Raiz baseado na plataforma
+  const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
+  
+  // Define o estilo da Raiz
+  const rootStyle = Platform.OS === 'web'
+    ? { height: '100vh', width: '100%', backgroundColor: '#000' } // Web: Ocupa 100% da janela
+    : { flex: 1, backgroundColor: '#000' }; // Mobile: Flex padrão
 
   return (
-    <View style={rootStyle}>
+    <RootComponent style={rootStyle}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
         
         {/* HEADER */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>BIBLIOTECA</Text>
-          <TouchableOpacity onPress={fetchLibrary} style={styles.backBtn}>
-              <MaterialCommunityIcons name="refresh" size={24} color="#CCFF00" />
-          </TouchableOpacity>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
+                </TouchableOpacity>
+                <View>
+                    <Text style={styles.headerTitle}>BIBLIOTECA</Text>
+                    <Text style={styles.headerSubtitle}>GERENCIAMENTO</Text>
+                </View>
+            </View>
+            
+            <TouchableOpacity onPress={fetchLibrary} style={styles.backBtn}>
+                <MaterialCommunityIcons name="refresh" size={24} color="#CCFF00" />
+            </TouchableOpacity>
         </View>
 
-        {/* BUSCA */}
+        {/* BARRA DE BUSCA */}
         <View style={styles.searchBox}>
             <MaterialCommunityIcons name="magnify" size={20} color="#666" />
             <TextInput 
-              style={styles.searchInput} placeholder="Buscar exercício..." placeholderTextColor="#666"
-              value={filterText} onChangeText={setFilterText} 
+              style={styles.searchInput} 
+              placeholder="Buscar exercício..." 
+              placeholderTextColor="#666"
+              value={filterText} 
+              onChangeText={setFilterText} 
             />
         </View>
 
-        {/* CATEGORIAS */}
+        {/* LISTA DE CATEGORIAS (SCROLL HORIZONTAL) */}
         <View style={{ height: 45, marginBottom: 15 }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
+            <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={{ paddingHorizontal: 20 }}
+            >
                 {categories.map(cat => (
                     <TouchableOpacity 
                         key={cat} 
                         style={[styles.catTab, selectedCat === cat && styles.catTabActive]}
                         onPress={() => setSelectedCat(cat)}
                     >
-                        <Text style={[styles.catTabText, selectedCat === cat && styles.catTabTextActive]}>{cat}</Text>
+                        <Text style={[styles.catTabText, selectedCat === cat && styles.catTabTextActive]}>
+                            {cat}
+                        </Text>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
         </View>
 
-        {/* LISTA PRINCIPAL */}
-        <View style={{ flex: 1 }}>
-            {loading ? <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} /> : (
+        {/* CONTAINER DA LISTA PRINCIPAL */}
+        <View style={{ flex: 1, position: 'relative' }}>
+            {loading ? (
+                <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} size="large" />
+            ) : (
                 <FlatList
                   key={`grid-${numColumns}`} 
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
-                  // 🔥 FIX WEB: flex: 1 aqui garante que o scroll funcione dentro da caixa
-                  style={{ flex: 1 }}
-                  columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
+                  
+                  // 🔥 CONFIGURAÇÃO CRÍTICA PARA SCROLL WEB FUNCIONAR
                   contentContainerStyle={{ 
-                      paddingBottom: 150, 
-                      paddingHorizontal: HORIZONTAL_PADDING,
-                      flexGrow: 1 
+                      paddingBottom: 150, // Espaço para não cobrir o último item
+                      paddingHorizontal: 20,
+                      flexGrow: 1
                   }}
+                  
+                  // 🔥 CORREÇÃO DE LAYOUT GRID
+                  columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
+                  
                   showsVerticalScrollIndicator={false}
+                  
+                  // CABEÇALHO DA LISTA (IMAGEM)
                   ListHeaderComponent={
                     <View style={{ marginBottom: 20 }}>
                         <ImageBackground 
@@ -268,118 +353,388 @@ export default function BibliotecaAdmin({ navigation }) {
                         </ImageBackground>
                     </View>
                   }
+                  
                   renderItem={({ item }) => (
                       <ExerciseCard 
-                          item={item} width={itemWidth} 
+                          item={item} 
+                          width={itemWidth} 
                           onPress={openVideoPreview}
                           onEdit={(ex) => { setFormExercise(ex); setModalVisible(true); }}
                           onDelete={handleDelete}
                       />
                   )}
-                  ListEmptyComponent={<Text style={styles.emptyText}>Nada encontrado.</Text>}
+                  
+                  ListEmptyComponent={
+                      <Text style={styles.emptyText}>Nenhum exercício encontrado nesta categoria.</Text>
+                  }
                 />
             )}
         </View>
 
         {/* BOTÃO FLUTUANTE (FAB) */}
-        <TouchableOpacity style={styles.fab} onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); setModalVisible(true); }}>
+        {/* Usando absolute na Web para garantir que fique visível */}
+        <TouchableOpacity 
+            style={[styles.fab, Platform.OS === 'web' ? { position: 'absolute' } : {}]} 
+            onPress={() => { 
+                setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); 
+                setModalVisible(true); 
+            }}
+        >
             <MaterialCommunityIcons name="plus" size={32} color="#000" />
         </TouchableOpacity>
 
         {/* MODAL CRIAR/EDITAR */}
-        <Modal visible={modalVisible} animationType="slide">
+        <Modal 
+            visible={modalVisible} 
+            animationType="slide"
+            onRequestClose={() => setModalVisible(false)}
+        >
           <View style={styles.modalContent}>
-            {/* SAFE AREA PARA MODAL NO IPHONE */}
-            <SafeAreaView style={{flex:1, paddingTop: Platform.OS === 'android' ? 20 : 0}}>
+            <SafeAreaView style={{flex:1}}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{formExercise.id ? 'EDITAR' : 'NOVO EXERCÍCIO'}</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF" /></TouchableOpacity>
+                <Text style={styles.modalTitle}>
+                    {formExercise.id ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}
+                </Text>
+                <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <MaterialCommunityIcons name="close" size={24} color="#FFF" />
+                </TouchableOpacity>
               </View>
+              
               <ScrollView style={{ padding: 20 }}>
                 <Text style={styles.label}>NOME DO EXERCÍCIO</Text>
-                <TextInput style={styles.input} value={formExercise.name} onChangeText={t => setFormExercise({...formExercise, name: t})} placeholder="Ex: Supino Reto" placeholderTextColor="#444" />
+                <TextInput 
+                    style={styles.input} 
+                    value={formExercise.name} 
+                    onChangeText={t => setFormExercise({...formExercise, name: t})} 
+                    placeholder="Ex: Supino Reto com Halteres" 
+                    placeholderTextColor="#444" 
+                />
                 
                 <Text style={styles.label}>GRUPO MUSCULAR</Text>
                 <View style={styles.chipRow}>
                   {categories.filter(c => c !== 'TODOS').map(c => (
-                    <TouchableOpacity key={c} style={[styles.chip, formExercise.category === c && styles.chipActive]} onPress={() => setFormExercise({...formExercise, category: c})}>
-                      <Text style={[styles.chipText, formExercise.category === c && { color: '#000' }]}>{c}</Text>
+                    <TouchableOpacity 
+                        key={c} 
+                        style={[styles.chip, formExercise.category === c && styles.chipActive]} 
+                        onPress={() => setFormExercise({...formExercise, category: c})}
+                    >
+                      <Text style={[styles.chipText, formExercise.category === c && { color: '#000' }]}>
+                        {c}
+                      </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
 
-                <Text style={styles.label}>URL DO VÍDEO</Text>
-                <TextInput style={styles.input} value={formExercise.videoUrl} onChangeText={t => setFormExercise({...formExercise, videoUrl: t})} placeholder="Link do vídeo..." placeholderTextColor="#444" autoCapitalize="none" />
+                <Text style={styles.label}>URL DO VÍDEO (Direct Link, YouTube, Cloudinary)</Text>
+                <TextInput 
+                    style={styles.input} 
+                    value={formExercise.videoUrl} 
+                    onChangeText={t => setFormExercise({...formExercise, videoUrl: t})} 
+                    placeholder="https://..." 
+                    placeholderTextColor="#444" 
+                    autoCapitalize="none" 
+                />
 
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveOrUpdate} disabled={saving}>
-                  {saving ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>SALVAR NA BIBLIOTECA</Text>}
+                <TouchableOpacity 
+                    style={styles.saveBtn} 
+                    onPress={handleSaveOrUpdate} 
+                    disabled={saving}
+                >
+                  {saving ? (
+                      <ActivityIndicator color="#000" />
+                  ) : (
+                      <Text style={styles.saveBtnText}>SALVAR NA BIBLIOTECA</Text>
+                  )}
                 </TouchableOpacity>
               </ScrollView>
             </SafeAreaView>
           </View>
         </Modal>
 
-        {/* VIDEO PREVIEW */}
-        <Modal visible={videoModalVisible} transparent animationType="fade">
+        {/* VIDEO PREVIEW MODAL */}
+        <Modal 
+            visible={videoModalVisible} 
+            transparent 
+            animationType="fade"
+            onRequestClose={() => setVideoModalVisible(false)}
+        >
           <View style={styles.videoBackdrop}>
-             <TouchableOpacity style={[styles.closeFullVideo, { top: insets.top + 20 }]} onPress={() => setVideoModalVisible(false)}>
+             <TouchableOpacity 
+                style={[styles.closeFullVideo, Platform.OS === 'web' ? { top: 40 } : { top: 60 }]} 
+                onPress={() => setVideoModalVisible(false)}
+             >
                <MaterialCommunityIcons name="close" size={30} color="#FFF" />
              </TouchableOpacity>
+             
              {currentVideo && (
-                 <Video source={{ uri: currentVideo }} style={styles.fullVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay />
+                 <Video 
+                    source={{ uri: currentVideo }} 
+                    style={styles.fullVideo} 
+                    useNativeControls 
+                    resizeMode={ResizeMode.CONTAIN} 
+                    shouldPlay 
+                 />
              )}
           </View>
         </Modal>
-    </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, paddingTop: 10 },
-  backBtn: { width: 40, height: 40, backgroundColor: '#111', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+  // Configuração do Header para Web e Mobile
+  header: { 
+      paddingTop: Platform.OS === 'web' ? 20 : 60, 
+      paddingHorizontal: 20, 
+      paddingBottom: 20, 
+      flexDirection: 'row', 
+      justifyContent: 'space-between', 
+      alignItems: 'center' 
+  },
+  headerTitle: { 
+      color: '#FFF', 
+      fontSize: 22, 
+      fontWeight: '900' 
+  },
+  headerSubtitle: { 
+      color: '#666', 
+      fontSize: 10, 
+      letterSpacing: 1, 
+      fontWeight: 'bold' 
+  },
+  backBtn: { 
+      padding: 10, 
+      backgroundColor: '#1A1A1A', 
+      borderRadius: 8, 
+      justifyContent: 'center', 
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: '#222'
+  },
   
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', marginHorizontal: 20, marginBottom: 20, paddingHorizontal: 15, height: 50, borderRadius: 15, borderWidth: 1, borderColor: '#222' },
-  searchInput: { flex: 1, color: '#FFF', marginLeft: 10, fontWeight: 'bold', outlineStyle: 'none' },
+  searchBox: { 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      backgroundColor: '#1A1A1A', 
+      marginHorizontal: 20, 
+      marginBottom: 20, 
+      paddingHorizontal: 15, 
+      height: 50, 
+      borderRadius: 12, 
+      borderWidth: 1, 
+      borderColor: '#222' 
+  },
+  searchInput: { 
+      flex: 1, 
+      color: '#FFF', 
+      marginLeft: 10, 
+      fontWeight: 'bold', 
+      outlineStyle: 'none' 
+  },
 
-  catTab: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, marginRight: 10, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
-  catTabActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  catTabText: { color: '#666', fontWeight: 'bold', fontSize: 12 },
-  catTabTextActive: { color: '#000' },
+  catTab: { 
+      paddingHorizontal: 20, 
+      paddingVertical: 8, 
+      borderRadius: 20, 
+      marginRight: 10, 
+      backgroundColor: '#111', 
+      borderWidth: 1, 
+      borderColor: '#222' 
+  },
+  catTabActive: { 
+      backgroundColor: '#CCFF00', 
+      borderColor: '#CCFF00' 
+  },
+  catTabText: { 
+      color: '#666', 
+      fontWeight: 'bold', 
+      fontSize: 12 
+  },
+  catTabTextActive: { 
+      color: '#000' 
+  },
 
-  categoryCover: { height: 120, width: '100%', justifyContent: 'flex-end', overflow: 'hidden' },
-  coverOverlay: { backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, height: '100%', justifyContent: 'flex-end', borderRadius: 20 },
-  coverTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
-  coverCount: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
+  categoryCover: { 
+      height: 120, 
+      width: '100%', 
+      justifyContent: 'flex-end', 
+      overflow: 'hidden' 
+  },
+  coverOverlay: { 
+      backgroundColor: 'rgba(0,0,0,0.6)', 
+      padding: 15, 
+      height: '100%', 
+      justifyContent: 'flex-end', 
+      borderRadius: 20 
+  },
+  coverTitle: { 
+      color: '#FFF', 
+      fontSize: 24, 
+      fontWeight: '900' 
+  },
+  coverCount: { 
+      color: '#CCFF00', 
+      fontSize: 10, 
+      fontWeight: 'bold', 
+      marginTop: 2 
+  },
 
-  exerciseCard: { backgroundColor: '#111', borderRadius: 15, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#1a1a1a' },
-  cardInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBox: { width: 40, height: 40, backgroundColor: '#000', borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
-  exerciseName: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
-  exerciseSub: { color: '#444', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-  videoPlayBtn: { width: 35, height: 35, backgroundColor: '#CCFF00', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  exerciseCard: { 
+      backgroundColor: '#111', 
+      borderRadius: 15, 
+      padding: 15, 
+      marginBottom: 15, 
+      borderWidth: 1, 
+      borderColor: '#1a1a1a' 
+  },
+  cardInfo: { 
+      flexDirection: 'row', 
+      alignItems: 'center', 
+      gap: 12 
+  },
+  iconBox: { 
+      width: 40, 
+      height: 40, 
+      backgroundColor: '#000', 
+      borderRadius: 10, 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      borderWidth: 1, 
+      borderColor: '#222' 
+  },
+  exerciseName: { 
+      color: '#FFF', 
+      fontSize: 14, 
+      fontWeight: 'bold' 
+  },
+  exerciseSub: { 
+      color: '#444', 
+      fontSize: 10, 
+      fontWeight: 'bold', 
+      marginTop: 2 
+  },
+  videoPlayBtn: { 
+      width: 35, 
+      height: 35, 
+      backgroundColor: '#CCFF00', 
+      borderRadius: 10, 
+      justifyContent: 'center', 
+      alignItems: 'center' 
+  },
   
-  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15, marginTop: 10, borderTopWidth: 1, borderTopColor: '#1a1a1a', paddingTop: 10 },
-  actionBtn: { padding: 5 },
+  cardActions: { 
+      flexDirection: 'row', 
+      justifyContent: 'flex-end', 
+      gap: 15, 
+      marginTop: 10, 
+      borderTopWidth: 1, 
+      borderTopColor: '#1a1a1a', 
+      paddingTop: 10 
+  },
+  actionBtn: { 
+      padding: 5 
+  },
 
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 65, height: 65, borderRadius: 33, backgroundColor: '#CCFF00', justifyContent: 'center', alignItems: 'center', elevation: 8, zIndex: 999 },
+  fab: { 
+      position: 'absolute', 
+      bottom: 30, 
+      right: 20, 
+      width: 65, 
+      height: 65, 
+      borderRadius: 33, 
+      backgroundColor: '#CCFF00', 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      elevation: 8, 
+      zIndex: 999 
+  },
   
-  emptyText: { color:'#666', textAlign:'center', marginTop:50, fontStyle:'italic' },
+  emptyText: { 
+      color:'#666', 
+      textAlign:'center', 
+      marginTop:50, 
+      fontStyle:'italic' 
+  },
 
-  modalContent: { flex: 1, backgroundColor: '#000' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#111' },
-  modalTitle: { color: '#FFF', fontSize: 16, fontWeight: '900' },
-  label: { color: '#444', fontSize: 10, fontWeight: 'bold', marginTop: 20, marginBottom: 8 },
-  input: { backgroundColor: '#111', borderRadius: 12, padding: 15, color: '#FFF', fontWeight: 'bold', borderWidth: 1, borderColor: '#222' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
-  chipActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  chipText: { color: '#666', fontSize: 11, fontWeight: 'bold' },
-  saveBtn: { backgroundColor: '#CCFF00', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 30 },
-  saveBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
+  modalContent: { 
+      flex: 1, 
+      backgroundColor: '#000' 
+  },
+  modalHeader: { 
+      flexDirection: 'row', 
+      justifyContent: 'space-between', 
+      padding: 20, 
+      borderBottomWidth: 1, 
+      borderBottomColor: '#111' 
+  },
+  modalTitle: { 
+      color: '#FFF', 
+      fontSize: 16, 
+      fontWeight: '900' 
+  },
+  label: { 
+      color: '#444', 
+      fontSize: 10, 
+      fontWeight: 'bold', 
+      marginTop: 20, 
+      marginBottom: 8 
+  },
+  input: { 
+      backgroundColor: '#111', 
+      borderRadius: 12, 
+      padding: 15, 
+      color: '#FFF', 
+      fontWeight: 'bold', 
+      borderWidth: 1, 
+      borderColor: '#222' 
+  },
+  chipRow: { 
+      flexDirection: 'row', 
+      flexWrap: 'wrap', 
+      gap: 8 
+  },
+  chip: { 
+      paddingHorizontal: 12, 
+      paddingVertical: 6, 
+      borderRadius: 8, 
+      backgroundColor: '#111', 
+      borderWidth: 1, 
+      borderColor: '#222' 
+  },
+  chipActive: { 
+      backgroundColor: '#CCFF00', 
+      borderColor: '#CCFF00' 
+  },
+  chipText: { 
+      color: '#666', 
+      fontSize: 11, 
+      fontWeight: 'bold' 
+  },
+  saveBtn: { 
+      backgroundColor: '#CCFF00', 
+      padding: 20, 
+      borderRadius: 15, 
+      alignItems: 'center', 
+      marginTop: 30 
+  },
+  saveBtnText: { 
+      color: '#000', 
+      fontWeight: '900', 
+      fontSize: 14 
+  },
 
-  videoBackdrop: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
-  fullVideo: { width: '100%', height: '80%' },
-  closeFullVideo: { position: 'absolute', right: 20, zIndex: 10 },
+  videoBackdrop: { 
+      flex: 1, 
+      backgroundColor: '#000', 
+      justifyContent: 'center' 
+  },
+  fullVideo: { 
+      width: '100%', 
+      height: '80%' 
+  },
+  closeFullVideo: { 
+      position: 'absolute', 
+      right: 20, 
+      zIndex: 10 
+  },
 });
