@@ -245,6 +245,7 @@ export default function HomeScreen({ navigation }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 message: userMsg.text,
+                userId: userData.id,
                 userName: userName,
                 userGender: gender,
                 userGoal: goal,
@@ -258,7 +259,7 @@ export default function HomeScreen({ navigation }) {
              const aiMsg = { id: Date.now() + 1, text: data.reply, sender: 'ai' };
              setMessages(prev => [...prev, aiMsg]);
         } else {
-             throw new Error("Sem resposta da IA");
+            throw new Error("Sem resposta da IA");
         }
 
     } catch (error) {
@@ -438,11 +439,12 @@ export default function HomeScreen({ navigation }) {
         </LinearGradient>
       </TouchableOpacity>
 
-      {/* 🔥 MODAL DO CHATBOT */}
+      {/* 🔥 MODAL DO CHATBOT CORRIGIDO */}
       <Modal visible={chatVisible} animationType="slide" transparent>
         <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
             style={styles.chatModalContainer}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
             <View style={styles.chatContent}>
                 {/* Header Chat */}
@@ -469,6 +471,7 @@ export default function HomeScreen({ navigation }) {
                     renderItem={renderChatMessage}
                     contentContainerStyle={{padding: 15}}
                     style={{flex: 1}}
+                    onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
                 />
 
                 {/* Input Area */}
@@ -497,7 +500,8 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#000',
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, 
+    // 🔥 CORREÇÃO: Topo seguro para Android
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
@@ -555,6 +559,7 @@ const styles = StyleSheet.create({
   fabChat: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, zIndex: 999, elevation: 10, shadowColor: '#CCFF00', shadowOpacity: 0.3, shadowRadius: 10 },
   fabGradient: { width: '100%', height: '100%', borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
   
+  // 🔥 ESTILO DO MODAL AJUSTADO PARA TECLADO
   chatModalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
   chatContent: { backgroundColor: '#111', height: '80%', borderTopLeftRadius: 25, borderTopRightRadius: 25, overflow: 'hidden', borderWidth: 1, borderColor: '#333' },
   chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#1A1A1A', borderBottomWidth: 1, borderBottomColor: '#333' },
@@ -562,7 +567,16 @@ const styles = StyleSheet.create({
   chatTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
   chatStatus: { color: '#CCFF00', fontSize: 10 },
   
-  chatInputArea: { flexDirection: 'row', padding: 15, backgroundColor: '#1A1A1A', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#333' },
+  // 🔥 CORREÇÃO PRINCIPAL: Aumentamos o paddingBottom para o Android (safe area de gestos)
+  chatInputArea: { 
+    flexDirection: 'row', 
+    padding: 15, 
+    paddingBottom: Platform.OS === 'android' ? 50 : 25, 
+    backgroundColor: '#1A1A1A', 
+    alignItems: 'center', 
+    borderTopWidth: 1, 
+    borderTopColor: '#333' 
+  },
   chatInput: { flex: 1, backgroundColor: '#000', color: '#FFF', borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, marginRight: 10, borderWidth: 1, borderColor: '#333' },
   chatSendBtn: { backgroundColor: '#CCFF00', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
 

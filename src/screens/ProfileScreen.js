@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { 
   StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity, 
-  Image, TextInput, Alert, ActivityIndicator, StatusBar, RefreshControl, Linking 
+  Image, TextInput, Alert, ActivityIndicator, StatusBar, RefreshControl, Linking, Platform 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -96,11 +96,11 @@ export default function ProfileScreen({ route }) {
         
         const userId = await getSafeId();
         if (userId) {
-             try {
+              try {
                 await AsyncStorage.setItem(`@user_profile_image_${userId}`, imageBase64);
-             } catch (error) {
+              } catch (error) {
                 Alert.alert("Erro", "Imagem muito grande.");
-             }
+              }
         }
       }
     } catch (e) { console.log("Erro Foto:", e); }
@@ -277,7 +277,12 @@ export default function ProfileScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    // 🔥 CORREÇÃO TOPO SEGURO
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
+  },
   scrollContent: { padding: 20, paddingBottom: 40 },
   
   header: { alignItems: 'center', marginVertical: 20 },

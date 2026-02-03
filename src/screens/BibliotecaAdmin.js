@@ -42,12 +42,8 @@ const getCloudflareThumb = (url) => {
     return null;
 };
 
-// --- CARD COMPONENT (DESIGN NOVO + LÓGICA ORIGINAL) ---
+// --- CARD COMPONENT ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
-    const isYT = isYoutubeUrl(item.videoUrl);
-    const ytId = isYT ? getYoutubeId(item.videoUrl) : null;
-    const thumbUrl = ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : getCloudflareThumb(item.videoUrl);
-
     return (
         <View style={[styles.exerciseCard, { width: width }]}>
           <View style={styles.cardInfo}>
@@ -102,9 +98,8 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideo, setCurrentVideo] = useState(null);
-  const videoRef = useRef(null);
 
-  // Responsividade do seu código original
+  // Responsividade
   const getNumColumns = () => {
       if (width > 1000) return 3; 
       if (width > 700) return 2;  
@@ -112,7 +107,9 @@ export default function BibliotecaAdmin({ navigation }) {
   };
   
   const numColumns = getNumColumns();
-  const itemWidth = (width - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / numColumns;
+  const itemWidth = numColumns > 1 
+      ? (width - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / numColumns
+      : (width - (HORIZONTAL_PADDING * 2));
 
   useEffect(() => { fetchLibrary(); }, []);
 
@@ -144,8 +141,10 @@ export default function BibliotecaAdmin({ navigation }) {
       } catch (e) { Alert.alert("Erro ao excluir"); }
   };
 
+  // 🔥🔥🔥 AQUI ESTÁ A CORREÇÃO DO CADASTRO 🔥🔥🔥
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Erro", "Nome obrigatório");
+      
       setSaving(true);
       try {
           const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
@@ -153,13 +152,23 @@ export default function BibliotecaAdmin({ navigation }) {
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(formExercise)
           });
+
+          const jsonResponse = await res.json(); // Lemos a resposta JSON
+
           if (res.ok) {
               setModalVisible(false);
               fetchLibrary();
-              Alert.alert("Sucesso", "Operação realizada!");
+              Alert.alert("Sucesso", "Operação realizada com sucesso!");
+          } else {
+              // 🔥 AGORA VAMOS VER O ERRO REAL
+              Alert.alert("Erro ao Salvar", jsonResponse.error || "Ocorreu um erro no servidor.");
           }
-      } catch (e) { Alert.alert("Erro", e.message); } 
-      finally { setSaving(false); }
+      } catch (e) { 
+          Alert.alert("Erro de Conexão", e.message); 
+      } 
+      finally { 
+          setSaving(false); 
+      }
   };
 
   const openVideoPreview = useCallback((url) => {
@@ -175,7 +184,7 @@ export default function BibliotecaAdmin({ navigation }) {
   });
 
   const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
-  const rootStyle = Platform.OS === 'web' ? { height: '100vh', width: '100%', overflow: 'hidden', backgroundColor: '#000' } : { flex: 1, backgroundColor: '#000' };
+  const rootStyle = { flex: 1, backgroundColor: '#000' };
 
   return (
     <RootComponent style={rootStyle}>
@@ -220,11 +229,15 @@ export default function BibliotecaAdmin({ navigation }) {
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
-                  columnWrapperStyle={numColumns > 1 ? { gap: SPACING, paddingHorizontal: HORIZONTAL_PADDING } : { paddingHorizontal: HORIZONTAL_PADDING }}
-                  contentContainerStyle={{ paddingBottom: 150 }}
+                  // 🔥 CORREÇÃO PARA EVITAR TELA VERMELHA
+                  columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
+                  contentContainerStyle={{ 
+                      paddingBottom: 150, 
+                      paddingHorizontal: HORIZONTAL_PADDING 
+                  }}
                   showsVerticalScrollIndicator={false}
                   ListHeaderComponent={
-                    <View style={{ marginBottom: 20, paddingHorizontal: HORIZONTAL_PADDING }}>
+                    <View style={{ marginBottom: 20 }}>
                         <ImageBackground 
                             source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} 
                             style={styles.categoryCover}
@@ -347,9 +360,4 @@ const styles = StyleSheet.create({
   videoBackdrop: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
   fullVideo: { width: '100%', height: '80%' },
   closeFullVideo: { position: 'absolute', top: 50, right: 20, zIndex: 10 },
-  videoOverlay: { flex:1, backgroundColor:'rgba(0,0,0,0.9)', justifyContent:'center', alignItems: 'center' },
-  backdropClose: { position:'absolute', top:0, left:0, right:0, bottom:0 }, 
-  videoContent: { width: '100%', height: '100%', justifyContent:'center', alignItems:'center' },
-  videoPlayer: { width: '100%', height: '100%' },
-  closeVideoBtn: { position: 'absolute', top: 20, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20, padding: 10, zIndex: 1000 },
 });

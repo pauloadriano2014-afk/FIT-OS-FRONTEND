@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { 
+  View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, 
+  ActivityIndicator, Platform, StatusBar 
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -15,6 +18,7 @@ export default function UserHistoryScreen({ navigation }) {
   const fetchHistory = async () => {
     try {
       const storedUser = await AsyncStorage.getItem('user');
+      if (!storedUser) return;
       const user = JSON.parse(storedUser);
       
       // Busca o histórico real
@@ -59,31 +63,35 @@ export default function UserHistoryScreen({ navigation }) {
                         <Text style={styles.metaText}>Esforço: {item.rpe}/10</Text>
                     </View>
                 )}
-                {item.feedback && (
+                {item.feedback ? (
                     <View style={styles.metaItem}>
                         <MaterialCommunityIcons name="comment-text-outline" size={14} color="#888" />
                         <Text style={styles.metaText}>Ver obs...</Text>
                     </View>
-                )}
+                ) : null}
             </View>
 
             {/* DETALHES DOS EXERCÍCIOS (EXPANDIDO) */}
             {isExpanded && (
                 <View style={styles.detailsContainer}>
                     <View style={styles.divider} />
-                    {item.feedback && (
+                    {item.feedback ? (
                         <View style={{marginBottom:15}}>
                             <Text style={{color:'#888', fontSize:10, marginBottom:2}}>OBSERVAÇÃO:</Text>
                             <Text style={styles.fullFeedback}>"{item.feedback}"</Text>
                         </View>
-                    )}
+                    ) : null}
+                    
                     <Text style={styles.detailsTitle}>CARGAS UTILIZADAS:</Text>
-                    {item.details.map((ex, idx) => (
+                    {/* Proteção contra details nulo */}
+                    {item.details && Array.isArray(item.details) ? item.details.map((ex, idx) => (
                         <View key={idx} style={styles.exRow}>
                             <Text style={styles.exName}>{ex.exerciseName}</Text>
                             <Text style={styles.exLoad}>{ex.weight}kg ({ex.reps} reps)</Text>
                         </View>
-                    ))}
+                    )) : (
+                        <Text style={{color:'#666', fontSize:12, fontStyle:'italic'}}>Sem detalhes registrados.</Text>
+                    )}
                 </View>
             )}
         </TouchableOpacity>
@@ -92,8 +100,10 @@ export default function UserHistoryScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
+      
       <View style={styles.navHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{padding:5}}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
         </TouchableOpacity>
         <Text style={styles.navTitle}>HISTÓRICO DE TREINOS</Text>
@@ -105,9 +115,9 @@ export default function UserHistoryScreen({ navigation }) {
       ) : (
           <FlatList 
             data={history}
-            keyExtractor={item => item.id}
+            keyExtractor={item => item.id.toString()}
             renderItem={renderItem}
-            contentContainerStyle={{padding: 20}}
+            contentContainerStyle={{padding: 20, paddingBottom: 50}}
             ListEmptyComponent={
                 <View style={{alignItems:'center', marginTop:50}}>
                     <MaterialCommunityIcons name="history" size={50} color="#333" />
@@ -121,17 +131,29 @@ export default function UserHistoryScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  navHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:20, paddingBottom:10 },
-  navTitle: { color:'#FFF', fontSize:16, fontWeight:'bold' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    // 🔥 CORREÇÃO: Topo Seguro
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
+  },
+  navHeader: { 
+    flexDirection:'row', 
+    justifyContent:'space-between', 
+    alignItems:'center', 
+    paddingHorizontal:20, 
+    paddingBottom:15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#222'
+  },
+  navTitle: { color:'#FFF', fontSize:16, fontWeight:'bold', letterSpacing: 1 },
   
   card: { backgroundColor:'#111', borderRadius:12, padding:15, marginBottom:15, borderWidth:1, borderColor:'#222' },
   
-  // CORREÇÃO DO LAYOUT DO HEADER DO CARD
   cardHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start' },
-  titleContainer: { flex: 1, marginRight: 10 }, // Ocupa o espaço que der, mas deixa margem pro XP
+  titleContainer: { flex: 1, marginRight: 10 }, 
   
-  title: { color:'#FFF', fontSize:16, fontWeight:'bold', flexWrap:'wrap' }, // Quebra linha se precisar
+  title: { color:'#FFF', fontSize:16, fontWeight:'bold', flexWrap:'wrap' }, 
   date: { color:'#666', fontSize:12, marginTop:4 },
   
   xpBadge: { backgroundColor:'rgba(204, 255, 0, 0.1)', paddingHorizontal:10, paddingVertical:6, borderRadius:8, borderWidth:1, borderColor:'rgba(204, 255, 0, 0.3)', minWidth: 70, alignItems:'center' },

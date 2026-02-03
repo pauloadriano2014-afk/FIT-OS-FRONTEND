@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, ActivityIndicator, StatusBar, Dimensions } from 'react-native';
+import { 
+  View, Text, StyleSheet, SafeAreaView, FlatList, TouchableOpacity, 
+  ActivityIndicator, StatusBar, Dimensions, Platform 
+} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,24 +23,21 @@ export default function RoutineDetailsScreen({ route, navigation }) {
   const { workoutId, workoutName } = route.params;
   const [loading, setLoading] = useState(true);
   const [workoutDays, setWorkoutDays] = useState([]);
-  const [lastLogDate, setLastLogDate] = useState(null);
-
+  
   useFocusEffect(
     useCallback(() => {
       fetchRoutineDetails();
     }, [])
   );
 
-const fetchRoutineDetails = async () => {
+  const fetchRoutineDetails = async () => {
     try {
       const stored = await AsyncStorage.getItem('user');
       if (!stored) return;
       const user = JSON.parse(stored);
       
-      // 🔥 RECUPERA O DIA QUE O USUÁRIO ACABOU DE FINALIZAR LOCALMENTE
       const localLastDay = await AsyncStorage.getItem('@last_completed_day');
       
-      // Adicionamos um timestamp no final da URL para evitar cache do navegador/celular
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${new Date().getTime()}`);
       const data = await response.json();
 
@@ -53,21 +53,18 @@ const fetchRoutineDetails = async () => {
         
         const sorted = Object.values(groups).sort((a, b) => a.day.localeCompare(b.day));
 
-        // 2. LÓGICA DE VERIFICAÇÃO INDIVIDUAL (A MAIS SEGURA)
+        // 2. LÓGICA DE VERIFICAÇÃO INDIVIDUAL
         const daysWithStatus = sorted.map((d) => {
             const dayKey = String(d.day).trim().toUpperCase();
-            
-            // 🔥 PRIORIDADE: Se o celular diz que o dia local >= dia do card, marca verde.
             const serverLastDay = data.lastLog && data.lastLog.day ? data.lastLog.day.toUpperCase() : 'OFF';
             const effectiveLastDay = localLastDay || serverLastDay;
             
-            // Comparação Alfabética: Se dayKey (ex: B) for menor ou igual a effectiveLastDay (ex: D), isDone = true
             const isDone = localLastDay ? (dayKey.charCodeAt(0) <= localLastDay.charCodeAt(0)) : d.completed;
 
             return { ...d, isDone, isNext: false };
         });
 
-        // 3. SEGUNDA VALIDAÇÃO (CASO O BACKEND SÓ MANDE O ÚLTIMO)
+        // 3. SEGUNDA VALIDAÇÃO
         if (data.lastLog && data.lastLog.day) {
             const lastDayChar = data.lastLog.day.toUpperCase();
             const lastIndex = daysWithStatus.findIndex(d => d.day === lastDayChar);
@@ -95,30 +92,20 @@ const fetchRoutineDetails = async () => {
   };
 
   const renderCardItem = ({ item }) => {
+    // Tratamento simples para Cardio/Descanso se vierem na lista
     const isDescanso = item.day === 'OFF' || item.name?.toUpperCase()?.includes('DESCANSO');
-  const isCardio = item.name?.toUpperCase()?.includes('CARDIO');
+    const isCardio = item.name?.toUpperCase()?.includes('CARDIO');
     const muscleGroupsStr = Array.from(item.muscleGroups).join(', ');
     const iconName = getIconByMuscle(muscleGroupsStr);
 
     if (isDescanso) {
-    return (
-      <View style={styles.cardDescanso}>
-        <Text>🛌 DIA DE OFF</Text>
-        <Text style={styles.textApoio}>Recupere suas energias!</Text>
-      </View>
-    );
-  }
-
-  if (isCardio) {
-    return (
-      <View style={styles.cardCardio}>
-        <Text>🏃 CARDIO DO DIA</Text>
-        <TouchableOpacity onPress={marcarComoFeito}>
-           <Text>CONCLUIR</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+        return (
+          <View style={styles.cardDescanso}>
+            <Text style={{color:'#FFF', fontWeight:'bold'}}>🛌 DIA DE OFF</Text>
+            <Text style={styles.textApoio}>Recupere suas energias!</Text>
+          </View>
+        );
+    }
 
     // Variáveis de Estilo do Card
     const cardColor = item.isDone ? '#CCFF00' : (item.isNext ? '#FFF' : '#333');
@@ -134,7 +121,7 @@ const fetchRoutineDetails = async () => {
         onPress={() => navigation.navigate('DayWorkout', { workoutId, day: item.day, workoutName: workoutName })}
       >
         <View style={styles.cardHeader}>
-            <View style={[styles.iconCircle, { backgroundColor: item.isDone ? '#CCFF00' : '#222' }]}>
+            <View style={[styles.iconCircle, { backgroundColor: item.isDone ? '#CCFF00' : '#222', borderColor: item.isDone ? '#CCFF00' : '#333', borderWidth:1 }]}>
                 <MaterialCommunityIcons 
                     name={item.isDone ? "check-bold" : iconName} 
                     size={24} 
@@ -195,7 +182,12 @@ const fetchRoutineDetails = async () => {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    // 🔥 CORREÇÃO: Topo Seguro
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor:'#000' },
   header: { padding: 20, flexDirection: 'row', alignItems: 'center', gap: 15, borderBottomWidth: 1, borderBottomColor: '#1A1A1A' },
   backBtn: { width: 40, height: 40, backgroundColor: '#111', borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
@@ -230,5 +222,8 @@ const styles = StyleSheet.create({
   statusTextDone: { color: '#CCFF00', fontSize: 10, fontWeight: '900' },
   
   statusBadgeNext: { backgroundColor: '#FFF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  statusTextNext: { color: '#000', fontSize: 10, fontWeight: '900' }
+  statusTextNext: { color: '#000', fontSize: 10, fontWeight: '900' },
+
+  cardDescanso: { backgroundColor:'#111', padding:20, borderRadius:15, marginBottom:15, alignItems:'center', borderWidth:1, borderColor:'#222' },
+  textApoio: { color:'#666', fontSize:12, marginTop:5 }
 });

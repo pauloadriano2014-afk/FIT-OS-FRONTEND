@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  Dimensions, ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform 
+  Dimensions, ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, StatusBar 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -193,6 +193,7 @@ export default function EvolutionScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>PAINEL EVOLUTIVO</Text>
         <View style={styles.tabContainer}>
@@ -380,8 +381,13 @@ export default function EvolutionScreen({ navigation }) {
 const chartConfig = { backgroundGradientFrom: "#0A0A0A", backgroundGradientTo: "#0A0A0A", color: (opacity = 1) => `rgba(204, 255, 0, ${opacity})`, labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`, strokeWidth: 2, propsForDots: { r: "4", strokeWidth: "2", stroke: "#CCFF00" } };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  header: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#222' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    // 🔥 CORREÇÃO: Topo seguro
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
+  },
+  header: { paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#222' },
   headerTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 15, textAlign: 'center', letterSpacing: 1 },
   tabContainer: { flexDirection: 'row', backgroundColor: '#111', borderRadius: 10, padding: 4 },
   tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
@@ -405,8 +411,10 @@ const styles = StyleSheet.create({
   historyTonnage: { color: '#CCFF00', fontSize: 12, fontWeight: '900', marginTop: 4 },
   newAssessmentBtn: { flexDirection: 'row', backgroundColor: '#32ADE6', padding: 15, borderRadius: 15, alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 25 },
   newAssessmentText: { color: '#000', fontWeight: '900', fontSize: 14 },
+  
+  // MODAL STYLES
   modalFull: { flex: 1, backgroundColor: '#000' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#222' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#222', marginTop: Platform.OS === 'android' ? 20 : 0 },
   modalTitle: { color: '#FFF', fontSize: 18, fontWeight: '900' },
   switchRow: { flexDirection: 'row', backgroundColor: '#222', borderRadius: 8, padding: 4, marginBottom: 20 },
   switchBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 6 },

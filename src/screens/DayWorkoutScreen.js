@@ -312,76 +312,35 @@ const submitFinish = async () => {
 
         if (res.ok) {
             // 🔥 1. PARA O CRONÔMETRO
-            setIsTimerRunning(false); await AsyncStorage.setItem('@last_completed_day', day.toUpperCase());
+            setIsTimerRunning(false); 
+            await AsyncStorage.setItem('@last_completed_day', day.toUpperCase());
             setElapsedSeconds(0);
-            await AsyncStorage.setItem('@last_completed_day', day.toUpperCase()); // Salva "D", por exemplo
-            await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
-            await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
             
             // 🔥 2. LIMPA TUDO DO DISCO (Rascunho e Tempo de Início)
             await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
             await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
 
-            // 🔥 3. ZERA O CONTADOR LOCAL
-            setElapsedSeconds(0);
-
             if (json.newTotalXP) {
                 const updatedUser = { ...userData, currentXP: json.newTotalXP };
                 await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
             }
-const rpeObj = RPE_OPTIONS.find(o => o.val === rpe);
-        const statsParaOModal = { 
-            xp: 150, 
-            time: `${durationInMinutes}m`, 
-            count: exercisesDone.length,
-            rpeLabel: rpeObj ? rpeObj.label : "CONCLUÍDO",
-            focus: workoutName || FOCUS_NAMES[day] || "GERAL"
-        };
+            const rpeObj = RPE_OPTIONS.find(o => o.val === rpe);
+            const statsParaOModal = { 
+                xp: json.xpGained || 150, 
+                time: `${durationInMinutes}m`, 
+                count: exercisesDone.length,
+                rpeLabel: rpeObj ? rpeObj.label : "CONCLUÍDO",
+                focus: workoutName || FOCUS_NAMES[day] || "GERAL"
+            };
 
-        try {
-            const res = await fetch('https://fitos-final.onrender.com/api/workout/finish', {
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    userId: userData.id, 
-                    workoutId: workoutId, 
-                    day: day, 
-                    workoutName: finalWorkoutName.toUpperCase(), 
-                    exercisesData: exercisesDone, 
-                    duration: durationInMinutes, 
-                    rpe: rpe, 
-                    feedback: feedbackText 
-                })
-            });
-
-            const json = await res.json();
-
-            if (res.ok) {
-                // Sucesso no servidor
-                if (json.newTotalXP) {
-                    const updatedUser = { ...userData, currentXP: json.newTotalXP };
-                    await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-                }
-                statsParaOModal.xp = json.xpGained || 150;
-            }
-        } catch (e) {
-            console.log("Erro de rede, mas gerando card local...");
-        }
-
-        // 🔥 FINALIZAÇÃO INDEPENDENTE DE REDE
-        setIsTimerRunning(false);
-        setElapsedSeconds(0);
-        await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
-        await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
-        
-        setSessionStats(statsParaOModal);
-        setFinishModalVisible(false);
-        setShareModalVisible(true);
+            setSessionStats(statsParaOModal);
+            setFinishModalVisible(false);
+            setShareModalVisible(true);
         } else { 
             Alert.alert("Erro", "Falha ao salvar no servidor."); 
         }
     } catch (e) { 
-        Alert.alert("Erro", "Falha de conexão. O treino foi salvo localmente."); 
+        Alert.alert("Erro", "Falha de conexão. Tente novamente."); 
     } finally { 
         setLoading(false); 
     }
@@ -443,46 +402,47 @@ const rpeObj = RPE_OPTIONS.find(o => o.val === rpe);
           </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* MODAL DE TÉCNICA - CORRIGIDO O TÍTULO CORTADO */}
       <Modal 
-  visible={techModalVisible} 
-  transparent 
-  animationType="slide" 
-  onRequestClose={() => setTechModalVisible(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={[
-      styles.modalContent, 
-      { borderColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#444', maxHeight: '80%' }
-    ]}>
-      {/* ScrollView para o texto não vazar */}
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15}}>
-           <MaterialCommunityIcons 
-             name={selectedTech ? TECH_GUIDE[selectedTech]?.icon : 'dumbbell'} 
-             size={28} 
-             color={selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF'} 
-           />
-           <Text style={[styles.modalTitle, { color: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF', marginBottom: 0 }]}>
-             {selectedTech ? TECH_GUIDE[selectedTech]?.title : ''}
-           </Text>
-        </View>
-        
-        <View style={styles.divider} />
-        
-        <Text style={[styles.modalExplanation, { color: '#EEE', fontSize: 14, lineHeight: 22 }]}>
-          {selectedTech ? TECH_GUIDE[selectedTech]?.desc : ''}
-        </Text>
-      </ScrollView>
-
-      <TouchableOpacity 
-        style={[styles.finishConfirmBtn, { backgroundColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#CCFF00' }]} 
-        onPress={() => setTechModalVisible(false)}
+        visible={techModalVisible} 
+        transparent 
+        animationType="slide" 
+        onRequestClose={() => setTechModalVisible(false)}
       >
-        <Text style={[styles.finishConfirmText, { color: '#000' }]}>ENTENDI, BORA MOER!</Text>
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
+        <View style={styles.modalOverlay}>
+          <View style={[
+            styles.modalContent, 
+            { borderColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#444', maxHeight: '80%' }
+          ]}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15}}>
+                 <MaterialCommunityIcons 
+                   name={selectedTech ? TECH_GUIDE[selectedTech]?.icon : 'dumbbell'} 
+                   size={28} 
+                   color={selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF'} 
+                 />
+                 {/* 🔥 CORREÇÃO: flex: 1 e wrap para evitar cortes */}
+                 <Text style={[styles.modalTitle, { color: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF', marginBottom: 0, flex: 1, flexWrap: 'wrap' }]}>
+                   {selectedTech ? TECH_GUIDE[selectedTech]?.title : ''}
+                 </Text>
+              </View>
+              
+              <View style={styles.divider} />
+              
+              <Text style={[styles.modalExplanation, { color: '#EEE', fontSize: 14, lineHeight: 22 }]}>
+                {selectedTech ? TECH_GUIDE[selectedTech]?.desc : ''}
+              </Text>
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={[styles.finishConfirmBtn, { backgroundColor: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#CCFF00' }]} 
+              onPress={() => setTechModalVisible(false)}
+            >
+              <Text style={[styles.finishConfirmText, { color: '#000' }]}>ENTENDI, BORA MOER!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       
       <Modal visible={finishModalVisible} animationType="slide" transparent>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
@@ -513,28 +473,28 @@ const rpeObj = RPE_OPTIONS.find(o => o.val === rpe);
                         <Text style={styles.shareSubtitle}>{(workoutName || FOCUS_NAMES[day])?.toUpperCase()} • DIA {day}</Text>
                         
                         <View style={styles.statsRow}>
-    <View style={styles.statBox}>
-        <Text style={styles.statValue}>+{sessionStats.xp}</Text>
-        <Text style={styles.statLabel}>XP GANHO</Text>
-    </View>
+                            <View style={styles.statBox}>
+                                <Text style={styles.statValue}>+{sessionStats.xp}</Text>
+                                <Text style={styles.statLabel}>XP GANHO</Text>
+                            </View>
 
-    <View style={[styles.statBox, {borderLeftWidth:1, borderRightWidth:1, borderColor:'#222'}]}>
-        <Text style={styles.statValue}>{sessionStats.time}</Text>
-        <Text style={styles.statLabel}>TEMPO</Text>
-    </View>
+                            <View style={[styles.statBox, {borderLeftWidth:1, borderRightWidth:1, borderColor:'#222'}]}>
+                                <Text style={styles.statValue}>{sessionStats.time}</Text>
+                                <Text style={styles.statLabel}>TEMPO</Text>
+                            </View>
 
-    <View style={styles.statBox}>
-    <Text 
-        style={[styles.statValue, { fontSize: 13, color: '#CCFF00' }]} 
-        numberOfLines={1}
-        adjustsFontSizeToFit={true} // 🔥 Diminui a letra sozinho se não couber
-        minimumFontScale={0.5}      // 🔥 Permite reduzir até metade do tamanho
-    >
-        {sessionStats.rpeLabel || 'MÁXIMO'}
-    </Text>
-    <Text style={styles.statLabel}>ESFORÇO</Text>
-</View>
-</View>
+                            <View style={styles.statBox}>
+                            <Text 
+                                style={[styles.statValue, { fontSize: 13, color: '#CCFF00' }]} 
+                                numberOfLines={1}
+                                adjustsFontSizeToFit={true} // 🔥 Ajusta fonte se necessário
+                                minimumFontScale={0.5}
+                            >
+                                {sessionStats.rpeLabel || 'MÁXIMO'}
+                            </Text>
+                            <Text style={styles.statLabel}>ESFORÇO</Text>
+                        </View>
+                        </View>
                     </View>
                 </ViewShot>
                 <View style={styles.shareFooter}>
@@ -551,13 +511,67 @@ const rpeObj = RPE_OPTIONS.find(o => o.val === rpe);
       </Modal>
 
       <Modal visible={calcModalVisible} transparent animationType="slide"><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}><View style={styles.modalContent}><View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:15, alignItems:'center'}}><Text style={styles.modalTitle}>ESTIMATIVA DE CARGA (1RM)</Text><TouchableOpacity onPress={()=>setCalcModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF"/></TouchableOpacity></View><Text style={{color:'#888', marginBottom:20, fontSize:13}}>Insira um peso e repetições que você já fez para descobrir a carga ideal.</Text><View style={{flexDirection:'row', gap:15, marginBottom:20}}><View style={{flex:1}}><Text style={styles.label}>CARGA JÁ FEITA (KG)</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcWeight} onChangeText={setCalcWeight} placeholder="Ex: 50" placeholderTextColor="#333"/></View><View style={{flex:1}}><Text style={styles.label}>REPS FEITAS</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcReps} onChangeText={setCalcReps} placeholder="Ex: 10" placeholderTextColor="#333"/></View></View>{oneRM > 0 && <View style={styles.resultBox}><Text style={styles.rmLabel}>{oneRM} KG <Text style={{fontSize:12, color:'#666'}}>MÁXIMO TEÓRICO</Text></Text><View style={{width:'100%', gap:12, marginTop:10}}><View style={styles.resRow}><Text style={styles.pLabel}>Para Hipertrofia (8-12 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.75)} kg</Text></View><View style={styles.resRow}><Text style={styles.pLabel}>Para Força (1-5 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.90)} kg</Text></View></View></View>}</View></KeyboardAvoidingView></Modal>
-      <Modal visible={videoModalVisible} animationType="slide" transparent><View style={styles.videoOverlay}><SafeAreaView style={{flex:1}}><View style={styles.videoHeader}><Text style={styles.videoHeaderTitle}>VÍDEO TÉCNICO</Text><TouchableOpacity onPress={()=>setVideoModalVisible(false)}><MaterialCommunityIcons name="close" size={28} color="#FFF"/></TouchableOpacity></View><View style={styles.playerContainer}>{videoLoading && <ActivityIndicator color="#CCFF00" size="large" style={styles.videoAbsoluteLoader} />}<Video ref={videoRef} style={styles.videoPlayer} source={{ uri: currentVideoUrl }} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay isLooping onLoad={()=>setVideoLoading(false)} onError={()=>{setVideoLoading(false);Alert.alert("Erro","Vídeo indisponível");setVideoModalVisible(false)}}/></View></SafeAreaView></View></Modal>
+      
+      {/* --- MODAL DE VÍDEO BLINDADO (SUBSTITUIR O ANTIGO) --- */}
+      <Modal 
+        visible={videoModalVisible} 
+        animationType="slide" 
+        transparent
+        onRequestClose={() => {
+            setVideoModalVisible(false);
+            setCurrentVideoUrl(null); // 🔥 Limpa a URL para matar o processo do vídeo
+        }}
+      >
+        <View style={styles.videoOverlay}>
+            <SafeAreaView style={{flex:1}}>
+                <View style={styles.videoHeader}>
+                    <Text style={styles.videoHeaderTitle}>VÍDEO TÉCNICO</Text>
+                    <TouchableOpacity onPress={() => {
+                        setVideoModalVisible(false);
+                        setCurrentVideoUrl(null); // 🔥 Importante: Limpar ao fechar
+                    }}>
+                        <MaterialCommunityIcons name="close" size={28} color="#FFF"/>
+                    </TouchableOpacity>
+                </View>
+                
+                <View style={styles.playerContainer}>
+                    {/* 🔥 SEGURANÇA MÁXIMA: O componente Video só nasce se tiver URL e o modal estiver aberto */}
+                    {videoModalVisible && currentVideoUrl ? (
+                        <>
+                            {videoLoading && <ActivityIndicator color="#CCFF00" size="large" style={styles.videoAbsoluteLoader} />}
+                            <Video 
+                                ref={videoRef} 
+                                style={styles.videoPlayer} 
+                                source={{ uri: currentVideoUrl }} 
+                                useNativeControls 
+                                resizeMode={ResizeMode.CONTAIN} 
+                                shouldPlay 
+                                isLooping 
+                                onLoadStart={() => setVideoLoading(true)}
+                                onLoad={() => setVideoLoading(false)} 
+                                onError={(e) => {
+                                    setVideoLoading(false);
+                                    // console.log("Erro video:", e); // Opcional
+                                    Alert.alert("Aviso", "Não foi possível carregar o vídeo. Verifique sua conexão.");
+                                }}
+                            />
+                        </>
+                    ) : null}
+                </View>
+            </SafeAreaView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    // 🔥 CORREÇÃO: Topo seguro para Android
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
+  },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 10, justifyContent:'space-between' },
   backBtn: { padding: 8, backgroundColor: '#111', borderRadius: 8, borderWidth: 1, borderColor: '#222' },
@@ -624,7 +638,7 @@ const styles = StyleSheet.create({
     width: '100%', 
     justifyContent: 'space-between', 
     backgroundColor: '#000', 
-    paddingVertical: 20, // Aumentei o respiro vertical
+    paddingVertical: 20, 
     paddingHorizontal: 10, 
     borderRadius: 20, 
     borderWidth: 1, 
@@ -632,15 +646,14 @@ const styles = StyleSheet.create({
     marginTop: 20
   },
   statBox: { 
-    flex: 1, // Faz cada coluna ocupar exatamente 1/3
+    flex: 1, 
     alignItems: 'center', 
     justifyContent: 'center',
     paddingHorizontal: 8
-     
   },
   statValue: { 
     color: '#FFF', 
-    fontSize: 14, // Reduzi um pouco para garantir que caiba sem quebrar linha
+    fontSize: 14, 
     fontWeight: '900',
     textAlign: 'center'
   },

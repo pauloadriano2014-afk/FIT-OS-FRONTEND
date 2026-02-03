@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  Dimensions, ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, FlatList, Image 
+  Dimensions, ActivityIndicator, Modal, TextInput, Alert, KeyboardAvoidingView, Platform, FlatList, Image, StatusBar 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LineChart } from "react-native-chart-kit";
@@ -50,7 +50,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
   // Dados
   const [assessmentHistory, setAssessmentHistory] = useState([]);
   const [workoutLogs, setWorkoutLogs] = useState([]); 
-  const [checkinHistory, setCheckinHistory] = useState([]); // 🔥 NOVO: Histórico de Check-ins
+  const [checkinHistory, setCheckinHistory] = useState([]); 
 
   // MODAIS AVALIAÇÃO
   const [modalVisible, setModalVisible] = useState(false);
@@ -84,7 +84,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
       const [resAssess, resLogs, resCheckins] = await Promise.all([
           fetch(`https://fitos-final.onrender.com/api/assessment?userId=${aluno.id}`),
           fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}/history`),
-          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`) // Busca os check-ins
+          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`) 
       ]);
 
       const dataAssess = await resAssess.json();
@@ -93,7 +93,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
 
       if (Array.isArray(dataAssess)) setAssessmentHistory(dataAssess);
       if (dataLogs.workoutLogs) setWorkoutLogs(dataLogs.workoutLogs);
-      if (Array.isArray(dataCheckins)) setCheckinHistory(dataCheckins); // Salva check-ins
+      if (Array.isArray(dataCheckins)) setCheckinHistory(dataCheckins); 
 
     } catch (e) {
       console.log(e);
@@ -240,8 +240,11 @@ export default function AdminEvolutionScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#000" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}><MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{padding:5}}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>PRONTUÁRIO: {aluno.name?.toUpperCase()}</Text>
         <View style={{width:24}} />
       </View>
@@ -521,7 +524,12 @@ export default function AdminEvolutionScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    // 🔥 CORREÇÃO: Topo Seguro
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
+  },
   center: { flex: 1, justifyContent:'center', alignItems:'center' },
   header: { flexDirection:'row', alignItems:'center', padding:20, justifyContent:'space-between' },
   headerTitle: { color:'#FFF', fontWeight:'bold', fontSize:16 },
@@ -572,7 +580,7 @@ const styles = StyleSheet.create({
 
   // MODAL CADASTRO (Mantido)
   modalContainer: { flex: 1, backgroundColor:'#000' },
-  modalHeader: { padding:20, flexDirection:'row', justifyContent:'space-between', borderBottomWidth:1, borderBottomColor:'#222' },
+  modalHeader: { padding:20, flexDirection:'row', justifyContent:'space-between', borderBottomWidth:1, borderBottomColor:'#222', marginTop: Platform.OS === 'android' ? 20 : 0 },
   modalTitle: { color:'#FFF', fontWeight:'bold', fontSize:18 },
   inputLabel: { color:'#CCFF00', fontSize:12, fontWeight:'bold', marginBottom:5, marginTop:10 },
   input: { backgroundColor:'#111', color:'#FFF', padding:12, borderRadius:8, borderWidth:1, borderColor:'#333' },

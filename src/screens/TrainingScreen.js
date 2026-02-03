@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  Dimensions, StatusBar, Modal, Alert, ActivityIndicator, RefreshControl 
+  Dimensions, StatusBar, Modal, Alert, ActivityIndicator, RefreshControl, Platform 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -107,7 +107,7 @@ export default function TrainingScreen({ navigation }) {
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchWorkouts(); // 🔥 Chamando a função correta
+    fetchWorkouts(); 
   }, []);
 
   const handleEnergySelect = (level) => {
@@ -252,12 +252,12 @@ export default function TrainingScreen({ navigation }) {
                     </View>
                     
                     <TouchableOpacity 
-  style={styles.viewCycleBtn} // 🔥 Mudamos o estilo de texto para um botão
-  onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name })}
->
-  <Text style={styles.viewCycleText}>VER TREINO COMPLETO</Text>
-  <MaterialCommunityIcons name="eye-outline" size={14} color="#CCFF00" />
-</TouchableOpacity>
+                        style={styles.viewCycleBtn} 
+                        onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name })}
+                    >
+                        <Text style={styles.viewCycleText}>VER TREINO COMPLETO</Text>
+                        <MaterialCommunityIcons name="eye-outline" size={14} color="#CCFF00" />
+                    </TouchableOpacity>
                 </View>
 
                 <View style={styles.anatomyBox}>
@@ -373,9 +373,14 @@ export default function TrainingScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000',
+    // 🔥 CORREÇÃO: Topo Seguro no Android
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
+  },
   center: { flex: 1, justifyContent:'center', alignItems:'center', backgroundColor:'#000' },
-  header: { padding: 20, paddingTop: 40 },
+  header: { padding: 20, paddingTop: 10 },
   headerTitle: { color: '#FFF', fontSize: 20, fontWeight: '900' },
   sectionContainer: { marginHorizontal: 20, marginBottom: 25 },
   sectionTitle: { color: '#666', fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 10 },
@@ -402,25 +407,22 @@ const styles = StyleSheet.create({
   heroLabel: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold' },
   heroTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
   heroSubtitle: { color: '#888', fontSize: 12 },
-  viewCycleText: {
-    color: '#CCFF00', // Verde limão da sua marca
-    fontSize: 9,
-    fontWeight: '900',
-    letterSpacing: 0.5
-  },
+  
+  // Ajuste do Botão Ver Treino Completo
   viewCycleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1A1A1A', // Um cinza levemente mais claro que o fundo
+    backgroundColor: '#1A1A1A', 
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#333',
     gap: 6,
-    alignSelf: 'flex-start' // Garante que ele não ocupe a largura toda
+    alignSelf: 'flex-start'
   },
-  viewCycleLink: { color: '#666', fontSize: 10, textAlign: 'right', textDecorationLine: 'underline' },
+  viewCycleText: { color: '#CCFF00', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  
   anatomyBox: { flexDirection: 'row', gap: 15 },
   anatomyInfo: { flex: 1 },
   focusTitle: { color: '#FFF', fontSize: 11, fontWeight: 'bold', marginBottom: 2 },
@@ -463,6 +465,4 @@ const styles = StyleSheet.create({
   modalTitle: { color: '#FFF', fontWeight: '900', marginBottom: 20, textAlign: 'center' },
   modalItem: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#333' },
   modalItemText: { color: '#FFF', fontWeight: 'bold' }
-  
-
 });
