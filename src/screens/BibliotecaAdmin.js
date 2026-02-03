@@ -34,13 +34,6 @@ const getYoutubeId = (url) => {
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
 };
-const getCloudflareThumb = (url) => {
-    if (url && url.includes('cloudflarestream.com')) {
-        const videoId = url.split('cloudflarestream.com/')[1].split('/')[0];
-        return `https://customer-2q2ev93325619920.cloudflarestream.com/${videoId}/thumbnails/thumbnail.jpg`;
-    }
-    return null;
-};
 
 // --- CARD COMPONENT ---
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
@@ -86,7 +79,8 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 }, (prev, next) => prev.item.id === next.item.id && prev.item.videoUrl === next.item.videoUrl && prev.width === next.width);
 
 export default function BibliotecaAdmin({ navigation }) {
-  const { width } = useWindowDimensions();
+  // 🔥 CORREÇÃO WEB: Pegamos a altura exata da janela
+  const { width, height } = useWindowDimensions();
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
@@ -141,7 +135,6 @@ export default function BibliotecaAdmin({ navigation }) {
       } catch (e) { Alert.alert("Erro ao excluir"); }
   };
 
-  // 🔥🔥🔥 AQUI ESTÁ A CORREÇÃO DO CADASTRO 🔥🔥🔥
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Erro", "Nome obrigatório");
       
@@ -153,14 +146,13 @@ export default function BibliotecaAdmin({ navigation }) {
               body: JSON.stringify(formExercise)
           });
 
-          const jsonResponse = await res.json(); // Lemos a resposta JSON
+          const jsonResponse = await res.json(); 
 
           if (res.ok) {
               setModalVisible(false);
               fetchLibrary();
               Alert.alert("Sucesso", "Operação realizada com sucesso!");
           } else {
-              // 🔥 AGORA VAMOS VER O ERRO REAL
               Alert.alert("Erro ao Salvar", jsonResponse.error || "Ocorreu um erro no servidor.");
           }
       } catch (e) { 
@@ -184,7 +176,15 @@ export default function BibliotecaAdmin({ navigation }) {
   });
 
   const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
-  const rootStyle = { flex: 1, backgroundColor: '#000' };
+  
+  // 🔥 CORREÇÃO WEB: Na Web definimos a altura EXATA da janela
+  // No celular usamos '100%' ou flex:1
+  const rootStyle = { 
+      flex: 1, 
+      backgroundColor: '#000',
+      height: Platform.OS === 'web' ? height : '100%',
+      overflow: 'hidden' // Garante que nada vaze
+  };
 
   return (
     <RootComponent style={rootStyle}>
@@ -229,7 +229,6 @@ export default function BibliotecaAdmin({ navigation }) {
                   data={filteredList}
                   keyExtractor={item => item.id.toString()}
                   numColumns={numColumns}
-                  // 🔥 CORREÇÃO PARA EVITAR TELA VERMELHA
                   columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
                   contentContainerStyle={{ 
                       paddingBottom: 150, 
@@ -305,7 +304,9 @@ export default function BibliotecaAdmin({ navigation }) {
              <TouchableOpacity style={styles.closeFullVideo} onPress={() => setVideoModalVisible(false)}>
                <MaterialCommunityIcons name="close" size={30} color="#FFF" />
              </TouchableOpacity>
-             <Video source={{ uri: currentVideo }} style={styles.fullVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay />
+             {currentVideo && (
+                 <Video source={{ uri: currentVideo }} style={styles.fullVideo} useNativeControls resizeMode={ResizeMode.CONTAIN} shouldPlay />
+             )}
           </View>
         </Modal>
     </RootComponent>
