@@ -133,6 +133,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
           const now = Date.now();
           const diff = Math.floor((now - parseInt(savedStart)) / 1000);
           setElapsedSeconds(diff); // Dá o "pulo" para o tempo real
+          
+          // 🔥 CORREÇÃO IMPORTANTE: Se achou tempo salvo, ativa o modo treino
+          // Isso destrava os campos de carga e muda o botão de voltar
+          setIsTimerRunning(true); 
         }
       };
       syncTimer();
@@ -360,8 +364,24 @@ const submitFinish = async () => {
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" /></TouchableOpacity>
-            <View style={{flex:1, alignItems: 'center'}}><Text style={styles.headerLabel}>{workoutName?.toUpperCase()}</Text><Text style={styles.headerTitle}>TREINO {day}</Text></View><View style={{width: 40}} />
+            {/* 🔥 CORREÇÃO: Tira o botão de voltar quando o cronômetro está rodando */}
+            {!isTimerRunning ? (
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
+                </TouchableOpacity>
+            ) : (
+                <View style={styles.activeWorkoutBadge}>
+                     <MaterialCommunityIcons name="fire" size={16} color="#000" />
+                     <Text style={styles.activeWorkoutText}>EM TREINO</Text>
+                </View>
+            )}
+
+            <View style={{flex:1, alignItems: 'center'}}>
+                <Text style={styles.headerLabel}>{workoutName?.toUpperCase()}</Text>
+                <Text style={styles.headerTitle}>TREINO {day}</Text>
+            </View>
+            
+            <View style={{width: 40}} />
           </View>
 
           <ScrollView contentContainerStyle={styles.listContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
@@ -570,6 +590,8 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: 10, justifyContent:'space-between' },
   backBtn: { padding: 8, backgroundColor: '#111', borderRadius: 8, borderWidth: 1, borderColor: '#222' },
+  activeWorkoutBadge: { flexDirection:'row', alignItems:'center', gap:5, backgroundColor:'#CCFF00', paddingVertical:5, paddingHorizontal:10, borderRadius:8 },
+  activeWorkoutText: { color: '#000', fontWeight: 'bold', fontSize: 10 },
   headerLabel: { color: '#666', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
   headerTitle: { color: '#FFF', fontSize: 20, fontWeight: '900' },
   listContent: { paddingHorizontal: 20 },

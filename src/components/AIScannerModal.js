@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Dimensions, Platform, Vibration } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useIsFocused } from '@react-navigation/native'; // 🔥 IMPORTANTE: Hook para saber se a tela está ativa
 
 // Importação da API Legada (Necessária para funcionar o uploadType: 1)
 import { uploadAsync } from 'expo-file-system/legacy'; 
@@ -46,6 +47,9 @@ export default function ScannerIA({ navigation, route }) {
   const [isScanning, setIsScanning] = useState(false);
   const [loadingIA, setLoadingIA] = useState(false);
   const [countdown, setCountdown] = useState(0);
+
+  // 🔥 Hook para controlar o foco da tela e evitar tela branca
+  const isFocused = useIsFocused();
 
   const cameraRef = useRef(null);
   const scanAnim = useRef(new Animated.Value(0)).current;
@@ -105,15 +109,28 @@ export default function ScannerIA({ navigation, route }) {
       setLoadingIA(false);
 
       if (uploadResult.status === 200) {
-        let data;
+        let cleanMessage = "";
+        
         try {
-             data = JSON.parse(uploadResult.body);
+             // 🔥 TRATAMENTO DE RESPOSTA PARA REMOVER O JSON FEIO
+             const data = JSON.parse(uploadResult.body);
+             
+             // Monta uma mensagem bonita se for objeto
+             if (typeof data === 'object') {
+                const feedbackPart = data.feedback || "Análise concluída.";
+                const correctionPart = data.correction ? `\n\n💡 DICA: ${data.correction}` : "";
+                cleanMessage = `${feedbackPart}${correctionPart}`;
+             } else {
+                cleanMessage = String(data);
+             }
+
         } catch (e) {
-             data = { feedback: uploadResult.body };
+             // Se falhar o parse, usa o texto puro mas tenta limpar aspas extras
+             cleanMessage = uploadResult.body.replace(/["{}]/g, ""); 
         }
 
-        // 🤖 NOME CORRIGIDO PARA SUA MARCA
-        Alert.alert("💀 COACH PAULO TEAM", data.feedback, [
+        // 🤖 ALERTA LIMPO
+        Alert.alert("💀 COACH PAULO TEAM", cleanMessage, [
             { text: "ENTENDI", onPress: () => navigation.goBack() }
         ]);
       } else {
@@ -182,13 +199,16 @@ export default function ScannerIA({ navigation, route }) {
         </View>
 
         <View style={styles.cameraContainer}>
-            <CameraView 
-                style={styles.camera} 
-                facing="back" 
-                ref={cameraRef} 
-                mode="video"
-                mute={true} 
-            />
+            {/* 🔥 CORREÇÃO TELA BRANCA: Só renderiza a câmera se a tela estiver focada */}
+            {isFocused && (
+                <CameraView 
+                    style={styles.camera} 
+                    facing="back" 
+                    ref={cameraRef} 
+                    mode="video"
+                    mute={true} 
+                />
+            )}
             
             {countdown > 0 && (
                 <View style={styles.countdownOverlay}>
