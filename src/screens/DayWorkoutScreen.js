@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
   ActivityIndicator, Alert, Modal, StatusBar, Dimensions, TextInput, 
-  KeyboardAvoidingView, Platform, ImageBackground, Image 
+  KeyboardAvoidingView, Platform, ImageBackground, Image, AppState 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -43,6 +43,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // Referência para monitorar o estado do app (Background/Active)
+  const appState = useRef(AppState.currentState);
 
   const [techModalVisible, setTechModalVisible] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
@@ -125,23 +128,41 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   useFocusEffect( useCallback(() => { fetchWorkoutData(); }, []) );
 
-  // 🔥 LÓGICA DE TEMPO REAL: Recupera o início se o app fechou
+  // 🔥 1. SINCRONIZAÇÃO INICIAL E RESTAURAÇÃO
   useEffect(() => {
     const syncTimer = async () => {
         const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}`);
         if (savedStart) {
           const now = Date.now();
           const diff = Math.floor((now - parseInt(savedStart)) / 1000);
-          setElapsedSeconds(diff); // Dá o "pulo" para o tempo real
-          
-          // 🔥 CORREÇÃO IMPORTANTE: Se achou tempo salvo, ativa o modo treino
-          // Isso destrava os campos de carga e muda o botão de voltar
+          setElapsedSeconds(diff > 0 ? diff : 0); 
           setIsTimerRunning(true); 
         }
       };
       syncTimer();
-    }, [workoutId]);
+  }, [workoutId]);
 
+  // 🔥 2. DETECTOR DE BACKGROUND (SOLUÇÃO DO CONGELAMENTO)
+  useEffect(() => {
+    const handleAppStateChange = async (nextAppState) => {
+      // Se o app voltar para Ativo (Active) e o treino estiver rodando
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}`);
+        if (savedStart) {
+            const now = Date.now();
+            const diff = Math.floor((now - parseInt(savedStart)) / 1000);
+            console.log("App voltou do background! Atualizando tempo para:", diff);
+            setElapsedSeconds(diff > 0 ? diff : 0);
+        }
+      }
+      appState.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [workoutId]);
+
+  // 🔥 3. O RELÓGIO (TICK TACK)
   useEffect(() => {
     let interval = null;
     if (isTimerRunning) { 
@@ -149,11 +170,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
             setElapsedSeconds(prev => prev + 1); 
         }, 1000); 
     } 
-    else { clearInterval(interval); }
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
-  // 🔥 AUTO-SAVE: Salva o progresso localmente sempre que lastWeights muda
+  // 🔥 AUTO-SAVE: Salva o progresso localmente
   useEffect(() => {
     const saveProgress = async () => {
         if (Object.keys(lastWeights).length > 0) {
@@ -161,7 +181,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
             await AsyncStorage.setItem(key, JSON.stringify(lastWeights));
         }
     };
-    const timer = setTimeout(saveProgress, 500); // Debounce de 500ms
+    const timer = setTimeout(saveProgress, 500); 
     return () => clearTimeout(timer);
   }, [lastWeights, workoutId, day]);
 
@@ -173,7 +193,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
       const user = JSON.parse(stored);
       setUserData(user);
 
-      // 1. Busca dados do servidor
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`);
       const data = await response.json();
       
@@ -182,14 +201,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
         setExercisesToShow(filteredExercises);
         if (data.lastWeights) setHistoryWeights(data.lastWeights);
 
-        // 2. 🔥 RECUPERAÇÃO DE RASCUNHO (AUTO-SAVE)
         const draftKey = `draft_workout_${workoutId}_${day}`;
         const draft = await AsyncStorage.getItem(draftKey);
         
         if (draft) {
             const parsedDraft = JSON.parse(draft);
             setLastWeights(parsedDraft);
-            console.log("Rascunho recuperado com sucesso!");
         }
       }
     } catch (error) { console.log("Erro fetch:", error); } 
@@ -364,7 +381,6 @@ const submitFinish = async () => {
       <StatusBar barStyle="light-content" backgroundColor="#000" />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
           <View style={styles.header}>
-            {/* 🔥 CORREÇÃO: Tira o botão de voltar quando o cronômetro está rodando */}
             {!isTimerRunning ? (
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
@@ -422,7 +438,6 @@ const submitFinish = async () => {
           </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* MODAL DE TÉCNICA - CORRIGIDO O TÍTULO CORTADO */}
       <Modal 
         visible={techModalVisible} 
         transparent 
@@ -441,7 +456,6 @@ const submitFinish = async () => {
                    size={28} 
                    color={selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF'} 
                  />
-                 {/* 🔥 CORREÇÃO: flex: 1 e wrap para evitar cortes */}
                  <Text style={[styles.modalTitle, { color: selectedTech ? TECH_GUIDE[selectedTech]?.color : '#FFF', marginBottom: 0, flex: 1, flexWrap: 'wrap' }]}>
                    {selectedTech ? TECH_GUIDE[selectedTech]?.title : ''}
                  </Text>
@@ -525,13 +539,6 @@ const submitFinish = async () => {
 
       <Modal visible={calcModalVisible} transparent animationType="slide"><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}><View style={styles.modalContent}><View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:15, alignItems:'center'}}><Text style={styles.modalTitle}>ESTIMATIVA DE CARGA (1RM)</Text><TouchableOpacity onPress={()=>setCalcModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF"/></TouchableOpacity></View><Text style={{color:'#888', marginBottom:20, fontSize:13}}>Insira um peso e repetições que você já fez para descobrir a carga ideal.</Text><View style={{flexDirection:'row', gap:15, marginBottom:20}}><View style={{flex:1}}><Text style={styles.label}>CARGA JÁ FEITA (KG)</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcWeight} onChangeText={setCalcWeight} placeholder="Ex: 50" placeholderTextColor="#333"/></View><View style={{flex:1}}><Text style={styles.label}>REPS FEITAS</Text><TextInput style={styles.inputCalc} keyboardType="numeric" value={calcReps} onChangeText={setCalcReps} placeholder="Ex: 10" placeholderTextColor="#333"/></View></View>{oneRM > 0 && <View style={styles.resultBox}><Text style={styles.rmLabel}>{oneRM} KG <Text style={{fontSize:12, color:'#666'}}>MÁXIMO TEÓRICO</Text></Text><View style={{width:'100%', gap:12, marginTop:10}}><View style={styles.resRow}><Text style={styles.pLabel}>Para Hipertrofia (8-12 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.75)} kg</Text></View><View style={styles.resRow}><Text style={styles.pLabel}>Para Força (1-5 reps)</Text><Text style={styles.pValue}>{Math.round(oneRM*0.90)} kg</Text></View></View></View>}</View></KeyboardAvoidingView></Modal>
       
-      {/* 🔥🔥🔥 MODAL DE VÍDEO NOVO ESTILO (NETFLIX/YOUTUBE MOBILE) 🔥🔥🔥 */}
-      {/* Ajustes: 
-          1. Fundo escuro translúcido.
-          2. Container de vídeo ocupando 80% da altura e 100% da largura.
-          3. ResizeMode CONTAIN para não cortar vídeos verticais.
-          4. Botão de fechar flutuante.
-      */}
       <Modal 
         visible={videoModalVisible} 
         animationType="fade" 
@@ -584,7 +591,6 @@ const styles = StyleSheet.create({
   container: { 
     flex: 1, 
     backgroundColor: '#000',
-    // 🔥 CORREÇÃO: Topo seguro para Android
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -606,16 +612,16 @@ const styles = StyleSheet.create({
   modalOverlay: { 
     flex: 1, 
     backgroundColor: 'rgba(0,0,0,0.85)', 
-    justifyContent: 'center', // Centraliza para não vazar pra baixo
+    justifyContent: 'center', 
     padding: 20 
   },
   modalContent: { 
     backgroundColor: '#111', 
     padding: 25, 
-    borderRadius: 25, // Bordas arredondadas em tudo
+    borderRadius: 25, 
     borderColor: '#222', 
     borderWidth: 1, 
-    maxHeight: '80%', // Trava a altura para o ScrollView funcionar
+    maxHeight: '80%', 
     width: '100%' 
   },
   modalTitle: { fontSize: 16, fontWeight: '900', color:'#FFF', marginBottom: 5, letterSpacing: 1 },
@@ -637,13 +643,10 @@ const styles = StyleSheet.create({
   finishConfirmBtn: { backgroundColor: '#CCFF00', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   finishConfirmText: { color: '#000', fontWeight: '900', fontSize: 14 },
   
-  // 🔥 NOVOS ESTILOS PARA O MODAL DE VÍDEO (SEM BLUR, FULLSCREEN STYLE)
   videoOverlayModern: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
-  // 80% da altura e 100% da largura para ocupar bem a tela
   videoWrapperModern: { width: '100%', height: '80%', backgroundColor: '#000', overflow: 'hidden' }, 
   videoPlayerModern: { width: '100%', height: '100%' },
   videoAbsoluteLoader: { position: 'absolute', top: '45%', left: '45%', zIndex: 10 },
-  // Botão flutuante
   closeVideoBtnModern: { position: 'absolute', top: 50, right: 20, zIndex: 99, backgroundColor: '#CCFF00', width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.8, shadowRadius: 2, elevation: 5 },
 
   shareContainer: { flex: 1, width: '100%', height: '100%' },
