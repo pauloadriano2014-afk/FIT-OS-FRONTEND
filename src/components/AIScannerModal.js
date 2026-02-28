@@ -1,121 +1,124 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Dimensions, Platform, Vibration } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useIsFocused } from '@react-navigation/native'; // 🔥 IMPORTANTE: Hook para saber se a tela está ativa
-
-// Importação da API Legada (Necessária para funcionar o uploadType: 1)
-import { uploadAsync } from 'expo-file-system/legacy'; 
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Dimensions, Platform, StatusBar } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { uploadAsync } from 'expo-file-system/legacy';
 
 const { height } = Dimensions.get('window');
 
 const getInstruction = (exercise) => {
   const name = exercise?.toLowerCase() || "";
-
-  // 1. ELEVAÇÃO LATERAL e FRONTAL (Melhor de FRENTE)
-  if (name.includes("elevação lateral") || name.includes("frontal") || name.includes("abdução")) {
-    return "📸 POSIÇÃO: FRENTE. Celular apoiado na altura do peito.";
-  }
-
-  // 2. COSTAS/POSTERIOR (Melhor de COSTAS)
-  if (name.includes("remada") || name.includes("puxada") || name.includes("costas") || name.includes("inverso") || name.includes("dorsal")) {
-    return "📸 POSIÇÃO: COSTAS ou LADO. Mostre as escápulas.";
-  }
-
-  // 3. AGACHAMENTOS/PERNAS (Melhor de LADO)
-  if (name.includes("agachamento") || name.includes("terra") || name.includes("stiff") || name.includes("afundo") || name.includes("leg") || name.includes("búlgaro")) {
-    return "📸 POSIÇÃO: LADO/DIAGONAL. Afaste 3m para ver quadril e joelho.";
-  }
-
-  // 4. PEITORAL/SUPINOS (Melhor na DIAGONAL)
-  if (name.includes("supino") || name.includes("fly") || name.includes("peitoral") || name.includes("crossover")) {
-    return "📸 POSIÇÃO: DIAGONAL (45°). De cima para baixo se possível.";
-  }
-
-  // 5. BRAÇOS/BÍCEPS/TRÍCEPS (FRENTE ou LADO)
-  if (name.includes("rosca") || name.includes("tríceps") || name.includes("bíceps") || name.includes("coice") || name.includes("testa")) {
-    return "📸 POSIÇÃO: LADO ou FRENTE. Foque no cotovelo.";
-  }
-
-  // Padrão genérico
+  if (name.includes("elevação lateral") || name.includes("frontal") || name.includes("abdução")) return "📸 POSIÇÃO: FRENTE. Celular apoiado na altura do peito.";
+  if (name.includes("remada") || name.includes("puxada") || name.includes("costas") || name.includes("inverso") || name.includes("dorsal")) return "📸 POSIÇÃO: COSTAS ou LADO. Mostre as escápulas.";
+  if (name.includes("agachamento") || name.includes("terra") || name.includes("stiff") || name.includes("afundo") || name.includes("leg") || name.includes("búlgaro")) return "📸 POSIÇÃO: LADO/DIAGONAL. Afaste 3m para ver quadril e joelho.";
+  if (name.includes("supino") || name.includes("fly") || name.includes("peitoral") || name.includes("crossover")) return "📸 POSIÇÃO: DIAGONAL (45°). De cima para baixo se possível.";
+  if (name.includes("rosca") || name.includes("tríceps") || name.includes("bíceps") || name.includes("coice") || name.includes("testa")) return "📸 POSIÇÃO: LADO ou FRENTE. Foque no cotovelo.";
   return "📸 POSIÇÃO: DIAGONAL. Corpo inteiro na tela.";
 };
 
 export default function ScannerIA({ navigation, route }) {
   const exerciseName = route?.params?.exName || "Exercício";
-  
-  const [permission, requestPermission] = useCameraPermissions();
-  const [isScanning, setIsScanning] = useState(false);
-  const [loadingIA, setLoadingIA] = useState(false);
-  const [countdown, setCountdown] = useState(0);
-
-  // 🔥 Hook para controlar o foco da tela e evitar tela branca
-  const isFocused = useIsFocused();
-
-  const cameraRef = useRef(null);
-  const scanAnim = useRef(new Animated.Value(0)).current;
   const currentInstruction = getInstruction(exerciseName);
+  
+  const [loadingIA, setLoadingIA] = useState(false);
+  const [feedbackData, setFeedbackData] = useState(null); 
+  const scanAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (permission && !permission.granted && permission.canAskAgain) {
-        requestPermission();
-    }
-  }, [permission]);
-
-  // Animação do Laser
-  useEffect(() => {
-    if (isScanning) {
+    if (loadingIA) {
         Animated.loop(
             Animated.sequence([
-                Animated.timing(scanAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
-                Animated.timing(scanAnim, { toValue: 0, duration: 1500, useNativeDriver: true })
+                Animated.timing(scanAnim, { toValue: 1, duration: 1200, useNativeDriver: true }),
+                Animated.timing(scanAnim, { toValue: 0, duration: 1200, useNativeDriver: true })
             ])
         ).start();
     } else {
         scanAnim.stopAnimation();
         scanAnim.setValue(0);
     }
-  }, [isScanning]);
+  }, [loadingIA]);
 
-  const executeRecording = async () => {
-    if (!cameraRef.current) return;
+  // 🔥 OPÇÃO 1: GRAVAR AO VIVO (COM CORTE DE VOLTA)
+  const openNativeCameraAndRecord = async () => {
     try {
-      Vibration.vibrate(500);
-      setIsScanning(true);
-      
-      const video = await cameraRef.current.recordAsync({ 
-          quality: '480p', 
-          maxDuration: 6, // 6 segundos é o ideal para o peso do arquivo
-          mute: true 
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true, // Voltou o corte (Mesmo com o bug chato da Apple ao vivo)
       });
 
-      setIsScanning(false);
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        uploadVideoForAnalysis(result.assets[0]);
+      }
+    } catch (error) {
+      console.error("Erro câmera:", error);
+    }
+  };
+
+  // 🔥 OPÇÃO 2: PUXAR DA GALERIA (CORTE 100% PERFEITO NO IPHONE)
+  const pickFromGallery = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true, // Na galeria, o corte do iOS nunca trava
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        uploadVideoForAnalysis(result.assets[0]);
+      }
+    } catch (error) {
+      console.error("Erro galeria:", error);
+    }
+  };
+
+  const uploadVideoForAnalysis = async (asset) => {
+    try {
       setLoadingIA(true);
+      setFeedbackData(null); 
 
-      console.log("Iniciando Upload (Legacy API)...", video.uri);
+      let uploadResultStatus;
+      let responseBody;
 
-      // 🚀 UPLOAD BLINDADO
-      const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', video.uri, {
-        fieldName: 'video',
-        httpMethod: 'POST',
-        uploadType: 1, // 1 = MULTIPART (O segredo para funcionar no Android)
-        parameters: {
-            'exerciseName': exerciseName,
-            'userLevel': 'Geral'
-        },
-      });
+      if (Platform.OS === 'web') {
+        const formData = new FormData();
+        
+        let videoBlob;
+        if (asset.file) {
+            videoBlob = asset.file; 
+        } else {
+            const res = await fetch(asset.uri);
+            videoBlob = await res.blob();
+        }
 
-      console.log("Status Upload:", uploadResult.status);
+        formData.append('video', videoBlob, 'video.mov');
+        formData.append('exerciseName', exerciseName);
+        formData.append('userLevel', 'Geral');
+
+        const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
+          method: 'POST',
+          body: formData,
+        });
+
+        uploadResultStatus = response.status;
+        responseBody = await response.text();
+
+      } else {
+        const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', asset.uri, {
+          fieldName: 'video',
+          httpMethod: 'POST',
+          uploadType: 1, 
+          parameters: { 'exerciseName': exerciseName, 'userLevel': 'Geral' },
+        });
+
+        uploadResultStatus = uploadResult.status;
+        responseBody = uploadResult.body;
+      }
 
       setLoadingIA(false);
 
-      if (uploadResult.status === 200) {
+      if (uploadResultStatus === 200) {
         let cleanMessage = "";
-        
         try {
-             // 🔥 TRATAMENTO DE RESPOSTA PARA REMOVER O JSON FEIO
-             const data = JSON.parse(uploadResult.body);
-             
-             // Monta uma mensagem bonita se for objeto
+             const data = JSON.parse(responseBody);
              if (typeof data === 'object') {
                 const feedbackPart = data.feedback || "Análise concluída.";
                 const correctionPart = data.correction ? `\n\n💡 DICA: ${data.correction}` : "";
@@ -123,141 +126,122 @@ export default function ScannerIA({ navigation, route }) {
              } else {
                 cleanMessage = String(data);
              }
-
         } catch (e) {
-             // Se falhar o parse, usa o texto puro mas tenta limpar aspas extras
-             cleanMessage = uploadResult.body.replace(/["{}]/g, ""); 
+             cleanMessage = responseBody.replace(/["{}]/g, ""); 
         }
-
-        // 🤖 ALERTA LIMPO
-        Alert.alert("💀 COACH PAULO TEAM", cleanMessage, [
-            { text: "ENTENDI", onPress: () => navigation.goBack() }
-        ]);
+        
+        // Remove barras escapadas caso venham da IA
+        cleanMessage = cleanMessage.replace(/\\n/g, '\n').replace(/\\"/g, '"');
+        setFeedbackData(cleanMessage);
       } else {
-        const errorData = JSON.parse(uploadResult.body || "{}");
-        throw new Error(errorData.error || errorData.details || "Erro no servidor.");
+        const errorData = JSON.parse(responseBody || "{}");
+        setFeedbackData(`Erro do Servidor: ${errorData.error || "Tente novamente."}`);
       }
-
     } catch (error) {
-      console.error("Erro Scanner:", error);
-      setIsScanning(false);
       setLoadingIA(false);
-      Alert.alert("Erro", "Falha no envio: " + error.message);
+      setFeedbackData(`Falha de Conexão: ${error.message}`);
     }
   };
 
-  const startCountdown = () => {
-    if (isScanning || countdown > 0) return;
-    setCountdown(7);
-    Vibration.vibrate(100); 
+  const translateY = scanAnim.interpolate({ inputRange: [0, 1], outputRange: [0, height * 0.5] });
+  const isWeb = Platform.OS === 'web';
+  const RootComponent = isWeb ? View : SafeAreaView;
+  
+  const rootStyle = isWeb
+    ? { flex: 1, height: '100vh', width: '100%', backgroundColor: '#0a0a0a', alignItems: 'center' }
+    : { flex: 1, backgroundColor: '#000', paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 };
 
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          executeRecording();
-          return 0;
-        }
-        Vibration.vibrate(100); 
-        return prev - 1;
-      });
-    }, 1000);
+  const mobileVirtualStyle = {
+    flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: '#000',
+    ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#222' } : {})
   };
 
-  const translateY = scanAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, height * 0.45],
-  });
-
-  if (!permission) {
-    return <View style={styles.container}><ActivityIndicator color="#CCFF00" /></View>;
-  }
-
-  if (!permission.granted) {
-    return (
-      <View style={[styles.container, {justifyContent:'center', alignItems:'center'}]}>
-         <Text style={{color:'#FFF', marginBottom:20, textAlign:'center'}}>Precisamos da câmera para analisar sua execução.</Text>
-         <TouchableOpacity style={styles.recordBtn} onPress={requestPermission}><Text style={styles.recordText}>ATIVAR CÂMERA</Text></TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
-    <View style={styles.container}>
-        <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                <Text style={styles.backText}>VOLTAR</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>SCANNER BIOMECÂNICO</Text>
-            <View style={{width: 50}} /> 
-        </View>
-
-        <Text style={styles.exerciseNameText}>{exerciseName}</Text>
-
-        <View style={styles.instructionBox}>
-            <Text style={styles.instructionText}>{currentInstruction}</Text>
-        </View>
-
-        <View style={styles.cameraContainer}>
-            {/* 🔥 CORREÇÃO TELA BRANCA: Só renderiza a câmera se a tela estiver focada */}
-            {isFocused && (
-                <CameraView 
-                    style={styles.camera} 
-                    facing="back" 
-                    ref={cameraRef} 
-                    mode="video"
-                    mute={true} 
-                />
-            )}
-            
-            {countdown > 0 && (
-                <View style={styles.countdownOverlay}>
-                <Text style={styles.countdownText}>{countdown}</Text>
-                <Text style={{color:'#CCFF00', fontWeight:'bold', marginTop:10}}>PREPARE-SE...</Text>
+    <RootComponent style={rootStyle}>
+        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <View style={mobileVirtualStyle}>
+            <View style={styles.container}>
+                
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} disabled={loadingIA}>
+                        <Text style={styles.backText}>VOLTAR</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.title}>SCANNER BIOMECÂNICO</Text>
+                    <View style={{width: 50}} /> 
                 </View>
-            )}
-            
-            {isScanning && <Animated.View style={[styles.laserLine, { transform: [{ translateY }] }]} />}
-            
-            {loadingIA && (
-                <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#CCFF00" />
-                <Text style={styles.loadingText}>ENVIANDO PARA O COACH...</Text>
-                </View>
-            )}
-        </View>
 
-        {!loadingIA && (
-            <TouchableOpacity 
-                style={[styles.recordBtn, isScanning && { backgroundColor: '#FF3B30' }]} 
-                onPress={() => isScanning ? cameraRef.current?.stopRecording() : startCountdown()}
-                disabled={countdown > 0}
-            >
-                <Text style={styles.recordText}>
-                    {isScanning ? "PARAR AGORA" : countdown > 0 ? "POSICIONE O CELULAR" : "INICIAR ANÁLISE (6s)"}
-                </Text>
-            </TouchableOpacity>
-        )}
-    </View>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    
+                    {loadingIA && (
+                        <View style={styles.processingContainer}>
+                            <Animated.View style={[styles.laserLine, { transform: [{ translateY }] }]} />
+                            <ActivityIndicator size="large" color="#CCFF00" style={{ marginBottom: 20 }} />
+                            <Text style={{ color: '#CCFF00', fontSize: 18, fontWeight: '900', letterSpacing: 1 }}>ANALISANDO MOVIMENTO...</Text>
+                            <Text style={{ color: '#FFF', marginTop: 10, textAlign: 'center', paddingHorizontal: 20 }}>
+                                A IA do Coach está processando seus ângulos e alavancas biomecânicas.
+                            </Text>
+                        </View>
+                    )}
+
+                    {!loadingIA && feedbackData && (
+                        <View style={{ width: '100%', alignItems: 'center' }}>
+                            <Text style={{ color: '#CCFF00', fontSize: 22, fontWeight: '900', marginBottom: 20 }}>VEREDITO DA IA</Text>
+                            <View style={{ backgroundColor: '#111', padding: 25, borderRadius: 20, borderWidth: 1, borderColor: '#333', width: '100%', marginBottom: 30 }}>
+                                <Text style={{ color: '#FFF', fontSize: 16, lineHeight: 24, textAlign: 'center' }}>{feedbackData}</Text>
+                            </View>
+                            <TouchableOpacity style={styles.recordBtn} onPress={() => setFeedbackData(null)}>
+                                <Text style={styles.recordText}>NOVA ANÁLISE</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {!loadingIA && !feedbackData && (
+                        <>
+                            <Text style={styles.exerciseNameText}>{exerciseName}</Text>
+                            <View style={styles.instructionBox}>
+                                <Text style={styles.instructionText}>{currentInstruction}</Text>
+                            </View>
+                            
+                            {/* 🔥 BOTÃO 1: CÂMERA AO VIVO */}
+                            <TouchableOpacity style={styles.recordBtn} onPress={openNativeCameraAndRecord}>
+                                <Text style={styles.recordText}>📹 GRAVAR AGORA</Text>
+                            </TouchableOpacity>
+
+                            {/* 🔥 BOTÃO 2: GALERIA (A SALVAÇÃO DO CORTE) */}
+                            <TouchableOpacity style={styles.galleryBtn} onPress={pickFromGallery}>
+                                <Text style={styles.galleryText}>📂 ESCOLHER DA GALERIA</Text>
+                            </TouchableOpacity>
+                            
+                            <View style={styles.warningBox}>
+                                <Text style={styles.warningText}>
+                                    ⚠️ ATENÇÃO: Envie no MÁXIMO 10 segundos! Use a ferramenta de corte para isolar apenas 1 ou 2 repetições perfeitas do seu exercício.
+                                </Text>
+                            </View>
+                        </>
+                    )}
+
+                </View>
+            </View>
+        </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000', padding: 20 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 30 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginTop: 10 },
   backBtn: { padding: 10 },
   backText: { color: '#666', fontWeight: 'bold' },
   title: { color: '#CCFF00', fontSize: 12, fontWeight: '900', letterSpacing: 1 },
-  exerciseNameText: { color: '#fff', fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
-  instructionBox: { backgroundColor: '#111', padding: 15, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#333' },
-  instructionText: { color: '#CCFF00', fontSize: 13, fontWeight: 'bold', textAlign: 'center' },
-  cameraContainer: { flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: '#111', marginBottom: 20 },
-  camera: { flex: 1 },
-  laserLine: { position: 'absolute', top: 0, left: 0, right: 0, height: 4, backgroundColor: '#CCFF00', zIndex: 10, shadowColor: '#CCFF00', shadowOpacity: 0.8, shadowRadius: 10 },
-  countdownOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
-  countdownText: { color: '#CCFF00', fontSize: 80, fontWeight: '900' },
-  recordBtn: { backgroundColor: '#CCFF00', padding: 18, borderRadius: 16, alignItems: 'center', marginBottom: 10 },
-  recordText: { color: '#000', fontWeight: '900', fontSize: 16 },
-  loadingOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: '#CCFF00', marginTop: 15, fontWeight: 'bold', letterSpacing: 1 }
+  exerciseNameText: { color: '#fff', fontSize: 26, fontWeight: 'bold', textAlign: 'center', marginBottom: 15 },
+  instructionBox: { backgroundColor: '#111', padding: 20, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#333', width: '100%' },
+  instructionText: { color: '#CCFF00', fontSize: 14, fontWeight: 'bold', textAlign: 'center', lineHeight: 22 },
+  recordBtn: { backgroundColor: '#CCFF00', paddingVertical: 18, paddingHorizontal: 30, borderRadius: 16, width: '100%', alignItems: 'center', elevation: 5, marginBottom: 15 },
+  recordText: { color: '#000', fontWeight: '900', fontSize: 15, letterSpacing: 1 },
+  galleryBtn: { backgroundColor: '#1A1A1A', paddingVertical: 18, paddingHorizontal: 30, borderRadius: 16, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: '#333', marginBottom: 20 },
+  galleryText: { color: '#FFF', fontWeight: '900', fontSize: 15, letterSpacing: 1 },
+  processingContainer: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#222' },
+  laserLine: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: '#CCFF00', shadowColor: '#CCFF00', shadowOpacity: 1, shadowRadius: 15 },
+  warningBox: { backgroundColor: 'rgba(255, 59, 48, 0.1)', padding: 15, borderRadius: 12, marginTop: 5, borderWidth: 1, borderColor: 'rgba(255, 59, 48, 0.3)', width: '100%' },
+  warningText: { color: '#FF3B30', fontSize: 12, textAlign: 'center', fontWeight: 'bold', lineHeight: 18 }
 });

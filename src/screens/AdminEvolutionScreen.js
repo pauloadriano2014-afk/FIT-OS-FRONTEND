@@ -6,9 +6,12 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LineChart } from "react-native-chart-kit";
 
+/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
+import { useTheme } from '../contexts/ThemeContext';
+
 const { width } = Dimensions.get('window');
 
-// --- FÓRMULAS E UTILITÁRIOS (MANTIDOS ORIGINAIS) ---
+// --- FÓRMULAS E UTILITÁRIOS ---
 const calculateBodyFat = (gender, age, rawFolds) => {
     const cleanVal = (v) => Number(String(v).replace(',', '.') || 0);
     const sum = cleanVal(rawFolds.chest) + cleanVal(rawFolds.axillary) + cleanVal(rawFolds.triceps) + 
@@ -43,25 +46,22 @@ const getRpeInfo = (val) => {
 
 export default function AdminEvolutionScreen({ route, navigation }) {
   const { aluno } = route.params; 
+  const { theme } = useTheme(); // 🔥 PUXA O TEMA AQUI
 
-  const [activeTab, setActiveTab] = useState('AVALIACAO'); // AVALIACAO | CHECKINS | FEEDBACK
+  const [activeTab, setActiveTab] = useState('AVALIACAO'); 
   const [loading, setLoading] = useState(true);
   
-  // Dados
   const [assessmentHistory, setAssessmentHistory] = useState([]);
   const [workoutLogs, setWorkoutLogs] = useState([]); 
   const [checkinHistory, setCheckinHistory] = useState([]); 
 
-  // MODAIS AVALIAÇÃO
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false); 
   const [selectedAssessment, setSelectedAssessment] = useState(null); 
 
-  // MODAL CHECK-IN (NOVO)
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
   const [selectedCheckin, setSelectedCheckin] = useState(null);
 
-  // States do Formulário de Avaliação
   const [method, setMethod] = useState('BASICO');
   const [customDate, setCustomDate] = useState('');
   const [weight, setWeight] = useState('');
@@ -72,15 +72,11 @@ export default function AdminEvolutionScreen({ route, navigation }) {
   const [measures, setMeasures] = useState({ waist: '', abdomen: '' });
   const [folds, setFolds] = useState({ chest:'', axillary:'', triceps:'', subscapular:'', abdominal:'', suprailiac:'', thigh:'' });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      
-      // 🔥 BUSCA TRIPLA: Avaliações + Treinos + Check-ins
       const [resAssess, resLogs, resCheckins] = await Promise.all([
           fetch(`https://fitos-final.onrender.com/api/assessment?userId=${aluno.id}`),
           fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}/history`),
@@ -156,9 +152,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
           } else {
               Alert.alert("Erro", "Falha ao salvar.");
           }
-      } catch (e) {
-          Alert.alert("Erro", e.message);
-      }
+      } catch (e) { Alert.alert("Erro", e.message); }
   };
 
   const openDetails = (item) => {
@@ -166,20 +160,21 @@ export default function AdminEvolutionScreen({ route, navigation }) {
       setDetailsVisible(true);
   };
 
+  // 🔥 LÓGICA DO GRÁFICO (Cores adaptativas)
+  const isWeb = Platform.OS === 'web';
+  const chartWidth = isWeb ? 440 : width - 40; 
   const chartData = {
       labels: assessmentHistory.slice(-6).map(a => `${new Date(a.date).getDate()}/${new Date(a.date).getMonth()+1}`),
       datasets: [{ data: assessmentHistory.length > 0 ? assessmentHistory.slice(-6).map(a => a.weight) : [0] }]
   };
 
-  // --- RENDERIZADORES ---
-
   const renderWorkoutLogItem = ({ item }) => {
       const rpeInfo = item.rpe ? getRpeInfo(item.rpe) : null;
       return (
-        <View style={styles.logCard}>
+        <View style={[styles.logCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.logHeader}>
                 <View>
-                    <Text style={styles.logTitle}>{item.name}</Text>
+                    <Text style={[styles.logTitle, { color: theme.text }]}>{item.name}</Text>
                     <Text style={styles.logDate}>{new Date(item.date).toLocaleDateString()} • {item.duration || 60} min</Text>
                 </View>
                 {rpeInfo && (
@@ -193,15 +188,15 @@ export default function AdminEvolutionScreen({ route, navigation }) {
             </View>
             
             {item.feedback ? (
-                <View style={styles.feedbackContainer}>
+                <View style={[styles.feedbackContainer, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
                     <View style={{flexDirection:'row', alignItems:'center', gap:5, marginBottom:5}}>
-                        <MaterialCommunityIcons name="text-box-outline" size={14} color="#888" />
+                        <MaterialCommunityIcons name="text-box-outline" size={14} color={theme.textSecondary} />
                         <Text style={styles.feedbackLabel}>OBSERVAÇÃO DO ALUNO:</Text>
                     </View>
-                    <Text style={styles.feedbackText}>{item.feedback}</Text>
+                    <Text style={[styles.feedbackText, { color: theme.text }]}>{item.feedback}</Text>
                 </View>
             ) : (
-                <View style={[styles.feedbackContainer, {opacity:0.5}]}>
+                <View style={[styles.feedbackContainer, { opacity:0.5, backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
                     <Text style={styles.noFeedback}>Sem observações.</Text>
                 </View>
             )}
@@ -211,7 +206,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
 
   const renderCheckinItem = ({ item }) => (
       <TouchableOpacity 
-        style={styles.logCard} 
+        style={[styles.logCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
         onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}
       >
           <View style={styles.logHeader}>
@@ -224,181 +219,195 @@ export default function AdminEvolutionScreen({ route, navigation }) {
                       <Text style={styles.logDate}>{new Date(item.date).toLocaleDateString('pt-BR')}</Text>
                   </View>
               </View>
-              <Text style={{color:'#FFF', fontWeight:'bold', fontSize:16}}>{item.weight ? `${item.weight} kg` : ''}</Text>
+              <Text style={{color: theme.text, fontWeight:'bold', fontSize:16}}>{item.weight ? `${item.weight} kg` : ''}</Text>
           </View>
           
           {item.feedback && (
-              <View style={styles.feedbackContainer}>
-                  <Text style={styles.feedbackText} numberOfLines={2}>"{item.feedback}"</Text>
+              <View style={[styles.feedbackContainer, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+                  <Text style={[styles.feedbackText, { color: theme.text }]} numberOfLines={2}>"{item.feedback}"</Text>
               </View>
           )}
           <View style={{alignItems:'center', marginTop:10}}>
-              <Text style={{color:'#666', fontSize:10, fontWeight:'bold'}}>TOQUE PARA VER FOTOS &gt;</Text>
+              <Text style={{color: theme.textSecondary, fontSize:10, fontWeight:'bold'}}>TOQUE PARA VER FOTOS &gt;</Text>
           </View>
       </TouchableOpacity>
   );
 
+  // 🔥 LÓGICA DE CONTENÇÃO DO PWA (Gaiola Central)
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  
+  const RootComponent = isWeb ? View : SafeAreaView;
+  const rootStyle = isWeb
+    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
+    : { flex: 1, backgroundColor: theme.bg };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#000" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{padding:5}}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>PRONTUÁRIO: {aluno.name?.toUpperCase()}</Text>
-        <View style={{width:24}} />
-      </View>
-
-      {/* ABAS DE NAVEGAÇÃO */}
-      <View style={styles.tabsContainer}>
-          <TouchableOpacity 
-            style={[styles.tabBtn, activeTab === 'AVALIACAO' && styles.tabBtnActive]} 
-            onPress={() => setActiveTab('AVALIACAO')}
-          >
-              <Text style={[styles.tabText, activeTab === 'AVALIACAO' && styles.tabTextActive]}>AVALIAÇÃO</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tabBtn, activeTab === 'CHECKINS' && styles.tabBtnActive]} 
-            onPress={() => setActiveTab('CHECKINS')}
-          >
-              <Text style={[styles.tabText, activeTab === 'CHECKINS' && styles.tabTextActive]}>CHECK-INS</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tabBtn, activeTab === 'FEEDBACK' && styles.tabBtnActive]} 
-            onPress={() => setActiveTab('FEEDBACK')}
-          >
-              <Text style={[styles.tabText, activeTab === 'FEEDBACK' && styles.tabTextActive]}>TREINOS</Text>
-          </TouchableOpacity>
-      </View>
-
-      {loading ? (
-          <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
-            <ActivityIndicator color="#CCFF00" size="large"/>
+    <RootComponent style={rootStyle}>
+      <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
+      
+      {/* GAIOLA CENTRALIZADA PARA PWA */}
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+          
+          <View style={[styles.header, { borderBottomColor: theme.border }]}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{padding:5}}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>PRONTUÁRIO: <Text style={{ color: theme.accent }}>{aluno.name?.split(' ')[0].toUpperCase()}</Text></Text>
+            <View style={{width:24}} />
           </View>
-      ) : (
-          <>
-            {/* ABA AVALIAÇÃO FÍSICA */}
-            {activeTab === 'AVALIACAO' && (
-                <ScrollView contentContainerStyle={styles.content}>
-                    <View style={styles.infoBox}>
-                        <Text style={styles.infoText}>IDADE: {currentAge || '--'} anos</Text>
-                        <Text style={styles.infoText}>SEXO: {currentGender}</Text>
-                    </View>
 
-                    <TouchableOpacity style={styles.addBtn} onPress={() => setModalVisible(true)}>
-                        <MaterialCommunityIcons name="plus" size={22} color="#000" />
-                        <Text style={styles.addBtnText}>NOVA AVALIAÇÃO</Text>
-                    </TouchableOpacity>
+          {/* ABAS DE NAVEGAÇÃO */}
+          <View style={[styles.tabsContainer, { borderBottomColor: theme.border }]}>
+              <TouchableOpacity 
+                style={[styles.tabBtn, activeTab === 'AVALIACAO' && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]} 
+                onPress={() => setActiveTab('AVALIACAO')}
+              >
+                  <Text style={[styles.tabText, { color: theme.textSecondary }, activeTab === 'AVALIACAO' && { color: theme.text }]}>AVALIAÇÃO</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.tabBtn, activeTab === 'CHECKINS' && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]} 
+                onPress={() => setActiveTab('CHECKINS')}
+              >
+                  <Text style={[styles.tabText, { color: theme.textSecondary }, activeTab === 'CHECKINS' && { color: theme.text }]}>CHECK-INS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.tabBtn, activeTab === 'FEEDBACK' && { borderBottomColor: theme.accent, borderBottomWidth: 2 }]} 
+                onPress={() => setActiveTab('FEEDBACK')}
+              >
+                  <Text style={[styles.tabText, { color: theme.textSecondary }, activeTab === 'FEEDBACK' && { color: theme.text }]}>TREINOS</Text>
+              </TouchableOpacity>
+          </View>
 
-                    {assessmentHistory.length > 1 && (
-                        <View style={{alignItems:'center', marginVertical:20}}>
-                            <Text style={styles.chartTitle}>EVOLUÇÃO DE PESO</Text>
-                            <LineChart
-                                data={chartData}
-                                width={width - 40}
-                                height={200}
-                                chartConfig={{
-                                    backgroundGradientFrom: "#111", backgroundGradientTo: "#111",
-                                    color: (opacity = 1) => `rgba(204, 255, 0, ${opacity})`,
-                                    labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
-                                    propsForDots: { r: "4", strokeWidth: "2", stroke: "#CCFF00" }
-                                }}
-                                bezier
-                                style={{borderRadius: 16}}
-                            />
+          {loading ? (
+              <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
+                <ActivityIndicator color={theme.accent} size="large"/>
+              </View>
+          ) : (
+              <View style={{ flex: 1 }}>
+                
+                {/* ABA AVALIAÇÃO FÍSICA */}
+                {activeTab === 'AVALIACAO' && (
+                    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+                        <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <Text style={styles.infoText}>IDADE: {currentAge || '--'} anos</Text>
+                            <Text style={styles.infoText}>SEXO: {currentGender}</Text>
                         </View>
-                    )}
 
-                    <Text style={styles.sectionTitle}>HISTÓRICO COMPLETO</Text>
-                    {assessmentHistory.slice().reverse().map(item => (
-                        <TouchableOpacity 
-                            key={item.id} 
-                            style={styles.card}
-                            onPress={() => openDetails(item)}
-                        >
-                            <View style={styles.cardHeader}>
-                                <Text style={styles.date}>{new Date(item.date).toLocaleDateString()}</Text>
-                                <View style={{flexDirection:'row', gap:10}}>
-                                    <View style={styles.badge}><Text style={styles.badgeText}>{item.method === 'POLLOCK' ? 'POLLOCK' : 'BÁSICO'}</Text></View>
-                                    <TouchableOpacity onPress={() => handleDelete(item.id)}>
-                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                            <View style={styles.cardBody}>
-                                <View style={styles.stat}><Text style={styles.label}>PESO</Text><Text style={styles.val}>{item.weight}kg</Text></View>
-                                {item.bodyFat && <View style={styles.stat}><Text style={styles.label}>GORDURA</Text><Text style={[styles.val, {color:'#CCFF00'}]}>{item.bodyFat}%</Text></View>}
-                                {item.waist && <View style={styles.stat}><Text style={styles.label}>CINTURA</Text><Text style={styles.val}>{item.waist}cm</Text></View>}
-                            </View>
+                        <TouchableOpacity style={[styles.addBtn, { backgroundColor: theme.accent }]} onPress={() => setModalVisible(true)}>
+                            <MaterialCommunityIcons name="plus" size={22} color={theme.isDark ? '#000' : '#FFF'} />
+                            <Text style={[styles.addBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>NOVA AVALIAÇÃO</Text>
                         </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            )}
 
-            {/* ABA CHECK-INS (NOVA) */}
-            {activeTab === 'CHECKINS' && (
-                <FlatList 
-                    data={checkinHistory}
-                    keyExtractor={item => item.id}
-                    renderItem={renderCheckinItem}
-                    contentContainerStyle={styles.content}
-                    ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in enviado.</Text>}
-                />
-            )}
+                        {assessmentHistory.length > 1 && (
+                            <View style={{alignItems:'center', marginVertical:20}}>
+                                <Text style={[styles.chartTitle, { color: theme.text }]}>EVOLUÇÃO DE PESO</Text>
+                                <LineChart
+                                    data={chartData}
+                                    width={chartWidth}
+                                    height={200}
+                                    chartConfig={{
+                                        backgroundGradientFrom: theme.surface, 
+                                        backgroundGradientTo: theme.surface,
+                                        color: (opacity = 1) => theme.isDark ? `rgba(204, 255, 0, ${opacity})` : `rgba(0, 0, 0, ${opacity})`,
+                                        labelColor: (opacity = 1) => theme.text,
+                                        propsForDots: { r: "4", strokeWidth: "2", stroke: theme.accent }
+                                    }}
+                                    bezier
+                                    style={{borderRadius: 16, borderWidth: 1, borderColor: theme.border}}
+                                />
+                            </View>
+                        )}
 
-            {/* ABA FEEDBACKS DE TREINOS */}
-            {activeTab === 'FEEDBACK' && (
-                <FlatList 
-                    data={workoutLogs}
-                    keyExtractor={item => item.id}
-                    renderItem={renderWorkoutLogItem}
-                    contentContainerStyle={styles.content}
-                    ListEmptyComponent={<Text style={styles.empty}>Nenhum treino finalizado.</Text>}
-                />
-            )}
-          </>
-      )}
+                        <Text style={styles.sectionTitle}>HISTÓRICO COMPLETO</Text>
+                        {assessmentHistory.slice().reverse().map(item => (
+                            <TouchableOpacity key={item.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openDetails(item)}>
+                                <View style={styles.cardHeader}>
+                                    <Text style={[styles.date, { color: theme.text }]}>{new Date(item.date).toLocaleDateString()}</Text>
+                                    <View style={{flexDirection:'row', gap:10}}>
+                                        <View style={[styles.badge, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.badgeText}>{item.method === 'POLLOCK' ? 'POLLOCK' : 'BÁSICO'}</Text></View>
+                                        <TouchableOpacity onPress={() => handleDelete(item.id)}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                                <View style={styles.cardBody}>
+                                    <View style={styles.stat}><Text style={styles.label}>PESO</Text><Text style={[styles.val, { color: theme.text }]}>{item.weight}kg</Text></View>
+                                    {item.bodyFat && <View style={styles.stat}><Text style={styles.label}>GORDURA</Text><Text style={[styles.val, {color: theme.accent}]}>{item.bodyFat}%</Text></View>}
+                                    {item.waist && <View style={styles.stat}><Text style={styles.label}>CINTURA</Text><Text style={[styles.val, { color: theme.text }]}>{item.waist}cm</Text></View>}
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                )}
+
+                {/* ABA CHECK-INS */}
+                {activeTab === 'CHECKINS' && (
+                    <FlatList 
+                        data={checkinHistory}
+                        keyExtractor={item => item.id}
+                        renderItem={renderCheckinItem}
+                        contentContainerStyle={styles.content}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in enviado.</Text>}
+                    />
+                )}
+
+                {/* ABA FEEDBACKS DE TREINOS */}
+                {activeTab === 'FEEDBACK' && (
+                    <FlatList 
+                        data={workoutLogs}
+                        keyExtractor={item => item.id}
+                        renderItem={renderWorkoutLogItem}
+                        contentContainerStyle={styles.content}
+                        showsVerticalScrollIndicator={false}
+                        ListEmptyComponent={<Text style={styles.empty}>Nenhum treino finalizado.</Text>}
+                    />
+                )}
+
+              </View>
+          )}
+      </View>
 
       {/* MODAL DETALHES CHECK-IN */}
       <Modal visible={checkinModalVisible} animationType="slide" transparent>
         <View style={styles.detailsOverlay}>
-            <View style={styles.detailsCard}>
-                <View style={styles.detailsHeader}>
-                    <Text style={styles.detailsTitle}>CHECK-IN DETALHES</Text>
+            <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.detailsHeader, { borderBottomColor: theme.border }]}>
+                    <Text style={[styles.detailsTitle, { color: theme.accent }]}>CHECK-IN DETALHES</Text>
                     <TouchableOpacity onPress={() => setCheckinModalVisible(false)}>
-                        <MaterialCommunityIcons name="close" size={24} color="#FFF" />
+                        <MaterialCommunityIcons name="close" size={24} color={theme.text} />
                     </TouchableOpacity>
                 </View>
                 
                 {selectedCheckin && (
-                    <ScrollView>
-                        <View style={styles.detailRow}><Text style={styles.detailLabel}>DATA:</Text><Text style={styles.detailValue}>{new Date(selectedCheckin.date).toLocaleDateString('pt-BR')}</Text></View>
-                        <View style={styles.detailRow}><Text style={styles.detailLabel}>PESO:</Text><Text style={[styles.detailValue, {color:'#32ADE6', fontSize:20}]}>{selectedCheckin.weight} kg</Text></View>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>DATA:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{new Date(selectedCheckin.date).toLocaleDateString('pt-BR')}</Text></View>
+                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>PESO:</Text><Text style={[styles.detailValue, {color:'#32ADE6', fontSize:20}]}>{selectedCheckin.weight} kg</Text></View>
                         
                         {selectedCheckin.feedback && (
-                            <View style={styles.feedbackContainer}>
-                                <Text style={styles.feedbackText}>"{selectedCheckin.feedback}"</Text>
+                            <View style={[styles.feedbackContainer, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+                                <Text style={[styles.feedbackText, { color: theme.text }]}>"{selectedCheckin.feedback}"</Text>
                             </View>
                         )}
 
-                        <Text style={{color:'#888', marginTop:15, marginBottom:10, fontWeight:'bold', fontSize:12}}>FOTOS ENVIADAS:</Text>
+                        <Text style={{color: theme.textSecondary, marginTop:15, marginBottom:10, fontWeight:'bold', fontSize:12}}>FOTOS ENVIADAS:</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap:10, paddingBottom:10}}>
                             {selectedCheckin.photoFront && (
                                 <View style={{alignItems:'center'}}>
-                                    <Image source={{uri: selectedCheckin.photoFront}} style={{width:120, height:180, borderRadius:8, borderWidth:1, borderColor:'#333'}} />
-                                    <Text style={{color:'#666', fontSize:10, marginTop:5, fontWeight:'bold'}}>FRENTE</Text>
+                                    <Image source={{uri: selectedCheckin.photoFront}} style={[styles.photo, { borderColor: theme.border }]} />
+                                    <Text style={{color: theme.textSecondary, fontSize:10, marginTop:5, fontWeight:'bold'}}>FRENTE</Text>
                                 </View>
                             )}
                             {selectedCheckin.photoSide && (
                                 <View style={{alignItems:'center'}}>
-                                    <Image source={{uri: selectedCheckin.photoSide}} style={{width:120, height:180, borderRadius:8, borderWidth:1, borderColor:'#333'}} />
-                                    <Text style={{color:'#666', fontSize:10, marginTop:5, fontWeight:'bold'}}>LADO</Text>
+                                    <Image source={{uri: selectedCheckin.photoSide}} style={[styles.photo, { borderColor: theme.border }]} />
+                                    <Text style={{color: theme.textSecondary, fontSize:10, marginTop:5, fontWeight:'bold'}}>LADO</Text>
                                 </View>
                             )}
                             {selectedCheckin.photoBack && (
                                 <View style={{alignItems:'center'}}>
-                                    <Image source={{uri: selectedCheckin.photoBack}} style={{width:120, height:180, borderRadius:8, borderWidth:1, borderColor:'#333'}} />
-                                    <Text style={{color:'#666', fontSize:10, marginTop:5, fontWeight:'bold'}}>COSTAS</Text>
+                                    <Image source={{uri: selectedCheckin.photoBack}} style={[styles.photo, { borderColor: theme.border }]} />
+                                    <Text style={{color: theme.textSecondary, fontSize:10, marginTop:5, fontWeight:'bold'}}>COSTAS</Text>
                                 </View>
                             )}
                         </ScrollView>
@@ -408,17 +417,17 @@ export default function AdminEvolutionScreen({ route, navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL DE CADASTRO AVALIAÇÃO (MANTIDO) */}
+      {/* MODAL DE CADASTRO AVALIAÇÃO */}
       <Modal visible={modalVisible} animationType="slide">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContainer}>
-            <SafeAreaView style={{flex:1}}>
-                <View style={styles.modalHeader}>
-                    <Text style={styles.modalTitle}>REGISTRAR DADOS</Text>
-                    <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF" /></TouchableOpacity>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.bg, alignItems: 'center' }}>
+            <SafeAreaView style={{ flex:1, width: '100%', maxWidth: isWeb ? 480 : '100%', ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+                <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                    <Text style={[styles.modalTitle, { color: theme.text }]}>REGISTRAR DADOS</Text>
+                    <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.text} /></TouchableOpacity>
                 </View>
                 <ScrollView contentContainerStyle={{padding:20}}>
-                    <Text style={styles.inputLabel}>DATA (Opcional)</Text>
-                    <TextInput style={styles.input} placeholder="DD/MM/AAAA" placeholderTextColor="#555" value={customDate} onChangeText={(t) => {
+                    <Text style={[styles.inputLabel, { color: theme.accent }]}>DATA (Opcional)</Text>
+                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="DD/MM/AAAA" placeholderTextColor={theme.textSecondary} value={customDate} onChangeText={(t) => {
                         let v = t.replace(/[^0-9]/g, '');
                         if(v.length>2) v = v.slice(0,2)+'/'+v.slice(2);
                         if(v.length>5) v = v.slice(0,5)+'/'+v.slice(5);
@@ -426,41 +435,41 @@ export default function AdminEvolutionScreen({ route, navigation }) {
                         setCustomDate(v);
                     }} keyboardType="numeric" maxLength={10}/>
 
-                    <View style={styles.switchRow}>
-                        <TouchableOpacity style={[styles.switchBtn, method==='BASICO' && {backgroundColor:'#CCFF00'}]} onPress={()=>setMethod('BASICO')}><Text style={[styles.switchText, method==='BASICO' && {color:'#000'}]}>BÁSICO</Text></TouchableOpacity>
-                        <TouchableOpacity style={[styles.switchBtn, method==='POLLOCK' && {backgroundColor:'#CCFF00'}]} onPress={()=>setMethod('POLLOCK')}><Text style={[styles.switchText, method==='POLLOCK' && {color:'#000'}]}>POLLOCK 7</Text></TouchableOpacity>
+                    <View style={[styles.switchRow, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                        <TouchableOpacity style={[styles.switchBtn, method==='BASICO' && {backgroundColor: theme.accent}]} onPress={()=>setMethod('BASICO')}><Text style={[styles.switchText, method==='BASICO' && {color: theme.isDark ? '#000' : '#FFF'}]}>BÁSICO</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.switchBtn, method==='POLLOCK' && {backgroundColor: theme.accent}]} onPress={()=>setMethod('POLLOCK')}><Text style={[styles.switchText, method==='POLLOCK' && {color: theme.isDark ? '#000' : '#FFF'}]}>POLLOCK 7</Text></TouchableOpacity>
                     </View>
 
-                    <Text style={styles.inputLabel}>PESO (KG)</Text>
-                    <TextInput style={styles.input} keyboardType="numeric" value={weight} onChangeText={setWeight} />
+                    <Text style={[styles.inputLabel, { color: theme.accent }]}>PESO (KG)</Text>
+                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={weight} onChangeText={setWeight} />
 
                     {method === 'BASICO' ? (
                         <>
-                            <Text style={styles.inputLabel}>CINTURA (CM)</Text>
-                            <TextInput style={styles.input} keyboardType="numeric" onChangeText={t=>setMeasures({...measures, waist:t})} />
-                            <Text style={styles.inputLabel}>ABDÔMEN (CM)</Text>
-                            <TextInput style={styles.input} keyboardType="numeric" onChangeText={t=>setMeasures({...measures, abdomen:t})} />
+                            <Text style={[styles.inputLabel, { color: theme.accent }]}>CINTURA (CM)</Text>
+                            <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setMeasures({...measures, waist:t})} />
+                            <Text style={[styles.inputLabel, { color: theme.accent }]}>ABDÔMEN (CM)</Text>
+                            <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setMeasures({...measures, abdomen:t})} />
                         </>
                     ) : (
                         <>
                             <View style={{flexDirection:'row', gap:10, marginBottom:15}}>
-                                <View style={{flex:1}}><Text style={styles.inputLabel}>IDADE</Text><TextInput style={styles.input} value={currentAge} onChangeText={setCurrentAge} /></View>
-                                <View style={{flex:1}}><Text style={styles.inputLabel}>SEXO</Text><TouchableOpacity style={styles.input} onPress={()=>setCurrentGender(currentGender==='MASCULINO'?'FEMININO':'MASCULINO')}><Text style={{color:'#FFF', marginTop:10}}>{currentGender}</Text></TouchableOpacity></View>
+                                <View style={{flex:1}}><Text style={[styles.inputLabel, { color: theme.accent }]}>IDADE</Text><TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={currentAge} onChangeText={setCurrentAge} /></View>
+                                <View style={{flex:1}}><Text style={[styles.inputLabel, { color: theme.accent }]}>SEXO</Text><TouchableOpacity style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, justifyContent:'center' }]} onPress={()=>setCurrentGender(currentGender==='MASCULINO'?'FEMININO':'MASCULINO')}><Text style={{color: theme.text}}>{currentGender}</Text></TouchableOpacity></View>
                             </View>
-                            <Text style={{color:'#CCFF00', fontWeight:'bold', marginBottom:10}}>DOBRAS (MM)</Text>
+                            <Text style={{color: theme.accent, fontWeight:'bold', marginBottom:10}}>DOBRAS (MM)</Text>
                             <View style={{flexDirection:'row', flexWrap:'wrap', gap:10}}>
                                 {['chest','axillary','triceps','subscapular','abdominal','suprailiac','thigh'].map(key => (
                                     <View key={key} style={{width:'30%'}}>
-                                        <Text style={{color:'#888', fontSize:10, marginBottom:2}}>{key.toUpperCase().slice(0,8)}</Text>
-                                        <TextInput style={styles.miniInput} keyboardType="numeric" onChangeText={t => setFolds(prev => ({...prev, [key]: t}))} />
+                                        <Text style={{color: theme.textSecondary, fontSize:10, marginBottom:2}}>{key.toUpperCase().slice(0,8)}</Text>
+                                        <TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t => setFolds(prev => ({...prev, [key]: t}))} />
                                     </View>
                                 ))}
                             </View>
                         </>
                     )}
 
-                    <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-                        <Text style={{fontWeight:'900', fontSize:16}}>SALVAR NO PERFIL</Text>
+                    <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSave}>
+                        <Text style={{fontWeight:'900', fontSize:16, color: theme.isDark ? '#000' : '#FFF'}}>SALVAR NO PERFIL</Text>
                     </TouchableOpacity>
                     <View style={{height:50}}/>
                 </ScrollView>
@@ -468,49 +477,49 @@ export default function AdminEvolutionScreen({ route, navigation }) {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL DETALHES (MANTIDO) */}
+      {/* MODAL DETALHES AVALIACAO */}
       <Modal visible={detailsVisible} transparent animationType="fade">
         <View style={styles.detailsOverlay}>
-            <View style={styles.detailsCard}>
-                <View style={styles.detailsHeader}>
-                    <Text style={styles.detailsTitle}>DETALHES</Text>
+            <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.detailsHeader, { borderBottomColor: theme.border }]}>
+                    <Text style={[styles.detailsTitle, { color: theme.accent }]}>DETALHES</Text>
                     <TouchableOpacity onPress={() => setDetailsVisible(false)}>
-                        <MaterialCommunityIcons name="close" size={24} color="#FFF" />
+                        <MaterialCommunityIcons name="close" size={24} color={theme.text} />
                     </TouchableOpacity>
                 </View>
                 
                 {selectedAssessment && (
-                    <ScrollView>
-                        <View style={styles.detailRow}><Text style={styles.detailLabel}>DATA:</Text><Text style={styles.detailValue}>{new Date(selectedAssessment.date).toLocaleDateString('pt-BR')}</Text></View>
-                        <View style={styles.detailRow}><Text style={styles.detailLabel}>PESO:</Text><Text style={styles.detailValue}>{selectedAssessment.weight} kg</Text></View>
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>DATA:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{new Date(selectedAssessment.date).toLocaleDateString('pt-BR')}</Text></View>
+                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>PESO:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.weight} kg</Text></View>
                         
                         {selectedAssessment.bodyFat && (
-                            <View style={styles.resultBox}>
-                                <View style={{alignItems:'center'}}><Text style={styles.resultLabel}>GORDURA</Text><Text style={styles.resultValue}>{selectedAssessment.bodyFat}%</Text></View>
-                                <View style={{height:30, width:1, backgroundColor:'#444'}}/>
-                                <View style={{alignItems:'center'}}><Text style={styles.resultLabel}>MASSA MAGRA</Text><Text style={styles.resultValue}>{(selectedAssessment.weight * (1 - selectedAssessment.bodyFat/100)).toFixed(1)} kg</Text></View>
+                            <View style={[styles.resultBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+                                <View style={{alignItems:'center'}}><Text style={styles.resultLabel}>GORDURA</Text><Text style={[styles.resultValue, { color: theme.accent }]}>{selectedAssessment.bodyFat}%</Text></View>
+                                <View style={{height:30, width:1, backgroundColor: theme.border}}/>
+                                <View style={{alignItems:'center'}}><Text style={styles.resultLabel}>MASSA MAGRA</Text><Text style={[styles.resultValue, { color: theme.text }]}>{(selectedAssessment.weight * (1 - selectedAssessment.bodyFat/100)).toFixed(1)} kg</Text></View>
                             </View>
                         )}
 
                         {selectedAssessment.method === 'POLLOCK' && (
                             <>
-                                <Text style={styles.detailSection}>DOBRAS (mm)</Text>
+                                <Text style={[styles.detailSection, { color: theme.accent }]}>DOBRAS (mm)</Text>
                                 <View style={styles.detailGrid}>
-                                    <View style={styles.gridBox}><Text style={styles.gridLabel}>Peitoral</Text><Text style={styles.gridVal}>{selectedAssessment.foldChest || '-'}</Text></View>
-                                    <View style={styles.gridBox}><Text style={styles.gridLabel}>Axilar</Text><Text style={styles.gridVal}>{selectedAssessment.foldAxillary || '-'}</Text></View>
-                                    <View style={styles.gridBox}><Text style={styles.gridLabel}>Tríceps</Text><Text style={styles.gridVal}>{selectedAssessment.foldTriceps || '-'}</Text></View>
-                                    <View style={styles.gridBox}><Text style={styles.gridLabel}>Subescap.</Text><Text style={styles.gridVal}>{selectedAssessment.foldSubscapular || '-'}</Text></View>
-                                    <View style={styles.gridBox}><Text style={styles.gridLabel}>Abdom.</Text><Text style={styles.gridVal}>{selectedAssessment.foldAbdominal || '-'}</Text></View>
-                                    <View style={styles.gridBox}><Text style={styles.gridLabel}>Supra-il.</Text><Text style={styles.gridVal}>{selectedAssessment.foldSuprailiac || '-'}</Text></View>
-                                    <View style={styles.gridBox}><Text style={styles.gridLabel}>Coxa</Text><Text style={styles.gridVal}>{selectedAssessment.foldThigh || '-'}</Text></View>
+                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Peitoral</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldChest || '-'}</Text></View>
+                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Axilar</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldAxillary || '-'}</Text></View>
+                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Tríceps</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldTriceps || '-'}</Text></View>
+                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Subescap.</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldSubscapular || '-'}</Text></View>
+                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Abdom.</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldAbdominal || '-'}</Text></View>
+                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Supra-il.</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldSuprailiac || '-'}</Text></View>
+                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Coxa</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldThigh || '-'}</Text></View>
                                 </View>
                             </>
                         )}
                         {(selectedAssessment.waist || selectedAssessment.abdomen) && (
                             <>
-                                <Text style={styles.detailSection}>MEDIDAS (cm)</Text>
-                                <View style={styles.detailRow}><Text style={styles.detailLabel}>Cintura:</Text><Text style={styles.detailValue}>{selectedAssessment.waist || '-'} cm</Text></View>
-                                <View style={styles.detailRow}><Text style={styles.detailLabel}>Abdômen:</Text><Text style={styles.detailValue}>{selectedAssessment.abdomen || '-'} cm</Text></View>
+                                <Text style={[styles.detailSection, { color: theme.accent }]}>MEDIDAS (cm)</Text>
+                                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>Cintura:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.waist || '-'} cm</Text></View>
+                                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>Abdômen:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.abdomen || '-'} cm</Text></View>
                             </>
                         )}
                     </ScrollView>
@@ -519,91 +528,83 @@ export default function AdminEvolutionScreen({ route, navigation }) {
         </View>
       </Modal>
 
-    </SafeAreaView>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: '#000',
-    // 🔥 CORREÇÃO: Topo Seguro
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
-  },
-  center: { flex: 1, justifyContent:'center', alignItems:'center' },
-  header: { flexDirection:'row', alignItems:'center', padding:20, justifyContent:'space-between' },
-  headerTitle: { color:'#FFF', fontWeight:'bold', fontSize:16 },
+  header: { flexDirection:'row', alignItems:'center', padding:20, paddingTop: Platform.OS === 'android' ? 10 : 20, justifyContent:'space-between', borderBottomWidth: 1 },
+  headerTitle: { fontWeight:'bold', fontSize:16 },
   
   // TABS
-  tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 10, borderBottomWidth:1, borderBottomColor:'#222' },
+  tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 10, borderBottomWidth:1 },
   tabBtn: { marginRight: 20, paddingBottom: 10 },
-  tabBtnActive: { borderBottomWidth: 2, borderBottomColor: '#CCFF00' },
-  tabText: { color: '#666', fontWeight: 'bold', fontSize: 12 },
-  tabTextActive: { color: '#FFF' },
+  tabText: { fontWeight: 'bold', fontSize: 12 },
 
-  content: { padding:20 },
-  infoBox: { flexDirection:'row', justifyContent:'space-between', backgroundColor:'#111', padding:15, borderRadius:10, marginBottom:20, borderWidth:1, borderColor:'#222' },
+  content: { padding:20, paddingBottom: 50 },
+  infoBox: { flexDirection:'row', justifyContent:'space-between', padding:15, borderRadius:10, marginBottom:20, borderWidth:1 },
   infoText: { color:'#888', fontSize:12, fontWeight:'bold' },
-  addBtn: { backgroundColor:'#CCFF00', flexDirection:'row', alignItems:'center', justifyContent:'center', padding:15, borderRadius:10, gap:8, marginBottom:20 },
-  addBtnText: { fontWeight:'900', color:'#000' },
-  chartTitle: { color:'#FFF', fontSize:12, fontWeight:'bold', marginBottom:10 },
-  sectionTitle: { color:'#666', fontSize:12, fontWeight:'bold', marginBottom:10, marginTop:10 },
+  addBtn: { flexDirection:'row', alignItems:'center', justifyContent:'center', padding:15, borderRadius:10, gap:8, marginBottom:20 },
+  addBtnText: { fontWeight:'900' },
+  chartTitle: { fontSize:12, fontWeight:'bold', marginBottom:10 },
+  sectionTitle: { color:'#888', fontSize:12, fontWeight:'bold', marginBottom:10, marginTop:10 },
   
   // CARDS GERAIS
-  card: { backgroundColor:'#111', padding:15, borderRadius:12, marginBottom:10, borderWidth:1, borderColor:'#222' },
+  card: { padding:15, borderRadius:12, marginBottom:10, borderWidth:1 },
   cardHeader: { flexDirection:'row', justifyContent:'space-between', marginBottom:10 },
-  date: { color:'#FFF', fontWeight:'bold' },
-  badge: { backgroundColor:'#333', paddingHorizontal:6, borderRadius:4, marginRight:10 },
-  badgeText: { color:'#CCC', fontSize:10, fontWeight:'bold' },
+  date: { fontWeight:'bold' },
+  badge: { paddingHorizontal:6, borderRadius:4, marginRight:10 },
+  badgeText: { color:'#888', fontSize:10, fontWeight:'bold' },
   cardBody: { flexDirection:'row', gap:20 },
   stat: { alignItems:'flex-start' },
-  label: { color:'#666', fontSize:10, fontWeight:'bold' },
-  val: { color:'#FFF', fontSize:16, fontWeight:'bold' },
+  label: { color:'#888', fontSize:10, fontWeight:'bold' },
+  val: { fontSize:16, fontWeight:'bold' },
 
   // LOGS (FEEDBACK CARD)
-  logCard: { backgroundColor:'#111', padding:15, borderRadius:12, marginBottom:15, borderWidth:1, borderColor:'#222' },
+  logCard: { padding:15, borderRadius:12, marginBottom:15, borderWidth:1 },
   logHeader: { flexDirection:'row', justifyContent:'space-between', marginBottom:10 },
-  logTitle: { color:'#FFF', fontSize:14, fontWeight:'bold', marginBottom:4 },
-  logDate: { color:'#666', fontSize:10 },
+  logTitle: { fontSize:14, fontWeight:'bold', marginBottom:4 },
+  logDate: { color:'#888', fontSize:10 },
   
-  // RPE STYLES
   rpeBadge: { alignItems:'center', justifyContent:'center', borderRadius:6, width:24, height:24, alignSelf:'flex-end' },
   rpeVal: { fontWeight:'900', fontSize:12, color:'#000' }, 
   rpeLabelName: { fontSize:8, fontWeight:'bold', marginTop:2, textAlign:'right' },
 
-  // FEEDBACK TEXT STYLES
-  feedbackContainer: { backgroundColor:'#1A1A1A', padding:12, borderRadius:8, marginTop:5 },
+  feedbackContainer: { padding:12, borderRadius:8, marginTop:5 },
   feedbackLabel: { color:'#888', fontSize:9, fontWeight:'bold' },
-  feedbackText: { color:'#EEE', fontSize:13, fontStyle:'italic', lineHeight: 18 },
-  noFeedback: { color:'#444', fontSize:12, fontStyle:'italic' },
-  empty: { color:'#666', textAlign:'center', marginTop:50 },
+  feedbackText: { fontSize:13, fontStyle:'italic', lineHeight: 18 },
+  noFeedback: { color:'#888', fontSize:12, fontStyle:'italic' },
+  empty: { color:'#888', textAlign:'center', marginTop:50 },
 
-  // MODAL CADASTRO (Mantido)
-  modalContainer: { flex: 1, backgroundColor:'#000' },
-  modalHeader: { padding:20, flexDirection:'row', justifyContent:'space-between', borderBottomWidth:1, borderBottomColor:'#222', marginTop: Platform.OS === 'android' ? 20 : 0 },
-  modalTitle: { color:'#FFF', fontWeight:'bold', fontSize:18 },
-  inputLabel: { color:'#CCFF00', fontSize:12, fontWeight:'bold', marginBottom:5, marginTop:10 },
-  input: { backgroundColor:'#111', color:'#FFF', padding:12, borderRadius:8, borderWidth:1, borderColor:'#333' },
-  switchRow: { flexDirection:'row', backgroundColor:'#222', borderRadius:8, padding:4, marginTop:10 },
+  // MODAL CADASTRO 
+  modalHeader: { padding:20, flexDirection:'row', justifyContent:'space-between', borderBottomWidth:1, marginTop: Platform.OS === 'android' ? 20 : 0 },
+  modalTitle: { fontWeight:'bold', fontSize:18 },
+  inputLabel: { fontSize:12, fontWeight:'bold', marginBottom:5, marginTop:10 },
+  input: { padding:12, borderRadius:8, borderWidth:1 },
+  switchRow: { flexDirection:'row', borderRadius:8, padding:4, marginTop:10 },
   switchBtn: { flex:1, padding:10, alignItems:'center', borderRadius:6 },
-  switchText: { color:'#FFF', fontWeight:'bold', fontSize:12 },
-  miniInput: { backgroundColor:'#111', color:'#FFF', padding:8, borderRadius:6, borderWidth:1, borderColor:'#333', textAlign:'center' },
-  saveBtn: { backgroundColor:'#CCFF00', padding:15, borderRadius:10, alignItems:'center', marginTop:30 },
+  switchText: { fontWeight:'bold', fontSize:12 },
+  miniInput: { padding:8, borderRadius:6, borderWidth:1, textAlign:'center' },
+  saveBtn: { padding:15, borderRadius:10, alignItems:'center', marginTop:30 },
 
   // MODAL DETALHES
   detailsOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
-  detailsCard: { backgroundColor: '#111', borderRadius: 20, padding: 20, maxHeight: '80%', borderWidth: 1, borderColor: '#333' },
-  detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#222', paddingBottom: 15 },
-  detailsTitle: { color: '#CCFF00', fontSize: 16, fontWeight: '900' },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#1A1A1A', paddingBottom: 5 },
+  detailsCard: { borderRadius: 20, padding: 20, maxHeight: '80%', borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center' },
+  detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
+  detailsTitle: { fontSize: 16, fontWeight: '900' },
+  detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, paddingBottom: 5 },
   detailLabel: { color: '#888', fontWeight: 'bold', fontSize: 12 },
-  detailValue: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
-  resultBox: { flexDirection: 'row', backgroundColor: '#1A1A1A', borderRadius: 10, padding: 15, justifyContent: 'space-around', marginVertical: 15 },
+  detailValue: { fontWeight: 'bold', fontSize: 14 },
+  resultBox: { flexDirection: 'row', borderRadius: 10, padding: 15, justifyContent: 'space-around', marginVertical: 15 },
   resultLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', marginBottom: 5 },
-  resultValue: { color: '#CCFF00', fontSize: 18, fontWeight: '900' },
-  detailSection: { color: '#CCFF00', fontWeight: 'bold', fontSize: 12, marginTop: 10, marginBottom: 10 },
+  resultValue: { fontSize: 18, fontWeight: '900' },
+  detailSection: { fontWeight: 'bold', fontSize: 12, marginTop: 10, marginBottom: 10 },
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  gridBox: { width: '30%', backgroundColor: '#000', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 5 },
-  gridLabel: { color: '#666', fontSize: 10, marginBottom: 2 },
-  gridVal: { color: '#FFF', fontWeight: 'bold' }
+  gridBox: { width: '30%', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 5 },
+  gridLabel: { color: '#888', fontSize: 10, marginBottom: 2 },
+  gridVal: { fontWeight: 'bold' },
+  
+  photoContainer: { marginRight: 15, alignItems: 'center' },
+  photo: { width: 120, height: 180, borderRadius: 8, borderWidth: 1 },
+  photoLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', marginTop: 5 }
 });

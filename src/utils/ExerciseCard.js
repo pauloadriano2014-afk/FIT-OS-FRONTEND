@@ -1,25 +1,24 @@
 // src/components/ExerciseCard.js
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, Modal, StyleSheet, Keyboard, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av'; 
 import { identifyTechnique, getCategoryType } from '../utils/workoutUtils';
 
 export const ExerciseCard = ({ 
   item, totalSets, lastWeights, historyWeights, 
   handleSaveWeight, handleOpenVideo, setModalVisible, 
   setSelectedTech, setTechModalVisible, TECH_GUIDE,
-  isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning,
-  colors
+  isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning, colors
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
   const videoLink = item.exercise?.videoUrl || item.videoUrl;
   const standardRestTime = item.restTime || 60;
   
-  const blocks = item.blocks && item.blocks.length > 0 
-    ? item.blocks 
-    : [{ sets: item.sets || totalSets, reps: item.reps, restTime: item.restTime, technique: item.technique || item.notes }];
+  const rawTech = item.notes || item.technique || "";
+  const techInfo = identifyTechnique(rawTech);
+  if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
 
   const categoryType = getCategoryType(item); 
   const showTools = categoryType === 'STRENGTH';
@@ -44,34 +43,29 @@ export const ExerciseCard = ({
       interval = setInterval(() => setSeconds((s) => s - 1), 1000);
     } else if (seconds === 0) {
       setIsResting(false); clearInterval(interval); 
-      if (activeSetIndex === calculateTotalSets() && isLastExercise) Alert.alert("🔥 TREINO FINALIZADO!", "Parabéns!");
     }
     return () => clearInterval(interval);
   }, [isResting, seconds]);
 
-  const calculateTotalSets = () => {
-    return blocks.reduce((acc, block) => acc + (parseInt(block.sets) || 1), 0);
-  };
-
-  const startRestTimer = (setNum, type = 'NORMAL', blockRestTime, blockTechKey) => {
+  const startRestTimer = (setNum, type = 'NORMAL') => {
     if (biSetType === 'start') {
         Alert.alert("BI-SET ATIVO ⚡", "Sem descanso! Vá para o próximo.", [{ text: "VAMOS!", style: "default" }]);
         setActiveSetIndex(setNum); 
         return;
     }
 
-    let timeToRest = parseInt(blockRestTime) || standardRestTime;
+    let timeToRest = standardRestTime;
     let message = { title: 'RECUPERANDO', desc: 'Relaxe e recupere o fôlego.' };
 
     if (type === 'CLUSTER_INTRA') {
         timeToRest = 15;
         message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' };
-    } else if (blockTechKey === 'RESTPAUSE') {
+    } else if (techInfo.key === 'RESTPAUSE') {
         timeToRest = 20; 
         message = { title: 'REST-PAUSE (20s)', desc: 'Respire rápido! Falhe de novo com a mesma carga.' };
-    } else if (blockTechKey === 'DROPSET') {
+    } else if (techInfo.key === 'DROPSET') {
         message = { title: 'SÉRIE FINALIZADA', desc: 'Recupere-se para a próxima.' };
-    } else if (blockTechKey === 'GVT') {
+    } else if (techInfo.key === 'GVT') {
         timeToRest = 60;
         message = { title: 'GVT: TEMPO RÍGIDO', desc: 'Respeite os 60s exatos.' };
     }
@@ -82,7 +76,7 @@ export const ExerciseCard = ({
     setIsResting(true);
   };
 
-  const handleSmartCheck = (setKey, currentVal, blockRestTime, blockTechKey) => {
+  const handleSmartCheck = (setKey, currentVal) => {
     if (!isTimerRunning) {
         Alert.alert("Atenção", "Aperte o PLAY lá em cima para começar a registrar!");
         return;
@@ -91,9 +85,7 @@ export const ExerciseCard = ({
     if (currentVal === undefined || currentVal === '' || currentVal === null) {
         handleSaveWeight(item.id, '0', setKey); 
     }
-    if(categoryType === 'STRENGTH') {
-        startRestTimer(typeof setKey === 'number' ? setKey : parseInt(setKey), 'NORMAL', blockRestTime, blockTechKey);
-    }
+    if(categoryType === 'STRENGTH') startRestTimer(typeof setKey === 'number' ? setKey : parseInt(setKey));
   };
 
   const handleInputFocus = () => {
@@ -103,16 +95,12 @@ export const ExerciseCard = ({
       }
   };
 
-  const renderInputArea = (currentSetNum, isActive, block) => {
-      const rawTech = block.technique || "";
-      const techInfo = identifyTechnique(rawTech);
-      if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
-
+  const renderInputArea = (i, currentSetNum, isActive) => {
       if (categoryType === 'MOBILITY') {
           return (
             <View style={{flex: 1.5, alignItems:'center', justifyContent:'center'}}>
                 <Text style={{color: colors.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1}}>EXECUÇÃO</Text>
-                <Text style={{color: colors.text, fontSize: 14, fontWeight: 'bold'}}>{block.reps || "Fazer"} Reps</Text>
+                <Text style={{color: colors.text, fontSize: 14, fontWeight: 'bold'}}>{item.reps || "Fazer"} Reps</Text>
             </View>
           );
       }
@@ -122,7 +110,7 @@ export const ExerciseCard = ({
         return (
             <View style={{flex: 1.5, alignItems:'center'}}>
                 <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>TEMPO / KM</Text>
-                <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
+                <TouchableOpacity onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                     <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                         <TextInput 
                             style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, isCompleted && {color: colors.primary, borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
@@ -131,7 +119,7 @@ export const ExerciseCard = ({
                             editable={isTimerRunning} returnKeyType="done"
                         />
                     </View>
-                </Pressable>
+                </TouchableOpacity>
                 <Text style={{color: colors.textMuted, fontSize: 9, marginTop:2}}>Ant: {getPreviousWeight(currentSetNum)}</Text>
             </View>
         );
@@ -147,19 +135,19 @@ export const ExerciseCard = ({
                     return (
                         <View key={idx} style={{flex:1, paddingHorizontal:2}}>
                             <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}}>{label}</Text>
-                            <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
+                            <TouchableOpacity onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                                 <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                                     <TextInput 
                                         style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
                                         placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
                                         onEndEditing={(e) => { 
                                             handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
-                                            startRestTimer(currentSetNum, idx < 2 ? 'CLUSTER_INTRA' : 'NORMAL', block.restTime, techInfo.key);
+                                            startRestTimer(currentSetNum, idx < 2 ? 'CLUSTER_INTRA' : 'NORMAL');
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
                                     />
                                 </View>
-                            </Pressable>
+                            </TouchableOpacity>
                         </View>
                     )
                 })}
@@ -177,19 +165,19 @@ export const ExerciseCard = ({
                     return (
                         <View key={idx} style={{flex:1, paddingHorizontal:2}}>
                             <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}}>{label}</Text>
-                            <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
+                            <TouchableOpacity onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                                 <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                                     <TextInput 
                                         style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
                                         placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
                                         onEndEditing={(e) => { 
                                             handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
-                                            if (idx === 2) startRestTimer(currentSetNum, 'NORMAL', block.restTime, techInfo.key); 
+                                            if (idx === 2) startRestTimer(currentSetNum); 
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
                                     />
                                 </View>
-                            </Pressable>
+                            </TouchableOpacity>
                         </View>
                     )
                 })}
@@ -202,7 +190,7 @@ export const ExerciseCard = ({
             <View style={{flexDirection: 'row', flex: 1, justifyContent: 'space-between'}}>
                 <View style={{flex:1, paddingRight:5}}>
                     <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}}>CARGA</Text>
-                    <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
+                    <TouchableOpacity onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                         <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                             <TextInput 
                                 style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_MAIN`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
@@ -211,24 +199,24 @@ export const ExerciseCard = ({
                                 editable={isTimerRunning} returnKeyType="done"
                             />
                         </View>
-                    </Pressable>
+                    </TouchableOpacity>
                 </View>
                 <View style={{justifyContent:'center', paddingBottom:15}}><MaterialCommunityIcons name="arrow-right" size={16} color={colors.textMuted}/></View>
                 <View style={{flex:1, paddingLeft:5}}>
-                    <Text style={[{fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}, {color: techInfo.color}]}>DROP</Text>
-                    <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
+                    <Text style={{color: techInfo.color, fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}}>DROP</Text>
+                    <TouchableOpacity onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                         <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                             <TextInput 
                                 style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_DROP`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
                                 placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
                                 onEndEditing={(e) => { 
                                     handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_DROP`);
-                                    startRestTimer(currentSetNum, 'NORMAL', block.restTime, techInfo.key);
+                                    startRestTimer(currentSetNum);
                                 }}
                                 editable={isTimerRunning} returnKeyType="done"
                             />
                         </View>
-                    </Pressable>
+                    </TouchableOpacity>
                 </View>
             </View>
           );
@@ -240,8 +228,7 @@ export const ExerciseCard = ({
       return (
         <View style={{flex: 1.5, alignItems:'center'}}>
             <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>CARGA (KG)</Text>
-            
-            <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
+            <TouchableOpacity onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                 <View 
                     pointerEvents={isTimerRunning ? 'auto' : 'none'} 
                     style={[{backgroundColor: colors.inputBg, height: 40, width: '100%', borderRadius: 8, borderWidth: 1, borderColor: colors.border, justifyContent:'center'}, isCompleted && {borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
@@ -253,101 +240,16 @@ export const ExerciseCard = ({
                         onChangeText={(text) => handleSaveWeight(item.id, text, currentSetNum)}
                         onSubmitEditing={() => {
                             Keyboard.dismiss();
-                            handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
+                            handleSmartCheck(currentSetNum, val);
                         }}
                         editable={isTimerRunning} returnKeyType="done"
                     />
                 </View>
-            </Pressable>
-            
+            </TouchableOpacity>
             <Text style={{color: colors.textMuted, fontSize: 9, marginTop:2}}>Ant: {getPreviousWeight(currentSetNum)}</Text>
         </View>
       );
   };
-
-  let currentSetGlobalTracker = 1;
-  const renderedLines = [];
-
-  blocks.forEach((block, blockIndex) => {
-      const setsInBlock = parseInt(block.sets) || 1;
-      const rawTech = block.technique || "";
-      const techInfo = identifyTechnique(rawTech);
-      if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
-
-      // 🔥 AQUI ESTÁ A MÁGICA: A divisória virou um botão para abrir o Modal!
-      if (blockIndex > 0 && techInfo.key) {
-          renderedLines.push(
-              <View key={`divider_${blockIndex}`} style={{flexDirection: 'row', alignItems: 'center', marginVertical: 12}}>
-                  <View style={{flex: 1, height: 1, backgroundColor: colors.border}} />
-                  <TouchableOpacity 
-                      style={{flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, gap: 6, backgroundColor: techInfo.color + '1A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: techInfo.color}}
-                      onPress={() => {
-                          if (setSelectedTech && setTechModalVisible) {
-                              setSelectedTech(techInfo.key);
-                              setTechModalVisible(true);
-                          }
-                      }}
-                  >
-                      <MaterialCommunityIcons name="information-outline" size={16} color={techInfo.color} />
-                      <Text style={{color: techInfo.color, fontSize: 11, fontWeight: '900', letterSpacing: 1}}>{techInfo.label}</Text>
-                  </TouchableOpacity>
-                  <View style={{flex: 1, height: 1, backgroundColor: colors.border}} />
-              </View>
-          );
-      }
-
-      for (let i = 0; i < setsInBlock; i++) {
-          const currentSetNum = currentSetGlobalTracker;
-          const isActive = activeSetIndex === currentSetNum && isResting;
-          
-          const val = lastWeights[item.id]?.[currentSetNum];
-          const isFilled = val !== undefined && val !== '';
-          const mainFilled = lastWeights[item.id]?.[`${currentSetNum}_MAIN`];
-
-          const checkColor = isFilled || mainFilled ? colors.primary : colors.textMuted;
-          const checkIcon = isFilled || mainFilled ? "check-circle" : "circle-outline";
-
-          renderedLines.push(
-            <View key={`set_${currentSetNum}`} style={[{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 5, paddingHorizontal: 5, borderRadius: 8 }, isActive && {backgroundColor:`${colors.primary}1A`, borderColor: techInfo.color || colors.primary, borderWidth:1}]}>
-                <View style={{width: 30, alignItems:'center', marginRight: 10}}>
-                    <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: colors.inputBg, justifyContent: 'center', alignItems: 'center' }}>
-                        <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>{currentSetNum}</Text>
-                    </View>
-                </View>
-
-                <View style={{width: 50, alignItems:'center', marginRight: 10}}>
-                    <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>REPS</Text>
-                    <View style={{ height: 40, justifyContent: 'center' }}>
-                        <Text style={{ color: colors.text, fontSize: 16, fontWeight: 'bold' }}>{block.reps}</Text>
-                    </View>
-                </View>
-
-                <View style={{flex: 1}}>
-                    {renderInputArea(currentSetNum, isActive, block)}
-                </View>
-
-                <View style={{width: 36, alignItems:'flex-end', marginLeft: 5, justifyContent:'center'}}>
-                    <TouchableOpacity 
-                        style={{padding: 5}} 
-                        onPress={() => {
-                            if (categoryType === 'MOBILITY') {
-                                setActiveSetIndex(currentSetNum + 1); 
-                            } else {
-                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
-                            }
-                        }}
-                    >
-                        <MaterialCommunityIcons name={checkIcon} size={28} color={checkColor} />
-                    </TouchableOpacity>
-                </View>
-            </View>
-          );
-          currentSetGlobalTracker++;
-      }
-  });
-
-  // Se a técnica principal (bloco 0) for definida, exibe ela no topo.
-  const exerciseTopTechnique = blocks[0]?.technique || item.technique;
 
   return (
     <View style={{ marginBottom: 20 }}>
@@ -355,12 +257,13 @@ export const ExerciseCard = ({
           {backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.border},
           biSetType === 'start' && { borderBottomLeftRadius: 4, borderBottomRightRadius: 4, borderBottomWidth: 0, marginBottom: 0 },
           biSetType === 'end' && { borderTopLeftRadius: 4, borderTopRightRadius: 4, borderTopWidth: 0, marginTop: 2 },
-          (biSetType) && { borderColor: colors.primary, borderWidth: 1 }
+          biSetType && { borderColor: colors.primary, borderWidth: 1 }
       ]}>
         
+        {/* VÍDEO HEADER */}
         <View style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
             {videoLink ? (
-                <Video ref={videoRef} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.7 }} source={{ uri: videoLink }} resizeMode={ResizeMode.COVER} isMuted={true} shouldPlay={true} isLooping={true} />
+                <Video ref={videoRef} style={[StyleSheet.absoluteFillObject, { opacity: 0.7 }]} source={{ uri: videoLink }} resizeMode={ResizeMode.COVER} isMuted={true} shouldPlay={true} isLooping={true} />
             ) : (
                 <View style={[StyleSheet.absoluteFillObject, { opacity: 0.7, backgroundColor: '#222', justifyContent:'center', alignItems:'center'}]}><MaterialCommunityIcons name="dumbbell" size={40} color="#444" /></View>
             )}
@@ -368,11 +271,11 @@ export const ExerciseCard = ({
             <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'space-between', padding: 15 }}>
                 <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', alignItems:'flex-start'}}>
                     <View>
-                        {identifyTechnique(exerciseTopTechnique).key && (
-                            <TouchableOpacity style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, elevation: 3, backgroundColor: identifyTechnique(exerciseTopTechnique).color}} onPress={() => { if(setSelectedTech && setTechModalVisible) { setSelectedTech(identifyTechnique(exerciseTopTechnique).key); setTechModalVisible(true); }}}>
+                        {techInfo.key && (
+                            <TouchableOpacity style={{ backgroundColor: techInfo.color, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6}} onPress={() => { if(setSelectedTech && setTechModalVisible) { setSelectedTech(techInfo.key); setTechModalVisible(true); }}}>
                                 <View style={{flexDirection:'row', alignItems:'center', gap:4}}>
-                                    <MaterialCommunityIcons name="information-outline" size={12} color={colors.bg === '#000000' && (identifyTechnique(exerciseTopTechnique).key === 'BISET' || identifyTechnique(exerciseTopTechnique).key === '21') ? '#000' : '#FFF'} />
-                                    <Text style={{ fontSize: 10, fontWeight: '900', color: colors.bg === '#000000' && (identifyTechnique(exerciseTopTechnique).key === 'BISET' || identifyTechnique(exerciseTopTechnique).key === '21') ? '#000' : '#FFF' }}>{identifyTechnique(exerciseTopTechnique).label}</Text>
+                                    <MaterialCommunityIcons name="information-outline" size={12} color={colors.bg === '#000000' && (techInfo.key === 'BISET' || techInfo.key === '21') ? '#000' : '#FFF'} />
+                                    <Text style={{ color: colors.bg === '#000000' && (techInfo.key === 'BISET' || techInfo.key === '21') ? '#000' : '#FFF', fontSize: 10, fontWeight: '900' }}>{techInfo.label}</Text>
                                 </View>
                             </TouchableOpacity>
                         )}
@@ -396,7 +299,7 @@ export const ExerciseCard = ({
                     <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'flex-end'}}>
                         <View style={{flex:1}}>
                             <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>{exerciseTitle}</Text>
-                            <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{calculateTotalSets()} Séries Totais</Text>
+                            <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{item.sets} séries x {item.reps} reps</Text>
                         </View>
                         <TouchableOpacity style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }} onPress={() => handleOpenVideo(videoLink)}><MaterialCommunityIcons name="play" size={24} color={colors.primaryText} /></TouchableOpacity>
                     </View>
@@ -404,26 +307,61 @@ export const ExerciseCard = ({
             </View>
         </View>
 
+        {/* INPUTS BODY */}
         <View style={{ padding: 15 }}>
-            {renderedLines}
+            {[...Array(totalSets)].map((_, i) => {
+                const currentSetNum = i + 1;
+                const isActive = activeSetIndex === currentSetNum && isResting;
+                
+                const val = lastWeights[item.id]?.[currentSetNum];
+                const isFilled = val !== undefined && val !== '';
+                const mainFilled = lastWeights[item.id]?.[`${currentSetNum}_MAIN`];
+
+                const checkColor = isFilled || mainFilled ? colors.primary : colors.textMuted;
+                const checkIcon = isFilled || mainFilled ? "check-circle" : "circle-outline";
+
+                return (
+                    <View key={i} style={[{ flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingVertical: 5, paddingHorizontal: 5, borderRadius: 8 }, isActive && {backgroundColor: `${colors.primary}1A`, borderColor: techInfo.color || colors.primary, borderWidth:1}]}>
+                        <View style={{width: 30, alignItems:'center', marginRight: 10}}>
+                            <View style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: colors.inputBg, justifyContent: 'center', alignItems: 'center' }}>
+                                <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>{currentSetNum}</Text>
+                            </View>
+                        </View>
+
+                        <View style={{flex: 1}}>
+                            {renderInputArea(i, currentSetNum, isActive)}
+                        </View>
+
+                         <View style={{width: 36, alignItems:'flex-end', marginLeft: 5, justifyContent:'center'}}>
+                             <TouchableOpacity 
+                                style={{padding: 5}} 
+                                onPress={() => {
+                                    if (categoryType === 'MOBILITY') {
+                                        setActiveSetIndex(currentSetNum + 1); 
+                                    } else {
+                                        handleSmartCheck(currentSetNum, val);
+                                    }
+                                }}
+                             >
+                                 <MaterialCommunityIcons name={checkIcon} size={28} color={checkColor} />
+                             </TouchableOpacity>
+                        </View>
+                    </View>
+                );
+            })}
 
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                      <MaterialCommunityIcons name="timer-sand" size={14} color={colors.textMuted} />
                      <Text style={{ color: colors.textMuted, fontSize: 11, fontWeight: 'bold' }}>
                         {categoryType === 'MOBILITY' ? 'Execução contínua' :
+                         techInfo.key === 'RESTPAUSE' ? '20s (Rest-Pause)' : 
+                         techInfo.key === 'GVT' ? '60s (Rígido)' :
                          biSetType === 'start' ? 'Sem descanso' : 
-                         `${blocks[0].restTime || standardRestTime}s intervalo`}
+                         `${standardRestTime}s intervalo`}
                      </Text>
                 </View>
             </View>
-
-            {item.observation && item.observation !== '' ? (
-                <View style={{ backgroundColor: colors.inputBg, padding: 10, borderRadius: 8, marginTop: 10, borderWidth: 1, borderColor: colors.border }}>
-                    <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>📝 NOTA DO TREINADOR</Text>
-                    <Text style={{ color: colors.text, fontSize: 12, fontStyle: 'italic' }}>{item.observation}</Text>
-                </View>
-            ) : null}
 
             {onSwap && (
                 <TouchableOpacity onPress={onSwap} style={{ backgroundColor: '#FF9500', marginTop: 15, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
@@ -433,11 +371,12 @@ export const ExerciseCard = ({
             )}
         </View>
 
+        {/* MODAL TIMER */}
         <Modal visible={isResting} animationType="fade" transparent>
             <View style={{ flex: 1, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center' }}>
                 <View style={{ width: '85%', padding: 40, backgroundColor: colors.surface, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
-                    <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '900', letterSpacing: 1, marginBottom: 10, textAlign:'center' }}>{timerMessage.title}</Text>
-                    <Text style={{ color: colors.text, fontSize: 90, fontWeight: '900', marginVertical: 10 }}>{seconds}s</Text>
+                    <Text style={{ color: techInfo.color || colors.textMuted, fontSize: 16, fontWeight: '900', letterSpacing: 1, marginBottom: 10, textAlign:'center' }}>{timerMessage.title}</Text>
+                    <Text style={{ fontSize: 90, fontWeight: '900', marginVertical: 10, color: colors.text }}>{seconds}s</Text>
                     <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', lineHeight: 22 }}>{timerMessage.desc}</Text>
                     <TouchableOpacity style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} onPress={() => setSeconds(0)}>
                         <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 14 }}>PULAR</Text>

@@ -5,6 +5,9 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
+import { useTheme } from '../contexts/ThemeContext';
+
 const formatDate = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -13,6 +16,8 @@ const formatDate = (dateString) => {
 
 export default function AdminUserOptions({ route, navigation }) {
   const { aluno } = route.params;
+  const { theme } = useTheme(); // 🔥 TEMA PUXADO AQUI
+
   const [loading, setLoading] = useState(true);
   
   // Listas separadas
@@ -36,14 +41,11 @@ export default function AdminUserOptions({ route, navigation }) {
 
         if (Array.isArray(data)) {
             const today = new Date();
-            // Separa o joio do trigo
             const active = [];
             const archived = [];
 
             data.forEach(w => {
                 const end = new Date(w.endDate);
-                // Se a data final é menor que hoje (ontem ou antes), é arquivo.
-                // Se é hoje ou futuro, é ativo.
                 if (end < today) {
                     archived.push(w);
                 } else {
@@ -51,7 +53,6 @@ export default function AdminUserOptions({ route, navigation }) {
                 }
             });
 
-            // Ordena
             setActiveWorkouts(active.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
             setArchivedWorkouts(archived.sort((a,b) => new Date(b.endDate) - new Date(a.endDate)));
         }
@@ -116,162 +117,177 @@ export default function AdminUserOptions({ route, navigation }) {
 
   const listToShow = viewMode === 'active' ? activeWorkouts : archivedWorkouts;
 
+  // LÓGICA DE LARGURA MÁXIMA PARA O PC
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  
+  const RootComponent = isWeb ? View : SafeAreaView;
+  const rootStyle = isWeb
+    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
+    : { flex: 1, backgroundColor: theme.bg };
+
   return (
-    <View style={styles.mainWrapper}>
-        <SafeAreaView style={styles.container}>
-        <StatusBar barStyle="light-content" />
+    <RootComponent style={rootStyle}>
+        <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-                <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF"/>
-            </TouchableOpacity>
-            <View>
-                <Text style={styles.headerTitle}>{aluno.name.toUpperCase()}</Text>
-                <Text style={styles.headerSubtitle}>GERENCIAR ROTINAS</Text>
-            </View>
-            <TouchableOpacity onPress={fetchStudentData}>
-                <MaterialCommunityIcons name="refresh" size={24} color="#CCFF00"/>
-            </TouchableOpacity>
-        </View>
-
-        <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
+        {/* CONTAINER CENTRALIZADO PARA PC/PWA */}
+        <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
             
-            {/* BOTÃO PRINCIPAL */}
-            <TouchableOpacity style={styles.createBtn} onPress={handleNewWorkout}>
-                <MaterialCommunityIcons name="plus-circle" size={28} color="#000" />
-                <Text style={styles.createBtnText}>CRIAR NOVA ROTINA</Text>
-            </TouchableOpacity>
-
-            {/* ABAS ESTILO MFIT (ATIVAS | ARQUIVADAS) */}
-            <View style={styles.tabsRow}>
-                <TouchableOpacity 
-                    style={[styles.tabBtn, viewMode === 'active' && styles.tabBtnActive]} 
-                    onPress={() => setViewMode('active')}
-                >
-                    <Text style={[styles.tabText, viewMode === 'active' && styles.tabTextActive]}>ATIVAS ({activeWorkouts.length})</Text>
+            <View style={[styles.header, { borderBottomColor: theme.border }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
                 </TouchableOpacity>
-
-                <TouchableOpacity 
-                    style={[styles.tabBtn, viewMode === 'archived' && styles.tabBtnActive]} 
-                    onPress={() => setViewMode('archived')}
-                >
-                    <Text style={[styles.tabText, viewMode === 'archived' && styles.tabTextActive]}>ARQUIVADAS ({archivedWorkouts.length})</Text>
+                <View style={{ alignItems: 'center' }}>
+                    <Text style={[styles.headerTitle, { color: theme.text }]}>{aluno.name.toUpperCase()}</Text>
+                    <Text style={styles.headerSubtitle}>GERENCIAR ROTINAS</Text>
+                </View>
+                <TouchableOpacity onPress={fetchStudentData} style={{ padding: 8 }}>
+                    <MaterialCommunityIcons name="refresh" size={24} color={theme.accent}/>
                 </TouchableOpacity>
             </View>
 
-            <View style={styles.divider} />
-            <Text style={styles.sectionLabel}>
-                {viewMode === 'active' ? 'ROTINAS VIGENTES' : 'HISTÓRICO DE TREINOS'}
-            </Text>
+            <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
+                
+                {/* BOTÃO PRINCIPAL */}
+                <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.accent }]} onPress={handleNewWorkout}>
+                    <MaterialCommunityIcons name="plus-circle" size={28} color={theme.isDark ? '#000' : '#FFF'} />
+                    <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR NOVA ROTINA</Text>
+                </TouchableOpacity>
 
-            {loading ? <ActivityIndicator color="#CCFF00" style={{marginTop:20}} /> : (
-                <>
-                    {listToShow.length === 0 ? (
-                        <View style={styles.emptyBox}>
-                            <MaterialCommunityIcons name={viewMode === 'active' ? "dumbbell" : "archive-off-outline"} size={40} color="#333" />
-                            <Text style={styles.emptyText}>
-                                {viewMode === 'active' ? "Nenhuma rotina ativa." : "Nenhum histórico arquivado."}
-                            </Text>
-                        </View>
-                    ) : (
-                        listToShow.map((w) => {
-                            const isArchived = viewMode === 'archived';
-                            return (
-                                <View key={w.id} style={[styles.card, {borderColor: isArchived ? '#444' : '#CCFF00', opacity: isArchived ? 0.8 : 1}]}>
-                                    <View style={styles.cardHeader}>
-                                        <View style={{flexDirection:'row', gap:8, alignItems:'center'}}>
-                                            <MaterialCommunityIcons name={isArchived ? "archive-clock" : "lightning-bolt"} size={16} color={isArchived ? '#888' : '#CCFF00'} />
-                                            <Text style={[styles.statusText, {color: isArchived ? '#888' : '#CCFF00'}]}>
-                                                {isArchived ? 'FINALIZADO' : 'EM ANDAMENTO'}
-                                            </Text>
+                {/* ABAS ESTILO MFIT (ATIVAS | ARQUIVADAS) */}
+                <View style={styles.tabsRow}>
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'active' && { borderBottomColor: theme.accent }]} 
+                        onPress={() => setViewMode('active')}
+                    >
+                        <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'active' && { color: theme.accent }]}>ATIVAS ({activeWorkouts.length})</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'archived' && { borderBottomColor: theme.accent }]} 
+                        onPress={() => setViewMode('archived')}
+                    >
+                        <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'archived' && { color: theme.accent }]}>ARQUIVADAS ({archivedWorkouts.length})</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={[styles.divider, { backgroundColor: theme.border }]} />
+                <Text style={styles.sectionLabel}>
+                    {viewMode === 'active' ? 'ROTINAS VIGENTES' : 'HISTÓRICO DE TREINOS'}
+                </Text>
+
+                {loading ? <ActivityIndicator color={theme.accent} style={{marginTop:20}} /> : (
+                    <>
+                        {listToShow.length === 0 ? (
+                            <View style={[styles.emptyBox, { borderColor: theme.border }]}>
+                                <MaterialCommunityIcons name={viewMode === 'active' ? "dumbbell" : "archive-off-outline"} size={40} color={theme.textSecondary} />
+                                <Text style={styles.emptyText}>
+                                    {viewMode === 'active' ? "Nenhuma rotina ativa." : "Nenhum histórico arquivado."}
+                                </Text>
+                            </View>
+                        ) : (
+                            listToShow.map((w) => {
+                                const isArchived = viewMode === 'archived';
+                                return (
+                                    <View key={w.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: isArchived ? theme.border : theme.accent, opacity: isArchived ? 0.8 : 1}]}>
+                                        <View style={styles.cardHeader}>
+                                            <View style={{flexDirection:'row', gap:8, alignItems:'center'}}>
+                                                <MaterialCommunityIcons name={isArchived ? "archive-clock" : "lightning-bolt"} size={16} color={isArchived ? theme.textSecondary : theme.accent} />
+                                                <Text style={[styles.statusText, {color: isArchived ? theme.textSecondary : theme.accent}]}>
+                                                    {isArchived ? 'FINALIZADO' : 'EM ANDAMENTO'}
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity onPress={() => handleDeleteWorkout(w.id)} style={{padding:5}}>
+                                                <MaterialCommunityIcons name="trash-can-outline" size={20} color={isArchived ? theme.textSecondary : '#FF3B30'} />
+                                            </TouchableOpacity>
                                         </View>
-                                        <TouchableOpacity onPress={() => handleDeleteWorkout(w.id)} style={{padding:5}}>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={isArchived ? '#666' : '#FF3B30'} />
+                                        
+                                        <Text style={[styles.cardTitle, { color: theme.text }, isArchived && {color: theme.textSecondary}]}>{w.name}</Text>
+                                        <View style={styles.dateRow}>
+                                            <Text style={styles.cardDates}>Vigência: {formatDate(w.startDate)} até {formatDate(w.endDate)}</Text>
+                                        </View>
+
+                                        <TouchableOpacity style={[styles.editBtn, {backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1}]} onPress={() => handleEditWorkout(w)}>
+                                            <Text style={{color: theme.text, fontWeight:'bold', fontSize:12}}>ABRIR / VER</Text>
+                                            <MaterialCommunityIcons name="chevron-right" size={16} color={theme.text} />
                                         </TouchableOpacity>
                                     </View>
-                                    
-                                    <Text style={[styles.cardTitle, isArchived && {color:'#AAA'}]}>{w.name}</Text>
-                                    <View style={styles.dateRow}>
-                                        <Text style={styles.cardDates}>Vigência: {formatDate(w.startDate)} até {formatDate(w.endDate)}</Text>
-                                    </View>
+                                );
+                            })
+                        )}
+                    </>
+                )}
 
-                                    <TouchableOpacity style={[styles.editBtn, {backgroundColor: '#222'}]} onPress={() => handleEditWorkout(w)}>
-                                        <Text style={{color:'#FFF', fontWeight:'bold', fontSize:12}}>ABRIR / VER</Text>
-                                        <MaterialCommunityIcons name="chevron-right" size={16} color="#FFF" />
-                                    </TouchableOpacity>
-                                </View>
-                            );
-                        })
-                    )}
-                </>
-            )}
+                {/* OPÇÕES ADICIONAIS */}
+                <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
+                
+                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
+                    <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
+                        <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
+                    </View>
+                    <Text style={[styles.actionText, { color: theme.text }]}>Ver Gráficos de Evolução</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
+                </TouchableOpacity>
 
-            {/* OPÇÕES ADICIONAIS */}
-            <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
-            
-            <TouchableOpacity style={styles.actionRow} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
-                <View style={[styles.iconBox, {backgroundColor:'#112233'}]}>
-                    <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
-                </View>
-                <Text style={styles.actionText}>Ver Gráficos de Evolução</Text>
-                <MaterialCommunityIcons name="chevron-right" size={20} color="#333" />
-            </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={handleToggleStatus}>
+                    <View style={[styles.iconBox, {backgroundColor: isActiveUser ? theme.accent + '22' : 'rgba(255,59,48,0.15)'}]}>
+                        <MaterialCommunityIcons name={isActiveUser ? "lock-open" : "lock"} size={20} color={isActiveUser ? theme.accent : "#FF3B30"} />
+                    </View>
+                    <Text style={[styles.actionText, {color: isActiveUser ? theme.text : '#FF3B30'}]}>
+                        {isActiveUser ? "Aluno Ativo (Toque para Bloquear)" : "Aluno Bloqueado (Toque para Ativar)"}
+                    </Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity style={styles.actionRow} onPress={handleToggleStatus}>
-                <View style={[styles.iconBox, {backgroundColor: isActiveUser ? 'rgba(204,255,0,0.1)' : 'rgba(255,59,48,0.1)'}]}>
-                    <MaterialCommunityIcons name={isActiveUser ? "lock-open" : "lock"} size={20} color={isActiveUser ? "#CCFF00" : "#FF3B30"} />
-                </View>
-                <Text style={[styles.actionText, {color: isActiveUser ? '#FFF' : '#FF3B30'}]}>
-                    {isActiveUser ? "Aluno Ativo (Toque para Bloquear)" : "Aluno Bloqueado (Toque para Ativar)"}
-                </Text>
-            </TouchableOpacity>
+                {/* BOTÃO EXCLUIR */}
+                <TouchableOpacity style={styles.deleteUserRow} onPress={handleDeleteUser}>
+                    <MaterialCommunityIcons name="account-remove" size={20} color="#FFF" />
+                    <Text style={styles.deleteUserText}>EXCLUIR ALUNO PERMANENTEMENTE</Text>
+                </TouchableOpacity>
 
-            {/* BOTÃO EXCLUIR */}
-            <TouchableOpacity style={styles.deleteUserRow} onPress={handleDeleteUser}>
-                <MaterialCommunityIcons name="account-remove" size={20} color="#FFF" />
-                <Text style={styles.deleteUserText}>EXCLUIR ALUNO PERMANENTEMENTE</Text>
-            </TouchableOpacity>
-
-        </ScrollView>
-        </SafeAreaView>
-    </View>
+            </ScrollView>
+        </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  mainWrapper: { flex: 1, backgroundColor: '#000', height: Platform.OS === 'web' ? '100vh' : '100%', overflow: 'hidden' },
-  container: { flex: 1, backgroundColor: '#000' },
-  header: { flexDirection:'row', justifyContent:'space-between', padding:20, paddingTop: Platform.OS === 'web' ? 20 : 60, alignItems:'center', borderBottomWidth:1, borderBottomColor:'#1A1A1A' },
-  headerTitle: { color: '#FFF', fontWeight:'900', fontSize:16 },
-  headerSubtitle: { color: '#666', fontSize:10, fontWeight:'bold', letterSpacing:1 },
+  header: { 
+      flexDirection:'row', 
+      justifyContent:'space-between', 
+      paddingHorizontal:20, 
+      paddingBottom: 20,
+      paddingTop: Platform.OS === 'android' ? 10 : 20, 
+      alignItems:'center', 
+      borderBottomWidth:1 
+  },
   
-  createBtn: { backgroundColor: '#CCFF00', padding: 15, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 15 },
-  createBtnText: { color: '#000', fontWeight: '900', fontSize: 14, letterSpacing:0.5 },
+  headerTitle: { fontWeight:'900', fontSize:16 },
+  headerSubtitle: { color: '#888', fontSize:10, fontWeight:'bold', letterSpacing:1 },
   
-  // ESTILO DAS ABAS (Active vs Archived)
+  createBtn: { padding: 15, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 15 },
+  createBtnText: { fontWeight: '900', fontSize: 14, letterSpacing:0.5 },
+  
   tabsRow: { flexDirection: 'row', gap: 10, marginBottom: 5 },
-  tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2, borderBottomColor: '#222' },
-  tabBtnActive: { borderBottomColor: '#CCFF00' },
-  tabText: { color: '#666', fontWeight: 'bold', fontSize: 12 },
-  tabTextActive: { color: '#CCFF00' },
+  tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2 },
+  tabText: { fontWeight: 'bold', fontSize: 12 },
 
-  divider: { height:1, backgroundColor:'#1A1A1A', marginVertical:20 },
-  sectionLabel: { color:'#666', fontWeight:'900', marginBottom:15, fontSize:12, letterSpacing:1 },
+  divider: { height:1, marginVertical:20 },
+  sectionLabel: { color:'#888', fontWeight:'900', marginBottom:15, fontSize:12, letterSpacing:1 },
   
-  card: { backgroundColor: '#111', borderRadius: 12, padding: 15, marginBottom: 15, borderWidth: 1 },
+  card: { borderRadius: 12, padding: 15, marginBottom: 15, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   statusText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  cardTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 5 },
+  cardTitle: { fontSize: 20, fontWeight: '900', marginBottom: 5 },
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 },
   cardDates: { color: '#888', fontSize: 12, fontWeight:'bold' },
   editBtn: { padding: 12, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   
-  emptyBox: { alignItems:'center', padding: 20, borderStyle:'dashed', borderWidth:1, borderColor:'#333', borderRadius:10 },
-  emptyText: { color: '#666', textAlign: 'center', fontStyle: 'italic', marginTop: 10 },
+  emptyBox: { alignItems:'center', padding: 20, borderStyle:'dashed', borderWidth:1, borderRadius:10 },
+  emptyText: { color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 },
   
-  actionRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', padding: 12, borderRadius: 12, marginBottom: 10, gap: 15, borderWidth:1, borderColor:'#222' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 10, gap: 15, borderWidth:1 },
   iconBox: { width: 36, height: 36, borderRadius: 18, justifyContent:'center', alignItems:'center' },
-  actionText: { color: '#FFF', fontWeight: 'bold', fontSize: 13, flex:1 },
+  actionText: { fontWeight: 'bold', fontSize: 13, flex:1 },
 
   deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 15, borderRadius: 12, marginTop: 20, gap: 10 },
   deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 12 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -21,6 +21,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
+import { useTheme } from '../contexts/ThemeContext';
+
 const categoryCovers = {
   "Peito": "https://i.imgur.com/lQBvvJ9.jpeg",
   "Costas": "https://i.imgur.com/pZKX9Iw.png",
@@ -42,41 +45,45 @@ const categories = [
     'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
 ];
 
-const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => {
+// 🔥 DESIGN DE CARD PREMIUM
+const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme }) => {
     return (
-        <View style={[styles.exerciseCard, { width: width }]}>
+        <View style={[styles.exerciseCard, { width: width, backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? '#000' : '#CCC' }]}>
           <View style={styles.cardInfo}>
+            
             <TouchableOpacity 
-              style={styles.iconBox} 
+              style={[styles.iconBox, { backgroundColor: theme.bg, borderColor: theme.border }]} 
               onPress={() => onPress(item.videoUrl)}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons name="dumbbell" size={20} color="#CCFF00" />
+              <MaterialCommunityIcons name="dumbbell" size={22} color={theme.accent} />
             </TouchableOpacity>
             
-            <View style={{ flex: 1 }}>
-              <Text style={styles.exerciseName} numberOfLines={1}>{item.name}</Text>
-              <Text style={styles.exerciseSub}>{item.category.toUpperCase()}</Text>
+            <View style={{ flex: 1, marginLeft: 15, marginRight: 10 }}>
+              <Text style={[styles.exerciseName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+              <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                  <View style={[styles.catTag, { backgroundColor: theme.bg }]}>
+                    <Text style={[styles.exerciseSub, { color: theme.textSecondary }]}>{item.category.toUpperCase()}</Text>
+                  </View>
+              </View>
             </View>
 
             {item.videoUrl && (
               <TouchableOpacity 
                 onPress={() => onPress(item.videoUrl)} 
-                style={styles.videoPlayBtn}
+                style={[styles.videoPlayBtn, { backgroundColor: theme.accent }]}
               >
-                <MaterialCommunityIcons name="play" size={20} color="#000" />
+                <MaterialCommunityIcons name="play" size={24} color={theme.isDark ? "#000" : "#FFF"} />
               </TouchableOpacity>
             )}
+
           </View>
 
-          <View style={styles.cardActions}>
+          <View style={[styles.cardActions, { borderTopColor: theme.border }]}>
             <TouchableOpacity onPress={() => onEdit(item)} style={styles.actionBtn}>
-              <MaterialCommunityIcons name="pencil-outline" size={18} color="#666" />
+              <MaterialCommunityIcons name="pencil-outline" size={18} color={theme.textSecondary} />
             </TouchableOpacity>
-            <TouchableOpacity 
-              onPress={() => onDelete(item.id)} 
-              style={styles.actionBtn}
-            >
+            <TouchableOpacity onPress={() => onDelete(item.id)} style={styles.actionBtn}>
               <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
             </TouchableOpacity>
           </View>
@@ -85,18 +92,25 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width }) => 
 }, (prev, next) => {
     return prev.item.id === next.item.id && 
            prev.item.videoUrl === next.item.videoUrl && 
-           prev.width === next.width;
+           prev.width === next.width &&
+           prev.theme === next.theme;
 });
 
 export default function BibliotecaAdmin({ navigation }) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
+  const { theme } = useTheme(); 
   
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
   const [selectedCat, setSelectedCat] = useState('TODOS');
   
-  const [modalVisible, setModalVisible] = useState(false);
+  // Modais e Controles
+  const [modalVisible, setModalVisible] = useState(false); 
+  const [catModalVisible, setCatModalVisible] = useState(false); 
+  const [showFormDropdown, setShowFormDropdown] = useState(false);
+  const [videoModalVisible, setVideoModalVisible] = useState(false); 
+
   const [formExercise, setFormExercise] = useState({ 
       id: null, 
       name: '', 
@@ -104,24 +118,28 @@ export default function BibliotecaAdmin({ navigation }) {
       videoUrl: '' 
   });
   const [saving, setSaving] = useState(false);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState('');
+  const videoRef = useRef(null);
 
-  const [videoModalVisible, setVideoModalVisible] = useState(false);
-  const [currentVideo, setCurrentVideo] = useState(null);
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
   const getNumColumns = () => {
-      if (width > 1000) return 3; 
-      if (width > 700) return 2;  
+      if (width > 800 && isWeb) return 2; 
       return 1; 
   };
   
   const numColumns = getNumColumns();
+  const containerWidth = isWeb ? (width > 800 ? 800 : (width > 480 ? 480 : width)) : width;
   const itemWidth = numColumns > 1 
-      ? (width - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / numColumns
-      : (width - (HORIZONTAL_PADDING * 2));
+      ? (containerWidth - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / 2
+      : (containerWidth - (HORIZONTAL_PADDING * 2));
 
-  useEffect(() => { 
-      fetchLibrary(); 
-  }, []);
+  // 🔥 LÓGICA DE TAMANHO DAS LOGOS LATERAIS (WEB)
+  // Calcula quanto espaço sobra nas laterais para definir a largura máxima da logo
+  const lateralSpace = (width - containerWidth) / 2;
+
+  useEffect(() => { fetchLibrary(); }, []);
 
   const fetchLibrary = async () => {
     setLoading(true);
@@ -131,19 +149,14 @@ export default function BibliotecaAdmin({ navigation }) {
         if (data.exercises) {
             setExercises(data.exercises.reverse()); 
         }
-    } catch (error) { 
-        console.log("Erro ao buscar biblioteca:", error); 
-    } finally { 
-        setLoading(false); 
-    }
+    } catch (error) { console.log("Erro ao buscar biblioteca:", error); } 
+    finally { setLoading(false); }
   };
 
   const handleDelete = useCallback((id) => {
-      if(Platform.OS === 'web') {
+      if(isWeb) {
           const confirmDelete = window.confirm("Deseja realmente apagar este exercício?");
-          if (confirmDelete) {
-              deleteItem(id);
-          }
+          if (confirmDelete) { deleteItem(id); }
       } else {
           Alert.alert("Excluir Exercício", "Tem certeza que deseja remover este item permanentemente?", [
               { text: "Cancelar", style: "cancel" },
@@ -154,67 +167,36 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const deleteItem = async (id) => {
       try {
-          // Tenta excluir (primeiro rota normal, fallback rota admin)
-          // Ajustado para garantir que o ID é passado corretamente
           const url = `https://fitos-final.onrender.com/api/exercise?id=${id}`;
-          
           const res = await fetch(url, { method: 'DELETE' });
-          
           if (res.ok) {
               setExercises(prev => prev.filter(item => item.id !== id));
-              fetchLibrary(); 
-              if(Platform.OS !== 'web') Alert.alert("Sucesso", "Exercício removido.");
-          } else {
-              const errorText = await res.text();
-              console.log("Erro ao excluir:", errorText);
-              Alert.alert("Erro", "Não foi possível excluir: " + (errorText || "Erro desconhecido"));
-          }
-      } catch (e) { 
-          Alert.alert("Erro de Conexão", "Verifique sua internet."); 
-      }
+          } else { Alert.alert("Erro", "Não foi possível excluir o exercício."); }
+      } catch (e) { Alert.alert("Erro de Conexão", "Verifique sua internet."); }
   };
 
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
-      
       setSaving(true);
       try {
           const apiUrl = 'https://fitos-final.onrender.com/api/exercise'; 
-          
           const res = await fetch(apiUrl, {
               method: !!formExercise.id ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(formExercise)
           });
-
-          const textResponse = await res.text();
-
-          try {
-              const jsonResponse = JSON.parse(textResponse);
-              if (res.ok) {
-                  setModalVisible(false);
-                  fetchLibrary();
-                  Alert.alert("Sucesso", "Exercício salvo com sucesso!");
-              } else {
-                  Alert.alert("Atenção", jsonResponse.error || "O servidor recusou os dados.");
-              }
-          } catch (jsonError) {
-              if(textResponse.includes("404")) {
-                  Alert.alert("Erro 404", "Rota API não encontrada.");
-              } else {
-                  Alert.alert("Erro Crítico", "Erro no servidor.");
-              }
-          }
-      } catch (e) { 
-          Alert.alert("Erro de Conexão", e.message); 
-      } finally { 
-          setSaving(false); 
-      }
+          if (res.ok) {
+              setModalVisible(false);
+              fetchLibrary();
+              Alert.alert("Sucesso", "Exercício salvo com sucesso!");
+          } else { Alert.alert("Atenção", "O servidor recusou os dados."); }
+      } catch (e) { Alert.alert("Erro de Conexão", e.message); } 
+      finally { setSaving(false); }
   };
 
   const openVideoPreview = useCallback((url) => {
       if (!url || url.length < 5) return Alert.alert("Vídeo Indisponível", "Este exercício não possui vídeo.");
-      setCurrentVideo(url);
+      setCurrentVideoUrl(url);
       setVideoModalVisible(true);
   }, []);
 
@@ -224,198 +206,327 @@ export default function BibliotecaAdmin({ navigation }) {
       return matchText && matchCat;
   });
 
-  const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
-  const rootStyle = Platform.OS === 'web'
-    ? { height: '100vh', width: '100%', backgroundColor: '#000' }
-    : { flex: 1, backgroundColor: '#000' };
+  const RootComponent = isWeb ? View : SafeAreaView;
+  const rootStyle = isWeb
+    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
+    : { flex: 1, backgroundColor: theme.bg };
 
   return (
     <RootComponent style={rootStyle}>
-        <StatusBar barStyle="light-content" backgroundColor="#000" />
+        <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        <View style={styles.header}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
-                </TouchableOpacity>
-                <View>
-                    <Text style={styles.headerTitle}>BIBLIOTECA</Text>
-                    <Text style={styles.headerSubtitle}>GERENCIAMENTO</Text>
+        {/* 🔥 DUAS LOGOS CENTRALIZADAS NAS LATERAIS (WEB) */}
+        {isWeb && lateralSpace > 10 && (
+            <View style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
+                
+                {/* CAIXA ESQUERDA */}
+                <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
+                    <Image 
+                        source={require('../../assets/logo.png')} 
+                        style={{ 
+                            width: '85%', 
+                            height: '60%', 
+                            resizeMode: 'contain' // 🔥 Contain garante que a logo não vaze nem corte!
+                        }}
+                    />
                 </View>
+
+                {/* CAIXA DIREITA */}
+                <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
+                    <Image 
+                        source={require('../../assets/logo.png')} 
+                        style={{ 
+                            width: '85%', 
+                            height: '60%', 
+                            resizeMode: 'contain' // 🔥 Contain garante que a logo não vaze nem corte!
+                        }}
+                    />
+                </View>
+
             </View>
-            <TouchableOpacity onPress={fetchLibrary} style={styles.backBtn}>
-                <MaterialCommunityIcons name="refresh" size={24} color="#CCFF00" />
-            </TouchableOpacity>
-        </View>
+        )}
 
-        <View style={styles.searchBox}>
-            <MaterialCommunityIcons name="magnify" size={20} color="#666" />
-            <TextInput 
-              style={styles.searchInput} placeholder="Buscar exercício..." placeholderTextColor="#666"
-              value={filterText} onChangeText={setFilterText} 
-            />
-        </View>
+        <View style={{ 
+            flex: 1, 
+            width: isWeb ? '100%' : '100%', 
+            maxWidth: containerWidth, 
+            alignSelf: 'center', 
+            backgroundColor: theme.bg, 
+            ...(isWeb ? {
+                // Removemos margem vertical e arredondamento total pra encostar no topo/fundo na Web, 
+                // parecendo o print de referência.
+                borderLeftWidth: 1, 
+                borderRightWidth: 1, 
+                borderColor: theme.border,
+                overflow: 'hidden' 
+            } : {}) 
+        }}>
+            
+            <FlatList
+              key={`grid-${numColumns}`} 
+              data={filteredList}
+              keyExtractor={item => item.id.toString()}
+              numColumns={numColumns}
+              style={{ flex: 1, width: '100%' }}
+              contentContainerStyle={{ width: '100%', paddingBottom: 150, paddingHorizontal: HORIZONTAL_PADDING, flexGrow: 1 }}
+              columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
+              showsVerticalScrollIndicator={true} 
+              
+              ListHeaderComponent={
+                <View style={{ marginBottom: 10 }}>
+                    <View style={[styles.header, { borderBottomColor: theme.border, paddingTop: isWeb ? 20 : 60 }]}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+                            </TouchableOpacity>
+                            <View>
+                                <Text style={[styles.headerTitle, { color: theme.text }]}>BIBLIOTECA</Text>
+                                <Text style={styles.headerSubtitle}>GERENCIAMENTO</Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity onPress={fetchLibrary} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <MaterialCommunityIcons name="refresh" size={24} color={theme.accent} />
+                        </TouchableOpacity>
+                    </View>
 
-        <View style={{ height: 45, marginBottom: 15 }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20 }}>
-                {categories.map(cat => (
+                    <View style={[styles.searchBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <MaterialCommunityIcons name="magnify" size={22} color={theme.textSecondary} />
+                        <TextInput 
+                          style={[styles.searchInput, { color: theme.text }]} 
+                          placeholder="Pesquisar exercício..." 
+                          placeholderTextColor={theme.textSecondary}
+                          value={filterText} onChangeText={setFilterText} 
+                        />
+                    </View>
+
+                    {/* SELETOR DE CATEGORIA (Filtro Principal) */}
                     <TouchableOpacity 
-                        key={cat} 
-                        style={[styles.catTab, selectedCat === cat && styles.catTabActive]}
-                        onPress={() => setSelectedCat(cat)}
+                        style={[styles.catSelector, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        onPress={() => setCatModalVisible(true)}
                     >
-                        <Text style={[styles.catTabText, selectedCat === cat && styles.catTabTextActive]}>{cat}</Text>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                            <MaterialCommunityIcons name="filter-variant" size={20} color={theme.accent} />
+                            <Text style={[styles.catSelectorText, { color: theme.textSecondary }]}>Categoria: </Text>
+                            <Text style={[styles.catSelectorVal, { color: theme.text }]}>{selectedCat.toUpperCase()}</Text>
+                        </View>
+                        <MaterialCommunityIcons name="chevron-down" size={22} color={theme.textSecondary} />
                     </TouchableOpacity>
-                ))}
-            </ScrollView>
-        </View>
 
-        <View style={{ flex: 1, position: 'relative' }}>
-            {loading ? <ActivityIndicator color="#CCFF00" style={{ marginTop: 50 }} size="large" /> : (
-                <FlatList
-                  key={`grid-${numColumns}`} 
-                  data={filteredList}
-                  keyExtractor={item => item.id.toString()}
-                  numColumns={numColumns}
-                  contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20, flexGrow: 1 }}
-                  columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
-                  showsVerticalScrollIndicator={false}
-                  ListHeaderComponent={
                     <View style={{ marginBottom: 20 }}>
                         <ImageBackground 
                             source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} 
                             style={styles.categoryCover}
-                            imageStyle={{ borderRadius: 20 }}
+                            imageStyle={{ borderRadius: 24 }}
                         >
                             <View style={styles.coverOverlay}>
                                 <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
-                                <Text style={styles.coverCount}>{filteredList.length} EXERCÍCIOS</Text>
+                                <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
+                                    <Text style={[styles.coverCount, { color: theme.isDark ? '#000' : '#FFF' }]}>{filteredList.length} EXERCÍCIOS</Text>
+                                </View>
                             </View>
                         </ImageBackground>
                     </View>
-                  }
-                  renderItem={({ item }) => (
-                      <ExerciseCard 
-                          item={item} width={itemWidth} 
-                          onPress={openVideoPreview}
-                          onEdit={(ex) => { setFormExercise(ex); setModalVisible(true); }}
-                          onDelete={handleDelete}
-                      />
-                  )}
-                  ListEmptyComponent={<Text style={styles.emptyText}>Nenhum exercício encontrado nesta categoria.</Text>}
-                />
-            )}
+                    
+                    {loading && <ActivityIndicator color={theme.accent} style={{ marginTop: 30 }} size="large" />}
+                </View>
+              }
+              renderItem={({ item }) => (
+                  <ExerciseCard 
+                      item={item} width={itemWidth} theme={theme}
+                      onPress={openVideoPreview}
+                      onEdit={(ex) => { setFormExercise(ex); setShowFormDropdown(false); setModalVisible(true); }}
+                      onDelete={handleDelete}
+                  />
+              )}
+              ListEmptyComponent={!loading && <Text style={styles.emptyText}>Nenhum exercício encontrado.</Text>}
+            />
+
+            <TouchableOpacity 
+                style={[
+                    styles.fab, 
+                    { backgroundColor: theme.accent }, 
+                    isWeb ? { position: 'absolute', bottom: 30, right: 30 } : {} 
+                ]} 
+                onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); setShowFormDropdown(false); setModalVisible(true); }}
+            >
+                <MaterialCommunityIcons name="plus" size={32} color={theme.isDark ? '#000' : '#FFF'} />
+            </TouchableOpacity>
+
         </View>
 
-        <TouchableOpacity 
-            style={[styles.fab, Platform.OS === 'web' ? { position: 'absolute' } : {}]} 
-            onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); setModalVisible(true); }}
-        >
-            <MaterialCommunityIcons name="plus" size={32} color="#000" />
-        </TouchableOpacity>
-
-        {/* MODAL CRIAR/EDITAR */}
-        <Modal visible={modalVisible} animationType="slide" onRequestClose={() => setModalVisible(false)}>
-          <View style={styles.modalContent}>
-            <SafeAreaView style={{flex:1}}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>{formExercise.id ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}</Text>
-                <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color="#FFF" /></TouchableOpacity>
-              </View>
-              <ScrollView style={{ padding: 20 }}>
-                <Text style={styles.label}>NOME DO EXERCÍCIO</Text>
-                <TextInput style={styles.input} value={formExercise.name} onChangeText={t => setFormExercise({...formExercise, name: t})} placeholder="Ex: Supino Reto com Halteres" placeholderTextColor="#444" />
-                <Text style={styles.label}>GRUPO MUSCULAR</Text>
-                <View style={styles.chipRow}>
-                  {categories.filter(c => c !== 'TODOS').map(c => (
-                    <TouchableOpacity key={c} style={[styles.chip, formExercise.category === c && styles.chipActive]} onPress={() => setFormExercise({...formExercise, category: c})}>
-                      <Text style={[styles.chipText, formExercise.category === c && { color: '#000' }]}>{c}</Text>
-                    </TouchableOpacity>
-                  ))}
+        {/* MODAL SELETOR DE CATEGORIA DO FILTRO */}
+        <Modal visible={catModalVisible} transparent animationType="fade" onRequestClose={() => setCatModalVisible(false)}>
+            <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setCatModalVisible(false)}>
+                <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: '#000' }]}>
+                    <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 20, textAlign: 'center' }]}>FILTRAR CATEGORIA</Text>
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                        {categories.map(cat => (
+                            <TouchableOpacity 
+                                key={cat} 
+                                style={[styles.catOption, selectedCat === cat && { backgroundColor: theme.accent + '22' }]}
+                                onPress={() => { setSelectedCat(cat); setCatModalVisible(false); }}
+                            >
+                                <Text style={[styles.catOptionText, { color: theme.text }, selectedCat === cat && { color: theme.accent, fontWeight: '800' }]}>{cat}</Text>
+                                {selectedCat === cat && <MaterialCommunityIcons name="check-decagram" size={20} color={theme.accent} />}
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
                 </View>
-                <Text style={styles.label}>URL DO VÍDEO</Text>
-                <TextInput style={styles.input} value={formExercise.videoUrl} onChangeText={t => setFormExercise({...formExercise, videoUrl: t})} placeholder="https://..." placeholderTextColor="#444" autoCapitalize="none" />
-                <TouchableOpacity style={styles.saveBtn} onPress={handleSaveOrUpdate} disabled={saving}>
-                  {saving ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>SALVAR NA BIBLIOTECA</Text>}
-                </TouchableOpacity>
-              </ScrollView>
-            </SafeAreaView>
-          </View>
+            </TouchableOpacity>
         </Modal>
 
-        {/* MODAL DE VÍDEO MODERNIZADO - ADMIN */}
-        <Modal visible={videoModalVisible} transparent animationType="fade" onRequestClose={() => setVideoModalVisible(false)}>
-          <View style={styles.videoBackdrop}>
-             <View style={styles.videoContainerModern}>
-                 <View style={styles.videoHeaderModern}>
-                     <Text style={styles.videoTitleModern}>VISUALIZAÇÃO</Text>
-                     <TouchableOpacity style={styles.closeBtnModern} onPress={() => setVideoModalVisible(false)}>
-                         <MaterialCommunityIcons name="close" size={20} color="#000" />
-                     </TouchableOpacity>
-                 </View>
-                 
-                 <View style={styles.videoWrapper}>
-                     {currentVideo && (
-                         <Video 
-                            source={{ uri: currentVideo }} 
-                            style={styles.fullVideo} 
-                            useNativeControls 
-                            resizeMode={ResizeMode.CONTAIN} 
-                            shouldPlay 
-                            isLooping
-                         />
-                     )}
-                 </View>
-             </View>
-          </View>
+        {/* MODAL CRIAR/EDITAR EXERCÍCIO COM DROPDOWN SANFONA */}
+        <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
+              <SafeAreaView style={{ flex:1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, borderRadius: 24, marginVertical: '2.5%', overflow: 'hidden'} : {}) }}>
+                  <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                      <Text style={[styles.modalTitle, { color: theme.text }]}>{formExercise.id ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}</Text>
+                      <TouchableOpacity onPress={() => setModalVisible(false)} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border, padding: 8 }]}><MaterialCommunityIcons name="close" size={20} color={theme.text} /></TouchableOpacity>
+                  </View>
+                  
+                  <ScrollView style={{ padding: 20 }} contentContainerStyle={{ paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
+                      <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>NOME DO EXERCÍCIO</Text>
+                      <TextInput 
+                          style={[styles.modalInputPremium, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          value={formExercise.name} 
+                          onChangeText={t => setFormExercise({...formExercise, name: t})} 
+                          placeholder="Ex: Supino Reto com Halteres" 
+                          placeholderTextColor={theme.textSecondary} 
+                      />
+                      
+                      {/* O SELETOR PREMIUM INLINE (SANFONA) */}
+                      <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>GRUPO MUSCULAR ALVO</Text>
+                      <TouchableOpacity 
+                          style={[styles.catSelector, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: showFormDropdown ? 10 : 25 }]}
+                          onPress={() => setShowFormDropdown(!showFormDropdown)}
+                      >
+                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                              <MaterialCommunityIcons name="format-list-bulleted" size={20} color={theme.textSecondary} />
+                              <Text style={[styles.catSelectorVal, { color: theme.text }]}>{formExercise.category.toUpperCase()}</Text>
+                          </View>
+                          <MaterialCommunityIcons name={showFormDropdown ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                      </TouchableOpacity>
+
+                      {/* LISTA SANFONA QUE DESCE AO CLICAR */}
+                      {showFormDropdown && (
+                          <View style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, marginBottom: 25, padding: 10, maxHeight: 200 }}>
+                              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                                  {categories.filter(c => c !== 'TODOS').map(cat => (
+                                      <TouchableOpacity 
+                                          key={cat} 
+                                          style={{ padding: 14, borderRadius: 10, backgroundColor: formExercise.category === cat ? theme.accent + '22' : 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                                          onPress={() => { setFormExercise({...formExercise, category: cat}); setShowFormDropdown(false); }}
+                                      >
+                                          <Text style={{ color: formExercise.category === cat ? theme.accent : theme.text, fontWeight: formExercise.category === cat ? 'bold' : '500' }}>{cat}</Text>
+                                          {formExercise.category === cat && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
+                                      </TouchableOpacity>
+                                  ))}
+                              </ScrollView>
+                          </View>
+                      )}
+                      
+                      <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>LINK DO VÍDEO (URL)</Text>
+                      <TextInput 
+                          style={[styles.modalInputPremium, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          value={formExercise.videoUrl} 
+                          onChangeText={t => setFormExercise({...formExercise, videoUrl: t})} 
+                          placeholder="https://..." 
+                          placeholderTextColor={theme.textSecondary} 
+                          autoCapitalize="none" 
+                      />
+                      
+                      <TouchableOpacity style={[styles.btnPremium, { backgroundColor: theme.accent }]} onPress={handleSaveOrUpdate} disabled={saving}>
+                          {saving ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.btnTextPremium, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR NA BIBLIOTECA</Text>}
+                      </TouchableOpacity>
+                  </ScrollView>
+              </SafeAreaView>
+          </KeyboardAvoidingView>
         </Modal>
+
+        {/* MODAL DE VÍDEO */}
+        <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
+                <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#111', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
+                    <TouchableOpacity onPress={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }} style={{ position: 'absolute', top: 12, right: 12, zIndex: 100, backgroundColor: 'rgba(255,59,48,0.9)', borderRadius: 15, padding: 4 }}>
+                        <MaterialCommunityIcons name="close" size={18} color="#FFF" />
+                    </TouchableOpacity>
+                    <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+                        {videoModalVisible && currentVideoUrl ? (
+                            <>
+                                <Video 
+                                    ref={videoRef} 
+                                    style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.8 }} 
+                                    source={{ uri: currentVideoUrl }} 
+                                    resizeMode={isWeb ? ResizeMode.CONTAIN : "cover"} 
+                                    shouldPlay 
+                                    isLooping 
+                                    isMuted 
+                                />
+                                <View style={{ alignItems: 'center', padding: 20, zIndex: 10, marginTop: 'auto', marginBottom: 20 }}>
+                                    <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
+                                        <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>TELA CHEIA</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        ) : null}
+                    </View>
+                </View>
+            </View>
+        </Modal>
+
     </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Platform.OS === 'web' ? 20 : 60, paddingHorizontal: 20, paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  headerTitle: { color: '#FFF', fontSize: 22, fontWeight: '900' },
-  headerSubtitle: { color: '#666', fontSize: 10, letterSpacing: 1, fontWeight: 'bold' },
-  backBtn: { padding: 10, backgroundColor: '#1A1A1A', borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
-  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1A1A1A', marginHorizontal: 20, marginBottom: 20, paddingHorizontal: 15, height: 50, borderRadius: 12, borderWidth: 1, borderColor: '#222' },
-  searchInput: { flex: 1, color: '#FFF', marginLeft: 10, fontWeight: 'bold', outlineStyle: 'none' },
-  catTab: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 20, marginRight: 10, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
-  catTabActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  catTabText: { color: '#666', fontWeight: 'bold', fontSize: 12 },
-  catTabTextActive: { color: '#000' },
-  categoryCover: { height: 120, width: '100%', justifyContent: 'flex-end', overflow: 'hidden' },
-  coverOverlay: { backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, height: '100%', justifyContent: 'flex-end', borderRadius: 20 },
-  coverTitle: { color: '#FFF', fontSize: 24, fontWeight: '900' },
-  coverCount: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-  exerciseCard: { backgroundColor: '#111', borderRadius: 15, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#1a1a1a' },
-  cardInfo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBox: { width: 40, height: 40, backgroundColor: '#000', borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
-  exerciseName: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
-  exerciseSub: { color: '#444', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-  videoPlayBtn: { width: 35, height: 35, backgroundColor: '#CCFF00', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 15, marginTop: 10, borderTopWidth: 1, borderTopColor: '#1a1a1a', paddingTop: 10 },
-  actionBtn: { padding: 5 },
-  fab: { position: 'absolute', bottom: 30, right: 20, width: 65, height: 65, borderRadius: 33, backgroundColor: '#CCFF00', justifyContent: 'center', alignItems: 'center', elevation: 8, zIndex: 999 },
-  emptyText: { color:'#666', textAlign:'center', marginTop:50, fontStyle:'italic' },
-  modalContent: { flex: 1, backgroundColor: '#000' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, borderBottomColor: '#111' },
-  modalTitle: { color: '#FFF', fontSize: 16, fontWeight: '900' },
-  label: { color: '#444', fontSize: 10, fontWeight: 'bold', marginTop: 20, marginBottom: 8 },
-  input: { backgroundColor: '#111', borderRadius: 12, padding: 15, color: '#FFF', fontWeight: 'bold', borderWidth: 1, borderColor: '#222' },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: '#111', borderWidth: 1, borderColor: '#222' },
-  chipActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  chipText: { color: '#666', fontSize: 11, fontWeight: 'bold' },
-  saveBtn: { backgroundColor: '#CCFF00', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 30 },
-  saveBtnText: { color: '#000', fontWeight: '900', fontSize: 14 },
+  header: { paddingBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, marginBottom: 20 },
+  headerTitle: { fontSize: 24, fontWeight: '900' },
+  headerSubtitle: { color: '#888', fontSize: 11, letterSpacing: 1, fontWeight: 'bold' },
+  backBtn: { padding: 12, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   
-  // ESTILOS DE VÍDEO
-  videoBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  videoContainerModern: { width: '100%', maxWidth: 800, aspectRatio: 16/9, backgroundColor: '#000', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#333' },
-  videoHeaderModern: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#111', borderBottomWidth: 1, borderBottomColor: '#333' },
-  videoTitleModern: { color: '#FFF', fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
-  closeBtnModern: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#CCFF00', justifyContent: 'center', alignItems: 'center' },
-  videoWrapper: { flex: 1, backgroundColor: '#000', justifyContent: 'center' },
-  fullVideo: { width: '100%', height: '100%' },
+  searchBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20, height: 55, borderRadius: 30, borderWidth: 1 },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500', outlineStyle: 'none' },
+  
+  // SELETOR DE CATEGORIA PREMIUM
+  catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  catSelectorText: { fontSize: 14, fontWeight: '600' },
+  catSelectorVal: { fontSize: 15, fontWeight: '800' },
+  
+  // ESTILO DO MENU SUSPENSO DE CATEGORIAS
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
+  catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12 },
+  catOptionText: { fontSize: 16, fontWeight: '600' },
+
+  categoryCover: { height: 160, width: '100%', justifyContent: 'flex-end', overflow: 'hidden', elevation: 4 },
+  coverOverlay: { backgroundColor: 'rgba(0,0,0,0.4)', padding: 20, height: '100%', justifyContent: 'flex-end', borderRadius: 24 },
+  coverTitle: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: 1, marginBottom: 5 },
+  coverBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  coverCount: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  
+  // DESIGN DE CARD
+  exerciseCard: { borderRadius: 20, padding: 18, marginBottom: 15, borderWidth: 1, elevation: 2 },
+  cardInfo: { flexDirection: 'row', alignItems: 'center' },
+  iconBox: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  exerciseName: { fontSize: 16, fontWeight: '800', marginBottom: 4 },
+  catTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  exerciseSub: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+  videoPlayBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 3 },
+  
+  cardActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 15, borderTopWidth: 1, paddingTop: 15, gap: 15 },
+  actionBtn: { padding: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  
+  fab: { position: 'absolute', width: 65, height: 65, borderRadius: 33, justifyContent: 'center', alignItems: 'center', elevation: 8, zIndex: 999 },
+  emptyText: { color:'#888', textAlign:'center', marginTop:50, fontStyle:'italic' },
+  
+  // MODAL NOVO EXERCÍCIO
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, alignItems: 'center', paddingTop: Platform.OS === 'android' ? 20 : 20 },
+  modalTitle: { fontSize: 18, fontWeight: '900' },
+  
+  inputLabelLabel: { fontSize: 11, fontWeight: '800', marginBottom: 10, letterSpacing: 1 },
+  modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 15, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
+  
+  btnPremium: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 3 },
+  btnTextPremium: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }
 });

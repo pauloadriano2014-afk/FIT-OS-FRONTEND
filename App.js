@@ -9,6 +9,9 @@ import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+/* ================= IMPORTAÇÃO DO TEMA (NOVO) ================= */
+import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+
 /* ================= TELAS ================= */
 
 // AUTH
@@ -44,7 +47,6 @@ import AdminAddContent from './src/screens/AdminAddContent';
 import AIScannerModal from './src/components/AIScannerModal';
 
 /* ================= NOTIFICATIONS ================= */
-
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -55,55 +57,51 @@ Notifications.setNotificationHandler({
 
 async function registerForPushNotificationsAsync() {
   if (Platform.OS === 'web') return null;
-
   let token;
-
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
       importance: Notifications.AndroidImportance.MAX
     });
   }
-
   if (Device.isDevice) {
     const { status } = await Notifications.getPermissionsAsync();
     if (status !== 'granted') {
       const req = await Notifications.requestPermissionsAsync();
       if (req.status !== 'granted') return null;
     }
-
     token = (await Notifications.getExpoPushTokenAsync()).data;
   }
-
   return token;
 }
 
 /* ================= NAVIGATORS ================= */
-
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-/* ---------- ALUNO TABS ---------- */
+/* ---------- ALUNO TABS (AGORA COM TEMA DINÂMICO) ---------- */
 function StudentTabs({ route }) {
   const userData = route.params?.userData;
   const insets = useSafeAreaInsets();
+  const { theme } = useTheme(); // 🔥 Puxa as cores em tempo real
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#080808',
+          backgroundColor: theme.surface, // Fundo da barra dinâmico
           height: 70 + insets.bottom,
-          paddingBottom: insets.bottom
+          paddingBottom: insets.bottom,
+          borderTopColor: theme.border,
+          borderTopWidth: 1
         },
-        tabBarActiveTintColor: '#CCFF00',
-        tabBarInactiveTintColor: '#555',
+        tabBarActiveTintColor: theme.accent, // Cor do ícone selecionado
+        tabBarInactiveTintColor: theme.textSecondary, // Cor do ícone inativo
         tabBarIcon: ({ color, size }) => {
           const icons = {
             Início: 'home',
             Treinos: 'dumbbell',
-            'PA FLIX': 'play-circle-outline',
             Evolução: 'chart-line',
             Perfil: 'account'
           };
@@ -119,21 +117,19 @@ function StudentTabs({ route }) {
     >
       <Tab.Screen name="Início" component={HomeScreen} initialParams={{ userData }} />
       <Tab.Screen name="Treinos" component={TrainingScreen} initialParams={{ userData }} />
-      <Tab.Screen name="PA FLIX" component={PAFlixScreen} initialParams={{ userData }} />
       <Tab.Screen name="Evolução" component={EvolutionScreen} initialParams={{ userData }} />
       <Tab.Screen name="Perfil" component={ProfileScreen} initialParams={{ userData }} />
     </Tab.Navigator>
   );
 }
 
-/* ================= APP ================= */
-
-export default function App() {
+/* ================= NAVEGAÇÃO PRINCIPAL ================= */
+function RootNavigator() {
   const [loading, setLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [savedUser, setSavedUser] = useState(null);
+  const { theme, loadingTheme } = useTheme(); // Espera o tema carregar primeiro
 
-  /* ---------- RESTAURA SESSÃO (CRÍTICO) ---------- */
   useEffect(() => {
     const restoreSession = async () => {
       try {
@@ -151,8 +147,6 @@ export default function App() {
           } else {
             setInitialRoute('Login');
           }
-
-          console.log('🔄 Sessão restaurada:', role, user.email);
         }
       } catch (e) {
         console.log('Erro ao restaurar sessão:', e);
@@ -160,11 +154,9 @@ export default function App() {
         setLoading(false);
       }
     };
-
     restoreSession();
   }, []);
 
-  /* ---------- PUSH TOKEN ---------- */
   useEffect(() => {
     if (!loading && savedUser) {
       registerForPushNotificationsAsync().then((token) => {
@@ -172,69 +164,59 @@ export default function App() {
           fetch('https://fitos-final.onrender.com/api/user/push-token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: savedUser.id,
-              token
-            })
+            body: JSON.stringify({ userId: savedUser.id, token })
           }).catch(() => {});
         }
       });
     }
   }, [loading, savedUser]);
 
-  /* ---------- LOADING ---------- */
-  if (loading) {
+  if (loading || loadingTheme) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: '#000',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}
-      >
-        <ActivityIndicator size="large" color="#CCFF00" />
+      <View style={{ flex: 1, backgroundColor: theme?.bg || '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={theme?.accent || '#CCFF00'} />
       </View>
     );
   }
 
-  /* ---------- NAVIGATION ---------- */
+  return (
+    <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+      {/* AUTH */}
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="Anamnese" component={AnamneseScreen} />
+      <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
+
+      {/* ALUNO */}
+      <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
+      <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
+      <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
+      <Stack.Screen name="FinishScreen" component={FinishScreen} />
+      <Stack.Screen name="CheckIn" component={CheckInScreen} />
+      <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
+      <Stack.Screen name="ScannerIA" component={AIScannerModal} />
+
+      {/* ADMIN */}
+      <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+      <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
+      <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
+      <Stack.Screen name="GerenciarTemplates" component={GerenciarTemplates} />
+      <Stack.Screen name="AdminAlunoOptions" component={AdminUserOptions} />
+      <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
+      <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
+    </Stack.Navigator>
+  );
+}
+
+/* ================= APP ROOT (ENVELOPADO COM O TEMA) ================= */
+export default function App() {
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
-        <Stack.Navigator
-          initialRouteName={initialRoute}
-          screenOptions={{ headerShown: false }}
-        >
-          {/* AUTH */}
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Anamnese" component={AnamneseScreen} />
-          <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
-
-          {/* ALUNO */}
-          <Stack.Screen
-            name="Main"
-            component={StudentTabs}
-            initialParams={{ userData: savedUser }}
-          />
-          <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
-          <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
-          <Stack.Screen name="FinishScreen" component={FinishScreen} />
-          <Stack.Screen name="CheckIn" component={CheckInScreen} />
-          <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
-          <Stack.Screen name="ScannerIA" component={AIScannerModal} />
-
-          {/* ADMIN */}
-          <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
-          <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
-          <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
-          <Stack.Screen name="GerenciarTemplates" component={GerenciarTemplates} />
-          <Stack.Screen name="AdminAlunoOptions" component={AdminUserOptions} />
-          <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
-          <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <ThemeProvider>
+        <NavigationContainer>
+          <RootNavigator />
+        </NavigationContainer>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
