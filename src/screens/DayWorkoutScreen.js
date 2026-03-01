@@ -2,7 +2,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, SafeAreaView, ScrollView, TouchableOpacity, 
   ActivityIndicator, Alert, Modal, StatusBar, TextInput, 
-  KeyboardAvoidingView, Platform, AppState, StyleSheet
+  KeyboardAvoidingView, Platform, AppState, StyleSheet, Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -13,6 +13,8 @@ import { ExerciseCard } from '../components/ExerciseCard';
 import { formatTime, calculate1RM } from '../utils/workoutUtils'; 
 
 import { useTheme } from '../contexts/ThemeContext';
+
+const { width } = Dimensions.get('window');
 
 export default function DayWorkoutScreen({ route, navigation }) {
   const params = route?.params || {};
@@ -381,12 +383,17 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }} 
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                bounces={false}
-                overScrollMode="never"
+                bounces={false} /* 🔥 Anti-molenga iOS */
+                overScrollMode="never" /* 🔥 Anti-molenga Android */
             >
                 <View style={{ 
-                    width: '100%', maxWidth: isWeb ? 480 : '100%', flexGrow: 1, backgroundColor: theme.bg, 
-                    paddingHorizontal: 20, paddingBottom: 150, paddingTop: 10,
+                    width: isWeb ? '100%' : width, /* 🔥 Trava absoluta de largura no Mobile para não sambar pros lados */
+                    maxWidth: isWeb ? 480 : '100%', 
+                    flexGrow: 1, 
+                    backgroundColor: theme.bg, 
+                    paddingHorizontal: 20, 
+                    paddingBottom: 150, 
+                    paddingTop: 10,
                     ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {})
                 }}>
                     <View style={{ marginBottom: 20 }}>
@@ -474,7 +481,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </ScrollView>
         </View>
 
-        {/* MODAL DE TÉCNICA (Expandido para facilitar leitura) */}
+        {/* MODAL DE TÉCNICA */}
         <Modal visible={techModalVisible} transparent animationType="fade" onRequestClose={() => setTechModalVisible(false)}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)', justifyContent: 'center', padding: 20, zIndex: 1000 }}>
                 <View style={[{ width: '100%', maxWidth: isWeb ? 440 : '100%', alignSelf: 'center', backgroundColor: theme.surface, padding: 25, borderRadius: 25, borderWidth: 1 }, { borderColor: selectedTech && TECH_GUIDE[selectedTech] ? (TECH_GUIDE[selectedTech].color === theme.accent && !theme.isDark ? theme.accent : TECH_GUIDE[selectedTech].color) : theme.border, maxHeight: '80%' }]}>
@@ -563,11 +570,11 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     <View style={{flexDirection:'row', gap:15, marginBottom:20}}>
                         <View style={{flex:1}}>
                             <Text style={{ color: theme.textSecondary, fontSize:10, fontWeight:'bold', marginBottom:8 }}>CARGA JÁ FEITA (KG)</Text>
-                            <TextInput style={{ backgroundColor: theme.bg, color: theme.text, fontSize: 16, fontWeight: 'bold', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: theme.border, textAlign: 'center' }} keyboardType="numeric" value={calcWeight} onChangeText={setCalcWeight} placeholder="Ex: 50" placeholderTextColor={theme.textSecondary}/>
+                            <TextInput style={{ backgroundColor: theme.bg, color: theme.text, fontSize: 16, fontWeight: 'bold', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: theme.border, textAlign: 'center', outlineStyle: 'none' }} keyboardType="numeric" value={calcWeight} onChangeText={setCalcWeight} placeholder="Ex: 50" placeholderTextColor={theme.textSecondary}/>
                         </View>
                         <View style={{flex:1}}>
                             <Text style={{ color: theme.textSecondary, fontSize:10, fontWeight:'bold', marginBottom:8 }}>REPS FEITAS</Text>
-                            <TextInput style={{ backgroundColor: theme.bg, color: theme.text, fontSize: 16, fontWeight: 'bold', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: theme.border, textAlign: 'center' }} keyboardType="numeric" value={calcReps} onChangeText={setCalcReps} placeholder="Ex: 10" placeholderTextColor={theme.textSecondary}/>
+                            <TextInput style={{ backgroundColor: theme.bg, color: theme.text, fontSize: 16, fontWeight: 'bold', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: theme.border, textAlign: 'center', outlineStyle: 'none' }} keyboardType="numeric" value={calcReps} onChangeText={setCalcReps} placeholder="Ex: 10" placeholderTextColor={theme.textSecondary}/>
                         </View>
                     </View>
 
@@ -590,7 +597,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </KeyboardAvoidingView>
         </Modal>
         
-        {/* MODAL DE VÍDEO */}
+        {/* 🔥 MODAL DE VÍDEO (Ajustado para Web e App) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
                 <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#111', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
@@ -601,15 +608,27 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     
                     <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
                         {videoModalVisible && currentVideoUrl ? (
-                            <>
-                                <Video ref={videoRef} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.8 }} source={{ uri: currentVideoUrl }} resizeMode={isWeb ? ResizeMode.CONTAIN : "cover"} shouldPlay isLooping isMuted />
-                                <View style={{ alignItems: 'center', padding: 20, zIndex: 10, marginTop: 'auto', marginBottom: 20 }}>
-                                    <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
-                                        <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>TELA CHEIA</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </>
+                            isWeb ? (
+                                <video 
+                                    src={currentVideoUrl} 
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain', outline: 'none' }} 
+                                    controls 
+                                    autoPlay 
+                                    loop 
+                                    muted 
+                                    playsInline
+                                />
+                            ) : (
+                                <>
+                                    <Video ref={videoRef} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.8 }} source={{ uri: currentVideoUrl }} resizeMode="cover" shouldPlay isLooping isMuted />
+                                    <View style={{ alignItems: 'center', padding: 20, zIndex: 10, marginTop: 'auto', marginBottom: 20 }}>
+                                        <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
+                                            <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                                            <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>TELA CHEIA</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </>
+                            )
                         ) : null}
                     </View>
                 </View>

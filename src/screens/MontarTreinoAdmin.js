@@ -8,6 +8,7 @@ import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-cont
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Video, ResizeMode } from 'expo-av';
+import * as DocumentPicker from 'expo-document-picker'; // 🔥 IMPORTADOR DE ARQUIVOS
 
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -61,6 +62,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const [biblioteca, setBiblioteca] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [isImportingAI, setIsImportingAI] = useState(false); // 🔥 ESTADO DE LOADING DA IA
   
   const [workoutTabs, setWorkoutTabs] = useState(['A']);
   const [selectedWorkoutTab, setSelectedWorkoutTab] = useState('A');
@@ -219,6 +221,81 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           } catch (e) { setExercisesByDay({'A': []}); }
       }
     } catch (err) { } finally { setLoading(false); }
+  };
+
+  // 🔥 CIRURGIA DO IMPORTADOR MÁGICO MFIT 🔥
+  const handleImportPDF = async () => {
+      try {
+          const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
+          if (result.canceled) return;
+
+          setIsImportingAI(true);
+          const fileToUpload = result.assets[0];
+          const formData = new FormData();
+
+          if (Platform.OS === 'web') {
+              const res = await fetch(fileToUpload.uri);
+              const blob = await res.blob();
+              formData.append('file', blob, fileToUpload.name);
+          } else {
+              formData.append('file', {
+                  uri: fileToUpload.uri,
+                  name: fileToUpload.name,
+                  type: fileToUpload.mimeType || 'application/pdf'
+              });
+          }
+
+          const response = await fetch('https://fitos-final.onrender.com/api/admin/import-pdf', {
+              method: 'POST',
+              body: formData,
+              headers: { 'Accept': 'application/json' }
+          });
+
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || 'Erro na importação da IA');
+
+          if (data.workoutName) setCustomWorkoutName(data.workoutName);
+
+          if (data.exercisesByDay) {
+              const newExercisesByDay = {};
+              
+              Object.keys(data.exercisesByDay).forEach(day => {
+                  newExercisesByDay[day] = data.exercisesByDay[day].map((aiEx) => {
+                      // 🧠 Busca Inteligente na Biblioteca pelo Nome
+                      const match = biblioteca.find(b => b.name.toLowerCase().includes(aiEx.title.toLowerCase()) || aiEx.title.toLowerCase().includes(b.name.toLowerCase()));
+
+                      return {
+                          exerciseId: match ? match.id : `custom_${Math.random()}`, // Se não achar, cria fantasma
+                          title: match ? match.name : aiEx.title,
+                          videoUrl: match ? match.videoUrl : '',
+                          category: aiEx.category || (match ? match.category : ''),
+                          observation: aiEx.observation || '',
+                          tempId: Math.random().toString(),
+                          substitute: null,
+                          blocks: aiEx.blocks && aiEx.blocks.length > 0 ? aiEx.blocks : [{
+                              sets: String(aiEx.sets || '3'),
+                              reps: String(aiEx.reps || '12'),
+                              restTime: String(aiEx.restTime || '60'),
+                              technique: aiEx.technique || ''
+                          }]
+                      };
+                  });
+              });
+
+              setExercisesByDay(newExercisesByDay);
+              const extractedTabs = Object.keys(newExercisesByDay);
+              if (extractedTabs.length > 0) {
+                  setWorkoutTabs(extractedTabs);
+                  setSelectedWorkoutTab(extractedTabs[0]);
+              }
+              Alert.alert("🔥 IA Finalizada!", "Treino importado e pareado com sua biblioteca. Verifique e salve.");
+          }
+      } catch (error) {
+          console.error(error);
+          Alert.alert("Erro", "Não foi possível processar o PDF.");
+      } finally {
+          setIsImportingAI(false);
+      }
   };
 
   const addNewTab = () => {
@@ -553,6 +630,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                           </View>
                       )}
 
+                      {/* 🔥 O NOVO BOTÃO DA IA FICOU AQUI, LOGO ABAIXO DOS BOTÕES DE LIMPAR/IMPORTAR */}
                       <View style={styles.toolsRow}>
                           <TouchableOpacity style={[styles.toolBtnHighlight, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.accent }]} onPress={handleClearWorkout}>
                               <MaterialCommunityIcons name="delete-sweep" size={18} color={theme.text} />
@@ -563,6 +641,22 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                               <Text style={[styles.toolBtnText, { color: theme.text }]}>IMPORTAR MODELO</Text>
                           </TouchableOpacity>
                       </View>
+                      
+                      {/* 🔥 BOTÃO MÁGICO DE IMPORTAR PDF MFIT */}
+                      <TouchableOpacity 
+                          style={[{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 20, gap: 10, elevation: 2 }]} 
+                          onPress={handleImportPDF}
+                          disabled={isImportingAI}
+                      >
+                          {isImportingAI ? (
+                              <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} />
+                          ) : (
+                              <>
+                                  <MaterialCommunityIcons name="magic-staff" size={22} color={theme.isDark ? "#000" : "#FFF"} />
+                                  <Text style={[{ color: theme.isDark ? "#000" : "#FFF", fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }]}>IMPORTAR TREINO DA MFIT (PDF)</Text>
+                              </>
+                          )}
+                      </TouchableOpacity>
 
                       {!isTemplateMode && (
                           <View style={{ marginBottom: 15 }}>
