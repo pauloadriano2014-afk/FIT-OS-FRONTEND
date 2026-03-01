@@ -112,7 +112,19 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   // Opções para Cardio
   const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
 
-  useEffect(() => { fetchDados(); }, []);
+  // 🔥 CIRURGIA: RESET DE FANTASMAS
+  useEffect(() => { 
+      if (!isEditing && !isTemplateMode) {
+          setExercisesByDay({ 'A': [] });
+          setWorkoutTabs(['A']);
+          setSelectedWorkoutTab('A');
+          setCustomWorkoutName('');
+          setStartDate(new Date());
+          setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
+          setIsArchived(false);
+      }
+      fetchDados(); 
+  }, [isEditing, isTemplateMode]);
 
   const fetchDados = async () => {
     setLoading(true);
@@ -389,7 +401,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     try {
       await fetch(`https://fitos-final.onrender.com/api/workout`, { 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false })
+        // 🔥 CIRURGIA: FORÇANDO ARQUIVAMENTO (archiveCurrent: true)
+        body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: true })
       });
       Alert.alert("Sucesso", isArchived ? "Rotina arquivada!" : "Rotina salva!"); navigation.goBack(); 
     } catch (e) { Alert.alert("Erro", "Falha ao salvar."); } 
@@ -442,6 +455,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto' } : { flex: 1, width: '100%' }} 
               contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} 
               showsVerticalScrollIndicator={true}
+              bounces={false} /* 🔥 CIRURGIA: TRAVA MOLENGA iOS */
+              overScrollMode="never" /* 🔥 CIRURGIA: TRAVA MOLENGA ANDROID */
           >
               <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100vh' } : {}) }}>
                       
