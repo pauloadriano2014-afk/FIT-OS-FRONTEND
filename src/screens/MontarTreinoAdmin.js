@@ -401,8 +401,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     try {
       await fetch(`https://fitos-final.onrender.com/api/workout`, { 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // 🔥 CIRURGIA: FORÇANDO ARQUIVAMENTO (archiveCurrent: true)
-        body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: true })
+        // 🔥 PERMITINDO MÚLTIPLAS ROTINAS ATIVAS (archiveCurrent: false)
+        body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false })
       });
       Alert.alert("Sucesso", isArchived ? "Rotina arquivada!" : "Rotina salva!"); navigation.goBack(); 
     } catch (e) { Alert.alert("Erro", "Falha ao salvar."); } 
@@ -492,7 +492,22 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
                               <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                   <Text style={[styles.archiveLabel, isArchived ? {color:'#FF3B30'} : {color: theme.accent}]}>STATUS: {isArchived ? "ARQUIVADO" : "ATIVO"}</Text>
-                                  <Switch value={isArchived} onValueChange={setIsArchived} trackColor={{false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5'}} thumbColor={isArchived ? '#FF3B30' : theme.accent} />
+                                  
+                                  {/* 🔥 CIRURGIA: DESARQUIVAMENTO INTELIGENTE */}
+                                  <Switch 
+                                      value={isArchived} 
+                                      onValueChange={(val) => {
+                                          setIsArchived(val);
+                                          // Se o usuário DESLIGAR o botão e a data estiver vencida, joga pra frente 30 dias automaticamente
+                                          if (!val && endDate < new Date()) {
+                                              const futureDate = new Date();
+                                              futureDate.setDate(futureDate.getDate() + 30);
+                                              setEndDate(futureDate);
+                                          }
+                                      }} 
+                                      trackColor={{false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5'}} 
+                                      thumbColor={isArchived ? '#FF3B30' : theme.accent} 
+                                  />
                               </View>
                           </View>
                       )}
