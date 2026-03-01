@@ -112,7 +112,19 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   // Opções para Cardio
   const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
 
-  useEffect(() => { fetchDados(); }, []);
+  // 🔥 CIRURGIA: RESET DE FANTASMAS
+  useEffect(() => { 
+      if (!isEditing && !isTemplateMode) {
+          setExercisesByDay({ 'A': [] });
+          setWorkoutTabs(['A']);
+          setSelectedWorkoutTab('A');
+          setCustomWorkoutName('');
+          setStartDate(new Date());
+          setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
+          setIsArchived(false);
+      }
+      fetchDados(); 
+  }, [isEditing, isTemplateMode]);
 
   const fetchDados = async () => {
     setLoading(true);
@@ -389,6 +401,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     try {
       await fetch(`https://fitos-final.onrender.com/api/workout`, { 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
+        // 🔥 PERMITINDO MÚLTIPLAS ROTINAS ATIVAS (archiveCurrent: false)
         body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false })
       });
       Alert.alert("Sucesso", isArchived ? "Rotina arquivada!" : "Rotina salva!"); navigation.goBack(); 
@@ -442,6 +455,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto' } : { flex: 1, width: '100%' }} 
               contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} 
               showsVerticalScrollIndicator={true}
+              bounces={false} /* 🔥 CIRURGIA: TRAVA MOLENGA iOS */
+              overScrollMode="never" /* 🔥 CIRURGIA: TRAVA MOLENGA ANDROID */
           >
               <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100vh' } : {}) }}>
                       
@@ -477,7 +492,22 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
                               <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                   <Text style={[styles.archiveLabel, isArchived ? {color:'#FF3B30'} : {color: theme.accent}]}>STATUS: {isArchived ? "ARQUIVADO" : "ATIVO"}</Text>
-                                  <Switch value={isArchived} onValueChange={setIsArchived} trackColor={{false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5'}} thumbColor={isArchived ? '#FF3B30' : theme.accent} />
+                                  
+                                  {/* 🔥 CIRURGIA: DESARQUIVAMENTO INTELIGENTE */}
+                                  <Switch 
+                                      value={isArchived} 
+                                      onValueChange={(val) => {
+                                          setIsArchived(val);
+                                          // Se o usuário DESLIGAR o botão e a data estiver vencida, joga pra frente 30 dias automaticamente
+                                          if (!val && endDate < new Date()) {
+                                              const futureDate = new Date();
+                                              futureDate.setDate(futureDate.getDate() + 30);
+                                              setEndDate(futureDate);
+                                          }
+                                      }} 
+                                      trackColor={{false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5'}} 
+                                      thumbColor={isArchived ? '#FF3B30' : theme.accent} 
+                                  />
                               </View>
                           </View>
                       )}
