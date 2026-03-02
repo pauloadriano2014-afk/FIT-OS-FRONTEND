@@ -30,6 +30,15 @@ export const ExerciseCard = ({
   const [timerMessage, setTimerMessage] = useState({ title: 'RECUPERANDO', desc: 'Respire e prepare-se.' });
   const videoRef = useRef(null);
 
+  // 🔥 FAREJADOR DE OBSERVAÇÕES (Busca na coluna oficial ou escondida em treinos antigos)
+  let realObservation = item.observation;
+  if (!realObservation && item.technique && typeof item.technique === 'string' && item.technique.startsWith('{')) {
+      try {
+          const parsedTech = JSON.parse(item.technique);
+          if (parsedTech.o) realObservation = parsedTech.o;
+      } catch (e) {}
+  }
+
   const getPreviousWeight = (key) => {
       if (historyWeights && historyWeights[item.exerciseId]) {
           const val = historyWeights[item.exerciseId][key];
@@ -274,7 +283,6 @@ export const ExerciseCard = ({
       const techInfo = identifyTechnique(rawTech);
       if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
 
-      // 🔥 AQUI ESTÁ A MÁGICA: A divisória virou um botão para abrir o Modal!
       if (blockIndex > 0 && techInfo.key) {
           renderedLines.push(
               <View key={`divider_${blockIndex}`} style={{flexDirection: 'row', alignItems: 'center', marginVertical: 12}}>
@@ -346,7 +354,6 @@ export const ExerciseCard = ({
       }
   });
 
-  // Se a técnica principal (bloco 0) for definida, exibe ela no topo.
   const exerciseTopTechnique = blocks[0]?.technique || item.technique;
 
   return (
@@ -418,10 +425,14 @@ export const ExerciseCard = ({
                 </View>
             </View>
 
-            {item.observation && item.observation !== '' ? (
-                <View style={{ backgroundColor: colors.inputBg, padding: 10, borderRadius: 8, marginTop: 10, borderWidth: 1, borderColor: colors.border }}>
-                    <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>📝 NOTA DO TREINADOR</Text>
-                    <Text style={{ color: colors.text, fontSize: 12, fontStyle: 'italic' }}>{item.observation}</Text>
+            {/* 🔥 A OBSERVAÇÃO BLINDADA AQUI 🔥 */}
+            {realObservation && realObservation.trim() !== '' ? (
+                <View style={{ backgroundColor: colors.inputBg, padding: 12, borderRadius: 8, marginTop: 15, borderWidth: 1, borderColor: colors.primary + '55', borderLeftWidth: 4, borderLeftColor: colors.primary }}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
+                        <MaterialCommunityIcons name="bullhorn-outline" size={14} color={colors.primary} />
+                        <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }}>COACH AVISA:</Text>
+                    </View>
+                    <Text style={{ color: colors.text, fontSize: 13, fontStyle: 'italic', lineHeight: 18 }}>{realObservation}</Text>
                 </View>
             ) : null}
 

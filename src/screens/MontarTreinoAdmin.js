@@ -292,8 +292,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   setWorkoutTabs(extractedTabs);
                   setSelectedWorkoutTab(extractedTabs[0]);
               }
-              if (Platform.OS === 'web') window.alert("🔥 IA Finalizada!\n\nTreino importado! Atenção: Verifique se existem exercícios FANTASMAS (MERCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
-              else Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção: Verifique se existem exercícios FANTASMAS (MERCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
+              if (Platform.OS === 'web') window.alert("🔥 IA Finalizada!\n\nTreino importado! Atenção: Verifique se existem exercícios FANTASMAS (MARCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
+              else Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção: Verifique se existem exercícios FANTASMAS (MARCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
           }
       } catch (error) {
           console.error(error);
@@ -416,6 +416,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     setPreviewModalVisible(false);
     setModalBuscaVisible(false); 
     setSearchText('');
+    setSelectedCategory('TODOS'); // 🔥 Zera o filtro da galeria para não bugar o próximo uso manual
   };
 
   const removeSubstitute = (i) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].substitute=null; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
@@ -763,6 +764,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   currentExercisesLength={currentExercises.length}
                                   setIsSwapping={setIsSwapping}
                                   setSwapIndex={setSwapIndex}
+                                  // 🔥 RECEBENDO O AVISO DO CARTÃO E MUDANDO A CATEGORIA 🔥
+                                  setInitialCategoryFilter={(catName) => {
+                                      const normalizedCat = catName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                                      const foundCat = categories.find(c => c.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === normalizedCat);
+                                      if (foundCat) {
+                                          setSelectedCategory(foundCat);
+                                      }
+                                  }}
                               />
                           ))}
                           
@@ -828,7 +837,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', paddingTop: isWeb ? 20 : 10, paddingHorizontal: 20, paddingBottom: 15 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
                           <Text style={[styles.headerTitle, { color: theme.text }]}>BIBLIOTECA</Text>
-                          <TouchableOpacity onPress={() => setModalBuscaVisible(false)}>
+                          <TouchableOpacity onPress={() => { setModalBuscaVisible(false); setSelectedCategory('TODOS'); }}>
                               <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
                           </TouchableOpacity>
                       </View>

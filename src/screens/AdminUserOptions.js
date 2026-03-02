@@ -4,8 +4,6 @@ import {
   ActivityIndicator, StatusBar, Alert, Platform 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
 const formatDate = (dateString) => {
@@ -16,16 +14,14 @@ const formatDate = (dateString) => {
 
 export default function AdminUserOptions({ route, navigation }) {
   const { aluno } = route.params;
-  const { theme } = useTheme(); // 🔥 TEMA PUXADO AQUI
+  const { theme } = useTheme(); 
 
   const [loading, setLoading] = useState(true);
   
-  // Listas separadas
   const [activeWorkouts, setActiveWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
   
-  // Controle de Visualização (Abas)
-  const [viewMode, setViewMode] = useState('active'); // 'active' ou 'archived'
+  const [viewMode, setViewMode] = useState('active'); 
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
 
   useEffect(() => {
@@ -64,47 +60,92 @@ export default function AdminUserOptions({ route, navigation }) {
   const handleToggleStatus = async () => {
       const newStatus = !isActiveUser;
       const actionText = newStatus ? "ATIVAR" : "INATIVAR";
-      Alert.alert(actionText, `Deseja ${actionText.toLowerCase()} o acesso deste aluno?`, [
-          { text: "Cancelar" },
-          { text: "Confirmar", onPress: async () => {
-              try {
-                  await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-                      method: 'PATCH',
-                      headers: {'Content-Type': 'application/json'},
-                      body: JSON.stringify({ active: newStatus })
-                  });
-                  setIsActiveUser(newStatus);
-                  Alert.alert("Sucesso", `Aluno ${newStatus ? 'ativado' : 'inativado'}!`);
-              } catch (e) { Alert.alert("Erro", "Falha ao atualizar status."); }
-          }}
-      ]);
+      
+      const confirmAction = async () => {
+          try {
+              await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+                  method: 'PATCH',
+                  headers: {'Content-Type': 'application/json'},
+                  body: JSON.stringify({ active: newStatus })
+              });
+              setIsActiveUser(newStatus);
+              if (Platform.OS === 'web') window.alert(`Sucesso\n\nAluno ${newStatus ? 'ativado' : 'inativado'}!`);
+              else Alert.alert("Sucesso", `Aluno ${newStatus ? 'ativado' : 'inativado'}!`);
+          } catch (e) { 
+              if (Platform.OS === 'web') window.alert("Erro\n\nFalha ao atualizar status.");
+              else Alert.alert("Erro", "Falha ao atualizar status."); 
+          }
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm(`Deseja ${actionText.toLowerCase()} o acesso deste aluno?`)) confirmAction();
+      } else {
+          Alert.alert(actionText, `Deseja ${actionText.toLowerCase()} o acesso deste aluno?`, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Confirmar", onPress: confirmAction }
+          ]);
+      }
   };
 
   const handleDeleteUser = async () => {
-      Alert.alert("EXCLUIR ALUNO", "ATENÇÃO: Isso apagará TODOS os treinos, histórico e check-ins deste aluno permanentemente.\n\nTem certeza?", [
-          { text: "Cancelar" },
-          { text: "EXCLUIR TUDO", style: 'destructive', onPress: async () => {
-              try {
-                  const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'DELETE' });
-                  if (res.ok) {
-                      Alert.alert("Excluído", "Aluno removido.");
-                      navigation.goBack();
-                  } else { Alert.alert("Erro", "Não foi possível excluir."); }
-              } catch (e) { Alert.alert("Erro", "Falha na conexão."); }
-          }}
-      ]);
+      const confirmDelete = async () => {
+          try {
+              const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'DELETE' });
+              if (res.ok) {
+                  if (Platform.OS === 'web') window.alert("Excluído\n\nAluno removido permanentemente.");
+                  else Alert.alert("Excluído", "Aluno removido.");
+                  navigation.goBack();
+              } else { 
+                  if (Platform.OS === 'web') window.alert("Erro\n\nNão foi possível excluir.");
+                  else Alert.alert("Erro", "Não foi possível excluir."); 
+              }
+          } catch (e) { 
+              if (Platform.OS === 'web') window.alert("Erro\n\nFalha na conexão.");
+              else Alert.alert("Erro", "Falha na conexão."); 
+          }
+      };
+
+      const msg = "ATENÇÃO: Isso apagará TODOS os treinos, histórico e check-ins deste aluno permanentemente.\n\nTem certeza?";
+      if (Platform.OS === 'web') {
+          if (window.confirm(msg)) confirmDelete();
+      } else {
+          Alert.alert("EXCLUIR ALUNO", msg, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "EXCLUIR TUDO", style: 'destructive', onPress: confirmDelete }
+          ]);
+      }
   };
 
+  // 🔥 O BOTÃO DE EXCLUIR TREINO BLINDADO E X9 🔥
   const handleDeleteWorkout = (workoutId) => {
-      Alert.alert("Excluir Rotina", "Tem certeza?", [
-          { text: "Cancelar" },
-          { text: "Sim, Excluir", style:'destructive', onPress: async () => {
-              try {
-                  await fetch(`https://fitos-final.onrender.com/api/workout/${workoutId}`, { method: 'DELETE' });
-                  fetchStudentData();
-              } catch(e) { Alert.alert("Erro ao excluir"); }
-          }}
-      ]);
+      const deleteAction = async () => {
+          try {
+              const res = await fetch(`https://fitos-final.onrender.com/api/workout/${workoutId}`, { 
+                  method: 'DELETE',
+                  headers: { 'Content-Type': 'application/json' }
+              });
+              
+              if (!res.ok) {
+                  const errText = await res.text();
+                  throw new Error(`[Status ${res.status}] ${errText}`);
+              }
+              
+              fetchStudentData(); // Recarrega a tela na hora
+          } catch(e) { 
+              console.error(e);
+              if (Platform.OS === 'web') window.alert(`Erro ao excluir\n\n${e.message}`);
+              else Alert.alert("Erro ao excluir", e.message); 
+          }
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm("Deseja realmente apagar esta rotina?")) deleteAction();
+      } else {
+          Alert.alert("Excluir Rotina", "Tem certeza?", [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Sim, Excluir", style:'destructive', onPress: deleteAction }
+          ]);
+      }
   };
 
   const handleEditWorkout = (workout) => {
@@ -117,7 +158,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
   const listToShow = viewMode === 'active' ? activeWorkouts : archivedWorkouts;
 
-  // LÓGICA DE LARGURA MÁXIMA PARA O PC
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   
@@ -130,7 +170,6 @@ export default function AdminUserOptions({ route, navigation }) {
     <RootComponent style={rootStyle}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        {/* CONTAINER CENTRALIZADO PARA PC/PWA */}
         <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
             
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
@@ -148,13 +187,11 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
-                {/* BOTÃO PRINCIPAL */}
                 <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.accent }]} onPress={handleNewWorkout}>
                     <MaterialCommunityIcons name="plus-circle" size={28} color={theme.isDark ? '#000' : '#FFF'} />
                     <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR NOVA ROTINA</Text>
                 </TouchableOpacity>
 
-                {/* ABAS ESTILO MFIT (ATIVAS | ARQUIVADAS) */}
                 <View style={styles.tabsRow}>
                     <TouchableOpacity 
                         style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'active' && { borderBottomColor: theme.accent }]} 
@@ -218,7 +255,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </>
                 )}
 
-                {/* OPÇÕES ADICIONAIS */}
                 <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
                 
                 <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
@@ -238,7 +274,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </Text>
                 </TouchableOpacity>
 
-                {/* BOTÃO EXCLUIR */}
                 <TouchableOpacity style={styles.deleteUserRow} onPress={handleDeleteUser}>
                     <MaterialCommunityIcons name="account-remove" size={20} color="#FFF" />
                     <Text style={styles.deleteUserText}>EXCLUIR ALUNO PERMANENTEMENTE</Text>

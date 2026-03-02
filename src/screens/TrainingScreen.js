@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  Dimensions, StatusBar, Modal, Alert, ActivityIndicator, RefreshControl, Platform 
+  Dimensions, StatusBar, Alert, ActivityIndicator, RefreshControl, Platform 
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as ImagePicker from 'expo-image-picker'; 
 import { useFocusEffect } from '@react-navigation/native';
+import { Shadow } from 'react-native-shadow-2'; 
+import { LinearGradient } from 'expo-linear-gradient'; 
 
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
@@ -21,36 +22,53 @@ const TIPS = [
     "O descanso faz parte do treino. Durma bem."
 ];
 
-const CARDIO_OPTIONS = [
-    { id: 'bike', name: 'Bike Ergométrica', icon: 'bike' },
-    { id: 'stairs', name: 'Escada', icon: 'stairs' }, 
-    { id: 'treadmill_incline', name: 'Esteira Inclinada', icon: 'slope-uphill' },
-    { id: 'run_treadmill', name: 'Corrida (Esteira)', icon: 'run-fast' },
-    { id: 'run_park', name: 'Corrida (Rua)', icon: 'run' },
-    { id: 'elliptical', name: 'Elíptico', icon: 'shoe-sneaker' },
-];
-
 export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // DADOS DO TREINO
-  const [activeProgram, setActiveProgram] = useState(null);
-  const [workoutTabs, setWorkoutTabs] = useState([]); // Array com os nomes customizados
-  const [selectedTab, setSelectedTab] = useState(null); // Aba atualmente selecionada
+  const [allActivePrograms, setAllActivePrograms] = useState([]);
+  const [activeProgram, setActiveProgram] = useState(null); 
+  const [selectedProgramIndex, setSelectedProgramIndex] = useState(0);
+
+  const [workoutTabs, setWorkoutTabs] = useState([]); 
+  const [selectedTab, setSelectedTab] = useState(null); 
   
   const { theme } = useTheme();
   
-  // ESTADO PARA SABER SE TREINOU HOJE
   const [isTodayDone, setIsTodayDone] = useState(false);
-
   const [energyLevel, setEnergyLevel] = useState(null);
   const [dailyTip, setDailyTip] = useState("");
-  
-  const [cardioModalOpen, setCardioModalOpen] = useState(false);
-  const [selectedCardio, setSelectedCardio] = useState(CARDIO_OPTIONS[2]); 
-  const [cardioPhoto, setCardioPhoto] = useState(null);
-  const [cardioDone, setCardioDone] = useState(false);
+
+  // 🔥 LÓGICA DO CALENDÁRIO SEMANAL LIGADA AO HISTÓRICO REAL
+  const generateWeeklyView = (history = []) => {
+      const today = new Date();
+      const dayOfWeekReal = today.getDay(); // 0 (Dom) - 6 (Sáb)
+      const todayIndexNormalized = dayOfWeekReal === 0 ? 6 : dayOfWeekReal - 1; // Transforma Seg em 0
+
+      const daysShort = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+      const data = [];
+
+      // Descobre qual foi a data da Segunda-feira desta semana
+      const monday = new Date(today);
+      monday.setDate(today.getDate() - todayIndexNormalized);
+
+      for (let i = 0; i < 7; i++) {
+          const currentDayDate = new Date(monday);
+          currentDayDate.setDate(monday.getDate() + i);
+
+          // Verifica se o aluno tem um registro de treino nesta data exata
+          const isDone = history.some(log => new Date(log.date).toDateString() === currentDayDate.toDateString());
+
+          data.push({
+              dayName: daysShort[i],
+              isToday: i === todayIndexNormalized,
+              isDone: isDone
+          });
+      }
+      return data;
+  };
+
+  const [weeklyHistoryData, setWeeklyHistoryData] = useState(generateWeeklyView([]));
 
   const fetchWorkouts = async () => {
     try {
@@ -58,29 +76,44 @@ export default function TrainingScreen({ navigation }) {
       if (!stored) { setLoading(false); return; }
       const user = JSON.parse(stored);
 
-      // 1. BUSCA O TREINO ATIVO
+      // 1. BUSCA O TREINO
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`);
       const data = await response.json();
 
       if (response.ok && Array.isArray(data) && data.length > 0) {
-        const program = data[0];
-        setActiveProgram(program);
-        
-        // 🔥 LÓGICA DINÂMICA: EXTRAI AS ABAS/DIAS DOS EXERCÍCIOS
-        if (program.exercises && program.exercises.length > 0) {
-            const tabs = [...new Set(program.exercises.map(ex => ex.day))];
-            setWorkoutTabs(tabs);
-            if (tabs.length > 0 && !selectedTab) {
-                // Inicia na primeira aba ou tenta adivinhar o dia (mais complexo, por enquanto foca na primeira)
-                setSelectedTab(tabs[0]);
+        const today = new Date();
+        const activeList = data.filter(w => new Date(w.endDate) >= today && !w.archived);
+
+        if (activeList.length > 0) {
+            setAllActivePrograms(activeList);
+            const newIndex = selectedProgramIndex < activeList.length ? selectedProgramIndex : 0;
+            const currentProgram = activeList[newIndex];
+            
+            setActiveProgram(currentProgram);
+            setSelectedProgramIndex(newIndex);
+            
+            if (currentProgram.exercises && currentProgram.exercises.length > 0) {
+                const tabs = [...new Set(currentProgram.exercises.map(ex => ex.day))];
+                setWorkoutTabs(tabs);
+                if (tabs.length > 0 && (!selectedTab || !tabs.includes(selectedTab))) {
+                    setSelectedTab(tabs[0]);
+                }
+            } else {
+                setWorkoutTabs([]);
+                setSelectedTab(null);
             }
+        } else {
+            setAllActivePrograms([]);
+            setActiveProgram(null);
+            setWorkoutTabs([]);
         }
       } else {
+        setAllActivePrograms([]);
         setActiveProgram(null);
         setWorkoutTabs([]);
       }
 
-      // 2. BUSCA O HISTÓRICO PARA VERIFICAR O CHECK DE HOJE
+      // 2. BUSCA O HISTÓRICO E ATUALIZA O CALENDÁRIO
       const historyRes = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
       const historyData = await historyRes.json();
 
@@ -88,6 +121,9 @@ export default function TrainingScreen({ navigation }) {
           const todayStr = new Date().toDateString(); 
           const foundToday = historyData.some(log => new Date(log.date).toDateString() === todayStr);
           setIsTodayDone(foundToday);
+          
+          // 🔥 Aqui a mágica acontece: mandamos o histórico real pro gerador
+          setWeeklyHistoryData(generateWeeklyView(historyData));
       }
 
     } catch (error) {
@@ -98,354 +134,301 @@ export default function TrainingScreen({ navigation }) {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchWorkouts();
-    }, [])
-  );
+  useFocusEffect(useCallback(() => { fetchWorkouts(); }, []));
+  useEffect(() => { setDailyTip(TIPS[Math.floor(Math.random() * TIPS.length)]); }, []);
 
-  useEffect(() => {
-    setDailyTip(TIPS[Math.floor(Math.random() * TIPS.length)]);
-  }, []);
+  const handleSwitchProgram = (index) => {
+      const newProgram = allActivePrograms[index];
+      setActiveProgram(newProgram);
+      setSelectedProgramIndex(index);
+      if (newProgram.exercises && newProgram.exercises.length > 0) {
+          const tabs = [...new Set(newProgram.exercises.map(ex => ex.day))];
+          setWorkoutTabs(tabs);
+          if (tabs.length > 0) setSelectedTab(tabs[0]);
+      } else { setWorkoutTabs([]); setSelectedTab(null); }
+  };
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchWorkouts(); 
-  }, []);
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchWorkouts(); }, []);
 
   const handleEnergySelect = (level) => {
       setEnergyLevel(level);
-
-      let title = "";
-      let msg = "";
-
+      let title = "", msg = "";
       if (level === 'low') {
            title = "Dia de Cautela 🛡️";
-           msg = "Seu corpo está pedindo recuperação. Reduza as cargas em 20% hoje e foque totalmente na técnica. O importante é manter o hábito sem se machucar.";
+           msg = "Escute seu corpo. Reduza cargas em 20% e foque na técnica.";
       } else if (level === 'medium') {
            title = "Disciplina é Tudo ⚔️";
-           msg = "Excelente. Nem sempre estamos motivados, mas a disciplina gera resultados. Siga o plano à risca hoje.";
+           msg = "Excelente. Mantenha o foco e siga o plano.";
       } else {
            title = "Modo Besta Ativado 🔥";
-           msg = "Aproveite essa energia extra! Hoje é um bom dia para tentar aumentar a carga ou melhorar a execução naqueles exercícios difíceis.";
+           msg = "Aproveite a energia! Dia de buscar o melhor rendimento.";
       }
-
-      Alert.alert(title, msg);
+      if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
   };
 
-  const handleCamera = async () => {
-      const permission = await ImagePicker.requestCameraPermissionsAsync();
-      if (permission.granted === false) {
-          Alert.alert("Permissão", "É necessário acesso à câmera para validar o cardio.");
-          return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: false,
-          quality: 0.5,
-      });
-      if (!result.canceled) {
-          setCardioPhoto(result.assets[0].uri);
-      }
-  };
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  const RootComponent = isWeb ? View : SafeAreaView;
+  const rootStyle = isWeb 
+      ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } 
+      : { flex: 1, backgroundColor: theme.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 5 : 0 };
 
-  const submitCardio = () => {
-      if (!cardioPhoto) {
-          Alert.alert("Sem foto?", "O PA TEAM exige a foto. Enviar mesmo assim?", [
-              { text: "Voltar", style: "cancel" },
-              { text: "Enviar", onPress: () => finalizeCardio(), style: "destructive" }
-          ]);
-      } else {
-          finalizeCardio();
-      }
-  };
+  if (loading && !refreshing) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
 
-  const finalizeCardio = () => {
-      setCardioDone(true);
-      setCardioModalOpen(false);
-      Alert.alert("Sucesso", "Cardio registrado!");
-  };
-
-  const getCardioMeta = () => {
-      const isEmagrecimento = activeProgram?.goal?.toLowerCase().includes('emagrecimento');
-      const baseTime = isEmagrecimento ? 45 : 20;
-      let intensity = "Moderada";
-      if (selectedCardio.id === 'stairs') intensity = "Passada contínua";
-      if (selectedCardio.id.includes('run')) intensity = "Trote (Zona 2)";
-      return { time: `${baseTime} min`, intensity, cals: isEmagrecimento ? '400+' : '200' };
-  };
-
-  const meta = getCardioMeta();
-
-  if (loading && !refreshing) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} /></View>;
+  const shadowOpt = { distance: 12, startColor: theme.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.04)', offset: [0, 6] };
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+    <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      <ScrollView 
-        contentContainerStyle={{ paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent}/>}
-        bounces={false}
-        overScrollMode="never"
-      >
-        <View style={styles.header}>
-            <Text style={[styles.headerTitle, { color: theme.text }]}>PAINEL DO <Text style={{color: theme.accent}}>ALUNO</Text></Text>
-        </View>
-
-        <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>COMO VOCÊ ESTÁ SE SENTINDO HOJE?</Text>
-            <View style={styles.readinessRow}>
-                {['low', 'medium', 'high'].map((level) => (
-                    <TouchableOpacity 
-                        key={level} 
-                        style={[
-                            styles.energyBtn, 
-                            { backgroundColor: theme.surface, borderColor: theme.border },
-                            energyLevel === level && level === 'low' && { borderColor: '#FF3B30', backgroundColor: theme.isDark ? '#331111' : '#FFE5E5' },
-                            energyLevel === level && level === 'medium' && { borderColor: '#32ADE6', backgroundColor: theme.isDark ? '#112233' : '#E5F6FF' },
-                            energyLevel === level && level === 'high' && { borderColor: theme.accent, backgroundColor: theme.isDark ? '#1A2200' : theme.accent + '22' }
-                        ]}
-                        onPress={() => handleEnergySelect(level)} 
-                    >
-                        <Text style={{fontSize:22}}>{level === 'low' ? '😫' : level === 'medium' ? '😐' : '😤'}</Text>
-                        <Text style={[styles.energyLabel, { color: theme.text }]}>{level === 'low' ? 'Cansado(a)' : level === 'medium' ? 'Disciplinado' : 'Motivado(a)'}</Text>
-                    </TouchableOpacity>
-                ))}
+      <View style={[styles.mainWrapper, isWeb && styles.webWrapper, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+          <ScrollView 
+            contentContainerStyle={{ paddingBottom: 100 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent}/>}
+            bounces={false}
+            overScrollMode="never"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.headerLimpado}>
+                <Text style={[styles.headerTitleLimpado, { color: theme.text }]}>PAINEL DO <Text style={{color: theme.accent, fontWeight: '900'}}>ALUNO</Text></Text>
             </View>
-        </View>
 
-        {/* 🔥 NOVA BARRA DE ROLAGEM DE DIAS/TREINOS */}
-        {workoutTabs.length > 0 && (
-            <View style={{ marginBottom: 20 }}>
-                <ScrollView 
-                    horizontal 
-                    showsHorizontalScrollIndicator={false} 
-                    contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
-                >
-                    {workoutTabs.map(tab => (
-                        <TouchableOpacity 
-                            key={tab} 
-                            style={[
-                                styles.pillTab, 
-                                { backgroundColor: theme.surface, borderColor: theme.border },
-                                selectedTab === tab && { backgroundColor: theme.accent, borderColor: theme.accent }
-                            ]}
-                            onPress={() => setSelectedTab(tab)}
-                        >
-                            <Text style={[
-                                styles.pillTabText, 
-                                { color: theme.textSecondary },
-                                selectedTab === tab && { color: theme.isDark ? '#000' : '#FFF' }
-                            ]}>{tab}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-            </View>
-        )}
-
-        {activeProgram ? (
-            <View style={[
-                styles.heroCard, 
-                { backgroundColor: theme.surface, borderColor: theme.border }, 
-                isTodayDone && {borderColor: theme.accent, backgroundColor: theme.isDark ? '#161810' : theme.bg}
-            ]}>
-                <View style={styles.heroHeader}>
-                    <View style={{ flex: 1 }}>
-                        <Text style={[styles.heroLabel, { color: theme.accent }]}>
-                            {isTodayDone ? 'MISSÃO CUMPRIDA' : 'PROGRAMAÇÃO DE HOJE'}
-                        </Text>
-                        <Text style={[styles.heroTitle, { color: theme.text }]} numberOfLines={1}>
-                            {selectedTab ? selectedTab.toUpperCase() : "TREINO"}
-                        </Text>
-                        <Text style={[styles.heroSubtitle, { color: theme.textSecondary }]}>
-                            {activeProgram.name} • {activeProgram.goal || 'Geral'}
-                        </Text>
-                    </View>
-                    
-                    <TouchableOpacity 
-                        style={[styles.viewCycleBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} 
-                        onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name, initialTab: selectedTab })}
-                    >
-                        <Text style={[styles.viewCycleText, { color: theme.accent }]}>VER DETALHES</Text>
-                        <MaterialCommunityIcons name="eye-outline" size={14} color={theme.accent} />
-                    </TouchableOpacity>
-                </View>
-
-                <View style={styles.anatomyBox}>
-                    <View style={styles.anatomyInfo}>
-                        <Text style={[styles.focusTitle, { color: theme.text }]}>{isTodayDone ? "STATUS: CONCLUÍDO" : "STATUS DO DIA"}</Text>
-                        <Text style={[styles.focusDesc, { color: theme.textSecondary }]}>
-                            {isTodayDone 
-                                ? "Excelente trabalho! Descanse para amanhã." 
-                                : "Foco total na execução e controle. Bom treino!"
-                            }
-                        </Text>
-                        
-                        {isTodayDone ? (
-                            <View style={[styles.doneBtn, { backgroundColor: theme.accent }]}>
-                                <MaterialCommunityIcons name="check-all" size={18} color={theme.isDark ? '#000' : '#FFF'} />
-                                <Text style={[styles.doneBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>TREINO CONCLUÍDO</Text>
-                            </View>
-                        ) : (
-                            <TouchableOpacity 
-                                style={[styles.startBtn, { backgroundColor: theme.accent }]} 
-                                onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name, initialTab: selectedTab })}
-                            >
-                                <Text style={[styles.startBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>INICIAR TREINO</Text>
-                                <MaterialCommunityIcons name="arrow-right" size={16} color={theme.isDark ? '#000' : '#FFF'} />
-                            </TouchableOpacity>
-                        )}
-                    </View>
-                    
-                    <View style={styles.iconContainerWrapper}>
-                        <View style={[
-                            styles.iconCircle, 
-                            { borderColor: theme.accent, backgroundColor: theme.accent + '11' },
-                            isTodayDone && {backgroundColor: theme.accent}
-                        ]}>
-                            <MaterialCommunityIcons 
-                                name={isTodayDone ? "check-bold" : "dumbbell"} 
-                                size={40} 
-                                color={isTodayDone ? (theme.isDark ? "#000" : "#FFF") : theme.accent} 
-                            />
+            {/* 🔥 CALENDÁRIO COM CHECKS REAIS DO HISTÓRICO */}
+            <View style={styles.sectionContainerMod}>
+                <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
+                    <View style={[styles.calendarCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={styles.calendarHeaderRow}>
+                            <Ionicons name="calendar-outline" size={14} color={theme.textSecondary} />
+                            <Text style={[styles.miniLabelMod, { color: theme.textSecondary }]}>SUA CONSISTÊNCIA NESTA SEMANA (SEG-DOM)</Text>
+                        </View>
+                        <View style={styles.calendarRowMod}>
+                            {weeklyHistoryData.map((day, index) => (
+                                <View key={index} style={styles.calendarDayItemMod}>
+                                    <Text style={[styles.calendarDayTextMod, { color: theme.text }, day.isToday && {color: theme.accent, fontWeight: 'bold'}]}>{day.dayName}</Text>
+                                    
+                                    {/* SE ESTIVER CONCLUÍDO, MOSTRA O CHECK! */}
+                                    {day.isDone ? (
+                                        <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
+                                    ) : (
+                                        <View style={[styles.calendarDotMod, { borderColor: theme.border }, day.isToday && {backgroundColor: theme.accent, borderColor: theme.accent}]} />
+                                    )}
+                                </View>
+                            ))}
                         </View>
                     </View>
-                </View>
+                </Shadow>
             </View>
-        ) : (
-            <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <MaterialCommunityIcons name="dumbbell-off" size={40} color={theme.textSecondary} />
-                <Text style={{color: theme.textSecondary, marginTop:10}}>Nenhum programa ativo.</Text>
-            </View>
-        )}
 
-        <View style={[styles.tipBox, { backgroundColor: theme.surface, borderLeftColor: theme.accent }]}>
-            <View style={{flexDirection:'row', alignItems:'center', gap:8, marginBottom:5}}>
-                <MaterialCommunityIcons name="comment-quote" size={18} color={theme.accent} />
-                <Text style={[styles.tipTitle, { color: theme.text }]}>Dica do Paulo</Text>
-            </View>
-            <Text style={[styles.tipText, { color: theme.textSecondary }]}>"{dailyTip}"</Text>
-        </View>
-
-        <View style={styles.sectionContainer}>
-            <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>CARDIO & PERFORMANCE</Text>
-            <View style={[styles.cardioCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <TouchableOpacity style={[styles.cardioHeader, { borderBottomColor: theme.border }]} onPress={() => setCardioModalOpen(true)}>
-                    <View style={[styles.cardioIcon, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name={selectedCardio.icon} size={24} color={theme.isDark ? '#000' : '#FFF'} /></View>
-                    <View style={{flex:1}}>
-                        <Text style={[styles.cardioLabel, { color: theme.textSecondary }]}>PROTOCOLO</Text>
-                        <Text style={[styles.cardioValue, { color: theme.text }]}>{selectedCardio.name} <MaterialCommunityIcons name="chevron-down" size={14} color={theme.accent}/></Text>
-                    </View>
-                </TouchableOpacity>
-                <View style={[styles.metaRow, { borderBottomColor: theme.border }]}>
-                    <View style={styles.metaItem}><Text style={[styles.metaLabel, { color: theme.textSecondary }]}>TEMPO</Text><Text style={[styles.metaValue, { color: theme.accent }]}>{meta.time}</Text></View>
-                    <View style={styles.metaItem}><Text style={[styles.metaLabel, { color: theme.textSecondary }]}>INTENSIDADE</Text><Text style={[styles.metaValue, { color: theme.accent }]}>{meta.intensity}</Text></View>
-                    <View style={styles.metaItem}><Text style={[styles.metaLabel, { color: theme.textSecondary }]}>KCAL</Text><Text style={[styles.metaValue, { color: theme.accent }]}>{meta.cals}</Text></View>
-                </View>
-                {!cardioDone ? (
-                    <View style={styles.cardioActions}>
-                        <TouchableOpacity style={[styles.cameraBtn, { borderColor: theme.border }, cardioPhoto && {borderColor: theme.accent, backgroundColor: theme.isDark ? '#1a2200' : theme.bg}]} onPress={handleCamera}>
-                            <MaterialCommunityIcons name="camera" size={20} color={cardioPhoto ? theme.accent : theme.text} />
-                            <Text style={[styles.cameraText, { color: theme.text }, cardioPhoto && {color: theme.accent}]}>{cardioPhoto ? "FOTO ANEXADA" : "FOTO DO PAINEL"}</Text>
+            <View style={styles.sectionContainerMod}>
+                <Text style={[styles.sectionTitleMod, { color: theme.textSecondary }]}>COMO VOCÊ ESTÁ SE SENTINDO HOJE?</Text>
+                <View style={styles.readinessRowMod}>
+                    {[
+                        { level: 'low', emoji: '😫', label: 'Cansado', color: '#FF3B30', bg: theme.isDark ? '#331111' : '#FFE5E5' },
+                        { level: 'medium', emoji: '😐', label: 'Disciplina', color: '#32ADE6', bg: theme.isDark ? '#112233' : '#E5F6FF' },
+                        { level: 'high', emoji: '😤', label: 'Motivado', color: theme.accent, bg: theme.isDark ? '#1A2200' : theme.accent + '15' }
+                    ].map((item) => (
+                        <TouchableOpacity 
+                            key={item.level} 
+                            style={[
+                                styles.energyCardMod, 
+                                { backgroundColor: theme.surface, borderColor: theme.border },
+                                energyLevel === item.level && { borderColor: item.color, backgroundColor: item.bg, elevation: 8 }
+                            ]}
+                            onPress={() => handleEnergySelect(item.level)} 
+                        >
+                            <Text style={styles.energyEmojiMod}>{item.emoji}</Text>
+                            <Text style={[styles.energyLabelMod, { color: energyLevel === item.level ? item.color : theme.text }]}>{item.label}</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.finishCardioBtn, { backgroundColor: theme.accent }]} onPress={submitCardio}><Text style={[styles.finishCardioText, { color: theme.isDark ? '#000' : '#FFF' }]}>CONCLUIR CARDIO</Text></TouchableOpacity>
-                    </View>
-                ) : (
-                    <View style={styles.cardioDone}>
-                        <MaterialCommunityIcons name="check-circle" size={40} color={theme.accent} />
-                        <Text style={[styles.cardioDoneText, { color: theme.accent }]}>CARDIO REGISTRADO</Text>
-                        <TouchableOpacity onPress={() => setCardioDone(false)} style={{marginTop:10}}><Text style={{color: theme.textSecondary, fontSize:10, textDecorationLine:'underline'}}>Refazer registro</Text></TouchableOpacity>
-                    </View>
-                )}
+                    ))}
+                </View>
             </View>
-        </View>
-      </ScrollView>
 
-      {/* MODAL CARDIO */}
-      <Modal visible={cardioModalOpen} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCardioModalOpen(false)}>
-            <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-                <Text style={[styles.modalTitle, { color: theme.text }]}>ESCOLHA O EQUIPAMENTO</Text>
-                {CARDIO_OPTIONS.map(opt => (
-                    <TouchableOpacity key={opt.id} style={[styles.modalItem, { borderBottomColor: theme.border }]} onPress={()=>{setSelectedCardio(opt); setCardioModalOpen(false);}}>
-                        <MaterialCommunityIcons name={opt.icon} size={24} color={selectedCardio.id===opt.id ? theme.accent : theme.text} />
-                        <Text style={[styles.modalItemText, { color: theme.text }, selectedCardio.id===opt.id && {color: theme.accent}]}>{opt.name}</Text>
+            {allActivePrograms.length > 1 && (
+                <View style={[styles.sectionContainerMod, styles.routineSelectorWrapper]}>
+                    {allActivePrograms.map((prog, index) => (
+                        <TouchableOpacity 
+                            key={prog.id} 
+                            style={[
+                                styles.routineSelectorBtnMod, 
+                                { backgroundColor: theme.surface, borderColor: theme.border },
+                                selectedProgramIndex === index && { backgroundColor: theme.accent, borderColor: theme.accent, elevation: 3 }
+                            ]}
+                            onPress={() => handleSwitchProgram(index)}
+                        >
+                            <MaterialCommunityIcons name="folder-text" size={14} color={selectedProgramIndex === index ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
+                            <Text style={[
+                                styles.routineSelectorTextMod, 
+                                { color: theme.textSecondary },
+                                selectedProgramIndex === index && { color: theme.isDark ? '#000' : '#FFF' }
+                            ]}>
+                                Rotina {index + 1}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            )}
+
+            {workoutTabs.length > 0 && (
+                <View style={{ marginBottom: 15 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
+                        {workoutTabs.map(tab => (
+                            <TouchableOpacity 
+                                key={tab} 
+                                style={[
+                                    styles.pillTabMod, 
+                                    { backgroundColor: theme.surface, borderColor: theme.border },
+                                    selectedTab === tab && { backgroundColor: theme.accent, borderColor: theme.accent, elevation: 4 }
+                                ]}
+                                onPress={() => setSelectedTab(tab)}
+                            >
+                                <Text style={[
+                                    styles.pillTabTextMod, 
+                                    { color: theme.textSecondary },
+                                    selectedTab === tab && { color: theme.isDark ? '#000' : '#FFF' }
+                                ]}>{tab}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                </View>
+            )}
+
+            {activeProgram ? (
+                <View style={styles.sectionContainerMod}>
+                  <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
+                    <TouchableOpacity 
+                        style={[styles.heroCardMod, { borderColor: theme.border }, isTodayDone && {borderColor: theme.accent} ]}
+                        onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name, initialTab: selectedTab })}
+                        activeOpacity={0.9}
+                    >
+                        <LinearGradient 
+                            colors={isTodayDone ? [theme.accent + '15', theme.surface] : [theme.surface, theme.surface]} 
+                            style={StyleSheet.absoluteFillObject} 
+                        />
+
+                        <View style={styles.heroHeaderMod}>
+                            <View style={{ flex: 1, marginRight: 15 }}>
+                                <View style={styles.heroBadgeRowMod}>
+                                    <View style={[styles.goalBadgeMod, {backgroundColor: theme.accent + '15', borderColor: theme.accent}]}>
+                                        <Text style={[styles.goalBadgeTextMod, {color: theme.accent}]}>{activeProgram.goal?.toUpperCase() || 'GERAL'}</Text>
+                                    </View>
+                                    {isTodayDone && (
+                                        <View style={[styles.goalBadgeMod, {backgroundColor: '#28A74515', borderColor: '#28A745'}]}>
+                                            <Text style={[styles.goalBadgeTextMod, {color: '#28A745'}]}>CONCLUÍDO ✅</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                
+                                <Text style={[styles.heroTitleMod, { color: theme.text }]} numberOfLines={2}>
+                                    Treino {selectedTab ? selectedTab.toUpperCase() : ""}: {activeProgram.name}
+                                </Text>
+                            </View>
+                            
+                            <View style={[styles.iconCircleMod, { borderColor: isTodayDone ? theme.accent : theme.border, backgroundColor: isTodayDone ? theme.accent : theme.bg }]}>
+                                <MaterialCommunityIcons 
+                                    name={isTodayDone ? "trophy" : "dumbbell"} 
+                                    size={36} 
+                                    color={isTodayDone ? (theme.isDark ? "#000" : "#FFF") : theme.textSecondary} 
+                                />
+                            </View>
+                        </View>
+
+                        <View style={[styles.heroFooterMod, {borderTopColor: theme.border}]}>
+                            <View style={styles.heroInfoItemMod}>
+                                <Ionicons name="eye" size={14} color={theme.accent} />
+                                <Text style={[styles.heroInfoTextMod, { color: theme.accent, fontWeight:'bold' }]}>VER DETALHES</Text>
+                            </View>
+                            
+                            <View style={[styles.startBtnMod, { backgroundColor: isTodayDone ? theme.border : theme.accent, elevation: isTodayDone ? 0 : 4 }]}>
+                                <Text style={[styles.startBtnTextMod, { color: isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
+                                    {isTodayDone ? 'REVISAR' : 'TREINAR AGORA'}
+                                </Text>
+                                <Ionicons name={isTodayDone ? "book-outline" : "play-forward"} size={14} color={isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
+                            </View>
+                        </View>
                     </TouchableOpacity>
-                ))}
+                  </Shadow>
+                </View>
+            ) : (
+                <View style={styles.sectionContainerMod}>
+                    <View style={[styles.emptyCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <MaterialCommunityIcons name="dumbbell-off" size={48} color={theme.border} />
+                        <Text style={[styles.emptyCardTextMod, {color: theme.textSecondary}]}>Aguardando seu próximo programa.</Text>
+                        <Text style={{color: theme.textSecondary, fontSize: 12}}>Entre em contato com o Coach Paulo.</Text>
+                    </View>
+                </View>
+            )}
+
+            <View style={styles.sectionContainerMod}>
+                <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
+                    <View style={[styles.tipCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={styles.tipHeaderRow}>
+                            <Ionicons name="bulb-outline" size={24} color={theme.accent} />
+                            <Text style={[styles.tipTitleLimpadoMod, { color: theme.accent }]}>DICA DO <Text style={{fontWeight: '900'}}>PAULO ADRIANO TEAM</Text></Text>
+                        </View>
+                        <Text style={[styles.tipTextLimpadoMod, { color: theme.text }]}>"{dailyTip}"</Text>
+                    </View>
+                </Shadow>
             </View>
-        </TouchableOpacity>
-      </Modal>
-    </SafeAreaView>
+
+          </ScrollView>
+      </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0,
-  },
   center: { flex: 1, justifyContent:'center', alignItems:'center' },
-  header: { padding: 20, paddingTop: 10 },
-  headerTitle: { fontSize: 20, fontWeight: '900' },
-  sectionContainer: { marginHorizontal: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 10 },
-  readinessRow: { flexDirection: 'row', gap: 10 },
-  energyBtn: { flex: 1, borderRadius: 12, padding: 10, alignItems: 'center', borderWidth: 1 },
-  energyLabel: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
+  mainWrapper: { flex: 1, width: '100%' },
+  webWrapper: { maxWidth: 480, alignSelf: 'center', borderLeftWidth: 1, borderRightWidth: 1 },
+  
+  headerLimpado: { padding: 20, paddingTop: 15, marginBottom: 10 },
+  headerTitleLimpado: { fontSize: 28, fontWeight: '800' },
 
-  // 🔥 ESTILO DAS PÍLULAS DE TREINO
-  pillTab: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  pillTabText: { fontSize: 12, fontWeight: '800' },
+  sectionContainerMod: { marginHorizontal: 20, marginBottom: 30, alignItems: 'center' },
+  sectionTitleMod: { fontSize: 11, fontWeight: '900', letterSpacing: 1.2, marginBottom: 15, alignSelf: 'flex-start' },
 
-  heroCard: { marginHorizontal: 20, borderRadius: 20, padding: 20, borderWidth: 1, marginBottom: 20 },
-  heroHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 },
-  heroLabel: { fontSize: 10, fontWeight: 'bold' },
-  heroTitle: { fontSize: 22, fontWeight: '900', marginTop: 2, marginBottom: 2 },
-  heroSubtitle: { fontSize: 11 },
-  
-  viewCycleBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, gap: 6, alignSelf: 'flex-start' },
-  viewCycleText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  
-  anatomyBox: { flexDirection: 'row', gap: 15 },
-  anatomyInfo: { flex: 1 },
-  focusTitle: { fontSize: 11, fontWeight: 'bold', marginBottom: 2 },
-  focusDesc: { fontSize: 10, marginBottom: 15 },
-  
-  startBtn: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start' },
-  startBtnText: { fontWeight: '900', fontSize: 12 },
-  
-  doneBtn: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', opacity: 0.8 },
-  doneBtnText: { fontWeight: '900', fontSize: 12 },
+  calendarCardMod: { width: '100%', padding: 20, borderRadius: 24, borderWidth: 1 },
+  calendarHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15, alignSelf: 'center' },
+  miniLabelMod: { fontSize: 10, fontWeight: 'bold', letterSpacing: 0.5 },
+  calendarRowMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
+  calendarDayItemMod: { alignItems: 'center', flex: 1 },
+  calendarDayTextMod: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
+  // Bolinha ligeiramente aumentada para casar com o ícone
+  calendarDotMod: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
 
-  iconContainerWrapper: { width: 80, height: 100, justifyContent: 'center', alignItems: 'center' },
-  iconCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 1, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  readinessRowMod: { flexDirection: 'row', gap: 12, width: '100%' },
+  energyCardMod: { flex: 1, borderRadius: 20, padding: 18, alignItems: 'center', borderWidth: 1 },
+  energyEmojiMod: { fontSize: 36, marginBottom: 10 },
+  energyLabelMod: { fontSize: 12, fontWeight: 'bold' },
+
+  routineSelectorWrapper: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', alignSelf: 'flex-start', marginBottom: 20 },
+  routineSelectorBtnMod: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 25, borderWidth: 1 },
+  routineSelectorTextMod: { fontSize: 12, fontWeight: '900' },
+
+  pillTabMod: { paddingHorizontal: 22, paddingVertical: 14, borderRadius: 30, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  pillTabTextMod: { fontSize: 14, fontWeight: '800' },
+
+  heroCardMod: { width: '100%', borderRadius: 30, padding: 25, borderWidth: 1, overflow: 'hidden', position: 'relative' },
+  heroHeaderMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, zIndex: 2 },
+  heroBadgeRowMod: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  goalBadgeMod: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  goalBadgeTextMod: { fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
+  heroTitleMod: { fontSize: 22, fontWeight: '900', lineHeight: 28 },
+  iconCircleMod: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, justifyContent: 'center', alignItems: 'center', zIndex: 2 },
   
-  emptyCard: { marginHorizontal: 20, padding: 30, borderRadius: 16, alignItems: 'center', borderWidth: 1, marginBottom: 20 },
-  tipBox: { marginHorizontal: 20, padding: 15, borderRadius: 12, marginBottom: 25, borderLeftWidth: 3 },
-  tipTitle: { fontSize: 12, fontWeight: 'bold' },
-  tipText: { fontSize: 12, fontStyle: 'italic' },
+  heroFooterMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, zIndex: 2 },
+  heroInfoItemMod: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroInfoTextMod: { fontSize: 12 },
   
-  cardioCard: { borderRadius: 15, borderWidth: 1, marginBottom: 15, overflow: 'hidden' },
-  cardioHeader: { flexDirection: 'row', padding: 15, alignItems: 'center', gap: 10, borderBottomWidth: 1 },
-  cardioIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  cardioLabel: { fontSize: 9, fontWeight: 'bold' },
-  cardioValue: { fontSize: 14, fontWeight: 'bold' },
-  metaRow: { flexDirection: 'row', padding: 15, borderBottomWidth: 1 },
-  metaItem: { flex: 1, alignItems: 'center' },
-  metaLabel: { fontSize: 8, fontWeight: 'bold' },
-  metaValue: { fontSize: 12, fontWeight: 'bold', marginTop: 2 },
-  cardioActions: { padding: 15 },
-  cameraBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 8, borderWidth: 1, gap: 8, marginBottom: 10 },
-  cameraText: { fontSize: 11, fontWeight: 'bold' },
-  finishCardioBtn: { padding: 15, borderRadius: 8, alignItems: 'center' },
-  finishCardioText: { fontWeight: '900', fontSize: 12 },
-  cardioDone: { padding: 30, alignItems: 'center', gap: 10 },
-  cardioDoneText: { fontWeight: 'bold' },
+  startBtnMod: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  startBtnTextMod: { fontWeight: '900', fontSize: 13 },
   
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'flex-end' },
-  modalContent: { padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
-  modalTitle: { fontWeight: '900', marginBottom: 20, textAlign: 'center' },
-  modalItem: { flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 15, borderBottomWidth: 1 },
-  modalItemText: { fontWeight: 'bold' }
+  emptyCardMod: { width:'100%', padding: 50, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
+  emptyCardTextMod: { fontWeight: 'bold', fontSize: 16, marginTop: 20, marginBottom: 8 },
+
+  tipCardMod: { width: '100%', padding: 20, borderRadius: 24, borderWidth: 1 },
+  tipHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  tipTitleLimpadoMod: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
+  tipTextLimpadoMod: { fontSize: 14, fontStyle: 'italic', lineHeight: 20, paddingLeft: 36 },
+
 });

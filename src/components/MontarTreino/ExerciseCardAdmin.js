@@ -9,7 +9,7 @@ export default function ExerciseCardAdmin({
     removeSubstitute, atualizarBloco, adicionarBloco, removerBloco, 
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible, 
     atualizarObservacao, openPreview, currentExercisesLength,
-    setIsSwapping, setSwapIndex
+    setIsSwapping, setSwapIndex, setInitialCategoryFilter
 }) {
     const videoUrl = item.exercise?.videoUrl || item.videoUrl || "";
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
@@ -62,9 +62,16 @@ export default function ExerciseCardAdmin({
                 </View>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    {/* 🔥 BOTÃO DE VINCULAR FANTASMA (Fica Vermelho/Destaque se for fantasma) */}
+                    {/* 🔥 BOTÃO DE VINCULAR FANTASMA / TROCAR EXERCÍCIO COM FILTRO INTELIGENTE */}
                     <TouchableOpacity 
-                        onPress={() => { setIsSwapping(true); setSwapIndex(index); setModalBuscaVisible(true); }} 
+                        onPress={() => { 
+                            setIsSwapping(true); 
+                            setSwapIndex(index); 
+                            if (item.category && setInitialCategoryFilter) {
+                                setInitialCategoryFilter(item.category);
+                            }
+                            setModalBuscaVisible(true); 
+                        }} 
                         style={{ padding: 8, backgroundColor: isGhost ? '#FF3B30' : theme.accent + '22', borderRadius: 8, marginRight: 5 }}
                     >
                         <MaterialCommunityIcons name={isGhost ? "link-variant-plus" : "sync"} size={20} color={isGhost ? '#FFF' : theme.accent} />
@@ -123,6 +130,19 @@ export default function ExerciseCardAdmin({
                   </TouchableOpacity>
               )}
             </View>
+
+            {/* 🔥 AS OBSERVAÇÕES VOLTARAM PRA TELA! 🔥 */}
+            <View style={{ marginTop: 12 }}>
+                <TextInput 
+                    style={[styles.obsInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                    placeholder="Adicionar observação (ex: focar na fase excêntrica)..."
+                    placeholderTextColor={theme.textSecondary}
+                    value={item.observation || ''}
+                    onChangeText={(text) => atualizarObservacao(index, text)}
+                    multiline
+                />
+            </View>
+
         </View>
     );
 }
@@ -144,4 +164,5 @@ const styles = StyleSheet.create({
   techBox: { alignItems:'center', justifyContent:'center', borderRadius:8, borderWidth:1 },
   miniLabel: { fontSize: 9, fontWeight: 'bold', marginBottom: 4, textAlign:'center' },
   miniInput: { padding: 8, borderRadius: 8, fontSize: 14, textAlign: 'center', borderWidth: 1, fontWeight: 'bold', outlineStyle: 'none' },
+  obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 12, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' } // Estilo da observação
 });
