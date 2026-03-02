@@ -92,6 +92,8 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
 }, (prev, next) => {
     return prev.item.id === next.item.id && 
            prev.item.videoUrl === next.item.videoUrl && 
+           prev.item.name === next.item.name && 
+           prev.item.category === next.item.category && 
            prev.width === next.width &&
            prev.theme === next.theme;
 });
@@ -136,7 +138,6 @@ export default function BibliotecaAdmin({ navigation }) {
       : (containerWidth - (HORIZONTAL_PADDING * 2));
 
   // 🔥 LÓGICA DE TAMANHO DAS LOGOS LATERAIS (WEB)
-  // Calcula quanto espaço sobra nas laterais para definir a largura máxima da logo
   const lateralSpace = (width - containerWidth) / 2;
 
   useEffect(() => { fetchLibrary(); }, []);
@@ -163,16 +164,33 @@ export default function BibliotecaAdmin({ navigation }) {
               { text: "Sim, apagar", style: 'destructive', onPress: () => deleteItem(id) }
           ]);
       }
-  }, []);
+  }, [isWeb]);
 
+  // 🔥 NOVA FUNÇÃO DE EXCLUSÃO BLINDADA CONTRA ERROS DO BANCO DE DADOS
   const deleteItem = async (id) => {
       try {
           const url = `https://fitos-final.onrender.com/api/exercise?id=${id}`;
           const res = await fetch(url, { method: 'DELETE' });
+          
           if (res.ok) {
+              // Se deu certo, tira da lista visual na mesma hora
               setExercises(prev => prev.filter(item => item.id !== id));
-          } else { Alert.alert("Erro", "Não foi possível excluir o exercício."); }
-      } catch (e) { Alert.alert("Erro de Conexão", "Verifique sua internet."); }
+          } else { 
+              // 🔥 O servidor barrou a exclusão (Provavelmente está sendo usado num treino)
+              const errorData = await res.json();
+              if (isWeb) {
+                  window.alert(errorData.error || "Erro ao excluir.");
+              } else {
+                  Alert.alert("Ação Bloqueada", errorData.error || "Erro ao excluir.");
+              }
+          }
+      } catch (e) { 
+          if (isWeb) {
+              window.alert("Erro de Conexão. Verifique sua internet.");
+          } else {
+              Alert.alert("Erro de Conexão", "Verifique sua internet."); 
+          }
+      }
   };
 
   const handleSaveOrUpdate = async () => {
@@ -188,9 +206,19 @@ export default function BibliotecaAdmin({ navigation }) {
           if (res.ok) {
               setModalVisible(false);
               fetchLibrary();
-              Alert.alert("Sucesso", "Exercício salvo com sucesso!");
-          } else { Alert.alert("Atenção", "O servidor recusou os dados."); }
-      } catch (e) { Alert.alert("Erro de Conexão", e.message); } 
+              
+              if(isWeb) window.alert("Exercício salvo com sucesso!");
+              else Alert.alert("Sucesso", "Exercício salvo com sucesso!");
+              
+          } else { 
+              const errorData = await res.json();
+              if(isWeb) window.alert(errorData.error || "O servidor recusou os dados.");
+              else Alert.alert("Atenção", errorData.error || "O servidor recusou os dados."); 
+          }
+      } catch (e) { 
+          if(isWeb) window.alert(e.message);
+          else Alert.alert("Erro de Conexão", e.message); 
+      } 
       finally { setSaving(false); }
   };
 
@@ -253,8 +281,6 @@ export default function BibliotecaAdmin({ navigation }) {
             alignSelf: 'center', 
             backgroundColor: theme.bg, 
             ...(isWeb ? {
-                // Removemos margem vertical e arredondamento total pra encostar no topo/fundo na Web, 
-                // parecendo o print de referência.
                 borderLeftWidth: 1, 
                 borderRightWidth: 1, 
                 borderColor: theme.border,
@@ -488,12 +514,10 @@ const styles = StyleSheet.create({
   searchBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20, height: 55, borderRadius: 30, borderWidth: 1 },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500', outlineStyle: 'none' },
   
-  // SELETOR DE CATEGORIA PREMIUM
   catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
   catSelectorText: { fontSize: 14, fontWeight: '600' },
   catSelectorVal: { fontSize: 15, fontWeight: '800' },
   
-  // ESTILO DO MENU SUSPENSO DE CATEGORIAS
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
   catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12 },
@@ -505,7 +529,6 @@ const styles = StyleSheet.create({
   coverBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   coverCount: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   
-  // DESIGN DE CARD
   exerciseCard: { borderRadius: 20, padding: 18, marginBottom: 15, borderWidth: 1, elevation: 2 },
   cardInfo: { flexDirection: 'row', alignItems: 'center' },
   iconBox: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
@@ -520,7 +543,6 @@ const styles = StyleSheet.create({
   fab: { position: 'absolute', width: 65, height: 65, borderRadius: 33, justifyContent: 'center', alignItems: 'center', elevation: 8, zIndex: 999 },
   emptyText: { color:'#888', textAlign:'center', marginTop:50, fontStyle:'italic' },
   
-  // MODAL NOVO EXERCÍCIO
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, alignItems: 'center', paddingTop: Platform.OS === 'android' ? 20 : 20 },
   modalTitle: { fontSize: 18, fontWeight: '900' },
   
