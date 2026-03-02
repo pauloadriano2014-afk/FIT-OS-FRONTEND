@@ -448,6 +448,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l});
   };
 
+    // 🔥 A GRANDE CIRURGIA DE SALVAMENTO (AGORA NO MODO X9 / DEDO-DURO) 🔥
   const salvarTreinoFinal = async () => {
     const alertMsg = (title, msg) => {
         if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
@@ -482,15 +483,15 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             const hiddenPayload = JSON.stringify({ t: safeBlocks[0].technique || "", b: safeBlocks, o: ex.observation || "" });
 
             flatExercises.push({
-                exerciseId: ex.exerciseId, 
-                day, 
+                exerciseId: String(ex.exerciseId), // 🔥 Forçando ser uma string válida
+                day: String(day).trim(), 
                 sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3),
                 reps: String(safeBlocks[0].reps), 
                 technique: hiddenPayload,
                 restTime: parseInt(safeBlocks[0].restTime) || 0,
                 order: index,
                 observation: ex.observation || "", 
-                substituteId: ex.substitute ? ex.substitute.id : null
+                substituteId: ex.substitute ? String(ex.substitute.id) : null
             });
         });
     });
@@ -520,16 +521,22 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false })
       });
 
-      if (!response.ok) throw new Error('Falha no servidor ao salvar.');
+      // 🔥 O PULO DO GATO ESTÁ AQUI: SE DER ERRO 500, ELE LÊ O MOTIVO!
+      if (!response.ok) {
+          const errText = await response.text(); // Pega a fofoca do Render
+          throw new Error(`[Status ${response.status}] ${errText}`);
+      }
 
       alertMsg("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); 
       navigation.goBack(); 
     } catch (e) { 
         console.error(e);
-        alertMsg("Erro", "Falha ao salvar. Verifique sua conexão e tente novamente."); 
+        // 🔥 CUSPINDO O ERRO REAL NA TELA
+        alertMsg("Erro Fatal do Servidor", `Tire um print disso e me mande:\n\n${e.message}`); 
     } 
     finally { setSending(false); }
   };
+
 
   const openPreview = (ex) => {
       setPreviewExercise(ex);
