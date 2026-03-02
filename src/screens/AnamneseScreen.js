@@ -1,21 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, 
-  SafeAreaView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform 
+  SafeAreaView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StatusBar 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
+import { useTheme } from '../contexts/ThemeContext';
 
 const LIMITACOES_LIST = ['Joelho', 'Lombar', 'Ombro', 'Punho', 'Quadril', 'Tornozelo', 'Cervical', 'Cotovelos', 'Nenhuma'];
 const CIRURGIAS_LIST = ['Abdominoplastia', 'Prótese de Silicone', 'Cesárea', 'LCA/Menisco', 'Hérnia', 'Coluna', 'Manguito', 'Nenhuma'];
 
 export default function AnamneseScreen({ route, navigation }) {
+  const { theme } = useTheme();
   const [currentUser, setCurrentUser] = useState(route.params?.userData || null);
 
   const OBJETIVOS = ['Hipertrofia', 'Emagrecimento', 'Definição'];
   const NIVEIS = ['Iniciante', 'Intermediário', 'Avançado'];
 
   const [loading, setLoading] = useState(false);
-  const [loadingText, setLoadingText] = useState("FINALIZAR CADASTRO");
   const [step, setStep] = useState(1);
   
   const [form, setForm] = useState({
@@ -36,7 +40,7 @@ export default function AnamneseScreen({ route, navigation }) {
       }
     };
     loadUser();
-  }, []);
+  }, [currentUser]);
 
   const toggleSelection = (field, item) => {
     setForm(prev => {
@@ -48,6 +52,10 @@ export default function AnamneseScreen({ route, navigation }) {
   };
 
   const salvarAnamnese = async () => {
+    if (!form.frequencia || !form.tempoDisponivel) {
+        return Alert.alert("Falta dados", "Selecione a frequência e o tempo disponível.");
+    }
+
     if (!currentUser || !currentUser.id) {
         Alert.alert("Sessão Expirada", "Faça login novamente.");
         navigation.replace('Login');
@@ -55,7 +63,6 @@ export default function AnamneseScreen({ route, navigation }) {
     }
 
     setLoading(true);
-    setLoadingText("Salvando ficha...");
     
     try {
       const p = parseFloat(form.peso.replace(',', '.'));
@@ -80,8 +87,6 @@ export default function AnamneseScreen({ route, navigation }) {
         equipamentos: []
       };
 
-      console.log("Enviando Payload:", JSON.stringify(payload));
-      
       const response = await fetch('https://fitos-final.onrender.com/api/anamnese', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -94,24 +99,22 @@ export default function AnamneseScreen({ route, navigation }) {
           throw new Error(data.error || "Falha ao salvar Anamnese.");
       }
 
-      // 🛑 REMOVIDO: CHAMADA PARA GERAR TREINO AUTOMÁTICO (IA)
-      // O aluno agora vai para a fila de espera do treinador.
-
       const updatedUser = { ...currentUser, anamneses: [data] };
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
 
-      Alert.alert("Sucesso! 🚀", "Perfil configurado! Aguarde a montagem do seu treino.");
+      if(Platform.OS === 'web') window.alert("Perfil configurado! Aguarde a montagem do seu treino.");
+      else Alert.alert("Sucesso! 🚀", "Perfil configurado! Aguarde a montagem do seu treino.");
+      
       navigation.reset({
           index: 0,
           routes: [{ name: 'Main', params: { userData: updatedUser } }],
       });
 
     } catch (e) {
-      console.error(e);
-      Alert.alert("Erro", e.message);
+      if(Platform.OS === 'web') window.alert(e.message);
+      else Alert.alert("Erro", e.message);
     } finally {
       setLoading(false);
-      setLoadingText("FINALIZAR CADASTRO");
     }
   };
 
@@ -122,136 +125,200 @@ export default function AnamneseScreen({ route, navigation }) {
     setStep(step + 1);
   };
 
+  // 🔥 Lógica da "Gaiola" do PC (PWA)
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  const RootComponent = isWeb ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex:1}}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>ANAMNESE</Text>
-          <View style={styles.progressBarBg}><View style={[styles.progressBarFill, {width: `${step * 25}%`}]} /></View>
-          <Text style={styles.stepCounter}>Etapa {step} de 4</Text>
-        </View>
+    <RootComponent style={[styles.safe, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
+      <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
+      
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex:1}}>
+            
+            {/* HEADER COM BARRA DE PROGRESSO */}
+            <View style={[styles.header, { backgroundColor: theme.bg }]}>
+              <Text style={[styles.headerTitle, { color: theme.accent }]}>ANAMNESE</Text>
+              <View style={[styles.progressBarBg, { backgroundColor: theme.border }]}>
+                  <View style={[styles.progressBarFill, { backgroundColor: theme.accent, width: `${step * 25}%`}]} />
+              </View>
+              <Text style={[styles.stepCounter, { color: theme.textSecondary }]}>Etapa {step} de 4</Text>
+            </View>
 
-        <ScrollView contentContainerStyle={styles.container}>
-          {step === 1 && (
-            <View>
-              <Text style={styles.question}>Bioimpedância Estimada</Text>
-              <View style={styles.row}>
-                <View style={{flex:1, marginRight:10}}>
-                  <Text style={styles.label}>PESO (KG)</Text>
-                  <TextInput style={styles.input} keyboardType="numeric" placeholder="Ex: 80" placeholderTextColor="#555" onChangeText={v => setForm({...form, peso: v})} value={form.peso} />
+            <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+              
+              {/* ETAPA 1 */}
+              {step === 1 && (
+                <View>
+                  <Text style={[styles.question, { color: theme.text }]}>Bioimpedância Estimada</Text>
+                  <View style={styles.row}>
+                    <View style={{flex:1, marginRight:10}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>PESO (KG)</Text>
+                      <TextInput 
+                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          keyboardType="numeric" placeholder="Ex: 80" placeholderTextColor={theme.textSecondary} 
+                          onChangeText={v => setForm({...form, peso: v})} value={form.peso} 
+                      />
+                    </View>
+                    <View style={{flex:1}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>ALTURA (CM)</Text>
+                      <TextInput 
+                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          keyboardType="numeric" placeholder="Ex: 175" placeholderTextColor={theme.textSecondary} 
+                          onChangeText={v => setForm({...form, altura: v})} value={form.altura} 
+                      />
+                    </View>
+                  </View>
                 </View>
-                <View style={{flex:1}}>
-                  <Text style={styles.label}>ALTURA (CM)</Text>
-                  <TextInput style={styles.input} keyboardType="numeric" placeholder="Ex: 175" placeholderTextColor="#555" onChangeText={v => setForm({...form, altura: v})} value={form.altura} />
+              )}
+
+              {/* ETAPA 2 */}
+              {step === 2 && (
+                <View>
+                  <Text style={[styles.question, { color: theme.text }]}>Objetivo Principal</Text>
+                  <View style={styles.grid}>
+                    {OBJETIVOS.map(obj => (
+                      <TouchableOpacity 
+                          key={obj} 
+                          style={[styles.option, { backgroundColor: theme.surface, borderColor: theme.border }, form.objetivo === obj && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                          onPress={() => setForm({...form, objetivo: obj})}
+                      >
+                        <Text style={[styles.optionText, { color: theme.text }, form.objetivo === obj && {color: theme.isDark ? '#000' : '#FFF'}]}>{obj}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.question, { marginTop: 30, color: theme.text }]}>Nível de Experiência</Text>
+                  <View style={styles.grid}>
+                    {NIVEIS.map(niv => (
+                      <TouchableOpacity 
+                          key={niv} 
+                          style={[styles.option, { backgroundColor: theme.surface, borderColor: theme.border }, form.nivel === niv && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                          onPress={() => setForm({...form, nivel: niv})}
+                      >
+                        <Text style={[styles.optionText, { color: theme.text }, form.nivel === niv && {color: theme.isDark ? '#000' : '#FFF'}]}>{niv}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
-              </View>
-            </View>
-          )}
+              )}
 
-          {step === 2 && (
-            <View>
-              <Text style={styles.question}>Objetivo Principal</Text>
-              <View style={styles.grid}>
-                {OBJETIVOS.map(obj => (
-                  <TouchableOpacity key={obj} style={[styles.option, form.objetivo === obj && styles.optionActive]} onPress={() => setForm({...form, objetivo: obj})}>
-                    <Text style={[styles.optionText, form.objetivo === obj && {color:'#000'}]}>{obj}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={[styles.question, {marginTop: 30}]}>Nível de Experiência</Text>
-              <View style={styles.grid}>
-                {NIVEIS.map(niv => (
-                  <TouchableOpacity key={niv} style={[styles.option, form.nivel === niv && styles.optionActive]} onPress={() => setForm({...form, nivel: niv})}>
-                    <Text style={[styles.optionText, form.nivel === niv && {color:'#000'}]}>{niv}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
+              {/* ETAPA 3 */}
+              {step === 3 && (
+                <View>
+                  <Text style={[styles.question, { color: theme.text }]}>Mapeamento de Dores</Text>
+                  <View style={styles.wrapGrid}>
+                    {LIMITACOES_LIST.map(item => (
+                      <TouchableOpacity 
+                          key={item} 
+                          style={[styles.chip, { backgroundColor: theme.surface, borderColor: theme.border }, form.limitacoes.includes(item) && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                          onPress={() => toggleSelection('limitacoes', item)}
+                      >
+                        <Text style={[styles.chipText, { color: theme.textSecondary }, form.limitacoes.includes(item) && {color: theme.isDark ? '#000' : '#FFF'}]}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
-          {step === 3 && (
-            <View>
-              <Text style={styles.question}>Mapeamento de Dores</Text>
-              <View style={styles.wrapGrid}>
-                {LIMITACOES_LIST.map(item => (
-                  <TouchableOpacity key={item} style={[styles.chip, form.limitacoes.includes(item) && styles.chipActive]} onPress={() => toggleSelection('limitacoes', item)}>
-                    <Text style={[styles.chipText, form.limitacoes.includes(item) && {color:'#000'}]}>{item}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={[styles.question, {marginTop: 30}]}>Cirurgias Prévias</Text>
-              <View style={styles.wrapGrid}>
-                {CIRURGIAS_LIST.map(item => (
-                  <TouchableOpacity key={item} style={[styles.chip, form.cirurgias.includes(item) && styles.chipActive]} onPress={() => toggleSelection('cirurgias', item)}>
-                    <Text style={[styles.chipText, form.cirurgias.includes(item) && {color:'#000'}]}>{item}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
+                  <Text style={[styles.question, { marginTop: 30, color: theme.text }]}>Cirurgias Prévias</Text>
+                  <View style={styles.wrapGrid}>
+                    {CIRURGIAS_LIST.map(item => (
+                      <TouchableOpacity 
+                          key={item} 
+                          style={[styles.chip, { backgroundColor: theme.surface, borderColor: theme.border }, form.cirurgias.includes(item) && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                          onPress={() => toggleSelection('cirurgias', item)}
+                      >
+                        <Text style={[styles.chipText, { color: theme.textSecondary }, form.cirurgias.includes(item) && {color: theme.isDark ? '#000' : '#FFF'}]}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
 
-          {step === 4 && (
-            <View>
-              <Text style={styles.question}>Frequência Semanal</Text>
-              <View style={styles.row}>
-                {[1, 2, 3, 4, 5, 6, 7].map(d => (
-                  <TouchableOpacity key={d} style={[styles.circle, form.frequencia === d.toString() && styles.circleActive]} onPress={() => setForm({...form, frequencia: d.toString()})}>
-                    <Text style={[styles.circleText, form.frequencia === d.toString() && {color:'#000'}]}>{d}x</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <Text style={[styles.question, {marginTop: 30}]}>Tempo Disponível (min)</Text>
-              <View style={styles.grid}>
-                 {[30, 45, 60, 90, 120].map(t => (
-                    <TouchableOpacity key={t} style={[styles.option, form.tempoDisponivel === t.toString() && styles.optionActive]} onPress={() => setForm({...form, tempoDisponivel: t.toString()})}>
-                        <Text style={[styles.optionText, form.tempoDisponivel === t.toString() && {color:'#000'}]}>{t} min</Text>
-                    </TouchableOpacity>
-                 ))}
-              </View>
-              <TouchableOpacity style={styles.finishBtn} onPress={salvarAnamnese} disabled={loading}>
-                 {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.finishText}>FINALIZAR CADASTRO</Text>}
-              </TouchableOpacity>
-            </View>
-          )}
-        </ScrollView>
+              {/* ETAPA 4 */}
+              {step === 4 && (
+                <View>
+                  <Text style={[styles.question, { color: theme.text }]}>Frequência Semanal</Text>
+                  <View style={styles.wrapGrid}>
+                    {[1, 2, 3, 4, 5, 6, 7].map(d => (
+                      <TouchableOpacity 
+                          key={d} 
+                          style={[styles.circle, { backgroundColor: theme.surface, borderColor: theme.border }, form.frequencia === d.toString() && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                          onPress={() => setForm({...form, frequencia: d.toString()})}
+                      >
+                        <Text style={[styles.circleText, { color: theme.text }, form.frequencia === d.toString() && {color: theme.isDark ? '#000' : '#FFF'}]}>{d}x</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
 
-        {step < 4 && (
-          <View style={styles.footer}>
-             {step > 1 ? <TouchableOpacity onPress={() => setStep(step-1)} style={styles.backBtn}><Text style={{color:'#FFF', fontWeight:'bold'}}>VOLTAR</Text></TouchableOpacity> : <View style={{flex:1}} />}
-             <TouchableOpacity onPress={nextStep} style={styles.nextBtn}><Text style={{color:'#000', fontWeight:'bold'}}>PRÓXIMO</Text></TouchableOpacity>
-          </View>
-        )}
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+                  <Text style={[styles.question, { marginTop: 30, color: theme.text }]}>Tempo Disponível (min)</Text>
+                  <View style={styles.grid}>
+                     {[30, 45, 60, 90, 120].map(t => (
+                        <TouchableOpacity 
+                            key={t} 
+                            style={[styles.option, { backgroundColor: theme.surface, borderColor: theme.border }, form.tempoDisponivel === t.toString() && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                            onPress={() => setForm({...form, tempoDisponivel: t.toString()})}
+                        >
+                            <Text style={[styles.optionText, { color: theme.text }, form.tempoDisponivel === t.toString() && {color: theme.isDark ? '#000' : '#FFF'}]}>{t} min</Text>
+                        </TouchableOpacity>
+                     ))}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* 🔥 RODAPÉ FIXO (COM VOLTAR MESMO NA ÚLTIMA ETAPA) */}
+            <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+               {step > 1 ? (
+                 <TouchableOpacity onPress={() => setStep(step-1)} style={[styles.backBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                    <Text style={{color: theme.text, fontWeight:'bold'}}>VOLTAR</Text>
+                 </TouchableOpacity>
+               ) : <View style={{flex:1}} />}
+               
+               {step < 4 ? (
+                 <TouchableOpacity onPress={nextStep} style={[styles.nextBtn, { backgroundColor: theme.accent }]}>
+                    <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'bold'}}>PRÓXIMO</Text>
+                 </TouchableOpacity>
+               ) : (
+                 <TouchableOpacity onPress={salvarAnamnese} disabled={loading} style={[styles.nextBtn, { backgroundColor: theme.accent }]}>
+                    {loading ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> : <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>FINALIZAR</Text>}
+                 </TouchableOpacity>
+               )}
+            </View>
+            
+          </KeyboardAvoidingView>
+      </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000' },
-  header: { padding: 20, paddingTop: 40, backgroundColor: '#000' },
-  headerTitle: { color: '#CCFF00', fontSize: 20, fontWeight: '900', letterSpacing: 1 },
-  stepCounter: { color: '#666', fontSize: 10, fontWeight: 'bold', marginTop: 5, alignSelf: 'flex-end' },
-  progressBarBg: { height: 4, backgroundColor: '#222', marginTop: 15, borderRadius: 2 },
-  progressBarFill: { height: 4, backgroundColor: '#CCFF00', borderRadius: 2 },
-  container: { padding: 20, paddingBottom: 100 },
-  question: { color: '#FFF', fontSize: 22, fontWeight: 'bold', marginBottom: 15 },
-  label: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold', marginBottom: 8 },
-  input: { backgroundColor: '#111', color: '#FFF', padding: 18, borderRadius: 12, borderWidth: 1, borderColor: '#333', fontSize: 16 },
+  safe: { flex: 1 },
+  header: { padding: 20, paddingTop: Platform.OS === 'android' ? 20 : 10 },
+  headerTitle: { fontSize: 20, fontWeight: '900', letterSpacing: 1 },
+  stepCounter: { fontSize: 11, fontWeight: 'bold', marginTop: 8, alignSelf: 'flex-end' },
+  progressBarBg: { height: 6, marginTop: 15, borderRadius: 3 },
+  progressBarFill: { height: 6, borderRadius: 3 },
+  
+  container: { padding: 20, paddingBottom: 120 },
+  question: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
+  label: { fontSize: 11, fontWeight: 'bold', marginBottom: 8, letterSpacing: 0.5 },
+  
+  input: { padding: 18, borderRadius: 16, borderWidth: 1, fontSize: 16, outlineStyle: 'none' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  option: { padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#333', backgroundColor: '#111', minWidth: '45%', flex: 1, alignItems: 'center' },
-  optionActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  optionText: { color: '#FFF', fontWeight: 'bold', fontSize: 12 },
-  wrapGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 10, paddingHorizontal: 15, borderRadius: 20, borderWidth: 1, borderColor: '#333', backgroundColor: '#111' },
-  chipActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  chipText: { color: '#AAA', fontWeight: 'bold', fontSize: 12 },
-  circle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#333' },
-  circleActive: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  circleText: { color: '#FFF', fontWeight: 'bold' },
-  footer: { position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', padding: 20, backgroundColor: '#000', borderTopWidth: 1, borderColor: '#222' },
-  backBtn: { flex: 1, padding: 15, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: '#333', marginRight: 10 },
-  nextBtn: { flex: 2, padding: 15, alignItems: 'center', borderRadius: 12, backgroundColor: '#CCFF00' },
-  finishBtn: { marginTop: 40, backgroundColor: '#CCFF00', padding: 20, borderRadius: 15, alignItems: 'center' },
-  finishText: { color: '#000', fontWeight: '900', fontSize: 16 }
+  
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  option: { padding: 16, borderRadius: 16, borderWidth: 1, minWidth: '45%', flex: 1, alignItems: 'center' },
+  optionText: { fontWeight: 'bold', fontSize: 13 },
+  
+  wrapGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: { paddingVertical: 12, paddingHorizontal: 18, borderRadius: 20, borderWidth: 1 },
+  chipText: { fontWeight: 'bold', fontSize: 13 },
+  
+  circle: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  circleText: { fontWeight: 'bold', fontSize: 16 },
+  
+  footer: { position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', padding: 20, borderTopWidth: 1, gap: 15 },
+  backBtn: { flex: 1, padding: 16, alignItems: 'center', borderRadius: 16, borderWidth: 1 },
+  nextBtn: { flex: 2, padding: 16, alignItems: 'center', borderRadius: 16, elevation: 2 },
 });

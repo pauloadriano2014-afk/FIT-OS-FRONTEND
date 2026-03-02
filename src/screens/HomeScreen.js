@@ -28,22 +28,20 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  // 🔥 PUXA O TEMA GLOBAL
   const { theme } = useTheme();
 
   const [userName, setUserName] = useState('');
   const [userData, setUserData] = useState(null);
   const [xp, setXp] = useState(0); 
   const [streak, setStreak] = useState(0);
-  const [notice, setNotice] = useState(null); 
 
   // STATES DO CHATBOT
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [messages, setMessages] = useState([
-    { id: 1, text: "Fala, monstro! 👊 Sou o PA Coach AI. Precisa de ajuda com o treino ou dieta hoje?", sender: 'ai' }
-  ]);
+  
+  // 🔥 Começa vazio para carregar o nome dinâmico depois
+  const [messages, setMessages] = useState([]); 
   const flatListRef = useRef(null);
 
   const currentLevel = Math.floor(xp / 1000) + 1;
@@ -70,7 +68,19 @@ export default function HomeScreen({ navigation }) {
       if (storedUser) {
         const user = JSON.parse(storedUser);
         setUserData(user);
-        setUserName(user.name?.split(' ')[0] || 'Atleta');
+        
+        const firstName = user.name?.split(' ')[0] || 'Atleta';
+        setUserName(firstName);
+        
+        // 🔥 Saudação Personalizada com o nome do aluno(a)
+        if (messages.length === 0) {
+            setMessages([{ 
+                id: 1, 
+                text: `Fala, ${firstName}! 👊 Sou o PA Coach AI. Precisa de ajuda com o treino, dieta ou tem alguma dúvida sobre o app hoje?`, 
+                sender: 'ai' 
+            }]);
+        }
+
         if (user.currentXP) setXp(user.currentXP);
 
         try {
@@ -113,44 +123,14 @@ export default function HomeScreen({ navigation }) {
                 }
             }
         } catch (err) {
-            console.log("Erro ao carregar dados críticos (mantendo cache local):", err);
+            console.log("Erro ao carregar dados críticos:", err);
         }
-
-        try {
-            const noticeRes = await fetch(`https://fitos-final.onrender.com/api/notices?t=${Date.now()}`);
-            if (noticeRes.ok) {
-                const noticeData = await noticeRes.json();
-                if (noticeData && noticeData.title) {
-                    const dismissedId = await AsyncStorage.getItem('dismissedNoticeId');
-                    if (dismissedId !== String(noticeData.id)) {
-                        setNotice(noticeData);
-                    } else {
-                        setNotice(null);
-                    }
-                } else {
-                    setNotice(null);
-                }
-            }
-        } catch (noticeErr) {
-            setNotice(null); 
-        }
-
       }
     } catch (e) { 
         console.log("Erro geral loadHome:", e); 
     } finally { 
         setLoading(false); 
         setRefreshing(false); 
-    }
-  };
-
-  const handleDismissNotice = async () => {
-    if (!notice) return;
-    setNotice(null);
-    try {
-        await AsyncStorage.setItem('dismissedNoticeId', String(notice.id));
-    } catch (e) {
-        console.log("Erro ao salvar leitura do aviso");
     }
   };
 
@@ -217,165 +197,157 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
-  if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} /></View>;
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+
+  if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+    <SafeAreaView style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* 🔥 TRAVA DO PWA (bounces={false} e overScrollMode="never") */}
-      <ScrollView 
-        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor={theme.accent}/>}
-        bounces={false}
-        overScrollMode="never"
-      >
-        <View style={styles.header}>
-          <View>
-            <Text style={[styles.greeting, { color: theme.textSecondary }]}>BEM-VINDO AO FOCO,</Text>
-            <Text style={[styles.name, { color: theme.text }]}>{userName.toUpperCase()} ⚡</Text>
-          </View>
+      {/* 🔥 GAIOLA E PROTEÇÃO CONTRA A "CABEÇA CORTADA" (paddingTop extra na Web) */}
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, paddingTop: isWeb ? 30 : 0, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           
-          <TouchableOpacity 
-            style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-            onPress={() => Alert.alert(levelData.title, levelData.desc)}
+          <ScrollView 
+            style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
+            contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor={theme.accent}/>}
+            showsVerticalScrollIndicator={false}
           >
-            <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
+            <View style={styles.header}>
+              <View>
+                <Text style={[styles.greeting, { color: theme.textSecondary }]}>BEM-VINDO AO FOCO,</Text>
+                <Text style={[styles.name, { color: theme.text }]}>{userName.toUpperCase()} ⚡</Text>
+              </View>
+              
+              <TouchableOpacity 
+                style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                onPress={() => Alert.alert(levelData.title, levelData.desc)}
+              >
+                <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
+                    <Text style={[styles.levelText, { color: theme.accent }]}>NÍVEL {currentLevel}</Text>
+                    <Text style={[styles.xpText, { color: theme.textSecondary }]}>{currentLevelProgress} / {nextLevelXP} XP</Text>
+                </View>
+                <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
+                    <View style={[styles.xpBarFill, { width: `${(currentLevelProgress/nextLevelXP)*100}%`, backgroundColor: theme.accent }]} />
+                </View>
+            </View>
+
+            <TouchableOpacity 
+                style={[styles.mainActionBtn, { backgroundColor: theme.accent, shadowColor: theme.accent }]} 
+                onPress={() => navigation.navigate('Treinos')}
+                activeOpacity={0.9}
+            >
+                <View>
+                    <Text style={[styles.actionLabel, { color: theme.isDark ? '#000' : '#FFF' }]}>SEU OBJETIVO DE HOJE</Text>
+                    <Text style={[styles.actionTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>INICIAR TREINO</Text>
+                </View>
+                <View style={styles.iconCircle}>
+                    <MaterialCommunityIcons name="dumbbell" size={28} color={theme.isDark ? '#000' : '#FFF'} />
+                </View>
+            </TouchableOpacity>
+
+            <View style={styles.gridContainer}>
+                <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('CheckIn')}>
+                    <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
+                        <MaterialCommunityIcons name="camera-plus" size={24} color={theme.accent} />
+                    </View>
+                    <Text style={[styles.gridText, { color: theme.text }]}>Check-in</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('Evolução')}>
+                    <View style={[styles.gridIcon, { backgroundColor: 'rgba(50, 173, 230, 0.2)' }]}>
+                        <MaterialCommunityIcons name="chart-line" size={24} color="#32ADE6" />
+                    </View>
+                    <Text style={[styles.gridText, { color: theme.text }]}>Evolução</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('UserHistory')}>
+                    <View style={[styles.gridIcon, { backgroundColor: 'rgba(255, 59, 48, 0.2)' }]}>
+                        <MaterialCommunityIcons name="history" size={24} color="#FF3B30" />
+                    </View>
+                    <Text style={[styles.gridText, { color: theme.text }]}>Histórico</Text>
+                </TouchableOpacity>
+            </View>
+
+            <View style={styles.footerContainer}>
+                <Text style={[styles.footerText, { color: theme.text }]}>PA TEAM</Text>
+                <Text style={[styles.footerSubText, { color: theme.textSecondary }]}>CONSULTORIA DE PERFORMANCE</Text>
+            </View>
+          </ScrollView>
+
+          {/* FAB DO CHATBOT */}
+          <TouchableOpacity 
+            style={[styles.fabChat, { shadowColor: theme.accent }]} 
+            onPress={() => setChatVisible(true)}
+          >
+            <LinearGradient
+                colors={[theme.accent, theme.accent]}
+                style={styles.fabGradient}
+            >
+                <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
+            </LinearGradient>
           </TouchableOpacity>
-        </View>
+      </View>
 
-        {notice && (
-            <View style={styles.noticeCard}>
-                <View style={styles.noticeHeader}>
-                    <View style={{flexDirection:'row', alignItems:'center', gap:8, flex:1}}>
-                        <MaterialCommunityIcons name="bullhorn" size={20} color="#000" />
-                        <Text style={styles.noticeTitle}>{notice.title}</Text>
-                    </View>
-                    <TouchableOpacity onPress={handleDismissNotice} hitSlop={{top:10, bottom:10, left:10, right:10}}>
-                        <MaterialCommunityIcons name="close" size={20} color="#000" />
-                    </TouchableOpacity>
-                </View>
-                <Text style={styles.noticeText}>{notice.content}</Text>
-            </View>
-        )}
-
-        <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
-                <Text style={[styles.levelText, { color: theme.accent }]}>NÍVEL {currentLevel}</Text>
-                <Text style={[styles.xpText, { color: theme.textSecondary }]}>{currentLevelProgress} / {nextLevelXP} XP</Text>
-            </View>
-            <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                <View style={[styles.xpBarFill, { width: `${(currentLevelProgress/nextLevelXP)*100}%`, backgroundColor: theme.accent }]} />
-            </View>
-        </View>
-
-        <TouchableOpacity 
-            style={[styles.mainActionBtn, { backgroundColor: theme.accent, shadowColor: theme.accent }]} 
-            onPress={() => navigation.navigate('Treinos')}
-        >
-            <View>
-                <Text style={[styles.actionLabel, { color: theme.isDark ? '#000' : '#FFF' }]}>SEU OBJETIVO DE HOJE</Text>
-                <Text style={[styles.actionTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>INICIAR TREINO</Text>
-            </View>
-            <View style={styles.iconCircle}>
-                <MaterialCommunityIcons name="dumbbell" size={28} color={theme.isDark ? '#000' : '#FFF'} />
-            </View>
-        </TouchableOpacity>
-
-        <View style={styles.gridContainer}>
-            <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('CheckIn')}>
-                <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
-                    <MaterialCommunityIcons name="camera-plus" size={24} color={theme.accent} />
-                </View>
-                <Text style={[styles.gridText, { color: theme.text }]}>Check-in</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('Evolução')}>
-                <View style={[styles.gridIcon, { backgroundColor: 'rgba(50, 173, 230, 0.2)' }]}>
-                    <MaterialCommunityIcons name="chart-line" size={24} color="#32ADE6" />
-                </View>
-                <Text style={[styles.gridText, { color: theme.text }]}>Evolução</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('UserHistory')}>
-                <View style={[styles.gridIcon, { backgroundColor: 'rgba(255, 59, 48, 0.2)' }]}>
-                    <MaterialCommunityIcons name="history" size={24} color="#FF3B30" />
-                </View>
-                <Text style={[styles.gridText, { color: theme.text }]}>Histórico</Text>
-            </TouchableOpacity>
-        </View>
-
-        <View style={styles.footerContainer}>
-            {/* 🔥 CORREÇÃO DE COR: O PA TEAM agora acompanha a cor do texto, e o subtítulo fica com a secundária */}
-            <Text style={[styles.footerText, { color: theme.text }]}>PA TEAM</Text>
-            <Text style={[styles.footerSubText, { color: theme.textSecondary }]}>CONSULTORIA DE PERFORMANCE</Text>
-        </View>
-
-      </ScrollView>
-
-      {/* 🔥 FAB DO CHATBOT */}
-      <TouchableOpacity 
-        style={[styles.fabChat, { shadowColor: theme.accent }]} 
-        onPress={() => setChatVisible(true)}
-      >
-        <LinearGradient
-            colors={[theme.accent, theme.accent]}
-            style={styles.fabGradient}
-        >
-            <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
-        </LinearGradient>
-      </TouchableOpacity>
-
-      {/* 🔥 MODAL DO CHATBOT */}
+      {/* MODAL DO CHATBOT */}
       <Modal visible={chatVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-            style={styles.chatModalContainer}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-            <View style={[styles.chatContent, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                <View style={[styles.chatHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-                    <View style={{flexDirection:'row', alignItems:'center'}}>
-                        <View style={[styles.chatAvatar, { backgroundColor: theme.accent }]}>
-                            <MaterialCommunityIcons name="robot" size={24} color={theme.isDark ? '#000' : '#FFF'} />
+        <View style={styles.chatModalOverlay}>
+            <KeyboardAvoidingView 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                style={[styles.chatModalContainer, isWeb && { width: '100%', maxWidth: 480, alignSelf: 'center' }]}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <View style={[styles.chatContent, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                    <View style={[styles.chatHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+                        <View style={{flexDirection:'row', alignItems:'center'}}>
+                            <View style={[styles.chatAvatar, { backgroundColor: theme.accent }]}>
+                                <MaterialCommunityIcons name="robot" size={24} color={theme.isDark ? '#000' : '#FFF'} />
+                            </View>
+                            <View>
+                                <Text style={[styles.chatTitle, { color: theme.text }]}>PA COACH AI</Text>
+                                <Text style={[styles.chatStatus, { color: theme.accent }]}>Online agora</Text>
+                            </View>
                         </View>
-                        <View>
-                            <Text style={[styles.chatTitle, { color: theme.text }]}>PA COACH AI</Text>
-                            <Text style={[styles.chatStatus, { color: theme.accent }]}>Online agora</Text>
-                        </View>
+                        <TouchableOpacity onPress={() => setChatVisible(false)} style={{padding:5}}>
+                            <MaterialCommunityIcons name="close" size={24} color={theme.text} />
+                        </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={() => setChatVisible(false)} style={{padding:5}}>
-                        <MaterialCommunityIcons name="close" size={24} color={theme.text} />
-                    </TouchableOpacity>
-                </View>
 
-                <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    keyExtractor={item => item.id.toString()}
-                    renderItem={renderChatMessage}
-                    contentContainerStyle={{padding: 15}}
-                    style={{flex: 1}}
-                    onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
-                    bounces={false}
-                    overScrollMode="never"
-                />
-
-                <View style={[styles.chatInputArea, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-                    <TextInput 
-                        style={[styles.chatInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
-                        placeholder="Pergunte sobre treinos..."
-                        placeholderTextColor={theme.textSecondary}
-                        value={chatInput}
-                        onChangeText={setChatInput}
-                        onSubmitEditing={handleSendChat}
+                    <FlatList
+                        ref={flatListRef}
+                        data={messages}
+                        keyExtractor={item => item.id.toString()}
+                        renderItem={renderChatMessage}
+                        contentContainerStyle={{padding: 20}}
+                        style={[{flex: 1}, isWeb && { overflowY: 'auto' }]}
+                        onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+                        showsVerticalScrollIndicator={false}
                     />
-                    <TouchableOpacity style={[styles.chatSendBtn, { backgroundColor: theme.accent }]} onPress={handleSendChat} disabled={isTyping}>
-                        {isTyping ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <MaterialCommunityIcons name="send" size={20} color={theme.isDark ? '#000' : '#FFF'} />}
-                    </TouchableOpacity>
+
+                    <View style={[styles.chatInputArea, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+                        <TextInput 
+                            style={[styles.chatInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                            placeholder="Pergunte sobre treinos..."
+                            placeholderTextColor={theme.textSecondary}
+                            value={chatInput}
+                            onChangeText={setChatInput}
+                            onSubmitEditing={handleSendChat}
+                            outlineStyle="none"
+                        />
+                        <TouchableOpacity style={[styles.chatSendBtn, { backgroundColor: theme.accent }]} onPress={handleSendChat} disabled={isTyping}>
+                            {isTyping ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <MaterialCommunityIcons name="send" size={20} color={theme.isDark ? '#000' : '#FFF'} />}
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
-        </KeyboardAvoidingView>
+            </KeyboardAvoidingView>
+        </View>
       </Modal>
 
     </SafeAreaView>
@@ -387,62 +359,59 @@ const styles = StyleSheet.create({
     flex: 1, 
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
   },
+  scrollArea: { flex: 1, width: '100%' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
   greeting: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
-  name: { fontSize: 24, fontWeight: '900' },
+  name: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
-  statusText: { fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
+  statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   
-  noticeCard: { backgroundColor:'#32ADE6', padding:15, borderRadius:16, marginBottom:20, shadowColor: "#32ADE6", shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
-  noticeHeader: { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:5 },
-  noticeTitle: { color:'#000', fontWeight:'900', fontSize:14, textTransform:'uppercase' },
-  noticeText: { color:'#000', fontSize:13, fontWeight:'600', lineHeight: 18 },
-
-  xpCard: { padding: 20, borderRadius: 16, marginBottom: 20, borderWidth: 1 },
-  levelText: { fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-  xpText: { fontSize: 10, fontWeight: 'bold' },
+  xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
+  levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+  xpText: { fontSize: 11, fontWeight: 'bold' },
   xpBarBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  xpBarFill: { height: '100%' },
+  xpBarFill: { height: '100%', borderRadius: 4 },
   
-  mainActionBtn: { padding: 25, borderRadius: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 5 },
-  actionLabel: { fontSize: 10, fontWeight: '900', opacity: 0.6, marginBottom: 4 },
-  actionTitle: { fontSize: 22, fontWeight: '900' },
-  iconCircle: { width: 50, height: 50, backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  mainActionBtn: { padding: 25, borderRadius: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, shadowOffset: {width: 0, height: 6}, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
+  actionLabel: { fontSize: 11, fontWeight: '900', opacity: 0.8, marginBottom: 4, letterSpacing: 0.5 },
+  actionTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
+  iconCircle: { width: 54, height: 54, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
   
   gridContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
-  gridItem: { width: '31%', padding: 15, borderRadius: 15, alignItems: 'center', borderWidth: 1 },
-  gridIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  gridText: { fontSize: 10, fontWeight: 'bold' },
+  gridItem: { width: '31%', padding: 18, borderRadius: 24, alignItems: 'center', borderWidth: 1 },
+  gridIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  gridText: { fontSize: 11, fontWeight: 'bold' },
   
   footerContainer: { alignItems: 'center', marginTop: 20, marginBottom: 10 },
-  footerText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  footerText: { fontWeight: '900', fontSize: 16, letterSpacing: 1.5 },
   footerSubText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginTop: 4 },
 
-  fabChat: { position: 'absolute', bottom: 30, right: 20, width: 60, height: 60, borderRadius: 30, zIndex: 999, elevation: 10, shadowOpacity: 0.3, shadowRadius: 10 },
-  fabGradient: { width: '100%', height: '100%', borderRadius: 30, justifyContent: 'center', alignItems: 'center' },
+  fabChat: { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 10 },
+  fabGradient: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
   
-  chatModalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)' },
-  chatContent: { height: '80%', borderTopLeftRadius: 25, borderTopRightRadius: 25, overflow: 'hidden', borderWidth: 1 },
-  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1 },
-  chatAvatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  chatTitle: { fontWeight: 'bold', fontSize: 16 },
-  chatStatus: { fontSize: 10 },
+  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  chatModalContainer: { flex: 1, justifyContent: 'flex-end' },
+  chatContent: { height: '85%', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', borderWidth: 1, borderBottomWidth: 0 },
+  chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
+  chatAvatar: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  chatTitle: { fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
+  chatStatus: { fontSize: 11, fontWeight: 'bold', marginTop: 2 },
   
   chatInputArea: { 
     flexDirection: 'row', 
-    padding: 15, 
-    paddingBottom: Platform.OS === 'android' ? 50 : 25, 
+    padding: 20, 
+    paddingBottom: Platform.OS === 'android' ? 40 : 25, 
     alignItems: 'center', 
     borderTopWidth: 1 
   },
-  chatInput: { flex: 1, borderRadius: 20, paddingHorizontal: 15, paddingVertical: 10, marginRight: 10, borderWidth: 1 },
-  chatSendBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  chatInput: { flex: 1, borderRadius: 25, paddingHorizontal: 20, paddingVertical: 14, marginRight: 10, borderWidth: 1, fontSize: 15 },
+  chatSendBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
 
-  chatBubble: { padding: 12, borderRadius: 15, marginBottom: 10, maxWidth: '80%' },
-  chatBubbleAi: { alignSelf: 'flex-start', borderBottomLeftRadius: 2, borderWidth: 1 },
-  chatBubbleUser: { alignSelf: 'flex-end', borderBottomRightRadius: 2 },
-  chatSenderName: { fontSize: 10, fontWeight: 'bold', marginBottom: 4 },
-  chatText: { fontSize: 14 }
+  chatBubble: { padding: 16, borderRadius: 20, marginBottom: 12, maxWidth: '85%' },
+  chatBubbleAi: { alignSelf: 'flex-start', borderBottomLeftRadius: 4, borderWidth: 1 },
+  chatBubbleUser: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
+  chatSenderName: { fontSize: 11, fontWeight: '900', marginBottom: 6, letterSpacing: 0.5 },
+  chatText: { fontSize: 15, lineHeight: 22, fontWeight: '500' }
 });

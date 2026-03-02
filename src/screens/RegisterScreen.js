@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, SafeAreaView, ActivityIndicator, Alert 
+  ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform 
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons'; // Adicionei para o ícone de cadeado
+import { MaterialCommunityIcons } from '@expo/vector-icons'; 
+
+/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function RegisterScreen({ navigation }) {
+  const { theme } = useTheme(); // 🔥 Traz as cores dinâmicas
+
   const [loading, setLoading] = useState(false);
-  
-  // Adicionei o accessCode no seu estado
   const [form, setForm] = useState({
     accessCode: '', 
     name: '',
@@ -19,16 +22,30 @@ export default function RegisterScreen({ navigation }) {
     password: ''
   });
 
-  // 🔒 SENHA DO TIME (Pode mudar aqui se quiser)
+  // 🔒 SENHA DO TIME
   const TEAM_ACCESS_CODE = 'PATEAM';
 
+  // Máscara de Data simples
+  const handleDateChange = (val) => {
+    let formatted = val.replace(/\D/g, ''); // Remove tudo que não é número
+    if (formatted.length > 2) formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
+    if (formatted.length > 5) formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
+    setForm({...form, birthDate: formatted});
+  };
+
+  // Máscara de Telefone simples
+  const handlePhoneChange = (val) => {
+      let formatted = val.replace(/\D/g, '');
+      if (formatted.length > 2) formatted = '(' + formatted.substring(0, 2) + ') ' + formatted.substring(2);
+      if (formatted.length > 9) formatted = formatted.substring(0, 10) + '-' + formatted.substring(10, 14);
+      setForm({...form, phone: formatted});
+  };
+
   const handleRegister = async () => {
-    // 1. VERIFICAÇÃO DO CÓDIGO DO TIME (PRIMEIRA COISA)
     if (!form.accessCode || form.accessCode.trim().toUpperCase() !== TEAM_ACCESS_CODE) {
         return Alert.alert("Acesso Negado 🔒", "O Código de Convite está incorreto. Solicite ao seu treinador.");
     }
 
-    // Validação de segurança no Front-end
     if (!form.email || !form.password || !form.name) {
       Alert.alert("Campos Obrigatórios", "Por favor, preencha pelo menos Nome, E-mail e Senha.");
       return;
@@ -38,10 +55,7 @@ export default function RegisterScreen({ navigation }) {
     try {
       const response = await fetch('https://fitos-final.onrender.com/api/auth/register', {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
           name: form.name.trim(),
           email: form.email.trim().toLowerCase(),
@@ -49,208 +63,205 @@ export default function RegisterScreen({ navigation }) {
           birthDate: form.birthDate || "",
           phone: form.phone || "",
           gender: form.gender || "Não informado",
-          plan_tier: 'standard' // Adicionei para garantir que o backend receba
+          plan_tier: 'standard' 
         })
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert("Sucesso! 🦁", "Bem-vindo ao Time! Vamos configurar seu perfil agora.");
+        if(Platform.OS === 'web') window.alert("Bem-vindo ao Time! Vamos configurar seu perfil agora.");
+        else Alert.alert("Sucesso! 🦁", "Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         
-        // Passamos o data.user que contém o ID necessário para salvar a anamnese depois
         navigation.replace('Anamnese', { userData: data.user }); 
-        
       } else {
-        Alert.alert("Atenção", data.error || "Não foi possível realizar o cadastro.");
+        if(Platform.OS === 'web') window.alert(data.error || "Não foi possível realizar o cadastro.");
+        else Alert.alert("Atenção", data.error || "Não foi possível realizar o cadastro.");
       }
     } catch (error) {
-      console.error(error);
-      Alert.alert("Erro de Conexão", "Verifique sua internet ou tente novamente mais tarde.");
+      if(Platform.OS === 'web') window.alert("Erro de Conexão. Verifique sua internet.");
+      else Alert.alert("Erro de Conexão", "Verifique sua internet ou tente novamente.");
     } finally {
       setLoading(false);
     }
   };
 
+  // 🔥 Lógica da "Gaiola" do PC (PWA)
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  const RootComponent = isWeb ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        
-        {/* Botão Voltar */}
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{marginBottom: 10}}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
-        </TouchableOpacity>
+    <RootComponent style={[styles.safe, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
+      {/* GAIOLA CENTRALIZADA */}
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+          <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+            
+            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+            </TouchableOpacity>
 
-        <Text style={styles.title}>NOVO <Text style={{color: '#CCFF00'}}>MEMBRO</Text></Text>
-        <Text style={styles.subtitle}>Preencha seus dados para entrar no time</Text>
+            <View style={{marginBottom: 30}}>
+                <Text style={[styles.title, { color: theme.text }]}>NOVO <Text style={{color: theme.accent}}>MEMBRO</Text></Text>
+                <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Seu primeiro passo para o PA TEAM</Text>
+            </View>
 
-        <View style={styles.inputGroup}>
-          
-          {/* 👇 CAMPO DO CÓDIGO (NOVO) 👇 */}
-          <Text style={styles.labelHighlight}>CÓDIGO DE CONVITE *</Text>
-          <View style={styles.codeContainer}>
-             <MaterialCommunityIcons name="lock-outline" size={20} color="#000" style={{marginRight: 10}} />
-             <TextInput 
-                style={styles.codeInput} 
-                placeholder="DIGITE O CÓDIGO (Ex: 123456)" 
-                placeholderTextColor="#444"
-                autoCapitalize="characters"
-                value={form.accessCode}
-                onChangeText={(val) => setForm({...form, accessCode: val})}
-              />
-          </View>
-          {/* ------------------------------- */}
+            <View style={styles.inputGroup}>
+              
+              {/* CAMPO DE ACESSO (O "VIP PASS") */}
+              <View style={[styles.vipCard, { borderColor: theme.accent, backgroundColor: theme.accent + '11' }]}>
+                  <Text style={[styles.labelHighlight, { color: theme.accent }]}>CÓDIGO DE CONVITE *</Text>
+                  <View style={styles.codeContainer}>
+                    <MaterialCommunityIcons name="shield-key" size={20} color={theme.accent} style={{marginRight: 10}} />
+                    <TextInput 
+                        style={[styles.codeInput, { color: theme.text }]} 
+                        placeholder="Ex: PATEAM" 
+                        placeholderTextColor={theme.textSecondary}
+                        autoCapitalize="characters"
+                        value={form.accessCode}
+                        onChangeText={(val) => setForm({...form, accessCode: val})}
+                    />
+                  </View>
+              </View>
 
-          <Text style={styles.label}>NOME COMPLETO *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Como quer ser chamado?" 
-            placeholderTextColor="#444"
-            value={form.name}
-            onChangeText={(val) => setForm({...form, name: val})}
-          />
-
-          <View style={styles.row}>
-            <View style={{flex: 1, marginRight: 10}}>
-              <Text style={styles.label}>NASCIMENTO</Text>
+              <Text style={[styles.label, { color: theme.textSecondary }]}>NOME COMPLETO *</Text>
               <TextInput 
-                style={styles.input} 
-                placeholder="DD/MM/AAAA" 
-                placeholderTextColor="#444"
-                value={form.birthDate}
-                onChangeText={(val) => setForm({...form, birthDate: val})}
+                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                placeholder="Como quer ser chamado?" 
+                placeholderTextColor={theme.textSecondary}
+                value={form.name}
+                onChangeText={(val) => setForm({...form, name: val})}
+              />
+
+              <View style={styles.row}>
+                <View style={{flex: 1, marginRight: 10}}>
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>NASCIMENTO</Text>
+                  <TextInput 
+                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                    placeholder="DD/MM/AAAA" 
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="numeric"
+                    maxLength={10}
+                    value={form.birthDate}
+                    onChangeText={handleDateChange}
+                  />
+                </View>
+                <View style={{flex: 1}}>
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>WHATSAPP</Text>
+                  <TextInput 
+                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                    placeholder="(00) 00000-0000" 
+                    placeholderTextColor={theme.textSecondary}
+                    keyboardType="phone-pad"
+                    maxLength={15}
+                    value={form.phone}
+                    onChangeText={handlePhoneChange}
+                  />
+                </View>
+              </View>
+
+              <Text style={[styles.label, { color: theme.textSecondary }]}>GÊNERO BIOLÓGICO</Text>
+              <View style={styles.genderRow}>
+                {['Masculino', 'Feminino'].map((g) => (
+                  <TouchableOpacity 
+                    key={g} 
+                    style={[
+                        styles.genderBtn, 
+                        { backgroundColor: theme.surface, borderColor: theme.border },
+                        form.gender === g && { backgroundColor: theme.accent, borderColor: theme.accent }
+                    ]}
+                    onPress={() => setForm({...form, gender: g})}
+                  >
+                    <Text style={[styles.genderText, { color: theme.text }, form.gender === g && {color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold'}]}>{g}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={[styles.label, { color: theme.textSecondary }]}>E-MAIL DE ACESSO *</Text>
+              <TextInput 
+                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                placeholder="exemplo@email.com" 
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={form.email}
+                onChangeText={(val) => setForm({...form, email: val})}
+              />
+
+              <Text style={[styles.label, { color: theme.textSecondary }]}>SENHA *</Text>
+              <TextInput 
+                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                placeholder="Crie uma senha forte" 
+                placeholderTextColor={theme.textSecondary}
+                secureTextEntry
+                value={form.password}
+                onChangeText={(val) => setForm({...form, password: val})}
               />
             </View>
-            <View style={{flex: 1}}>
-              <Text style={styles.label}>WHATSAPP</Text>
-              <TextInput 
-                style={styles.input} 
-                placeholder="(00) 00000-0000" 
-                placeholderTextColor="#444"
-                keyboardType="phone-pad"
-                value={form.phone}
-                onChangeText={(val) => setForm({...form, phone: val})}
-              />
-            </View>
-          </View>
 
-          <Text style={styles.label}>GÊNERO</Text>
-          <View style={styles.genderRow}>
-            {['Masculino', 'Feminino', 'Outro'].map((g) => (
-              <TouchableOpacity 
-                key={g} 
-                style={[styles.genderBtn, form.gender === g && styles.activeGender]}
-                onPress={() => setForm({...form, gender: g})}
-              >
-                <Text style={[styles.genderText, form.gender === g && {color: '#000'}]}>{g}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+            <TouchableOpacity 
+              style={[styles.button, { backgroundColor: theme.accent }, loading && {opacity: 0.7}]} 
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> : <Text style={[styles.buttonText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR CONTA</Text>}
+            </TouchableOpacity>
 
-          <Text style={styles.label}>E-MAIL DE ACESSO *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="exemplo@email.com" 
-            placeholderTextColor="#444"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={form.email}
-            onChangeText={(val) => setForm({...form, email: val})}
-          />
-
-          <Text style={styles.label}>SENHA *</Text>
-          <TextInput 
-            style={styles.input} 
-            placeholder="Crie uma senha forte" 
-            placeholderTextColor="#444"
-            secureTextEntry
-            value={form.password}
-            onChangeText={(val) => setForm({...form, password: val})}
-          />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.button, loading && {opacity: 0.7}]} 
-          onPress={handleRegister}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator color="#000" /> : <Text style={styles.buttonText}>FINALIZAR CADASTRO</Text>}
-        </TouchableOpacity>
-
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 25}}>
-          <Text style={{color: '#666', textAlign: 'center'}}>Já é da equipe? <Text style={{color: '#CCFF00', fontWeight: 'bold'}}>Faça Login</Text></Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 30}}>
+              <Text style={{color: theme.textSecondary, textAlign: 'center', fontSize: 13}}>
+                  Já é da equipe? <Text style={{color: theme.accent, fontWeight: 'bold'}}>Faça Login</Text>
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+      </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#000' },
+  safe: { flex: 1 },
   container: { padding: 25, paddingBottom: 60 },
   
-  title: { color: '#fff', fontSize: 32, fontWeight: '900', textAlign: 'center', marginTop: 10 },
-  subtitle: { color: '#666', textAlign: 'center', marginBottom: 35, fontSize: 14, fontWeight: '500' },
+  backBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, marginBottom: 20 },
+  
+  title: { fontSize: 32, fontWeight: '900', letterSpacing: -1 },
+  subtitle: { fontSize: 14, fontWeight: '500', marginTop: 5 },
   
   inputGroup: { marginBottom: 10 },
   row: { flexDirection: 'row' },
   
-  label: { color: '#666', fontSize: 10, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1.5, marginLeft: 5 },
-  labelHighlight: { color: '#CCFF00', fontSize: 10, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1.5, marginLeft: 5 },
+  label: { fontSize: 10, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1, marginLeft: 5 },
   
   input: { 
-    backgroundColor: '#0A0A0A', 
     borderWidth: 1, 
-    borderColor: '#1A1A1A', 
-    borderRadius: 15, 
+    borderRadius: 16, 
     padding: 16, 
-    color: '#fff', 
-    marginBottom: 18,
-    fontSize: 15
+    marginBottom: 20,
+    fontSize: 15,
+    outlineStyle: 'none'
   },
 
-  // ESTILO DO CAMPO DE CÓDIGO
-  codeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#CCFF00', // Fundo amarelo para destacar
-    borderRadius: 15,
-    paddingHorizontal: 15,
-    marginBottom: 25,
-    height: 55
-  },
-  codeInput: {
-    flex: 1,
-    color: '#000', // Texto preto no fundo amarelo
-    fontWeight: 'bold',
-    fontSize: 16,
-    height: '100%'
-  },
+  // ESTILO VIP PASS
+  vipCard: { padding: 15, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', marginBottom: 25 },
+  labelHighlight: { fontSize: 10, fontWeight: 'bold', marginBottom: 5, letterSpacing: 1 },
+  codeContainer: { flexDirection: 'row', alignItems: 'center' },
+  codeInput: { flex: 1, fontWeight: 'bold', fontSize: 18, height: 40, outlineStyle: 'none' },
 
-  genderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  genderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25, gap: 10 },
   genderBtn: { 
     flex: 1, 
-    padding: 14, 
+    padding: 16, 
     borderWidth: 1, 
-    borderColor: '#1A1A1A', 
-    borderRadius: 15, 
-    alignItems: 'center', 
-    marginHorizontal: 4 
+    borderRadius: 16, 
+    alignItems: 'center'
   },
-  activeGender: { backgroundColor: '#CCFF00', borderColor: '#CCFF00' },
-  genderText: { color: '#666', fontWeight: 'bold', fontSize: 12 },
+  genderText: { fontSize: 14, fontWeight: '500' },
   
   button: { 
-    backgroundColor: '#CCFF00', 
     padding: 20, 
-    borderRadius: 18, 
+    borderRadius: 16, 
     alignItems: 'center', 
-    marginTop: 15,
-    shadowColor: '#CCFF00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5
+    marginTop: 10,
   },
-  buttonText: { color: '#000', fontWeight: '900', fontSize: 16, letterSpacing: 1 }
+  buttonText: { fontWeight: '900', fontSize: 16, letterSpacing: 1 }
 });

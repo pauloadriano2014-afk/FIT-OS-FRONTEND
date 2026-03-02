@@ -39,16 +39,14 @@ export default function TrainingScreen({ navigation }) {
   const [energyLevel, setEnergyLevel] = useState(null);
   const [dailyTip, setDailyTip] = useState("");
 
-  // 🔥 LÓGICA DO CALENDÁRIO SEMANAL LIGADA AO HISTÓRICO REAL
   const generateWeeklyView = (history = []) => {
       const today = new Date();
-      const dayOfWeekReal = today.getDay(); // 0 (Dom) - 6 (Sáb)
-      const todayIndexNormalized = dayOfWeekReal === 0 ? 6 : dayOfWeekReal - 1; // Transforma Seg em 0
+      const dayOfWeekReal = today.getDay(); 
+      const todayIndexNormalized = dayOfWeekReal === 0 ? 6 : dayOfWeekReal - 1; 
 
       const daysShort = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
       const data = [];
 
-      // Descobre qual foi a data da Segunda-feira desta semana
       const monday = new Date(today);
       monday.setDate(today.getDate() - todayIndexNormalized);
 
@@ -56,7 +54,6 @@ export default function TrainingScreen({ navigation }) {
           const currentDayDate = new Date(monday);
           currentDayDate.setDate(monday.getDate() + i);
 
-          // Verifica se o aluno tem um registro de treino nesta data exata
           const isDone = history.some(log => new Date(log.date).toDateString() === currentDayDate.toDateString());
 
           data.push({
@@ -76,7 +73,6 @@ export default function TrainingScreen({ navigation }) {
       if (!stored) { setLoading(false); return; }
       const user = JSON.parse(stored);
 
-      // 1. BUSCA O TREINO
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`);
       const data = await response.json();
 
@@ -113,7 +109,6 @@ export default function TrainingScreen({ navigation }) {
         setWorkoutTabs([]);
       }
 
-      // 2. BUSCA O HISTÓRICO E ATUALIZA O CALENDÁRIO
       const historyRes = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
       const historyData = await historyRes.json();
 
@@ -121,8 +116,6 @@ export default function TrainingScreen({ navigation }) {
           const todayStr = new Date().toDateString(); 
           const foundToday = historyData.some(log => new Date(log.date).toDateString() === todayStr);
           setIsTodayDone(foundToday);
-          
-          // 🔥 Aqui a mágica acontece: mandamos o histórico real pro gerador
           setWeeklyHistoryData(generateWeeklyView(historyData));
       }
 
@@ -166,34 +159,31 @@ export default function TrainingScreen({ navigation }) {
       if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
   };
 
+  // 🔥 Lógica da "Gaiola" PWA
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
-  const rootStyle = isWeb 
-      ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } 
-      : { flex: 1, backgroundColor: theme.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 5 : 0 };
 
   if (loading && !refreshing) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
 
   const shadowOpt = { distance: 12, startColor: theme.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.04)', offset: [0, 6] };
 
   return (
-    <RootComponent style={rootStyle}>
+    <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      <View style={[styles.mainWrapper, isWeb && styles.webWrapper, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+      {/* 🔥 GAIOLA FLEXÍVEL (Com ScrollView Interno corrigido) */}
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <ScrollView 
+            style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
             contentContainerStyle={{ paddingBottom: 100 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent}/>}
-            bounces={false}
-            overScrollMode="never"
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.headerLimpado}>
                 <Text style={[styles.headerTitleLimpado, { color: theme.text }]}>PAINEL DO <Text style={{color: theme.accent, fontWeight: '900'}}>ALUNO</Text></Text>
             </View>
 
-            {/* 🔥 CALENDÁRIO COM CHECKS REAIS DO HISTÓRICO */}
             <View style={styles.sectionContainerMod}>
                 <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
                     <View style={[styles.calendarCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -206,7 +196,6 @@ export default function TrainingScreen({ navigation }) {
                                 <View key={index} style={styles.calendarDayItemMod}>
                                     <Text style={[styles.calendarDayTextMod, { color: theme.text }, day.isToday && {color: theme.accent, fontWeight: 'bold'}]}>{day.dayName}</Text>
                                     
-                                    {/* SE ESTIVER CONCLUÍDO, MOSTRA O CHECK! */}
                                     {day.isDone ? (
                                         <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
                                     ) : (
@@ -377,9 +366,9 @@ export default function TrainingScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 5 : 0 },
+  scrollArea: { flex: 1, width: '100%' },
   center: { flex: 1, justifyContent:'center', alignItems:'center' },
-  mainWrapper: { flex: 1, width: '100%' },
-  webWrapper: { maxWidth: 480, alignSelf: 'center', borderLeftWidth: 1, borderRightWidth: 1 },
   
   headerLimpado: { padding: 20, paddingTop: 15, marginBottom: 10 },
   headerTitleLimpado: { fontSize: 28, fontWeight: '800' },
@@ -393,7 +382,6 @@ const styles = StyleSheet.create({
   calendarRowMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%' },
   calendarDayItemMod: { alignItems: 'center', flex: 1 },
   calendarDayTextMod: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
-  // Bolinha ligeiramente aumentada para casar com o ícone
   calendarDotMod: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
 
   readinessRowMod: { flexDirection: 'row', gap: 12, width: '100%' },

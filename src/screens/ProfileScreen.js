@@ -28,18 +28,14 @@ export default function ProfileScreen({ route }) {
   const [userData, setUserData] = useState(paramsUser); 
   const [userXP, setUserXP] = useState(0);
 
-  // States para o controle do tema visual na tela
   const [selectedColor, setSelectedColor] = useState('verde');
 
-  // --- LÓGICA DE NÍVEL (Gamification) ---
   const currentLevel = Math.floor(userXP / 1000) + 1;
   const xpToNextLevel = 1000 - (userXP % 1000);
   const progressPercent = (userXP % 1000) / 10; 
 
   useFocusEffect(
-    useCallback(() => {
-      loadProfileData();
-    }, [])
+    useCallback(() => { loadProfileData(); }, [])
   );
 
   const getSafeId = async () => {
@@ -77,7 +73,6 @@ export default function ProfileScreen({ route }) {
 
       if (savedImage) setProfileImage(savedImage);
       
-      // Descobre qual a cor ativa para pintar a bolinha certa
       if (savedThemeObj) {
           const parsedTheme = JSON.parse(savedThemeObj);
           if (parsedTheme.accent === '#FF2D55') setSelectedColor('rosa');
@@ -97,9 +92,7 @@ export default function ProfileScreen({ route }) {
   const pickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (permissionResult.granted === false) {
-        return Alert.alert("Permissão", "Precisamos de acesso à galeria.");
-      }
+      if (permissionResult.granted === false) return Alert.alert("Permissão", "Precisamos de acesso à galeria.");
 
       let result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -115,11 +108,8 @@ export default function ProfileScreen({ route }) {
         
         const userId = await getSafeId();
         if (userId) {
-              try {
-                await AsyncStorage.setItem(`@user_profile_image_${userId}`, imageBase64);
-              } catch (error) {
-                Alert.alert("Erro", "Imagem muito grande.");
-              }
+              try { await AsyncStorage.setItem(`@user_profile_image_${userId}`, imageBase64); } 
+              catch (error) { Alert.alert("Erro", "Imagem muito grande."); }
         }
       }
     } catch (e) { console.log("Erro Foto:", e); }
@@ -139,11 +129,16 @@ export default function ProfileScreen({ route }) {
       if (response.ok) {
         const updatedUser = { ...userData, name: userName, phone: phone };
         await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
-        Alert.alert("Sucesso", "Perfil atualizado!");
+        if(Platform.OS === 'web') window.alert("Perfil atualizado!");
+        else Alert.alert("Sucesso", "Perfil atualizado!");
       } else {
-        Alert.alert("Erro", "Não foi possível atualizar.");
+        if(Platform.OS === 'web') window.alert("Não foi possível atualizar.");
+        else Alert.alert("Erro", "Não foi possível atualizar.");
       }
-    } catch (e) { Alert.alert("Erro", "Verifique sua conexão."); } 
+    } catch (e) { 
+        if(Platform.OS === 'web') window.alert("Verifique sua conexão.");
+        else Alert.alert("Erro", "Verifique sua conexão."); 
+    } 
     finally { setLoading(false); }
   };
 
@@ -152,54 +147,34 @@ export default function ProfileScreen({ route }) {
       const message = `Olá Coach! Preciso de um suporte.`;
       const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
       
-      try {
-          await Linking.openURL(url);
-      } catch (error) {
-          Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
-      }
+      try { await Linking.openURL(url); } 
+      catch (error) { Alert.alert("Erro", "Não foi possível abrir o WhatsApp."); }
   };
 
-  // 🔥 SOLUÇÃO DEFINITIVA DO LOGOUT NO PWA
   const executeLogout = async () => {
       try {
           await AsyncStorage.multiRemove(['user', 'token', 'app_theme']); 
-          navigation.reset({
-            index: 0,
-            routes: [{ name: 'Login' }],
-          });
-      } catch (e) {
-          Alert.alert("Erro", "Falha ao sair.");
-      }
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      } catch (e) { Alert.alert("Erro", "Falha ao sair."); }
   };
 
   const handleLogout = () => {
       if (Platform.OS === 'web') {
-          // O navegador bloqueia os botões customizados do React Native, então usamos o nativo do Browser
           const confirmLogout = window.confirm("Deseja desconectar sua conta?");
-          if (confirmLogout) {
-              executeLogout();
-          }
+          if (confirmLogout) executeLogout();
       } else {
-          // No app nativo (iOS/Android), funciona perfeitamente com estilo
-          Alert.alert(
-            "Sair",
-            "Deseja desconectar sua conta?",
-            [
+          Alert.alert("Sair", "Deseja desconectar sua conta?", [
               { text: "Cancelar", style: "cancel" },
               { text: "Sair", style: 'destructive', onPress: executeLogout }
-            ]
-          );
+          ]);
       }
   };
 
-  // 🔥 FUNÇÕES DE CONTROLE DE TEMA
   const toggleDarkMode = (newValue) => {
       if (newValue) {
-          // Se for ligar o modo escuro, força a cor verde
           setSelectedColor('verde');
           changeTheme(true, 'verde');
       } else {
-          // Se for ligar o modo claro, mantém a cor que estava ou vai pro verde
           changeTheme(false, selectedColor);
       }
   };
@@ -209,137 +184,136 @@ export default function ProfileScreen({ route }) {
       changeTheme(theme.isDark, colorKey);
   };
 
+  // 🔥 Lógica da "Gaiola" PWA
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  const RootComponent = isWeb ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+    <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      <ScrollView 
-        contentContainerStyle={styles.scrollContent} 
-        showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadProfileData} tintColor={theme.accent}/>}
-      >
-        
-        {/* HEADER DE PERFIL */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
-            {profileImage ? (
-              <Image source={{ uri: profileImage }} style={[styles.avatar, { borderColor: theme.accent }]} />
-            ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={[styles.avatarInitial, { color: theme.text }]}>{userName.charAt(0).toUpperCase()}</Text>
-                <View style={[styles.camIcon, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="camera" size={14} color={theme.isDark ? "#000" : "#FFF"} /></View>
-              </View>
-            )}
-          </TouchableOpacity>
-          
-          <Text style={[styles.userName, { color: theme.text }]}>{userName}</Text>
-
-          {/* BARRA DE XP / NÍVEL */}
-          <View style={styles.xpContainer}>
-              <View style={styles.xpHeader}>
-                  <Text style={[styles.xpLabel, { color: theme.accent }]}>NÍVEL {currentLevel}</Text>
-                  <Text style={[styles.xpValue, { color: theme.text }]}>{userXP} XP</Text>
-              </View>
-              <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                  <View style={[styles.xpBarFill, { width: `${progressPercent}%`, backgroundColor: theme.accent }]} />
-              </View>
-              <Text style={styles.xpNext}>Faltam {xpToNextLevel} XP para o próximo nível</Text>
-          </View>
-        </View>
-
-        {/* 🔥 OPÇÕES DE APARÊNCIA E TEMA */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={styles.cardTitle}>APARÊNCIA DO APP</Text>
+      {/* 🔥 GAIOLA (AQUI ESTÁ O SEGREDO DO SCROLL FUNCIONAR NO WEB E MOBILE) */}
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+          <ScrollView 
+            contentContainerStyle={styles.scrollContent} 
+            showsVerticalScrollIndicator={false}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadProfileData} tintColor={theme.accent}/>}
+          >
             
-            {/* Chave de Modo Escuro/Claro */}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} />
-                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text>
-                </View>
-                <Switch 
-                    value={theme.isDark}
-                    onValueChange={toggleDarkMode}
-                    trackColor={{ false: '#ccc', true: theme.accent }}
-                    thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')}
-                />
+            <View style={styles.header}>
+              <TouchableOpacity onPress={pickImage} style={styles.avatarWrapper}>
+                {profileImage ? (
+                  <Image source={{ uri: profileImage }} style={[styles.avatar, { borderColor: theme.accent }]} />
+                ) : (
+                  <View style={[styles.avatarPlaceholder, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <Text style={[styles.avatarInitial, { color: theme.text }]}>{userName.charAt(0).toUpperCase()}</Text>
+                    <View style={[styles.camIcon, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="camera" size={14} color={theme.isDark ? "#000" : "#FFF"} /></View>
+                  </View>
+                )}
+              </TouchableOpacity>
+              
+              <Text style={[styles.userName, { color: theme.text }]}>{userName}</Text>
+
+              <View style={styles.xpContainer}>
+                  <View style={styles.xpHeader}>
+                      <Text style={[styles.xpLabel, { color: theme.accent }]}>NÍVEL {currentLevel}</Text>
+                      <Text style={[styles.xpValue, { color: theme.text }]}>{userXP} XP</Text>
+                  </View>
+                  <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
+                      <View style={[styles.xpBarFill, { width: `${progressPercent}%`, backgroundColor: theme.accent }]} />
+                  </View>
+                  <Text style={styles.xpNext}>Faltam {xpToNextLevel} XP para o próximo nível</Text>
+              </View>
             </View>
 
-            {/* Bolinhas de Cores (Só aparecem se o modo Claro estiver ativado) */}
-            {!theme.isDark && (
-                <View>
-                    <Text style={[styles.cardTitle, { marginBottom: 10, marginTop: 10 }]}>COR DE DESTAQUE</Text>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
-                        <TouchableOpacity onPress={() => selectThemeColor('verde')} style={[styles.colorCircle, { backgroundColor: '#99CC00', borderColor: selectedColor === 'verde' ? theme.text : 'transparent' }]} />
-                        <TouchableOpacity onPress={() => selectThemeColor('rosa')} style={[styles.colorCircle, { backgroundColor: '#FF2D55', borderColor: selectedColor === 'rosa' ? theme.text : 'transparent' }]} />
-                        <TouchableOpacity onPress={() => selectThemeColor('roxo')} style={[styles.colorCircle, { backgroundColor: '#AF52DE', borderColor: selectedColor === 'roxo' ? theme.text : 'transparent' }]} />
-                        <TouchableOpacity onPress={() => selectThemeColor('azul')} style={[styles.colorCircle, { backgroundColor: '#007AFF', borderColor: selectedColor === 'azul' ? theme.text : 'transparent' }]} />
-                        <TouchableOpacity onPress={() => selectThemeColor('vermelho')} style={[styles.colorCircle, { backgroundColor: '#FF3B30', borderColor: selectedColor === 'vermelho' ? theme.text : 'transparent' }]} />
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <Text style={styles.cardTitle}>APARÊNCIA DO APP</Text>
+                
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} />
+                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text>
                     </View>
+                    <Switch 
+                        value={theme.isDark}
+                        onValueChange={toggleDarkMode}
+                        trackColor={{ false: '#ccc', true: theme.accent }}
+                        thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')}
+                    />
                 </View>
-            )}
-        </View>
 
-        {/* STATUS DA ASSINATURA */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: userData?.plan === 'ELITE' ? theme.accent : theme.border }]}>
-            <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
-                <Text style={styles.cardTitle}>PLANO ATUAL</Text>
-                {userData?.plan === 'ELITE' && <MaterialCommunityIcons name="crown" size={20} color={theme.accent} />}
+                {!theme.isDark && (
+                    <View>
+                        <Text style={[styles.cardTitle, { marginBottom: 10, marginTop: 10 }]}>COR DE DESTAQUE</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
+                            <TouchableOpacity onPress={() => selectThemeColor('verde')} style={[styles.colorCircle, { backgroundColor: '#99CC00', borderColor: selectedColor === 'verde' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('rosa')} style={[styles.colorCircle, { backgroundColor: '#FF2D55', borderColor: selectedColor === 'rosa' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('roxo')} style={[styles.colorCircle, { backgroundColor: '#AF52DE', borderColor: selectedColor === 'roxo' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('azul')} style={[styles.colorCircle, { backgroundColor: '#007AFF', borderColor: selectedColor === 'azul' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('vermelho')} style={[styles.colorCircle, { backgroundColor: '#FF3B30', borderColor: selectedColor === 'vermelho' ? theme.text : 'transparent' }]} />
+                        </View>
+                    </View>
+                )}
             </View>
-            <Text style={[styles.planName, { color: theme.text }]}>{userData?.plan || "GRATUITO"}</Text>
-            <Text style={styles.planDesc}>
-                {userData?.plan === 'ELITE' ? 'Acesso total a treinos e dieta.' : 'Funcionalidades básicas.'}
-            </Text>
-        </View>
 
-        {/* BOTÃO WHATSAPP */}
-        <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
-            <MaterialCommunityIcons name="whatsapp" size={28} color="#FFF" />
-            <View style={{flex:1}}>
-                <Text style={styles.wppTitle}>FALAR COM O COACH</Text>
-                <Text style={styles.wppSubtitle}>Tire dúvidas ou ajuste seu treino</Text>
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: userData?.plan === 'ELITE' ? theme.accent : theme.border }]}>
+                <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
+                    <Text style={styles.cardTitle}>PLANO ATUAL</Text>
+                    {userData?.plan === 'ELITE' && <MaterialCommunityIcons name="crown" size={20} color={theme.accent} />}
+                </View>
+                <Text style={[styles.planName, { color: theme.text }]}>{userData?.plan || "GRATUITO"}</Text>
+                <Text style={styles.planDesc}>
+                    {userData?.plan === 'ELITE' ? 'Acesso total a treinos e dieta.' : 'Funcionalidades básicas.'}
+                </Text>
             </View>
-            <MaterialCommunityIcons name="chevron-right" size={24} color="rgba(255,255,255,0.5)" />
-        </TouchableOpacity>
 
-        {/* DADOS DE CONTATO */}
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <Text style={styles.cardTitle}>MEUS DADOS</Text>
-          
-          <Text style={[styles.label, { color: theme.accent }]}>Nome</Text>
-          <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-            <MaterialCommunityIcons name="account-outline" size={20} color={theme.textSecondary} />
-            <TextInput style={[styles.input, { color: theme.text }]} value={userName} onChangeText={setUserName} placeholder="Seu Nome" placeholderTextColor={theme.textSecondary} />
-          </View>
+            <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
+                <MaterialCommunityIcons name="whatsapp" size={28} color="#FFF" />
+                <View style={{flex:1}}>
+                    <Text style={styles.wppTitle}>FALAR COM O COACH</Text>
+                    <Text style={styles.wppSubtitle}>Tire dúvidas ou ajuste seu treino</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={24} color="rgba(255,255,255,0.5)" />
+            </TouchableOpacity>
 
-          <Text style={[styles.label, { color: theme.accent }]}>E-mail</Text>
-          <View style={[styles.inputGroup, { opacity: 0.6, backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <MaterialCommunityIcons name="email-outline" size={20} color={theme.textSecondary} />
-            <TextInput style={[styles.input, { color: theme.textSecondary }]} value={email} editable={false} />
-            <MaterialCommunityIcons name="lock" size={16} color={theme.textSecondary} />
-          </View>
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={styles.cardTitle}>MEUS DADOS</Text>
+              
+              <Text style={[styles.label, { color: theme.accent }]}>Nome</Text>
+              <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                <MaterialCommunityIcons name="account-outline" size={20} color={theme.textSecondary} />
+                <TextInput style={[styles.input, { color: theme.text }]} value={userName} onChangeText={setUserName} placeholder="Seu Nome" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
+              </View>
 
-          <Text style={[styles.label, { color: theme.accent }]}>WhatsApp</Text>
-          <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-            <MaterialCommunityIcons name="whatsapp" size={20} color={theme.textSecondary} />
-            <TextInput style={[styles.input, { color: theme.text }]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="Telefone" placeholderTextColor={theme.textSecondary} />
-          </View>
+              <Text style={[styles.label, { color: theme.accent }]}>E-mail</Text>
+              <View style={[styles.inputGroup, { opacity: 0.6, backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <MaterialCommunityIcons name="email-outline" size={20} color={theme.textSecondary} />
+                <TextInput style={[styles.input, { color: theme.textSecondary }]} value={email} editable={false} outlineStyle="none" />
+                <MaterialCommunityIcons name="lock" size={16} color={theme.textSecondary} />
+              </View>
 
-          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={saveContactInfo} disabled={loading}>
-            {loading ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR ALTERAÇÕES</Text>}
-          </TouchableOpacity>
-        </View>
+              <Text style={[styles.label, { color: theme.accent }]}>WhatsApp</Text>
+              <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                <MaterialCommunityIcons name="whatsapp" size={20} color={theme.textSecondary} />
+                <TextInput style={[styles.input, { color: theme.text }]} value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="Telefone" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
+              </View>
 
-        {/* BOTÃO LOGOUT */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <MaterialCommunityIcons name="logout" size={20} color="#FF4444" />
-          <Text style={styles.logoutBtnText}>SAIR DA CONTA</Text>
-        </TouchableOpacity>
+              <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={saveContactInfo} disabled={loading}>
+                {loading ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR ALTERAÇÕES</Text>}
+              </TouchableOpacity>
+            </View>
 
-        <Text style={styles.version}>Versão 2.1.0 • FIT OS App</Text>
+            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+              <MaterialCommunityIcons name="logout" size={20} color="#FF4444" />
+              <Text style={styles.logoutBtnText}>SAIR DA CONTA</Text>
+            </TouchableOpacity>
 
-      </ScrollView>
-    </SafeAreaView>
+            <Text style={styles.version}>Versão 2.1.0 • FIT OS App</Text>
+
+          </ScrollView>
+      </View>
+    </RootComponent>
   );
 }
 
@@ -364,7 +338,7 @@ const styles = StyleSheet.create({
   xpBarFill: { height: '100%' },
   xpNext: { color: '#888', fontSize: 10, marginTop: 5, textAlign: 'center', fontStyle: 'italic' },
 
-  card: { padding: 20, borderRadius: 16, marginBottom: 20, borderWidth: 1 },
+  card: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
   cardTitle: { color: '#888', fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 15 },
   
   colorCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 3 },
@@ -372,19 +346,19 @@ const styles = StyleSheet.create({
   planName: { fontSize: 18, fontWeight: '900', marginBottom: 2 },
   planDesc: { color: '#888', fontSize: 12 },
 
-  whatsappBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#25D366', padding: 20, borderRadius: 16, gap: 15, marginBottom: 20, elevation: 5 },
+  whatsappBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#25D366', padding: 20, borderRadius: 24, gap: 15, marginBottom: 20, elevation: 5 },
   wppTitle: { color: '#FFF', fontWeight: '900', fontSize: 16 },
   wppSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 12 },
 
   label: { fontSize: 11, fontWeight: 'bold', marginBottom: 6, marginLeft: 2 },
-  inputGroup: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, paddingHorizontal: 15, marginBottom: 15, height: 50, borderWidth: 1 },
-  input: { flex: 1, marginLeft: 10, fontSize: 14, fontWeight: '500' },
+  inputGroup: { flexDirection: 'row', alignItems: 'center', borderRadius: 16, paddingHorizontal: 15, marginBottom: 15, height: 55, borderWidth: 1 },
+  input: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500' },
   
-  saveBtn: { height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
-  saveBtnText: { fontSize: 13, fontWeight: '900' },
+  saveBtn: { height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  saveBtnText: { fontSize: 14, fontWeight: '900' },
   
-  logoutBtn: { flexDirection: 'row', backgroundColor: '#FFE5E5', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#FFB2B2' },
-  logoutBtnText: { color: '#FF4444', fontSize: 12, fontWeight: '900', marginLeft: 10 },
+  logoutBtn: { flexDirection: 'row', backgroundColor: '#FFE5E5', height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#FFB2B2' },
+  logoutBtnText: { color: '#FF4444', fontSize: 13, fontWeight: '900', marginLeft: 10 },
   
   version: { textAlign: 'center', color: '#888', fontSize: 10 }
 });
