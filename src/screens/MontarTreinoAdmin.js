@@ -8,11 +8,9 @@ import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-cont
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Video, ResizeMode } from 'expo-av';
-import * as DocumentPicker from 'expo-document-picker'; // 🔥 IMPORTADOR DE ARQUIVOS
+import * as DocumentPicker from 'expo-document-picker'; 
 
 import { useTheme } from '../contexts/ThemeContext';
-
-/* 🔥 NOSSOS NOVOS COMPONENTES ISOLADOS (A MÁGICA DA ORGANIZAÇÃO) */
 import SmartThumbnail from '../components/MontarTreino/SmartThumbnail';
 import ExerciseCardAdmin from '../components/MontarTreino/ExerciseCardAdmin';
 
@@ -62,7 +60,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const [biblioteca, setBiblioteca] = useState([]); 
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [isImportingAI, setIsImportingAI] = useState(false); // 🔥 ESTADO DE LOADING DA IA
+  const [isImportingAI, setIsImportingAI] = useState(false); 
   
   const [workoutTabs, setWorkoutTabs] = useState(['A']);
   const [selectedWorkoutTab, setSelectedWorkoutTab] = useState('A');
@@ -101,7 +99,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const [indexExercicioAtual, setIndexExercicioAtual] = useState(null);
   const [indexBlocoAtual, setIndexBlocoAtual] = useState(null);
 
-  // 🔥 NOVOS ESTADOS PARA A TROCA DE EXERCÍCIO FANTASMA MANTENDO SÉRIES
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapIndex, setSwapIndex] = useState(null);
 
@@ -113,12 +110,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
   const goals = ['TODOS', 'Emagrecimento', 'Hipertrofia', 'Definição', 'Qualidade de Vida', 'Condicionamento', 'Recuperação'];
   
-  // Opções para Musculação
   const tecnicasDisponiveis = [{ id: '', title: 'NORMAL' }, { id: 'GVT', title: 'GVT (10x10)' }, { id: 'DROPSET', title: 'DROP-SET' }, { id: 'RESTPAUSE', title: 'REST-PAUSE' }, { id: 'BISET', title: 'BI-SET' }, { id: '21', title: 'MÉTODO 21' }, { id: 'CLUSTERSET', title: 'CLUSTER' }];
-  // Opções para Cardio
   const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
 
-  // 🔥 CIRURGIA: RESET DE FANTASMAS
   useEffect(() => { 
       if (!isEditing && !isTemplateMode) {
           setExercisesByDay({ 'A': [] });
@@ -227,7 +221,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     } catch (err) { } finally { setLoading(false); }
   };
 
-  // 🔥 CIRURGIA DO IMPORTADOR MÁGICO MFIT 🔥
   const handleImportPDF = async () => {
       try {
           const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
@@ -265,11 +258,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               
               Object.keys(data.exercisesByDay).forEach(day => {
                   newExercisesByDay[day] = data.exercisesByDay[day].map((aiEx) => {
-                      // 🧠 Busca Inteligente na Biblioteca pelo Nome
                       const match = biblioteca.find(b => b.name.toLowerCase().includes(aiEx.title.toLowerCase()) || aiEx.title.toLowerCase().includes(b.name.toLowerCase()));
 
                       return {
-                          exerciseId: match ? match.id : `custom_${Math.random()}`, // Se não achar, cria fantasma
+                          exerciseId: match ? match.id : `custom_${Math.random()}`, 
                           title: match ? match.name : aiEx.title,
                           videoUrl: match ? match.videoUrl : '',
                           category: aiEx.category || (match ? match.category : ''),
@@ -292,7 +284,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   setWorkoutTabs(extractedTabs);
                   setSelectedWorkoutTab(extractedTabs[0]);
               }
-              Alert.alert("🔥 IA Finalizada!", "Treino importado e pareado com sua biblioteca. Verifique e salve.");
+              Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção: Verifique se existem exercícios 'Fantasmas' (sem vídeo) e clique no ícone de trocar (setas) para vinculá-los à sua biblioteca.");
           }
       } catch (error) {
           console.error(error);
@@ -385,7 +377,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
   };
 
-  // 🔥 LÓGICA ATUALIZADA (AGORA ENTENDE O BOTÃO DE TROCAR/SWAP)
   const addExercicioManual = (ex) => {
     const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
     
@@ -395,7 +386,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         : [{ sets: '3', reps: '12', restTime: '60', technique: '' }];
 
     if (isSwapping && swapIndex !== null) {
-        // 🔥 MANTÉM OS BLOCOS E REPS! Só troca a "casca" do exercício.
         currentList[swapIndex].exerciseId = ex.id;
         currentList[swapIndex].title = ex.name;
         currentList[swapIndex].videoUrl = ex.videoUrl;
@@ -448,6 +438,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l});
   };
 
+  // 🔥 A GRANDE CIRURGIA DE SALVAMENTO E ARQUIVAMENTO 🔥
   const salvarTreinoFinal = async () => {
     if (!customWorkoutName) return Alert.alert("Erro", "Defina um nome para a rotina.");
     setSending(true);
@@ -464,20 +455,26 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     }
 
     let flatExercises = [];
+    let temFantasma = false; // Detetive de fantasmas
+
     Object.keys(exercisesByDay).forEach(day => {
         exercisesByDay[day].forEach((ex, index) => {
+            // Se o ID tiver a marca da IA, ele bloqueia a subida pra não dar erro 500
+            if (ex.exerciseId && String(ex.exerciseId).startsWith('custom_')) {
+                temFantasma = true;
+            }
+
             const isCardio = ex.category?.toUpperCase() === 'CARDIO';
-            // Se for cardio, as variáveis tem significados diferentes, mas vamos salvar nas mesmas chaves do banco para manter a estrutura.
             const safeBlocks = (ex.blocks && ex.blocks.length > 0) ? ex.blocks : [{ sets: '3', reps: '10', technique: '', restTime: '60' }];
             const hiddenPayload = JSON.stringify({ t: safeBlocks[0].technique || "", b: safeBlocks, o: ex.observation || "" });
 
             flatExercises.push({
                 exerciseId: ex.exerciseId, 
                 day, 
-                sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3), // Se cardio, sets = Tempo
-                reps: String(safeBlocks[0].reps), // Se cardio, reps = Kcal
-                technique: hiddenPayload, // Técnica agora inclui Intensidade
-                restTime: parseInt(safeBlocks[0].restTime) || 0, // Cardio não tem restTime, manda 0
+                sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3),
+                reps: String(safeBlocks[0].reps), 
+                technique: hiddenPayload,
+                restTime: parseInt(safeBlocks[0].restTime) || 0,
                 order: index,
                 observation: ex.observation || "", 
                 substituteId: ex.substitute ? ex.substitute.id : null
@@ -485,17 +482,41 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         });
     });
 
+    // MISTÉRIO 1 RESOLVIDO: O Bloqueio do Erro 500
+    if (temFantasma) {
+        setSending(false);
+        return Alert.alert(
+            "Exercícios Fantasmas Encontrados!", 
+            "Existem exercícios que vieram do PDF e ainda não estão vinculados à sua biblioteca oficial.\n\nPor favor, clique no botão azul de 'Sincronizar' no cartão desses exercícios para vinculá-los antes de salvar."
+        );
+    }
+
     let finalEndDate = endDate;
     if (isArchived) { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); finalEndDate = yesterday; }
 
     try {
-      await fetch(`https://fitos-final.onrender.com/api/workout`, { 
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // 🔥 PERMITINDO MÚLTIPLAS ROTINAS ATIVAS (archiveCurrent: false)
+      // MISTÉRIO 2 RESOLVIDO: O Arquivamento e Edição (PUT vs POST)
+      const isUpdate = isEditing && workoutToEdit?.id;
+      const endpoint = isUpdate 
+          ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` // Se for edição, chama a rota de alterar
+          : `https://fitos-final.onrender.com/api/workout`; // Se for novo, chama a rota de criar
+      
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      const response = await fetch(endpoint, { 
+        method: method, 
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false })
       });
-      Alert.alert("Sucesso", isArchived ? "Rotina arquivada!" : "Rotina salva!"); navigation.goBack(); 
-    } catch (e) { Alert.alert("Erro", "Falha ao salvar."); } 
+
+      if (!response.ok) throw new Error('Falha no servidor');
+
+      Alert.alert("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); 
+      navigation.goBack(); 
+    } catch (e) { 
+        console.error(e);
+        Alert.alert("Erro", "Falha ao salvar. Tente novamente."); 
+    } 
     finally { setSending(false); }
   };
 
@@ -515,7 +536,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
   const RootComponent = isWeb ? View : SafeAreaViewContext;
 
-  // Verifica se o exercício atual aberto no Modal de Técnica é um Cardio
   const currentExOpened = currentExercises[indexExercicioAtual];
   const isCurrentCardio = currentExOpened?.category?.toUpperCase() === 'CARDIO';
   const modalOptionsToShow = isCurrentCardio ? intensidadesCardio : tecnicasDisponiveis;
@@ -545,8 +565,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto' } : { flex: 1, width: '100%' }} 
               contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} 
               showsVerticalScrollIndicator={true}
-              bounces={false} /* 🔥 CIRURGIA: TRAVA MOLENGA iOS */
-              overScrollMode="never" /* 🔥 CIRURGIA: TRAVA MOLENGA ANDROID */
+              bounces={false} 
+              overScrollMode="never" 
           >
               <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100vh' } : {}) }}>
                       
@@ -583,12 +603,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                               <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                   <Text style={[styles.archiveLabel, isArchived ? {color:'#FF3B30'} : {color: theme.accent}]}>STATUS: {isArchived ? "ARQUIVADO" : "ATIVO"}</Text>
                                   
-                                  {/* 🔥 CIRURGIA: DESARQUIVAMENTO INTELIGENTE */}
                                   <Switch 
                                       value={isArchived} 
                                       onValueChange={(val) => {
                                           setIsArchived(val);
-                                          // Se o usuário DESLIGAR o botão e a data estiver vencida, joga pra frente 30 dias automaticamente
                                           if (!val && endDate < new Date()) {
                                               const futureDate = new Date();
                                               futureDate.setDate(futureDate.getDate() + 30);
@@ -643,7 +661,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                           </View>
                       )}
 
-                      {/* 🔥 O NOVO BOTÃO DA IA FICOU AQUI, LOGO ABAIXO DOS BOTÕES DE LIMPAR/IMPORTAR */}
                       <View style={styles.toolsRow}>
                           <TouchableOpacity style={[styles.toolBtnHighlight, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.accent }]} onPress={handleClearWorkout}>
                               <MaterialCommunityIcons name="delete-sweep" size={18} color={theme.text} />
@@ -655,7 +672,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                           </TouchableOpacity>
                       </View>
                       
-                      {/* 🔥 BOTÃO MÁGICO DE IMPORTAR PDF MFIT */}
                       <TouchableOpacity 
                           style={[{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 20, gap: 10, elevation: 2 }]} 
                           onPress={handleImportPDF}
@@ -713,7 +729,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                           </View>
                       ) : (
                           <>
-                          {/* 🔥 O MAPA AGORA UTILIZA O NOSSO COMPONENTE EXTERNO LIMPO E ORGANIZADO */}
                           {currentExercises.map((item, index) => (
                               <ExerciseCardAdmin 
                                   key={item.tempId}
@@ -736,7 +751,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   atualizarObservacao={atualizarObservacao}
                                   openPreview={openPreview}
                                   currentExercisesLength={currentExercises.length}
-                                  // 🔥 PASSANDO OS ESTADOS PRO CARTÃO
                                   setIsSwapping={setIsSwapping}
                                   setSwapIndex={setSwapIndex}
                               />
@@ -848,7 +862,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                               <View style={[styles.catTag, { backgroundColor: theme.surface, marginTop: 5, alignSelf: 'flex-start' }]}><Text style={[styles.libCat, { color: theme.textSecondary }]}>{item.category}</Text></View>
                           </View>
                           <TouchableOpacity onPress={() => addExercicioManual(item)} style={{ padding: 8, backgroundColor: theme.accent + '22', borderRadius: 12 }}>
-                              {/* 🔥 MUDA O ÍCONE DEPENDENDO DA AÇÃO */}
                               <MaterialCommunityIcons name={isSwapping ? "sync" : "plus"} size={24} color={theme.accent} />
                           </TouchableOpacity>
                       </View>
