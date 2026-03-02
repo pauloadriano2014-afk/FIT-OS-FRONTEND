@@ -258,7 +258,15 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               
               Object.keys(data.exercisesByDay).forEach(day => {
                   newExercisesByDay[day] = data.exercisesByDay[day].map((aiEx) => {
-                      const match = biblioteca.find(b => b.name.toLowerCase().includes(aiEx.title.toLowerCase()) || aiEx.title.toLowerCase().includes(b.name.toLowerCase()));
+                      
+                      // 🔥 BUSCA INTELIGENTE A PROVA DE FALHAS (Acentos, Maiúsculas e Espaços)
+                      const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
+                      
+                      const match = biblioteca.find(b => {
+                          const bName = normalizeStr(b.name);
+                          const aiName = normalizeStr(aiEx.title);
+                          return bName.includes(aiName) || aiName.includes(bName);
+                      });
 
                       return {
                           exerciseId: match ? match.id : `custom_${Math.random()}`, 
@@ -284,11 +292,13 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   setWorkoutTabs(extractedTabs);
                   setSelectedWorkoutTab(extractedTabs[0]);
               }
-              Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção: Verifique se existem exercícios 'Fantasmas' (sem vídeo) e clique no ícone de trocar (setas) para vinculá-los à sua biblioteca.");
+              if (Platform.OS === 'web') window.alert("🔥 IA Finalizada!\n\nTreino importado! Atenção: Verifique se existem exercícios FANTASMAS (MERCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
+              else Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção: Verifique se existem exercícios FANTASMAS (MERCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
           }
       } catch (error) {
           console.error(error);
-          Alert.alert("Erro", "Não foi possível processar o PDF.");
+          if (Platform.OS === 'web') window.alert("Erro\n\nNão foi possível processar o PDF.");
+          else Alert.alert("Erro", "Não foi possível processar o PDF.");
       } finally {
           setIsImportingAI(false);
       }
@@ -438,9 +448,13 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l});
   };
 
-  // 🔥 A GRANDE CIRURGIA DE SALVAMENTO E ARQUIVAMENTO 🔥
   const salvarTreinoFinal = async () => {
-    if (!customWorkoutName) return Alert.alert("Erro", "Defina um nome para a rotina.");
+    const alertMsg = (title, msg) => {
+        if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
+        else Alert.alert(title, msg);
+    };
+
+    if (!customWorkoutName) return alertMsg("Erro", "Defina um nome para a rotina.");
     setSending(true);
 
     if (isTemplateMode) {
@@ -449,17 +463,16 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id: templateData?.id, name: customWorkoutName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(exercisesByDay) })
             });
-            Alert.alert("Sucesso", "Template salvo!"); navigation.goBack();
-        } catch(e) { Alert.alert("Erro"); } finally { setSending(false); }
+            alertMsg("Sucesso", "Template salvo!"); navigation.goBack();
+        } catch(e) { alertMsg("Erro", "Falha ao salvar template"); } finally { setSending(false); }
         return;
     }
 
     let flatExercises = [];
-    let temFantasma = false; // Detetive de fantasmas
+    let temFantasma = false; 
 
     Object.keys(exercisesByDay).forEach(day => {
         exercisesByDay[day].forEach((ex, index) => {
-            // Se o ID tiver a marca da IA, ele bloqueia a subida pra não dar erro 500
             if (ex.exerciseId && String(ex.exerciseId).startsWith('custom_')) {
                 temFantasma = true;
             }
@@ -482,12 +495,11 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         });
     });
 
-    // MISTÉRIO 1 RESOLVIDO: O Bloqueio do Erro 500
     if (temFantasma) {
         setSending(false);
-        return Alert.alert(
-            "Exercícios Fantasmas Encontrados!", 
-            "Existem exercícios que vieram do PDF e ainda não estão vinculados à sua biblioteca oficial.\n\nPor favor, clique no botão azul de 'Sincronizar' no cartão desses exercícios para vinculá-los antes de salvar."
+        return alertMsg(
+            "⚠️ EXERCÍCIOS FANTASMAS ENCONTRADOS!", 
+            "Existem exercícios na lista destacados em VERMELHO.\n\nEles vieram do PDF e ainda não estão vinculados à sua biblioteca oficial. Clique no botão de 'Sincronizar' (ícone vermelho) nesses cartões e escolha um exercício da galeria antes de salvar."
         );
     }
 
@@ -495,11 +507,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     if (isArchived) { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); finalEndDate = yesterday; }
 
     try {
-      // MISTÉRIO 2 RESOLVIDO: O Arquivamento e Edição (PUT vs POST)
       const isUpdate = isEditing && workoutToEdit?.id;
       const endpoint = isUpdate 
-          ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` // Se for edição, chama a rota de alterar
-          : `https://fitos-final.onrender.com/api/workout`; // Se for novo, chama a rota de criar
+          ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` 
+          : `https://fitos-final.onrender.com/api/workout`; 
       
       const method = isUpdate ? 'PUT' : 'POST';
 
@@ -509,13 +520,13 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false })
       });
 
-      if (!response.ok) throw new Error('Falha no servidor');
+      if (!response.ok) throw new Error('Falha no servidor ao salvar.');
 
-      Alert.alert("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); 
+      alertMsg("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); 
       navigation.goBack(); 
     } catch (e) { 
         console.error(e);
-        Alert.alert("Erro", "Falha ao salvar. Tente novamente."); 
+        alertMsg("Erro", "Falha ao salvar. Verifique sua conexão e tente novamente."); 
     } 
     finally { setSending(false); }
   };
@@ -545,7 +556,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     <RootComponent style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* HEADER GLOBAL */}
       <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
           <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: isWeb ? 20 : 10, paddingBottom: 15 }}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, width: 45, alignItems: 'center' }}>
