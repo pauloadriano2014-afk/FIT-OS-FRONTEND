@@ -14,7 +14,8 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
-  FlatList
+  FlatList,
+  Dimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,6 +24,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
+
+const { width } = Dimensions.get('window');
+
+// 🔥 PERGUNTAS RÁPIDAS PARA O CHAT
+const QUICK_QUESTIONS = [
+    "🤖 Como funciona a IA de Vídeo?",
+    "🏋️‍♂️ Como marco as séries no treino?",
+    "📈 Onde vejo minha Evolução?",
+    "📸 Como fazer o Check-in?",
+    "🚨 Estou com dor na articulação!"
+];
 
 export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -40,7 +52,6 @@ export default function HomeScreen({ navigation }) {
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   
-  // 🔥 Começa vazio para carregar o nome dinâmico depois
   const [messages, setMessages] = useState([]); 
   const flatListRef = useRef(null);
 
@@ -72,11 +83,10 @@ export default function HomeScreen({ navigation }) {
         const firstName = user.name?.split(' ')[0] || 'Atleta';
         setUserName(firstName);
         
-        // 🔥 Saudação Personalizada com o nome do aluno(a)
         if (messages.length === 0) {
             setMessages([{ 
                 id: 1, 
-                text: `Fala, ${firstName}! 👊 Sou o PA Coach AI. Precisa de ajuda com o treino, dieta ou tem alguma dúvida sobre o app hoje?`, 
+                text: `Fala, ${firstName}! 👊 Sou o PA Coach AI. Use os botões abaixo se tiver alguma dúvida sobre o app ou treino.`, 
                 sender: 'ai' 
             }]);
         }
@@ -134,10 +144,11 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  const handleSendChat = async () => {
-    if (!chatInput.trim()) return;
+  const handleSendChat = async (quickMessage = null) => {
+    const textToSend = typeof quickMessage === 'string' ? quickMessage : chatInput;
+    if (!textToSend.trim()) return;
 
-    const userMsg = { id: Date.now(), text: chatInput, sender: 'user' };
+    const userMsg = { id: Date.now(), text: textToSend, sender: 'user' };
     setMessages(prev => [...prev, userMsg]);
     setChatInput('');
     setIsTyping(true);
@@ -199,18 +210,20 @@ export default function HomeScreen({ navigation }) {
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  
+  // 🔥 SCROLL BLINDADO: Copiado EXATAMENTE da sua ProfileScreen que funciona. Sem overflow escondido, sem 100vh.
+  const RootComponent = isWeb ? View : SafeAreaView;
 
   if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
+    <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* 🔥 GAIOLA E PROTEÇÃO CONTRA A "CABEÇA CORTADA" (paddingTop extra na Web) */}
-      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, paddingTop: isWeb ? 30 : 0, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           
           <ScrollView 
-            style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
+            style={{ flex: 1, width: '100%' }}
             contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor={theme.accent}/>}
             showsVerticalScrollIndicator={false}
@@ -287,10 +300,7 @@ export default function HomeScreen({ navigation }) {
             style={[styles.fabChat, { shadowColor: theme.accent }]} 
             onPress={() => setChatVisible(true)}
           >
-            <LinearGradient
-                colors={[theme.accent, theme.accent]}
-                style={styles.fabGradient}
-            >
+            <LinearGradient colors={[theme.accent, theme.accent]} style={styles.fabGradient}>
                 <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
             </LinearGradient>
           </TouchableOpacity>
@@ -326,40 +336,58 @@ export default function HomeScreen({ navigation }) {
                         keyExtractor={item => item.id.toString()}
                         renderItem={renderChatMessage}
                         contentContainerStyle={{padding: 20}}
-                        style={[{flex: 1}, isWeb && { overflowY: 'auto' }]}
+                        style={{flex: 1}}
                         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
                         showsVerticalScrollIndicator={false}
                     />
 
-                    <View style={[styles.chatInputArea, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-                        <TextInput 
-                            style={[styles.chatInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
-                            placeholder="Pergunte sobre treinos..."
-                            placeholderTextColor={theme.textSecondary}
-                            value={chatInput}
-                            onChangeText={setChatInput}
-                            onSubmitEditing={handleSendChat}
-                            outlineStyle="none"
-                        />
-                        <TouchableOpacity style={[styles.chatSendBtn, { backgroundColor: theme.accent }]} onPress={handleSendChat} disabled={isTyping}>
-                            {isTyping ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <MaterialCommunityIcons name="send" size={20} color={theme.isDark ? '#000' : '#FFF'} />}
-                        </TouchableOpacity>
+                    {/* BOTÕES RÁPIDOS */}
+                    <View style={{ borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.surface, paddingTop: 10 }}>
+                        <ScrollView 
+                            horizontal 
+                            showsHorizontalScrollIndicator={false} 
+                            contentContainerStyle={{ paddingHorizontal: 15, gap: 10 }}
+                            style={{ maxHeight: 50 }}
+                        >
+                            {QUICK_QUESTIONS.map((question, index) => (
+                                <TouchableOpacity 
+                                    key={index}
+                                    style={[styles.quickActionBtn, { borderColor: theme.accent, backgroundColor: theme.bg }]}
+                                    onPress={() => handleSendChat(question)}
+                                    disabled={isTyping}
+                                >
+                                    <Text style={[styles.quickActionText, { color: theme.text }]}>{question}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        <View style={styles.chatInputArea}>
+                            <TextInput 
+                                style={[styles.chatInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                placeholder="Ou digite sua dúvida..."
+                                placeholderTextColor={theme.textSecondary}
+                                value={chatInput}
+                                onChangeText={setChatInput}
+                                onSubmitEditing={() => handleSendChat()}
+                                outlineStyle="none"
+                            />
+                            <TouchableOpacity style={[styles.chatSendBtn, { backgroundColor: theme.accent }]} onPress={() => handleSendChat()} disabled={isTyping}>
+                                {isTyping ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <MaterialCommunityIcons name="send" size={20} color={theme.isDark ? '#000' : '#FFF'} />}
+                            </TouchableOpacity>
+                        </View>
                     </View>
+
                 </View>
             </KeyboardAvoidingView>
         </View>
       </Modal>
 
-    </SafeAreaView>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
-  },
-  scrollArea: { flex: 1, width: '100%' },
+  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
   greeting: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
@@ -399,13 +427,10 @@ const styles = StyleSheet.create({
   chatTitle: { fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
   chatStatus: { fontSize: 11, fontWeight: 'bold', marginTop: 2 },
   
-  chatInputArea: { 
-    flexDirection: 'row', 
-    padding: 20, 
-    paddingBottom: Platform.OS === 'android' ? 40 : 25, 
-    alignItems: 'center', 
-    borderTopWidth: 1 
-  },
+  quickActionBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, borderWidth: 1, height: 40, justifyContent: 'center' },
+  quickActionText: { fontSize: 12, fontWeight: '600' },
+
+  chatInputArea: { flexDirection: 'row', padding: 20, paddingBottom: Platform.OS === 'android' ? 40 : 25, alignItems: 'center' },
   chatInput: { flex: 1, borderRadius: 25, paddingHorizontal: 20, paddingVertical: 14, marginRight: 10, borderWidth: 1, fontSize: 15 },
   chatSendBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center' },
 
