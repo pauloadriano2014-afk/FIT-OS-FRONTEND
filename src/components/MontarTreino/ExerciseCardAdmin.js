@@ -1,18 +1,19 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import SmartThumbnail from './SmartThumbnail'; // 🔥 AGORA É VIZINHO DE PASTA, NÃO DÁ ERRO!
+import SmartThumbnail from './SmartThumbnail'; 
 
 export default function ExerciseCardAdmin({ 
     item, index, theme, isReordering, moveExercise, removeExercicio, 
     setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible, 
     removeSubstitute, atualizarBloco, adicionarBloco, removerBloco, 
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible, 
-    atualizarObservacao, openPreview, currentExercisesLength 
+    atualizarObservacao, openPreview, currentExercisesLength,
+    // 🔥 NOVAS PROPS PARA A TROCA INTELIGENTE
+    setIsSwapping, setSwapIndex
 }) {
     const videoUrl = item.exercise?.videoUrl || item.videoUrl || "";
     
-    // 🔥 LÓGICA DO CARDIO INTELIGENTE
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
 
     if (isReordering) {
@@ -50,9 +51,20 @@ export default function ExerciseCardAdmin({
                         {isCardio && <View style={[styles.catTag, { backgroundColor: theme.bg, borderColor: theme.accent }]}><Text style={{fontSize: 9, color: theme.accent, fontWeight: 'bold'}}>CARDIO</Text></View>}
                     </View>
                 </View>
-                <TouchableOpacity onPress={() => removeExercicio(item.tempId)} style={{marginLeft:5, padding: 5}}>
-                    <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FF3B30" />
-                </TouchableOpacity>
+                
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    {/* 🔥 BOTÃO DE TROCAR EXERCÍCIO (MANTENDO AS SÉRIES) */}
+                    <TouchableOpacity 
+                        onPress={() => { setIsSwapping(true); setSwapIndex(index); setModalBuscaVisible(true); }} 
+                        style={{ padding: 8, backgroundColor: theme.accent + '22', borderRadius: 8, marginRight: 5 }}
+                    >
+                        <MaterialCommunityIcons name="sync" size={20} color={theme.accent} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={() => removeExercicio(item.tempId)} style={{ padding: 8 }}>
+                        <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FF3B30" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {item.substitute ? (

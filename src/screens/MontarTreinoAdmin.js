@@ -101,6 +101,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const [indexExercicioAtual, setIndexExercicioAtual] = useState(null);
   const [indexBlocoAtual, setIndexBlocoAtual] = useState(null);
 
+  // 🔥 NOVOS ESTADOS PARA A TROCA DE EXERCÍCIO FANTASMA MANTENDO SÉRIES
+  const [isSwapping, setIsSwapping] = useState(false);
+  const [swapIndex, setSwapIndex] = useState(null);
+
   const [templateGoal, setTemplateGoal] = useState('TODOS');
   const [templateLevel, setTemplateLevel] = useState('TODOS');
   const [templatesList, setTemplatesList] = useState([]);
@@ -381,18 +385,27 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
   };
 
+  // 🔥 LÓGICA ATUALIZADA (AGORA ENTENDE O BOTÃO DE TROCAR/SWAP)
   const addExercicioManual = (ex) => {
     const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
     
-    // Se for Cardio, inicializa os blocos com o formato adequado
     const isCardio = ex.category?.toUpperCase() === 'CARDIO';
     const initialBlocks = isCardio 
-        ? [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada' }] // 20min, 200kcal, Intensidade Moderada
+        ? [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada' }] 
         : [{ sets: '3', reps: '12', restTime: '60', technique: '' }];
 
-    if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
+    if (isSwapping && swapIndex !== null) {
+        // 🔥 MANTÉM OS BLOCOS E REPS! Só troca a "casca" do exercício.
+        currentList[swapIndex].exerciseId = ex.id;
+        currentList[swapIndex].title = ex.name;
+        currentList[swapIndex].videoUrl = ex.videoUrl;
+        currentList[swapIndex].category = ex.category;
+        setIsSwapping(false); 
+        setSwapIndex(null);
+    } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
         currentList[targetIndexForSubstitute].substitute = { id: ex.id, name: ex.name, videoUrl: ex.videoUrl };
-        setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
+        setIsSelectingSubstitute(false); 
+        setTargetIndexForSubstitute(null);
     } else {
         currentList.push({ 
             exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitute: null, category: ex.category,
@@ -602,7 +615,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                         <Text style={[styles.actionBtnText, {color:'#32ADE6'}]}>REORDENAR</Text>
                                     </TouchableOpacity>
                                     
-                                    <TouchableOpacity style={[styles.actionBtn, {backgroundColor:'#32ADE6', flex:1}]} onPress={() => { setIsSelectingSubstitute(false); setModalBuscaVisible(true); }}>
+                                    <TouchableOpacity style={[styles.actionBtn, {backgroundColor:'#32ADE6', flex:1}]} onPress={() => { setIsSelectingSubstitute(false); setIsSwapping(false); setModalBuscaVisible(true); }}>
                                         <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
                                         <Text style={[styles.actionBtnText, {color:'#FFF'}]}>ADICIONAR</Text>
                                     </TouchableOpacity>
@@ -723,11 +736,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   atualizarObservacao={atualizarObservacao}
                                   openPreview={openPreview}
                                   currentExercisesLength={currentExercises.length}
+                                  // 🔥 PASSANDO OS ESTADOS PRO CARTÃO
+                                  setIsSwapping={setIsSwapping}
+                                  setSwapIndex={setSwapIndex}
                               />
                           ))}
                           
                           {!isReordering && (
-                              <TouchableOpacity style={[styles.addBtnSmall, { borderColor: theme.border }]} onPress={() => { setIsSelectingSubstitute(false); setModalBuscaVisible(true); }}>
+                              <TouchableOpacity style={[styles.addBtnSmall, { borderColor: theme.border }]} onPress={() => { setIsSelectingSubstitute(false); setIsSwapping(false); setModalBuscaVisible(true); }}>
                                   <Text style={[styles.addBtnText, { color: theme.textSecondary }]}>+ ADICIONAR EXERCÍCIO</Text>
                               </TouchableOpacity>
                           )}
@@ -832,7 +848,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                               <View style={[styles.catTag, { backgroundColor: theme.surface, marginTop: 5, alignSelf: 'flex-start' }]}><Text style={[styles.libCat, { color: theme.textSecondary }]}>{item.category}</Text></View>
                           </View>
                           <TouchableOpacity onPress={() => addExercicioManual(item)} style={{ padding: 8, backgroundColor: theme.accent + '22', borderRadius: 12 }}>
-                              <MaterialCommunityIcons name="plus" size={24} color={theme.accent} />
+                              {/* 🔥 MUDA O ÍCONE DEPENDENDO DA AÇÃO */}
+                              <MaterialCommunityIcons name={isSwapping ? "sync" : "plus"} size={24} color={theme.accent} />
                           </TouchableOpacity>
                       </View>
                   )} 
