@@ -86,6 +86,12 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const [modalSaveTemplateVisible, setModalSaveTemplateVisible] = useState(false); 
   const [anamneseModal, setAnamneseModal] = useState(false); 
   
+  // 🔥 ESTADOS PARA CLONAGEM DE ALUNOS
+  const [modalCloneVisible, setModalCloneVisible] = useState(false);
+  const [cloneStudentsList, setCloneStudentsList] = useState([]);
+  const [selectedCloneStudent, setSelectedCloneStudent] = useState(null);
+  const [cloneWorkoutsList, setCloneWorkoutsList] = useState([]);
+  
   const [previewModalVisible, setPreviewModalVisible] = useState(false);
   const [previewExercise, setPreviewExercise] = useState(null);
   const previewVideoRef = useRef(null);
@@ -109,6 +115,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
   const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
   const goals = ['TODOS', 'Emagrecimento', 'Hipertrofia', 'Definição', 'Qualidade de Vida', 'Condicionamento', 'Recuperação'];
+  const levels = ['TODOS', 'Iniciante', 'Intermediário', 'Avançado'];
   
   const tecnicasDisponiveis = [{ id: '', title: 'NORMAL' }, { id: 'GVT', title: 'GVT (10x10)' }, { id: 'DROPSET', title: 'DROP-SET' }, { id: 'RESTPAUSE', title: 'REST-PAUSE' }, { id: 'BISET', title: 'BI-SET' }, { id: '21', title: 'MÉTODO 21' }, { id: 'CLUSTERSET', title: 'CLUSTER' }];
   const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
@@ -158,51 +165,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               setEndDate(end);
               if (end < new Date()) setIsArchived(true);
           }
-
-          if (workoutToEdit.exercises) {
-              const groups = workoutToEdit.exercises.reduce((acc, item) => {
-                  const key = item.day || 'A';
-                  if (!acc[key]) acc[key] = [];
-                  
-                  let realBlocks = item.blocks;
-                  let realTech = item.technique;
-                  let realObs = item.observation;
-
-                  try {
-                      if (item.technique && typeof item.technique === 'string' && item.technique.trim().startsWith('{')) {
-                          const parsed = JSON.parse(item.technique);
-                          if (parsed && parsed.b) {
-                              realBlocks = parsed.b;
-                              realTech = parsed.t;
-                              realObs = parsed.o || realObs;
-                          }
-                      }
-                  } catch(e) {}
-
-                  if (!realBlocks || !Array.isArray(realBlocks) || realBlocks.length === 0) {
-                      realBlocks = [{ sets: String(item.sets || '3'), reps: String(item.reps || '12'), restTime: String(item.restTime || '60'), technique: realTech || '' }];
-                  }
-
-                  acc[key].push({
-                      exerciseId: item.exerciseId,
-                      title: item.exercise?.name || "Exercício",
-                      videoUrl: item.exercise?.videoUrl,
-                      observation: realObs || '',
-                      category: item.exercise?.category || '',
-                      tempId: Math.random().toString(),
-                      substitute: (item.substituteId && item.substitute) ? { id: item.substituteId, name: item.substitute.name, videoUrl: item.substitute.videoUrl } : null,
-                      blocks: realBlocks 
-                  });
-                  return acc;
-              }, {});
-              
-              const extractedTabs = Object.keys(groups);
-              if(extractedTabs.length > 0) {
-                  setWorkoutTabs(extractedTabs);
-                  setSelectedWorkoutTab(extractedTabs[0]);
-              }
-              setExercisesByDay(groups);
-          }
+          processWorkoutDataToState(workoutToEdit.exercises);
       } 
       else if (isTemplateMode && templateData) {
           setCustomWorkoutName(templateData.name || '');
@@ -219,6 +182,52 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           } catch (e) { setExercisesByDay({'A': []}); }
       }
     } catch (err) { } finally { setLoading(false); }
+  };
+
+  const processWorkoutDataToState = (exercisesArray) => {
+      if (!exercisesArray) return;
+      const groups = exercisesArray.reduce((acc, item) => {
+          const key = item.day || 'A';
+          if (!acc[key]) acc[key] = [];
+          
+          let realBlocks = item.blocks;
+          let realTech = item.technique;
+          let realObs = item.observation;
+
+          try {
+              if (item.technique && typeof item.technique === 'string' && item.technique.trim().startsWith('{')) {
+                  const parsed = JSON.parse(item.technique);
+                  if (parsed && parsed.b) {
+                      realBlocks = parsed.b;
+                      realTech = parsed.t;
+                      realObs = parsed.o || realObs;
+                  }
+              }
+          } catch(e) {}
+
+          if (!realBlocks || !Array.isArray(realBlocks) || realBlocks.length === 0) {
+              realBlocks = [{ sets: String(item.sets || '3'), reps: String(item.reps || '12'), restTime: String(item.restTime || '60'), technique: realTech || '' }];
+          }
+
+          acc[key].push({
+              exerciseId: item.exerciseId,
+              title: item.exercise?.name || "Exercício",
+              videoUrl: item.exercise?.videoUrl,
+              observation: realObs || '',
+              category: item.exercise?.category || '',
+              tempId: Math.random().toString(),
+              substitute: (item.substituteId && item.substitute) ? { id: item.substituteId, name: item.substitute.name, videoUrl: item.substitute.videoUrl } : null,
+              blocks: realBlocks 
+          });
+          return acc;
+      }, {});
+      
+      const extractedTabs = Object.keys(groups);
+      if(extractedTabs.length > 0) {
+          setWorkoutTabs(extractedTabs);
+          setSelectedWorkoutTab(extractedTabs[0]);
+      }
+      setExercisesByDay(groups);
   };
 
   const handleImportPDF = async () => {
@@ -255,13 +264,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
           if (data.exercisesByDay) {
               const newExercisesByDay = {};
-              
               Object.keys(data.exercisesByDay).forEach(day => {
                   newExercisesByDay[day] = data.exercisesByDay[day].map((aiEx) => {
-                      
-                      // 🔥 BUSCA INTELIGENTE A PROVA DE FALHAS (Acentos, Maiúsculas e Espaços)
                       const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
-                      
                       const match = biblioteca.find(b => {
                           const bName = normalizeStr(b.name);
                           const aiName = normalizeStr(aiEx.title);
@@ -292,16 +297,34 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   setWorkoutTabs(extractedTabs);
                   setSelectedWorkoutTab(extractedTabs[0]);
               }
-              if (Platform.OS === 'web') window.alert("🔥 IA Finalizada!\n\nTreino importado! Atenção: Verifique se existem exercícios FANTASMAS (MARCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
-              else Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção: Verifique se existem exercícios FANTASMAS (MARCADOS EM VERMELHO) e clique no ícone de sincronizar para vinculá-los à sua biblioteca.");
+              Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção aos exercícios em VERMELHO (Fantasmas). Sincronize-os com sua biblioteca.");
           }
       } catch (error) {
-          console.error(error);
-          if (Platform.OS === 'web') window.alert("Erro\n\nNão foi possível processar o PDF.");
-          else Alert.alert("Erro", "Não foi possível processar o PDF.");
+          Alert.alert("Erro", "Não foi possível processar o PDF.");
       } finally {
           setIsImportingAI(false);
       }
+  };
+
+  // 🔥 LÓGICA DE EXCLUSÃO DE ABA CORRIGIDA
+  const handleDeleteTab = () => {
+      if (workoutTabs.length === 1) { Alert.alert('Atenção', 'Você precisa ter pelo menos um dia de treino.'); return; }
+      Alert.alert('Excluir', `Apagar o treino "${selectedWorkoutTab}" e todos os seus exercícios?`, [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Apagar', style: 'destructive', onPress: () => {
+              setWorkoutTabs(prevTabs => {
+                  const updatedTabs = prevTabs.filter(t => t !== selectedWorkoutTab);
+                  setSelectedWorkoutTab(updatedTabs[0]);
+                  return updatedTabs;
+              });
+              setExercisesByDay(prevEx => {
+                  const newEx = { ...prevEx };
+                  delete newEx[selectedWorkoutTab];
+                  return newEx;
+              });
+              setRenameTabModalVisible(false);
+          }}
+      ]);
   };
 
   const addNewTab = () => {
@@ -329,22 +352,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       setRenameTabModalVisible(false);
   };
 
-  const handleDeleteTab = () => {
-      if (workoutTabs.length === 1) { Alert.alert('Atenção', 'Você precisa ter pelo menos um dia de treino.'); return; }
-      Alert.alert('Excluir', `Apagar o treino "${selectedWorkoutTab}" e todos os seus exercícios?`, [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Apagar', style: 'destructive', onPress: () => {
-              const updatedTabs = workoutTabs.filter(t => t !== selectedWorkoutTab);
-              const updatedExercises = { ...exercisesByDay };
-              delete updatedExercises[selectedWorkoutTab];
-              setWorkoutTabs(updatedTabs);
-              setExercisesByDay(updatedExercises);
-              setSelectedWorkoutTab(updatedTabs[0]);
-              setRenameTabModalVisible(false);
-          }}
-      ]);
-  };
-
   const handleClearWorkout = () => {
       Alert.alert("Limpar", `Apagar todos os exercícios do treino "${selectedWorkoutTab}"?`, [
           { text: "Cancelar", style: "cancel" },
@@ -355,6 +362,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const onSelectStartDate = (date) => { setStartDate(date); setShowCalendarStart(false); };
   const onSelectEndDate = (date) => { setEndDate(date); setShowCalendarEnd(false); setIsArchived(false); };
 
+  // 🔥 FETCH TEMPLATES COM "PASTAS" (FILTROS)
   const fetchTemplates = async () => {
       try {
           const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?goal=${templateGoal}&level=${templateLevel}`);
@@ -375,12 +383,43 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       } catch (e) { Alert.alert("Erro ao importar"); }
   };
 
+  // 🔥 SISTEMA DE CLONAR ALUNO
+  const fetchStudentsForClone = async () => {
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/users?t=${Date.now()}`);
+          if (res.ok) {
+              const data = await res.json();
+              setCloneStudentsList(data.filter(u => u.role !== 'ADMIN'));
+          }
+      } catch(e) {}
+  };
+
+  const fetchWorkoutsOfStudent = async (studentId) => {
+      setSelectedCloneStudent(studentId);
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${studentId}&t=${Date.now()}`);
+          if(res.ok) {
+              const data = await res.json();
+              setCloneWorkoutsList(data);
+          }
+      } catch(e) {}
+  };
+
+  const applyClone = (workout) => {
+      processWorkoutDataToState(workout.exercises);
+      setCustomWorkoutName(`${workout.name} (Clone)`);
+      setModalCloneVisible(false);
+      setSelectedCloneStudent(null);
+      setCloneWorkoutsList([]);
+      Alert.alert("Sucesso", "Rotina clonada e pronta para edição!");
+  };
+
   const saveAsTemplate = async () => {
       if (!saveTemplateName) return Alert.alert("Erro", "Dê um nome ao template.");
       try {
           await fetch('https://fitos-final.onrender.com/api/admin/templates', {
               method: 'POST', headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ name: saveTemplateName, goal: templateGoal === 'TODOS' ? 'Geral' : templateGoal, level: templateLevel === 'TODOS' ? 'Geral' : templateLevel, data: JSON.stringify(exercisesByDay) })
+              body: JSON.stringify({ name: saveTemplateName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(exercisesByDay) })
           });
           setModalSaveTemplateVisible(false);
           Alert.alert("Sucesso", "Modelo salvo!");
@@ -389,7 +428,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
   const addExercicioManual = (ex) => {
     const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
-    
     const isCardio = ex.category?.toUpperCase() === 'CARDIO';
     const initialBlocks = isCardio 
         ? [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada' }] 
@@ -416,7 +454,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     setPreviewModalVisible(false);
     setModalBuscaVisible(false); 
     setSearchText('');
-    setSelectedCategory('TODOS'); // 🔥 Zera o filtro da galeria para não bugar o próximo uso manual
+    setSelectedCategory('TODOS'); 
   };
 
   const removeSubstitute = (i) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].substitute=null; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
@@ -449,7 +487,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l});
   };
 
-    // 🔥 A GRANDE CIRURGIA DE SALVAMENTO (AGORA NO MODO X9 / DEDO-DURO) 🔥
   const salvarTreinoFinal = async () => {
     const alertMsg = (title, msg) => {
         if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
@@ -475,16 +512,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
     Object.keys(exercisesByDay).forEach(day => {
         exercisesByDay[day].forEach((ex, index) => {
-            if (ex.exerciseId && String(ex.exerciseId).startsWith('custom_')) {
-                temFantasma = true;
-            }
+            if (ex.exerciseId && String(ex.exerciseId).startsWith('custom_')) { temFantasma = true; }
 
             const isCardio = ex.category?.toUpperCase() === 'CARDIO';
             const safeBlocks = (ex.blocks && ex.blocks.length > 0) ? ex.blocks : [{ sets: '3', reps: '10', technique: '', restTime: '60' }];
             const hiddenPayload = JSON.stringify({ t: safeBlocks[0].technique || "", b: safeBlocks, o: ex.observation || "" });
 
             flatExercises.push({
-                exerciseId: String(ex.exerciseId), // 🔥 Forçando ser uma string válida
+                exerciseId: String(ex.exerciseId), 
                 day: String(day).trim(), 
                 sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3),
                 reps: String(safeBlocks[0].reps), 
@@ -499,10 +534,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
     if (temFantasma) {
         setSending(false);
-        return alertMsg(
-            "⚠️ EXERCÍCIOS FANTASMAS ENCONTRADOS!", 
-            "Existem exercícios na lista destacados em VERMELHO.\n\nEles vieram do PDF e ainda não estão vinculados à sua biblioteca oficial. Clique no botão de 'Sincronizar' (ícone vermelho) nesses cartões e escolha um exercício da galeria antes de salvar."
-        );
+        return alertMsg("⚠️ EXERCÍCIOS FANTASMAS ENCONTRADOS!", "Existem exercícios na lista destacados em VERMELHO. Sincronize-os com sua biblioteca oficial antes de salvar.");
     }
 
     let finalEndDate = endDate;
@@ -522,9 +554,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false })
       });
 
-      // 🔥 O PULO DO GATO ESTÁ AQUI: SE DER ERRO 500, ELE LÊ O MOTIVO!
       if (!response.ok) {
-          const errText = await response.text(); // Pega a fofoca do Render
+          const errText = await response.text(); 
           throw new Error(`[Status ${response.status}] ${errText}`);
       }
 
@@ -532,12 +563,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       navigation.goBack(); 
     } catch (e) { 
         console.error(e);
-        // 🔥 CUSPINDO O ERRO REAL NA TELA
         alertMsg("Erro Fatal do Servidor", `Tire um print disso e me mande:\n\n${e.message}`); 
     } 
     finally { setSending(false); }
   };
-
 
   const openPreview = (ex) => {
       setPreviewExercise(ex);
@@ -587,7 +616,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               overScrollMode="never" 
           >
               <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100vh' } : {}) }}>
-                      
+                    
                       {!isTemplateMode && (
                           <TouchableOpacity style={[styles.healthBar, { backgroundColor: hasInjury ? (theme.isDark ? '#330000' : '#FFE5E5') : theme.surface, borderColor: hasInjury ? '#FF3B30' : theme.border }]} onPress={() => setAnamneseModal(true)}>
                               <MaterialCommunityIcons name={hasInjury ? "alert-circle" : "check-circle"} size={24} color={hasInjury ? '#FF3B30' : theme.textSecondary} />
@@ -659,10 +688,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                             )}
                        </View>
 
+                      {/* 🔥 PAINEL DO TEMPLATE - COM PASTAS/TAGS CLARAS */}
                       {isTemplateMode && (
                           <View style={[styles.configBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                              <Text style={[styles.miniLabel, { color: theme.textSecondary }]}>CONFIGURAÇÕES DO MODELO</Text>
-                              <View style={{flexDirection:'row', gap:8, marginTop:5, flexWrap:'wrap'}}>
+                              <Text style={[styles.miniLabel, { color: theme.textSecondary }]}>NOME DO MODELO</Text>
+                              <TextInput style={[styles.nameInput, { backgroundColor: theme.bg, color: theme.accent, borderColor: theme.border, marginTop: 10 }]} placeholder="Ex: Hipertrofia Elite A/B/C" placeholderTextColor={theme.textSecondary} value={customWorkoutName} onChangeText={setCustomWorkoutName} />
+                              
+                              <Text style={[styles.miniLabel, { color: theme.textSecondary, marginTop: 10 }]}>CATEGORIA / PASTA</Text>
+                              <View style={{flexDirection:'row', gap:8, marginTop:10, flexWrap:'wrap'}}>
                                   {['Hipertrofia','Emagrecimento','Força'].map(g => (
                                       <TouchableOpacity key={g} style={[styles.tag, { borderColor: theme.border, backgroundColor: theme.bg }, templateGoalInput===g && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>setTemplateGoalInput(g)}>
                                           <Text style={[styles.tagText, { color: theme.textSecondary }, templateGoalInput===g && {color: theme.isDark ? '#000' : '#FFF'}]}>{g}</Text>
@@ -684,9 +717,18 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                               <MaterialCommunityIcons name="delete-sweep" size={18} color={theme.text} />
                               <Text style={[styles.toolBtnTextDark, { color: theme.text }]}>LIMPAR DIA</Text>
                           </TouchableOpacity>
+
+                          {/* 🔥 NOVO BOTÃO DE CLONAR ALUNO */}
+                          {!isTemplateMode && (
+                              <TouchableOpacity style={[styles.toolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { fetchStudentsForClone(); setModalCloneVisible(true); }}>
+                                  <MaterialCommunityIcons name="account-switch" size={18} color={theme.text} />
+                                  <Text style={[styles.toolBtnText, { color: theme.text }]}>CLONAR ALUNO</Text>
+                              </TouchableOpacity>
+                          )}
+
                           <TouchableOpacity style={[styles.toolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { fetchTemplates(); setModalTemplatesVisible(true); }}>
                               <MaterialCommunityIcons name="folder-download" size={18} color={theme.text} />
-                              <Text style={[styles.toolBtnText, { color: theme.text }]}>IMPORTAR MODELO</Text>
+                              <Text style={[styles.toolBtnText, { color: theme.text }]}>BIBLIOTECA</Text>
                           </TouchableOpacity>
                       </View>
                       
@@ -705,38 +747,37 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                           )}
                       </TouchableOpacity>
 
-                      {!isTemplateMode && (
-                          <View style={{ marginBottom: 15 }}>
-                              <ScrollView horizontal showsHorizontalScrollIndicator={isWeb} style={isWeb ? { overflowX: 'auto' } : {}} contentContainerStyle={{ gap: 10, paddingBottom: 5 }}>
-                                  {workoutTabs.map(tab => (
-                                      <TouchableOpacity 
-                                          key={tab} 
-                                          style={[
-                                              styles.tabBtnDynamic, 
-                                              { backgroundColor: theme.surface, borderColor: theme.border }, 
-                                              selectedWorkoutTab === tab && { borderColor: theme.accent, backgroundColor: theme.accent + '11' }
-                                          ]} 
-                                          onPress={() => { 
-                                              if(selectedWorkoutTab === tab) {
-                                                  setNewTabName(tab);
-                                                  setRenameTabModalVisible(true);
-                                              } else {
-                                                  setSelectedWorkoutTab(tab); 
-                                                  if(!exercisesByDay[tab]) setExercisesByDay({...exercisesByDay, [tab]: []}); 
-                                              }
-                                          }}
-                                      >
-                                          <Text style={[styles.tabBtnTextDynamic, { color: theme.textSecondary }, selectedWorkoutTab === tab && { color: theme.accent }]}>{tab}</Text>
-                                          {selectedWorkoutTab === tab && <MaterialCommunityIcons name="pencil" size={12} color={theme.accent} style={{marginLeft: 5}} />}
-                                      </TouchableOpacity>
-                                  ))}
-                                  
-                                  <TouchableOpacity style={[styles.tabBtnDynamic, { backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} onPress={addNewTab}>
-                                      <MaterialCommunityIcons name="plus" size={18} color={theme.textSecondary} />
+                      {/* ABAS DO TREINO */}
+                      <View style={{ marginBottom: 15 }}>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={isWeb} style={isWeb ? { overflowX: 'auto' } : {}} contentContainerStyle={{ gap: 10, paddingBottom: 5 }}>
+                              {workoutTabs.map(tab => (
+                                  <TouchableOpacity 
+                                      key={tab} 
+                                      style={[
+                                          styles.tabBtnDynamic, 
+                                          { backgroundColor: theme.surface, borderColor: theme.border }, 
+                                          selectedWorkoutTab === tab && { borderColor: theme.accent, backgroundColor: theme.accent + '11' }
+                                      ]} 
+                                      onPress={() => { 
+                                          if(selectedWorkoutTab === tab) {
+                                              setNewTabName(tab);
+                                              setRenameTabModalVisible(true);
+                                          } else {
+                                              setSelectedWorkoutTab(tab); 
+                                              if(!exercisesByDay[tab]) setExercisesByDay({...exercisesByDay, [tab]: []}); 
+                                          }
+                                      }}
+                                  >
+                                      <Text style={[styles.tabBtnTextDynamic, { color: theme.textSecondary }, selectedWorkoutTab === tab && { color: theme.accent }]}>{tab}</Text>
+                                      {selectedWorkoutTab === tab && <MaterialCommunityIcons name="pencil" size={12} color={theme.accent} style={{marginLeft: 5}} />}
                                   </TouchableOpacity>
-                              </ScrollView>
-                          </View>
-                      )}
+                              ))}
+                              
+                              <TouchableOpacity style={[styles.tabBtnDynamic, { backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} onPress={addNewTab}>
+                                  <MaterialCommunityIcons name="plus" size={18} color={theme.textSecondary} />
+                              </TouchableOpacity>
+                          </ScrollView>
+                      </View>
 
                       {isReordering && <Text style={{color: theme.textSecondary, textAlign:'center', fontStyle:'italic', marginBottom:10}}>Use as setas para mover os itens</Text>}
 
@@ -771,13 +812,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   currentExercisesLength={currentExercises.length}
                                   setIsSwapping={setIsSwapping}
                                   setSwapIndex={setSwapIndex}
-                                  // 🔥 RECEBENDO O AVISO DO CARTÃO E MUDANDO A CATEGORIA 🔥
                                   setInitialCategoryFilter={(catName) => {
                                       const normalizedCat = catName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                                       const foundCat = categories.find(c => c.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === normalizedCat);
-                                      if (foundCat) {
-                                          setSelectedCategory(foundCat);
-                                      }
+                                      if (foundCat) setSelectedCategory(foundCat);
                                   }}
                               />
                           ))}
@@ -787,13 +825,20 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   <Text style={[styles.addBtnText, { color: theme.textSecondary }]}>+ ADICIONAR EXERCÍCIO</Text>
                               </TouchableOpacity>
                           )}
+                          
+                          {!isTemplateMode && (
+                              <TouchableOpacity style={{ marginTop: 25, padding: 15, borderRadius: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }} onPress={() => setModalSaveTemplateVisible(true)}>
+                                  <MaterialCommunityIcons name="content-save-all" size={18} color={theme.accent} />
+                                  <Text style={{color: theme.accent, fontWeight: 'bold', fontSize: 12}}>SALVAR ROTINA COMO TEMPLATE</Text>
+                              </TouchableOpacity>
+                          )}
                           </>
                       )}
               </View>
           </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔥 MODAL PARA RENOMEAR/EXCLUIR ABA DE TREINO */}
+      {/* 🔥 MODAL PARA RENOMEAR/EXCLUIR ABA DE TREINO (CORRIGIDO) */}
       <Modal visible={renameTabModalVisible} transparent animationType="fade" onRequestClose={() => setRenameTabModalVisible(false)}>
           <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -809,7 +854,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   
                   <View style={{flexDirection: 'row', gap: 10}}>
                       <TouchableOpacity style={[styles.saveBtnModal, { backgroundColor: theme.accent, flex: 1 }]} onPress={handleRenameTab}>
-                          <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR</Text>
+                          <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR NOME</Text>
                       </TouchableOpacity>
                   </View>
 
@@ -825,19 +870,16 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </View>
       </Modal>
 
+      {/* MODAIS DE CALENDÁRIO */}
       <Modal visible={showCalendarStart} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-              <CustomCalendar selectedDate={startDate} onSelect={onSelectStartDate} onClose={() => setShowCalendarStart(false)} theme={theme} />
-          </View>
+          <View style={styles.modalOverlay}><CustomCalendar selectedDate={startDate} onSelect={onSelectStartDate} onClose={() => setShowCalendarStart(false)} theme={theme} /></View>
       </Modal>
 
       <Modal visible={showCalendarEnd} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-              <CustomCalendar selectedDate={endDate} onSelect={onSelectEndDate} onClose={() => setShowCalendarEnd(false)} theme={theme} />
-          </View>
+          <View style={styles.modalOverlay}><CustomCalendar selectedDate={endDate} onSelect={onSelectEndDate} onClose={() => setShowCalendarEnd(false)} theme={theme} /></View>
       </Modal>
       
-      {/* 🔥 MODAL DE BUSCAR EXERCÍCIO */}
+      {/* 🔥 MODAL DE BUSCAR EXERCÍCIO (BIBLIOTECA) */}
       <Modal visible={modalBuscaVisible} animationType="slide">
           <View style={{ flex: 1, backgroundColor: webOuterBg }}>
               <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
@@ -896,11 +938,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </View>
       </Modal>
 
-      {/* 🔥 MODAL PREVIEW MFIT STYLE */}
+      {/* 🔥 MODAL PREVIEW DO EXERCÍCIO */}
       <Modal visible={previewModalVisible} transparent animationType="fade" onRequestClose={() => { setPreviewModalVisible(false); setPreviewExercise(null); }}>
           <View style={styles.previewBackdrop}>
               <View style={[styles.previewContainer, { backgroundColor: theme.surface }]}>
-                  
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 20, paddingBottom: 15 }}>
                       <View style={{ flex: 1, marginRight: 15 }}>
                           <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }} numberOfLines={2}>{previewExercise?.name}</Text>
@@ -916,24 +957,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   <View style={{ flex: 1, marginHorizontal: 20, marginBottom: 20, borderRadius: 16, overflow: 'hidden', backgroundColor: theme.surface }}>
                       {previewModalVisible && previewExercise?.videoUrl ? (
                           Platform.OS === 'web' ? (
-                              <video 
-                                  src={previewExercise.videoUrl} 
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '16px', outline: 'none' }} 
-                                  controls 
-                                  autoPlay 
-                                  loop 
-                                  muted 
-                              />
+                              <video src={previewExercise.videoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '16px', outline: 'none' }} controls autoPlay loop muted />
                           ) : (
-                              <Video 
-                                  ref={previewVideoRef} 
-                                  style={{ width: '100%', height: '100%' }} 
-                                  source={{ uri: previewExercise.videoUrl }} 
-                                  resizeMode={ResizeMode.COVER} 
-                                  shouldPlay 
-                                  isLooping 
-                                  isMuted 
-                              />
+                              <Video ref={previewVideoRef} style={{ width: '100%', height: '100%' }} source={{ uri: previewExercise.videoUrl }} resizeMode={ResizeMode.COVER} shouldPlay isLooping isMuted />
                           )
                       ) : (
                           <View style={{flex:1, justifyContent:'center', alignItems:'center'}}>
@@ -943,22 +969,141 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   </View>
 
                   <View style={{ padding: 20, paddingTop: 0 }}>
-                      {!previewExercise?.isAdded ? (
-                          <TouchableOpacity style={{ backgroundColor: '#99CC00', padding: 18, borderRadius: 12, alignItems: 'center' }} onPress={() => addExercicioManual(previewExercise)}>
-                              <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 16 }}>Adicionar ao treino</Text>
-                          </TouchableOpacity>
-                      ) : (
-                          <TouchableOpacity style={{ backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, padding: 18, borderRadius: 12, alignItems: 'center' }} onPress={() => setPreviewModalVisible(false)}>
-                              <Text style={{ color: theme.text, fontWeight: '900', fontSize: 16 }}>Fechar</Text>
-                          </TouchableOpacity>
-                      )}
+                      <TouchableOpacity style={{ backgroundColor: '#99CC00', padding: 18, borderRadius: 12, alignItems: 'center' }} onPress={() => addExercicioManual(previewExercise)}>
+                          <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 16 }}>Adicionar ao treino</Text>
+                      </TouchableOpacity>
                   </View>
-
               </View>
           </View>
       </Modal>
 
-      {/* 🔥 MODAL DE TÉCNICA/INTENSIDADE DINÂMICO */}
+      {/* 🔥 MODAL DE CLONAR ALUNO */}
+      <Modal visible={modalCloneVisible} animationType="slide">
+          <View style={{ flex: 1, backgroundColor: webOuterBg }}>
+              <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
+                  <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', paddingTop: isWeb ? 20 : 10, paddingHorizontal: 20, paddingBottom: 15 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <TouchableOpacity onPress={() => { if (selectedCloneStudent) setSelectedCloneStudent(null); else setModalCloneVisible(false); }}>
+                              <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+                          </TouchableOpacity>
+                          <Text style={[styles.headerTitle, { color: theme.text }]}>{selectedCloneStudent ? "ESCOLHA O TREINO" : "ESCOLHA O ALUNO"}</Text>
+                          <View style={{width: 24}}/>
+                      </View>
+                  </View>
+              </View>
+              <FlatList 
+                  style={[{ flex: 1, width: '100%' }, isWeb && { overflowY: 'auto' }]}
+                  contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 100, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
+                  data={selectedCloneStudent ? cloneWorkoutsList : cloneStudentsList} 
+                  keyExtractor={item => item.id} 
+                  renderItem={({ item }) => (
+                      <TouchableOpacity 
+                          style={[styles.templateCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                          onPress={() => selectedCloneStudent ? applyClone(item) : fetchWorkoutsOfStudent(item.id)}
+                      >
+                          <View>
+                              <Text style={[styles.templateName, { color: theme.text }]}>{item.name}</Text>
+                              {item.email && <Text style={[styles.templateTags, { color: theme.textSecondary }]}>{item.email}</Text>}
+                              {item.goal && <Text style={[styles.templateTags, { color: theme.textSecondary }]}>{item.goal} • {item.level}</Text>}
+                          </View>
+                          <MaterialCommunityIcons name={selectedCloneStudent ? "content-copy" : "chevron-right"} size={24} color={theme.accent} />
+                      </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={<Text style={{textAlign:'center', color: theme.textSecondary, marginTop: 20}}>{selectedCloneStudent ? "Este aluno não tem treinos montados." : "Nenhum aluno encontrado."}</Text>}
+              />
+          </View>
+      </Modal>
+
+      {/* 🔥 MODAL DE TEMPLATES VISUAIS COM PASTAS */}
+      <Modal visible={modalTemplatesVisible} animationType="slide">
+          <View style={{ flex: 1, backgroundColor: webOuterBg }}>
+              <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
+                  <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', paddingTop: isWeb ? 20 : 10, paddingHorizontal: 20, paddingBottom: 15 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Text style={[styles.headerTitle, { color: theme.text }]}>BIBLIOTECA DE MODELOS</Text>
+                          <TouchableOpacity onPress={() => setModalTemplatesVisible(false)}>
+                              <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                          </TouchableOpacity>
+                      </View>
+                  </View>
+              </View>
+              <FlatList 
+                  style={[{ flex: 1, width: '100%' }, isWeb && { overflowY: 'auto' }]}
+                  contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 100, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
+                  data={templatesList} 
+                  keyExtractor={item => item.id} 
+                  ListHeaderComponent={
+                      <View style={{marginBottom: 20}}>
+                          <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', marginBottom: 10}}>FILTRAR POR OBJETIVO</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 15}}>
+                              {goals.map(g => (
+                                  <TouchableOpacity key={g} style={[styles.catChip, { backgroundColor: theme.surface, borderColor: theme.border }, templateGoal===g && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>{setTemplateGoal(g); fetchTemplates();}}>
+                                      <Text style={[styles.catText, { color: theme.textSecondary }, templateGoal===g && {color: theme.isDark ? '#000' : '#FFF'}]}>{g}</Text>
+                                  </TouchableOpacity>
+                              ))}
+                          </ScrollView>
+                          <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', marginBottom: 10}}>FILTRAR POR NÍVEL</Text>
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                              {levels.map(l => (
+                                  <TouchableOpacity key={l} style={[styles.catChip, { backgroundColor: theme.surface, borderColor: theme.border }, templateLevel===l && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>{setTemplateLevel(l); fetchTemplates();}}>
+                                      <Text style={[styles.catText, { color: theme.textSecondary }, templateLevel===l && {color: theme.isDark ? '#000' : '#FFF'}]}>{l}</Text>
+                                  </TouchableOpacity>
+                              ))}
+                          </ScrollView>
+                      </View>
+                  }
+                  renderItem={({ item }) => (
+                      <TouchableOpacity style={[styles.templateCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => applyTemplate(item)}>
+                          <View>
+                              <Text style={[styles.templateName, { color: theme.text }]}>{item.name}</Text>
+                              <Text style={[styles.templateTags, { color: theme.textSecondary }]}>{item.goal} • {item.level}</Text>
+                          </View>
+                          <MaterialCommunityIcons name="download" size={24} color={theme.accent} />
+                      </TouchableOpacity>
+                  )}
+                  ListEmptyComponent={<Text style={{textAlign:'center', color: theme.textSecondary, marginTop: 20}}>Nenhum modelo encontrado nesta pasta.</Text>}
+              />
+          </View>
+      </Modal>
+
+      {/* 🔥 MODAL DE SALVAR TEMPLATE (MODELO NOVO) */}
+      <Modal visible={modalSaveTemplateVisible} transparent animationType="fade">
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+              <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={[styles.modalTitle, { color: theme.accent }]}>SALVAR COMO MODELO</Text>
+                  <Text style={{color: theme.textSecondary, fontSize: 12, marginBottom: 15, textAlign: 'center'}}>Salve esta rotina para aplicar em outros alunos futuramente.</Text>
+                  
+                  <TextInput style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} placeholder="Nome do Template" placeholderTextColor={theme.textSecondary} value={saveTemplateName} onChangeText={setSaveTemplateName} />
+                  
+                  <Text style={[styles.miniLabelLeft, { color: theme.textSecondary }]}>OBJETIVO (PASTA)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 15, maxHeight: 40}}>
+                      {goals.filter(g => g !== 'TODOS').map(g => (
+                          <TouchableOpacity key={g} style={[styles.tag, { borderColor: theme.border, backgroundColor: theme.bg }, templateGoalInput===g && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>setTemplateGoalInput(g)}>
+                              <Text style={[styles.tagText, { color: theme.textSecondary }, templateGoalInput===g && {color: theme.isDark ? '#000' : '#FFF'}]}>{g}</Text>
+                          </TouchableOpacity>
+                      ))}
+                  </ScrollView>
+
+                  <Text style={[styles.miniLabelLeft, { color: theme.textSecondary }]}>NÍVEL (PASTA)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20, maxHeight: 40}}>
+                          {['Iniciante','Intermediário','Avançado'].map(l => (
+                              <TouchableOpacity key={l} style={[styles.tag, { borderColor: theme.border, backgroundColor: theme.bg }, templateLevelInput===l && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>setTemplateLevelInput(l)}>
+                                  <Text style={[styles.tagText, { color: theme.textSecondary }, templateLevelInput===l && {color: theme.isDark ? '#000' : '#FFF'}]}>{l}</Text>
+                              </TouchableOpacity>
+                          ))}
+                  </ScrollView>
+
+                  <TouchableOpacity style={[styles.saveBtnModal, { backgroundColor: theme.accent }]} onPress={saveAsTemplate}>
+                      <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR NA BIBLIOTECA</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={{marginTop:15}} onPress={() => setModalSaveTemplateVisible(false)}>
+                      <Text style={{color: theme.textSecondary, textAlign:'center'}}>Cancelar</Text>
+                  </TouchableOpacity>
+              </View>
+          </KeyboardAvoidingView>
+      </Modal>
+
+      {/* OUTROS MODAIS (Técnica, Anamnese) */}
       <Modal visible={modalTecnicaVisible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -1004,60 +1149,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   </TouchableOpacity>
               </View>
           </View>
-      </Modal>
-
-      <Modal visible={modalTemplatesVisible} animationType="slide">
-          <View style={{ flex: 1, backgroundColor: webOuterBg }}>
-              <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
-                  <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', paddingTop: isWeb ? 20 : 10, paddingHorizontal: 20, paddingBottom: 15 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <Text style={[styles.headerTitle, { color: theme.text }]}>IMPORTAR MODELO</Text>
-                          <TouchableOpacity onPress={() => setModalTemplatesVisible(false)}>
-                              <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                          </TouchableOpacity>
-                      </View>
-                  </View>
-              </View>
-              <FlatList 
-                  style={[{ flex: 1, width: '100%' }, isWeb && { overflowY: 'auto' }]}
-                  contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 100, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
-                  data={templatesList} 
-                  keyExtractor={item => item.id} 
-                  ListHeaderComponent={
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20}}>
-                          {goals.map(g => (
-                              <TouchableOpacity key={g} style={[styles.catChip, { backgroundColor: theme.surface, borderColor: theme.border }, templateGoal===g && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>{setTemplateGoal(g); fetchTemplates();}}>
-                                  <Text style={[styles.catText, { color: theme.textSecondary }, templateGoal===g && {color: theme.isDark ? '#000' : '#FFF'}]}>{g}</Text>
-                              </TouchableOpacity>
-                          ))}
-                      </ScrollView>
-                  }
-                  renderItem={({ item }) => (
-                      <TouchableOpacity style={[styles.templateCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => applyTemplate(item)}>
-                          <View>
-                              <Text style={[styles.templateName, { color: theme.text }]}>{item.name}</Text>
-                              <Text style={[styles.templateTags, { color: theme.textSecondary }]}>{item.goal} • {item.level}</Text>
-                          </View>
-                          <MaterialCommunityIcons name="download" size={24} color={theme.accent} />
-                      </TouchableOpacity>
-                  )}
-              />
-          </View>
-      </Modal>
-
-      <Modal visible={modalSaveTemplateVisible} transparent animationType="fade">
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.modalTitle, { color: theme.accent }]}>SALVAR MODELO</Text>
-                  <TextInput style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} placeholder="Nome" placeholderTextColor={theme.textSecondary} value={saveTemplateName} onChangeText={setSaveTemplateName} />
-                  <TouchableOpacity style={[styles.saveBtnModal, { backgroundColor: theme.accent }]} onPress={saveAsTemplate}>
-                      <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={{marginTop:15}} onPress={() => setModalSaveTemplateVisible(false)}>
-                      <Text style={{color: theme.textSecondary, textAlign:'center'}}>Cancelar</Text>
-                  </TouchableOpacity>
-              </View>
-          </KeyboardAvoidingView>
       </Modal>
 
     </RootComponent>
@@ -1124,7 +1215,7 @@ const styles = StyleSheet.create({
   infoBlock: { marginBottom: 15, borderBottomWidth:1, paddingBottom:5 },
   infoLabel: { fontSize:10, fontWeight:'900', marginBottom:2 },
   infoValue: { fontSize:14 },
-  tag: { paddingHorizontal:12, paddingVertical:6, borderRadius:20, borderWidth:1, marginRight:5 },
+  tag: { paddingHorizontal:12, paddingVertical:6, borderRadius:20, borderWidth:1, marginRight:5, height: 30, justifyContent: 'center' },
   tagText: { fontSize:10, fontWeight:'bold' },
   miniLabelLeft: { fontSize:10, fontWeight:'bold', marginBottom:8 },
 

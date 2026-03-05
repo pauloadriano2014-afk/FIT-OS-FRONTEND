@@ -46,6 +46,9 @@ export default function GerenciarTemplates({ navigation }) {
           const fileToUpload = result.assets[0];
           const formData = new FormData();
 
+          // 🔥 AQUI ESTAVA O ERRO: AVISAR O BACKEND SOBRE O MODO!
+          formData.append('mode', mode);
+
           if (Platform.OS === 'web') {
               const res = await fetch(fileToUpload.uri);
               const blob = await res.blob();
@@ -69,8 +72,7 @@ export default function GerenciarTemplates({ navigation }) {
 
           setModalVisible(false);
 
-          // 🔥 Se for FULL, mandamos o objeto exercisesByDay completo para criar as abas
-          // Se for SINGLE, a lógica no MontarTreino já cuida de colocar no dia selecionado
+          // 🔥 Navega mandando a rotina separada certinha
           navigation.navigate('MontarTreinoAdmin', { 
               isTemplateMode: true, 
               templateData: { 
