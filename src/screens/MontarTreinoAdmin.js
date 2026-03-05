@@ -263,13 +263,30 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
           if (data.exercisesByDay) {
               const newExercisesByDay = {};
+              
+              // 🔥 FILTRO CAÇA-FANTASMAS: Ignora preposições, acentos e espaços extras
+              const normalizeForSearch = (str) => {
+                  if (!str) return "";
+                  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "") 
+                            .toLowerCase()
+                            .replace(/\b(no|na|com|de|da|do|em|c\/)\b/g, " ") 
+                            .replace(/[^a-z0-9]/g, " ") 
+                            .replace(/\s+/g, " ").trim(); 
+              };
+
               Object.keys(data.exercisesByDay).forEach(day => {
                   newExercisesByDay[day] = data.exercisesByDay[day].map((aiEx) => {
-                      const normalizeStr = (str) => str ? str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() : "";
+                      const aiNameNorm = normalizeForSearch(aiEx.title);
+                      const aiWords = aiNameNorm.split(" ").filter(w => w.length > 2); // Pega só palavras-chave
+
                       const match = biblioteca.find(b => {
-                          const bName = normalizeStr(b.name);
-                          const aiName = normalizeStr(aiEx.title);
-                          return bName.includes(aiName) || aiName.includes(bName);
+                          const bNameNorm = normalizeForSearch(b.name);
+                          // Match direto
+                          if (bNameNorm === aiNameNorm || bNameNorm.includes(aiNameNorm) || aiNameNorm.includes(bNameNorm)) return true;
+                          // Match por palavras-chave (Ex: "búlgaro" e "smith" batem com "agachamento búlgaro smith")
+                          const bWords = bNameNorm.split(" ");
+                          const aInB = aiWords.length > 0 && aiWords.every(w => bWords.includes(w));
+                          return aInB;
                       });
 
                       return {
@@ -296,33 +313,46 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                   setWorkoutTabs(extractedTabs);
                   setSelectedWorkoutTab(extractedTabs[0]);
               }
-              Alert.alert("🔥 IA Finalizada!", "Treino importado! Atenção aos exercícios em VERMELHO (Fantasmas). Sincronize-os com sua biblioteca.");
+              
+              if (Platform.OS === 'web') window.alert("🔥 IA Finalizada!\n\nTreino importado com precisão brutal.");
+              else Alert.alert("🔥 IA Finalizada!", "Treino importado com precisão brutal.");
           }
       } catch (error) {
-          Alert.alert("Erro", "Não foi possível processar o PDF.");
+          if (Platform.OS === 'web') window.alert("Erro: Não foi possível processar o PDF.");
+          else Alert.alert("Erro", "Não foi possível processar o PDF.");
       } finally {
           setIsImportingAI(false);
       }
   };
 
   const handleDeleteTab = () => {
-      if (workoutTabs.length === 1) { Alert.alert('Atenção', 'Você precisa ter pelo menos um dia de treino.'); return; }
-      Alert.alert('Excluir', `Apagar o treino "${selectedWorkoutTab}" e todos os seus exercícios?`, [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Apagar', style: 'destructive', onPress: () => {
-              setWorkoutTabs(prevTabs => {
-                  const updatedTabs = prevTabs.filter(t => t !== selectedWorkoutTab);
-                  setSelectedWorkoutTab(updatedTabs[0]);
-                  return updatedTabs;
-              });
-              setExercisesByDay(prevEx => {
-                  const newEx = { ...prevEx };
-                  delete newEx[selectedWorkoutTab];
-                  return newEx;
-              });
-              setRenameTabModalVisible(false);
-          }}
-      ]);
+      if (workoutTabs.length === 1) { 
+          if (Platform.OS === 'web') window.alert('Você precisa ter pelo menos um dia de treino.');
+          else Alert.alert('Atenção', 'Você precisa ter pelo menos um dia de treino.'); 
+          return; 
+      }
+      
+      const doDelete = () => {
+          const updatedTabs = workoutTabs.filter(t => t !== selectedWorkoutTab);
+          const nextTab = updatedTabs[0];
+
+          const updatedExercises = { ...exercisesByDay };
+          delete updatedExercises[selectedWorkoutTab];
+
+          setWorkoutTabs(updatedTabs);
+          setExercisesByDay(updatedExercises);
+          setSelectedWorkoutTab(nextTab);
+          setRenameTabModalVisible(false);
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm(`Apagar o treino "${selectedWorkoutTab}" e todos os seus exercícios?`)) doDelete();
+      } else {
+          Alert.alert('Excluir', `Apagar o treino "${selectedWorkoutTab}"?`, [
+              { text: 'Cancelar', style: 'cancel' },
+              { text: 'Apagar', style: 'destructive', onPress: doDelete }
+          ]);
+      }
   };
 
   const addNewTab = () => {
@@ -351,10 +381,16 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   };
 
   const handleClearWorkout = () => {
-      Alert.alert("Limpar", `Apagar todos os exercícios do treino "${selectedWorkoutTab}"?`, [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Limpar", onPress: () => setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: [] }) }
-      ]);
+      const doClear = () => setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: [] });
+      
+      if (Platform.OS === 'web') {
+          if (window.confirm(`Apagar todos os exercícios do treino "${selectedWorkoutTab}"?`)) doClear();
+      } else {
+          Alert.alert("Limpar", `Apagar todos os exercícios do treino "${selectedWorkoutTab}"?`, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Limpar", onPress: doClear }
+          ]);
+      }
   };
 
   const onSelectStartDate = (date) => { setStartDate(date); setShowCalendarStart(false); };
