@@ -86,7 +86,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const [modalSaveTemplateVisible, setModalSaveTemplateVisible] = useState(false); 
   const [anamneseModal, setAnamneseModal] = useState(false); 
   
-  // 🔥 ESTADOS PARA CLONAGEM DE ALUNOS
   const [modalCloneVisible, setModalCloneVisible] = useState(false);
   const [cloneStudentsList, setCloneStudentsList] = useState([]);
   const [selectedCloneStudent, setSelectedCloneStudent] = useState(null);
@@ -306,7 +305,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       }
   };
 
-  // 🔥 LÓGICA DE EXCLUSÃO DE ABA CORRIGIDA
   const handleDeleteTab = () => {
       if (workoutTabs.length === 1) { Alert.alert('Atenção', 'Você precisa ter pelo menos um dia de treino.'); return; }
       Alert.alert('Excluir', `Apagar o treino "${selectedWorkoutTab}" e todos os seus exercícios?`, [
@@ -362,7 +360,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const onSelectStartDate = (date) => { setStartDate(date); setShowCalendarStart(false); };
   const onSelectEndDate = (date) => { setEndDate(date); setShowCalendarEnd(false); setIsArchived(false); };
 
-  // 🔥 FETCH TEMPLATES COM "PASTAS" (FILTROS)
   const fetchTemplates = async () => {
       try {
           const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?goal=${templateGoal}&level=${templateLevel}`);
@@ -383,15 +380,17 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       } catch (e) { Alert.alert("Erro ao importar"); }
   };
 
-  // 🔥 SISTEMA DE CLONAR ALUNO
   const fetchStudentsForClone = async () => {
       try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/admin/users?t=${Date.now()}`);
+          // 🔥 CIRURGIA: Tiramos o 's' do final. Agora ele bate certinho na sua rota /api/admin/user
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?t=${Date.now()}`);
           if (res.ok) {
               const data = await res.json();
               setCloneStudentsList(data.filter(u => u.role !== 'ADMIN'));
           }
-      } catch(e) {}
+      } catch(e) {
+          console.log("Erro ao buscar alunos:", e);
+      }
   };
 
   const fetchWorkoutsOfStudent = async (studentId) => {
@@ -414,16 +413,26 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       Alert.alert("Sucesso", "Rotina clonada e pronta para edição!");
   };
 
+  // 🔥 CORREÇÃO DE ERRO SILENCIOSO NO SALVAMENTO COMO TEMPLATE
   const saveAsTemplate = async () => {
       if (!saveTemplateName) return Alert.alert("Erro", "Dê um nome ao template.");
       try {
-          await fetch('https://fitos-final.onrender.com/api/admin/templates', {
+          const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', {
               method: 'POST', headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ name: saveTemplateName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(exercisesByDay) })
           });
+          
+          if (!res.ok) {
+              const errText = await res.text();
+              throw new Error(`[Status ${res.status}] ${errText}`);
+          }
+
           setModalSaveTemplateVisible(false);
           Alert.alert("Sucesso", "Modelo salvo!");
-      } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
+      } catch (e) { 
+          console.error(e);
+          Alert.alert("Erro Fatal", `Falha ao salvar modelo:\n${e.message}`); 
+      }
   };
 
   const addExercicioManual = (ex) => {
@@ -487,6 +496,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l});
   };
 
+  // 🔥 CORREÇÃO DE ERRO SILENCIOSO AO SALVAR TREINO OU TEMPLATE
   const salvarTreinoFinal = async () => {
     const alertMsg = (title, msg) => {
         if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`);
@@ -498,12 +508,21 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
     if (isTemplateMode) {
         try {
-            await fetch('https://fitos-final.onrender.com/api/admin/templates', {
+            const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ id: templateData?.id, name: customWorkoutName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(exercisesByDay) })
             });
+
+            if (!res.ok) {
+                const errText = await res.text();
+                throw new Error(`[Status ${res.status}] ${errText}`);
+            }
+
             alertMsg("Sucesso", "Template salvo!"); navigation.goBack();
-        } catch(e) { alertMsg("Erro", "Falha ao salvar template"); } finally { setSending(false); }
+        } catch(e) { 
+            console.error(e);
+            alertMsg("Erro Fatal", `Falha ao salvar template:\n\n${e.message}`); 
+        } finally { setSending(false); }
         return;
     }
 
@@ -838,7 +857,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* 🔥 MODAL PARA RENOMEAR/EXCLUIR ABA DE TREINO (CORRIGIDO) */}
+      {/* 🔥 MODAL PARA RENOMEAR/EXCLUIR ABA DE TREINO */}
       <Modal visible={renameTabModalVisible} transparent animationType="fade" onRequestClose={() => setRenameTabModalVisible(false)}>
           <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
