@@ -1,3 +1,4 @@
+// src/screens/DayWorkoutScreen.js
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, SafeAreaView, ScrollView, TouchableOpacity, 
@@ -34,7 +35,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const appState = useRef(AppState.currentState);
-  const [activeBiSets, setActiveBiSets] = useState({});
   const typingTimer = useRef(null);
 
   const [techModalVisible, setTechModalVisible] = useState(false);
@@ -215,68 +215,58 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const handleOpenVideo = (url) => {
     if (url && url.length > 5) { setCurrentVideoUrl(url); setVideoModalVisible(true); setVideoLoading(true); } 
-    else { Alert.alert("Indisponível", "Sem vídeo cadastrado."); }
+    else { 
+        if (Platform.OS === 'web') window.alert("Sem vídeo cadastrado.");
+        else Alert.alert("Indisponível", "Sem vídeo cadastrado."); 
+    }
   };
 
   const handleSaveWeight = async (itemId, weight, setIndex) => {
     const newWeights = { ...lastWeights, [itemId]: { ...(lastWeights[itemId] || {}), [setIndex]: weight } };
     setLastWeights(newWeights);
-
-    const exerciseIndex = exercisesToShow.findIndex(e => e.id === itemId);
-    if (exerciseIndex === -1) return;
-
-    const currentEx = exercisesToShow[exerciseIndex];
-    const isBiSet = currentEx.blocks?.[0]?.technique === 'BISET' || currentEx.technique === 'BISET';
-
-    if (isBiSet) {
-        if (typingTimer.current) clearTimeout(typingTimer.current);
-        typingTimer.current = setTimeout(() => {
-            let pairId = null;
-            let nextIndex = null;
-            const next = exercisesToShow[exerciseIndex + 1];
-            const prev = exercisesToShow[exerciseIndex - 1];
-
-            const nextIsBiSet = next?.blocks?.[0]?.technique === 'BISET' || next?.technique === 'BISET';
-            const prevIsBiSet = prev?.blocks?.[0]?.technique === 'BISET' || prev?.technique === 'BISET';
-
-            if (nextIsBiSet) { pairId = exerciseIndex; nextIndex = exerciseIndex + 1; } 
-            else if (prevIsBiSet) { pairId = exerciseIndex - 1; nextIndex = exerciseIndex - 1; }
-
-            if (pairId !== null) {
-                setActiveBiSets(prev => ({ ...prev, [pairId]: nextIndex === exerciseIndex ? (pairId === exerciseIndex ? pairId + 1 : pairId) : nextIndex }));
-            }
-        }, 1500); 
-    }
-  };
-
-  const toggleBiSet = (pairId, currentIndex, nextIndex) => {
-     if (typingTimer.current) clearTimeout(typingTimer.current);
-     const targetIndex = activeBiSets[pairId] === nextIndex ? currentIndex : nextIndex;
-     setActiveBiSets(prev => ({ ...prev, [pairId]: targetIndex }));
   };
 
   const handleSwap = (index) => {
       const list = [...exercisesToShow];
       const current = list[index];
       if (!current.substitute) return; 
-      Alert.alert("Trocar Exercício", `Trocar ${current.exercise?.name} por ${current.substitute.name}?`, [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Trocar", onPress: () => {
-              const newMain = { ...current, exerciseId: current.substitute.id, exercise: current.substitute, substitute: { id: current.exerciseId, name: current.exercise?.name, videoUrl: current.exercise?.videoUrl } };
-              list[index] = newMain; setExercisesToShow(list);
-          }}
-      ]);
+
+      const exName = current.exercise?.name || current.title || "Exercício";
+      const subName = current.substitute.name;
+
+      const doSwap = () => {
+          const newMain = { ...current, exerciseId: current.substitute.id, exercise: current.substitute, substitute: { id: current.exerciseId, name: exName, videoUrl: current.videoUrl || current.exercise?.videoUrl } };
+          list[index] = newMain; 
+          setExercisesToShow(list);
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm(`Trocar ${exName} por ${subName}?`)) doSwap();
+      } else {
+          Alert.alert("Trocar Exercício", `Trocar ${exName} por ${subName}?`, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Trocar", onPress: doSwap }
+          ]);
+      }
   };
 
   const validateAndFinish = () => {
-      if (!isTimerRunning && elapsedSeconds === 0) { Alert.alert("Atenção", "Para registrar cargas, clique primeiro em INICIAR TREINO."); return; }
+      if (!isTimerRunning && elapsedSeconds === 0) { 
+          if (Platform.OS === 'web') window.alert("Para registrar cargas, clique primeiro em INICIAR TREINO.");
+          else Alert.alert("Atenção", "Para registrar cargas, clique primeiro em INICIAR TREINO."); 
+          return; 
+      }
       proceedToFinish();
   };
 
   const proceedToFinish = () => { setIsTimerRunning(false); setFinishModalVisible(true); };
 
   const submitFinish = async () => {
-    if (!rpe) { Alert.alert("Atenção", "Selecione o RPE."); return; }
+    if (!rpe) { 
+        if (Platform.OS === 'web') window.alert("Selecione o RPE.");
+        else Alert.alert("Atenção", "Selecione o RPE."); 
+        return; 
+    }
     try {
         setLoading(true);
         const exercisesDone = [];
@@ -309,10 +299,20 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
         if (res.ok) {
             setIsTimerRunning(false); 
-            await AsyncStorage.setItem('@last_completed_day', day.toUpperCase());
             setElapsedSeconds(0);
             await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
             await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
+
+            // 🔥 A MÁGICA: Adiciona o dia no diário de bordo do celular, sem apagar os outros
+            const completedKey = `@completed_days_${workoutId}`;
+            const storedCompleted = await AsyncStorage.getItem(completedKey);
+            let completedDaysArray = storedCompleted ? JSON.parse(storedCompleted) : [];
+            const normDay = String(day).trim().toUpperCase();
+            
+            if (!completedDaysArray.includes(normDay)) {
+                completedDaysArray.push(normDay);
+                await AsyncStorage.setItem(completedKey, JSON.stringify(completedDaysArray));
+            }
 
             if (json.newTotalXP) {
                 const updatedUser = { ...userData, currentXP: json.newTotalXP };
@@ -320,10 +320,25 @@ export default function DayWorkoutScreen({ route, navigation }) {
             }
             
             setFinishModalVisible(false);
-            Alert.alert("🔥 TREINO CONCLUÍDO!", `Bom trabalho guerreiro!\nXP Ganho: +${json.xpGained || 150}`);
+            
+            // 🔥 PEGA O PRIMEIRO NOME DO ALUNO OU CHAMA DE ATLETA
+            const firstName = userData?.name ? userData.name.split(' ')[0] : 'atleta';
+            
+            if (Platform.OS === 'web') {
+                window.alert(`🔥 TREINO CONCLUÍDO!\nBom trabalho, ${firstName}!\nXP Ganho: +${json.xpGained || 150}`);
+            } else {
+                Alert.alert("🔥 TREINO CONCLUÍDO!", `Bom trabalho, ${firstName}!\nXP Ganho: +${json.xpGained || 150}`);
+            }
+            
             navigation.goBack();
-        } else { Alert.alert("Erro", "Falha ao salvar no servidor."); }
-    } catch (e) { Alert.alert("Erro", "Falha de conexão."); } finally { setLoading(false); }
+        } else { 
+            if (Platform.OS === 'web') window.alert("Falha ao salvar no servidor.");
+            else Alert.alert("Erro", "Falha ao salvar no servidor."); 
+        }
+    } catch (e) { 
+        if (Platform.OS === 'web') window.alert("Falha de conexão.");
+        else Alert.alert("Erro", "Falha de conexão."); 
+    } finally { setLoading(false); }
   };
 
   const handleStartTimer = async () => {
@@ -383,11 +398,11 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }} 
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
-                bounces={false} /* 🔥 Anti-molenga iOS */
-                overScrollMode="never" /* 🔥 Anti-molenga Android */
+                bounces={false} 
+                overScrollMode="never" 
             >
                 <View style={{ 
-                    width: isWeb ? '100%' : width, /* 🔥 Trava absoluta de largura no Mobile para não sambar pros lados */
+                    width: isWeb ? '100%' : width, 
                     maxWidth: isWeb ? 480 : '100%', 
                     flexGrow: 1, 
                     backgroundColor: theme.bg, 
@@ -411,28 +426,32 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     </View>
 
                     {exercisesToShow.map((item, index) => {
-                        let safeTechnique = item.blocks?.[0]?.technique || item.technique || 'NORMAL';
+                        let rawTech = item.blocks?.[0]?.technique || item.technique || 'NORMAL';
+                        let safeTechnique = typeof rawTech === 'string' ? rawTech.trim().toUpperCase() : 'NORMAL';
                         if (!TECH_GUIDE[safeTechnique]) safeTechnique = 'NORMAL';
                         
                         let biSetType = null;
-                        let isBiSet = safeTechnique === 'BISET';
-                        let biSetPairId = null; 
-                        let nextExerciseName = "";
+                        let isBiSet = safeTechnique.includes('BISET');
 
                         if (isBiSet) {
-                            const next = exercisesToShow[index+1]; 
-                            const prev = exercisesToShow[index-1];
-                            const nextTech = next?.blocks?.[0]?.technique || next?.technique;
-                            const prevTech = prev?.blocks?.[0]?.technique || prev?.technique;
+                            let chainLength = 0;
+                            for (let i = index - 1; i >= 0; i--) {
+                                const prevEx = exercisesToShow[i];
+                                let pTech = prevEx?.blocks?.[0]?.technique || prevEx?.technique || 'NORMAL';
+                                let prevTech = typeof pTech === 'string' ? pTech.trim().toUpperCase() : 'NORMAL';
+                                if (prevTech.includes('BISET')) { chainLength++; } 
+                                else { break; }
+                            }
 
-                            if (nextTech === 'BISET') { biSetType = 'start'; biSetPairId = index; nextExerciseName = next.exercise?.name || next.name; }
-                            else if (prevTech === 'BISET') { biSetType = 'end'; biSetPairId = index - 1; nextExerciseName = prev.exercise?.name || prev.name; }
-                            
-                            if (index !== (activeBiSets[biSetPairId] !== undefined ? activeBiSets[biSetPairId] : biSetPairId)) return null; 
+                            if (chainLength % 2 === 0) {
+                                biSetType = 'start'; 
+                            } else {
+                                biSetType = 'end'; 
+                            }
                         }
 
                         return (
-                            <View key={item.id}>
+                            <View key={item.id} style={{ width: '100%', zIndex: biSetType === 'start' ? 2 : 1 }}>
                                 <ExerciseCard 
                                     item={{ ...item, technique: safeTechnique }} 
                                     totalSets={item.sets}
@@ -452,23 +471,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         textMuted: theme.textSecondary,
                                         primary: theme.accent,
                                         primaryText: theme.isDark ? '#000' : '#FFF',
-                                        // 🔥 Fundo do Input modificado para dar muito mais contraste no escuro!
                                         inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5',
                                         glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)'
                                     }}
                                 />
-                                
-                                {isBiSet && biSetPairId !== null && (
-                                    <TouchableOpacity 
-                                        style={{ flexDirection: 'row', alignItems:'center', justifyContent:'center', backgroundColor: theme.accent, padding: 12, borderRadius: 8, marginTop: -5, marginBottom: 20, gap: 8 }} 
-                                        onPress={() => toggleBiSet(biSetPairId, biSetPairId, biSetPairId + 1)}
-                                    >
-                                        <MaterialCommunityIcons name="swap-horizontal" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 12 }}>
-                                            {biSetType === 'start' ? `PRÓXIMO: ${(nextExerciseName || "Próximo").toUpperCase()}` : `VOLTAR: ${(nextExerciseName || "Anterior").toUpperCase()}`}
-                                        </Text>
-                                    </TouchableOpacity>
-                                )}
                             </View>
                         );
                     })}

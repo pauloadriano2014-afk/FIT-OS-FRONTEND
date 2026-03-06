@@ -1,3 +1,4 @@
+// src/screens/TrainingScreen.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
@@ -9,7 +10,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Shadow } from 'react-native-shadow-2'; 
 import { LinearGradient } from 'expo-linear-gradient'; 
 
-/* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
@@ -26,12 +26,7 @@ export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  const [allActivePrograms, setAllActivePrograms] = useState([]);
   const [activeProgram, setActiveProgram] = useState(null); 
-  const [selectedProgramIndex, setSelectedProgramIndex] = useState(0);
-
-  const [workoutTabs, setWorkoutTabs] = useState([]); 
-  const [selectedTab, setSelectedTab] = useState(null); 
   
   const { theme } = useTheme();
   
@@ -81,32 +76,12 @@ export default function TrainingScreen({ navigation }) {
         const activeList = data.filter(w => new Date(w.endDate) >= today && !w.archived);
 
         if (activeList.length > 0) {
-            setAllActivePrograms(activeList);
-            const newIndex = selectedProgramIndex < activeList.length ? selectedProgramIndex : 0;
-            const currentProgram = activeList[newIndex];
-            
-            setActiveProgram(currentProgram);
-            setSelectedProgramIndex(newIndex);
-            
-            if (currentProgram.exercises && currentProgram.exercises.length > 0) {
-                const tabs = [...new Set(currentProgram.exercises.map(ex => ex.day))];
-                setWorkoutTabs(tabs);
-                if (tabs.length > 0 && (!selectedTab || !tabs.includes(selectedTab))) {
-                    setSelectedTab(tabs[0]);
-                }
-            } else {
-                setWorkoutTabs([]);
-                setSelectedTab(null);
-            }
+            setActiveProgram(activeList[0]);
         } else {
-            setAllActivePrograms([]);
             setActiveProgram(null);
-            setWorkoutTabs([]);
         }
       } else {
-        setAllActivePrograms([]);
         setActiveProgram(null);
-        setWorkoutTabs([]);
       }
 
       const historyRes = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
@@ -130,17 +105,6 @@ export default function TrainingScreen({ navigation }) {
   useFocusEffect(useCallback(() => { fetchWorkouts(); }, []));
   useEffect(() => { setDailyTip(TIPS[Math.floor(Math.random() * TIPS.length)]); }, []);
 
-  const handleSwitchProgram = (index) => {
-      const newProgram = allActivePrograms[index];
-      setActiveProgram(newProgram);
-      setSelectedProgramIndex(index);
-      if (newProgram.exercises && newProgram.exercises.length > 0) {
-          const tabs = [...new Set(newProgram.exercises.map(ex => ex.day))];
-          setWorkoutTabs(tabs);
-          if (tabs.length > 0) setSelectedTab(tabs[0]);
-      } else { setWorkoutTabs([]); setSelectedTab(null); }
-  };
-
   const onRefresh = useCallback(() => { setRefreshing(true); fetchWorkouts(); }, []);
 
   const handleEnergySelect = (level) => {
@@ -159,7 +123,6 @@ export default function TrainingScreen({ navigation }) {
       if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
   };
 
-  // 🔥 Lógica da "Gaiola" PWA
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -172,7 +135,6 @@ export default function TrainingScreen({ navigation }) {
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* 🔥 GAIOLA FLEXÍVEL (Com ScrollView Interno corrigido) */}
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <ScrollView 
             style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
@@ -189,7 +151,7 @@ export default function TrainingScreen({ navigation }) {
                     <View style={[styles.calendarCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <View style={styles.calendarHeaderRow}>
                             <Ionicons name="calendar-outline" size={14} color={theme.textSecondary} />
-                            <Text style={[styles.miniLabelMod, { color: theme.textSecondary }]}>SUA CONSISTÊNCIA NESTA SEMANA (SEG-DOM)</Text>
+                            <Text style={[styles.miniLabelMod, { color: theme.textSecondary }]}>SUA CONSISTÊNCIA NESTA SEMANA</Text>
                         </View>
                         <View style={styles.calendarRowMod}>
                             {weeklyHistoryData.map((day, index) => (
@@ -232,61 +194,12 @@ export default function TrainingScreen({ navigation }) {
                 </View>
             </View>
 
-            {allActivePrograms.length > 1 && (
-                <View style={[styles.sectionContainerMod, styles.routineSelectorWrapper]}>
-                    {allActivePrograms.map((prog, index) => (
-                        <TouchableOpacity 
-                            key={prog.id} 
-                            style={[
-                                styles.routineSelectorBtnMod, 
-                                { backgroundColor: theme.surface, borderColor: theme.border },
-                                selectedProgramIndex === index && { backgroundColor: theme.accent, borderColor: theme.accent, elevation: 3 }
-                            ]}
-                            onPress={() => handleSwitchProgram(index)}
-                        >
-                            <MaterialCommunityIcons name="folder-text" size={14} color={selectedProgramIndex === index ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
-                            <Text style={[
-                                styles.routineSelectorTextMod, 
-                                { color: theme.textSecondary },
-                                selectedProgramIndex === index && { color: theme.isDark ? '#000' : '#FFF' }
-                            ]}>
-                                Rotina {index + 1}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            )}
-
-            {workoutTabs.length > 0 && (
-                <View style={{ marginBottom: 15 }}>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
-                        {workoutTabs.map(tab => (
-                            <TouchableOpacity 
-                                key={tab} 
-                                style={[
-                                    styles.pillTabMod, 
-                                    { backgroundColor: theme.surface, borderColor: theme.border },
-                                    selectedTab === tab && { backgroundColor: theme.accent, borderColor: theme.accent, elevation: 4 }
-                                ]}
-                                onPress={() => setSelectedTab(tab)}
-                            >
-                                <Text style={[
-                                    styles.pillTabTextMod, 
-                                    { color: theme.textSecondary },
-                                    selectedTab === tab && { color: theme.isDark ? '#000' : '#FFF' }
-                                ]}>{tab}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
-            )}
-
             {activeProgram ? (
                 <View style={styles.sectionContainerMod}>
                   <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
                     <TouchableOpacity 
                         style={[styles.heroCardMod, { borderColor: theme.border }, isTodayDone && {borderColor: theme.accent} ]}
-                        onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name, initialTab: selectedTab })}
+                        onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name })}
                         activeOpacity={0.9}
                     >
                         <LinearGradient 
@@ -308,13 +221,13 @@ export default function TrainingScreen({ navigation }) {
                                 </View>
                                 
                                 <Text style={[styles.heroTitleMod, { color: theme.text }]} numberOfLines={2}>
-                                    Treino {selectedTab ? selectedTab.toUpperCase() : ""}: {activeProgram.name}
+                                    {activeProgram.name}
                                 </Text>
                             </View>
                             
                             <View style={[styles.iconCircleMod, { borderColor: isTodayDone ? theme.accent : theme.border, backgroundColor: isTodayDone ? theme.accent : theme.bg }]}>
                                 <MaterialCommunityIcons 
-                                    name={isTodayDone ? "trophy" : "dumbbell"} 
+                                    name={isTodayDone ? "trophy" : "calendar-check"} 
                                     size={36} 
                                     color={isTodayDone ? (theme.isDark ? "#000" : "#FFF") : theme.textSecondary} 
                                 />
@@ -323,8 +236,10 @@ export default function TrainingScreen({ navigation }) {
 
                         <View style={[styles.heroFooterMod, {borderTopColor: theme.border}]}>
                             <View style={styles.heroInfoItemMod}>
-                                <Ionicons name="eye" size={14} color={theme.accent} />
-                                <Text style={[styles.heroInfoTextMod, { color: theme.accent, fontWeight:'bold' }]}>VER DETALHES</Text>
+                                <Ionicons name="calendar" size={14} color={theme.accent} />
+                                <Text style={[styles.heroInfoTextMod, { color: theme.textSecondary, fontWeight:'bold', fontSize: 10 }]}>
+                                    Toque para ver o cronograma
+                                </Text>
                             </View>
                             
                             <View style={[styles.startBtnMod, { backgroundColor: isTodayDone ? theme.border : theme.accent, elevation: isTodayDone ? 0 : 4 }]}>
@@ -388,13 +303,6 @@ const styles = StyleSheet.create({
   energyCardMod: { flex: 1, borderRadius: 20, padding: 18, alignItems: 'center', borderWidth: 1 },
   energyEmojiMod: { fontSize: 36, marginBottom: 10 },
   energyLabelMod: { fontSize: 12, fontWeight: 'bold' },
-
-  routineSelectorWrapper: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', alignSelf: 'flex-start', marginBottom: 20 },
-  routineSelectorBtnMod: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 25, borderWidth: 1 },
-  routineSelectorTextMod: { fontSize: 12, fontWeight: '900' },
-
-  pillTabMod: { paddingHorizontal: 22, paddingVertical: 14, borderRadius: 30, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  pillTabTextMod: { fontSize: 14, fontWeight: '800' },
 
   heroCardMod: { width: '100%', borderRadius: 30, padding: 25, borderWidth: 1, overflow: 'hidden', position: 'relative' },
   heroHeaderMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, zIndex: 2 },
