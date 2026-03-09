@@ -254,6 +254,20 @@ export const useMontarTreino = (route, navigation) => {
         } finally { setIsImportingAI(false); }
     };
 
+    // 🔥 NOVA FUNÇÃO: MOVER A ABA
+    const moveTab = (direction) => {
+        const currentIndex = workoutTabs.indexOf(selectedWorkoutTab);
+        if (direction === 'left' && currentIndex > 0) {
+            const newTabs = [...workoutTabs];
+            [newTabs[currentIndex - 1], newTabs[currentIndex]] = [newTabs[currentIndex], newTabs[currentIndex - 1]];
+            setWorkoutTabs(newTabs);
+        } else if (direction === 'right' && currentIndex < workoutTabs.length - 1) {
+            const newTabs = [...workoutTabs];
+            [newTabs[currentIndex + 1], newTabs[currentIndex]] = [newTabs[currentIndex], newTabs[currentIndex + 1]];
+            setWorkoutTabs(newTabs);
+        }
+    };
+
     const handleDeleteTab = () => {
         if (workoutTabs.length === 1) { 
             if (Platform.OS === 'web') window.alert('Você precisa ter pelo menos um dia de treino.');
@@ -366,9 +380,15 @@ export const useMontarTreino = (route, navigation) => {
     const saveAsTemplate = async () => {
         if (!saveTemplateName) return Alert.alert("Erro", "Dê um nome ao template.");
         try {
+            // 🔥 Garante a ordem correta antes de salvar o template
+            const orderedExercisesByDay = {};
+            workoutTabs.forEach(tab => {
+                if (exercisesByDay[tab]) orderedExercisesByDay[tab] = exercisesByDay[tab];
+            });
+
             const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ name: saveTemplateName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(exercisesByDay) })
+                body: JSON.stringify({ name: saveTemplateName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(orderedExercisesByDay) })
             });
             if (!res.ok) throw new Error("Erro");
             setModalSaveTemplateVisible(false);
@@ -411,9 +431,18 @@ export const useMontarTreino = (route, navigation) => {
       if (!customWorkoutName) return alertMsg("Erro", "Defina um nome para a rotina.");
       setSending(true);
 
+      // 🔥 Constrói o objeto respeitando a ORDEM VISUAL DAS ABAS
+      const orderedExercisesByDay = {};
+      workoutTabs.forEach(tab => {
+          if (exercisesByDay[tab]) orderedExercisesByDay[tab] = exercisesByDay[tab];
+      });
+
       if (isTemplateMode) {
           try {
-              const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ id: templateData?.id, name: customWorkoutName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(exercisesByDay) }) });
+              const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', { 
+                  method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                  body: JSON.stringify({ id: templateData?.id, name: customWorkoutName, goal: templateGoalInput, level: templateLevelInput, data: JSON.stringify(orderedExercisesByDay) }) 
+              });
               if (!res.ok) throw new Error("Erro");
               alertMsg("Sucesso", "Template salvo!"); navigation.goBack();
           } catch(e) { alertMsg("Erro", "Falha ao salvar template."); } finally { setSending(false); }
@@ -422,15 +451,27 @@ export const useMontarTreino = (route, navigation) => {
 
       let flatExercises = [];
       let temFantasma = false; 
+      let globalOrder = 0; // 🔥 CRUCIAL: Esta variável garante que o aluno veja exatamente na mesma ordem
 
-      Object.keys(exercisesByDay).forEach(day => {
-          exercisesByDay[day].forEach((ex, index) => {
+      workoutTabs.forEach(day => {
+          if (!exercisesByDay[day]) return;
+          exercisesByDay[day].forEach((ex) => {
               if (ex.exerciseId && String(ex.exerciseId).startsWith('custom_')) { temFantasma = true; }
               const isCardio = ex.category?.toUpperCase() === 'CARDIO';
               const safeBlocks = (ex.blocks && ex.blocks.length > 0) ? ex.blocks : [{ sets: '3', reps: '10', technique: '', restTime: '60' }];
               const hiddenPayload = JSON.stringify({ t: safeBlocks[0].technique || "", b: safeBlocks, o: ex.observation || "" });
 
-              flatExercises.push({ exerciseId: String(ex.exerciseId), day: String(day).trim(), sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3), reps: String(safeBlocks[0].reps), technique: hiddenPayload, restTime: parseInt(safeBlocks[0].restTime) || 0, order: index, observation: ex.observation || "", substituteId: ex.substitute ? String(ex.substitute.id) : null });
+              flatExercises.push({ 
+                  exerciseId: String(ex.exerciseId), 
+                  day: String(day).trim(), 
+                  sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3), 
+                  reps: String(safeBlocks[0].reps), 
+                  technique: hiddenPayload, 
+                  restTime: parseInt(safeBlocks[0].restTime) || 0, 
+                  order: globalOrder++, // 🔥 O número da ordem cresce globalmente para a semana inteira!
+                  observation: ex.observation || "", 
+                  substituteId: ex.substitute ? String(ex.substitute.id) : null 
+              });
           });
       });
 
@@ -465,7 +506,7 @@ export const useMontarTreino = (route, navigation) => {
             setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, setSelectedCategory, setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName
         },
         actions: {
-            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview
+            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab // 🔥 Expondo a função moveTab
         }
     };
 };

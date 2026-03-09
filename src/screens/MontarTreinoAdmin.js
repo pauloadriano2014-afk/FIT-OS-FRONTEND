@@ -266,19 +266,42 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           saveAsTemplate={actions.saveAsTemplate}
       />
 
-      {/* MODAL PARA RENOMEAR/EXCLUIR ABA DE TREINO */}
+      {/* MODAL PARA RENOMEAR/EXCLUIR/ORDENAR ABA DE TREINO */}
       <Modal visible={state.renameTabModalVisible} transparent animationType="fade" onRequestClose={() => setters.setRenameTabModalVisible(false)}>
           <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   <Text style={[styles.modalTitle, { color: theme.accent }]}>GERENCIAR DIA</Text>
+                  
                   <Text style={[styles.miniLabelLeft, { color: theme.textSecondary, marginTop: 10 }]}>NOME DO DIA/TREINO:</Text>
                   <TextInput style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginBottom: 20 }]} value={state.newTabName} onChangeText={setters.setNewTabName} autoFocus />
-                  <View style={{flexDirection: 'row', gap: 10}}>
+                  
+                  <View style={{flexDirection: 'row', gap: 10, marginBottom: 20}}>
                       <TouchableOpacity style={[styles.saveBtnModal, { backgroundColor: theme.accent, flex: 1 }]} onPress={actions.handleRenameTab}>
                           <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR NOME</Text>
                       </TouchableOpacity>
                   </View>
-                  <TouchableOpacity style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, gap: 5}} onPress={actions.handleDeleteTab}>
+
+                  {/* 🔥 BOTÕES DE ORDENAÇÃO DE ABAS */}
+                  <Text style={[styles.miniLabelLeft, { color: theme.textSecondary, textAlign: 'center' }]}>ORDEM DESTE TREINO:</Text>
+                  <View style={{flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 20}}>
+                      <TouchableOpacity 
+                          style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} 
+                          onPress={() => actions.moveTab('left')}
+                      >
+                          <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
+                          <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 12}}>P/ ESQUERDA</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                          style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} 
+                          onPress={() => actions.moveTab('right')}
+                      >
+                          <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 12}}>P/ DIREITA</Text>
+                          <MaterialCommunityIcons name="arrow-right" size={20} color={theme.text} />
+                      </TouchableOpacity>
+                  </View>
+
+                  <TouchableOpacity style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 5}} onPress={actions.handleDeleteTab}>
                       <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
                       <Text style={{color: '#FF3B30', fontWeight: 'bold'}}>Excluir este dia inteiro</Text>
                   </TouchableOpacity>
