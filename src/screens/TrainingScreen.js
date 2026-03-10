@@ -234,17 +234,18 @@ export default function TrainingScreen({ navigation }) {
                             </View>
                         </View>
 
+                        {/* 🔥 CIRURGIA AQUI: flexShrink e gap ajustados para o botão caber */}
                         <View style={[styles.heroFooterMod, {borderTopColor: theme.border}]}>
                             <View style={styles.heroInfoItemMod}>
                                 <Ionicons name="calendar" size={14} color={theme.accent} />
                                 <Text style={[styles.heroInfoTextMod, { color: theme.textSecondary, fontWeight:'bold', fontSize: 10 }]}>
-                                    Toque para ver o cronograma
+                                    Ver cronograma
                                 </Text>
                             </View>
                             
                             <View style={[styles.startBtnMod, { backgroundColor: isTodayDone ? theme.border : theme.accent, elevation: isTodayDone ? 0 : 4 }]}>
                                 <Text style={[styles.startBtnTextMod, { color: isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                                    {isTodayDone ? 'REVISAR' : 'TREINAR AGORA'}
+                                    {isTodayDone ? 'REVISAR' : 'TREINAR'}
                                 </Text>
                                 <Ionicons name={isTodayDone ? "book-outline" : "play-forward"} size={14} color={isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
                             </View>
@@ -312,12 +313,13 @@ const styles = StyleSheet.create({
   heroTitleMod: { fontSize: 22, fontWeight: '900', lineHeight: 28 },
   iconCircleMod: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, justifyContent: 'center', alignItems: 'center', zIndex: 2 },
   
-  heroFooterMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, zIndex: 2 },
-  heroInfoItemMod: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  heroInfoTextMod: { fontSize: 12 },
+  // 🔥 CIRURGIA AQUI: Gap e flexShrink
+  heroFooterMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, zIndex: 2, gap: 5 },
+  heroInfoItemMod: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
+  heroInfoTextMod: { flexShrink: 1 },
   
-  startBtnMod: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  startBtnTextMod: { fontWeight: '900', fontSize: 13 },
+  startBtnMod: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
+  startBtnTextMod: { fontWeight: '900', fontSize: 12 },
   
   emptyCardMod: { width:'100%', padding: 50, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
   emptyCardTextMod: { fontWeight: 'bold', fontSize: 16, marginTop: 20, marginBottom: 8 },

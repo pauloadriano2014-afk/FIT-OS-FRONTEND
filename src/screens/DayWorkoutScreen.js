@@ -603,38 +603,69 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </KeyboardAvoidingView>
         </Modal>
         
-        {/* 🔥 MODAL DE VÍDEO (Ajustado para Web e App) */}
+        {/* 🔥 MODAL DE VÍDEO ELITE (Corrigido para iPhone e Android Web) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-                <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#111', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: 20 }}>
+                
+                {/* 🔥 CORREÇÃO 1: Largura responsiva (90%) para não vazar no Android, e Altura mais esticada (75%) */}
+                <View style={{ width: '90%', maxWidth: 400, height: '75%', maxHeight: 700, backgroundColor: '#000', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
                     
-                    <TouchableOpacity onPress={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }} style={{ position: 'absolute', top: 12, right: 12, zIndex: 100, backgroundColor: 'rgba(255,59,48,0.9)', borderRadius: 15, padding: 4 }}>
-                        <MaterialCommunityIcons name="close" size={18} color="#FFF" />
+                    <TouchableOpacity 
+                        onPress={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }} 
+                        hitSlop={{ top: 25, bottom: 25, left: 25, right: 25 }} 
+                        style={{ position: 'absolute', top: 15, right: 15, zIndex: 100, backgroundColor: 'rgba(255,59,48,0.9)', width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' }}
+                    >
+                        <MaterialCommunityIcons name="close" size={24} color="#FFF" />
                     </TouchableOpacity>
                     
                     <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
                         {videoModalVisible && currentVideoUrl ? (
-                            isWeb ? (
-                                <video 
-                                    src={currentVideoUrl} 
-                                    style={{ width: '100%', height: '100%', objectFit: 'contain', outline: 'none' }} 
-                                    controls 
-                                    autoPlay 
-                                    loop 
-                                    muted 
-                                    playsInline
-                                />
-                            ) : (
-                                <>
-                                    <Video ref={videoRef} style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.8 }} source={{ uri: currentVideoUrl }} resizeMode="cover" shouldPlay isLooping isMuted />
-                                    <View style={{ alignItems: 'center', padding: 20, zIndex: 10, marginTop: 'auto', marginBottom: 20 }}>
-                                        <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
-                                            <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                                            <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>TELA CHEIA</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </>
-                            )
+                            <>
+                                {isWeb ? (
+                                    /* 🔥 CORREÇÃO 2: objectFit 'cover' para acabar com a borda preta do iPhone */
+                                    <video 
+                                        ref={videoRef} 
+                                        src={currentVideoUrl} 
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', outline: 'none' }} 
+                                        controls={false} /* Esconde o controle nativo do Chrome para o nosso botão brilhar */
+                                        autoPlay 
+                                        loop 
+                                        muted /* GARANTE QUE COMEÇA MUDO */
+                                        playsInline
+                                    />
+                                ) : (
+                                    <Video 
+                                        ref={videoRef} 
+                                        style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.8 }} 
+                                        source={{ uri: currentVideoUrl }} 
+                                        resizeMode={ResizeMode.COVER} 
+                                        shouldPlay 
+                                        isLooping 
+                                        isMuted={true} /* GARANTE QUE COMEÇA MUDO */
+                                    />
+                                )}
+                                
+                                {/* 🔥 CORREÇÃO 3: Botão de TELA COMPLETA unificado e forçado para aparecer na Web também! */}
+                                <View style={{ position: 'absolute', zIndex: 10, justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }} pointerEvents="box-none">
+                                    <TouchableOpacity 
+                                        onPress={() => {
+                                            if (isWeb && videoRef.current) {
+                                                // Código para forçar tela cheia no navegador Safari/Chrome
+                                                const videoEl = videoRef.current;
+                                                if (videoEl.requestFullscreen) videoEl.requestFullscreen();
+                                                else if (videoEl.webkitRequestFullscreen) videoEl.webkitRequestFullscreen();
+                                                videoEl.controls = true; // Libera os controles (som/play) quando abrir a tela toda
+                                            } else if (videoRef.current) {
+                                                videoRef.current.presentFullscreenPlayer();
+                                            }
+                                        }} 
+                                        style={{ backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 15, paddingHorizontal: 25, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', elevation: 5 }}
+                                    >
+                                        <MaterialCommunityIcons name="fullscreen" size={24} color="#FFF" />
+                                        <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 13 }}>TELA COMPLETA</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
                         ) : null}
                     </View>
                 </View>

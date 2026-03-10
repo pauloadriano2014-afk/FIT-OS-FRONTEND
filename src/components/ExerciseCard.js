@@ -415,7 +415,23 @@ export const ExerciseCard = ({
         
         <View style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
             {videoLink ? (
-                <Video ref={videoRef} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.7 }} source={{ uri: videoLink }} resizeMode={ResizeMode.COVER} isMuted={true} shouldPlay={true} isLooping={true} />
+                Platform.OS === 'web' ? (
+                    <video 
+                        src={videoLink} 
+                        style={{ 
+                            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
+                            objectFit: 'cover', 
+                            objectPosition: 'center 20%', /* 🔥 A MÁGICA AQUI: Joga o foco pro tronco/cabeça! */
+                            opacity: 0.7, pointerEvents: 'none' 
+                        }} 
+                        autoPlay 
+                        loop 
+                        muted 
+                        playsInline 
+                    />
+                ) : (
+                    <Video ref={videoRef} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.7 }} source={{ uri: videoLink }} resizeMode={ResizeMode.COVER} isMuted={true} shouldPlay={true} isLooping={true} />
+                )
             ) : (
                 <View style={[StyleSheet.absoluteFillObject, { opacity: 0.7, backgroundColor: '#222', justifyContent:'center', alignItems:'center'}]}><MaterialCommunityIcons name="dumbbell" size={40} color="#444" /></View>
             )}
