@@ -30,9 +30,25 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
+      "icon": "./assets/icon.png",
       "bundler": "metro",
       "output": "single",
-      "publicPath": "/"
+      "publicPath": "/",
+      "splash": {
+        "backgroundColor": "#000000",
+        "resizeMode": "contain",
+        "image": "./assets/icon.png"
+      },
+      "manifest": {
+        "name": "Paulo Adriano Team",
+        "short_name": "PA TEAM",
+        "description": "Consultoria de Performance",
+        "start_url": "./",
+        "display": "standalone",
+        "orientation": "portrait",
+        "background_color": "#000000",
+        "theme_color": "#CCFF00"
+      }
     },
     "plugins": [
       "expo-font",
