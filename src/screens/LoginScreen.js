@@ -1,3 +1,4 @@
+// src/screens/LoginScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -11,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView
+  SafeAreaView,
+  Dimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -21,8 +23,10 @@ import { useTheme } from '../contexts/ThemeContext';
 const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
 const ADMIN_EMAIL = 'paulo_adriano2014@live.com';
 
+const { width } = Dimensions.get('window');
+
 export default function LoginScreen({ navigation }) {
-  const { theme } = useTheme(); // 🔥 Conectado ao tema dinâmico
+  const { theme } = useTheme(); 
   
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
@@ -91,14 +95,12 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // 🔥 Lógica da "Gaiola" do PC (PWA)
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
 
   return (
     <RootComponent style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
-      {/* GAIOLA CENTRALIZADA */}
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
         style={{ 
@@ -114,7 +116,7 @@ export default function LoginScreen({ navigation }) {
           
           <View style={styles.brandContainer}>
             <Image
-              source={require('../../assets/pateam_icon.png')}
+              source={require('../../assets/logo_novo.png')} // 🔥 AQUI ESTÁ A LOGO TRANSPARENTE E ELEGANTE
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -168,8 +170,8 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 30 },
-  brandContainer: { alignItems: 'center', marginBottom: 40 },
-  logoImage: { width: 220, height: 220 },
+  brandContainer: { alignItems: 'center', marginBottom: 40, width: '100%' },
+  logoImage: { width: '80%', height: 120 }, // 🔥 AJUSTADO PARA A LOGO RETANGULAR, EVITANDO CORTE OU DISTORÇÃO
   formContainer: { width: '100%' },
   
   input: {
