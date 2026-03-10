@@ -4,11 +4,11 @@
     "slug": "pa-team-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/pateam_icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash.png",
+      "image": "./assets/pateam_splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -18,7 +18,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/pateam_icon.png",
         "backgroundColor": "#000000"
       },
       "package": "com.pauloadriano.team",
@@ -30,14 +30,14 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "icon": "./assets/icon.png",
+      "icon": "./assets/pateam_icon.png",
       "bundler": "metro",
       "output": "single",
       "publicPath": "/",
       "splash": {
         "backgroundColor": "#000000",
         "resizeMode": "contain",
-        "image": "./assets/icon.png"
+        "image": "./assets/pateam_splash.png"
       },
       "manifest": {
         "name": "Paulo Adriano Team",
@@ -55,7 +55,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/pateam_icon.png",
           "color": "#CCFF00"
         }
       ],
