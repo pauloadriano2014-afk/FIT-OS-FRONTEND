@@ -12,18 +12,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView,
-  Dimensions
+  SafeAreaView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
 const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
 const ADMIN_EMAIL = 'paulo_adriano2014@live.com';
-
-const { width } = Dimensions.get('window');
 
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme(); 
@@ -67,8 +63,6 @@ export default function LoginScreen({ navigation }) {
         ['user', JSON.stringify(data.user)],
         ['role', role]
       ]);
-
-      console.log('✅ Login OK:', role, emailLogado);
 
       if (isAdmin) {
         navigation.replace('AdminDashboard');
@@ -115,8 +109,9 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           
           <View style={styles.brandContainer}>
+            {/* 🔥 O LEÃO OFICIAL TRANSPARENTE, GRANDE E IMPONENTE */}
             <Image
-              source={require('../../assets/logo_novo.png')} // 🔥 AQUI ESTÁ A LOGO TRANSPARENTE E ELEGANTE
+              source={require('../../assets/logo.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
@@ -170,8 +165,8 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 30 },
-  brandContainer: { alignItems: 'center', marginBottom: 40, width: '100%' },
-  logoImage: { width: '80%', height: 120 }, // 🔥 AJUSTADO PARA A LOGO RETANGULAR, EVITANDO CORTE OU DISTORÇÃO
+  brandContainer: { alignItems: 'center', marginBottom: 40 },
+  logoImage: { width: 220, height: 220 }, /* 🔥 TAMANHO DEVOLVIDO AO PADRÃO DO LEÃO */
   formContainer: { width: '100%' },
   
   input: {
