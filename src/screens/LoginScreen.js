@@ -114,7 +114,7 @@ export default function LoginScreen({ navigation }) {
           
           <View style={styles.brandContainer}>
             <Image
-              source={require('../../assets/icon.png')}
+              source={require('../../assets/pateam_icon.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />

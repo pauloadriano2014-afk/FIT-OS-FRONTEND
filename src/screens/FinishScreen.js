@@ -49,7 +49,7 @@ export default function FinishScreen({ route, navigation }) {
             <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 0.9 }}>
               <View style={styles.shareCard}>
                 <Image 
-                  source={require('../../assets/icon.png')} 
+                  source={require('../../assets/pateam_icon.png')} 
                   style={styles.logo} 
                   resizeMode="contain" 
                 />
