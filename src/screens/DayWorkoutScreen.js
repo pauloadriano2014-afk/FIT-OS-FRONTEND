@@ -40,7 +40,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [techModalVisible, setTechModalVisible] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
   
-  // 🔥 SISTEMA DE VOZ DO COACH (PARA AS AULAS NAS TÉCNICAS)
+  // 🔥 ESTADO DA VOZ GLOBAL
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+
+  // Sistema de Voz do Coach para Aulas
   const [isPlayingTechVoice, setIsPlayingTechVoice] = useState(false);
   const [voiceSound, setVoiceSound] = useState(null);
 
@@ -126,6 +129,27 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   useFocusEffect( useCallback(() => { fetchWorkoutData(); }, []) );
 
+  // 🔥 CARREGA PREFERÊNCIA DO MUDO
+  useEffect(() => {
+    const loadVoicePref = async () => {
+        try {
+            const pref = await AsyncStorage.getItem('@voice_coach_enabled');
+            if (pref !== null) {
+                setIsVoiceEnabled(pref === 'true');
+            }
+        } catch (e) {}
+    };
+    loadVoicePref();
+  }, []);
+
+  const toggleVoice = async () => {
+      try {
+          const newVal = !isVoiceEnabled;
+          setIsVoiceEnabled(newVal);
+          await AsyncStorage.setItem('@voice_coach_enabled', String(newVal));
+      } catch (e) {}
+  };
+
   useEffect(() => {
       const unsubscribe = navigation.addListener('beforeRemove', (e) => {
           if (!isTimerRunning) {
@@ -202,7 +226,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
     return () => clearTimeout(timer);
   }, [lastWeights, workoutId, day]);
 
-  // Função para tocar a aula da técnica
   const handlePlayTechVoice = async (techKey) => {
       try {
           if (voiceSound) {
@@ -229,7 +252,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
       }
   };
 
-  // Desliga o áudio se fechar o modal
   const closeTechModal = () => {
       if (voiceSound) {
           voiceSound.unloadAsync();
@@ -445,26 +467,44 @@ export default function DayWorkoutScreen({ route, navigation }) {
     <RootComponent style={rootStyle}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
+        {/* 🔥 HEADER FIXADO: Layout Limpo e Inteligente */}
         <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: isWeb ? 1 : 0, borderBottomColor: theme.border }}>
-            <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, justifyContent: 'space-between' }}>
+            <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'space-between' }}>
                 
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
-                    <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+                    <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
                 </TouchableOpacity>
                 
+                {/* 🔥 TÍTULO INTELIGENTE E DINÂMICO */}
                 <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 10 }}>
-                    <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }} numberOfLines={1}>{workoutName?.toUpperCase()}</Text>
-                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '900', textAlign: 'center' }} numberOfLines={2}>TREINO {day}</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 2 }} numberOfLines={1}>
+                        {workoutName?.toUpperCase()}
+                    </Text>
+                    <Text 
+                        style={{ color: theme.text, fontSize: 17, fontWeight: '900', textAlign: 'center' }} 
+                        numberOfLines={1} 
+                        adjustsFontSizeToFit={true}
+                        minimumFontScale={0.7}
+                    >
+                        {day.length <= 2 ? `TREINO ${day}` : day.toUpperCase()}
+                    </Text>
                 </View>
                 
-                {isTimerRunning ? (
-                    <View style={{ flexDirection:'row', alignItems:'center', gap:5, backgroundColor: theme.accent, paddingVertical:6, paddingHorizontal:8, borderRadius:8 }}>
-                        <MaterialCommunityIcons name="fire" size={14} color={theme.isDark ? '#000' : '#FFF'} />
-                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold', fontSize: 10 }}>EM TREINO</Text>
-                    </View>
-                ) : (
-                    <View style={{ width: 42 }} /> 
-                )}
+                {/* 🔥 BOTOES DIREITOS COMPACTADOS */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <TouchableOpacity onPress={toggleVoice} style={{ padding: 6, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                        <MaterialCommunityIcons name={isVoiceEnabled ? "volume-high" : "volume-mute"} size={18} color={isVoiceEnabled ? theme.accent : theme.textSecondary} />
+                    </TouchableOpacity>
+                    
+                    {isTimerRunning ? (
+                        <View style={{ flexDirection:'row', alignItems:'center', gap:4, backgroundColor: theme.accent, paddingVertical:6, paddingHorizontal:8, borderRadius:8 }}>
+                            <MaterialCommunityIcons name="fire" size={14} color={theme.isDark ? '#000' : '#FFF'} />
+                            <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold', fontSize: 9 }}>EM TREINO</Text>
+                        </View>
+                    ) : (
+                        <View style={{ width: 32 }} /> 
+                    )}
+                </View>
 
             </View>
         </View>
@@ -529,6 +569,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
                         return (
                             <View key={item.id} style={{ width: '100%', zIndex: biSetType === 'start' ? 2 : 1 }}>
+                                {/* 🔥 PASSANDO O isVoiceEnabled PARA O CARD */}
                                 <ExerciseCard 
                                     item={{ ...item, technique: safeTechnique }} 
                                     totalSets={item.sets}
@@ -540,6 +581,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                     biSetType={biSetType} isLastExercise={index === exercisesToShow.length - 1} 
                                     onSwap={item.substitute ? () => handleSwap(index) : null}
                                     isTimerRunning={isTimerRunning}
+                                    isVoiceEnabled={isVoiceEnabled} 
                                     colors={{
                                         bg: theme.bg,
                                         surface: theme.surface,
@@ -585,7 +627,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
                             {selectedTech && TECH_GUIDE[selectedTech] ? TECH_GUIDE[selectedTech].desc : ''}
                         </Text>
                         
-                        {/* 🔥 BOTÃO DE AULA DO COACH */}
                         {selectedTech && TECH_GUIDE[selectedTech]?.audio && (
                             <TouchableOpacity 
                                 onPress={() => handlePlayTechVoice(selectedTech)}

@@ -10,6 +10,7 @@ export const ExerciseCard = ({
   handleSaveWeight, handleOpenVideo, setModalVisible, 
   setSelectedTech, setTechModalVisible, TECH_GUIDE,
   isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning,
+  isVoiceEnabled, // 🔥 TRAVA DO MUDO CHEGANDO AQUI
   colors
 }) => {
   
@@ -30,10 +31,10 @@ export const ExerciseCard = ({
   const [timerMessage, setTimerMessage] = useState({ title: 'RECUPERANDO', desc: 'Respire e prepare-se.' });
   const videoRef = useRef(null);
 
-  // 🔥 SISTEMA DE VOZ DO COACH
   const [voiceSound, setVoiceSound] = useState(null);
 
   async function playVoiceAlert(type) {
+      if (!isVoiceEnabled) return; // 🔥 SE O ALUNO MUTOU O COACH, O CÓDIGO MORRE AQUI!
       try {
           if (voiceSound) {
               await voiceSound.unloadAsync();
@@ -47,7 +48,7 @@ export const ExerciseCard = ({
               case 'alerta_restpause': audioRes = require('../../assets/audio/alerta_restpause.m4a'); break;
               case 'alerta_cluster': audioRes = require('../../assets/audio/alerta_cluster.m4a'); break;
               case 'alerta_dropset': audioRes = require('../../assets/audio/alerta_dropset.m4a'); break;
-              case 'alerta_treino_finalizado': audioRes = require('../../assets/audio/alerta_treino_finalizado.m4a'); break; // 🔥 ÁUDIO NOVO AQUI
+              case 'alerta_treino_finalizado': audioRes = require('../../assets/audio/alerta_treino_finalizado.m4a'); break;
           }
           if (audioRes) {
               const { sound } = await Audio.Sound.createAsync(audioRes);
@@ -114,7 +115,7 @@ export const ExerciseCard = ({
       }
     }
     return () => clearInterval(interval);
-  }, [isResting, seconds, activeSetIndex, isLastExercise, biSetType]);
+  }, [isResting, seconds, activeSetIndex, isLastExercise, biSetType, isVoiceEnabled]);
 
   const calculateTotalSets = () => {
     return blocks.reduce((acc, block) => acc + (parseInt(block.sets) || 1), 0);
@@ -181,7 +182,6 @@ export const ExerciseCard = ({
 
     if (isLastSet && !isTechniqueForced) {
         message = { title: 'EXERCÍCIO CONCLUÍDO', desc: isLastExercise ? 'Você finalizou o treino!' : 'Prepare-se para o próximo exercício da lista.' };
-        // 🔥 SE FOR O ÚLTIMO, CHAMA O ÁUDIO DE TRIUNFO!
         voiceToPlay = isLastExercise ? 'alerta_treino_finalizado' : 'alerta_fim_exercicio'; 
     }
 
