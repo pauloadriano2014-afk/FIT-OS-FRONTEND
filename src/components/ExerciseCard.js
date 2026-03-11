@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode, Audio } from 'expo-av';
-import * as Speech from 'expo-speech'; // 🔥 IMPORTAÇÃO DA VOZ NATIVA
+import * as Speech from 'expo-speech';
 import { identifyTechnique, getCategoryType } from '../utils/workoutUtils';
 
 export const ExerciseCard = ({ 
@@ -31,7 +31,6 @@ export const ExerciseCard = ({
   const [timerMessage, setTimerMessage] = useState({ title: 'RECUPERANDO', desc: 'Respire e prepare-se.' });
   const videoRef = useRef(null);
 
-  // 🔥 HACK PARA O IPHONE FALAR MESMO NO SILENCIOSO
   useEffect(() => {
     const forceAudio = async () => {
       try {
@@ -73,17 +72,19 @@ export const ExerciseCard = ({
       setIsResting(false); 
       clearInterval(interval); 
       
-      // 🔥 AVISO DE TÉRMINO DO DESCANSO
-      Speech.stop();
-      Speech.speak('Tempo esgotado! Bora moer!', { language: 'pt-BR', rate: 1.1, pitch: 1.1 });
+      const isLastOfAll = (activeSetIndex === calculateTotalSets() && isLastExercise);
 
-      if (activeSetIndex === calculateTotalSets() && isLastExercise && biSetType !== 'start') {
+      if (isLastOfAll && biSetType !== 'start') {
           if (Platform.OS === 'web') window.alert("🔥 TREINO FINALIZADO!\nParabéns!");
           else Alert.alert("🔥 TREINO FINALIZADO!", "Parabéns!");
+      } else if (biSetType !== 'start') {
+          // 🔥 AVISO DE TÉRMINO DO DESCANSO SÓ SE NÃO FOR O FIM DO TREINO
+          Speech.stop();
+          Speech.speak('Tempo esgotado! Bora moer!', { language: 'pt-BR', rate: 1.1, pitch: 1.1 });
       }
     }
     return () => clearInterval(interval);
-  }, [isResting, seconds]);
+  }, [isResting, seconds, activeSetIndex, isLastExercise, biSetType]);
 
   const calculateTotalSets = () => {
     return blocks.reduce((acc, block) => acc + (parseInt(block.sets) || 1), 0);
@@ -96,26 +97,27 @@ export const ExerciseCard = ({
         return;
     }
     Keyboard.dismiss();
-    if (currentVal === undefined || currentVal === '' || currentVal === null) {
+    
+    if (categoryType !== 'CARDIO' && (currentVal === undefined || currentVal === '' || currentVal === null)) {
         handleSaveWeight(item.id, '0', setKey); 
     }
     
     setCheckedSets(prev => ({ ...prev, [setKey]: true }));
 
+    if (categoryType === 'CARDIO') return;
+
     const totalSets = calculateTotalSets();
     const isLastSet = (typeof setKey === 'number' ? setKey : parseInt(setKey)) === totalSets;
 
-    if (categoryType === 'STRENGTH') {
-        startRestTimer(typeof setKey === 'number' ? setKey : parseInt(setKey), 'NORMAL', blockRestTime, blockTechKey, isLastSet);
-    }
+    startRestTimer(typeof setKey === 'number' ? setKey : parseInt(setKey), 'NORMAL', blockRestTime, blockTechKey, isLastSet);
   };
 
   const startRestTimer = (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
-    Speech.stop(); // 🔥 Para qualquer voz anterior para não encavalar
+    Speech.stop(); 
 
     if (biSetType === 'start') {
         setTimerMessage({ title: '🔥 SEM DESCANSO!', desc: 'Vá direto para o exercício de baixo agora!' });
-        setSeconds(3);
+        setSeconds(3); 
         setActiveSetIndex(setNum); 
         setIsResting(true);
         Speech.speak('Sem descanso! Vá direto para o exercício de baixo agora!', { language: 'pt-BR', rate: 1.1 });
@@ -125,15 +127,19 @@ export const ExerciseCard = ({
     let timeToRest = parseInt(blockRestTime) || standardRestTime;
     let message = { title: 'RECUPERANDO', desc: 'Relaxe e recupere o fôlego.' };
     let falaInicio = `Descanso de ${timeToRest} segundos.`;
+    
+    let isTechniqueForced = false;
 
     if (type === 'CLUSTER_INTRA') {
         timeToRest = 15;
         message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' };
         falaInicio = 'Pausa Cluster. Quinze segundos. Mantenha o peso!';
+        isTechniqueForced = true;
     } else if (blockTechKey === 'RESTPAUSE') {
         timeToRest = 20; 
         message = { title: 'REST-PAUSE (20s)', desc: 'Respire rápido! Falhe de novo com a mesma carga.' };
         falaInicio = 'Rest Pause. Vinte segundos. Respire rápido e falhe de novo com a mesma carga!';
+        isTechniqueForced = true;
     } else if (blockTechKey === 'DROPSET') {
         message = { title: 'SÉRIE FINALIZADA', desc: 'Recupere-se para a próxima.' };
         falaInicio = 'Série finalizada. Recupere-se.';
@@ -143,7 +149,7 @@ export const ExerciseCard = ({
         falaInicio = 'Método GVT. Sessenta segundos exatos.';
     }
 
-    if (isLastSet && biSetType !== 'start') {
+    if (isLastSet && !isTechniqueForced) {
         message = { title: 'EXERCÍCIO CONCLUÍDO', desc: isLastExercise ? 'Você finalizou o treino!' : 'Prepare-se para o próximo exercício da lista.' };
         falaInicio = isLastExercise ? 'Último exercício concluído.' : `Exercício concluído. Prepare-se para o próximo. Descanso de ${timeToRest} segundos.`;
     }
@@ -153,7 +159,6 @@ export const ExerciseCard = ({
     setActiveSetIndex(setNum);
     setIsResting(true);
     
-    // 🔥 Dispara a voz de início do descanso
     Speech.speak(falaInicio, { language: 'pt-BR', rate: 1.1 });
   };
 
@@ -180,17 +185,20 @@ export const ExerciseCard = ({
       }
 
       if (categoryType === 'CARDIO') {
-        const isCompleted = lastWeights[item.id]?.[currentSetNum];
+        const val = lastWeights[item.id]?.[currentSetNum];
+        const isConfirmed = checkedSets[currentSetNum] === true;
         return (
             <View style={{flex: 1.5, alignItems:'center'}}>
                 <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>TEMPO / KM</Text>
                 <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                     <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                         <TextInput 
-                            style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, isCompleted && {color: colors.primary, borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
+                            style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, isConfirmed && {color: colors.primary, borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
                             placeholder="Min/Km" placeholderTextColor={colors.textMuted} keyboardType="default"
-                            onEndEditing={(e) => { 
-                                handleSaveWeight(item.id, e.nativeEvent.text, currentSetNum); 
+                            value={val !== undefined ? String(val) : ''}
+                            onChangeText={(text) => handleSaveWeight(item.id, text, currentSetNum)}
+                            onSubmitEditing={(e) => {
+                                handleSaveWeight(item.id, e.nativeEvent.text, currentSetNum);
                                 handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
                             }}
                             editable={isTimerRunning} returnKeyType="done"
@@ -217,9 +225,15 @@ export const ExerciseCard = ({
                                     <TextInput 
                                         style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
                                         placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
-                                        onEndEditing={(e) => { 
+                                        value={val !== undefined ? String(val) : ''}
+                                        onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_${suffix}`)}
+                                        onSubmitEditing={(e) => { 
                                             handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
-                                            startRestTimer(currentSetNum, idx < 2 ? 'CLUSTER_INTRA' : 'NORMAL', block.restTime, techInfo.key);
+                                            if (idx === 2) {
+                                                handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
+                                            } else {
+                                                startRestTimer(currentSetNum, 'CLUSTER_INTRA', block.restTime, techInfo.key);
+                                            }
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
                                     />
@@ -247,11 +261,12 @@ export const ExerciseCard = ({
                                     <TextInput 
                                         style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
                                         placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
-                                        onEndEditing={(e) => { 
+                                        value={val !== undefined ? String(val) : ''}
+                                        onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_${suffix}`)}
+                                        onSubmitEditing={(e) => { 
                                             handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
                                             if (idx === 2) {
-                                                setCheckedSets(prev => ({ ...prev, [currentSetNum]: true }));
-                                                startRestTimer(currentSetNum, 'NORMAL', block.restTime, techInfo.key, currentSetNum === calculateTotalSets()); 
+                                                handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
                                             }
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
@@ -275,7 +290,8 @@ export const ExerciseCard = ({
                             <TextInput 
                                 style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_MAIN`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
                                 placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
-                                onEndEditing={(e) => handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_MAIN`)}
+                                value={lastWeights[item.id]?.[`${currentSetNum}_MAIN`] !== undefined ? String(lastWeights[item.id]?.[`${currentSetNum}_MAIN`]) : ''}
+                                onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_MAIN`)}
                                 editable={isTimerRunning} returnKeyType="done"
                             />
                         </View>
@@ -289,10 +305,11 @@ export const ExerciseCard = ({
                             <TextInput 
                                 style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_DROP`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
                                 placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
-                                onEndEditing={(e) => { 
+                                value={lastWeights[item.id]?.[`${currentSetNum}_DROP`] !== undefined ? String(lastWeights[item.id]?.[`${currentSetNum}_DROP`]) : ''}
+                                onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_DROP`)}
+                                onSubmitEditing={(e) => { 
                                     handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_DROP`);
-                                    setCheckedSets(prev => ({ ...prev, [currentSetNum]: true }));
-                                    startRestTimer(currentSetNum, 'NORMAL', block.restTime, techInfo.key, currentSetNum === calculateTotalSets());
+                                    handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
                                 }}
                                 editable={isTimerRunning} returnKeyType="done"
                             />
@@ -413,7 +430,7 @@ export const ExerciseCard = ({
                         style={{padding: 8}} 
                         onPress={() => {
                             if (categoryType === 'MOBILITY' || categoryType === 'CARDIO') {
-                                setActiveSetIndex(currentSetNum + 1); 
+                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
                             } else {
                                 handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
                             }
@@ -543,7 +560,6 @@ export const ExerciseCard = ({
                     
                     <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', lineHeight: 22 }}>{timerMessage.desc}</Text>
                     
-                    {/* 🔥 SE O ALUNO PULAR, MANDAMOS CALAR A BOCA NA HORA */}
                     <TouchableOpacity 
                         style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} 
                         onPress={() => { setSeconds(0); Speech.stop(); }}

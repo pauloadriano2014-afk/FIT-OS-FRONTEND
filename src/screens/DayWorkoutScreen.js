@@ -117,8 +117,38 @@ export default function DayWorkoutScreen({ route, navigation }) {
   useFocusEffect( useCallback(() => { fetchWorkoutData(); }, []) );
 
   useEffect(() => {
+      const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+          if (!isTimerRunning) {
+              return; 
+          }
+          
+          e.preventDefault(); 
+          
+          if (Platform.OS === 'web') {
+              if (window.confirm("⚠️ TREINO EM ANDAMENTO!\nVocê está com o cronômetro do treino rodando. Tem certeza que deseja sair? O tempo e os dados parciais poderão ser perdidos.")) {
+                  navigation.dispatch(e.data.action);
+              }
+          } else {
+              Alert.alert(
+                  '⚠️ TREINO EM ANDAMENTO!',
+                  'Você está com o cronômetro rodando. Tem certeza que deseja sair e interromper o treino?',
+                  [
+                      { text: "FICAR NO TREINO", style: 'cancel', onPress: () => {} },
+                      {
+                          text: 'SAIR MESMO ASSIM',
+                          style: 'destructive',
+                          onPress: () => navigation.dispatch(e.data.action),
+                      },
+                  ]
+              );
+          }
+      });
+      return unsubscribe;
+  }, [navigation, isTimerRunning]);
+
+  useEffect(() => {
     const syncTimer = async () => {
-        const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}`);
+        const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}_${day}`);
         if (savedStart) {
           const now = Date.now();
           const diff = Math.floor((now - parseInt(savedStart)) / 1000);
@@ -127,12 +157,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
         }
       };
       syncTimer();
-  }, [workoutId]);
+  }, [workoutId, day]);
 
   useEffect(() => {
     const handleAppStateChange = async (nextAppState) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}`);
+        const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}_${day}`);
         if (savedStart) {
             const now = Date.now();
             const diff = Math.floor((now - parseInt(savedStart)) / 1000);
@@ -143,7 +173,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
     };
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, [workoutId]);
+  }, [workoutId, day]);
 
   useEffect(() => {
     let interval = null;
@@ -259,7 +289,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
       proceedToFinish();
   };
 
-  const proceedToFinish = () => { setIsTimerRunning(false); setFinishModalVisible(true); };
+  const proceedToFinish = () => { setFinishModalVisible(true); }; 
 
   const submitFinish = async () => {
     if (!rpe) { 
@@ -301,7 +331,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
             setIsTimerRunning(false); 
             setElapsedSeconds(0);
             await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
-            await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
+            await AsyncStorage.removeItem(`@workout_start_${workoutId}_${day}`);
 
             const completedKey = `@completed_days_${workoutId}`;
             const storedCompleted = await AsyncStorage.getItem(completedKey);
@@ -341,7 +371,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const handleStartTimer = async () => {
     const startTime = Date.now().toString();
-    await AsyncStorage.setItem(`@workout_start_${workoutId}`, startTime);
+    await AsyncStorage.setItem(`@workout_start_${workoutId}_${day}`, startTime);
     setIsTimerRunning(true);
   };
 
@@ -368,7 +398,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
     <RootComponent style={rootStyle}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        {/* 🔥 HEADER FIXADO: Largura contida e margens corrigidas pro mobile */}
         <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: isWeb ? 1 : 0, borderBottomColor: theme.border }}>
             <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, justifyContent: 'space-between' }}>
                 
@@ -376,13 +405,11 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
                 </TouchableOpacity>
                 
-                {/* 🔥 Container do meio com flex:1 e margens laterais para o texto respirar sem encavalar */}
                 <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 10 }}>
                     <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }} numberOfLines={1}>{workoutName?.toUpperCase()}</Text>
                     <Text style={{ color: theme.text, fontSize: 20, fontWeight: '900', textAlign: 'center' }} numberOfLines={2}>TREINO {day}</Text>
                 </View>
                 
-                {/* 🔥 Placeholder dinâmico: Se tiver rodando, mostra o botão EM TREINO, se não, mostra um View vazio do mesmo tamanho do botão de voltar para manter tudo centralizado */}
                 {isTimerRunning ? (
                     <View style={{ flexDirection:'row', alignItems:'center', gap:5, backgroundColor: theme.accent, paddingVertical:6, paddingHorizontal:8, borderRadius:8 }}>
                         <MaterialCommunityIcons name="fire" size={14} color={theme.isDark ? '#000' : '#FFF'} />
@@ -404,7 +431,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 bounces={false} 
                 overScrollMode="never" 
             >
-                {/* 🔥 CONTAINER DOS CARDS: Removido o maxWidth='100%' que tava cagando as bordas do iPhone */}
                 <View style={{ 
                     width: isWeb ? '100%' : width, 
                     maxWidth: isWeb ? 480 : width, 
@@ -556,7 +582,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                             <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14 }}>SALVAR E FINALIZAR</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={{marginTop:15, marginBottom:20}} onPress={() => { setFinishModalVisible(false); setIsTimerRunning(true); }}>
+                        <TouchableOpacity style={{marginTop:15, marginBottom:20}} onPress={() => { setFinishModalVisible(false); }}>
                             <Text style={{color: theme.textSecondary, textAlign:'center', fontWeight:'bold'}}>CANCELAR (VOLTAR)</Text>
                         </TouchableOpacity>
 
@@ -611,7 +637,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: 20 }}>
                 
-                {/* 🔥 CORREÇÃO 1: Largura responsiva (90%) para não vazar no Android, e Altura mais esticada (75%) */}
                 <View style={{ width: '90%', maxWidth: 400, height: '75%', maxHeight: 700, backgroundColor: '#000', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
                     
                     <TouchableOpacity 
@@ -622,16 +647,14 @@ export default function DayWorkoutScreen({ route, navigation }) {
                         <MaterialCommunityIcons name="close" size={24} color="#FFF" />
                     </TouchableOpacity>
                     
-                    {/* 🔥 CORREÇÃO 3: Botão de TELA COMPLETA movido para o CANTO SUPERIOR ESQUERDO para não brigar com o iPhone */}
                     <View style={{ position: 'absolute', zIndex: 10, top: 15, left: 15, width: '100%', height: '100%' }} pointerEvents="box-none">
                         <TouchableOpacity 
                             onPress={() => {
                                 if (isWeb && videoRef.current) {
-                                    // Código para forçar tela cheia no navegador Safari/Chrome
                                     const videoEl = videoRef.current;
                                     if (videoEl.requestFullscreen) videoEl.requestFullscreen();
                                     else if (videoEl.webkitRequestFullscreen) videoEl.webkitRequestFullscreen();
-                                    videoEl.controls = true; // Libera os controles (som/play) quando abrir a tela toda
+                                    videoEl.controls = true; 
                                 } else if (videoRef.current) {
                                     videoRef.current.presentFullscreenPlayer();
                                 }
@@ -647,15 +670,14 @@ export default function DayWorkoutScreen({ route, navigation }) {
                         {videoModalVisible && currentVideoUrl ? (
                             <>
                                 {isWeb ? (
-                                    /* 🔥 CORREÇÃO 2: objectFit 'cover' para acabar com a borda preta do iPhone */
                                     <video 
                                         ref={videoRef} 
                                         src={currentVideoUrl} 
                                         style={{ width: '100%', height: '100%', objectFit: 'cover', outline: 'none' }} 
-                                        controls={true} /* Habilita controle nativo do Chrome/Safari, o botão fullscreen está no canto agora */
+                                        controls={true} 
                                         autoPlay 
                                         loop 
-                                        muted /* GARANTE QUE COMEÇA MUDO */
+                                        muted 
                                         playsInline
                                     />
                                 ) : (
@@ -666,7 +688,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         resizeMode={ResizeMode.COVER} 
                                         shouldPlay 
                                         isLooping 
-                                        isMuted={true} /* GARANTE QUE COMEÇA MUDO */
+                                        isMuted={true} 
                                         useNativeControls={true}
                                     />
                                 )}
