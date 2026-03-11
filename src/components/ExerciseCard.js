@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode, Audio } from 'expo-av';
+import * as Speech from 'expo-speech'; // 🔥 IMPORTAÇÃO DA VOZ NATIVA
 import { identifyTechnique, getCategoryType } from '../utils/workoutUtils';
 
 export const ExerciseCard = ({ 
@@ -30,7 +31,22 @@ export const ExerciseCard = ({
   const [timerMessage, setTimerMessage] = useState({ title: 'RECUPERANDO', desc: 'Respire e prepare-se.' });
   const videoRef = useRef(null);
 
-  // 🔥 ESTADO DE CHECAGEM: Controla se a bolinha foi de fato clicada/confirmada
+  // 🔥 HACK PARA O IPHONE FALAR MESMO NO SILENCIOSO
+  useEffect(() => {
+    const forceAudio = async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: true,
+        });
+      } catch (e) {
+        console.log("Erro ao forçar áudio", e);
+      }
+    };
+    forceAudio();
+  }, []);
+
   const [checkedSets, setCheckedSets] = useState({});
 
   let realObservation = item.observation;
@@ -53,8 +69,14 @@ export const ExerciseCard = ({
     let interval = null;
     if (isResting && seconds > 0) {
       interval = setInterval(() => setSeconds((s) => s - 1), 1000);
-    } else if (seconds === 0) {
-      setIsResting(false); clearInterval(interval); 
+    } else if (seconds === 0 && isResting) {
+      setIsResting(false); 
+      clearInterval(interval); 
+      
+      // 🔥 AVISO DE TÉRMINO DO DESCANSO
+      Speech.stop();
+      Speech.speak('Tempo esgotado! Bora moer!', { language: 'pt-BR', rate: 1.1, pitch: 1.1 });
+
       if (activeSetIndex === calculateTotalSets() && isLastExercise && biSetType !== 'start') {
           if (Platform.OS === 'web') window.alert("🔥 TREINO FINALIZADO!\nParabéns!");
           else Alert.alert("🔥 TREINO FINALIZADO!", "Parabéns!");
@@ -78,7 +100,6 @@ export const ExerciseCard = ({
         handleSaveWeight(item.id, '0', setKey); 
     }
     
-    // 🔥 Pinta a bolinha de verde assim que confirmar!
     setCheckedSets(prev => ({ ...prev, [setKey]: true }));
 
     const totalSets = calculateTotalSets();
@@ -90,39 +111,50 @@ export const ExerciseCard = ({
   };
 
   const startRestTimer = (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
-    // 🔥 MAGIA DO BI-SET: Usa o seu Modal Próprio Implacável no lugar do Alerta do Safari
+    Speech.stop(); // 🔥 Para qualquer voz anterior para não encavalar
+
     if (biSetType === 'start') {
         setTimerMessage({ title: '🔥 SEM DESCANSO!', desc: 'Vá direto para o exercício de baixo agora!' });
-        setSeconds(3); // Brilha por 3 segundinhos e some
+        setSeconds(3);
         setActiveSetIndex(setNum); 
         setIsResting(true);
+        Speech.speak('Sem descanso! Vá direto para o exercício de baixo agora!', { language: 'pt-BR', rate: 1.1 });
         return;
     }
 
     let timeToRest = parseInt(blockRestTime) || standardRestTime;
     let message = { title: 'RECUPERANDO', desc: 'Relaxe e recupere o fôlego.' };
+    let falaInicio = `Descanso de ${timeToRest} segundos.`;
 
     if (type === 'CLUSTER_INTRA') {
         timeToRest = 15;
         message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' };
+        falaInicio = 'Pausa Cluster. Quinze segundos. Mantenha o peso!';
     } else if (blockTechKey === 'RESTPAUSE') {
         timeToRest = 20; 
         message = { title: 'REST-PAUSE (20s)', desc: 'Respire rápido! Falhe de novo com a mesma carga.' };
+        falaInicio = 'Rest Pause. Vinte segundos. Respire rápido e falhe de novo com a mesma carga!';
     } else if (blockTechKey === 'DROPSET') {
         message = { title: 'SÉRIE FINALIZADA', desc: 'Recupere-se para a próxima.' };
+        falaInicio = 'Série finalizada. Recupere-se.';
     } else if (blockTechKey === 'GVT') {
         timeToRest = 60;
         message = { title: 'GVT: TEMPO RÍGIDO', desc: 'Respeite os 60s exatos.' };
+        falaInicio = 'Método GVT. Sessenta segundos exatos.';
     }
 
     if (isLastSet && biSetType !== 'start') {
         message = { title: 'EXERCÍCIO CONCLUÍDO', desc: isLastExercise ? 'Você finalizou o treino!' : 'Prepare-se para o próximo exercício da lista.' };
+        falaInicio = isLastExercise ? 'Último exercício concluído.' : `Exercício concluído. Prepare-se para o próximo. Descanso de ${timeToRest} segundos.`;
     }
 
     setTimerMessage(message);
     setSeconds(timeToRest);
     setActiveSetIndex(setNum);
     setIsResting(true);
+    
+    // 🔥 Dispara a voz de início do descanso
+    Speech.speak(falaInicio, { language: 'pt-BR', rate: 1.1 });
   };
 
   const handleInputFocus = () => {
@@ -176,7 +208,6 @@ export const ExerciseCard = ({
                 {['BLOCO 1', 'BLOCO 2', 'BLOCO 3'].map((label, idx) => {
                     const suffix = `CL${idx+1}`;
                     const val = lastWeights[item.id]?.[`${currentSetNum}_${suffix}`];
-                    // O cluster preenche o input, mas a bolinha mestre lá fora que manda na linha
                     const isDone = val !== undefined && val !== '';
                     return (
                         <View key={idx} style={{flex:1, paddingHorizontal:2}}>
@@ -273,8 +304,7 @@ export const ExerciseCard = ({
       }
 
       const val = lastWeights[item.id]?.[currentSetNum];
-      // const isCompleted = val !== undefined && val !== ''; <- Removido para a borda não ficar colorida só de digitar
-      const isConfirmed = checkedSets[currentSetNum] === true; // Nova checagem do input
+      const isConfirmed = checkedSets[currentSetNum] === true; 
       
       return (
         <View style={{flex: 1.5, alignItems:'center'}}>
@@ -341,8 +371,6 @@ export const ExerciseCard = ({
           const isActive = activeSetIndex === currentSetNum && isResting;
           
           const val = lastWeights[item.id]?.[currentSetNum];
-          
-          // 🔥 A bolinha agora só fica verde depois de receber a "Confirmação"
           const isConfirmed = checkedSets[currentSetNum] === true;
 
           const checkColor = isConfirmed ? colors.primary : colors.border;
@@ -380,7 +408,6 @@ export const ExerciseCard = ({
                     {renderInputArea(currentSetNum, isActive, block)}
                 </View>
 
-                {/* 🔥 BOTÃO DE CHECK GIGANTE */}
                 <View style={{width: 44, alignItems:'flex-end', marginLeft: 5, justifyContent:'center'}}>
                     <TouchableOpacity 
                         style={{padding: 8}} 
@@ -421,7 +448,7 @@ export const ExerciseCard = ({
                         style={{ 
                             position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
                             objectFit: 'cover', 
-                            objectPosition: 'center 20%', /* 🔥 A MÁGICA AQUI: Joga o foco pro tronco/cabeça! */
+                            objectPosition: 'center 20%', 
                             opacity: 0.7, pointerEvents: 'none' 
                         }} 
                         autoPlay 
@@ -512,12 +539,15 @@ export const ExerciseCard = ({
                 <View style={{ width: '85%', padding: 40, backgroundColor: colors.surface, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
                     <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '900', letterSpacing: 1, marginBottom: 10, textAlign:'center' }}>{timerMessage.title}</Text>
                     
-                    {/* O Modal do Bi-Set não precisa do reloginho rodando */}
                     {biSetType !== 'start' && <Text style={{ color: colors.text, fontSize: 90, fontWeight: '900', marginVertical: 10 }}>{seconds}s</Text>}
                     
                     <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', lineHeight: 22 }}>{timerMessage.desc}</Text>
                     
-                    <TouchableOpacity style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} onPress={() => setSeconds(0)}>
+                    {/* 🔥 SE O ALUNO PULAR, MANDAMOS CALAR A BOCA NA HORA */}
+                    <TouchableOpacity 
+                        style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} 
+                        onPress={() => { setSeconds(0); Speech.stop(); }}
+                    >
                         <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 14 }}>{biSetType === 'start' ? 'FECHAR' : 'PULAR'}</Text>
                         <MaterialCommunityIcons name={biSetType === 'start' ? 'close' : 'skip-next'} size={16} color={colors.primaryText}/>
                     </TouchableOpacity>
@@ -527,7 +557,6 @@ export const ExerciseCard = ({
 
       </View>
       
-      {/* 🔥 O Elo de Corrente Conectando os Cards */}
       {biSetType === 'start' && 
         <View style={{ alignSelf:'center', height: 34, width: 54, backgroundColor: colors.primary, justifyContent:'center', alignItems:'center', borderRadius: 17, marginTop: -17, marginBottom: -17, zIndex: 10, borderWidth: 4, borderColor: colors.bg }}>
             <MaterialCommunityIcons name="link-variant" size={20} color={colors.primaryText}/>

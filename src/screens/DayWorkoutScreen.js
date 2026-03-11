@@ -303,7 +303,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
             await AsyncStorage.removeItem(`@workout_start_${workoutId}`);
 
-            // 🔥 A MÁGICA: Adiciona o dia no diário de bordo do celular, sem apagar os outros
             const completedKey = `@completed_days_${workoutId}`;
             const storedCompleted = await AsyncStorage.getItem(completedKey);
             let completedDaysArray = storedCompleted ? JSON.parse(storedCompleted) : [];
@@ -321,7 +320,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             
             setFinishModalVisible(false);
             
-            // 🔥 PEGA O PRIMEIRO NOME DO ALUNO OU CHAMA DE ATLETA
             const firstName = userData?.name ? userData.name.split(' ')[0] : 'atleta';
             
             if (Platform.OS === 'web') {
@@ -370,25 +368,30 @@ export default function DayWorkoutScreen({ route, navigation }) {
     <RootComponent style={rootStyle}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
+        {/* 🔥 HEADER FIXADO: Largura contida e margens corrigidas pro mobile */}
         <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: isWeb ? 1 : 0, borderBottomColor: theme.border }}>
-            <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', padding: 20, paddingTop: isWeb ? 20 : 10, justifyContent:'space-between' }}>
-                {!isTimerRunning ? (
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
-                        <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
-                    </TouchableOpacity>
-                ) : (
-                    <View style={{ flexDirection:'row', alignItems:'center', gap:5, backgroundColor: theme.accent, paddingVertical:5, paddingHorizontal:10, borderRadius:8 }}>
-                        <MaterialCommunityIcons name="fire" size={16} color={theme.isDark ? '#000' : '#FFF'} />
-                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold', fontSize: 10 }}>EM TREINO</Text>
-                    </View>
-                )}
+            <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, justifyContent: 'space-between' }}>
                 
-                <View style={{flex:1, alignItems: 'center'}}>
-                    <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }}>{workoutName?.toUpperCase()}</Text>
-                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '900' }}>TREINO {day}</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                    <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+                </TouchableOpacity>
+                
+                {/* 🔥 Container do meio com flex:1 e margens laterais para o texto respirar sem encavalar */}
+                <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 10 }}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }} numberOfLines={1}>{workoutName?.toUpperCase()}</Text>
+                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '900', textAlign: 'center' }} numberOfLines={2}>TREINO {day}</Text>
                 </View>
                 
-                <View style={{ width: 40 }} /> 
+                {/* 🔥 Placeholder dinâmico: Se tiver rodando, mostra o botão EM TREINO, se não, mostra um View vazio do mesmo tamanho do botão de voltar para manter tudo centralizado */}
+                {isTimerRunning ? (
+                    <View style={{ flexDirection:'row', alignItems:'center', gap:5, backgroundColor: theme.accent, paddingVertical:6, paddingHorizontal:8, borderRadius:8 }}>
+                        <MaterialCommunityIcons name="fire" size={14} color={theme.isDark ? '#000' : '#FFF'} />
+                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold', fontSize: 10 }}>EM TREINO</Text>
+                    </View>
+                ) : (
+                    <View style={{ width: 42 }} /> 
+                )}
+
             </View>
         </View>
 
@@ -401,14 +404,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 bounces={false} 
                 overScrollMode="never" 
             >
+                {/* 🔥 CONTAINER DOS CARDS: Removido o maxWidth='100%' que tava cagando as bordas do iPhone */}
                 <View style={{ 
                     width: isWeb ? '100%' : width, 
-                    maxWidth: isWeb ? 480 : '100%', 
+                    maxWidth: isWeb ? 480 : width, 
                     flexGrow: 1, 
                     backgroundColor: theme.bg, 
                     paddingHorizontal: 20, 
                     paddingBottom: 150, 
-                    paddingTop: 10,
+                    paddingTop: 15,
                     ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {})
                 }}>
                     <View style={{ marginBottom: 20 }}>
@@ -618,6 +622,27 @@ export default function DayWorkoutScreen({ route, navigation }) {
                         <MaterialCommunityIcons name="close" size={24} color="#FFF" />
                     </TouchableOpacity>
                     
+                    {/* 🔥 CORREÇÃO 3: Botão de TELA COMPLETA movido para o CANTO SUPERIOR ESQUERDO para não brigar com o iPhone */}
+                    <View style={{ position: 'absolute', zIndex: 10, top: 15, left: 15, width: '100%', height: '100%' }} pointerEvents="box-none">
+                        <TouchableOpacity 
+                            onPress={() => {
+                                if (isWeb && videoRef.current) {
+                                    // Código para forçar tela cheia no navegador Safari/Chrome
+                                    const videoEl = videoRef.current;
+                                    if (videoEl.requestFullscreen) videoEl.requestFullscreen();
+                                    else if (videoEl.webkitRequestFullscreen) videoEl.webkitRequestFullscreen();
+                                    videoEl.controls = true; // Libera os controles (som/play) quando abrir a tela toda
+                                } else if (videoRef.current) {
+                                    videoRef.current.presentFullscreenPlayer();
+                                }
+                            }} 
+                            style={{ backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 12, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', elevation: 5 }}
+                        >
+                            <MaterialCommunityIcons name="fullscreen" size={20} color="#FFF" />
+                            <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 11 }}>TELA COMPLETA</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
                         {videoModalVisible && currentVideoUrl ? (
                             <>
@@ -627,7 +652,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         ref={videoRef} 
                                         src={currentVideoUrl} 
                                         style={{ width: '100%', height: '100%', objectFit: 'cover', outline: 'none' }} 
-                                        controls={false} /* Esconde o controle nativo do Chrome para o nosso botão brilhar */
+                                        controls={true} /* Habilita controle nativo do Chrome/Safari, o botão fullscreen está no canto agora */
                                         autoPlay 
                                         loop 
                                         muted /* GARANTE QUE COMEÇA MUDO */
@@ -642,29 +667,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         shouldPlay 
                                         isLooping 
                                         isMuted={true} /* GARANTE QUE COMEÇA MUDO */
+                                        useNativeControls={true}
                                     />
                                 )}
-                                
-                                {/* 🔥 CORREÇÃO 3: Botão de TELA COMPLETA unificado e forçado para aparecer na Web também! */}
-                                <View style={{ position: 'absolute', zIndex: 10, justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%' }} pointerEvents="box-none">
-                                    <TouchableOpacity 
-                                        onPress={() => {
-                                            if (isWeb && videoRef.current) {
-                                                // Código para forçar tela cheia no navegador Safari/Chrome
-                                                const videoEl = videoRef.current;
-                                                if (videoEl.requestFullscreen) videoEl.requestFullscreen();
-                                                else if (videoEl.webkitRequestFullscreen) videoEl.webkitRequestFullscreen();
-                                                videoEl.controls = true; // Libera os controles (som/play) quando abrir a tela toda
-                                            } else if (videoRef.current) {
-                                                videoRef.current.presentFullscreenPlayer();
-                                            }
-                                        }} 
-                                        style={{ backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 15, paddingHorizontal: 25, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', elevation: 5 }}
-                                    >
-                                        <MaterialCommunityIcons name="fullscreen" size={24} color="#FFF" />
-                                        <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 13 }}>TELA COMPLETA</Text>
-                                    </TouchableOpacity>
-                                </View>
                             </>
                         ) : null}
                     </View>
