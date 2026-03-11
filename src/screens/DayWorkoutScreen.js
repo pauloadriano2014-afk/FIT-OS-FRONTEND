@@ -8,7 +8,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { Video, ResizeMode } from 'expo-av'; 
+import { Video, ResizeMode, Audio } from 'expo-av'; 
 
 import { ExerciseCard } from '../components/ExerciseCard';
 import { formatTime, calculate1RM } from '../utils/workoutUtils'; 
@@ -40,6 +40,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [techModalVisible, setTechModalVisible] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
   
+  // 🔥 SISTEMA DE VOZ DO COACH (PARA AS AULAS NAS TÉCNICAS)
+  const [isPlayingTechVoice, setIsPlayingTechVoice] = useState(false);
+  const [voiceSound, setVoiceSound] = useState(null);
+
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const [videoLoading, setVideoLoading] = useState(false);
@@ -68,13 +72,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
         title: 'DROP-SET', 
         color: '#FF3B30', 
         icon: 'arrow-down-bold', 
+        audio: require('../../assets/audio/exp_dropset.m4a'),
         desc: 'COMO EXECUTAR:\nFaça as repetições até a falha muscular. Imediatamente reduza a carga (cerca de 20 a 30%) e continue o exercício até falhar novamente, sem nenhum descanso.\n\nPOR QUE FAZER:\nAumenta o estresse metabólico e recruta fibras musculares mais profundas que não foram fadigadas inicialmente. Excelente para hipertrofia e "pump" máximo.' 
     },
     'RESTPAUSE': { 
         id: 'RESTPAUSE', 
         title: 'REST-PAUSE', 
         color: '#FF9500', 
-        icon: 'timer-sand', 
+        icon: 'timer-sand',
+        audio: require('../../assets/audio/exp_restpause.m4a'), 
         desc: 'COMO EXECUTAR:\nRealize a série até a falha. Descanse apenas 10 a 15 segundos e volte a fazer o exercício com a MESMA carga até falhar de novo.\n\nPOR QUE FAZER:\nPermite realizar mais repetições totais com uma carga alta (tensão mecânica extrema), gerando um forte estímulo de hipertrofia na metade do tempo.' 
     },
     'BISET': { 
@@ -82,6 +88,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
         title: 'BI-SET', 
         color: theme.accent, 
         icon: 'link-variant', 
+        audio: require('../../assets/audio/exp_biset.m4a'),
         desc: 'COMO EXECUTAR:\nRealize o primeiro exercício e, sem nenhum descanso, passe imediatamente para a execução do segundo exercício acoplado.\n\nPOR QUE FAZER:\nAumenta a densidade do treino, eleva a frequência cardíaca e gera um estresse absurdo na musculatura alvo, otimizando seu tempo na academia.' 
     },
     '21': { 
@@ -89,6 +96,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
         title: 'MÉTODO 21', 
         color: '#32ADE6', 
         icon: 'numeric-7-box-multiple-outline', 
+        audio: require('../../assets/audio/exp_21.m4a'),
         desc: 'COMO EXECUTAR:\nDivida o movimento em 3 partes. Faça 7 repetições só na metade inferior do movimento, 7 na metade superior e 7 repetições completas. Totalizando 21 reps.\n\nPOR QUE FAZER:\nAumenta drasticamente o tempo sob tensão e o fluxo sanguíneo no local. É uma ótima ferramenta para quebrar platôs de estagnação.' 
     },
     'CLUSTERSET': { 
@@ -96,6 +104,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
         title: 'CLUSTER SET', 
         color: '#BF5AF2', 
         icon: 'chart-bar', 
+        audio: require('../../assets/audio/exp_cluster.m4a'),
         desc: 'COMO EXECUTAR:\nDivida uma série pesada em pequenos blocos. (Ex: em vez de tentar 10 diretas, faça 3 reps, descanse 15s, faça mais 3 reps... até bater a meta).\n\nPOR QUE FAZER:\nPermite levantar mais carga total do que você aguentaria numa série contínua normal. Foca em força pura e hipertrofia miofibrilar sem perder a técnica.' 
     },
     'GVT': { 
@@ -103,6 +112,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
         title: 'GVT (10x10)', 
         color: '#00FF7F', 
         icon: 'numeric-10-box-multiple', 
+        audio: require('../../assets/audio/exp_gvt.m4a'),
         desc: 'COMO EXECUTAR:\nRealize 10 séries de 10 repetições com a mesma carga (cerca de 60% da sua força máxima) e descanso cravado de 60 segundos entre as séries.\n\nPOR QUE FAZER:\nÉ um choque brutal no corpo. O volume de treino extremo força o seu músculo a hipertrofiar para "sobreviver" ao estresse imposto.' 
     },
     'NORMAL': { 
@@ -191,6 +201,43 @@ export default function DayWorkoutScreen({ route, navigation }) {
     const timer = setTimeout(saveProgress, 500); 
     return () => clearTimeout(timer);
   }, [lastWeights, workoutId, day]);
+
+  // Função para tocar a aula da técnica
+  const handlePlayTechVoice = async (techKey) => {
+      try {
+          if (voiceSound) {
+              await voiceSound.unloadAsync();
+              setVoiceSound(null);
+          }
+          if (isPlayingTechVoice) {
+              setIsPlayingTechVoice(false);
+              return;
+          }
+          const audioRes = TECH_GUIDE[techKey]?.audio;
+          if (audioRes) {
+              setIsPlayingTechVoice(true);
+              const { sound } = await Audio.Sound.createAsync(audioRes);
+              setVoiceSound(sound);
+              sound.setOnPlaybackStatusUpdate((status) => {
+                  if (status.didJustFinish) setIsPlayingTechVoice(false);
+              });
+              await sound.playAsync();
+          }
+      } catch (e) {
+          console.log('Erro ao tocar aula:', e);
+          setIsPlayingTechVoice(false);
+      }
+  };
+
+  // Desliga o áudio se fechar o modal
+  const closeTechModal = () => {
+      if (voiceSound) {
+          voiceSound.unloadAsync();
+          setVoiceSound(null);
+      }
+      setIsPlayingTechVoice(false);
+      setTechModalVisible(false);
+  };
 
   const fetchWorkoutData = async () => {
     try {
@@ -518,7 +565,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
         </View>
 
         {/* MODAL DE TÉCNICA */}
-        <Modal visible={techModalVisible} transparent animationType="fade" onRequestClose={() => setTechModalVisible(false)}>
+        <Modal visible={techModalVisible} transparent animationType="fade" onRequestClose={closeTechModal}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)', justifyContent: 'center', padding: 20, zIndex: 1000 }}>
                 <View style={[{ width: '100%', maxWidth: isWeb ? 440 : '100%', alignSelf: 'center', backgroundColor: theme.surface, padding: 25, borderRadius: 25, borderWidth: 1 }, { borderColor: selectedTech && TECH_GUIDE[selectedTech] ? (TECH_GUIDE[selectedTech].color === theme.accent && !theme.isDark ? theme.accent : TECH_GUIDE[selectedTech].color) : theme.border, maxHeight: '80%' }]}>
                     
@@ -537,11 +584,25 @@ export default function DayWorkoutScreen({ route, navigation }) {
                         <Text style={{ color: theme.text, fontSize: 14, lineHeight: 22 }}>
                             {selectedTech && TECH_GUIDE[selectedTech] ? TECH_GUIDE[selectedTech].desc : ''}
                         </Text>
+                        
+                        {/* 🔥 BOTÃO DE AULA DO COACH */}
+                        {selectedTech && TECH_GUIDE[selectedTech]?.audio && (
+                            <TouchableOpacity 
+                                onPress={() => handlePlayTechVoice(selectedTech)}
+                                style={{ marginTop: 15, paddingVertical: 12, paddingHorizontal: 15, borderRadius: 10, borderWidth: 1, borderColor: isPlayingTechVoice ? '#FF3B30' : theme.textSecondary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: isPlayingTechVoice ? 'rgba(255,59,48,0.1)' : 'transparent' }}
+                            >
+                                <MaterialCommunityIcons name={isPlayingTechVoice ? "stop-circle-outline" : "play-circle-outline"} size={20} color={isPlayingTechVoice ? '#FF3B30' : theme.text} />
+                                <Text style={{ color: isPlayingTechVoice ? '#FF3B30' : theme.text, fontWeight: 'bold', fontSize: 12 }}>
+                                    {isPlayingTechVoice ? 'PARAR AULA' : 'OUVIR O COACH'}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+                        
                     </ScrollView>
 
                     <TouchableOpacity 
                         style={[{ padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20 }, { backgroundColor: selectedTech && TECH_GUIDE[selectedTech] ? (TECH_GUIDE[selectedTech].color === theme.accent && !theme.isDark ? theme.accent : TECH_GUIDE[selectedTech].color) : theme.accent }]} 
-                        onPress={() => setTechModalVisible(false)}
+                        onPress={closeTechModal}
                     >
                         <Text style={[{ fontWeight: '900', fontSize: 14 }, { color: selectedTech && TECH_GUIDE[selectedTech] && (TECH_GUIDE[selectedTech].color === theme.accent || TECH_GUIDE[selectedTech].color === '#00FF7F') ? '#000' : '#FFF' }]}>
                             ENTENDI, BORA MOER!

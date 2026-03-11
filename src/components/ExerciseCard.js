@@ -3,7 +3,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode, Audio } from 'expo-av';
-import * as Speech from 'expo-speech';
 import { identifyTechnique, getCategoryType } from '../utils/workoutUtils';
 
 export const ExerciseCard = ({ 
@@ -30,6 +29,39 @@ export const ExerciseCard = ({
   const [activeSetIndex, setActiveSetIndex] = useState(null);
   const [timerMessage, setTimerMessage] = useState({ title: 'RECUPERANDO', desc: 'Respire e prepare-se.' });
   const videoRef = useRef(null);
+
+  // 🔥 SISTEMA DE VOZ DO COACH
+  const [voiceSound, setVoiceSound] = useState(null);
+
+  async function playVoiceAlert(type) {
+      try {
+          if (voiceSound) {
+              await voiceSound.unloadAsync();
+          }
+          let audioRes;
+          switch (type) {
+              case 'alerta_descanso': audioRes = require('../../assets/audio/alerta_descanso.m4a'); break;
+              case 'alerta_fim_descanso': audioRes = require('../../assets/audio/alerta_fim_descanso.m4a'); break;
+              case 'alerta_fim_exercicio': audioRes = require('../../assets/audio/alerta_fim_exercicio.m4a'); break;
+              case 'alerta_biset': audioRes = require('../../assets/audio/alerta_biset.m4a'); break;
+              case 'alerta_restpause': audioRes = require('../../assets/audio/alerta_restpause.m4a'); break;
+              case 'alerta_cluster': audioRes = require('../../assets/audio/alerta_cluster.m4a'); break;
+              case 'alerta_dropset': audioRes = require('../../assets/audio/alerta_dropset.m4a'); break;
+              case 'alerta_treino_finalizado': audioRes = require('../../assets/audio/alerta_treino_finalizado.m4a'); break; // 🔥 ÁUDIO NOVO AQUI
+          }
+          if (audioRes) {
+              const { sound } = await Audio.Sound.createAsync(audioRes);
+              setVoiceSound(sound);
+              await sound.playAsync();
+          }
+      } catch (e) {
+          console.log('Erro ao tocar voz do coach:', e);
+      }
+  }
+
+  useEffect(() => {
+      return voiceSound ? () => { voiceSound.unloadAsync(); } : undefined;
+  }, [voiceSound]);
 
   useEffect(() => {
     const forceAudio = async () => {
@@ -78,9 +110,7 @@ export const ExerciseCard = ({
           if (Platform.OS === 'web') window.alert("🔥 TREINO FINALIZADO!\nParabéns!");
           else Alert.alert("🔥 TREINO FINALIZADO!", "Parabéns!");
       } else if (biSetType !== 'start') {
-          // 🔥 AVISO DE TÉRMINO DO DESCANSO SÓ SE NÃO FOR O FIM DO TREINO
-          Speech.stop();
-          Speech.speak('Tempo esgotado! Bora moer!', { language: 'pt-BR', rate: 1.1, pitch: 1.1 });
+          playVoiceAlert('alerta_fim_descanso');
       }
     }
     return () => clearInterval(interval);
@@ -113,45 +143,46 @@ export const ExerciseCard = ({
   };
 
   const startRestTimer = (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
-    Speech.stop(); 
+    if (voiceSound) { voiceSound.stopAsync(); } 
 
     if (biSetType === 'start') {
         setTimerMessage({ title: '🔥 SEM DESCANSO!', desc: 'Vá direto para o exercício de baixo agora!' });
         setSeconds(3); 
         setActiveSetIndex(setNum); 
         setIsResting(true);
-        Speech.speak('Sem descanso! Vá direto para o exercício de baixo agora!', { language: 'pt-BR', rate: 1.1 });
+        playVoiceAlert('alerta_biset');
         return;
     }
 
     let timeToRest = parseInt(blockRestTime) || standardRestTime;
     let message = { title: 'RECUPERANDO', desc: 'Relaxe e recupere o fôlego.' };
-    let falaInicio = `Descanso de ${timeToRest} segundos.`;
+    let voiceToPlay = 'alerta_descanso';
     
     let isTechniqueForced = false;
 
     if (type === 'CLUSTER_INTRA') {
         timeToRest = 15;
         message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' };
-        falaInicio = 'Pausa Cluster. Quinze segundos. Mantenha o peso!';
+        voiceToPlay = 'alerta_cluster';
         isTechniqueForced = true;
     } else if (blockTechKey === 'RESTPAUSE') {
         timeToRest = 20; 
         message = { title: 'REST-PAUSE (20s)', desc: 'Respire rápido! Falhe de novo com a mesma carga.' };
-        falaInicio = 'Rest Pause. Vinte segundos. Respire rápido e falhe de novo com a mesma carga!';
+        voiceToPlay = 'alerta_restpause';
         isTechniqueForced = true;
     } else if (blockTechKey === 'DROPSET') {
         message = { title: 'SÉRIE FINALIZADA', desc: 'Recupere-se para a próxima.' };
-        falaInicio = 'Série finalizada. Recupere-se.';
+        voiceToPlay = 'alerta_dropset';
     } else if (blockTechKey === 'GVT') {
         timeToRest = 60;
         message = { title: 'GVT: TEMPO RÍGIDO', desc: 'Respeite os 60s exatos.' };
-        falaInicio = 'Método GVT. Sessenta segundos exatos.';
+        voiceToPlay = 'alerta_descanso'; 
     }
 
     if (isLastSet && !isTechniqueForced) {
         message = { title: 'EXERCÍCIO CONCLUÍDO', desc: isLastExercise ? 'Você finalizou o treino!' : 'Prepare-se para o próximo exercício da lista.' };
-        falaInicio = isLastExercise ? 'Último exercício concluído.' : `Exercício concluído. Prepare-se para o próximo. Descanso de ${timeToRest} segundos.`;
+        // 🔥 SE FOR O ÚLTIMO, CHAMA O ÁUDIO DE TRIUNFO!
+        voiceToPlay = isLastExercise ? 'alerta_treino_finalizado' : 'alerta_fim_exercicio'; 
     }
 
     setTimerMessage(message);
@@ -159,7 +190,9 @@ export const ExerciseCard = ({
     setActiveSetIndex(setNum);
     setIsResting(true);
     
-    Speech.speak(falaInicio, { language: 'pt-BR', rate: 1.1 });
+    if (voiceToPlay) {
+        playVoiceAlert(voiceToPlay);
+    }
   };
 
   const handleInputFocus = () => {
@@ -562,7 +595,10 @@ export const ExerciseCard = ({
                     
                     <TouchableOpacity 
                         style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} 
-                        onPress={() => { setSeconds(0); Speech.stop(); }}
+                        onPress={() => { 
+                            setSeconds(0); 
+                            if(voiceSound) { voiceSound.stopAsync(); } 
+                        }}
                     >
                         <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 14 }}>{biSetType === 'start' ? 'FECHAR' : 'PULAR'}</Text>
                         <MaterialCommunityIcons name={biSetType === 'start' ? 'close' : 'skip-next'} size={16} color={colors.primaryText}/>
