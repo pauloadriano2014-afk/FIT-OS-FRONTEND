@@ -1,3 +1,4 @@
+// src/screens/AdminUserOptions.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
@@ -20,6 +21,7 @@ export default function AdminUserOptions({ route, navigation }) {
   
   const [activeWorkouts, setActiveWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
+  const [anamneseData, setAnamneseData] = useState(null); // 🔥 ESTADO PARA GUARDAR A ANAMNESE
   
   const [viewMode, setViewMode] = useState('active'); 
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
@@ -32,15 +34,16 @@ export default function AdminUserOptions({ route, navigation }) {
   const fetchStudentData = async () => {
     setLoading(true);
     try {
-        const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${Date.now()}`);
-        const data = await response.json();
+        // Busca Treinos
+        const responseWorkouts = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${Date.now()}`);
+        const dataWorkouts = await responseWorkouts.json();
 
-        if (Array.isArray(data)) {
+        if (Array.isArray(dataWorkouts)) {
             const today = new Date();
             const active = [];
             const archived = [];
 
-            data.forEach(w => {
+            dataWorkouts.forEach(w => {
                 const end = new Date(w.endDate);
                 if (end < today) {
                     archived.push(w);
@@ -52,6 +55,16 @@ export default function AdminUserOptions({ route, navigation }) {
             setActiveWorkouts(active.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
             setArchivedWorkouts(archived.sort((a,b) => new Date(b.endDate) - new Date(a.endDate)));
         }
+
+        // 🔥 BUSCA A ANAMNESE MAIS RECENTE
+        const responseAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
+        const dataAnamnese = await responseAnamnese.json();
+        
+        if (Array.isArray(dataAnamnese) && dataAnamnese.length > 0) {
+            // Pega a primeira da lista (a API costuma ordenar a mais recente primeiro)
+            setAnamneseData(dataAnamnese[0]);
+        }
+
         setIsActiveUser(aluno.active); 
     } catch (error) { console.log("Erro dados:", error); } 
     finally { setLoading(false); }
@@ -116,7 +129,6 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  // 🔥 O BOTÃO DE EXCLUIR TREINO BLINDADO E X9 🔥
   const handleDeleteWorkout = (workoutId) => {
       const deleteAction = async () => {
           try {
@@ -130,7 +142,7 @@ export default function AdminUserOptions({ route, navigation }) {
                   throw new Error(`[Status ${res.status}] ${errText}`);
               }
               
-              fetchStudentData(); // Recarrega a tela na hora
+              fetchStudentData(); 
           } catch(e) { 
               console.error(e);
               if (Platform.OS === 'web') window.alert(`Erro ao excluir\n\n${e.message}`);
@@ -178,7 +190,7 @@ export default function AdminUserOptions({ route, navigation }) {
                 </TouchableOpacity>
                 <View style={{ alignItems: 'center' }}>
                     <Text style={[styles.headerTitle, { color: theme.text }]}>{aluno.name.toUpperCase()}</Text>
-                    <Text style={styles.headerSubtitle}>GERENCIAR ROTINAS</Text>
+                    <Text style={styles.headerSubtitle}>GERENCIAR ALUNO</Text>
                 </View>
                 <TouchableOpacity onPress={fetchStudentData} style={{ padding: 8 }}>
                     <MaterialCommunityIcons name="refresh" size={24} color={theme.accent}/>
@@ -187,6 +199,53 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
+                {/* 🔥 CARD DE ANAMNESE (RAIO-X) */}
+                {anamneseData && (
+                    <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15}}>
+                            <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={theme.accent} />
+                            <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO</Text>
+                        </View>
+
+                        <View style={styles.anamneseRow}>
+                            <View style={styles.anamneseCol}>
+                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
+                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo || '-'}</Text>
+                            </View>
+                            <View style={styles.anamneseCol}>
+                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
+                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel || '-'}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.anamneseRow}>
+                            <View style={styles.anamneseCol}>
+                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
+                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x semana` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel} min` : '-'}</Text>
+                            </View>
+                            <View style={styles.anamneseCol}>
+                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
+                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
+                            </View>
+                        </View>
+
+                        {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
+                            <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
+                                <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
+                                <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
+                            </View>
+                        )}
+
+                        {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
+                            <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
+                                <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
+                                <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
+
+                {/* BOTÃO CRIAR TREINO AGORA VEM DEPOIS DA ANAMNESE */}
                 <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.accent }]} onPress={handleNewWorkout}>
                     <MaterialCommunityIcons name="plus-circle" size={28} color={theme.isDark ? '#000' : '#FFF'} />
                     <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR NOVA ROTINA</Text>
@@ -298,6 +357,11 @@ const styles = StyleSheet.create({
   
   headerTitle: { fontWeight:'900', fontSize:16 },
   headerSubtitle: { color: '#888', fontSize:10, fontWeight:'bold', letterSpacing:1 },
+  
+  // 🔥 ESTILOS DO CARD DA ANAMNESE
+  anamneseCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  anamneseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  anamneseCol: { flex: 1 },
   
   createBtn: { padding: 15, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 15 },
   createBtnText: { fontWeight: '900', fontSize: 14, letterSpacing:0.5 },
