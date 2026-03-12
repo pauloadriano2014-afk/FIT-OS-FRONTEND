@@ -61,6 +61,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [rpe, setRpe] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
 
+  // 🔥 DETECTOR DE IPHONE (WEB)
+  const isIOSWeb = Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
+
   const RPE_OPTIONS = [
       { val: 10, label: 'FALHA TOTAL', desc: 'Não subia mais nada', color: '#BF5AF2' },
       { val: 9,  label: 'MUITO INTENSO', desc: 'Sobrou 1 repetição', color: '#FF3B30' },
@@ -129,7 +132,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   useFocusEffect( useCallback(() => { fetchWorkoutData(); }, []) );
 
-  // 🔥 CARREGA PREFERÊNCIA DO MUDO
   useEffect(() => {
     const loadVoicePref = async () => {
         try {
@@ -467,7 +469,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
     <RootComponent style={rootStyle}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        {/* 🔥 HEADER FIXADO: Layout Limpo e Inteligente */}
+        {/* 🔥 HEADER FIXADO */}
         <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: isWeb ? 1 : 0, borderBottomColor: theme.border }}>
             <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'space-between' }}>
                 
@@ -475,7 +477,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
                 </TouchableOpacity>
                 
-                {/* 🔥 TÍTULO INTELIGENTE E DINÂMICO */}
                 <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 10 }}>
                     <Text style={{ color: theme.textSecondary, fontSize: 9, fontWeight: 'bold', letterSpacing: 1, marginBottom: 2 }} numberOfLines={1}>
                         {workoutName?.toUpperCase()}
@@ -490,7 +491,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     </Text>
                 </View>
                 
-                {/* 🔥 BOTOES DIREITOS COMPACTADOS */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <TouchableOpacity onPress={toggleVoice} style={{ padding: 6, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
                         <MaterialCommunityIcons name={isVoiceEnabled ? "volume-high" : "volume-mute"} size={18} color={isVoiceEnabled ? theme.accent : theme.textSecondary} />
@@ -569,7 +569,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
                         return (
                             <View key={item.id} style={{ width: '100%', zIndex: biSetType === 'start' ? 2 : 1 }}>
-                                {/* 🔥 PASSANDO O isVoiceEnabled PARA O CARD */}
                                 <ExerciseCard 
                                     item={{ ...item, technique: safeTechnique }} 
                                     totalSets={item.sets}
@@ -735,7 +734,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </KeyboardAvoidingView>
         </Modal>
         
-        {/* 🔥 MODAL DE VÍDEO ELITE (Corrigido para iPhone e Android Web) */}
+        {/* 🔥 MODAL DE VÍDEO ELITE (Corrigido Cirurgicamente para iPhone e Android Web) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: 20 }}>
                 
@@ -754,9 +753,14 @@ export default function DayWorkoutScreen({ route, navigation }) {
                             onPress={() => {
                                 if (isWeb && videoRef.current) {
                                     const videoEl = videoRef.current;
-                                    if (videoEl.requestFullscreen) videoEl.requestFullscreen();
-                                    else if (videoEl.webkitRequestFullscreen) videoEl.webkitRequestFullscreen();
-                                    videoEl.controls = true; 
+                                    // 🔥 O SEGREDO DO IPHONE: A Apple usa 'webkitEnterFullscreen'
+                                    if (videoEl.requestFullscreen) {
+                                        videoEl.requestFullscreen();
+                                    } else if (videoEl.webkitEnterFullscreen) {
+                                        videoEl.webkitEnterFullscreen();
+                                    } else if (videoEl.webkitRequestFullscreen) {
+                                        videoEl.webkitRequestFullscreen();
+                                    }
                                 } else if (videoRef.current) {
                                     videoRef.current.presentFullscreenPlayer();
                                 }
@@ -768,7 +772,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+                    <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }} pointerEvents={isIOSWeb ? "none" : "auto"}>
                         {videoModalVisible && currentVideoUrl ? (
                             <>
                                 {isWeb ? (
@@ -776,7 +780,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         ref={videoRef} 
                                         src={currentVideoUrl} 
                                         style={{ width: '100%', height: '100%', objectFit: 'cover', outline: 'none' }} 
-                                        controls={true} 
+                                        controls={!isIOSWeb} // 🔥 ARRANCA OS CONTROLES NATIVOS DO IPHONE (FIM DO ÍCONE DE SOM) MAS MANTÉM NO ANDROID
                                         autoPlay 
                                         loop 
                                         muted 
