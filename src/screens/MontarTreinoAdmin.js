@@ -1,5 +1,5 @@
 // src/screens/MontarTreinoAdmin.js
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Modal, KeyboardAvoidingView, Platform, Switch, StatusBar, Dimensions } from 'react-native'; 
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -23,6 +23,37 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaViewContext;
+
+  const aluno = route.params?.aluno;
+  const [anamneseData, setAnamneseData] = useState(null);
+
+  // Busca Anamnese se não vier preenchida pelo hook
+  useEffect(() => {
+      if (aluno && !state.isTemplateMode) {
+          let foundAnamnese = null;
+          if (aluno.anamnese) foundAnamnese = aluno.anamnese;
+          else if (aluno.anamneses && aluno.anamneses.length > 0) foundAnamnese = aluno.anamneses[aluno.anamneses.length - 1];
+          else if (aluno.Anamnese) foundAnamnese = aluno.Anamnese;
+          else if (aluno.Anamneses && aluno.Anamneses.length > 0) foundAnamnese = aluno.Anamneses[aluno.Anamneses.length - 1];
+
+          if (foundAnamnese) {
+              setAnamneseData(foundAnamnese);
+          } else {
+              // Busca forçada se não achou localmente
+              const fetchAnamnese = async () => {
+                  try {
+                      const res = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
+                      if (res.ok) {
+                          const data = await res.json();
+                          if (Array.isArray(data) && data.length > 0) setAnamneseData(data[0]);
+                          else if (data && data.id) setAnamneseData(data);
+                      }
+                  } catch (e) {}
+              };
+              fetchAnamnese();
+          }
+      }
+  }, [aluno, state.isTemplateMode]);
 
   if (state.loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
@@ -53,15 +84,50 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           <ScrollView style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto' } : { flex: 1, width: '100%' }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never">
               <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100vh' } : {}) }}>
                     
-                      {!state.isTemplateMode && (
-                          <TouchableOpacity style={[styles.healthBar, { backgroundColor: state.hasInjury ? (theme.isDark ? '#330000' : '#FFE5E5') : theme.surface, borderColor: state.hasInjury ? '#FF3B30' : theme.border }]} onPress={() => setters.setAnamneseModal(true)}>
-                              <MaterialCommunityIcons name={state.hasInjury ? "alert-circle" : "check-circle"} size={24} color={state.hasInjury ? '#FF3B30' : theme.textSecondary} />
-                              <View style={{flex:1}}>
-                                  <Text style={[styles.healthTitle, { color: state.hasInjury ? '#FF3B30' : theme.textSecondary }]}>{state.hasInjury ? "ALUNO COM RESTRIÇÕES" : "FICHA MÉDICA OK"}</Text>
-                                  {state.hasInjury && <Text style={styles.healthSubtitle}>Toque para ver detalhes da anamnese</Text>}
+                      {/* 🔥 CARD DE RAIO-X SUBSTITUINDO O BOTÃO PEQUENO */}
+                      {!state.isTemplateMode && anamneseData && (
+                          <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15}}>
+                                  <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={theme.accent} />
+                                  <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO</Text>
                               </View>
-                              <MaterialCommunityIcons name="chevron-right" size={20} color={state.hasInjury ? '#FF3B30' : theme.textSecondary} />
-                          </TouchableOpacity>
+
+                              <View style={styles.anamneseRow}>
+                                  <View style={styles.anamneseCol}>
+                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
+                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo || '-'}</Text>
+                                  </View>
+                                  <View style={styles.anamneseCol}>
+                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
+                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel || '-'}</Text>
+                                  </View>
+                              </View>
+
+                              <View style={styles.anamneseRow}>
+                                  <View style={styles.anamneseCol}>
+                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
+                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x sem` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel}min` : '-'}</Text>
+                                  </View>
+                                  <View style={styles.anamneseCol}>
+                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
+                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
+                                  </View>
+                              </View>
+
+                              {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
+                                  <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
+                                      <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
+                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
+                                  </View>
+                              )}
+
+                              {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
+                                  <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
+                                      <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
+                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
+                                  </View>
+                              )}
+                          </View>
                       )}
 
                       {!state.isTemplateMode && (
@@ -281,7 +347,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                       </TouchableOpacity>
                   </View>
 
-                  {/* 🔥 BOTÕES DE ORDENAÇÃO DE ABAS */}
                   <Text style={[styles.miniLabelLeft, { color: theme.textSecondary, textAlign: 'center' }]}>ORDEM DESTE TREINO:</Text>
                   <View style={{flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 20}}>
                       <TouchableOpacity 
@@ -320,7 +385,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           <View style={styles.modalOverlay}><CustomCalendar selectedDate={state.endDate} onSelect={actions.onSelectEndDate} onClose={() => setters.setShowCalendarEnd(false)} theme={theme} /></View>
       </Modal>
       
-      {/* OUTROS MODAIS (Técnica, Anamnese) */}
       <Modal visible={state.modalTecnicaVisible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -337,35 +401,18 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </View>
       </Modal>
 
-      <Modal visible={state.anamneseModal} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.modalTitle, { color: theme.accent }]}>PRONTUÁRIO</Text>
-                  <ScrollView style={{maxHeight: 400}}>
-                      {state.detalhes?.anamnese ? (
-                          <>
-                          <View style={[styles.infoBlock, { borderBottomColor: theme.border }]}><Text style={[styles.infoLabel, { color: theme.accent }]}>OBJETIVO:</Text><Text style={[styles.infoValue, { color: theme.text }]}>{state.detalhes.anamnese.objetivo || "-"}</Text></View>
-                          <View style={[styles.infoBlock, { borderBottomColor: theme.border }]}><Text style={[styles.infoLabel, {color:'#FF3B30'}]}>LIMITAÇÕES:</Text><Text style={[styles.infoValue, { color: theme.text }]}>{state.detalhes.anamnese.limitacoes?.join(', ') || "Nenhuma"}</Text></View>
-                          <View style={[styles.infoBlock, { borderBottomColor: theme.border }]}><Text style={[styles.infoLabel, {color:'#FF3B30'}]}>CIRURGIAS:</Text><Text style={[styles.infoValue, { color: theme.text }]}>{state.detalhes.anamnese.cirurgias?.join(', ') || "Nenhuma"}</Text></View>
-                          </>
-                      ) : <Text style={{color: theme.textSecondary}}>Sem dados.</Text>}
-                  </ScrollView>
-                  <TouchableOpacity style={[styles.closeBtn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border }]} onPress={() => setters.setAnamneseModal(false)}>
-                      <Text style={{color: theme.text, fontWeight:'bold'}}>FECHAR</Text>
-                  </TouchableOpacity>
-              </View>
-          </View>
-      </Modal>
-
     </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent:'center', alignItems:'center' },
-  healthBar: { flexDirection:'row', alignItems:'center', padding:15, borderRadius:12, marginBottom:20, gap:12, borderWidth:1 },
-  healthTitle: { fontSize: 13, fontWeight: '900', letterSpacing:0.5 },
-  healthSubtitle: { fontSize: 10, color: '#AAA', marginTop: 2 },
+  
+  // 🔥 NOVOS ESTILOS DO CARD DA ANAMNESE
+  anamneseCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  anamneseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  anamneseCol: { flex: 1 },
+  
   planningContainer: { padding:15, borderRadius:15, borderWidth:1, marginBottom:20 },
   nameInput: { padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, fontSize: 16, fontWeight: 'bold', textAlign: 'center', outlineStyle: 'none' },
   dateRow: { flexDirection: 'row', gap: 10, marginBottom:15 },

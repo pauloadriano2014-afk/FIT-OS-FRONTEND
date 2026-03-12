@@ -21,7 +21,6 @@ export default function AdminUserOptions({ route, navigation }) {
   
   const [activeWorkouts, setActiveWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
-  const [anamneseData, setAnamneseData] = useState(null); // 🔥 ESTADO PARA GUARDAR A ANAMNESE
   
   const [viewMode, setViewMode] = useState('active'); 
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
@@ -34,7 +33,6 @@ export default function AdminUserOptions({ route, navigation }) {
   const fetchStudentData = async () => {
     setLoading(true);
     try {
-        // Busca Treinos
         const responseWorkouts = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${Date.now()}`);
         const dataWorkouts = await responseWorkouts.json();
 
@@ -56,18 +54,13 @@ export default function AdminUserOptions({ route, navigation }) {
             setArchivedWorkouts(archived.sort((a,b) => new Date(b.endDate) - new Date(a.endDate)));
         }
 
-        // 🔥 BUSCA A ANAMNESE MAIS RECENTE
-        const responseAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
-        const dataAnamnese = await responseAnamnese.json();
-        
-        if (Array.isArray(dataAnamnese) && dataAnamnese.length > 0) {
-            // Pega a primeira da lista (a API costuma ordenar a mais recente primeiro)
-            setAnamneseData(dataAnamnese[0]);
-        }
-
         setIsActiveUser(aluno.active); 
-    } catch (error) { console.log("Erro dados:", error); } 
-    finally { setLoading(false); }
+
+    } catch (error) { 
+        console.log("Erro geral:", error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const handleToggleStatus = async () => {
@@ -199,53 +192,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
-                {/* 🔥 CARD DE ANAMNESE (RAIO-X) */}
-                {anamneseData && (
-                    <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15}}>
-                            <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={theme.accent} />
-                            <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO</Text>
-                        </View>
-
-                        <View style={styles.anamneseRow}>
-                            <View style={styles.anamneseCol}>
-                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
-                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo || '-'}</Text>
-                            </View>
-                            <View style={styles.anamneseCol}>
-                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
-                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel || '-'}</Text>
-                            </View>
-                        </View>
-
-                        <View style={styles.anamneseRow}>
-                            <View style={styles.anamneseCol}>
-                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
-                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x semana` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel} min` : '-'}</Text>
-                            </View>
-                            <View style={styles.anamneseCol}>
-                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
-                                <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
-                            </View>
-                        </View>
-
-                        {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
-                            <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
-                                <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
-                                <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
-                            </View>
-                        )}
-
-                        {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
-                            <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
-                                <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
-                                <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
-                            </View>
-                        )}
-                    </View>
-                )}
-
-                {/* BOTÃO CRIAR TREINO AGORA VEM DEPOIS DA ANAMNESE */}
                 <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.accent }]} onPress={handleNewWorkout}>
                     <MaterialCommunityIcons name="plus-circle" size={28} color={theme.isDark ? '#000' : '#FFF'} />
                     <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR NOVA ROTINA</Text>
@@ -354,25 +300,15 @@ const styles = StyleSheet.create({
       alignItems:'center', 
       borderBottomWidth:1 
   },
-  
   headerTitle: { fontWeight:'900', fontSize:16 },
   headerSubtitle: { color: '#888', fontSize:10, fontWeight:'bold', letterSpacing:1 },
-  
-  // 🔥 ESTILOS DO CARD DA ANAMNESE
-  anamneseCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
-  anamneseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  anamneseCol: { flex: 1 },
-  
   createBtn: { padding: 15, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 15 },
   createBtnText: { fontWeight: '900', fontSize: 14, letterSpacing:0.5 },
-  
   tabsRow: { flexDirection: 'row', gap: 10, marginBottom: 5 },
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2 },
   tabText: { fontWeight: 'bold', fontSize: 12 },
-
   divider: { height:1, marginVertical:20 },
   sectionLabel: { color:'#888', fontWeight:'900', marginBottom:15, fontSize:12, letterSpacing:1 },
-  
   card: { borderRadius: 12, padding: 15, marginBottom: 15, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   statusText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
@@ -380,14 +316,11 @@ const styles = StyleSheet.create({
   dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 },
   cardDates: { color: '#888', fontSize: 12, fontWeight:'bold' },
   editBtn: { padding: 12, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  
   emptyBox: { alignItems:'center', padding: 20, borderStyle:'dashed', borderWidth:1, borderRadius:10 },
   emptyText: { color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 },
-  
   actionRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 10, gap: 15, borderWidth:1 },
   iconBox: { width: 36, height: 36, borderRadius: 18, justifyContent:'center', alignItems:'center' },
   actionText: { fontWeight: 'bold', fontSize: 13, flex:1 },
-
   deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 15, borderRadius: 12, marginTop: 20, gap: 10 },
   deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 12 }
 });
