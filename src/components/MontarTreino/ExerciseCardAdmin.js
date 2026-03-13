@@ -1,3 +1,4 @@
+// src/components/MontarTreino/ExerciseCardAdmin.js
 import React from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -62,7 +63,7 @@ export default function ExerciseCardAdmin({
                 </View>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    {/* 🔥 BOTÃO DE VINCULAR FANTASMA / TROCAR EXERCÍCIO COM FILTRO INTELIGENTE */}
+                    {/* 🔥 BOTÃO SNIPER DE TROCAR EXERCÍCIO (TITULAR) */}
                     <TouchableOpacity 
                         onPress={() => { 
                             setIsSwapping(true); 
@@ -91,7 +92,18 @@ export default function ExerciseCardAdmin({
                     <TouchableOpacity onPress={() => removeSubstitute(index)}><MaterialCommunityIcons name="close-circle" size={18} color={theme.textSecondary} /></TouchableOpacity>
                 </View>
             ) : (
-                <TouchableOpacity style={styles.addSubBtn} onPress={() => { setIsSelectingSubstitute(true); setTargetIndexForSubstitute(index); setModalBuscaVisible(true); }}>
+                /* 🔥 BOTÃO SNIPER DE ESCOLHER SUBSTITUTO (RESERVA) */
+                <TouchableOpacity 
+                    style={styles.addSubBtn} 
+                    onPress={() => { 
+                        setIsSelectingSubstitute(true); 
+                        setTargetIndexForSubstitute(index); 
+                        if (item.category && setInitialCategoryFilter) {
+                            setInitialCategoryFilter(item.category);
+                        }
+                        setModalBuscaVisible(true); 
+                    }}
+                >
                     <Text style={[styles.addSubText, { color: theme.textSecondary }]}>+ Adicionar opção de troca</Text>
                 </TouchableOpacity>
             )}
@@ -164,5 +176,5 @@ const styles = StyleSheet.create({
   techBox: { alignItems:'center', justifyContent:'center', borderRadius:8, borderWidth:1 },
   miniLabel: { fontSize: 9, fontWeight: 'bold', marginBottom: 4, textAlign:'center' },
   miniInput: { padding: 8, borderRadius: 8, fontSize: 14, textAlign: 'center', borderWidth: 1, fontWeight: 'bold', outlineStyle: 'none' },
-  obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 12, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' } // Estilo da observação
+  obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 12, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' } 
 });

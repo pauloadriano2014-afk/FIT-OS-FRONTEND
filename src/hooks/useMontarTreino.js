@@ -254,7 +254,6 @@ export const useMontarTreino = (route, navigation) => {
         } finally { setIsImportingAI(false); }
     };
 
-    // 🔥 NOVA FUNÇÃO: MOVER A ABA
     const moveTab = (direction) => {
         const currentIndex = workoutTabs.indexOf(selectedWorkoutTab);
         if (direction === 'left' && currentIndex > 0) {
@@ -380,7 +379,6 @@ export const useMontarTreino = (route, navigation) => {
     const saveAsTemplate = async () => {
         if (!saveTemplateName) return Alert.alert("Erro", "Dê um nome ao template.");
         try {
-            // 🔥 Garante a ordem correta antes de salvar o template
             const orderedExercisesByDay = {};
             workoutTabs.forEach(tab => {
                 if (exercisesByDay[tab]) orderedExercisesByDay[tab] = exercisesByDay[tab];
@@ -396,6 +394,7 @@ export const useMontarTreino = (route, navigation) => {
         } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
     };
 
+    // 🔥 CIRURGIA AQUI: O MODAL NÃO FECHA MAIS SOZINHO (A NÃO SER QUE SEJA SUBSTITUIÇÃO/TROCA)
     const addExercicioManual = (ex) => {
       const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
       const isCardio = ex.category?.toUpperCase() === 'CARDIO';
@@ -404,14 +403,19 @@ export const useMontarTreino = (route, navigation) => {
       if (isSwapping && swapIndex !== null) {
           currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category };
           setIsSwapping(false); setSwapIndex(null);
+          setModalBuscaVisible(false); // Fecha na troca
+          setSearchText(''); setSelectedCategory('TODOS');
       } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
           currentList[targetIndexForSubstitute].substitute = { id: ex.id, name: ex.name, videoUrl: ex.videoUrl };
           setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
+          setModalBuscaVisible(false); // Fecha na substituição
+          setSearchText(''); setSelectedCategory('TODOS');
       } else {
           currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitute: null, category: ex.category, blocks: initialBlocks });
+          // 🔥 O SEGREDO DO CARRINHO DE COMPRAS: ELE NÃO FECHA, NÃO LIMPA A BUSCA E NÃO MUDA A CATEGORIA!
       }
       setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
-      setPreviewModalVisible(false); setModalBuscaVisible(false); setSearchText(''); setSelectedCategory('TODOS'); 
+      setPreviewModalVisible(false); 
     };
 
     const removeSubstitute = (i) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].substitute=null; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
@@ -431,7 +435,6 @@ export const useMontarTreino = (route, navigation) => {
       if (!customWorkoutName) return alertMsg("Erro", "Defina um nome para a rotina.");
       setSending(true);
 
-      // 🔥 Constrói o objeto respeitando a ORDEM VISUAL DAS ABAS
       const orderedExercisesByDay = {};
       workoutTabs.forEach(tab => {
           if (exercisesByDay[tab]) orderedExercisesByDay[tab] = exercisesByDay[tab];
@@ -451,7 +454,7 @@ export const useMontarTreino = (route, navigation) => {
 
       let flatExercises = [];
       let temFantasma = false; 
-      let globalOrder = 0; // 🔥 CRUCIAL: Esta variável garante que o aluno veja exatamente na mesma ordem
+      let globalOrder = 0; 
 
       workoutTabs.forEach(day => {
           if (!exercisesByDay[day]) return;
@@ -468,7 +471,7 @@ export const useMontarTreino = (route, navigation) => {
                   reps: String(safeBlocks[0].reps), 
                   technique: hiddenPayload, 
                   restTime: parseInt(safeBlocks[0].restTime) || 0, 
-                  order: globalOrder++, // 🔥 O número da ordem cresce globalmente para a semana inteira!
+                  order: globalOrder++, 
                   observation: ex.observation || "", 
                   substituteId: ex.substitute ? String(ex.substitute.id) : null 
               });
@@ -506,7 +509,7 @@ export const useMontarTreino = (route, navigation) => {
             setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, setSelectedCategory, setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName
         },
         actions: {
-            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab // 🔥 Expondo a função moveTab
+            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab 
         }
     };
 };
