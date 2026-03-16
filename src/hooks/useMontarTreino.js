@@ -225,6 +225,32 @@ export const useMontarTreino = (route, navigation) => {
                             return aInB;
                         });
 
+                        // 🔥 CIRURGIA DE SEPARAÇÃO DE SÉRIES DE PIRÂMIDE (Ex: 15-12-10-8) 🔥
+                        let rawBlocks = aiEx.blocks && aiEx.blocks.length > 0 ? aiEx.blocks : [{ sets: String(aiEx.sets || '3'), reps: String(aiEx.reps || '12'), restTime: String(aiEx.restTime || '60'), technique: aiEx.technique || '' }];
+                        let expandedBlocks = [];
+                        
+                        rawBlocks.forEach(b => {
+                            const repStr = String(b.reps || '').trim();
+                            // Divide a string se tiver hifens ou barras
+                            const parts = repStr.split(/[-/,]/).map(x => x.trim()).filter(x => x);
+                            const setsNum = parseInt(b.sets) || 1;
+
+                            // Se a quantidade de separações for igual ao número de séries OU tiver mais de 2 partes
+                            // Significa que não é um Range (ex: "10-12"), mas sim uma pirâmide. Então, explodimos os blocos!
+                            if (parts.length > 1 && (parts.length === setsNum || parts.length > 2)) {
+                                parts.forEach((p) => {
+                                    expandedBlocks.push({
+                                        sets: '1',
+                                        reps: p,
+                                        restTime: String(b.restTime || '60'),
+                                        technique: b.technique || ''
+                                    });
+                                });
+                            } else {
+                                expandedBlocks.push(b);
+                            }
+                        });
+
                         return {
                             exerciseId: match ? match.id : `custom_${Math.random()}`, 
                             title: match ? match.name : aiEx.title,
@@ -233,7 +259,7 @@ export const useMontarTreino = (route, navigation) => {
                             observation: aiEx.observation || '',
                             tempId: Math.random().toString(),
                             substitute: null,
-                            blocks: aiEx.blocks && aiEx.blocks.length > 0 ? aiEx.blocks : [{ sets: String(aiEx.sets || '3'), reps: String(aiEx.reps || '12'), restTime: String(aiEx.restTime || '60'), technique: aiEx.technique || '' }]
+                            blocks: expandedBlocks // 🔥 Envia o bloco formatado separadinho pra tela!
                         };
                     });
                 });
@@ -394,7 +420,6 @@ export const useMontarTreino = (route, navigation) => {
         } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
     };
 
-    // 🔥 CIRURGIA AQUI: O MODAL NÃO FECHA MAIS SOZINHO (A NÃO SER QUE SEJA SUBSTITUIÇÃO/TROCA)
     const addExercicioManual = (ex) => {
       const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
       const isCardio = ex.category?.toUpperCase() === 'CARDIO';
@@ -403,16 +428,15 @@ export const useMontarTreino = (route, navigation) => {
       if (isSwapping && swapIndex !== null) {
           currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category };
           setIsSwapping(false); setSwapIndex(null);
-          setModalBuscaVisible(false); // Fecha na troca
+          setModalBuscaVisible(false); 
           setSearchText(''); setSelectedCategory('TODOS');
       } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
           currentList[targetIndexForSubstitute].substitute = { id: ex.id, name: ex.name, videoUrl: ex.videoUrl };
           setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
-          setModalBuscaVisible(false); // Fecha na substituição
+          setModalBuscaVisible(false); 
           setSearchText(''); setSelectedCategory('TODOS');
       } else {
           currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitute: null, category: ex.category, blocks: initialBlocks });
-          // 🔥 O SEGREDO DO CARRINHO DE COMPRAS: ELE NÃO FECHA, NÃO LIMPA A BUSCA E NÃO MUDA A CATEGORIA!
       }
       setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
       setPreviewModalVisible(false); 
