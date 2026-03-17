@@ -15,7 +15,7 @@ export default function ExerciseCardAdmin({
     const videoUrl = item.exercise?.videoUrl || item.videoUrl || "";
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
     
-    // 🔥 DETETIVE DE FANTASMAS (Verifica se a IA não encontrou o exercício)
+    // 🔥 DETETIVE DE FANTASMAS
     const isGhost = String(item.exerciseId || '').startsWith('custom_');
 
     if (isReordering) {
@@ -52,7 +52,6 @@ export default function ExerciseCardAdmin({
                     <View style={{flex: 1}}>
                         <Text style={[styles.manualExName, { color: isGhost ? '#FF3B30' : theme.text }]}>{index + 1}. {item.title}</Text>
                         
-                        {/* 🔥 TAG VERMELHA DE ALERTA SE FOR FANTASMA */}
                         {isGhost && (
                             <View style={{backgroundColor: '#FF3B30', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start', marginTop: 4}}>
                                 <Text style={{color: '#FFF', fontSize: 9, fontWeight: 'bold'}}>⚠️ NÃO VINCULADO</Text>
@@ -63,7 +62,6 @@ export default function ExerciseCardAdmin({
                 </View>
                 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                    {/* 🔥 BOTÃO SNIPER DE TROCAR EXERCÍCIO (TITULAR) */}
                     <TouchableOpacity 
                         onPress={() => { 
                             setIsSwapping(true); 
@@ -92,7 +90,6 @@ export default function ExerciseCardAdmin({
                     <TouchableOpacity onPress={() => removeSubstitute(index)}><MaterialCommunityIcons name="close-circle" size={18} color={theme.textSecondary} /></TouchableOpacity>
                 </View>
             ) : (
-                /* 🔥 BOTÃO SNIPER DE ESCOLHER SUBSTITUTO (RESERVA) */
                 <TouchableOpacity 
                     style={styles.addSubBtn} 
                     onPress={() => { 
@@ -143,7 +140,6 @@ export default function ExerciseCardAdmin({
               )}
             </View>
 
-            {/* 🔥 AS OBSERVAÇÕES VOLTARAM PRA TELA! 🔥 */}
             <View style={{ marginTop: 12 }}>
                 <TextInput 
                     style={[styles.obsInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
@@ -175,6 +171,7 @@ const styles = StyleSheet.create({
   inputBox: { flex: 1 },
   techBox: { alignItems:'center', justifyContent:'center', borderRadius:8, borderWidth:1 },
   miniLabel: { fontSize: 9, fontWeight: 'bold', marginBottom: 4, textAlign:'center' },
-  miniInput: { padding: 8, borderRadius: 8, fontSize: 14, textAlign: 'center', borderWidth: 1, fontWeight: 'bold', outlineStyle: 'none' },
-  obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 12, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' } 
+  // 🔥 CIRURGIA DE FONTE AQUI (Aumentado para 16 para bloquear o Zoom do iPhone)
+  miniInput: { padding: 8, borderRadius: 8, fontSize: 16, textAlign: 'center', borderWidth: 1, fontWeight: 'bold', outlineStyle: 'none' },
+  obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 16, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' } 
 });

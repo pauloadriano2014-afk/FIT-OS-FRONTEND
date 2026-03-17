@@ -27,7 +27,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const aluno = route.params?.aluno;
   const [anamneseData, setAnamneseData] = useState(null);
 
-  // Busca Anamnese se não vier preenchida pelo hook
   useEffect(() => {
       if (aluno && !state.isTemplateMode) {
           let foundAnamnese = null;
@@ -39,7 +38,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           if (foundAnamnese) {
               setAnamneseData(foundAnamnese);
           } else {
-              // Busca forçada se não achou localmente
               const fetchAnamnese = async () => {
                   try {
                       const res = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
@@ -62,10 +60,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const modalOptionsToShow = isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis;
   const modalTitleToShow = isCurrentCardio ? 'INTENSIDADE' : 'TÉCNICA';
 
+  // 🔥 CIRURGIA DO LAYOUT (100dvh para barrar o teclado empurrando a tela)
+  const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
+
   return (
-    <RootComponent style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
+    <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
+      {/* HEADER ISOLADO DO SCROLL */}
       <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
           <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: isWeb ? 20 : 10, paddingBottom: 15 }}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, width: 45, alignItems: 'center' }}>
@@ -80,11 +82,17 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </View>
       </View>
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={isWeb ? { height: '100vh', width: '100%' } : { flex: 1 }} enabled={Platform.OS !== 'web'}>
-          <ScrollView style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto' } : { flex: 1, width: '100%' }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never">
-              <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100vh' } : {}) }}>
+      {/* 🔥 KEYBOARD AVOIDING AJUSTADO PARA FLEX: 1 AO INVÉS DE 100VH */}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, width: '100%' }} enabled={Platform.OS !== 'web'}>
+          {/* 🔥 SCROLLVIEW COM OVERSCROLLBEHAVIOR PRA MATAR A "GELATINA" */}
+          <ScrollView 
+              style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto', overscrollBehaviorY: 'none' } : { flex: 1, width: '100%' }} 
+              contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} 
+              showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never"
+          >
+              {/* 🔥 TELA PRINCIPAL AGORA USA MINHEIGHT 100% PARA NÃO EXTRAPOLAR A TELA QUANDO ABRIR O TECLADO */}
+              <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100%' } : {}) }}>
                     
-                      {/* 🔥 CARD DE RAIO-X SUBSTITUINDO O BOTÃO PEQUENO */}
                       {!state.isTemplateMode && anamneseData && (
                           <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15}}>
@@ -332,12 +340,11 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           saveAsTemplate={actions.saveAsTemplate}
       />
 
-      {/* MODAL PARA RENOMEAR/EXCLUIR/ORDENAR ABA DE TREINO */}
+      {/* MODAIS DIVERSOS */}
       <Modal visible={state.renameTabModalVisible} transparent animationType="fade" onRequestClose={() => setters.setRenameTabModalVisible(false)}>
           <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   <Text style={[styles.modalTitle, { color: theme.accent }]}>GERENCIAR DIA</Text>
-                  
                   <Text style={[styles.miniLabelLeft, { color: theme.textSecondary, marginTop: 10 }]}>NOME DO DIA/TREINO:</Text>
                   <TextInput style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginBottom: 20 }]} value={state.newTabName} onChangeText={setters.setNewTabName} autoFocus />
                   
@@ -346,26 +353,17 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                           <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR NOME</Text>
                       </TouchableOpacity>
                   </View>
-
                   <Text style={[styles.miniLabelLeft, { color: theme.textSecondary, textAlign: 'center' }]}>ORDEM DESTE TREINO:</Text>
                   <View style={{flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 20}}>
-                      <TouchableOpacity 
-                          style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} 
-                          onPress={() => actions.moveTab('left')}
-                      >
+                      <TouchableOpacity style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} onPress={() => actions.moveTab('left')}>
                           <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
                           <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 12}}>P/ ESQUERDA</Text>
                       </TouchableOpacity>
-
-                      <TouchableOpacity 
-                          style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} 
-                          onPress={() => actions.moveTab('right')}
-                      >
+                      <TouchableOpacity style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} onPress={() => actions.moveTab('right')}>
                           <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 12}}>P/ DIREITA</Text>
                           <MaterialCommunityIcons name="arrow-right" size={20} color={theme.text} />
                       </TouchableOpacity>
                   </View>
-
                   <TouchableOpacity style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 5}} onPress={actions.handleDeleteTab}>
                       <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
                       <Text style={{color: '#FF3B30', fontWeight: 'bold'}}>Excluir este dia inteiro</Text>
@@ -377,7 +375,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </View>
       </Modal>
 
-      {/* MODAIS DE CALENDÁRIO */}
       <Modal visible={state.showCalendarStart} transparent animationType="fade">
           <View style={styles.modalOverlay}><CustomCalendar selectedDate={state.startDate} onSelect={actions.onSelectStartDate} onClose={() => setters.setShowCalendarStart(false)} theme={theme} /></View>
       </Modal>
@@ -407,13 +404,11 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent:'center', alignItems:'center' },
-  
-  // 🔥 NOVOS ESTILOS DO CARD DA ANAMNESE
   anamneseCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
   anamneseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   anamneseCol: { flex: 1 },
-  
   planningContainer: { padding:15, borderRadius:15, borderWidth:1, marginBottom:20 },
+  // 🔥 Fim do Zoom no nome da rotina
   nameInput: { padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, fontSize: 16, fontWeight: 'bold', textAlign: 'center', outlineStyle: 'none' },
   dateRow: { flexDirection: 'row', gap: 10, marginBottom:15 },
   dateInputGroup: { flex: 1 },
@@ -438,6 +433,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 30 },
   modalContent: { borderRadius: 15, padding: 20, borderWidth: 1, width: '100%', maxWidth: 400, alignSelf: 'center' },
   modalTitle: { fontWeight: '900', textAlign: 'center', marginBottom: 10 },
+  // 🔥 Fim do Zoom no modal
   modalInput: { padding:12, borderRadius:8, borderWidth:1, marginBottom:15, fontSize: 16, outlineStyle: 'none' },
   saveBtnModal: { padding:15, borderRadius:10, alignItems:'center', width:'100%' },
   techOption: { paddingVertical: 12, borderBottomWidth: 1 },
