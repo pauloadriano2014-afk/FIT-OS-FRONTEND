@@ -11,8 +11,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
-// INSIRA ESTE BLOCO NO TOPO DOS ARQUIVOS, LOGO APÓS OS IMPORTS
-
 // 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
 if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
   const handler = () => {
@@ -29,6 +27,17 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewp
   // Escuta os eventos de mudança de redimensionamento e de rolagem do viewport
   window.visualViewport.addEventListener('resize', handler);
   window.visualViewport.addEventListener('scroll', handler);
+}
+
+// 🔥 TRAVA DE ESCALA DO NAVEGADOR
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    let meta = document.querySelector("meta[name=viewport]");
+    if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'viewport';
+        document.head.appendChild(meta);
+    }
+    meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
 }
 
 export default function CheckInScreen({ navigation }) {
@@ -214,49 +223,23 @@ export default function CheckInScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
-  },
-  header: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  backButton: {
-    width: 40, 
-    height: 40, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    borderRadius: 10
-  },
-  headerTitle: { 
-    fontSize: 16, 
-    fontWeight: '900',
-    letterSpacing: 1
-  },
-  scrollContent: {
-      paddingBottom: 40
-  },
-  content: {
-      padding: 20
-  },
+  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
+  headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  scrollContent: { paddingBottom: 40 },
+  content: { padding: 20 },
   subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
   desc: { fontSize: 12, marginBottom: 25 },
-  
   label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 15, letterSpacing: 0.5 },
-  input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, fontWeight:'bold' },
+  input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 16, fontWeight:'bold' }, // 🔥 CURA DO ZOOM: Fonte no mínimo 16px
   textArea: { height: 100, textAlignVertical: 'top' },
-
   photosRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
   photoBox: { width: '31%', aspectRatio: 0.8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   photoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   photoText: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
   photoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
   checkBadge: { position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
-
   sendBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 40 },
   sendBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });

@@ -12,24 +12,29 @@ import { useFocusEffect } from '@react-navigation/native';
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 
-// INSIRA ESTE BLOCO NO TOPO DOS ARQUIVOS, LOGO APÓS OS IMPORTS
-
 // 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
 if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
   const handler = () => {
-    // Detecta a altura visível do viewport (o espaço que sobrou acima do teclado)
     const viewportHeight = window.visualViewport.height;
-    // Força o contêiner principal a usar essa altura, sem se mover
     document.documentElement.style.height = `${viewportHeight}px`;
     document.body.style.height = `${viewportHeight}px`;
-    // Garante que o input focado permaneça visível, mas sem zoom
     if (document.activeElement && document.activeElement.tagName === 'INPUT') {
       document.activeElement.scrollIntoView({ behavior: 'auto', block: 'center' });
     }
   };
-  // Escuta os eventos de mudança de redimensionamento e de rolagem do viewport
   window.visualViewport.addEventListener('resize', handler);
   window.visualViewport.addEventListener('scroll', handler);
+}
+
+// 🔥 TRAVA DE ESCALA DO NAVEGADOR
+if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    let meta = document.querySelector("meta[name=viewport]");
+    if (!meta) {
+        meta = document.createElement('meta');
+        meta.name = 'viewport';
+        document.head.appendChild(meta);
+    }
+    meta.content = "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
 }
 
 const { width } = Dimensions.get('window');
@@ -155,17 +160,14 @@ export default function EvolutionScreen({ navigation }) {
           calculatedBF = calculateBodyFat(currentGender, currentAge, cleanFolds);
       }
 
-      // 🔥 TRADUTOR: Mandando os dados EXATAMENTE como o Prisma e a API esperam
       const payload = {
           userId: userData.id,
           date: isoDate,
           weight: weight.replace(',', '.'), 
           method,
           bodyFat: calculatedBF,
-          // Mandando as medidas soltas para o Prisma engolir
           waist: method === 'BASICO' ? measures.waist.replace(',', '.') : null,
           abdomen: method === 'BASICO' ? measures.abdomen.replace(',', '.') : null,
-          // Mandando as dobras soltas para o Prisma engolir
           foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null,
           foldAxillary: method === 'POLLOCK' ? cleanFolds.foldAxillary : null,
           foldTriceps: method === 'POLLOCK' ? cleanFolds.foldTriceps : null,
@@ -450,7 +452,6 @@ export default function EvolutionScreen({ navigation }) {
                             </View>
                         )}
                         
-                        {/* 🔥 RENDERIZAÇÃO DIRETA LENDO AS COLUNAS DO BANCO DE DADOS */}
                         {(selectedAssessment.method === 'POLLOCK') && (
                             <>
                                 <Text style={[styles.detailSection, { color: '#32ADE6' }]}>DOBRAS POLOCK 7 (mm)</Text>
@@ -466,7 +467,6 @@ export default function EvolutionScreen({ navigation }) {
                             </>
                         )}
 
-                        {/* Imprime Básicas se tiver preenchido cintura ou abdomen */}
                         {(selectedAssessment.waist || selectedAssessment.abdomen) && (
                             <>
                                 <Text style={[styles.detailSection, { color: theme.accent }]}>MEDIDAS (cm)</Text>
@@ -485,10 +485,7 @@ export default function EvolutionScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, 
-  },
+  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0, },
   scrollArea: { flex: 1, width: '100%' },
   header: { paddingHorizontal: 20, paddingBottom: 15, borderBottomWidth: 1 },
   backBtn: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
@@ -514,7 +511,6 @@ const styles = StyleSheet.create({
   historyTonnage: { fontSize: 13, fontWeight: '900', marginTop: 4 },
   newAssessmentBtn: { flexDirection: 'row', padding: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 25 },
   newAssessmentText: { fontWeight: '900', fontSize: 14 },
-  
   modalFull: { flex: 1 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, marginTop: Platform.OS === 'android' ? 20 : 0 },
   modalTitle: { fontSize: 18, fontWeight: '900' },
@@ -522,17 +518,16 @@ const styles = StyleSheet.create({
   switchBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
   switchText: { fontWeight: 'bold', fontSize: 12 },
   label: { fontSize: 12, fontWeight: 'bold', marginBottom: 8, marginTop: 15 },
-  input: { padding: 16, borderRadius: 16, borderWidth: 1, fontSize: 15 },
+  input: { padding: 16, borderRadius: 16, borderWidth: 1, fontSize: 16 }, 
   configRow: { flexDirection:'row', marginBottom:15, marginTop: 10 },
   sectionHeader: { fontWeight: 'bold', marginTop: 25, marginBottom: 15, borderBottomWidth: 1, paddingBottom: 10 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   gridItem: { width: '31%', marginBottom: 15 },
   miniLabel: { fontSize: 10, fontWeight: 'bold', marginBottom: 6 },
-  miniInput: { padding: 12, borderRadius: 12, borderWidth: 1, textAlign: 'center', fontSize: 15 },
+  miniInput: { padding: 12, borderRadius: 12, borderWidth: 1, textAlign: 'center', fontSize: 16 }, 
   hint: { fontSize: 11, fontStyle: 'italic', marginTop: 15, textAlign: 'center' },
   saveBtn: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 35, marginBottom: 50 },
   saveBtnText: { fontWeight: '900', fontSize: 16 },
-
   detailsOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
   detailsCard: { borderRadius: 24, padding: 25, maxHeight: '80%', borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center' },
   detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
@@ -544,7 +539,6 @@ const styles = StyleSheet.create({
   resultLabel: { fontSize: 11, fontWeight: 'bold', marginBottom: 8 },
   resultValue: { fontSize: 22, fontWeight: '900' },
   detailSection: { fontWeight: 'bold', fontSize: 13, marginTop: 15, marginBottom: 15 },
-  
   foldsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   foldItem: { width: '48%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)', paddingBottom: 4 },
   foldName: { fontSize: 12, fontWeight: 'bold' },
