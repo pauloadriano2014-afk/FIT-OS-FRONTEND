@@ -6,13 +6,14 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LineChart } from "react-native-chart-kit";
+import { LineChart, BarChart } from "react-native-chart-kit";
 import { useFocusEffect } from '@react-navigation/native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 CURA MÁGICA DO PWA
 if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
   const handler = () => {
     const viewportHeight = window.visualViewport.height;
@@ -75,9 +76,13 @@ export default function EvolutionScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
-
-  // 🔥 ESTADO NOVO: Guardar o ID de quem estamos editando
   const [editingId, setEditingId] = useState(null);
+
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState([]);
+  const [compareModalVisible, setCompareModalVisible] = useState(false);
+
+  const [chartMode, setChartMode] = useState('WEIGHT'); 
 
   const [method, setMethod] = useState('BASICO');
   const [customDate, setCustomDate] = useState('');
@@ -151,7 +156,6 @@ export default function EvolutionScreen({ navigation }) {
       setFolds({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
   };
 
-  // 🔥 FUNÇÃO DE EDITAR
   const handleEdit = (item) => {
       setDetailsVisible(false);
       setEditingId(item.id);
@@ -180,7 +184,6 @@ export default function EvolutionScreen({ navigation }) {
       setModalVisible(true);
   };
 
-  // 🔥 FUNÇÃO DE EXCLUIR
   const handleDelete = (id) => {
       const execDelete = async () => {
           setLoading(true);
@@ -245,7 +248,6 @@ export default function EvolutionScreen({ navigation }) {
           foldThigh: method === 'POLLOCK' ? cleanFolds.foldThigh : null,
       };
 
-      // Se tiver um ID de edição, nós enviamos via PUT para atualizar
       if (editingId) payload.id = editingId;
       const methodHttp = editingId ? 'PUT' : 'POST';
 
@@ -281,6 +283,257 @@ export default function EvolutionScreen({ navigation }) {
       setDetailsVisible(true);
   };
 
+  // 🔥 O NOVO GERADOR DE PDF BLINDADO E DIAGRAMADO PARA LAUDO (ÚNICO E COMPARAÇÃO)
+  const processAndSharePDF = async (htmlContent, title) => {
+      try {
+          const finalHtml = `
+              <!DOCTYPE html>
+              <html>
+              <head>
+                  <meta charset="utf-8">
+                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                  <style>
+                      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+                      body { font-family: 'Inter', sans-serif; padding: 40px; color: #111; background-color: #fff; margin: 0; }
+                      .header { border-bottom: 4px solid #32ADE6; padding-bottom: 20px; margin-bottom: 30px; }
+                      .title { font-size: 32px; font-weight: 900; color: #32ADE6; text-transform: uppercase; }
+                      .subtitle { font-size: 16px; color: #666; margin-top: 5px; }
+                      .card-container { display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 30px; }
+                      .card { background: #f8f9fa; border: 1px solid #e5e5ea; padding: 20px; border-radius: 12px; flex: 1; min-width: 150px; text-align: center; }
+                      .card-title { font-size: 12px; color: #888; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+                      .card-val { font-size: 28px; font-weight: 900; color: #111; }
+                      .highlight { color: #32ADE6; }
+                      .table-wrap { margin-top: 30px; border-radius: 12px; overflow: hidden; border: 1px solid #e5e5ea; }
+                      table { width: 100%; border-collapse: collapse; }
+                      th, td { padding: 15px; text-align: center; border-bottom: 1px solid #eee; }
+                      th { background-color: #f4f5f7; color: #555; font-size: 12px; font-weight: 700; text-transform: uppercase; }
+                      td { font-size: 15px; font-weight: 700; color: #333; }
+                      .label-left { text-align: left; }
+                      .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #aaa; padding-top: 20px; border-top: 1px solid #eee; }
+                      .text-green { color: #34C759; font-weight: 900; }
+                      .text-red { color: #FF3B30; font-weight: 900; }
+                      .text-neutral { color: #888; font-weight: 700; }
+                  </style>
+              </head>
+              <body>
+                  ${htmlContent}
+                  <div class="footer">Laudo gerado via Aplicativo Oficial do Treinador</div>
+              </body>
+              </html>
+          `;
+
+          if (Platform.OS === 'web') {
+              await Print.printAsync({ html: finalHtml });
+          } else {
+              const { uri } = await Print.printToFileAsync({ html: finalHtml });
+              const isAvailable = await Sharing.isAvailableAsync();
+              if (isAvailable) {
+                  await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf', dialogTitle: title });
+              } else {
+                  Alert.alert("Erro", "Compartilhamento não disponível neste dispositivo.");
+              }
+          }
+      } catch (e) {
+          if (Platform.OS !== 'web') Alert.alert("Erro", "Não foi possível gerar o PDF.");
+      }
+  };
+
+  const generateSinglePDF = (assessment) => {
+      const d = new Date(assessment.date).toLocaleDateString('pt-BR');
+      const leanMass = assessment.bodyFat ? (assessment.weight * (1 - assessment.bodyFat / 100)).toFixed(1) : '--';
+      const bfStr = assessment.bodyFat ? `${assessment.bodyFat}%` : '--';
+      const sum = (assessment.foldChest||0) + (assessment.foldAxillary||0) + (assessment.foldTriceps||0) + (assessment.foldSubscapular||0) + (assessment.foldAbdominal||0) + (assessment.foldSuprailiac||0) + (assessment.foldThigh||0);
+
+      let html = `
+          <div class="header">
+              <div class="title">Avaliação Física</div>
+              <div class="subtitle">Aluno(a): <strong>${userData?.name || 'Aluno'}</strong> &nbsp;|&nbsp; Data: <strong>${d}</strong></div>
+          </div>
+          
+          <div class="card-container">
+              <div class="card"><div class="card-title">Peso Atual</div><div class="card-val">${assessment.weight}kg</div></div>
+              <div class="card"><div class="card-title">Gordura (BF)</div><div class="card-val highlight">${bfStr}</div></div>
+              <div class="card"><div class="card-title">Massa Magra</div><div class="card-val">${leanMass}kg</div></div>
+          </div>
+      `;
+
+      if (assessment.method === 'POLLOCK') {
+          html += `
+              <h3 style="color: #32ADE6; font-size: 16px; margin-bottom: 10px;">DOBRAS CUTÂNEAS (mm)</h3>
+              <div class="table-wrap">
+                  <table>
+                      <tr><th>Peitoral</th><th>Axilar</th><th>Tríceps</th><th>Subescapular</th></tr>
+                      <tr>
+                          <td>${assessment.foldChest || '-'}</td>
+                          <td>${assessment.foldAxillary || '-'}</td>
+                          <td>${assessment.foldTriceps || '-'}</td>
+                          <td>${assessment.foldSubscapular || '-'}</td>
+                      </tr>
+                      <tr><th>Abdominal</th><th>Supra-ilíaca</th><th>Coxa</th><th style="color:#32ADE6">SOMA TOTAL</th></tr>
+                      <tr>
+                          <td>${assessment.foldAbdominal || '-'}</td>
+                          <td>${assessment.foldSuprailiac || '-'}</td>
+                          <td>${assessment.foldThigh || '-'}</td>
+                          <td style="color:#32ADE6">${sum > 0 ? sum.toFixed(1) : '-'}</td>
+                      </tr>
+                  </table>
+              </div>
+          `;
+      }
+
+      if (assessment.waist || assessment.abdomen) {
+          html += `
+              <h3 style="color: #32ADE6; font-size: 16px; margin-top: 30px; margin-bottom: 10px;">MEDIDAS (cm)</h3>
+              <div class="table-wrap">
+                  <table>
+                      <tr>${assessment.waist ? '<th>Cintura</th>' : ''}${assessment.abdomen ? '<th>Abdômen</th>' : ''}</tr>
+                      <tr>${assessment.waist ? `<td>${assessment.waist}</td>` : ''}${assessment.abdomen ? `<td>${assessment.abdomen}</td>` : ''}</tr>
+                  </table>
+              </div>
+          `;
+      }
+
+      processAndSharePDF(html, 'Avaliacao_Fisica');
+  };
+
+  const generateComparePDF = () => {
+      const selectedData = assessmentHistory
+          .filter(a => selectedForCompare.includes(a.id))
+          .sort((a, b) => new Date(a.date) - new Date(b.date)); 
+      
+      if (selectedData.length < 2) return;
+
+      const getVal = (ass, key) => {
+          if (key === 'leanMass') return ass.weight && ass.bodyFat ? (ass.weight * (1 - ass.bodyFat/100)).toFixed(1) : null;
+          if (key === 'foldSum') return ass.foldChest ? (ass.foldChest + ass.foldAxillary + ass.foldTriceps + ass.foldSubscapular + ass.foldAbdominal + ass.foldSuprailiac + ass.foldThigh).toFixed(1) : null;
+          return ass[key];
+      };
+
+      const renderTableRow = (label, key, isPercentage = false, isInvertedLogic = false) => {
+          const hasData = selectedData.some(ass => getVal(ass, key) != null);
+          if (!hasData) return '';
+
+          const oldestVal = parseFloat(getVal(selectedData[0], key));
+          const newestVal = parseFloat(getVal(selectedData[selectedData.length - 1], key));
+          
+          let deltaHtml = '<td class="text-neutral">-</td>';
+          if (!isNaN(oldestVal) && !isNaN(newestVal)) {
+              const diff = (newestVal - oldestVal).toFixed(1);
+              if (diff > 0) {
+                  const c = isInvertedLogic ? 'text-green' : 'text-red';
+                  deltaHtml = `<td class="${c}">+${diff}</td>`;
+              } else if (diff < 0) {
+                  const c = isInvertedLogic ? 'text-red' : 'text-green';
+                  deltaHtml = `<td class="${c}">${diff}</td>`;
+              } else {
+                  deltaHtml = `<td class="text-neutral">0</td>`;
+              }
+          }
+
+          let cols = selectedData.map(ass => {
+              const v = getVal(ass, key);
+              return `<td>${v != null ? `${v}${isPercentage?'%':''}` : '-'}</td>`;
+          }).join('');
+
+          return `<tr><td class="label-left">${label}</td>${cols}${deltaHtml}</tr>`;
+      };
+
+      const headerCols = selectedData.map(ass => `<th>${new Date(ass.date).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</th>`).join('');
+
+      let html = `
+          <div class="header">
+              <div class="title">Relatório de Evolução</div>
+              <div class="subtitle">Comparativo de Progresso &nbsp;|&nbsp; Aluno(a): <strong>${userData?.name || 'Aluno'}</strong></div>
+          </div>
+          
+          <div class="table-wrap">
+              <table>
+                  <tr><th class="label-left">MÉTRICA</th>${headerCols}<th style="color:#32ADE6">DELTA</th></tr>
+                  ${renderTableRow('Peso (kg)', 'weight')}
+                  ${renderTableRow('Gordura (BF)', 'bodyFat', true, false)}
+                  ${renderTableRow('Massa Magra', 'leanMass', false, true)}
+                  ${renderTableRow('Soma Dobras (mm)', 'foldSum')}
+                  ${renderTableRow('Peitoral', 'foldChest')}
+                  ${renderTableRow('Axilar', 'foldAxillary')}
+                  ${renderTableRow('Tríceps', 'foldTriceps')}
+                  ${renderTableRow('Subescapular', 'foldSubscapular')}
+                  ${renderTableRow('Abdominal', 'foldAbdominal')}
+                  ${renderTableRow('Supra-ilíaca', 'foldSuprailiac')}
+                  ${renderTableRow('Coxa', 'foldThigh')}
+              </table>
+          </div>
+      `;
+
+      processAndSharePDF(html, 'Comparativo_Evolucao');
+  };
+
+  const toggleCompare = (id) => {
+      if (selectedForCompare.includes(id)) {
+          setSelectedForCompare(prev => prev.filter(itemId => itemId !== id));
+      } else {
+          if (selectedForCompare.length >= 3) {
+              if (Platform.OS === 'web') window.alert("Selecione no máximo 3 avaliações.");
+              else Alert.alert("Limite", "Selecione no máximo 3 avaliações.");
+              return;
+          }
+          setSelectedForCompare(prev => [...prev, id]);
+      }
+  };
+
+  const renderCompareRow = (label, key, isInvertedLogic = false, isPercentage = false) => {
+      const selectedData = assessmentHistory
+          .filter(a => selectedForCompare.includes(a.id))
+          .sort((a, b) => new Date(a.date) - new Date(b.date)); 
+
+      const getVal = (ass) => {
+          if (key === 'leanMass') return ass.weight && ass.bodyFat ? (ass.weight * (1 - ass.bodyFat/100)).toFixed(1) : null;
+          if (key === 'foldSum') return ass.foldChest ? (ass.foldChest + ass.foldAxillary + ass.foldTriceps + ass.foldSubscapular + ass.foldAbdominal + ass.foldSuprailiac + ass.foldThigh).toFixed(1) : null;
+          return ass[key];
+      };
+
+      const hasAnyData = selectedData.some(ass => getVal(ass) != null);
+      if (!hasAnyData) return null;
+
+      const oldestVal = parseFloat(getVal(selectedData[0]));
+      const newestVal = parseFloat(getVal(selectedData[selectedData.length - 1]));
+      let deltaStr = '-';
+      let deltaColor = theme.textSecondary;
+      let iconName = 'minus';
+
+      if (!isNaN(oldestVal) && !isNaN(newestVal) && selectedData.length > 1) {
+          const diff = (newestVal - oldestVal).toFixed(1);
+          if (diff > 0) {
+              deltaStr = `+${diff}`;
+              deltaColor = isInvertedLogic ? '#34C759' : '#FF3B30'; 
+              iconName = 'arrow-up';
+          } else if (diff < 0) {
+              deltaStr = `${diff}`;
+              deltaColor = isInvertedLogic ? '#FF3B30' : '#34C759'; 
+              iconName = 'arrow-down';
+          }
+      }
+
+      return (
+          <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border, paddingVertical: 12, alignItems: 'center'}}>
+              <Text style={{flex: 2, color: theme.text, fontSize: 11, fontWeight: 'bold'}}>{label}</Text>
+              {selectedData.map((ass, i) => (
+                  <Text key={i} style={{flex: 1.5, color: theme.textSecondary, fontSize: 12, textAlign: 'center', fontWeight: '600'}}>
+                      {getVal(ass) != null ? `${getVal(ass)}${isPercentage ? '%' : ''}` : '-'}
+                  </Text>
+              ))}
+              <View style={{flex: 1.5, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2}}>
+                  {deltaStr !== '-' && <MaterialCommunityIcons name={iconName} size={12} color={deltaColor} />}
+                  <Text style={{color: deltaColor, fontSize: 12, fontWeight: '900'}}>{deltaStr}</Text>
+              </View>
+          </View>
+      );
+  };
+
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  const RootComponent = isWeb ? View : SafeAreaView;
+  const chartWidth = isWeb ? (width > 480 ? 440 : width - 40) : width - 40;
+  
   const totalTonnage = workoutHistory.reduce((acc, curr) => acc + (curr.tonnage || 0), 0);
   const chartWorkouts = [...workoutHistory].reverse().slice(-6); 
   
@@ -295,23 +548,52 @@ export default function EvolutionScreen({ navigation }) {
 
   const sortedAssessments = [...assessmentHistory].sort((a,b) => new Date(a.date) - new Date(b.date));
   const lastAssessments = sortedAssessments.slice(-6); 
-  const bodyChartData = {
-      labels: lastAssessments.map(a => { const d = new Date(a.date); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; }),
-      datasets: [{ data: lastAssessments.length > 0 ? lastAssessments.map(a => a.weight) : [0], color: (opacity = 1) => `rgba(50, 173, 230, ${opacity})`, strokeWidth: 3 }]
-  };
+  
+  let bodyChartData = { labels: ['-'], datasets: [{ data: [0] }] };
+  let chartSuffix = "";
+  let isBarChart = false;
+  let activeChartColor = `rgba(50, 173, 230, 1)`;
+
+  if (lastAssessments.length > 1) {
+      bodyChartData.labels = lastAssessments.map(a => { const d = new Date(a.date); return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`; });
+      
+      if (chartMode === 'WEIGHT') {
+          activeChartColor = `rgba(50, 173, 230, 1)`;
+          bodyChartData.datasets = [{ data: lastAssessments.map(a => a.weight || 0), color: (opacity=1)=> `rgba(50, 173, 230, ${opacity})`, strokeWidth: 3 }];
+          chartSuffix = "kg";
+      } else if (chartMode === 'BF') {
+          activeChartColor = `rgba(255, 59, 48, 1)`;
+          bodyChartData.datasets = [{ data: lastAssessments.map(a => a.bodyFat || 0), color: (opacity=1)=> `rgba(255, 59, 48, ${opacity})`, strokeWidth: 3 }];
+          chartSuffix = "%";
+      } else if (chartMode === 'LEAN_MASS') {
+          activeChartColor = `rgba(255, 149, 0, 1)`;
+          bodyChartData.datasets = [{ 
+              data: lastAssessments.map(a => (a.weight && a.bodyFat) ? parseFloat((a.weight * (1 - a.bodyFat/100)).toFixed(1)) : 0), 
+              color: (opacity=1)=> `rgba(255, 149, 0, ${opacity})`, strokeWidth: 3 
+          }];
+          chartSuffix = "kg";
+      } else if (chartMode === 'FOLDS') {
+          isBarChart = true;
+          activeChartColor = `rgba(52, 199, 89, 1)`;
+          bodyChartData.datasets = [{ data: lastAssessments.map(a => (a.foldChest ? (a.foldChest + a.foldAxillary + a.foldTriceps + a.foldSubscapular + a.foldAbdominal + a.foldSuprailiac + a.foldThigh) : 0)) }];
+          chartSuffix = "mm";
+      }
+  }
 
   const baseChartConfig = {
-      backgroundGradientFrom: theme.bg, 
-      backgroundGradientTo: theme.bg, 
-      labelColor: (opacity = 1) => `rgba(${theme.isDark ? '255,255,255' : '0,0,0'}, ${opacity})`, 
-      strokeWidth: 2, 
-      propsForDots: { r: "4", strokeWidth: "2", stroke: theme.accent } 
+      backgroundGradientFrom: theme.surface, 
+      backgroundGradientFromOpacity: 1,
+      backgroundGradientTo: theme.surface, 
+      backgroundGradientToOpacity: 1,
+      decimalPlaces: 1, 
+      color: (opacity = 1) => activeChartColor, 
+      labelColor: (opacity = 1) => theme.textSecondary, 
+      style: { borderRadius: 16 },
+      propsForDots: { r: "5", strokeWidth: "3", stroke: theme.surface }, 
+      propsForBackgroundLines: { stroke: theme.border, strokeDasharray: "", strokeWidth: 0.5 }, 
+      fillShadowGradientOpacity: 0.1, 
+      barPercentage: 0.6,
   };
-
-  const isWeb = Platform.OS === 'web';
-  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
-  const RootComponent = isWeb ? View : SafeAreaView;
-  const chartWidth = isWeb ? (width > 480 ? 440 : width - 40) : width - 40;
 
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
@@ -366,10 +648,11 @@ export default function EvolutionScreen({ navigation }) {
                           data={performanceChartData} 
                           width={chartWidth} 
                           height={220} 
-                          chartConfig={{...baseChartConfig, color: (opacity = 1) => `rgba(204, 255, 0, ${opacity})`}} 
+                          chartConfig={{...baseChartConfig, color: (opacity = 1) => `rgba(204, 255, 0, ${opacity})`, fillShadowGradientOpacity: 0.1}} 
                           bezier 
                           style={styles.chart} 
                           yAxisSuffix="t"
+                          withVerticalLines={false} 
                       />
                   ) : (
                       <View style={[styles.emptyChart, { backgroundColor: theme.surface, borderColor: theme.border }]}><Text style={[styles.emptyText, { color: theme.textSecondary }]}>Realize pelo menos 2 treinos.</Text></View>
@@ -403,29 +686,91 @@ export default function EvolutionScreen({ navigation }) {
                       <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor:'#32ADE6' }]}><MaterialCommunityIcons name="percent" size={24} color="#32ADE6" /><Text style={[styles.statValue, { color: theme.text }]}>{assessmentHistory[assessmentHistory.length-1]?.bodyFat || '--'}%</Text><Text style={[styles.statLabel, {color:'#32ADE6'}]}>GORDURA (BF)</Text></View>
                   </View>
 
-                  <Text style={[styles.sectionTitle, {color:'#32ADE6'}]}>EVOLUÇÃO DO PESO CORPORAL</Text>
+                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
+                      <Text style={[styles.sectionTitle, {color:'#32ADE6', marginBottom: 0, marginTop: 0}]}>GRÁFICO</Text>
+                  </View>
+                  
+                  <View style={{flexDirection: 'row', backgroundColor: theme.surface, borderRadius: 8, padding: 4, borderWidth: 1, borderColor: theme.border, marginBottom: 15}}>
+                      <TouchableOpacity onPress={() => setChartMode('WEIGHT')} style={{flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, backgroundColor: chartMode === 'WEIGHT' ? '#32ADE6' : 'transparent'}}>
+                          <Text style={{fontSize: 9, fontWeight: 'bold', color: chartMode === 'WEIGHT' ? '#FFF' : theme.textSecondary}}>PESO</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setChartMode('BF')} style={{flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, backgroundColor: chartMode === 'BF' ? '#FF3B30' : 'transparent'}}>
+                          <Text style={{fontSize: 9, fontWeight: 'bold', color: chartMode === 'BF' ? '#FFF' : theme.textSecondary}}>GORDURA</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setChartMode('LEAN_MASS')} style={{flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, backgroundColor: chartMode === 'LEAN_MASS' ? '#FF9500' : 'transparent'}}>
+                          <Text style={{fontSize: 9, fontWeight: 'bold', color: chartMode === 'LEAN_MASS' ? '#FFF' : theme.textSecondary}}>M. MAGRA</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => setChartMode('FOLDS')} style={{flex: 1, alignItems: 'center', paddingVertical: 6, borderRadius: 6, backgroundColor: chartMode === 'FOLDS' ? '#34C759' : 'transparent'}}>
+                          <Text style={{fontSize: 9, fontWeight: 'bold', color: chartMode === 'FOLDS' ? '#FFF' : theme.textSecondary}}>DOBRAS</Text>
+                      </TouchableOpacity>
+                  </View>
+
                   {assessmentHistory.length > 1 ? (
-                      <LineChart data={bodyChartData} width={chartWidth} height={220} chartConfig={{...baseChartConfig, color: (opacity=1)=> `rgba(50, 173, 230, ${opacity})`}} bezier style={styles.chart} />
+                      <View style={{backgroundColor: theme.surface, borderRadius: 16, paddingTop: 15, paddingRight: 10, borderWidth: 1, borderColor: theme.border}}>
+                          {isBarChart ? (
+                              <BarChart data={bodyChartData} width={chartWidth} height={220} chartConfig={{...baseChartConfig, color: (opacity=1)=> `rgba(52, 199, 89, ${opacity})`}} style={styles.chart} yAxisSuffix={chartSuffix} showBarTops={true} withInnerLines={true} />
+                          ) : (
+                              <LineChart data={bodyChartData} width={chartWidth} height={220} chartConfig={baseChartConfig} bezier style={styles.chart} yAxisSuffix={chartSuffix} withVerticalLines={false} />
+                          )}
+                      </View>
                   ) : (
                       <View style={[styles.emptyChart, { backgroundColor: theme.surface, borderColor:'#32ADE6' }]}><Text style={[styles.emptyText, { color: theme.textSecondary }]}>Registre 2 avaliações para ver o gráfico.</Text></View>
                   )}
 
-                  <Text style={[styles.sectionTitle, {color:'#32ADE6'}]}>HISTÓRICO (Toque para Detalhes)</Text>
-                  {sortedAssessments.slice().reverse().map((item) => (
-                      <TouchableOpacity key={item.id} style={[styles.historyCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openDetails(item)}>
-                          <View style={styles.historyHeader}>
-                              <View>
-                                  <Text style={[styles.historyDate, { color: theme.text }]}>{new Date(item.date).toLocaleDateString('pt-BR')}</Text>
-                                  <Text style={{color: theme.textSecondary, fontSize:10, fontWeight:'bold', marginTop: 2}}>{item.method === 'POLLOCK' ? 'POLLOCK 7' : 'BÁSICO'}</Text>
+                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 25, marginBottom: 15}}>
+                      <Text style={[styles.sectionTitle, {color:'#32ADE6', marginTop: 0, marginBottom: 0}]}>HISTÓRICO</Text>
+                      {!compareMode ? (
+                          <TouchableOpacity onPress={() => {setCompareMode(true); setSelectedForCompare([]);}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#32ADE622', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8}}>
+                              <MaterialCommunityIcons name="scale-balance" size={16} color="#32ADE6" />
+                              <Text style={{color: '#32ADE6', fontSize: 11, fontWeight: 'bold'}}>COMPARAR</Text>
+                          </TouchableOpacity>
+                      ) : (
+                          <View style={{flexDirection: 'row', gap: 10}}>
+                              <TouchableOpacity onPress={() => setCompareMode(false)} style={{paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: theme.border}}>
+                                  <Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>CANCELAR</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity 
+                                  onPress={() => {
+                                      if(selectedForCompare.length < 2) return Platform.OS === 'web' ? window.alert("Selecione de 2 a 3 avaliações.") : Alert.alert("Atenção", "Selecione de 2 a 3 avaliações.");
+                                      setCompareModalVisible(true);
+                                  }} 
+                                  style={{backgroundColor: selectedForCompare.length >= 2 ? '#32ADE6' : theme.surface, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8}}
+                              >
+                                  <Text style={{color: selectedForCompare.length >= 2 ? '#FFF' : theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>GERAR ({selectedForCompare.length}/3)</Text>
+                              </TouchableOpacity>
+                          </View>
+                      )}
+                  </View>
+
+                  {sortedAssessments.slice().reverse().map((item) => {
+                      const isSelected = selectedForCompare.includes(item.id);
+                      return (
+                          <TouchableOpacity 
+                              key={item.id} 
+                              style={[styles.historyCard, { backgroundColor: theme.surface, borderColor: compareMode && isSelected ? '#32ADE6' : theme.border }]} 
+                              onPress={() => {
+                                  if(compareMode) toggleCompare(item.id);
+                                  else openDetails(item);
+                              }}
+                          >
+                              <View style={styles.historyHeader}>
+                                  <View>
+                                      <Text style={[styles.historyDate, { color: theme.text }]}>{new Date(item.date).toLocaleDateString('pt-BR')}</Text>
+                                      <Text style={{color: theme.textSecondary, fontSize:10, fontWeight:'bold', marginTop: 2}}>{item.method === 'POLLOCK' ? 'POLLOCK 7' : 'BÁSICO'}</Text>
+                                  </View>
+                                  {compareMode ? (
+                                      <MaterialCommunityIcons name={isSelected ? "checkbox-marked-circle" : "checkbox-blank-circle-outline"} size={24} color={isSelected ? "#32ADE6" : theme.textSecondary} />
+                                  ) : (
+                                      <MaterialCommunityIcons name="eye-outline" size={20} color="#32ADE6" />
+                                  )}
                               </View>
-                              <MaterialCommunityIcons name="eye-outline" size={20} color="#32ADE6" />
-                          </View>
-                          <View style={{flexDirection:'row', gap:15, marginTop:5}}>
-                              <Text style={{color: theme.text, fontWeight:'bold'}}>Peso: {item.weight}kg</Text>
-                              {item.bodyFat && <Text style={{color:'#32ADE6', fontWeight:'bold'}}>BF: {item.bodyFat}%</Text>}
-                          </View>
-                      </TouchableOpacity>
-                  ))}
+                              <View style={{flexDirection:'row', gap:15, marginTop:5}}>
+                                  <Text style={{color: theme.text, fontWeight:'bold'}}>Peso: {item.weight}kg</Text>
+                                  {item.bodyFat && <Text style={{color:'#32ADE6', fontWeight:'bold'}}>BF: {item.bodyFat}%</Text>}
+                              </View>
+                          </TouchableOpacity>
+                      )
+                  })}
               </>
           )}
         </ScrollView>
@@ -494,10 +839,12 @@ export default function EvolutionScreen({ navigation }) {
         <View style={styles.detailsOverlay}>
             <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 
-                {/* 🔥 NOVO CABEÇALHO COM BOTÕES DE LIXEIRA E LÁPIS */}
                 <View style={[styles.detailsHeader, { borderBottomColor: theme.border }]}>
                     <Text style={[styles.detailsTitle, { color: '#32ADE6' }]}>DETALHES</Text>
                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                        <TouchableOpacity onPress={() => generateSinglePDF(selectedAssessment)}>
+                            <MaterialCommunityIcons name="file-pdf-box" size={24} color="#32ADE6" />
+                        </TouchableOpacity>
                         <TouchableOpacity onPress={() => handleEdit(selectedAssessment)}>
                             <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.text} />
                         </TouchableOpacity>
@@ -537,14 +884,35 @@ export default function EvolutionScreen({ navigation }) {
                         {(selectedAssessment.method === 'POLLOCK') && (
                             <>
                                 <Text style={[styles.detailSection, { color: '#32ADE6' }]}>DOBRAS POLOCK 7 (mm)</Text>
-                                <View style={styles.foldsGrid}>
-                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Peitoral:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldChest || '-'}</Text></View>
-                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Axilar:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldAxillary || '-'}</Text></View>
-                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Tríceps:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldTriceps || '-'}</Text></View>
-                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Subescapular:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldSubscapular || '-'}</Text></View>
-                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Abdominal:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldAbdominal || '-'}</Text></View>
-                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Supra-ilíaca:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldSuprailiac || '-'}</Text></View>
-                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Coxa:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldThigh || '-'}</Text></View>
+                                <View style={styles.foldsCardGrid}>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>PEITORAL</Text>
+                                        <Text style={[styles.foldCardValue, {color: theme.text}]}>{selectedAssessment.foldChest || '-'}</Text>
+                                    </View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>AXILAR</Text>
+                                        <Text style={[styles.foldCardValue, {color: theme.text}]}>{selectedAssessment.foldAxillary || '-'}</Text>
+                                    </View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>TRÍCEPS</Text>
+                                        <Text style={[styles.foldCardValue, {color: theme.text}]}>{selectedAssessment.foldTriceps || '-'}</Text>
+                                    </View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>SUBESCAP.</Text>
+                                        <Text style={[styles.foldCardValue, {color: theme.text}]}>{selectedAssessment.foldSubscapular || '-'}</Text>
+                                    </View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>ABDOMINAL</Text>
+                                        <Text style={[styles.foldCardValue, {color: theme.text}]}>{selectedAssessment.foldAbdominal || '-'}</Text>
+                                    </View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>SUPRA-IL.</Text>
+                                        <Text style={[styles.foldCardValue, {color: theme.text}]}>{selectedAssessment.foldSuprailiac || '-'}</Text>
+                                    </View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>COXA</Text>
+                                        <Text style={[styles.foldCardValue, {color: theme.text}]}>{selectedAssessment.foldThigh || '-'}</Text>
+                                    </View>
                                 </View>
                             </>
                         )}
@@ -558,6 +926,54 @@ export default function EvolutionScreen({ navigation }) {
                         )}
                     </ScrollView>
                 )}
+            </View>
+        </View>
+      </Modal>
+
+      <Modal visible={compareModalVisible} transparent animationType="slide">
+        <View style={styles.detailsOverlay}>
+            <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '100%', maxWidth: 500, paddingHorizontal: 15 }]}>
+                
+                <View style={[styles.detailsHeader, { borderBottomColor: theme.border }]}>
+                    <Text style={[styles.detailsTitle, { color: '#32ADE6' }]}>RELATÓRIO DE PROGRESSO</Text>
+                    <View style={{flexDirection: 'row', gap: 15, alignItems: 'center'}}>
+                        {/* 🔥 BOTÃO DE PDF DE COMPARAÇÃO */}
+                        <TouchableOpacity onPress={generateComparePDF}>
+                            <MaterialCommunityIcons name="file-pdf-box" size={24} color="#32ADE6" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setCompareModalVisible(false)}>
+                            <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
+                    
+                    <View style={{flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: theme.border, paddingBottom: 10, marginBottom: 5}}>
+                        <Text style={{flex: 2, color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}></Text>
+                        {assessmentHistory.filter(a => selectedForCompare.includes(a.id)).sort((a, b) => new Date(a.date) - new Date(b.date)).map((ass, i) => (
+                            <Text key={i} style={{flex: 1.5, color: theme.textSecondary, fontSize: 10, fontWeight: '900', textAlign: 'center'}}>
+                                {new Date(ass.date).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}
+                            </Text>
+                        ))}
+                        <Text style={{flex: 1.5, color: theme.textSecondary, fontSize: 10, fontWeight: '900', textAlign: 'center'}}>EVOLUÇÃO</Text>
+                    </View>
+
+                    {renderCompareRow('PESO', 'weight')}
+                    {renderCompareRow('GORDURA BF', 'bodyFat', false, true)}
+                    {renderCompareRow('MASSA MAGRA', 'leanMass', true)}
+                    
+                    <Text style={[styles.detailSection, { color: '#32ADE6', marginTop: 25 }]}>DOBRAS (mm)</Text>
+                    {renderCompareRow('SOMA (7)', 'foldSum')}
+                    {renderCompareRow('Peitoral', 'foldChest')}
+                    {renderCompareRow('Axilar', 'foldAxillary')}
+                    {renderCompareRow('Tríceps', 'foldTriceps')}
+                    {renderCompareRow('Subescapular', 'foldSubscapular')}
+                    {renderCompareRow('Abdominal', 'foldAbdominal')}
+                    {renderCompareRow('Supra-ilíaca', 'foldSuprailiac')}
+                    {renderCompareRow('Coxa', 'foldThigh')}
+
+                </ScrollView>
             </View>
         </View>
       </Modal>
@@ -581,7 +997,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 24, fontWeight: '900', marginVertical: 5 },
   statLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   sectionTitle: { fontSize: 12, fontWeight: '900', marginBottom: 15, marginTop: 10, letterSpacing: 1 },
-  chart: { marginVertical: 8, borderRadius: 16, alignSelf: 'center' },
+  chart: { marginVertical: 8, alignSelf: 'center', borderRadius: 16 },
   emptyChart: { height: 200, justifyContent: 'center', alignItems: 'center', borderRadius: 20, borderWidth:1 },
   emptyText: { fontWeight: 'bold' },
   historyCard: { padding: 20, borderRadius: 24, marginBottom: 15, borderWidth: 1 },
@@ -621,8 +1037,8 @@ const styles = StyleSheet.create({
   resultLabel: { fontSize: 11, fontWeight: 'bold', marginBottom: 8 },
   resultValue: { fontSize: 22, fontWeight: '900' },
   detailSection: { fontWeight: 'bold', fontSize: 13, marginTop: 15, marginBottom: 15 },
-  foldsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  foldItem: { width: '48%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)', paddingBottom: 4 },
-  foldName: { fontSize: 12, fontWeight: 'bold' },
-  foldVal: { fontSize: 13, fontWeight: '900' }
+  foldsCardGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  foldCard: { width: '31%', paddingVertical: 15, paddingHorizontal: 5, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginBottom: 15 },
+  foldCardTitle: { fontSize: 9, fontWeight: 'bold', marginBottom: 5, textTransform: 'uppercase' },
+  foldCardValue: { fontSize: 16, fontWeight: '900' }
 });
