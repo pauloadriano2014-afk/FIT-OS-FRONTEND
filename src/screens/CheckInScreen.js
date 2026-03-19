@@ -183,7 +183,7 @@ export default function CheckInScreen({ navigation }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
-            <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Semanal</Text>
+            <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Quinzenal</Text>
             <Text style={[styles.desc, { color: theme.textSecondary }]}>Envie suas medidas e fotos para atualização do protocolo.</Text>
 
             <Text style={[styles.label, { color: theme.text }]}>PESO ATUAL (KG)</Text>
