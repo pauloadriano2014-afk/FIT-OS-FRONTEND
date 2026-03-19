@@ -12,7 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
+// 🔥 CURA MÁGICA DO PWA
 if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
   const handler = () => {
     const viewportHeight = window.visualViewport.height;
@@ -26,7 +26,6 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewp
   window.visualViewport.addEventListener('scroll', handler);
 }
 
-// 🔥 TRAVA DE ESCALA DO NAVEGADOR
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
     let meta = document.querySelector("meta[name=viewport]");
     if (!meta) {
@@ -39,7 +38,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 
 const { width } = Dimensions.get('window');
 
-// --- FÓRMULA DE JACKSON & POLLOCK 7 DOBRAS ---
 const calculateBodyFat = (gender, age, rawFolds) => {
     const cleanVal = (v) => Number(String(v).replace(',', '.') || 0);
     const sum = cleanVal(rawFolds.foldChest) + cleanVal(rawFolds.foldAxillary) + cleanVal(rawFolds.foldTriceps) + 
@@ -77,6 +75,9 @@ export default function EvolutionScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
+
+  // 🔥 ESTADO NOVO: Guardar o ID de quem estamos editando
+  const [editingId, setEditingId] = useState(null);
 
   const [method, setMethod] = useState('BASICO');
   const [customDate, setCustomDate] = useState('');
@@ -141,6 +142,73 @@ export default function EvolutionScreen({ navigation }) {
       setCustomDate(cleaned);
   };
 
+  const resetForm = () => {
+      setEditingId(null);
+      setWeight(''); 
+      setCustomDate(''); 
+      setMethod('BASICO');
+      setMeasures({waist:'', abdomen:''});
+      setFolds({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
+  };
+
+  // 🔥 FUNÇÃO DE EDITAR
+  const handleEdit = (item) => {
+      setDetailsVisible(false);
+      setEditingId(item.id);
+      setMethod(item.method || 'BASICO');
+      setWeight(String(item.weight));
+      
+      const d = new Date(item.date);
+      setCustomDate(`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`);
+
+      if (item.method === 'POLLOCK') {
+          setFolds({
+              foldChest: item.foldChest ? String(item.foldChest) : '',
+              foldAxillary: item.foldAxillary ? String(item.foldAxillary) : '',
+              foldTriceps: item.foldTriceps ? String(item.foldTriceps) : '',
+              foldSubscapular: item.foldSubscapular ? String(item.foldSubscapular) : '',
+              foldAbdominal: item.foldAbdominal ? String(item.foldAbdominal) : '',
+              foldSuprailiac: item.foldSuprailiac ? String(item.foldSuprailiac) : '',
+              foldThigh: item.foldThigh ? String(item.foldThigh) : ''
+          });
+      } else {
+          setMeasures({
+              waist: item.waist ? String(item.waist) : '',
+              abdomen: item.abdomen ? String(item.abdomen) : ''
+          });
+      }
+      setModalVisible(true);
+  };
+
+  // 🔥 FUNÇÃO DE EXCLUIR
+  const handleDelete = (id) => {
+      const execDelete = async () => {
+          setLoading(true);
+          try {
+              const res = await fetch(`https://fitos-final.onrender.com/api/assessment?id=${id}`, { method: 'DELETE' });
+              if (res.ok) {
+                  setDetailsVisible(false);
+                  loadData();
+              } else {
+                  Alert.alert("Erro", "Falha ao excluir.");
+              }
+          } catch (e) {
+              Alert.alert("Erro", "Erro de conexão.");
+          } finally {
+              setLoading(false);
+          }
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm("Tem certeza que deseja excluir esta avaliação?")) execDelete();
+      } else {
+          Alert.alert("Excluir", "Tem certeza que deseja apagar permanentemente?", [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Excluir", style: "destructive", onPress: execDelete }
+          ]);
+      }
+  };
+
   const handleSaveAssessment = async () => {
       if (!weight) return Alert.alert("Erro", "O campo Peso é obrigatório.");
       if (customDate && customDate.length !== 10 && customDate.length > 0) return Alert.alert("Erro", "Data inválida (DD/MM/AAAA).");
@@ -177,9 +245,13 @@ export default function EvolutionScreen({ navigation }) {
           foldThigh: method === 'POLLOCK' ? cleanFolds.foldThigh : null,
       };
 
+      // Se tiver um ID de edição, nós enviamos via PUT para atualizar
+      if (editingId) payload.id = editingId;
+      const methodHttp = editingId ? 'PUT' : 'POST';
+
       try {
           const res = await fetch('https://fitos-final.onrender.com/api/assessment', {
-              method: 'POST',
+              method: methodHttp,
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(payload)
           });
@@ -190,9 +262,9 @@ export default function EvolutionScreen({ navigation }) {
               const msg = method === 'POLLOCK' ? `Salvo!\nBF Estimado: ${calculatedBF}%` : `Peso registrado!`;
               if (Platform.OS === 'web') window.alert(msg);
               else Alert.alert("Sucesso", msg);
+              
               setModalVisible(false);
-              setWeight(''); setCustomDate(''); setMeasures({waist:'', abdomen:''});
-              setFolds({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
+              resetForm();
               loadData(); 
           } else {
               if (Platform.OS === 'web') window.alert(json.error || "Verifique os dados.");
@@ -321,7 +393,7 @@ export default function EvolutionScreen({ navigation }) {
               </>
           ) : (
               <>
-                  <TouchableOpacity style={[styles.newAssessmentBtn, { backgroundColor: '#32ADE6' }]} onPress={() => setModalVisible(true)}>
+                  <TouchableOpacity style={[styles.newAssessmentBtn, { backgroundColor: '#32ADE6' }]} onPress={() => { resetForm(); setModalVisible(true); }}>
                       <MaterialCommunityIcons name="plus-circle" size={24} color={theme.isDark ? '#000' : '#FFF'} />
                       <Text style={[styles.newAssessmentText, { color: theme.isDark ? '#000' : '#FFF' }]}>REGISTRAR MEDIDAS / POLLOCK</Text>
                   </TouchableOpacity>
@@ -364,8 +436,8 @@ export default function EvolutionScreen({ navigation }) {
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFull, { width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }]}>
                 <SafeAreaView style={{flex:1}}>
                     <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                        <Text style={[styles.modalTitle, { color: theme.text }]}>NOVA AVALIAÇÃO</Text>
-                        <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.text} /></TouchableOpacity>
+                        <Text style={[styles.modalTitle, { color: theme.text }]}>{editingId ? "EDITAR AVALIAÇÃO" : "NOVA AVALIAÇÃO"}</Text>
+                        <TouchableOpacity onPress={() => { setModalVisible(false); resetForm(); }}><MaterialCommunityIcons name="close" size={24} color={theme.text} /></TouchableOpacity>
                     </View>
                     
                     <ScrollView 
@@ -410,7 +482,7 @@ export default function EvolutionScreen({ navigation }) {
                             <Text style={[styles.label, { color: '#32ADE6' }]}>ABDÔMEN (CM) - Opcional</Text><TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.abdomen} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none" />
                             </>
                         )}
-                        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#32ADE6' }]} onPress={handleSaveAssessment}><Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR RESULTADOS</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#32ADE6' }]} onPress={handleSaveAssessment}><Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{editingId ? "ATUALIZAR DADOS" : "SALVAR RESULTADOS"}</Text></TouchableOpacity>
                         <View style={{height: 100}} /> 
                     </ScrollView>
                 </SafeAreaView>
@@ -421,11 +493,21 @@ export default function EvolutionScreen({ navigation }) {
       <Modal visible={detailsVisible} transparent animationType="fade">
         <View style={styles.detailsOverlay}>
             <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                
+                {/* 🔥 NOVO CABEÇALHO COM BOTÕES DE LIXEIRA E LÁPIS */}
                 <View style={[styles.detailsHeader, { borderBottomColor: theme.border }]}>
-                    <Text style={[styles.detailsTitle, { color: '#32ADE6' }]}>DETALHES DA AVALIAÇÃO</Text>
-                    <TouchableOpacity onPress={() => setDetailsVisible(false)}>
-                        <MaterialCommunityIcons name="close" size={24} color={theme.text} />
-                    </TouchableOpacity>
+                    <Text style={[styles.detailsTitle, { color: '#32ADE6' }]}>DETALHES</Text>
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                        <TouchableOpacity onPress={() => handleEdit(selectedAssessment)}>
+                            <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.text} />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDelete(selectedAssessment?.id)}>
+                            <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FF3B30" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => setDetailsVisible(false)}>
+                            <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                        </TouchableOpacity>
+                    </View>
                 </View>
                 
                 {selectedAssessment && (
@@ -530,7 +612,7 @@ const styles = StyleSheet.create({
   saveBtnText: { fontWeight: '900', fontSize: 16 },
   detailsOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
   detailsCard: { borderRadius: 24, padding: 25, maxHeight: '80%', borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center' },
-  detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
+  detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
   detailsTitle: { fontSize: 16, fontWeight: '900' },
   detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, paddingBottom: 8 },
   detailLabel: { fontWeight: 'bold', fontSize: 13 },
