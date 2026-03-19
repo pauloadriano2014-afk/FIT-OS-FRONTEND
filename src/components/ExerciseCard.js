@@ -175,6 +175,11 @@ export const ExerciseCard = ({
     let voiceToPlay = 'alerta_descanso';
     let isTechniqueForced = false;
 
+    // 🔥 MUTA O ÁUDIO DE DESCANSO PARA AS TÉCNICAS NOVAS
+    if (blockTechKey === '1_5_REPS' || blockTechKey === 'TUT') {
+        voiceToPlay = null; 
+    }
+
     if (type === 'CLUSTER_INTRA') {
         timeToRest = 15; message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' }; voiceToPlay = 'alerta_cluster'; isTechniqueForced = true;
     } else if (blockTechKey === 'RESTPAUSE') {

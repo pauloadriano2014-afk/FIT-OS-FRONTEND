@@ -121,6 +121,21 @@ export default function DayWorkoutScreen({ route, navigation }) {
         audio: require('../../assets/audio/exp_gvt.m4a'),
         desc: 'COMO EXECUTAR:\nRealize 10 séries de 10 repetições com a mesma carga (cerca de 60% da sua força máxima) e descanso cravado de 60 segundos entre as séries.\n\nPOR QUE FAZER:\nÉ um choque brutal no corpo. O volume de treino extremo força o seu músculo a hipertrofiar para "sobreviver" ao estresse imposto.' 
     },
+    // 🔥 AS DUAS TÉCNICAS NOVAS (SEM ÁUDIO PARA NÃO QUEBRAR O APP)
+    '1_5_REPS': { 
+        id: '1_5_REPS', 
+        title: '1 E MEIO (1.5 REPS)', 
+        color: '#FF2D55', 
+        icon: 'debug-step-over', 
+        desc: 'COMO EXECUTAR:\nFaça o movimento completo, volte até a metade do caminho, suba novamente e então retorne à posição inicial. Isso conta como UMA repetição.\n\nPOR QUE FAZER:\nAumenta drasticamente o tempo sob tensão no ponto de maior dificuldade do exercício, maximizando o ganho de massa sem precisar colocar cargas extremas nas articulações.' 
+    },
+    'TUT': { 
+        id: 'TUT', 
+        title: 'T.U.T. (TEMPO SOB TENSÃO)', 
+        color: '#00C7BE', 
+        icon: 'timer-outline', 
+        desc: 'COMO EXECUTAR:\nExecute as repetições de forma extremamente controlada, respeitando os segundos de cadência estipulados pelo Coach tanto na fase de descida (excêntrica) quanto na de subida (concêntrica). Sem jogar o peso.\n\nPOR QUE FAZER:\nImpede o uso de "impulso" para levantar o peso. Foca 100% da força no músculo alvo, gerando hipertrofia máxima com segurança.' 
+    },
     'NORMAL': { 
         id: 'NORMAL', 
         title: 'EXECUÇÃO PADRÃO', 
@@ -239,6 +254,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
               return;
           }
           const audioRes = TECH_GUIDE[techKey]?.audio;
+          // Se for 1_5_REPS ou TUT, eles não tem audio. O if de baixo impede de quebrar.
           if (audioRes) {
               setIsPlayingTechVoice(true);
               const { sound } = await Audio.Sound.createAsync(audioRes);
@@ -469,7 +485,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
     <RootComponent style={rootStyle}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        {/* 🔥 HEADER FIXADO */}
         <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: isWeb ? 1 : 0, borderBottomColor: theme.border }}>
             <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'space-between' }}>
                 
@@ -734,7 +749,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </KeyboardAvoidingView>
         </Modal>
         
-        {/* 🔥 MODAL DE VÍDEO ELITE (Corrigido Cirurgicamente para iPhone e Android Web) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: 20 }}>
                 
@@ -753,7 +767,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
                             onPress={() => {
                                 if (isWeb && videoRef.current) {
                                     const videoEl = videoRef.current;
-                                    // 🔥 O SEGREDO DO IPHONE: A Apple usa 'webkitEnterFullscreen'
                                     if (videoEl.requestFullscreen) {
                                         videoEl.requestFullscreen();
                                     } else if (videoEl.webkitEnterFullscreen) {
@@ -780,7 +793,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         ref={videoRef} 
                                         src={currentVideoUrl} 
                                         style={{ width: '100%', height: '100%', objectFit: 'cover', outline: 'none' }} 
-                                        controls={!isIOSWeb} // 🔥 ARRANCA OS CONTROLES NATIVOS DO IPHONE (FIM DO ÍCONE DE SOM) MAS MANTÉM NO ANDROID
+                                        controls={!isIOSWeb} 
                                         autoPlay 
                                         loop 
                                         muted 

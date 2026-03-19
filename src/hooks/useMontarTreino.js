@@ -66,7 +66,19 @@ export const useMontarTreino = (route, navigation) => {
     const goals = ['TODOS', 'Emagrecimento', 'Hipertrofia', 'Definição', 'Qualidade de Vida', 'Condicionamento', 'Recuperação'];
     const levels = ['TODOS', 'Iniciante', 'Intermediário', 'Avançado'];
     
-    const tecnicasDisponiveis = [{ id: '', title: 'NORMAL' }, { id: 'GVT', title: 'GVT (10x10)' }, { id: 'DROPSET', title: 'DROP-SET' }, { id: 'RESTPAUSE', title: 'REST-PAUSE' }, { id: 'BISET', title: 'BI-SET' }, { id: '21', title: 'MÉTODO 21' }, { id: 'CLUSTERSET', title: 'CLUSTER' }];
+    // 🔥 AS DUAS NOVAS TÉCNICAS INJETADAS NA FONTE DA VERDADE
+    const tecnicasDisponiveis = [
+        { id: '', title: 'NORMAL' }, 
+        { id: 'GVT', title: 'GVT (10x10)' }, 
+        { id: 'DROPSET', title: 'DROP-SET' }, 
+        { id: 'RESTPAUSE', title: 'REST-PAUSE' }, 
+        { id: 'BISET', title: 'BI-SET' }, 
+        { id: '21', title: 'MÉTODO 21' }, 
+        { id: 'CLUSTERSET', title: 'CLUSTER' },
+        { id: '1_5_REPS', title: '1 E MEIO (1.5 REPS)' },
+        { id: 'TUT', title: 'T.U.T. (TEMPO SOB TENSÃO)' }
+    ];
+    
     const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
 
     useEffect(() => { 
@@ -225,18 +237,14 @@ export const useMontarTreino = (route, navigation) => {
                             return aInB;
                         });
 
-                        // 🔥 CIRURGIA DE SEPARAÇÃO DE SÉRIES DE PIRÂMIDE (Ex: 15-12-10-8) 🔥
                         let rawBlocks = aiEx.blocks && aiEx.blocks.length > 0 ? aiEx.blocks : [{ sets: String(aiEx.sets || '3'), reps: String(aiEx.reps || '12'), restTime: String(aiEx.restTime || '60'), technique: aiEx.technique || '' }];
                         let expandedBlocks = [];
                         
                         rawBlocks.forEach(b => {
                             const repStr = String(b.reps || '').trim();
-                            // Divide a string se tiver hifens ou barras
                             const parts = repStr.split(/[-/,]/).map(x => x.trim()).filter(x => x);
                             const setsNum = parseInt(b.sets) || 1;
 
-                            // Se a quantidade de separações for igual ao número de séries OU tiver mais de 2 partes
-                            // Significa que não é um Range (ex: "10-12"), mas sim uma pirâmide. Então, explodimos os blocos!
                             if (parts.length > 1 && (parts.length === setsNum || parts.length > 2)) {
                                 parts.forEach((p) => {
                                     expandedBlocks.push({
@@ -259,7 +267,7 @@ export const useMontarTreino = (route, navigation) => {
                             observation: aiEx.observation || '',
                             tempId: Math.random().toString(),
                             substitute: null,
-                            blocks: expandedBlocks // 🔥 Envia o bloco formatado separadinho pra tela!
+                            blocks: expandedBlocks 
                         };
                     });
                 });
