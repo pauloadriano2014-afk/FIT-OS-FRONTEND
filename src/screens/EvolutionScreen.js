@@ -1,3 +1,4 @@
+// src/screens/EvolutionScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
@@ -11,14 +12,34 @@ import { useFocusEffect } from '@react-navigation/native';
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 
+// INSIRA ESTE BLOCO NO TOPO DOS ARQUIVOS, LOGO APÓS OS IMPORTS
+
+// 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
+if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
+  const handler = () => {
+    // Detecta a altura visível do viewport (o espaço que sobrou acima do teclado)
+    const viewportHeight = window.visualViewport.height;
+    // Força o contêiner principal a usar essa altura, sem se mover
+    document.documentElement.style.height = `${viewportHeight}px`;
+    document.body.style.height = `${viewportHeight}px`;
+    // Garante que o input focado permaneça visível, mas sem zoom
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      document.activeElement.scrollIntoView({ behavior: 'auto', block: 'center' });
+    }
+  };
+  // Escuta os eventos de mudança de redimensionamento e de rolagem do viewport
+  window.visualViewport.addEventListener('resize', handler);
+  window.visualViewport.addEventListener('scroll', handler);
+}
+
 const { width } = Dimensions.get('window');
 
 // --- FÓRMULA DE JACKSON & POLLOCK 7 DOBRAS ---
 const calculateBodyFat = (gender, age, rawFolds) => {
     const cleanVal = (v) => Number(String(v).replace(',', '.') || 0);
-    const sum = cleanVal(rawFolds.chest) + cleanVal(rawFolds.axillary) + cleanVal(rawFolds.triceps) + 
-                cleanVal(rawFolds.subscapular) + cleanVal(rawFolds.abdominal) + cleanVal(rawFolds.suprailiac) + 
-                cleanVal(rawFolds.thigh);
+    const sum = cleanVal(rawFolds.foldChest) + cleanVal(rawFolds.foldAxillary) + cleanVal(rawFolds.foldTriceps) + 
+                cleanVal(rawFolds.foldSubscapular) + cleanVal(rawFolds.foldAbdominal) + cleanVal(rawFolds.foldSuprailiac) + 
+                cleanVal(rawFolds.foldThigh);
     if (sum === 0) return 0;
     let density = 0;
     const ageVal = Number(age);
@@ -43,13 +64,11 @@ export default function EvolutionScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState(null);
 
-  // 🔥 PUXA O TEMA GLOBAL
   const { theme } = useTheme();
 
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [assessmentHistory, setAssessmentHistory] = useState([]);
   
-  // MODAIS
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
   const [selectedAssessment, setSelectedAssessment] = useState(null);
@@ -60,7 +79,7 @@ export default function EvolutionScreen({ navigation }) {
   const [currentAge, setCurrentAge] = useState('');
   const [currentGender, setCurrentGender] = useState('MASCULINO'); 
   const [measures, setMeasures] = useState({ waist: '', abdomen: '' });
-  const [folds, setFolds] = useState({ chest:'', axillary:'', triceps:'', subscapular:'', abdominal:'', suprailiac:'', thigh:'' });
+  const [folds, setFolds] = useState({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
 
   useFocusEffect(
     React.useCallback(() => {
@@ -80,12 +99,10 @@ export default function EvolutionScreen({ navigation }) {
           if (user.birthDate) setCurrentAge(getAgeFromDate(user.birthDate));
           if (user.gender) setCurrentGender(user.gender.toUpperCase());
           
-          // 1. Busca Avaliações
           const resAssess = await fetch(`https://fitos-final.onrender.com/api/assessment?userId=${user.id}`);
           const assessments = await resAssess.json();
           if (Array.isArray(assessments)) setAssessmentHistory(assessments);
 
-          // 2. Busca Histórico de Treinos REAL
           const resHistory = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
           const historyData = await resHistory.json();
           
@@ -121,7 +138,7 @@ export default function EvolutionScreen({ navigation }) {
 
   const handleSaveAssessment = async () => {
       if (!weight) return Alert.alert("Erro", "O campo Peso é obrigatório.");
-      if (customDate && customDate.length !== 10) return Alert.alert("Erro", "Data inválida (DD/MM/AAAA).");
+      if (customDate && customDate.length !== 10 && customDate.length > 0) return Alert.alert("Erro", "Data inválida (DD/MM/AAAA).");
 
       let isoDate = new Date().toISOString();
       if (customDate) {
@@ -130,21 +147,32 @@ export default function EvolutionScreen({ navigation }) {
       }
       
       let calculatedBF = null;
+      let cleanFolds = {};
+
       if (method === 'POLLOCK') {
           if (!currentAge) return Alert.alert("Atenção", "Informe a IDADE para calcular o % de Gordura.");
-          const cleanFolds = {};
           Object.keys(folds).forEach(k => cleanFolds[k] = folds[k].replace(',', '.'));
           calculatedBF = calculateBodyFat(currentGender, currentAge, cleanFolds);
       }
 
+      // 🔥 TRADUTOR: Mandando os dados EXATAMENTE como o Prisma e a API esperam
       const payload = {
           userId: userData.id,
           date: isoDate,
           weight: weight.replace(',', '.'), 
           method,
-          measures: method === 'BASICO' ? measures : {},
-          folds: method === 'POLLOCK' ? folds : {},
-          bodyFat: calculatedBF
+          bodyFat: calculatedBF,
+          // Mandando as medidas soltas para o Prisma engolir
+          waist: method === 'BASICO' ? measures.waist.replace(',', '.') : null,
+          abdomen: method === 'BASICO' ? measures.abdomen.replace(',', '.') : null,
+          // Mandando as dobras soltas para o Prisma engolir
+          foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null,
+          foldAxillary: method === 'POLLOCK' ? cleanFolds.foldAxillary : null,
+          foldTriceps: method === 'POLLOCK' ? cleanFolds.foldTriceps : null,
+          foldSubscapular: method === 'POLLOCK' ? cleanFolds.foldSubscapular : null,
+          foldAbdominal: method === 'POLLOCK' ? cleanFolds.foldAbdominal : null,
+          foldSuprailiac: method === 'POLLOCK' ? cleanFolds.foldSuprailiac : null,
+          foldThigh: method === 'POLLOCK' ? cleanFolds.foldThigh : null,
       };
 
       try {
@@ -161,7 +189,8 @@ export default function EvolutionScreen({ navigation }) {
               if (Platform.OS === 'web') window.alert(msg);
               else Alert.alert("Sucesso", msg);
               setModalVisible(false);
-              setWeight(''); setCustomDate(''); setFolds({});
+              setWeight(''); setCustomDate(''); setMeasures({waist:'', abdomen:''});
+              setFolds({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
               loadData(); 
           } else {
               if (Platform.OS === 'web') window.alert(json.error || "Verifique os dados.");
@@ -178,7 +207,6 @@ export default function EvolutionScreen({ navigation }) {
       setDetailsVisible(true);
   };
 
-  // Cálculos Gráficos
   const totalTonnage = workoutHistory.reduce((acc, curr) => acc + (curr.tonnage || 0), 0);
   const chartWorkouts = [...workoutHistory].reverse().slice(-6); 
   
@@ -206,7 +234,6 @@ export default function EvolutionScreen({ navigation }) {
       propsForDots: { r: "4", strokeWidth: "2", stroke: theme.accent } 
   };
 
-  // 🔥 Lógica da "Gaiola" PWA
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -216,7 +243,6 @@ export default function EvolutionScreen({ navigation }) {
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* 🔥 GAIOLA FLEXÍVEL */}
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
         
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
@@ -229,10 +255,10 @@ export default function EvolutionScreen({ navigation }) {
 
           <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>
               <TouchableOpacity style={[styles.tabBtn, activeTab === 'PERFORMANCE' && { backgroundColor: theme.accent }]} onPress={() => setActiveTab('PERFORMANCE')}>
-                  <Text style={[styles.tabText, activeTab === 'PERFORMANCE' && {color: theme.isDark ? '#000' : '#FFF'}, !activeTab && {color: theme.textSecondary}]}>PERFORMANCE</Text>
+                  <Text style={[styles.tabText, activeTab === 'PERFORMANCE' ? {color: theme.isDark ? '#000' : '#FFF'} : {color: theme.textSecondary}]}>PERFORMANCE</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.tabBtn, activeTab === 'CORPO' && { backgroundColor: '#32ADE6' }]} onPress={() => setActiveTab('CORPO')}>
-                  <Text style={[styles.tabText, activeTab === 'CORPO' && {color: theme.isDark ? '#000' : '#FFF'}, !activeTab && {color: theme.textSecondary}]}>CORPO</Text>
+                  <Text style={[styles.tabText, activeTab === 'CORPO' ? {color: '#FFF'} : {color: theme.textSecondary}]}>CORPO</Text>
               </TouchableOpacity>
           </View>
         </View>
@@ -241,6 +267,8 @@ export default function EvolutionScreen({ navigation }) {
           style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          bounces={false} 
+          overScrollMode="never" 
         >
           {loading ? <ActivityIndicator color={theme.accent} style={{marginTop:50}} size="large"/> : 
             activeTab === 'PERFORMANCE' ? (
@@ -329,7 +357,6 @@ export default function EvolutionScreen({ navigation }) {
         </ScrollView>
       </View>
 
-      {/* MODAL CADASTRO (GAIOLA APLICADA AQUI TAMBÉM) */}
       <Modal visible={modalVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.modalFull, { width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }]}>
@@ -339,7 +366,13 @@ export default function EvolutionScreen({ navigation }) {
                         <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.text} /></TouchableOpacity>
                     </View>
                     
-                    <ScrollView style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]} contentContainerStyle={{padding: 20}} showsVerticalScrollIndicator={false}>
+                    <ScrollView 
+                        style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]} 
+                        contentContainerStyle={{padding: 20}} 
+                        showsVerticalScrollIndicator={false}
+                        bounces={false} 
+                        overScrollMode="never"
+                    >
                         <Text style={[styles.label, { color: '#32ADE6' }]}>DATA (Opcional - Para Backdate)</Text>
                         <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={customDate} onChangeText={handleDateChange} placeholder="DD/MM/AAAA (Deixe vazio para Hoje)" placeholderTextColor={theme.textSecondary} maxLength={10} outlineStyle="none" />
                         
@@ -349,7 +382,7 @@ export default function EvolutionScreen({ navigation }) {
                         </View>
                         
                         <Text style={[styles.label, { color: '#32ADE6' }]}>PESO (KG)</Text>
-                        <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={weight} onChangeText={setWeight} placeholder="Ex: 80.5" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
+                        <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={weight} onChangeText={setWeight} placeholder="Ex: 80.5" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
                         
                         {method === 'POLLOCK' ? (
                             <>
@@ -359,20 +392,20 @@ export default function EvolutionScreen({ navigation }) {
                             </View>
                             <Text style={[styles.sectionHeader, { color: theme.text, borderBottomColor: theme.border }]}>DOBRAS CUTÂNEAS (MM)</Text>
                             <View style={styles.grid}>
-                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PEITORAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setFolds({...folds, chest:t})} outlineStyle="none"/></View>
-                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>AXILAR</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setFolds({...folds, axillary:t})} outlineStyle="none"/></View>
-                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TRÍCEPS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setFolds({...folds, triceps:t})} outlineStyle="none"/></View>
-                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUBESCAP.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setFolds({...folds, subscapular:t})} outlineStyle="none"/></View>
-                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ABDOMINAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setFolds({...folds, abdominal:t})} outlineStyle="none"/></View>
-                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUPRA-IL.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setFolds({...folds, suprailiac:t})} outlineStyle="none"/></View>
-                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>COXA</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setFolds({...folds, thigh:t})} outlineStyle="none"/></View>
+                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PEITORAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldChest} onChangeText={t=>setFolds({...folds, foldChest:t})} outlineStyle="none"/></View>
+                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>AXILAR</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldAxillary} onChangeText={t=>setFolds({...folds, foldAxillary:t})} outlineStyle="none"/></View>
+                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TRÍCEPS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldTriceps} onChangeText={t=>setFolds({...folds, foldTriceps:t})} outlineStyle="none"/></View>
+                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUBESCAP.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldSubscapular} onChangeText={t=>setFolds({...folds, foldSubscapular:t})} outlineStyle="none"/></View>
+                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ABDOMINAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldAbdominal} onChangeText={t=>setFolds({...folds, foldAbdominal:t})} outlineStyle="none"/></View>
+                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUPRA-IL.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldSuprailiac} onChangeText={t=>setFolds({...folds, foldSuprailiac:t})} outlineStyle="none"/></View>
+                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>COXA</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldThigh} onChangeText={t=>setFolds({...folds, foldThigh:t})} outlineStyle="none"/></View>
                             </View>
                             <Text style={[styles.hint, { color: theme.textSecondary }]}>O app usará idade e sexo para calcular o BF.</Text>
                             </>
                         ) : (
                             <>
-                            <Text style={[styles.label, { color: '#32ADE6' }]}>CINTURA (CM) - Opcional</Text><TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setMeasures({...measures, waist:t})} outlineStyle="none" />
-                            <Text style={[styles.label, { color: '#32ADE6' }]}>ABDÔMEN (CM) - Opcional</Text><TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none" />
+                            <Text style={[styles.label, { color: '#32ADE6' }]}>CINTURA (CM) - Opcional</Text><TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.waist} onChangeText={t=>setMeasures({...measures, waist:t})} outlineStyle="none" />
+                            <Text style={[styles.label, { color: '#32ADE6' }]}>ABDÔMEN (CM) - Opcional</Text><TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.abdomen} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none" />
                             </>
                         )}
                         <TouchableOpacity style={[styles.saveBtn, { backgroundColor: '#32ADE6' }]} onPress={handleSaveAssessment}><Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR RESULTADOS</Text></TouchableOpacity>
@@ -383,7 +416,6 @@ export default function EvolutionScreen({ navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL DETALHES */}
       <Modal visible={detailsVisible} transparent animationType="fade">
         <View style={styles.detailsOverlay}>
             <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -395,7 +427,7 @@ export default function EvolutionScreen({ navigation }) {
                 </View>
                 
                 {selectedAssessment && (
-                    <ScrollView showsVerticalScrollIndicator={false}>
+                    <ScrollView showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
                         <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
                             <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>DATA:</Text>
                             <Text style={[styles.detailValue, { color: theme.text }]}>{new Date(selectedAssessment.date).toLocaleDateString('pt-BR')}</Text>
@@ -417,11 +449,29 @@ export default function EvolutionScreen({ navigation }) {
                                 </View>
                             </View>
                         )}
+                        
+                        {/* 🔥 RENDERIZAÇÃO DIRETA LENDO AS COLUNAS DO BANCO DE DADOS */}
+                        {(selectedAssessment.method === 'POLLOCK') && (
+                            <>
+                                <Text style={[styles.detailSection, { color: '#32ADE6' }]}>DOBRAS POLOCK 7 (mm)</Text>
+                                <View style={styles.foldsGrid}>
+                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Peitoral:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldChest || '-'}</Text></View>
+                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Axilar:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldAxillary || '-'}</Text></View>
+                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Tríceps:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldTriceps || '-'}</Text></View>
+                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Subescapular:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldSubscapular || '-'}</Text></View>
+                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Abdominal:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldAbdominal || '-'}</Text></View>
+                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Supra-ilíaca:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldSuprailiac || '-'}</Text></View>
+                                    <View style={styles.foldItem}><Text style={[styles.foldName, {color: theme.textSecondary}]}>Coxa:</Text><Text style={[styles.foldVal, {color: theme.text}]}>{selectedAssessment.foldThigh || '-'}</Text></View>
+                                </View>
+                            </>
+                        )}
+
+                        {/* Imprime Básicas se tiver preenchido cintura ou abdomen */}
                         {(selectedAssessment.waist || selectedAssessment.abdomen) && (
                             <>
                                 <Text style={[styles.detailSection, { color: theme.accent }]}>MEDIDAS (cm)</Text>
-                                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Cintura:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.waist || '-'} cm</Text></View>
-                                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Abdômen:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.abdomen || '-'} cm</Text></View>
+                                { selectedAssessment.waist && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Cintura:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.waist} cm</Text></View> }
+                                { selectedAssessment.abdomen && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Abdômen:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.abdomen} cm</Text></View> }
                             </>
                         )}
                     </ScrollView>
@@ -494,4 +544,9 @@ const styles = StyleSheet.create({
   resultLabel: { fontSize: 11, fontWeight: 'bold', marginBottom: 8 },
   resultValue: { fontSize: 22, fontWeight: '900' },
   detailSection: { fontWeight: 'bold', fontSize: 13, marginTop: 15, marginBottom: 15 },
+  
+  foldsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  foldItem: { width: '48%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)', paddingBottom: 4 },
+  foldName: { fontSize: 12, fontWeight: 'bold' },
+  foldVal: { fontSize: 13, fontWeight: '900' }
 });

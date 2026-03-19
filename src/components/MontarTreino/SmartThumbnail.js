@@ -26,14 +26,11 @@ export default function SmartThumbnail({ url, style, theme, onPress }) {
 
             // 2. Cloudinary
             if (url.includes('cloudinary.com')) {
-                if (isMounted) { 
-                    setImageUri(url.replace(/\.(mp4|mov|avi|mkv)$/i, '.jpg')); 
-                    setLoading(false); 
-                }
+                if (isMounted) { setImageUri(url.replace(/\.(mp4|mov|avi|mkv)$/i, '.jpg')); setLoading(false); }
                 return;
             }
 
-            // 3. Celular (APK/iOS) - Usa a Força Bruta Nativa para extrair do MP4
+            // 3. Celular (APK/iOS) - Força Bruta Nativa para MP4 (Qualquer Servidor)
             if (Platform.OS !== 'web') {
                 try {
                     const { uri } = await VideoThumbnails.getThumbnailAsync(url, { time: 1000, quality: 0.6 });
@@ -80,10 +77,8 @@ export default function SmartThumbnail({ url, style, theme, onPress }) {
     const isWeb = Platform.OS === 'web';
     const isDirectVideo = url && !url.includes('youtube.com') && !url.includes('youtu.be');
     
-    // Indica se conseguimos renderizar algum conteúdo visual (imagem estática ou vídeo travado de fundo)
     const showImage = imageUri && !imageFailed;
     const showWebVideoFrame = isWeb && !showImage && isDirectVideo;
-    
     const hasVisualContent = showImage || showWebVideoFrame;
 
     return (
@@ -96,7 +91,6 @@ export default function SmartThumbnail({ url, style, theme, onPress }) {
                         <Image source={{ uri: imageUri }} style={styles.content} resizeMode="cover" onError={handleImageError} />
                     )}
                     {showWebVideoFrame && (
-                        // 🔥 A CIRURGIA FOI AQUI: Transformando o Array de Estilos em um Objeto Único para o HTML engolir
                         <video 
                             src={`${url}#t=1.0`} 
                             style={{ ...styles.content, objectFit: 'cover', pointerEvents: 'none' }} 

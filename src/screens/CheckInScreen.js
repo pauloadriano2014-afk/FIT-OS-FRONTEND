@@ -1,3 +1,4 @@
+// src/screens/CheckInScreen.js
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, Platform, SafeAreaView, TouchableOpacity, 
@@ -10,6 +11,26 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
+// INSIRA ESTE BLOCO NO TOPO DOS ARQUIVOS, LOGO APÓS OS IMPORTS
+
+// 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
+if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
+  const handler = () => {
+    // Detecta a altura visível do viewport (o espaço que sobrou acima do teclado)
+    const viewportHeight = window.visualViewport.height;
+    // Força o contêiner principal a usar essa altura, sem se mover
+    document.documentElement.style.height = `${viewportHeight}px`;
+    document.body.style.height = `${viewportHeight}px`;
+    // Garante que o input focado permaneça visível, mas sem zoom
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      document.activeElement.scrollIntoView({ behavior: 'auto', block: 'center' });
+    }
+  };
+  // Escuta os eventos de mudança de redimensionamento e de rolagem do viewport
+  window.visualViewport.addEventListener('resize', handler);
+  window.visualViewport.addEventListener('scroll', handler);
+}
+
 export default function CheckInScreen({ navigation }) {
   const [weight, setWeight] = useState('');
   const [feedback, setFeedback] = useState('');
@@ -21,6 +42,12 @@ export default function CheckInScreen({ navigation }) {
 
   // --- LÓGICA DE FOTOS ---
   const handleSelectPhoto = (position) => {
+    if (Platform.OS === 'web') {
+        window.alert("Escolha a origem da imagem:\n1. Tirar Foto\n2. Escolher da Galeria");
+        openGallery(position); // Web costuma puxar melhor o input de arquivo direto pela galeria
+        return;
+    }
+
     Alert.alert(
         "Enviar Foto",
         "Escolha a origem da imagem:",
@@ -40,7 +67,7 @@ export default function CheckInScreen({ navigation }) {
     }
     const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        quality: 0.5,
+        quality: 1, // 🔥 CURA DA TEKPIX: Força 100% de qualidade da câmera
         base64: true,
         allowsEditing: false,
     });
@@ -57,7 +84,7 @@ export default function CheckInScreen({ navigation }) {
     }
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.5,
+      quality: 1, // 🔥 CURA DA TEKPIX: Força 100% de qualidade da galeria
       base64: true,
     });
     if (!result.canceled && result.assets[0].base64) {
@@ -66,7 +93,17 @@ export default function CheckInScreen({ navigation }) {
   };
 
   const handleSend = async () => {
-    if (!weight) return Alert.alert("Erro", "Informe seu peso atual.");
+    // 🔥 CURA DO BOTÃO FANTASMA: Bloqueia e avisa o aluno se faltar alguma coisa!
+    if (!weight) {
+        if (Platform.OS === 'web') window.alert("Atenção: O campo de peso é obrigatório.");
+        else Alert.alert("Atenção", "O campo de peso é obrigatório.");
+        return;
+    }
+    if (!photos.front || !photos.side || !photos.back) {
+        if (Platform.OS === 'web') window.alert("Atenção: Você precisa anexar as 3 fotos (Frente, Lado e Costas).");
+        else Alert.alert("Faltam Fotos", "Você precisa anexar as 3 fotos (Frente, Lado e Costas) para concluir o check-in.");
+        return;
+    }
     
     setSending(true);
     try {
@@ -78,7 +115,7 @@ export default function CheckInScreen({ navigation }) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 userId: user.id,
-                weight: weight.replace(',', '.'),
+                weight: weight.replace(',', '.'), // Proteção de vírgula para não quebrar banco
                 feedback,
                 photoFront: photos.front,
                 photoBack: photos.back,
@@ -87,13 +124,17 @@ export default function CheckInScreen({ navigation }) {
         });
 
         if (res.ok) {
-            Alert.alert("Recebido! 🔥", "Seu treinador analisará suas fotos em breve.");
+            if (Platform.OS === 'web') window.alert("Recebido! 🔥\nSeu treinador analisará suas fotos em breve.");
+            else Alert.alert("Recebido! 🔥", "Seu treinador analisará suas fotos em breve.");
             navigation.goBack();
         } else {
-            Alert.alert("Erro", "Falha ao enviar check-in.");
+            const errorJson = await res.json();
+            if (Platform.OS === 'web') window.alert("Erro ao enviar: " + (errorJson.error || "Falha desconhecida"));
+            else Alert.alert("Erro", errorJson.error || "Falha ao enviar check-in.");
         }
     } catch (e) {
-        Alert.alert("Erro", "Verifique sua conexão.");
+        if (Platform.OS === 'web') window.alert("Erro de Conexão. Tente novamente.");
+        else Alert.alert("Erro", "Verifique sua conexão.");
     } finally {
         setSending(false);
     }
@@ -126,11 +167,11 @@ export default function CheckInScreen({ navigation }) {
         <View style={{width: 40}}/> 
       </View>
 
-      {/* 🔥 TRAVA DO PWA (bounces={false} e overScrollMode="never") */}
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         bounces={false}
         overScrollMode="never"
+        showsVerticalScrollIndicator={false}
       >
         <View style={styles.content}>
             <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Semanal</Text>
@@ -139,7 +180,7 @@ export default function CheckInScreen({ navigation }) {
             <Text style={[styles.label, { color: theme.text }]}>PESO ATUAL (KG)</Text>
             <TextInput 
                 style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-                keyboardType="numeric" 
+                keyboardType="decimal-pad" // 🔥 CURA DO TECLADO: Sempre mostra vírgula
                 placeholder="Ex: 80.5" 
                 placeholderTextColor={theme.textSecondary}
                 value={weight}
@@ -213,7 +254,7 @@ const styles = StyleSheet.create({
   photoBox: { width: '31%', aspectRatio: 0.8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   photoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   photoText: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
-  photoPreview: { width: '100%', height: '100%' },
+  photoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
   checkBadge: { position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
 
   sendBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 40 },

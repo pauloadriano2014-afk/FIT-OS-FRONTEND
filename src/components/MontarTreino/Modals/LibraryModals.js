@@ -14,10 +14,8 @@ export default function LibraryModals({
 }) {
     return (
         <>
-            {/* MODAL DE BUSCA / BIBLIOTECA */}
             <Modal visible={modalBuscaVisible} animationType="slide">
                 <View style={{ flex: 1, backgroundColor: webOuterBg }}>
-                    {/* HEADER FIXO NO TOPO */}
                     <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 20, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
                         <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', paddingTop: isWeb ? 20 : 10, paddingHorizontal: 20, paddingBottom: 15 }}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
@@ -40,7 +38,6 @@ export default function LibraryModals({
                                 <MaterialCommunityIcons name={showCatDropdown ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                             </TouchableOpacity>
                             
-                            {/* 🔥 DROPDOWN FLUTUANTE QUE NUNCA SOME 🔥 */}
                             {showCatDropdown && (
                                 <View style={[styles.dropdownContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                     <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={{ maxHeight: 250 }}>
@@ -82,7 +79,6 @@ export default function LibraryModals({
                 </View>
             </Modal>
 
-            {/* MODAL PREVIEW DO EXERCÍCIO */}
             <Modal visible={previewModalVisible} transparent animationType="fade" onRequestClose={() => { setPreviewModalVisible(false); setPreviewExercise(null); }}>
                 <View style={styles.previewBackdrop}>
                     <View style={[styles.previewContainer, { backgroundColor: theme.surface }]}>
@@ -130,11 +126,8 @@ const styles = StyleSheet.create({
     searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500', outlineStyle: 'none' },
     catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 12, borderWidth: 1 },
     catSelectorVal: { fontSize: 15, fontWeight: '800' },
-    
-    // 🔥 ESTILOS DO NOVO DROPDOWN FLUTUANTE
     dropdownContainer: { position: 'absolute', top: 140, left: 20, right: 20, zIndex: 100, borderRadius: 12, borderWidth: 1, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
     dropdownItem: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
-
     libItem: { paddingVertical: 15, borderBottomWidth: 1, flexDirection:'row', alignItems:'center' },
     thumbList: { width: 60, height: 60, borderRadius: 14 },
     libName: { fontSize: 15, fontWeight: 'bold' },

@@ -5,6 +5,20 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode, Audio } from 'expo-av';
 import { identifyTechnique, getCategoryType } from '../utils/workoutUtils';
 
+// 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
+if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
+  const handler = () => {
+    const viewportHeight = window.visualViewport.height;
+    document.documentElement.style.height = `${viewportHeight}px`;
+    document.body.style.height = `${viewportHeight}px`;
+    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+      document.activeElement.scrollIntoView({ behavior: 'auto', block: 'center' });
+    }
+  };
+  window.visualViewport.addEventListener('resize', handler);
+  window.visualViewport.addEventListener('scroll', handler);
+}
+
 export const ExerciseCard = ({ 
   item, totalSets, lastWeights, historyWeights, 
   handleSaveWeight, handleOpenVideo, setModalVisible, 
@@ -15,7 +29,10 @@ export const ExerciseCard = ({
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
+  
+  // 🔥 LINK CRU E DIRETO: Sem gambiarras de tentar adivinhar a resolução do Bunny
   const videoLink = item.exercise?.videoUrl || item.videoUrl;
+  
   const standardRestTime = item.restTime || 60;
   
   const blocks = item.blocks && item.blocks.length > 0 
@@ -438,7 +455,13 @@ export const ExerciseCard = ({
                 <View style={{width: 44, alignItems:'flex-end', marginLeft: 5, justifyContent:'center'}}>
                     <TouchableOpacity 
                         style={{padding: 8}} 
-                        onPress={() => handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key)}
+                        onPress={() => {
+                            if (categoryType === 'MOBILITY' || categoryType === 'CARDIO') {
+                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
+                            } else {
+                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
+                            }
+                        }}
                     >
                         <MaterialCommunityIcons name={checkIcon} size={34} color={checkColor} />
                     </TouchableOpacity>
@@ -462,7 +485,6 @@ export const ExerciseCard = ({
       ]}>
         
         <View style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
-            {/* 🔥 FIM DO LAG E DO CRASH: O NATIVO NÃO DÁ AUTOPLAY NO FUNDO */}
             {videoLink ? (
                 Platform.OS === 'web' ? (
                     <video 
@@ -485,7 +507,7 @@ export const ExerciseCard = ({
                         source={{ uri: videoLink }} 
                         resizeMode={ResizeMode.COVER} 
                         isMuted={true} 
-                        shouldPlay={false} // 🔥 TRAVA DE LAG (EXIBE SÓ A PRIMEIRA CENA)
+                        shouldPlay={false} 
                         isLooping={false} 
                     />
                 )
