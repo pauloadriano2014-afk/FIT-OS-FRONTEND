@@ -10,7 +10,7 @@ export const ExerciseCard = ({
   handleSaveWeight, handleOpenVideo, setModalVisible, 
   setSelectedTech, setTechModalVisible, TECH_GUIDE,
   isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning,
-  isVoiceEnabled, // 🔥 TRAVA DO MUDO CHEGANDO AQUI
+  isVoiceEnabled,
   colors
 }) => {
   
@@ -33,11 +33,22 @@ export const ExerciseCard = ({
 
   const [voiceSound, setVoiceSound] = useState(null);
 
+  async function safeStopVoice() {
+      if (voiceSound) {
+          try {
+              const status = await voiceSound.getStatusAsync();
+              if (status.isLoaded && status.isPlaying) {
+                  await voiceSound.stopAsync();
+              }
+          } catch (e) {}
+      }
+  }
+
   async function playVoiceAlert(type) {
-      if (!isVoiceEnabled) return; // 🔥 SE O ALUNO MUTOU O COACH, O CÓDIGO MORRE AQUI!
+      if (!isVoiceEnabled) return; 
       try {
           if (voiceSound) {
-              await voiceSound.unloadAsync();
+              try { await voiceSound.unloadAsync(); } catch (e) {}
           }
           let audioRes;
           switch (type) {
@@ -55,26 +66,18 @@ export const ExerciseCard = ({
               setVoiceSound(sound);
               await sound.playAsync();
           }
-      } catch (e) {
-          console.log('Erro ao tocar voz do coach:', e);
-      }
+      } catch (e) {}
   }
 
   useEffect(() => {
-      return voiceSound ? () => { voiceSound.unloadAsync(); } : undefined;
+      return voiceSound ? () => { try { voiceSound.unloadAsync(); } catch (e) {} } : undefined;
   }, [voiceSound]);
 
   useEffect(() => {
     const forceAudio = async () => {
       try {
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: true,
-        });
-      } catch (e) {
-        console.log("Erro ao forçar áudio", e);
-      }
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true, shouldDuckAndroid: true });
+      } catch (e) {}
     };
     forceAudio();
   }, []);
@@ -117,9 +120,7 @@ export const ExerciseCard = ({
     return () => clearInterval(interval);
   }, [isResting, seconds, activeSetIndex, isLastExercise, biSetType, isVoiceEnabled]);
 
-  const calculateTotalSets = () => {
-    return blocks.reduce((acc, block) => acc + (parseInt(block.sets) || 1), 0);
-  };
+  const calculateTotalSets = () => blocks.reduce((acc, block) => acc + (parseInt(block.sets) || 1), 0);
 
   const handleSmartCheck = (setKey, currentVal, blockRestTime, blockTechKey) => {
     if (!isTimerRunning) {
@@ -132,19 +133,16 @@ export const ExerciseCard = ({
     if (categoryType !== 'CARDIO' && (currentVal === undefined || currentVal === '' || currentVal === null)) {
         handleSaveWeight(item.id, '0', setKey); 
     }
-    
     setCheckedSets(prev => ({ ...prev, [setKey]: true }));
-
     if (categoryType === 'CARDIO') return;
 
     const totalSets = calculateTotalSets();
     const isLastSet = (typeof setKey === 'number' ? setKey : parseInt(setKey)) === totalSets;
-
     startRestTimer(typeof setKey === 'number' ? setKey : parseInt(setKey), 'NORMAL', blockRestTime, blockTechKey, isLastSet);
   };
 
-  const startRestTimer = (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
-    if (voiceSound) { voiceSound.stopAsync(); } 
+  const startRestTimer = async (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
+    await safeStopVoice(); 
 
     if (biSetType === 'start') {
         setTimerMessage({ title: '🔥 SEM DESCANSO!', desc: 'Vá direto para o exercício de baixo agora!' });
@@ -158,26 +156,16 @@ export const ExerciseCard = ({
     let timeToRest = parseInt(blockRestTime) || standardRestTime;
     let message = { title: 'RECUPERANDO', desc: 'Relaxe e recupere o fôlego.' };
     let voiceToPlay = 'alerta_descanso';
-    
     let isTechniqueForced = false;
 
     if (type === 'CLUSTER_INTRA') {
-        timeToRest = 15;
-        message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' };
-        voiceToPlay = 'alerta_cluster';
-        isTechniqueForced = true;
+        timeToRest = 15; message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' }; voiceToPlay = 'alerta_cluster'; isTechniqueForced = true;
     } else if (blockTechKey === 'RESTPAUSE') {
-        timeToRest = 20; 
-        message = { title: 'REST-PAUSE (20s)', desc: 'Respire rápido! Falhe de novo com a mesma carga.' };
-        voiceToPlay = 'alerta_restpause';
-        isTechniqueForced = true;
+        timeToRest = 20; message = { title: 'REST-PAUSE (20s)', desc: 'Respire rápido! Falhe de novo com a mesma carga.' }; voiceToPlay = 'alerta_restpause'; isTechniqueForced = true;
     } else if (blockTechKey === 'DROPSET') {
-        message = { title: 'SÉRIE FINALIZADA', desc: 'Recupere-se para a próxima.' };
-        voiceToPlay = 'alerta_dropset';
+        message = { title: 'SÉRIE FINALIZADA', desc: 'Recupere-se para a próxima.' }; voiceToPlay = 'alerta_dropset';
     } else if (blockTechKey === 'GVT') {
-        timeToRest = 60;
-        message = { title: 'GVT: TEMPO RÍGIDO', desc: 'Respeite os 60s exatos.' };
-        voiceToPlay = 'alerta_descanso'; 
+        timeToRest = 60; message = { title: 'GVT: TEMPO RÍGIDO', desc: 'Respeite os 60s exatos.' }; voiceToPlay = 'alerta_descanso'; 
     }
 
     if (isLastSet && !isTechniqueForced) {
@@ -189,10 +177,7 @@ export const ExerciseCard = ({
     setSeconds(timeToRest);
     setActiveSetIndex(setNum);
     setIsResting(true);
-    
-    if (voiceToPlay) {
-        playVoiceAlert(voiceToPlay);
-    }
+    if (voiceToPlay) playVoiceAlert(voiceToPlay);
   };
 
   const handleInputFocus = () => {
@@ -230,10 +215,7 @@ export const ExerciseCard = ({
                             placeholder="Min/Km" placeholderTextColor={colors.textMuted} keyboardType="default"
                             value={val !== undefined ? String(val) : ''}
                             onChangeText={(text) => handleSaveWeight(item.id, text, currentSetNum)}
-                            onSubmitEditing={(e) => {
-                                handleSaveWeight(item.id, e.nativeEvent.text, currentSetNum);
-                                handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
-                            }}
+                            onSubmitEditing={(e) => { handleSaveWeight(item.id, e.nativeEvent.text, currentSetNum); handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key); }}
                             editable={isTimerRunning} returnKeyType="done"
                         />
                     </View>
@@ -262,11 +244,8 @@ export const ExerciseCard = ({
                                         onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_${suffix}`)}
                                         onSubmitEditing={(e) => { 
                                             handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
-                                            if (idx === 2) {
-                                                handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
-                                            } else {
-                                                startRestTimer(currentSetNum, 'CLUSTER_INTRA', block.restTime, techInfo.key);
-                                            }
+                                            if (idx === 2) handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
+                                            else startRestTimer(currentSetNum, 'CLUSTER_INTRA', block.restTime, techInfo.key);
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
                                     />
@@ -298,9 +277,7 @@ export const ExerciseCard = ({
                                         onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_${suffix}`)}
                                         onSubmitEditing={(e) => { 
                                             handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
-                                            if (idx === 2) {
-                                                handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
-                                            }
+                                            if (idx === 2) handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
                                     />
@@ -461,13 +438,7 @@ export const ExerciseCard = ({
                 <View style={{width: 44, alignItems:'flex-end', marginLeft: 5, justifyContent:'center'}}>
                     <TouchableOpacity 
                         style={{padding: 8}} 
-                        onPress={() => {
-                            if (categoryType === 'MOBILITY' || categoryType === 'CARDIO') {
-                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
-                            } else {
-                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
-                            }
-                        }}
+                        onPress={() => handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key)}
                     >
                         <MaterialCommunityIcons name={checkIcon} size={34} color={checkColor} />
                     </TouchableOpacity>
@@ -491,6 +462,7 @@ export const ExerciseCard = ({
       ]}>
         
         <View style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
+            {/* 🔥 FIM DO LAG E DO CRASH: O NATIVO NÃO DÁ AUTOPLAY NO FUNDO */}
             {videoLink ? (
                 Platform.OS === 'web' ? (
                     <video 
@@ -507,7 +479,15 @@ export const ExerciseCard = ({
                         playsInline 
                     />
                 ) : (
-                    <Video ref={videoRef} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.7 }} source={{ uri: videoLink }} resizeMode={ResizeMode.COVER} isMuted={true} shouldPlay={true} isLooping={true} />
+                    <Video 
+                        ref={videoRef} 
+                        style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.7 }} 
+                        source={{ uri: videoLink }} 
+                        resizeMode={ResizeMode.COVER} 
+                        isMuted={true} 
+                        shouldPlay={false} // 🔥 TRAVA DE LAG (EXIBE SÓ A PRIMEIRA CENA)
+                        isLooping={false} 
+                    />
                 )
             ) : (
                 <View style={[StyleSheet.absoluteFillObject, { opacity: 0.7, backgroundColor: '#222', justifyContent:'center', alignItems:'center'}]}><MaterialCommunityIcons name="dumbbell" size={40} color="#444" /></View>
@@ -595,9 +575,9 @@ export const ExerciseCard = ({
                     
                     <TouchableOpacity 
                         style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} 
-                        onPress={() => { 
+                        onPress={async () => { 
                             setSeconds(0); 
-                            if(voiceSound) { voiceSound.stopAsync(); } 
+                            await safeStopVoice();
                         }}
                     >
                         <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 14 }}>{biSetType === 'start' ? 'FECHAR' : 'PULAR'}</Text>

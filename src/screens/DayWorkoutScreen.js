@@ -789,7 +789,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                 ) : (
                                     <Video 
                                         ref={videoRef} 
-                                        style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.8 }} 
+                                        style={{ position: 'absolute', width: '100%', height: '100%', opacity: 1 }} 
                                         source={{ uri: currentVideoUrl }} 
                                         resizeMode={ResizeMode.COVER} 
                                         shouldPlay 
