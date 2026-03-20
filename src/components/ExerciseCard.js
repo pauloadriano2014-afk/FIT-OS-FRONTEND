@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode, Audio } from 'expo-av';
+import { Video, ResizeMode, Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
 import { identifyTechnique, getCategoryType } from '../utils/workoutUtils';
 
 // 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
@@ -93,7 +93,13 @@ export const ExerciseCard = ({
   useEffect(() => {
     const forceAudio = async () => {
       try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true, shouldDuckAndroid: true });
+        await Audio.setAudioModeAsync({ 
+            playsInSilentModeIOS: true, 
+            staysActiveInBackground: true, 
+            shouldDuckAndroid: true,
+            interruptionModeIOS: InterruptionModeIOS.DUCK_OTHERS,
+            interruptionModeAndroid: InterruptionModeAndroid.DUCK_OTHERS
+        });
       } catch (e) {}
     };
     forceAudio();
