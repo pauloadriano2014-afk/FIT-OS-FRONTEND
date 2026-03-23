@@ -32,8 +32,8 @@ export const ExerciseCard = ({
   handleSaveWeight, handleOpenVideo, setModalVisible, 
   setSelectedTech, setTechModalVisible, TECH_GUIDE,
   isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning,
-  isVoiceEnabled,
-  colors
+  isVoiceEnabled, colors, 
+  checkedSets, handleCheckSet // 🔥 AS DUAS VARIÁVEIS DO COFRE AQUI
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
@@ -148,8 +148,6 @@ export const ExerciseCard = ({
     forceAudio();
   }, []);
 
-  const [checkedSets, setCheckedSets] = useState({});
-
   let realObservation = item.observation;
   if (!realObservation && item.technique && typeof item.technique === 'string' && item.technique.startsWith('{')) {
       try {
@@ -200,7 +198,10 @@ export const ExerciseCard = ({
     if (categoryType !== 'CARDIO' && (currentVal === undefined || currentVal === '' || currentVal === null)) {
         handleSaveWeight(item.id, '0', setKey); 
     }
-    setCheckedSets(prev => ({ ...prev, [setKey]: true }));
+    
+    // 🔥 AGORA O CHECK É ENVIADO PRO COFRE DA TELA ACIMA
+    handleCheckSet(item.id, setKey);
+    
     if (categoryType === 'CARDIO') return;
 
     const totalSets = calculateTotalSets();
@@ -262,7 +263,7 @@ export const ExerciseCard = ({
                 },
                 trigger: { seconds: timeToRest },
             });
-        } catch(e) { console.log('Erro na notificação:', e); }
+        } catch(e) {}
     }
   };
 
@@ -290,7 +291,7 @@ export const ExerciseCard = ({
 
       if (categoryType === 'CARDIO') {
         const val = lastWeights[item.id]?.[currentSetNum];
-        const isConfirmed = checkedSets[currentSetNum] === true;
+        const isConfirmed = checkedSets[item.id]?.[currentSetNum] === true;
         return (
             <View style={{flex: 1.5, alignItems:'center'}}>
                 <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>TEMPO / KM</Text>
@@ -420,7 +421,7 @@ export const ExerciseCard = ({
       }
 
       const val = lastWeights[item.id]?.[currentSetNum];
-      const isConfirmed = checkedSets[currentSetNum] === true; 
+      const isConfirmed = checkedSets[item.id]?.[currentSetNum] === true; 
       
       return (
         <View style={{flex: 1.5, alignItems:'center'}}>
@@ -460,7 +461,6 @@ export const ExerciseCard = ({
       const techInfo = identifyTechnique(rawTech);
       if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
 
-      // 🔥 CORREÇÃO: O BOTÃO INTRUSO NÃO VAI MAIS APARECER PARA O BI-SET DENTRO DO MESMO EXERCÍCIO
       if (blockIndex > 0 && techInfo.key && techInfo.key !== 'BISET') {
           renderedLines.push(
               <View key={`divider_${blockIndex}`} style={{flexDirection: 'row', alignItems: 'center', marginVertical: 12}}>
@@ -489,7 +489,7 @@ export const ExerciseCard = ({
           const isActive = activeSetIndex === currentSetNum && isResting;
           
           const val = lastWeights[item.id]?.[currentSetNum];
-          const isConfirmed = checkedSets[currentSetNum] === true;
+          const isConfirmed = checkedSets[item.id]?.[currentSetNum] === true;
 
           const checkColor = isConfirmed ? colors.primary : colors.border;
           const checkIcon = isConfirmed ? "check-circle" : "checkbox-blank-circle-outline";

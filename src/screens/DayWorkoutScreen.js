@@ -28,22 +28,23 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [exercisesToShow, setExercisesToShow] = useState([]);
   const [userData, setUserData] = useState(null);
+  
+  // 🔥 COFRE OFFLINE: Agora as cargas e as marcações (checks) ficam no topo!
   const [lastWeights, setLastWeights] = useState({});
+  const [checkedSets, setCheckedSets] = useState({}); 
   const [historyWeights, setHistoryWeights] = useState({});
 
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const appState = useRef(AppState.currentState);
-  const typingTimer = useRef(null);
+  
+  // 🔥 PASSE LIVRE: Avisa o Cão de Guarda que o treino acabou oficialmente
+  const isFinishingRef = useRef(false);
 
   const [techModalVisible, setTechModalVisible] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
-  
-  // 🔥 ESTADO DA VOZ GLOBAL
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
-
-  // Sistema de Voz do Coach para Aulas
   const [isPlayingTechVoice, setIsPlayingTechVoice] = useState(false);
   const [voiceSound, setVoiceSound] = useState(null);
 
@@ -61,7 +62,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [rpe, setRpe] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
 
-  // 🔥 DETECTOR DE IPHONE (WEB)
   const isIOSWeb = Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   const RPE_OPTIONS = [
@@ -73,76 +73,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
   ];
 
   const TECH_GUIDE = {
-    'DROPSET': { 
-        id: 'DROPSET', 
-        title: 'DROP-SET', 
-        color: '#FF3B30', 
-        icon: 'arrow-down-bold', 
-        audio: require('../../assets/audio/exp_dropset.m4a'),
-        desc: 'COMO EXECUTAR:\nFaça as repetições até a falha muscular. Imediatamente reduza a carga (cerca de 20 a 30%) e continue o exercício até falhar novamente, sem nenhum descanso.\n\nPOR QUE FAZER:\nAumenta o estresse metabólico e recruta fibras musculares mais profundas que não foram fadigadas inicialmente. Excelente para hipertrofia e "pump" máximo.' 
-    },
-    'RESTPAUSE': { 
-        id: 'RESTPAUSE', 
-        title: 'REST-PAUSE', 
-        color: '#FF9500', 
-        icon: 'timer-sand',
-        audio: require('../../assets/audio/exp_restpause.m4a'), 
-        desc: 'COMO EXECUTAR:\nRealize a série até a falha. Descanse apenas 10 a 15 segundos e volte a fazer o exercício com a MESMA carga até falhar de novo.\n\nPOR QUE FAZER:\nPermite realizar mais repetições totais com uma carga alta (tensão mecânica extrema), gerando um forte estímulo de hipertrofia na metade do tempo.' 
-    },
-    'BISET': { 
-        id: 'BISET', 
-        title: 'BI-SET', 
-        color: theme.accent, 
-        icon: 'link-variant', 
-        audio: require('../../assets/audio/exp_biset.m4a'),
-        desc: 'COMO EXECUTAR:\nRealize o primeiro exercício e, sem nenhum descanso, passe imediatamente para a execução do segundo exercício acoplado.\n\nPOR QUE FAZER:\nAumenta a densidade do treino, eleva a frequência cardíaca e gera um estresse absurdo na musculatura alvo, otimizando seu tempo na academia.' 
-    },
-    '21': { 
-        id: '21', 
-        title: 'MÉTODO 21', 
-        color: '#32ADE6', 
-        icon: 'numeric-7-box-multiple-outline', 
-        audio: require('../../assets/audio/exp_21.m4a'),
-        desc: 'COMO EXECUTAR:\nDivida o movimento em 3 partes. Faça 7 repetições só na metade inferior do movimento, 7 na metade superior e 7 repetições completas. Totalizando 21 reps.\n\nPOR QUE FAZER:\nAumenta drasticamente o tempo sob tensão e o fluxo sanguíneo no local. É uma ótima ferramenta para quebrar platôs de estagnação.' 
-    },
-    'CLUSTERSET': { 
-        id: 'CLUSTERSET', 
-        title: 'CLUSTER SET', 
-        color: '#BF5AF2', 
-        icon: 'chart-bar', 
-        audio: require('../../assets/audio/exp_cluster.m4a'),
-        desc: 'COMO EXECUTAR:\nDivida uma série pesada em pequenos blocos. (Ex: em vez de tentar 10 diretas, faça 3 reps, descanse 15s, faça mais 3 reps... até bater a meta).\n\nPOR QUE FAZER:\nPermite levantar mais carga total do que você aguentaria numa série contínua normal. Foca em força pura e hipertrofia miofibrilar sem perder a técnica.' 
-    },
-    'GVT': { 
-        id: 'GVT', 
-        title: 'GVT (10x10)', 
-        color: '#00FF7F', 
-        icon: 'numeric-10-box-multiple', 
-        audio: require('../../assets/audio/exp_gvt.m4a'),
-        desc: 'COMO EXECUTAR:\nRealize 10 séries de 10 repetições com a mesma carga (cerca de 60% da sua força máxima) e descanso cravado de 60 segundos entre as séries.\n\nPOR QUE FAZER:\nÉ um choque brutal no corpo. O volume de treino extremo força o seu músculo a hipertrofiar para "sobreviver" ao estresse imposto.' 
-    },
-    // 🔥 AS DUAS TÉCNICAS NOVAS (SEM ÁUDIO PARA NÃO QUEBRAR O APP)
-    '1_5_REPS': { 
-        id: '1_5_REPS', 
-        title: '1 E MEIO (1.5 REPS)', 
-        color: '#FF2D55', 
-        icon: 'debug-step-over', 
-        desc: 'COMO EXECUTAR:\nFaça o movimento completo, volte até a metade do caminho, suba novamente e então retorne à posição inicial. Isso conta como UMA repetição.\n\nPOR QUE FAZER:\nAumenta drasticamente o tempo sob tensão no ponto de maior dificuldade do exercício, maximizando o ganho de massa sem precisar colocar cargas extremas nas articulações.' 
-    },
-    'TUT': { 
-        id: 'TUT', 
-        title: 'T.U.T. (TEMPO SOB TENSÃO)', 
-        color: '#00C7BE', 
-        icon: 'timer-outline', 
-        desc: 'COMO EXECUTAR:\nExecute as repetições de forma extremamente controlada, respeitando os segundos de cadência estipulados pelo Coach tanto na fase de descida (excêntrica) quanto na de subida (concêntrica). Sem jogar o peso.\n\nPOR QUE FAZER:\nImpede o uso de "impulso" para levantar o peso. Foca 100% da força no músculo alvo, gerando hipertrofia máxima com segurança.' 
-    },
-    'NORMAL': { 
-        id: 'NORMAL', 
-        title: 'EXECUÇÃO PADRÃO', 
-        color: theme.textSecondary, 
-        icon: 'dumbbell', 
-        desc: 'COMO EXECUTAR:\nSiga o número de séries e repetições estipulados, focando em manter a postura correta.\n\nPOR QUE FAZER:\nÉ a base da construção de força e hipertrofia. O foco aqui é na cadência (velocidade do movimento) e na progressão de carga treino a treino.' 
-    }
+    'DROPSET': { id: 'DROPSET', title: 'DROP-SET', color: '#FF3B30', icon: 'arrow-down-bold', audio: require('../../assets/audio/exp_dropset.m4a'), desc: 'COMO EXECUTAR:\nFaça as repetições até a falha muscular. Imediatamente reduza a carga (cerca de 20 a 30%) e continue o exercício até falhar novamente, sem nenhum descanso.\n\nPOR QUE FAZER:\nAumenta o estresse metabólico e recruta fibras musculares mais profundas que não foram fadigadas inicialmente. Excelente para hipertrofia e "pump" máximo.' },
+    'RESTPAUSE': { id: 'RESTPAUSE', title: 'REST-PAUSE', color: '#FF9500', icon: 'timer-sand', audio: require('../../assets/audio/exp_restpause.m4a'), desc: 'COMO EXECUTAR:\nRealize a série até a falha. Descanse apenas 10 a 15 segundos e volte a fazer o exercício com a MESMA carga até falhar de novo.\n\nPOR QUE FAZER:\nPermite realizar mais repetições totais com uma carga alta (tensão mecânica extrema), gerando um forte estímulo de hipertrofia na metade do tempo.' },
+    'BISET': { id: 'BISET', title: 'BI-SET', color: theme.accent, icon: 'link-variant', audio: require('../../assets/audio/exp_biset.m4a'), desc: 'COMO EXECUTAR:\nRealize o primeiro exercício e, sem nenhum descanso, passe imediatamente para a execução do segundo exercício acoplado.\n\nPOR QUE FAZER:\nAumenta a densidade do treino, eleva a frequência cardíaca e gera um estresse absurdo na musculatura alvo, otimizando seu tempo na academia.' },
+    '21': { id: '21', title: 'MÉTODO 21', color: '#32ADE6', icon: 'numeric-7-box-multiple-outline', audio: require('../../assets/audio/exp_21.m4a'), desc: 'COMO EXECUTAR:\nDivida o movimento em 3 partes. Faça 7 repetições só na metade inferior do movimento, 7 na metade superior e 7 repetições completas. Totalizando 21 reps.\n\nPOR QUE FAZER:\nAumenta drasticamente o tempo sob tensão e o fluxo sanguíneo no local. É uma ótima ferramenta para quebrar platôs de estagnação.' },
+    'CLUSTERSET': { id: 'CLUSTERSET', title: 'CLUSTER SET', color: '#BF5AF2', icon: 'chart-bar', audio: require('../../assets/audio/exp_cluster.m4a'), desc: 'COMO EXECUTAR:\nDivida uma série pesada em pequenos blocos. (Ex: em vez de tentar 10 diretas, faça 3 reps, descanse 15s, faça mais 3 reps... até bater a meta).\n\nPOR QUE FAZER:\nPermite levantar mais carga total do que você aguentaria numa série contínua normal. Foca em força pura e hipertrofia miofibrilar sem perder a técnica.' },
+    'GVT': { id: 'GVT', title: 'GVT (10x10)', color: '#00FF7F', icon: 'numeric-10-box-multiple', audio: require('../../assets/audio/exp_gvt.m4a'), desc: 'COMO EXECUTAR:\nRealize 10 séries de 10 repetições com a mesma carga (cerca de 60% da sua força máxima) e descanso cravado de 60 segundos entre as séries.\n\nPOR QUE FAZER:\nÉ um choque brutal no corpo. O volume de treino extremo força o seu músculo a hipertrofiar para "sobreviver" ao estresse imposto.' },
+    '1_5_REPS': { id: '1_5_REPS', title: '1 E MEIO (1.5 REPS)', color: '#FF2D55', icon: 'debug-step-over', desc: 'COMO EXECUTAR:\nFaça o movimento completo, volte até a metade do caminho, suba novamente e então retorne à posição inicial. Isso conta como UMA repetição.\n\nPOR QUE FAZER:\nAumenta drasticamente o tempo sob tensão no ponto de maior dificuldade do exercício, maximizando o ganho de massa sem precisar colocar cargas extremas nas articulações.' },
+    'TUT': { id: 'TUT', title: 'T.U.T. (TEMPO SOB TENSÃO)', color: '#00C7BE', icon: 'timer-outline', desc: 'COMO EXECUTAR:\nExecute as repetições de forma extremamente controlada, respeitando os segundos de cadência estipulados pelo Coach tanto na fase de descida (excêntrica) quanto na de subida (concêntrica). Sem jogar o peso.\n\nPOR QUE FAZER:\nImpede o uso de "impulso" para levantar o peso. Foca 100% da força no músculo alvo, gerando hipertrofia máxima com segurança.' },
+    'NORMAL': { id: 'NORMAL', title: 'EXECUÇÃO PADRÃO', color: theme.textSecondary, icon: 'dumbbell', desc: 'COMO EXECUTAR:\nSiga o número de séries e repetições estipulados, focando em manter a postura correta.\n\nPOR QUE FAZER:\nÉ a base da construção de força e hipertrofia. O foco aqui é na cadência (velocidade do movimento) e na progressão de carga treino a treino.' }
   };
 
   useFocusEffect( useCallback(() => { fetchWorkoutData(); }, []) );
@@ -167,16 +106,17 @@ export default function DayWorkoutScreen({ route, navigation }) {
       } catch (e) {}
   };
 
+  // 🔥 O CÃO DE GUARDA AGORA RESPEITA O PASSE LIVRE (isFinishingRef)
   useEffect(() => {
       const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-          if (!isTimerRunning) {
+          if (!isTimerRunning || isFinishingRef.current) {
               return; 
           }
           
           e.preventDefault(); 
           
           if (Platform.OS === 'web') {
-              if (window.confirm("⚠️ TREINO EM ANDAMENTO!\nVocê está com o cronômetro do treino rodando. Tem certeza que deseja sair? O tempo e os dados parciais poderão ser perdidos.")) {
+              if (window.confirm("⚠️ TREINO EM ANDAMENTO!\nVocê está com o cronômetro rodando. Tem certeza que deseja sair? O tempo pode ser perdido.")) {
                   navigation.dispatch(e.data.action);
               }
           } else {
@@ -232,16 +172,17 @@ export default function DayWorkoutScreen({ route, navigation }) {
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
+  // 🔥 SALVAMENTO NO COFRE OFFLINE (Agora salva as cargas e os Checks juntos!)
   useEffect(() => {
     const saveProgress = async () => {
-        if (Object.keys(lastWeights).length > 0) {
+        if (Object.keys(lastWeights).length > 0 || Object.keys(checkedSets).length > 0) {
             const key = `draft_workout_${workoutId}_${day}`;
-            await AsyncStorage.setItem(key, JSON.stringify(lastWeights));
+            await AsyncStorage.setItem(key, JSON.stringify({ weights: lastWeights, checks: checkedSets }));
         }
     };
     const timer = setTimeout(saveProgress, 500); 
     return () => clearTimeout(timer);
-  }, [lastWeights, workoutId, day]);
+  }, [lastWeights, checkedSets, workoutId, day]);
 
   const handlePlayTechVoice = async (techKey) => {
       try {
@@ -254,7 +195,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
               return;
           }
           const audioRes = TECH_GUIDE[techKey]?.audio;
-          // Se for 1_5_REPS ou TUT, eles não tem audio. O if de baixo impede de quebrar.
           if (audioRes) {
               setIsPlayingTechVoice(true);
               const { sound } = await Audio.Sound.createAsync(audioRes);
@@ -289,6 +229,27 @@ export default function DayWorkoutScreen({ route, navigation }) {
       const user = JSON.parse(stored);
       setUserData(user);
 
+      // 🔥 TENTA PUXAR DO CACHE OFFLINE PRIMEIRO (Garante que a tela abra sem internet)
+      const cacheKey = `@cached_workout_${workoutId}_${day}`;
+      const cachedData = await AsyncStorage.getItem(cacheKey);
+      if (cachedData) setExercisesToShow(JSON.parse(cachedData));
+
+      // 🔥 PUXA AS CARGAS E CHECKS DO RASCUNHO
+      const draftKey = `draft_workout_${workoutId}_${day}`;
+      const draft = await AsyncStorage.getItem(draftKey);
+      if (draft) { 
+          try {
+              const parsed = JSON.parse(draft);
+              if (parsed.weights) {
+                  setLastWeights(parsed.weights);
+                  setCheckedSets(parsed.checks || {});
+              } else {
+                  setLastWeights(parsed); 
+              }
+          } catch(e) {}
+      }
+
+      // TENTA BUSCAR DADOS NOVOS DO SERVIDOR
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`);
       const data = await response.json();
       
@@ -320,13 +281,18 @@ export default function DayWorkoutScreen({ route, navigation }) {
             });
 
         setExercisesToShow(filteredExercises);
-        if (data.lastWeights) setHistoryWeights(data.lastWeights);
+        if (data.lastWeights) {
+            setHistoryWeights(data.lastWeights);
+            await AsyncStorage.setItem(`@cached_history_${workoutId}_${day}`, JSON.stringify(data.lastWeights));
+        }
 
-        const draftKey = `draft_workout_${workoutId}_${day}`;
-        const draft = await AsyncStorage.getItem(draftKey);
-        if (draft) { setLastWeights(JSON.parse(draft)); }
+        // SALVA O TREINO NO CACHE PARA A PRÓXIMA VEZ QUE ABRIR OFFLINE
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(filteredExercises));
       }
     } catch (error) { 
+        // SE CAIR AQUI É PORQUE ESTÁ SEM INTERNET. PUXA O HISTÓRICO DO CACHE!
+        const histCache = await AsyncStorage.getItem(`@cached_history_${workoutId}_${day}`);
+        if (histCache) setHistoryWeights(JSON.parse(histCache));
     } finally { setLoading(false); }
   };
 
@@ -341,6 +307,14 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const handleSaveWeight = async (itemId, weight, setIndex) => {
     const newWeights = { ...lastWeights, [itemId]: { ...(lastWeights[itemId] || {}), [setIndex]: weight } };
     setLastWeights(newWeights);
+  };
+
+  // 🔥 FUNÇÃO PARA MARCAR O CHECK VERDE
+  const handleCheckSet = (itemId, setIndex) => {
+    setCheckedSets(prev => ({
+        ...prev,
+        [itemId]: { ...(prev[itemId] || {}), [setIndex]: true }
+    }));
   };
 
   const handleSwap = (index) => {
@@ -415,6 +389,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
         const json = await res.json();
 
         if (res.ok) {
+            // 🔥 ATIVA O PASSE LIVRE ANTES DE FINALIZAR! O Cão de Guarda vai ignorar.
+            isFinishingRef.current = true;
+
             setIsTimerRunning(false); 
             setElapsedSeconds(0);
             await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);
@@ -451,8 +428,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
             else Alert.alert("Erro", "Falha ao salvar no servidor."); 
         }
     } catch (e) { 
-        if (Platform.OS === 'web') window.alert("Falha de conexão.");
-        else Alert.alert("Erro", "Falha de conexão."); 
+        if (Platform.OS === 'web') window.alert("Sem conexão. Tente novamente quando a internet voltar.");
+        else Alert.alert("Sem Conexão", "Sua internet caiu. O treino está salvo no rascunho, tente finalizar quando a conexão voltar."); 
     } finally { setLoading(false); }
   };
 
@@ -468,10 +445,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const RootComponent = isWeb ? View : SafeAreaView;
   const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 };
 
-  if (!workoutId && !loading) {
+  if (!workoutId && !loading && exercisesToShow.length === 0) {
       return (
           <View style={{ flex: 1, backgroundColor: theme.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-             <Text style={{ color: theme.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>Ops! Ocorreu um erro ao carregar o treino.</Text>
+             <Text style={{ color: theme.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>Você está sem internet para carregar o treino pela primeira vez.</Text>
              <TouchableOpacity onPress={() => navigation.navigate('Main')} style={{ marginTop: 30, padding: 15, backgroundColor: theme.accent, borderRadius: 10, width: '100%', alignItems: 'center' }}>
                  <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 16 }}>VOLTAR PARA O INÍCIO</Text>
              </TouchableOpacity>
@@ -479,7 +456,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
       );
   }
 
-  if (loading) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg }}><ActivityIndicator size="large" color={theme.accent} /></View>;
+  if (loading && exercisesToShow.length === 0) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg }}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
   return (
     <RootComponent style={rootStyle}>
@@ -588,6 +565,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                     item={{ ...item, technique: safeTechnique }} 
                                     totalSets={item.sets}
                                     lastWeights={lastWeights} historyWeights={historyWeights} handleSaveWeight={handleSaveWeight}
+                                    checkedSets={checkedSets} handleCheckSet={handleCheckSet} 
                                     handleOpenVideo={() => handleOpenVideo(item.exercise?.videoUrl)} 
                                     setModalVisible={() => { try { navigation.navigate('ScannerIA', { exName: item.exercise?.name }); } catch (e) {} }} 
                                     onOpenCalc={() => setCalcModalVisible(true)}
