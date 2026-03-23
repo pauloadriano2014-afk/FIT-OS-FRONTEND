@@ -1,11 +1,19 @@
 // src/components/ExerciseCard.js
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform, AppState } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode, Audio, InterruptionModeIOS, InterruptionModeAndroid } from 'expo-av';
+import { Video, ResizeMode, Audio } from 'expo-av';
+import * as Notifications from 'expo-notifications';
 import { identifyTechnique, getCategoryType } from '../utils/workoutUtils';
 
-// 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
 if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
   const handler = () => {
     const viewportHeight = window.visualViewport.height;
@@ -29,10 +37,7 @@ export const ExerciseCard = ({
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
-  
-  // 🔥 LINK CRU E DIRETO: Sem gambiarras de tentar adivinhar a resolução do Bunny
   const videoLink = item.exercise?.videoUrl || item.videoUrl;
-  
   const standardRestTime = item.restTime || 60;
   
   const blocks = item.blocks && item.blocks.length > 0 
@@ -49,6 +54,43 @@ export const ExerciseCard = ({
   const videoRef = useRef(null);
 
   const [voiceSound, setVoiceSound] = useState(null);
+  const notifIdRef = useRef(null);
+
+  const appState = useRef(AppState.currentState);
+  const backgroundTimestamp = useRef(null);
+  const backgroundSeconds = useRef(null);
+
+  useEffect(() => {
+    const requestPermissions = async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+    };
+    if (Platform.OS !== 'web') requestPermissions();
+  }, []);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+        if (isResting && backgroundTimestamp.current !== null) {
+          const elapsed = Math.floor((Date.now() - backgroundTimestamp.current) / 1000);
+          const newSeconds = backgroundSeconds.current - elapsed;
+          
+          if (newSeconds <= 0) {
+              setSeconds(0);
+          } else {
+              setSeconds(newSeconds);
+          }
+        }
+      } else if (nextAppState.match(/inactive|background/)) {
+        if (isResting) {
+          backgroundTimestamp.current = Date.now();
+          backgroundSeconds.current = seconds;
+        }
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => { subscription.remove(); };
+  }, [isResting, seconds]);
 
   async function safeStopVoice() {
       if (voiceSound) {
@@ -58,6 +100,13 @@ export const ExerciseCard = ({
                   await voiceSound.stopAsync();
               }
           } catch (e) {}
+      }
+  }
+
+  async function cancelNotification() {
+      if (notifIdRef.current) {
+          await Notifications.cancelScheduledNotificationAsync(notifIdRef.current);
+          notifIdRef.current = null;
       }
   }
 
@@ -93,13 +142,7 @@ export const ExerciseCard = ({
   useEffect(() => {
     const forceAudio = async () => {
       try {
-        await Audio.setAudioModeAsync({ 
-            playsInSilentModeIOS: true, 
-            staysActiveInBackground: true, 
-            shouldDuckAndroid: true,
-            interruptionModeIOS: InterruptionModeIOS.DUCK_OTHERS,
-            interruptionModeAndroid: InterruptionModeAndroid.DUCK_OTHERS
-        });
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true, staysActiveInBackground: true, shouldDuckAndroid: true });
       } catch (e) {}
     };
     forceAudio();
@@ -130,6 +173,7 @@ export const ExerciseCard = ({
     } else if (seconds === 0 && isResting) {
       setIsResting(false); 
       clearInterval(interval); 
+      cancelNotification();
       
       const isLastOfAll = (activeSetIndex === calculateTotalSets() && isLastExercise);
 
@@ -166,6 +210,7 @@ export const ExerciseCard = ({
 
   const startRestTimer = async (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
     await safeStopVoice(); 
+    await cancelNotification();
 
     if (biSetType === 'start') {
         setTimerMessage({ title: '🔥 SEM DESCANSO!', desc: 'Vá direto para o exercício de baixo agora!' });
@@ -181,7 +226,6 @@ export const ExerciseCard = ({
     let voiceToPlay = 'alerta_descanso';
     let isTechniqueForced = false;
 
-    // 🔥 MUTA O ÁUDIO DE DESCANSO PARA AS TÉCNICAS NOVAS
     if (blockTechKey === '1_5_REPS' || blockTechKey === 'TUT') {
         voiceToPlay = null; 
     }
@@ -205,7 +249,21 @@ export const ExerciseCard = ({
     setSeconds(timeToRest);
     setActiveSetIndex(setNum);
     setIsResting(true);
+    
     if (voiceToPlay) playVoiceAlert(voiceToPlay);
+
+    if (timeToRest > 0 && Platform.OS !== 'web') {
+        try {
+            notifIdRef.current = await Notifications.scheduleNotificationAsync({
+                content: {
+                    title: "🔥 Fim do Descanso!",
+                    body: "Acabou a moleza. Volte para o app e faça acontecer!",
+                    sound: true,
+                },
+                trigger: { seconds: timeToRest },
+            });
+        } catch(e) { console.log('Erro na notificação:', e); }
+    }
   };
 
   const handleInputFocus = () => {
@@ -240,10 +298,10 @@ export const ExerciseCard = ({
                     <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                         <TextInput 
                             style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, isConfirmed && {color: colors.primary, borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
-                            placeholder="Min/Km" placeholderTextColor={colors.textMuted} keyboardType="default"
+                            placeholder="Min/Km" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                             value={val !== undefined ? String(val) : ''}
-                            onChangeText={(text) => handleSaveWeight(item.id, text, currentSetNum)}
-                            onSubmitEditing={(e) => { handleSaveWeight(item.id, e.nativeEvent.text, currentSetNum); handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key); }}
+                            onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), currentSetNum)}
+                            onSubmitEditing={(e) => { handleSaveWeight(item.id, e.nativeEvent.text.replace(',', '.'), currentSetNum); handleSmartCheck(currentSetNum, e.nativeEvent.text.replace(',', '.'), block.restTime, techInfo.key); }}
                             editable={isTimerRunning} returnKeyType="done"
                         />
                     </View>
@@ -267,12 +325,13 @@ export const ExerciseCard = ({
                                 <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                                     <TextInput 
                                         style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
-                                        placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
+                                        placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                                         value={val !== undefined ? String(val) : ''}
-                                        onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_${suffix}`)}
+                                        onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_${suffix}`)}
                                         onSubmitEditing={(e) => { 
-                                            handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
-                                            if (idx === 2) handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
+                                            const finalVal = e.nativeEvent.text.replace(',', '.');
+                                            handleSaveWeight(item.id, finalVal, `${currentSetNum}_${suffix}`); 
+                                            if (idx === 2) handleSmartCheck(currentSetNum, finalVal, block.restTime, techInfo.key);
                                             else startRestTimer(currentSetNum, 'CLUSTER_INTRA', block.restTime, techInfo.key);
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
@@ -300,12 +359,13 @@ export const ExerciseCard = ({
                                 <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                                     <TextInput 
                                         style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
-                                        placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
+                                        placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                                         value={val !== undefined ? String(val) : ''}
-                                        onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_${suffix}`)}
+                                        onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_${suffix}`)}
                                         onSubmitEditing={(e) => { 
-                                            handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_${suffix}`); 
-                                            if (idx === 2) handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
+                                            const finalVal = e.nativeEvent.text.replace(',', '.');
+                                            handleSaveWeight(item.id, finalVal, `${currentSetNum}_${suffix}`); 
+                                            if (idx === 2) handleSmartCheck(currentSetNum, finalVal, block.restTime, techInfo.key);
                                         }}
                                         editable={isTimerRunning} returnKeyType="done"
                                     />
@@ -327,9 +387,9 @@ export const ExerciseCard = ({
                         <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                             <TextInput 
                                 style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_MAIN`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
-                                placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
+                                placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                                 value={lastWeights[item.id]?.[`${currentSetNum}_MAIN`] !== undefined ? String(lastWeights[item.id]?.[`${currentSetNum}_MAIN`]) : ''}
-                                onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_MAIN`)}
+                                onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_MAIN`)}
                                 editable={isTimerRunning} returnKeyType="done"
                             />
                         </View>
@@ -342,12 +402,13 @@ export const ExerciseCard = ({
                         <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                             <TextInput 
                                 style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_DROP`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
-                                placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="numeric"
+                                placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                                 value={lastWeights[item.id]?.[`${currentSetNum}_DROP`] !== undefined ? String(lastWeights[item.id]?.[`${currentSetNum}_DROP`]) : ''}
-                                onChangeText={(text) => handleSaveWeight(item.id, text, `${currentSetNum}_DROP`)}
+                                onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_DROP`)}
                                 onSubmitEditing={(e) => { 
-                                    handleSaveWeight(item.id, e.nativeEvent.text, `${currentSetNum}_DROP`);
-                                    handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
+                                    const finalVal = e.nativeEvent.text.replace(',', '.');
+                                    handleSaveWeight(item.id, finalVal, `${currentSetNum}_DROP`);
+                                    handleSmartCheck(currentSetNum, finalVal, block.restTime, techInfo.key);
                                 }}
                                 editable={isTimerRunning} returnKeyType="done"
                             />
@@ -372,12 +433,13 @@ export const ExerciseCard = ({
                 >
                     <TextInput 
                         style={[{color: colors.text, width: '100%', height: '100%', textAlign: 'center', fontSize: 16, fontWeight: 'bold'}, isConfirmed && {color: colors.primary}]}
-                        placeholder="0" placeholderTextColor={colors.textMuted} keyboardType="numeric"
+                        placeholder="0" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                         value={val !== undefined ? String(val) : ''}
-                        onChangeText={(text) => handleSaveWeight(item.id, text, currentSetNum)}
+                        onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), currentSetNum)}
                         onSubmitEditing={(e) => {
-                            handleSaveWeight(item.id, e.nativeEvent.text, currentSetNum);
-                            handleSmartCheck(currentSetNum, e.nativeEvent.text, block.restTime, techInfo.key);
+                            const finalVal = e.nativeEvent.text.replace(',', '.');
+                            handleSaveWeight(item.id, finalVal, currentSetNum);
+                            handleSmartCheck(currentSetNum, finalVal, block.restTime, techInfo.key);
                         }}
                         editable={isTimerRunning} returnKeyType="done"
                     />
@@ -398,7 +460,8 @@ export const ExerciseCard = ({
       const techInfo = identifyTechnique(rawTech);
       if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
 
-      if (blockIndex > 0 && techInfo.key) {
+      // 🔥 CORREÇÃO: O BOTÃO INTRUSO NÃO VAI MAIS APARECER PARA O BI-SET DENTRO DO MESMO EXERCÍCIO
+      if (blockIndex > 0 && techInfo.key && techInfo.key !== 'BISET') {
           renderedLines.push(
               <View key={`divider_${blockIndex}`} style={{flexDirection: 'row', alignItems: 'center', marginVertical: 12}}>
                   <View style={{flex: 1, height: 1, backgroundColor: colors.border}} />
@@ -611,6 +674,7 @@ export const ExerciseCard = ({
                         onPress={async () => { 
                             setSeconds(0); 
                             await safeStopVoice();
+                            await cancelNotification();
                         }}
                     >
                         <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 14 }}>{biSetType === 'start' ? 'FECHAR' : 'PULAR'}</Text>

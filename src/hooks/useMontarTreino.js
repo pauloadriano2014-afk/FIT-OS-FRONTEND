@@ -66,7 +66,6 @@ export const useMontarTreino = (route, navigation) => {
     const goals = ['TODOS', 'Emagrecimento', 'Hipertrofia', 'Definição', 'Qualidade de Vida', 'Condicionamento', 'Recuperação'];
     const levels = ['TODOS', 'Iniciante', 'Intermediário', 'Avançado'];
     
-    // 🔥 AS DUAS NOVAS TÉCNICAS INJETADAS NA FONTE DA VERDADE
     const tecnicasDisponiveis = [
         { id: '', title: 'NORMAL' }, 
         { id: 'GVT', title: 'GVT (10x10)' }, 
@@ -147,7 +146,11 @@ export const useMontarTreino = (route, navigation) => {
 
     const processWorkoutDataToState = (exercisesArray) => {
         if (!exercisesArray) return;
-        const groups = exercisesArray.reduce((acc, item) => {
+
+        // 🔥 O EXORCISMO DA DESORDEM: Força a organização pelo número de ordem ANTES de montar os dias!
+        const sortedArray = [...exercisesArray].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const groups = sortedArray.reduce((acc, item) => {
             const key = item.day || 'A';
             if (!acc[key]) acc[key] = [];
             
