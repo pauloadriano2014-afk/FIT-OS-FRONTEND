@@ -16,6 +16,24 @@ const getInstruction = (exercise) => {
   return "📸 POSIÇÃO: DIAGONAL. Corpo inteiro na tela.";
 };
 
+// 🔥 REGRA DE ELITE: INJETOR DE PROMPT OCULTO
+const getElitePrompt = (exerciseName) => {
+  const cleanName = exerciseName?.toLowerCase() || "";
+  let eliteInjection = "";
+
+  // Se for Stiff ou Terra (Hinge Movements)
+  if (cleanName.includes("stiff") || cleanName.includes("terra") || cleanName.includes("deadlift") || cleanName.includes("rdl")) {
+      eliteInjection = " | REGRAS DO COACH: Seja extremamente rigoroso com o ângulo do joelho. O joelho deve ter apenas uma leve semi-flexão (destravado). Se o aluno flexionar muito os joelhos na descida, alerte o erro dizendo que ele está agachando em vez de fazer dobradiça de quadril. DICA RÁPIDA (HACK): 'Pense que você quer empurrar a parede atrás de você com o seu glúteo.'";
+  }
+  
+  // Se for Agachamento (Squat Movements)
+  if (cleanName.includes("agachamento") || cleanName.includes("squat") || cleanName.includes("hack") || cleanName.includes("leg")) {
+      eliteInjection = " | REGRAS DO COACH: Verifique a profundidade e o valgo dinâmico (joelho entrando). DICA RÁPIDA (HACK): 'Force os joelhos para fora como se fosse rasgar o chão ao meio.'";
+  }
+
+  return `${exerciseName}${eliteInjection}`;
+};
+
 export default function ScannerIA({ navigation, route }) {
   const exerciseName = route?.params?.exName || "Exercício";
   const currentInstruction = getInstruction(exerciseName);
@@ -78,6 +96,9 @@ export default function ScannerIA({ navigation, route }) {
       let uploadResultStatus;
       let responseBody;
 
+      // 🔥 AQUI O PROMPT DE ELITE É INJETADO JUNTO COM O NOME
+      const enhancedExerciseName = getElitePrompt(exerciseName);
+
       if (Platform.OS === 'web') {
         const formData = new FormData();
         
@@ -90,7 +111,7 @@ export default function ScannerIA({ navigation, route }) {
         }
 
         formData.append('video', videoBlob, 'video.mov');
-        formData.append('exerciseName', exerciseName);
+        formData.append('exerciseName', enhancedExerciseName);
         formData.append('userLevel', 'Geral');
 
         const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
@@ -106,7 +127,7 @@ export default function ScannerIA({ navigation, route }) {
           fieldName: 'video',
           httpMethod: 'POST',
           uploadType: 1, 
-          parameters: { 'exerciseName': exerciseName, 'userLevel': 'Geral' },
+          parameters: { 'exerciseName': enhancedExerciseName, 'userLevel': 'Geral' },
         });
 
         uploadResultStatus = uploadResult.status;
