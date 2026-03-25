@@ -1,6 +1,6 @@
 // src/components/ExerciseCard.js
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform, AppState } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Modal, Keyboard, Pressable, Platform, AppState, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode, Audio } from 'expo-av';
 import * as Notifications from 'expo-notifications';
@@ -33,7 +33,7 @@ export const ExerciseCard = ({
   setSelectedTech, setTechModalVisible, TECH_GUIDE,
   isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning,
   isVoiceEnabled, colors, 
-  checkedSets, handleCheckSet // 🔥 AS DUAS VARIÁVEIS DO COFRE AQUI
+  checkedSets, handleCheckSet 
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
@@ -199,7 +199,6 @@ export const ExerciseCard = ({
         handleSaveWeight(item.id, '0', setKey); 
     }
     
-    // 🔥 AGORA O CHECK É ENVIADO PRO COFRE DA TELA ACIMA
     handleCheckSet(item.id, setKey);
     
     if (categoryType === 'CARDIO') return;
@@ -559,34 +558,16 @@ export const ExerciseCard = ({
       ]}>
         
         <View style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
+            
+            {/* 🔥 FIM DO VILÃO 1: Os vídeos não tocam mais sozinhos. Apenas uma capa preta aguardando o Play */}
             {videoLink ? (
-                Platform.OS === 'web' ? (
-                    <video 
-                        src={videoLink} 
-                        style={{ 
-                            position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', 
-                            objectFit: 'cover', 
-                            objectPosition: 'center 20%', 
-                            opacity: 0.7, pointerEvents: 'none' 
-                        }} 
-                        autoPlay 
-                        loop 
-                        muted 
-                        playsInline 
-                    />
-                ) : (
-                    <Video 
-                        ref={videoRef} 
-                        style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.7 }} 
-                        source={{ uri: videoLink }} 
-                        resizeMode={ResizeMode.COVER} 
-                        isMuted={true} 
-                        shouldPlay={false} 
-                        isLooping={false} 
-                    />
-                )
+                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#111', justifyContent:'center', alignItems:'center'}]}>
+                    <MaterialCommunityIcons name="play-circle-outline" size={50} color="#444" />
+                </View>
             ) : (
-                <View style={[StyleSheet.absoluteFillObject, { opacity: 0.7, backgroundColor: '#222', justifyContent:'center', alignItems:'center'}]}><MaterialCommunityIcons name="dumbbell" size={40} color="#444" /></View>
+                <View style={[StyleSheet.absoluteFillObject, { opacity: 0.7, backgroundColor: '#222', justifyContent:'center', alignItems:'center'}]}>
+                    <MaterialCommunityIcons name="dumbbell" size={40} color="#444" />
+                </View>
             )}
 
             <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'space-between', padding: 15 }}>
