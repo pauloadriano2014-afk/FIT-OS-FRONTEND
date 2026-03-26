@@ -557,15 +557,20 @@ export const ExerciseCard = ({
           (biSetType) && { borderColor: colors.primary, borderWidth: 2 }
       ]}>
         
-        <View style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
+        {/* 🔥 OPÇÃO 1: A ÁREA DO VÍDEO AGORA É UM BOTÃO GIGANTE (O TOQUE GLOBAL) */}
+        <TouchableOpacity 
+            activeOpacity={0.9}
+            onPress={() => handleOpenVideo(videoLink)} 
+            style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}
+        >
             
-            {/* 🔥 A MÁGICA DA THUMBNAIL: Baixa o 1º frame e trava. Capa bonita e 0% de gasto de dados */}
+            {/* 🔥 A MÁGICA DA THUMBNAIL (Fundo limpo sem botão gigante no meio) */}
             {videoLink ? (
                 <>
                     {Platform.OS === 'web' ? (
                         <video 
                             src={videoLink} 
-                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', opacity: 0.6, pointerEvents: 'none' }} 
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', opacity: 0.5, pointerEvents: 'none' }} 
                             preload="metadata" 
                             muted 
                             playsInline 
@@ -573,7 +578,7 @@ export const ExerciseCard = ({
                     ) : (
                         <Video 
                             ref={videoRef} 
-                            style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.6 }} 
+                            style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.5 }} 
                             source={{ uri: videoLink }} 
                             resizeMode={ResizeMode.COVER} 
                             isMuted={true} 
@@ -581,9 +586,6 @@ export const ExerciseCard = ({
                             isLooping={false} 
                         />
                     )}
-                    <View style={[StyleSheet.absoluteFillObject, { justifyContent:'center', alignItems:'center'}]}>
-                        <MaterialCommunityIcons name="play-circle-outline" size={60} color="rgba(255,255,255,0.7)" />
-                    </View>
                 </>
             ) : (
                 <View style={[StyleSheet.absoluteFillObject, { opacity: 0.7, backgroundColor: '#222', justifyContent:'center', alignItems:'center'}]}>
@@ -591,9 +593,9 @@ export const ExerciseCard = ({
                 </View>
             )}
 
-            <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'space-between', padding: 15 }}>
-                <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', alignItems:'flex-start'}}>
-                    <View>
+            <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'space-between', padding: 15 }} pointerEvents="box-none">
+                <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', alignItems:'flex-start'}} pointerEvents="box-none">
+                    <View pointerEvents="auto">
                         {identifyTechnique(exerciseTopTechnique).key && (
                             <TouchableOpacity style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, elevation: 3, backgroundColor: identifyTechnique(exerciseTopTechnique).color}} onPress={() => { if(setSelectedTech && setTechModalVisible) { setSelectedTech(identifyTechnique(exerciseTopTechnique).key); setTechModalVisible(true); }}}>
                                 <View style={{flexDirection:'row', alignItems:'center', gap:4}}>
@@ -606,29 +608,35 @@ export const ExerciseCard = ({
                 </View>
                 
                 {showTools && (
-                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignSelf:'flex-start' }}>
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={onOpenCalc}>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignSelf:'flex-start' }} pointerEvents="auto">
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={onOpenCalc}>
                             <MaterialCommunityIcons name="calculator" size={14} color="#FFF" />
                             <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold' }}>CALCULAR</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={setModalVisible}>
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={setModalVisible}>
                             <MaterialCommunityIcons name="camera-metering-spot" size={14} color="#FFF" />
                             <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold' }}>ANÁLISE IA</Text>
                         </TouchableOpacity>
                     </View>
                 )}
 
-                <View style={{ marginTop: 'auto' }}>
+                <View style={{ marginTop: 'auto' }} pointerEvents="none">
                     <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'flex-end'}}>
-                        <View style={{flex:1}}>
+                        <View style={{flex:1, paddingRight: 10}}>
                             <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>{exerciseTitle}</Text>
                             <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{calculateTotalSets()} Séries Totais</Text>
                         </View>
-                        <TouchableOpacity style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center' }} onPress={() => handleOpenVideo(videoLink)}><MaterialCommunityIcons name="play" size={24} color={colors.primaryText} /></TouchableOpacity>
+                        
+                        {/* 🔥 NOVO BOTÃO VERDE DE PLAY POSICIONADO NO CANTO INFERIOR DIREITO */}
+                        <View style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}>
+                            <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
+                            <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
+                        </View>
+
                     </View>
                 </View>
             </View>
-        </View>
+        </TouchableOpacity>
 
         <View style={{ padding: 15 }}>
             {renderedLines}
