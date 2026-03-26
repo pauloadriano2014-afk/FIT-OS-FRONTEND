@@ -559,11 +559,32 @@ export const ExerciseCard = ({
         
         <View style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
             
-            {/* 🔥 FIM DO VILÃO 1: Os vídeos não tocam mais sozinhos. Apenas uma capa preta aguardando o Play */}
+            {/* 🔥 A MÁGICA DA THUMBNAIL: Baixa o 1º frame e trava. Capa bonita e 0% de gasto de dados */}
             {videoLink ? (
-                <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#111', justifyContent:'center', alignItems:'center'}]}>
-                    <MaterialCommunityIcons name="play-circle-outline" size={50} color="#444" />
-                </View>
+                <>
+                    {Platform.OS === 'web' ? (
+                        <video 
+                            src={videoLink} 
+                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', opacity: 0.6, pointerEvents: 'none' }} 
+                            preload="metadata" 
+                            muted 
+                            playsInline 
+                        />
+                    ) : (
+                        <Video 
+                            ref={videoRef} 
+                            style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.6 }} 
+                            source={{ uri: videoLink }} 
+                            resizeMode={ResizeMode.COVER} 
+                            isMuted={true} 
+                            shouldPlay={false} 
+                            isLooping={false} 
+                        />
+                    )}
+                    <View style={[StyleSheet.absoluteFillObject, { justifyContent:'center', alignItems:'center'}]}>
+                        <MaterialCommunityIcons name="play-circle-outline" size={60} color="rgba(255,255,255,0.7)" />
+                    </View>
+                </>
             ) : (
                 <View style={[StyleSheet.absoluteFillObject, { opacity: 0.7, backgroundColor: '#222', justifyContent:'center', alignItems:'center'}]}>
                     <MaterialCommunityIcons name="dumbbell" size={40} color="#444" />
