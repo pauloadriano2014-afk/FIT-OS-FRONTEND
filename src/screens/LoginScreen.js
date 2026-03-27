@@ -12,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView
+  SafeAreaView,
+  Linking
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -89,6 +90,30 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
+  // 🔥 ROTA 3: O CONCIERGE VIP (RECUPERAÇÃO PELO WHATSAPP)
+  const handleForgotPassword = () => {
+    if (!email || email.trim() === '') {
+        const msg = "Digite seu E-MAIL no campo acima antes de pedir a troca de senha.";
+        if (Platform.OS === 'web') return window.alert(msg);
+        return Alert.alert('E-mail necessário', msg);
+    }
+
+    const myPhone = "5541997991346";
+    const wppMessage = `Fala, Paulo! Esqueci a senha do app. Meu e-mail de acesso é o: ${email.toLowerCase().trim()}`;
+    const wppLink = `https://wa.me/${myPhone}?text=${encodeURIComponent(wppMessage)}`;
+
+    Linking.canOpenURL(wppLink)
+        .then(supported => {
+            if (!supported) {
+                if (Platform.OS === 'web') window.alert('Não foi possível abrir o WhatsApp.');
+                else Alert.alert('Erro', 'WhatsApp não encontrado no celular.');
+            } else {
+                return Linking.openURL(wppLink);
+            }
+        })
+        .catch(err => console.error('An error occurred', err));
+  };
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -129,13 +154,18 @@ export default function LoginScreen({ navigation }) {
             />
 
             <TextInput
-              style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+              style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text, marginBottom: 5 }]}
               placeholder="Senha"
               placeholderTextColor={theme.textSecondary}
               secureTextEntry
               onChangeText={setPassword}
               value={password}
             />
+            
+            {/* 🔥 BOTÃO ESQUECI MINHA SENHA VIP */}
+            <TouchableOpacity onPress={handleForgotPassword} style={{ alignSelf: 'flex-end', marginBottom: 20 }}>
+                <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: 'bold' }}>Esqueci minha senha</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.button, { backgroundColor: theme.accent }]}
