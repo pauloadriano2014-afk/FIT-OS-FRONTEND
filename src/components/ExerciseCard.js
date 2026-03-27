@@ -38,6 +38,10 @@ export const ExerciseCard = ({
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
   const videoLink = item.exercise?.videoUrl || item.videoUrl;
+  
+  // 🔥 INTERCEPTADOR DE IMAGEM: Busca por uma capa leve no banco de dados
+  const thumbLink = item.exercise?.thumbUrl || item.thumbUrl || item.exercise?.imageUrl || item.imageUrl || item.exercise?.image || item.image;
+  
   const standardRestTime = item.restTime || 60;
   
   const blocks = item.blocks && item.blocks.length > 0 
@@ -564,12 +568,17 @@ export const ExerciseCard = ({
             style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}
         >
             
-            {/* 🔥 A MÁGICA DA THUMBNAIL (Fundo limpo sem botão gigante no meio) */}
-            {videoLink ? (
+            {/* 🔥 A MÁGICA DA THUMBNAIL (Imagem Nativa ou Hack do Frame 0.1s) */}
+            {thumbLink ? (
+                <Image 
+                    source={{ uri: thumbLink }} 
+                    style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.5, resizeMode: 'cover' }} 
+                />
+            ) : videoLink ? (
                 <>
                     {Platform.OS === 'web' ? (
                         <video 
-                            src={videoLink} 
+                            src={`${videoLink}#t=0.1`} 
                             style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', opacity: 0.5, pointerEvents: 'none' }} 
                             preload="metadata" 
                             muted 
@@ -583,6 +592,7 @@ export const ExerciseCard = ({
                             resizeMode={ResizeMode.COVER} 
                             isMuted={true} 
                             shouldPlay={false} 
+                            positionMillis={100} // 🔥 O HACK DO iOS: Força o frame no lugar da tela preta
                             isLooping={false} 
                         />
                     )}
@@ -701,7 +711,7 @@ export const ExerciseCard = ({
             <MaterialCommunityIcons name="link-variant" size={20} color={colors.primaryText}/>
         </View>
       }
-      {/* 🔥 Forçando push no git */}
+      {/* 🔥 Atualização final da Thumbnail */}
     </View>
   );
 };
