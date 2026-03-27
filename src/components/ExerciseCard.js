@@ -701,6 +701,7 @@ export const ExerciseCard = ({
             <MaterialCommunityIcons name="link-variant" size={20} color={colors.primaryText}/>
         </View>
       }
+      {/* 🔥 Forçando push no git */}
     </View>
   );
 };
