@@ -14,7 +14,12 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pauloadriano.team"
+      "bundleIdentifier": "com.pauloadriano.team",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -24,7 +29,8 @@
       "package": "com.pauloadriano.team",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "WAKE_LOCK"
       ],
       "edgeToEdgeEnabled": true
     },

@@ -1,5 +1,5 @@
 // src/screens/AudioPlayerScreen.js
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity, 
     Platform, StatusBar, ScrollView, ActivityIndicator, Dimensions 
@@ -11,7 +11,7 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-// 🔥 TRADUTOR BLINDADO DO GOOGLE DRIVE PARA IMAGENS
+// TRADUTOR BLINDADO DO GOOGLE DRIVE PARA IMAGENS
 const getDirectImageUrl = (url) => {
     if (!url) return null;
     if (url.includes('drive.google.com')) {
@@ -23,7 +23,7 @@ const getDirectImageUrl = (url) => {
     return url;
 };
 
-// 🔥 NOVO: TRADUTOR BLINDADO DO GOOGLE DRIVE PARA ÁUDIO (Extrai o mp3 direto)
+// TRADUTOR BLINDADO DO GOOGLE DRIVE PARA ÁUDIO
 const getDirectAudioUrl = (url) => {
     if (!url) return null;
     if (url.includes('drive.google.com')) {
@@ -72,7 +72,6 @@ export default function AudioPlayerScreen({ route, navigation }) {
                 staysActiveInBackground: true,
             });
 
-            // Usa o tradutor para garantir que o Drive entregue o MP3
             const directAudioLink = getDirectAudioUrl(chapters[index].url);
 
             const { sound: newSound } = await Audio.Sound.createAsync(
@@ -145,55 +144,58 @@ export default function AudioPlayerScreen({ route, navigation }) {
                     <View style={{ width: 40 }} /> 
                 </View>
 
-                <View style={styles.coverContainer}>
-                    <Image 
-                        source={coverImage}
-                        style={styles.coverImage}
-                        contentFit="cover"
-                        cachePolicy="disk"
-                    />
-                </View>
-
-                <View style={styles.playerSection}>
-                    <View style={styles.titleRow}>
-                        <Text style={styles.chapterTitle} numberOfLines={1}>
-                            {chapters[currentIndex]?.title || 'Sem Título'}
-                        </Text>
-                        <Text style={styles.authorTitle}>PAULO ADRIANO TEAM</Text>
+                {/* 🔥 O SCROLLVIEW AGORA ABRAÇA TUDO PRA ROLAR A TELA INTEIRA */}
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+                    
+                    <View style={styles.coverContainer}>
+                        <Image 
+                            source={coverImage}
+                            style={styles.coverImage}
+                            contentFit="cover"
+                            cachePolicy="disk"
+                        />
                     </View>
 
-                    <View style={styles.progressContainer}>
-                        <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: duration > 0 ? `${(position / duration) * 100}%` : '0%', backgroundColor: theme.accent }]} />
+                    <View style={styles.playerSection}>
+                        <View style={styles.titleRow}>
+                            <Text style={styles.chapterTitle} numberOfLines={1}>
+                                {chapters[currentIndex]?.title || 'Sem Título'}
+                            </Text>
+                            <Text style={styles.authorTitle}>PAULO ADRIANO TEAM</Text>
                         </View>
-                        <View style={styles.timeRow}>
-                            <Text style={styles.timeText}>{formatTime(position)}</Text>
-                            <Text style={styles.timeText}>{formatTime(duration)}</Text>
+
+                        <View style={styles.progressContainer}>
+                            <View style={styles.progressBarBg}>
+                                <View style={[styles.progressBarFill, { width: duration > 0 ? `${(position / duration) * 100}%` : '0%', backgroundColor: theme.accent }]} />
+                            </View>
+                            <View style={styles.timeRow}>
+                                <Text style={styles.timeText}>{formatTime(position)}</Text>
+                                <Text style={styles.timeText}>{formatTime(duration)}</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.controlsRow}>
+                            <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0} style={{ opacity: currentIndex === 0 ? 0.3 : 1 }}>
+                                <MaterialCommunityIcons name="skip-previous" size={40} color="#FFF" />
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity onPress={handlePlayPause} style={[styles.playBtn, { backgroundColor: theme.accent }]}>
+                                {isBuffering ? (
+                                    <ActivityIndicator color="#000" size="small" />
+                                ) : (
+                                    <MaterialCommunityIcons name={isPlaying ? "pause" : "play"} size={32} color="#000" />
+                                )}
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity onPress={handleNext} disabled={currentIndex === chapters.length - 1} style={{ opacity: currentIndex === chapters.length - 1 ? 0.3 : 1 }}>
+                                <MaterialCommunityIcons name="skip-next" size={40} color="#FFF" />
+                            </TouchableOpacity>
                         </View>
                     </View>
 
-                    <View style={styles.controlsRow}>
-                        <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0} style={{ opacity: currentIndex === 0 ? 0.3 : 1 }}>
-                            <MaterialCommunityIcons name="skip-previous" size={40} color="#FFF" />
-                        </TouchableOpacity>
+                    <View style={styles.listSection}>
+                        <Text style={styles.listHeader}>Capítulos ({chapters.length})</Text>
                         
-                        <TouchableOpacity onPress={handlePlayPause} style={[styles.playBtn, { backgroundColor: theme.accent }]}>
-                            {isBuffering ? (
-                                <ActivityIndicator color="#000" size="small" />
-                            ) : (
-                                <MaterialCommunityIcons name={isPlaying ? "pause" : "play"} size={32} color="#000" />
-                            )}
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity onPress={handleNext} disabled={currentIndex === chapters.length - 1} style={{ opacity: currentIndex === chapters.length - 1 ? 0.3 : 1 }}>
-                            <MaterialCommunityIcons name="skip-next" size={40} color="#FFF" />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-
-                <View style={styles.listSection}>
-                    <Text style={styles.listHeader}>Capítulos ({chapters.length})</Text>
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
                         {chapters.map((chap, index) => (
                             <TouchableOpacity 
                                 key={index.toString()} 
@@ -213,9 +215,9 @@ export default function AudioPlayerScreen({ route, navigation }) {
                                 )}
                             </TouchableOpacity>
                         ))}
-                    </ScrollView>
-                </View>
+                    </View>
 
+                </ScrollView>
             </View>
         </RootComponent>
     );
@@ -239,7 +241,8 @@ const styles = StyleSheet.create({
     timeText: { color: '#888', fontSize: 11, fontWeight: 'bold' },
     controlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 30 },
     playBtn: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-    listSection: { flex: 1, backgroundColor: '#111', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 },
+    // 🔥 Removemos o flex: 1 para o ScrollView pai assumir o controle do tamanho
+    listSection: { backgroundColor: '#111', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, paddingBottom: 50, minHeight: 400 },
     listHeader: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginBottom: 15 },
     chapterItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#222' },
     chapterNumber: { fontSize: 14, fontWeight: '900', width: 30 },
