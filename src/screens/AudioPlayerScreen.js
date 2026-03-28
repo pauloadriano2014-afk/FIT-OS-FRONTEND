@@ -8,17 +8,28 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { Image } from 'expo-image';
 import { useTheme } from '../contexts/ThemeContext';
-import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
-// TRADUTOR BLINDADO DO GOOGLE DRIVE PARA A CAPA
+// 🔥 TRADUTOR BLINDADO DO GOOGLE DRIVE PARA IMAGENS
 const getDirectImageUrl = (url) => {
     if (!url) return null;
     if (url.includes('drive.google.com')) {
         const match = url.match(/[-\w]{25,}/);
         if (match && match[0]) {
             return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1000`;
+        }
+    }
+    return url;
+};
+
+// 🔥 NOVO: TRADUTOR BLINDADO DO GOOGLE DRIVE PARA ÁUDIO (Extrai o mp3 direto)
+const getDirectAudioUrl = (url) => {
+    if (!url) return null;
+    if (url.includes('drive.google.com')) {
+        const match = url.match(/[-\w]{25,}/);
+        if (match && match[0]) {
+            return `https://docs.google.com/uc?export=download&id=${match[0]}`;
         }
     }
     return url;
@@ -39,12 +50,10 @@ export default function AudioPlayerScreen({ route, navigation }) {
     const RootComponent = isWeb ? View : SafeAreaView;
     const coverImage = getDirectImageUrl(thumbUrl) || 'https://via.placeholder.com/400';
 
-    // LIMPEZA AO SAIR DA TELA
     useEffect(() => {
         return sound ? () => { sound.unloadAsync(); } : undefined;
     }, [sound]);
 
-    // CARREGA E TOCA O CAPÍTULO ATUAL
     useEffect(() => {
         loadChapter(currentIndex);
     }, [currentIndex]);
@@ -58,14 +67,16 @@ export default function AudioPlayerScreen({ route, navigation }) {
         }
 
         try {
-            // Configura o áudio para tocar mesmo no silencioso do iOS
             await Audio.setAudioModeAsync({
                 playsInSilentModeIOS: true,
                 staysActiveInBackground: true,
             });
 
+            // Usa o tradutor para garantir que o Drive entregue o MP3
+            const directAudioLink = getDirectAudioUrl(chapters[index].url);
+
             const { sound: newSound } = await Audio.Sound.createAsync(
-                { uri: chapters[index].url },
+                { uri: directAudioLink },
                 { shouldPlay: true },
                 onPlaybackStatusUpdate
             );
@@ -86,7 +97,6 @@ export default function AudioPlayerScreen({ route, navigation }) {
             setIsBuffering(status.isBuffering);
             setIsPlaying(status.isPlaying);
 
-            // PULA PRO PRÓXIMO AUTOMATICAMENTE QUANDO ACABAR
             if (status.didJustFinish) {
                 handleNext();
             }
@@ -127,7 +137,6 @@ export default function AudioPlayerScreen({ route, navigation }) {
             
             <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: '#0a0a0a' }}>
                 
-                {/* HEADER */}
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                         <MaterialCommunityIcons name="chevron-down" size={28} color="#FFF"/>
@@ -136,7 +145,6 @@ export default function AudioPlayerScreen({ route, navigation }) {
                     <View style={{ width: 40 }} /> 
                 </View>
 
-                {/* CAPA DO AUDIOBOOK */}
                 <View style={styles.coverContainer}>
                     <Image 
                         source={coverImage}
@@ -146,16 +154,14 @@ export default function AudioPlayerScreen({ route, navigation }) {
                     />
                 </View>
 
-                {/* CONTROLES DO PLAYER (Estilo Spotify) */}
                 <View style={styles.playerSection}>
                     <View style={styles.titleRow}>
                         <Text style={styles.chapterTitle} numberOfLines={1}>
-                            {chapters[currentIndex]?.title || 'Capítulo Desconhecido'}
+                            {chapters[currentIndex]?.title || 'Sem Título'}
                         </Text>
                         <Text style={styles.authorTitle}>PAULO ADRIANO TEAM</Text>
                     </View>
 
-                    {/* BARRA DE PROGRESSO */}
                     <View style={styles.progressContainer}>
                         <View style={styles.progressBarBg}>
                             <View style={[styles.progressBarFill, { width: duration > 0 ? `${(position / duration) * 100}%` : '0%', backgroundColor: theme.accent }]} />
@@ -166,7 +172,6 @@ export default function AudioPlayerScreen({ route, navigation }) {
                         </View>
                     </View>
 
-                    {/* BOTÕES DE CONTROLE */}
                     <View style={styles.controlsRow}>
                         <TouchableOpacity onPress={handlePrev} disabled={currentIndex === 0} style={{ opacity: currentIndex === 0 ? 0.3 : 1 }}>
                             <MaterialCommunityIcons name="skip-previous" size={40} color="#FFF" />
@@ -186,7 +191,6 @@ export default function AudioPlayerScreen({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* LISTA DE CAPÍTULOS */}
                 <View style={styles.listSection}>
                     <Text style={styles.listHeader}>Capítulos ({chapters.length})</Text>
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
@@ -201,7 +205,7 @@ export default function AudioPlayerScreen({ route, navigation }) {
                                 </Text>
                                 <View style={{ flex: 1 }}>
                                     <Text style={[styles.chapterItemTitle, { color: currentIndex === index ? theme.accent : '#FFF' }]}>
-                                        {chap.title}
+                                        {chap.title || `Faixa ${index + 1}`}
                                     </Text>
                                 </View>
                                 {currentIndex === index && isPlaying && (
@@ -222,24 +226,19 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 15, paddingVertical: 10, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 10 },
     backBtn: { padding: 5 },
     headerTitle: { fontSize: 12, fontWeight: 'bold', color: '#888', letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center', flex: 1 },
-    
     coverContainer: { alignItems: 'center', marginVertical: 20 },
     coverImage: { width: width * 0.7, height: width * 0.7, borderRadius: 12, backgroundColor: '#111' },
-    
     playerSection: { paddingHorizontal: 30, marginBottom: 20 },
     titleRow: { marginBottom: 20 },
     chapterTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 5 },
     authorTitle: { color: '#888', fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
-    
     progressContainer: { marginBottom: 20 },
     progressBarBg: { height: 4, backgroundColor: '#333', borderRadius: 2, marginBottom: 10 },
     progressBarFill: { height: '100%', borderRadius: 2 },
     timeRow: { flexDirection: 'row', justifyContent: 'space-between' },
     timeText: { color: '#888', fontSize: 11, fontWeight: 'bold' },
-    
     controlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 30 },
     playBtn: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-    
     listSection: { flex: 1, backgroundColor: '#111', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20 },
     listHeader: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginBottom: 15 },
     chapterItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#222' },

@@ -30,8 +30,8 @@ export default function AdminAddContent({ navigation }) {
     const [editingId, setEditingId] = useState(null); 
     const [contentType, setContentType] = useState('video'); 
     
-    // 🔥 NOVO: Suporte a múltiplos capítulos de áudio
-    const [audioChapters, setAudioChapters] = useState([{ title: 'Capítulo 1', url: '' }]);
+    // 🔥 AGORA O CAMPO VEM EM BRANCO PARA VOCÊ DIGITAR
+    const [audioChapters, setAudioChapters] = useState([{ title: '', url: '' }]);
 
     const [form, setForm] = useState({ 
         title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false 
@@ -110,7 +110,7 @@ export default function AdminAddContent({ navigation }) {
     const handleAddNew = () => {
         setEditingId(null);
         setContentType('video');
-        setAudioChapters([{ title: 'Capítulo 1', url: '' }]);
+        setAudioChapters([{ title: '', url: '' }]);
         setForm({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false });
         setViewMode('form');
     };
@@ -119,23 +119,22 @@ export default function AdminAddContent({ navigation }) {
         setEditingId(item.id);
         setContentType(item.type || 'video');
         
-        // 🔥 DESEMPACOTA OS CAPÍTULOS SE FOR ÁUDIO
         if (item.type === 'audio' && item.audioUrl) {
             try {
                 const parsedChapters = JSON.parse(item.audioUrl);
-                setAudioChapters(Array.isArray(parsedChapters) ? parsedChapters : [{ title: 'Capítulo 1', url: item.audioUrl }]);
+                setAudioChapters(Array.isArray(parsedChapters) ? parsedChapters : [{ title: '', url: item.audioUrl }]);
             } catch (e) {
-                setAudioChapters([{ title: 'Capítulo 1', url: item.audioUrl }]);
+                setAudioChapters([{ title: '', url: item.audioUrl }]);
             }
         } else {
-            setAudioChapters([{ title: 'Capítulo 1', url: '' }]);
+            setAudioChapters([{ title: '', url: '' }]);
         }
 
         setForm({
             title: item.title || '',
             subtitle: item.subtitle || '',
             category: item.category || 'GERAL',
-            contentUrl: item.pdfUrl || item.videoUrl || '', // Audio é tratado separadamente agora
+            contentUrl: item.pdfUrl || item.videoUrl || '', 
             thumbUrl: item.thumbUrl || '',
             duration: item.duration || '',
             isVIP: item.isVIP || false
@@ -168,9 +167,8 @@ export default function AdminAddContent({ navigation }) {
         }
     };
 
-    // 🔥 FUNÇÕES PARA GERENCIAR CAPÍTULOS
     const addChapter = () => {
-        setAudioChapters([...audioChapters, { title: `Capítulo ${audioChapters.length + 1}`, url: '' }]);
+        setAudioChapters([...audioChapters, { title: '', url: '' }]);
     };
 
     const removeChapter = (index) => {
@@ -196,7 +194,6 @@ export default function AdminAddContent({ navigation }) {
             return Alert.alert("Erro", "Preencha o Link do Conteúdo.");
         }
 
-        // Valida se todos os capítulos de áudio têm link
         if (contentType === 'audio') {
             const hasEmptyChapter = audioChapters.some(c => !c.url.trim());
             if (hasEmptyChapter) return Alert.alert("Erro", "Preencha o link de todos os capítulos de áudio.");
@@ -209,7 +206,6 @@ export default function AdminAddContent({ navigation }) {
                 thumbUrl: form.thumbUrl, duration: form.duration, type: contentType, isVIP: form.isVIP,
                 videoUrl: contentType === 'video' ? form.contentUrl : null,
                 pdfUrl: contentType === 'ebook' ? form.contentUrl : null,
-                // 🔥 EMPACOTA OS CAPÍTULOS EM JSON PARA SALVAR NO BANCO
                 audioUrl: contentType === 'audio' ? JSON.stringify(audioChapters) : null,
             };
 
@@ -236,6 +232,12 @@ export default function AdminAddContent({ navigation }) {
         } finally {
             setLoadingAction(false);
         }
+    };
+
+    const getContentLabel = () => {
+        if (contentType === 'ebook') return "LINK DO ARQUIVO PDF (Google Drive, Dropbox, etc)";
+        if (contentType === 'audio') return "LINK DO ÁUDIO MP3";
+        return "LINK DO VÍDEO (.mp4 ou .m3u8)";
     };
 
     const renderContentItem = ({ item }) => {
@@ -389,7 +391,6 @@ export default function AdminAddContent({ navigation }) {
                                     <Text style={[styles.label, { color: theme.accent }]}>LINK DA CAPA (Imagem Thumbnail)</Text>
                                     <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.thumbUrl} onChangeText={t=>setForm({...form, thumbUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
 
-                                    {/* 🔥 IF: CONTEÚDO NORMAL (VÍDEO OU EBOOK) */}
                                     {contentType !== 'audio' && (
                                         <>
                                             <Text style={[styles.label, { color: theme.accent }]}>
@@ -406,7 +407,6 @@ export default function AdminAddContent({ navigation }) {
                                         </>
                                     )}
 
-                                    {/* 🔥 ELSE: MODO AUDIOBOOK (MÚLTIPLOS CAPÍTULOS) */}
                                     {contentType === 'audio' && (
                                         <View style={{ marginTop: 20 }}>
                                             <Text style={[styles.label, { color: theme.accent, fontSize: 14 }]}>CAPÍTULOS DO AUDIOBOOK</Text>
@@ -414,7 +414,7 @@ export default function AdminAddContent({ navigation }) {
                                             {audioChapters.map((chapter, index) => (
                                                 <View key={index} style={[styles.chapterBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                                     <View style={styles.chapterHeader}>
-                                                        <Text style={{ color: theme.text, fontWeight: 'bold' }}>Capítulo {index + 1}</Text>
+                                                        <Text style={{ color: theme.text, fontWeight: 'bold' }}>Faixa {index + 1}</Text>
                                                         {audioChapters.length > 1 && (
                                                             <TouchableOpacity onPress={() => removeChapter(index)}>
                                                                 <MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" />
@@ -426,13 +426,13 @@ export default function AdminAddContent({ navigation }) {
                                                         style={[styles.inputChapter, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
                                                         value={chapter.title} 
                                                         onChangeText={(t) => updateChapter(index, 'title', t)} 
-                                                        placeholder="Nome do Capítulo" placeholderTextColor={theme.textSecondary}
+                                                        placeholder="Ex: 01 - Introdução" placeholderTextColor={theme.textSecondary}
                                                     />
                                                     <TextInput 
                                                         style={[styles.inputChapter, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 10 }]} 
                                                         value={chapter.url} 
                                                         onChangeText={(t) => updateChapter(index, 'url', t)} 
-                                                        placeholder="Link do Áudio (.mp3)" placeholderTextColor={theme.textSecondary} autoCapitalize='none'
+                                                        placeholder="Link do Áudio do Google Drive" placeholderTextColor={theme.textSecondary} autoCapitalize='none'
                                                     />
                                                 </View>
                                             ))}
@@ -529,7 +529,6 @@ const styles = StyleSheet.create({
     label: { fontSize: 10, fontWeight: 'bold', marginTop: 15, marginBottom: 5, letterSpacing: 1, textTransform: 'uppercase' },
     input: { padding: 15, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
     
-    // 🔥 ESTILOS DOS CAPÍTULOS
     chapterBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
     chapterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     inputChapter: { padding: 12, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },

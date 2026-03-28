@@ -1,17 +1,8 @@
 // src/screens/BibliotecaScreen.js
 import React, { useState, useCallback } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  ScrollView, 
-  TouchableOpacity, 
-  StatusBar, 
-  Platform, 
-  Alert,
-  ActivityIndicator,
-  Linking
+  View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
+  StatusBar, Platform, Alert, ActivityIndicator, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -91,7 +82,6 @@ export default function BibliotecaScreen({ navigation, route }) {
               image: getDirectImageUrl(c.thumbUrl) || 'https://via.placeholder.com/400x600/111111/CCFF00?text=PA+TEAM',
               url: c.type === 'ebook' ? c.pdfUrl : (c.type === 'audio' ? c.audioUrl : c.videoUrl),
               progress: 0,
-              // Guarda a URL da thumb original para passar pro player de audio
               thumbUrlOriginal: c.thumbUrl 
           };
 
@@ -124,9 +114,7 @@ export default function BibliotecaScreen({ navigation, route }) {
           } else if (item.type === 'video') {
               navigation.navigate('VideoPlayer', { url: item.url, title: item.title });
           } else if (item.type === 'audio') {
-              // 🔥 INTELIGÊNCIA DO SPOTIFY AQUI
               try {
-                  // Tenta desempacotar o JSON de capítulos criado pelo Admin
                   const parsedChapters = JSON.parse(item.url);
                   if (Array.isArray(parsedChapters)) {
                       navigation.navigate('AudioPlayer', { 
@@ -135,7 +123,6 @@ export default function BibliotecaScreen({ navigation, route }) {
                           thumbUrl: item.thumbUrlOriginal 
                       });
                   } else {
-                      // Se por acaso salvou um áudio antigo (string simples), empacota ele na hora
                       navigation.navigate('AudioPlayer', { 
                           chapters: [{ title: 'Capítulo Único', url: item.url }], 
                           title: item.title,
@@ -143,7 +130,6 @@ export default function BibliotecaScreen({ navigation, route }) {
                       });
                   }
               } catch (e) {
-                  // Fallback: se o JSON estiver quebrado ou for link antigo
                   navigation.navigate('AudioPlayer', { 
                       chapters: [{ title: 'Audiobook', url: item.url }], 
                       title: item.title,
@@ -160,6 +146,12 @@ export default function BibliotecaScreen({ navigation, route }) {
   const renderCard = (item, isLarge = false) => {
       const cardWidth = isLarge ? 160 : 130;
       const cardHeight = isLarge ? 220 : 180;
+
+      // 🔥 TEXTO DA ETIQUETA VIP
+      let vipLabel = "CONTEÚDO VIP";
+      if (item.type === 'ebook') vipLabel = "E-BOOK VIP";
+      if (item.type === 'audio') vipLabel = "AUDIOBOOK VIP";
+      if (item.type === 'video') vipLabel = "AULA VIP";
 
       return (
           <TouchableOpacity 
@@ -195,11 +187,12 @@ export default function BibliotecaScreen({ navigation, route }) {
                           </View>
                       )}
 
+                      {/* 🔥 O CADEADO COM A ETIQUETA CORRETA */}
                       {item.locked ? (
                           <View style={styles.lockedCenter}>
                               <MaterialCommunityIcons name="lock" size={32} color="#FFCC00" />
                               <Text style={styles.lockedTitle} numberOfLines={2}>{item.title}</Text>
-                              <Text style={styles.lockedSub}>Upgrade para acessar</Text>
+                              <Text style={[styles.lockedSub, { color: '#FFCC00', fontWeight: 'bold' }]}>{vipLabel}</Text>
                           </View>
                       ) : (
                           <View style={styles.unlockedBottom}>
@@ -317,34 +310,26 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 15 : 15 },
   headerSubtitle: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
-  
   section: { marginTop: 25 },
   sectionMainTitle: { fontSize: 22, fontWeight: '900', paddingHorizontal: 20, marginBottom: 5 },
   sectionTitle: { fontSize: 16, fontWeight: '900', paddingHorizontal: 20, marginBottom: 15 },
   sectionSubTitle: { fontSize: 11, fontWeight: 'bold', paddingHorizontal: 20, marginBottom: 15, textTransform: 'uppercase' },
-  
   carouselContainer: { paddingHorizontal: 15, paddingBottom: 10, gap: 15 },
-  
   cardContainer: { marginRight: 5 },
   cardImageWrapper: { borderRadius: 12, overflow: 'hidden', backgroundColor: '#111', position: 'relative' },
   cardGradient: { flex: 1, justifyContent: 'space-between', padding: 12 },
-  
   audioIconWrapper: { alignSelf: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, borderRadius: 12 },
-  
   unlockedBottom: { marginTop: 'auto', alignItems: 'center' },
   cardTitle: { fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20 },
   actionBtnText: { fontSize: 12, fontWeight: '900' },
-  
   lockedCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   lockedTitle: { color: '#FFF', fontSize: 12, fontWeight: '900', textAlign: 'center', marginTop: 10, marginBottom: 5, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
-  lockedSub: { color: '#AAA', fontSize: 10, textAlign: 'center' },
-
+  lockedSub: { fontSize: 10, textAlign: 'center', marginTop: 2 },
   progressContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingHorizontal: 5 },
   progressBarBg: { flex: 1, height: 4, borderRadius: 2 },
   progressBarFill: { height: '100%', borderRadius: 2 },
   progressText: { fontSize: 10, fontWeight: 'bold', marginLeft: 8 },
-
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100, paddingHorizontal: 20 },
   emptyText: { textAlign: 'center', marginTop: 15, fontWeight: 'bold' }
 });
