@@ -18,11 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
-
-// 🔥 MOTOR DE ALTA PERFORMANCE PARA O ALUNO
 import { Image } from 'expo-image';
 
-// TRADUTOR BLINDADO DO GOOGLE DRIVE
 const getDirectImageUrl = (url) => {
     if (!url) return null;
     if (url.includes('drive.google.com')) {
@@ -93,7 +90,9 @@ export default function BibliotecaScreen({ navigation, route }) {
               locked: isLocked,
               image: getDirectImageUrl(c.thumbUrl) || 'https://via.placeholder.com/400x600/111111/CCFF00?text=PA+TEAM',
               url: c.type === 'ebook' ? c.pdfUrl : (c.type === 'audio' ? c.audioUrl : c.videoUrl),
-              progress: 0 
+              progress: 0,
+              // Guarda a URL da thumb original para passar pro player de audio
+              thumbUrlOriginal: c.thumbUrl 
           };
 
           if (isLocked) {
@@ -123,14 +122,34 @@ export default function BibliotecaScreen({ navigation, route }) {
           if (item.type === 'ebook') {
               navigation.navigate('PDFViewer', { url: item.url, title: item.title });
           } else if (item.type === 'video') {
-              // 🔥 AGORA APONTA PARA O PLAYER DE VÍDEO INTELIGENTE
               navigation.navigate('VideoPlayer', { url: item.url, title: item.title });
-          } else {
-              // Áudio mantém o link nativo por enquanto
-              Linking.openURL(item.url).catch(() => {
-                  if (isWeb) window.alert("Erro ao tentar abrir o arquivo.");
-                  else Alert.alert("Erro", "Não foi possível abrir o arquivo.");
-              });
+          } else if (item.type === 'audio') {
+              // 🔥 INTELIGÊNCIA DO SPOTIFY AQUI
+              try {
+                  // Tenta desempacotar o JSON de capítulos criado pelo Admin
+                  const parsedChapters = JSON.parse(item.url);
+                  if (Array.isArray(parsedChapters)) {
+                      navigation.navigate('AudioPlayer', { 
+                          chapters: parsedChapters, 
+                          title: item.title,
+                          thumbUrl: item.thumbUrlOriginal 
+                      });
+                  } else {
+                      // Se por acaso salvou um áudio antigo (string simples), empacota ele na hora
+                      navigation.navigate('AudioPlayer', { 
+                          chapters: [{ title: 'Capítulo Único', url: item.url }], 
+                          title: item.title,
+                          thumbUrl: item.thumbUrlOriginal 
+                      });
+                  }
+              } catch (e) {
+                  // Fallback: se o JSON estiver quebrado ou for link antigo
+                  navigation.navigate('AudioPlayer', { 
+                      chapters: [{ title: 'Audiobook', url: item.url }], 
+                      title: item.title,
+                      thumbUrl: item.thumbUrlOriginal 
+                  });
+              }
           }
       } else {
           if (isWeb) window.alert("Aviso: Arquivo ainda não disponível no servidor.");
@@ -170,7 +189,6 @@ export default function BibliotecaScreen({ navigation, route }) {
                           </View>
                       )}
                       
-                      {/* Ícone no topo se for Vídeo */}
                       {item.type === 'video' && !item.locked && (
                           <View style={styles.audioIconWrapper}>
                               <MaterialCommunityIcons name="play-circle" size={20} color="#FFF" />
@@ -187,7 +205,6 @@ export default function BibliotecaScreen({ navigation, route }) {
                           <View style={styles.unlockedBottom}>
                               <Text style={[styles.cardTitle, { color: theme.accent }]} numberOfLines={3}>{item.title}</Text>
                               
-                              {/* 🔥 BOTÕES DINÂMICOS DEPENDENDO DO FORMATO */}
                               {item.type === 'ebook' ? (
                                   <View style={[styles.actionBtn, { backgroundColor: '#FFF' }]}>
                                       <Text style={[styles.actionBtnText, { color: '#000' }]}>Ler Agora</Text>

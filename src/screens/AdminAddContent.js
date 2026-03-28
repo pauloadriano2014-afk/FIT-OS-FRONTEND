@@ -7,11 +7,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-
-// MOTOR DE ALTA PERFORMANCE
 import { Image } from 'expo-image';
 
-// TRADUTOR BLINDADO DO GOOGLE DRIVE
 const getDirectImageUrl = (url) => {
     if (!url) return null;
     if (url.includes('drive.google.com')) {
@@ -26,25 +23,26 @@ const getDirectImageUrl = (url) => {
 export default function AdminAddContent({ navigation }) {
     const { theme } = useTheme();
 
-    // CONTROLE DA TELA
     const [viewMode, setViewMode] = useState('list'); 
     const [contents, setContents] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
 
-    // STATE DO FORMULÁRIO
     const [editingId, setEditingId] = useState(null); 
     const [contentType, setContentType] = useState('video'); 
+    
+    // 🔥 NOVO: Suporte a múltiplos capítulos de áudio
+    const [audioChapters, setAudioChapters] = useState([{ title: 'Capítulo 1', url: '' }]);
+
     const [form, setForm] = useState({ 
         title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false 
     });
     
     const [loadingAction, setLoadingAction] = useState(false);
 
-    // 🔥 STATE DA GESTÃO DE ACESSOS VIP
     const [accessModalVisible, setAccessModalVisible] = useState(false);
     const [selectedContentForAccess, setSelectedContentForAccess] = useState(null);
     const [allStudents, setAllStudents] = useState([]);
-    const [contentAccessList, setContentAccessList] = useState([]); // IDs dos alunos que têm acesso
+    const [contentAccessList, setContentAccessList] = useState([]);
     const [loadingAccess, setLoadingAccess] = useState(false);
 
     useEffect(() => {
@@ -66,36 +64,30 @@ export default function AdminAddContent({ navigation }) {
         }
     };
 
-    // 🔥 FUNÇÃO: ABRIR MODAL DE GESTÃO DE ACESSOS E PUXAR ALUNOS
     const handleOpenAccessModal = async (content) => {
         setSelectedContentForAccess(content);
         setAccessModalVisible(true);
         setLoadingAccess(true);
 
         try {
-            // 1. Puxa todos os alunos do sistema
             const resStudents = await fetch('https://fitos-final.onrender.com/api/admin/data');
             const dataStudents = await resStudents.json();
             if (dataStudents.users) setAllStudents(dataStudents.users);
 
-            // 2. Puxa quem já tem acesso a este conteúdo específico
             const resAccess = await fetch(`https://fitos-final.onrender.com/api/contents/${content.id}/access`);
             const dataAccess = await resAccess.json();
             if (Array.isArray(dataAccess)) setContentAccessList(dataAccess);
             
         } catch (e) {
-            console.log("Erro ao carregar dados de acesso", e);
             Alert.alert("Erro", "Não foi possível carregar a lista de alunos.");
         } finally {
             setLoadingAccess(false);
         }
     };
 
-    // 🔥 FUNÇÃO: LIGAR/DESLIGAR ACESSO DE UM ALUNO
     const toggleStudentAccess = async (userId, currentValue) => {
         const newValue = !currentValue;
         
-        // Atualiza a tela instantaneamente (Optimistic Update)
         if (newValue) {
             setContentAccessList(prev => [...prev, userId]);
         } else {
@@ -109,7 +101,6 @@ export default function AdminAddContent({ navigation }) {
                 body: JSON.stringify({ userId, hasAccess: newValue })
             });
         } catch (error) {
-            // Reverte em caso de erro
             if (currentValue) setContentAccessList(prev => [...prev, userId]);
             else setContentAccessList(prev => prev.filter(id => id !== userId));
             Alert.alert("Erro", "Falha de conexão com o servidor.");
@@ -119,6 +110,7 @@ export default function AdminAddContent({ navigation }) {
     const handleAddNew = () => {
         setEditingId(null);
         setContentType('video');
+        setAudioChapters([{ title: 'Capítulo 1', url: '' }]);
         setForm({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false });
         setViewMode('form');
     };
@@ -126,11 +118,24 @@ export default function AdminAddContent({ navigation }) {
     const handleEdit = (item) => {
         setEditingId(item.id);
         setContentType(item.type || 'video');
+        
+        // 🔥 DESEMPACOTA OS CAPÍTULOS SE FOR ÁUDIO
+        if (item.type === 'audio' && item.audioUrl) {
+            try {
+                const parsedChapters = JSON.parse(item.audioUrl);
+                setAudioChapters(Array.isArray(parsedChapters) ? parsedChapters : [{ title: 'Capítulo 1', url: item.audioUrl }]);
+            } catch (e) {
+                setAudioChapters([{ title: 'Capítulo 1', url: item.audioUrl }]);
+            }
+        } else {
+            setAudioChapters([{ title: 'Capítulo 1', url: '' }]);
+        }
+
         setForm({
             title: item.title || '',
             subtitle: item.subtitle || '',
             category: item.category || 'GERAL',
-            contentUrl: item.pdfUrl || item.audioUrl || item.videoUrl || '',
+            contentUrl: item.pdfUrl || item.videoUrl || '', // Audio é tratado separadamente agora
             thumbUrl: item.thumbUrl || '',
             duration: item.duration || '',
             isVIP: item.isVIP || false
@@ -163,9 +168,38 @@ export default function AdminAddContent({ navigation }) {
         }
     };
 
+    // 🔥 FUNÇÕES PARA GERENCIAR CAPÍTULOS
+    const addChapter = () => {
+        setAudioChapters([...audioChapters, { title: `Capítulo ${audioChapters.length + 1}`, url: '' }]);
+    };
+
+    const removeChapter = (index) => {
+        if (audioChapters.length > 1) {
+            const newChapters = [...audioChapters];
+            newChapters.splice(index, 1);
+            setAudioChapters(newChapters);
+        }
+    };
+
+    const updateChapter = (index, field, value) => {
+        const newChapters = [...audioChapters];
+        newChapters[index][field] = value;
+        setAudioChapters(newChapters);
+    };
+
     const handleSave = async () => {
-        if (!form.title || !form.contentUrl || !form.thumbUrl) {
-            return Alert.alert("Erro", "Preencha Título, Link do Conteúdo e Capa.");
+        if (!form.title || !form.thumbUrl) {
+            return Alert.alert("Erro", "Preencha Título e Capa.");
+        }
+
+        if (contentType !== 'audio' && !form.contentUrl) {
+            return Alert.alert("Erro", "Preencha o Link do Conteúdo.");
+        }
+
+        // Valida se todos os capítulos de áudio têm link
+        if (contentType === 'audio') {
+            const hasEmptyChapter = audioChapters.some(c => !c.url.trim());
+            if (hasEmptyChapter) return Alert.alert("Erro", "Preencha o link de todos os capítulos de áudio.");
         }
 
         setLoadingAction(true);
@@ -175,7 +209,8 @@ export default function AdminAddContent({ navigation }) {
                 thumbUrl: form.thumbUrl, duration: form.duration, type: contentType, isVIP: form.isVIP,
                 videoUrl: contentType === 'video' ? form.contentUrl : null,
                 pdfUrl: contentType === 'ebook' ? form.contentUrl : null,
-                audioUrl: contentType === 'audio' ? form.contentUrl : null,
+                // 🔥 EMPACOTA OS CAPÍTULOS EM JSON PARA SALVAR NO BANCO
+                audioUrl: contentType === 'audio' ? JSON.stringify(audioChapters) : null,
             };
 
             const url = editingId 
@@ -203,12 +238,6 @@ export default function AdminAddContent({ navigation }) {
         }
     };
 
-    const getContentLabel = () => {
-        if (contentType === 'ebook') return "LINK DO ARQUIVO PDF (Google Drive, Dropbox, etc)";
-        if (contentType === 'audio') return "LINK DO ÁUDIO MP3";
-        return "LINK DO VÍDEO (.mp4 ou .m3u8)";
-    };
-
     const renderContentItem = ({ item }) => {
         const iconName = item.type === 'ebook' ? 'book-open-variant' : (item.type === 'audio' ? 'headphones' : 'video');
         
@@ -232,7 +261,6 @@ export default function AdminAddContent({ navigation }) {
                 </View>
 
                 <View style={styles.listActions}>
-                    {/* 🔥 BOTÃO NOVO: GERENCIAR ACESSOS VIP (Chave) */}
                     {item.isVIP && (
                         <TouchableOpacity onPress={() => handleOpenAccessModal(item)} style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: '#FFCC00', borderWidth: 1 }]}>
                             <MaterialCommunityIcons name="key-variant" size={20} color="#FFCC00" />
@@ -249,7 +277,6 @@ export default function AdminAddContent({ navigation }) {
         );
     };
 
-    // 🔥 RENDER: ITEM DA LISTA DO MODAL DE ALUNOS
     const renderStudentAccessItem = ({ item }) => {
         const hasAccess = contentAccessList.includes(item.id);
         
@@ -356,20 +383,65 @@ export default function AdminAddContent({ navigation }) {
                                     <Text style={[styles.label, { color: theme.accent }]}>SUBTÍTULO</Text>
                                     <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.subtitle} onChangeText={t=>setForm({...form, subtitle:t})} placeholderTextColor={theme.textSecondary}/>
 
-                                    <Text style={[styles.label, { color: theme.accent }]}>CATEGORIA (TÉCNICA, NUTRIÇÃO, MINDSET)</Text>
+                                    <Text style={[styles.label, { color: theme.accent }]}>CATEGORIA</Text>
                                     <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.category} onChangeText={t=>setForm({...form, category:t.toUpperCase()})} placeholderTextColor={theme.textSecondary}/>
-
-                                    <Text style={[styles.label, { color: theme.accent }]}>{getContentLabel()}</Text>
-                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.contentUrl} onChangeText={t=>setForm({...form, contentUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
 
                                     <Text style={[styles.label, { color: theme.accent }]}>LINK DA CAPA (Imagem Thumbnail)</Text>
                                     <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.thumbUrl} onChangeText={t=>setForm({...form, thumbUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
 
-                                    {contentType !== 'ebook' && (
+                                    {/* 🔥 IF: CONTEÚDO NORMAL (VÍDEO OU EBOOK) */}
+                                    {contentType !== 'audio' && (
                                         <>
-                                            <Text style={[styles.label, { color: theme.accent }]}>DURAÇÃO (Ex: 12 min, 1h 20m)</Text>
-                                            <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.duration} onChangeText={t=>setForm({...form, duration:t})} placeholderTextColor={theme.textSecondary}/>
+                                            <Text style={[styles.label, { color: theme.accent }]}>
+                                                {contentType === 'ebook' ? "LINK DO ARQUIVO PDF" : "LINK DO VÍDEO (.mp4)"}
+                                            </Text>
+                                            <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.contentUrl} onChangeText={t=>setForm({...form, contentUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
+                                            
+                                            {contentType === 'video' && (
+                                                <>
+                                                    <Text style={[styles.label, { color: theme.accent }]}>DURAÇÃO (Ex: 12 min)</Text>
+                                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.duration} onChangeText={t=>setForm({...form, duration:t})} placeholderTextColor={theme.textSecondary}/>
+                                                </>
+                                            )}
                                         </>
+                                    )}
+
+                                    {/* 🔥 ELSE: MODO AUDIOBOOK (MÚLTIPLOS CAPÍTULOS) */}
+                                    {contentType === 'audio' && (
+                                        <View style={{ marginTop: 20 }}>
+                                            <Text style={[styles.label, { color: theme.accent, fontSize: 14 }]}>CAPÍTULOS DO AUDIOBOOK</Text>
+                                            
+                                            {audioChapters.map((chapter, index) => (
+                                                <View key={index} style={[styles.chapterBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                                    <View style={styles.chapterHeader}>
+                                                        <Text style={{ color: theme.text, fontWeight: 'bold' }}>Capítulo {index + 1}</Text>
+                                                        {audioChapters.length > 1 && (
+                                                            <TouchableOpacity onPress={() => removeChapter(index)}>
+                                                                <MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" />
+                                                            </TouchableOpacity>
+                                                        )}
+                                                    </View>
+                                                    
+                                                    <TextInput 
+                                                        style={[styles.inputChapter, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
+                                                        value={chapter.title} 
+                                                        onChangeText={(t) => updateChapter(index, 'title', t)} 
+                                                        placeholder="Nome do Capítulo" placeholderTextColor={theme.textSecondary}
+                                                    />
+                                                    <TextInput 
+                                                        style={[styles.inputChapter, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 10 }]} 
+                                                        value={chapter.url} 
+                                                        onChangeText={(t) => updateChapter(index, 'url', t)} 
+                                                        placeholder="Link do Áudio (.mp3)" placeholderTextColor={theme.textSecondary} autoCapitalize='none'
+                                                    />
+                                                </View>
+                                            ))}
+
+                                            <TouchableOpacity onPress={addChapter} style={[styles.addChapterBtn, { borderColor: theme.accent }]}>
+                                                <MaterialCommunityIcons name="plus" size={20} color={theme.accent} />
+                                                <Text style={{ color: theme.accent, fontWeight: 'bold', marginLeft: 5 }}>ADICIONAR CAPÍTULO</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     )}
 
                                     <View style={[styles.vipContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -396,7 +468,6 @@ export default function AdminAddContent({ navigation }) {
                 </View>
             </View>
 
-            {/* 🔥 MODAL: GESTÃO DE ACESSOS VIP AOS ALUNOS */}
             <Modal visible={accessModalVisible} animationType="slide" transparent>
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -458,13 +529,18 @@ const styles = StyleSheet.create({
     label: { fontSize: 10, fontWeight: 'bold', marginTop: 15, marginBottom: 5, letterSpacing: 1, textTransform: 'uppercase' },
     input: { padding: 15, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
     
-    vipContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, marginTop: 30, borderWidth: 1 },
+    // 🔥 ESTILOS DOS CAPÍTULOS
+    chapterBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
+    chapterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    inputChapter: { padding: 12, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
+    addChapterBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', marginBottom: 10 },
+
+    vipContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, marginTop: 20, borderWidth: 1 },
     vipDesc: { fontSize: 10, marginTop: 2 },
 
     btn: { padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 35, elevation: 3 },
     btnText: { fontWeight: '900', fontSize: 15, letterSpacing: 1 },
 
-    // 🔥 ESTILOS DO MODAL DE ACESSO
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
     modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', borderWidth: 1, width: '100%', maxWidth: 480, alignSelf: 'center', flex: 1 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },

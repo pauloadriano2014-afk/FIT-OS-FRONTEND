@@ -28,10 +28,11 @@ import EvolutionScreen from './src/screens/EvolutionScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CheckInScreen from './src/screens/CheckInScreen';
 import UserHistoryScreen from './src/screens/UserHistoryScreen';
-import PAFlixScreen from './src/screens/PAFlixScreen'; // Mantido para vídeos legados
+import PAFlixScreen from './src/screens/PAFlixScreen'; 
 import BibliotecaScreen from './src/screens/BibliotecaScreen'; 
 import PDFViewerScreen from './src/screens/PDFViewerScreen'; 
-import VideoPlayerScreen from './src/screens/VideoPlayerScreen'; // 🔥 NOVA TELA: PLAYER INTELIGENTE DE VÍDEO
+import VideoPlayerScreen from './src/screens/VideoPlayerScreen'; 
+import AudioPlayerScreen from './src/screens/AudioPlayerScreen'; // 🔥 NOVA TELA: MODO SPOTIFY
 
 // TREINO
 import RoutineDetailsScreen from './src/screens/RoutineDetailsScreen';
@@ -211,8 +212,9 @@ function RootNavigator() {
       <Stack.Screen name="Biblioteca" component={BibliotecaScreen} />
       
       <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
-      {/* 🔥 A TELA DE VÍDEO REGISTRADA NO GPS DO APLICATIVO */}
       <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      {/* 🔥 MODO SPOTIFY CONECTADO */}
+      <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
 
       <Stack.Screen name="PAFlix" component={PAFlixScreen} />
 
