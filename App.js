@@ -1,3 +1,4 @@
+// App.js
 import React, { useEffect, useState } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -9,7 +10,7 @@ import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-/* ================= IMPORTAÇÃO DO TEMA (NOVO) ================= */
+/* ================= IMPORTAÇÃO DO TEMA ================= */
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
 /* ================= TELAS ================= */
@@ -27,7 +28,10 @@ import EvolutionScreen from './src/screens/EvolutionScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CheckInScreen from './src/screens/CheckInScreen';
 import UserHistoryScreen from './src/screens/UserHistoryScreen';
-import PAFlixScreen from './src/screens/PAFlixScreen';
+import PAFlixScreen from './src/screens/PAFlixScreen'; // Mantido para vídeos legados
+import BibliotecaScreen from './src/screens/BibliotecaScreen'; 
+import PDFViewerScreen from './src/screens/PDFViewerScreen'; 
+import VideoPlayerScreen from './src/screens/VideoPlayerScreen'; // 🔥 NOVA TELA: PLAYER INTELIGENTE DE VÍDEO
 
 // TREINO
 import RoutineDetailsScreen from './src/screens/RoutineDetailsScreen';
@@ -79,46 +83,57 @@ async function registerForPushNotificationsAsync() {
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-/* ---------- ALUNO TABS (AGORA COM TEMA DINÂMICO) ---------- */
+/* ---------- ALUNO TABS ---------- */
 function StudentTabs({ route }) {
   const userData = route.params?.userData;
   const insets = useSafeAreaInsets();
-  const { theme } = useTheme(); // 🔥 Puxa as cores em tempo real
+  const { theme } = useTheme();
 
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: theme.surface, // Fundo da barra dinâmico
+          backgroundColor: theme.surface,
           height: 70 + insets.bottom,
           paddingBottom: insets.bottom,
           borderTopColor: theme.border,
           borderTopWidth: 1
         },
-        tabBarActiveTintColor: theme.accent, // Cor do ícone selecionado
-        tabBarInactiveTintColor: theme.textSecondary, // Cor do ícone inativo
-        tabBarIcon: ({ color, size }) => {
-          const icons = {
-            Início: 'home',
-            Treinos: 'dumbbell',
-            Evolução: 'chart-line',
-            Perfil: 'account'
-          };
-          return (
-            <MaterialCommunityIcons
-              name={icons[route.name]}
-              size={size}
-              color={color}
-            />
-          );
-        }
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.textSecondary,
       })}
     >
-      <Tab.Screen name="Início" component={HomeScreen} initialParams={{ userData }} />
-      <Tab.Screen name="Treinos" component={TrainingScreen} initialParams={{ userData }} />
-      <Tab.Screen name="Evolução" component={EvolutionScreen} initialParams={{ userData }} />
-      <Tab.Screen name="Perfil" component={ProfileScreen} initialParams={{ userData }} />
+      <Tab.Screen 
+        name="Início" 
+        component={HomeScreen} 
+        initialParams={{ userData }} 
+        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} /> }}
+      />
+      <Tab.Screen 
+        name="Treinos" 
+        component={TrainingScreen} 
+        initialParams={{ userData }} 
+        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="dumbbell" size={size} color={color} /> }}
+      />
+      <Tab.Screen 
+        name="Biblioteca" 
+        component={BibliotecaScreen} 
+        initialParams={{ userData }} 
+        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="play-box-multiple" size={size} color={color} /> }}
+      />
+      <Tab.Screen 
+        name="Evolução" 
+        component={EvolutionScreen} 
+        initialParams={{ userData }} 
+        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" size={size} color={color} /> }}
+      />
+      <Tab.Screen 
+        name="Perfil" 
+        component={ProfileScreen} 
+        initialParams={{ userData }} 
+        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} /> }}
+      />
     </Tab.Navigator>
   );
 }
@@ -128,7 +143,7 @@ function RootNavigator() {
   const [loading, setLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Login');
   const [savedUser, setSavedUser] = useState(null);
-  const { theme, loadingTheme } = useTheme(); // Espera o tema carregar primeiro
+  const { theme, loadingTheme } = useTheme();
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -181,13 +196,11 @@ function RootNavigator() {
 
   return (
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-      {/* AUTH */}
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="Anamnese" component={AnamneseScreen} />
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
 
-      {/* ALUNO */}
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
@@ -195,8 +208,14 @@ function RootNavigator() {
       <Stack.Screen name="CheckIn" component={CheckInScreen} />
       <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
       <Stack.Screen name="ScannerIA" component={AIScannerModal} />
+      <Stack.Screen name="Biblioteca" component={BibliotecaScreen} />
+      
+      <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
+      {/* 🔥 A TELA DE VÍDEO REGISTRADA NO GPS DO APLICATIVO */}
+      <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
 
-      {/* ADMIN */}
+      <Stack.Screen name="PAFlix" component={PAFlixScreen} />
+
       <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
       <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
       <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
@@ -208,7 +227,6 @@ function RootNavigator() {
   );
 }
 
-/* ================= APP ROOT (ENVELOPADO COM O TEMA) ================= */
 export default function App() {
   return (
     <SafeAreaProvider>

@@ -1,3 +1,4 @@
+// src/screens/HomeScreen.js
 import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, 
@@ -266,6 +267,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
             </TouchableOpacity>
 
+            {/* 🔥 NOVO GRID 2x2 PARA ACOMODAR A BIBLIOTECA VIP */}
             <View style={styles.gridContainer}>
                 <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('CheckIn')}>
                     <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
@@ -286,6 +288,14 @@ export default function HomeScreen({ navigation }) {
                         <MaterialCommunityIcons name="history" size={24} color="#FF3B30" />
                     </View>
                     <Text style={[styles.gridText, { color: theme.text }]}>Histórico</Text>
+                </TouchableOpacity>
+
+                {/* 🔥 BOTÃO DA NOVA TELA DA BIBLIOTECA (ESTILO NETFLIX) */}
+                <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('Biblioteca')}>
+                    <View style={[styles.gridIcon, { backgroundColor: 'rgba(255, 149, 0, 0.2)' }]}>
+                        <MaterialCommunityIcons name="play-box-multiple" size={24} color="#FF9500" />
+                    </View>
+                    <Text style={[styles.gridText, { color: theme.text }]}>Biblioteca</Text>
                 </TouchableOpacity>
             </View>
 
@@ -407,8 +417,9 @@ const styles = StyleSheet.create({
   actionTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   iconCircle: { width: 54, height: 54, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
   
-  gridContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
-  gridItem: { width: '31%', padding: 18, borderRadius: 24, alignItems: 'center', borderWidth: 1 },
+  /* 🔥 GRID 2x2 ATUALIZADO PARA ACOMODAR A BIBLIOTECA */
+  gridContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 15 },
+  gridItem: { width: '48%', padding: 18, borderRadius: 24, alignItems: 'center', borderWidth: 1, marginBottom: 15 },
   gridIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   gridText: { fontSize: 11, fontWeight: 'bold' },
   

@@ -187,9 +187,16 @@ export default function AdminDashboard({ navigation }) {
 
   const renderAluno = ({ item }) => (
     <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
-      <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-        <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
-      </View>
+      
+      {/* 🔥 A MÁGICA DA FOTO: Se tiver photoUrl, mostra a imagem. Se não, mostra a letra. */}
+      {item.photoUrl ? (
+          <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
+      ) : (
+          <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+            <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
+          </View>
+      )}
+
       <View style={{ flex: 1, marginLeft: 15 }}>
         <Text style={[styles.alunoName, { color: theme.text }]}>{item.name}</Text>
         <View style={{flexDirection:'row', gap:5, alignItems: 'center'}}>
@@ -439,7 +446,7 @@ const styles = StyleSheet.create({
   progBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 6, borderRadius: 4, marginTop: 6, gap: 4 },
   progText: { fontSize: 9, fontWeight: 'bold' },
   card: { padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, cursor: 'pointer' },
-  avatarPlaceholder: { width: 45, height: 45, borderRadius: 25, justifyContent: 'center', alignItems: 'center' },
+  avatarPlaceholder: { width: 45, height: 45, borderRadius: 25, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }, // Add overflow pra foto ficar redonda
   avatarText: { fontWeight: 'bold', fontSize: 18 },
   alunoName: { fontWeight: 'bold', fontSize: 16 },
   alunoEmail: { color: '#888', fontSize: 12 },
