@@ -11,7 +11,6 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-// TRADUTOR BLINDADO DO GOOGLE DRIVE PARA IMAGENS
 const getDirectImageUrl = (url) => {
     if (!url) return null;
     if (url.includes('drive.google.com')) {
@@ -23,7 +22,6 @@ const getDirectImageUrl = (url) => {
     return url;
 };
 
-// TRADUTOR BLINDADO DO GOOGLE DRIVE PARA ÁUDIO
 const getDirectAudioUrl = (url) => {
     if (!url) return null;
     if (url.includes('drive.google.com')) {
@@ -130,11 +128,17 @@ export default function AudioPlayerScreen({ route, navigation }) {
         return `${minutes}:${(seconds < 10 ? "0" : "")}${seconds}`;
     };
 
+    // 🔥 CIRURGIA: Trava de altura obrigatória para PWA/Web não expandir infinitamente
+    const rootStyle = isWeb 
+        ? { height: '100vh', width: '100%', backgroundColor: '#0a0a0a' } 
+        : { flex: 1, backgroundColor: '#0a0a0a' };
+
     return (
-        <RootComponent style={[styles.container, { backgroundColor: '#0a0a0a' }]}>
+        <RootComponent style={rootStyle}>
             <StatusBar barStyle="light-content" backgroundColor="#0a0a0a" />
             
-            <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: '#0a0a0a' }}>
+            {/* 🔥 CIRURGIA: height: '100%' e overflow: 'hidden' blindam a tela na Web */}
+            <View style={{ flex: 1, width: '100%', height: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: '#0a0a0a', overflow: 'hidden' }}>
                 
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -144,8 +148,11 @@ export default function AudioPlayerScreen({ route, navigation }) {
                     <View style={{ width: 40 }} /> 
                 </View>
 
-                {/* 🔥 O SCROLLVIEW AGORA ABRAÇA TUDO PRA ROLAR A TELA INTEIRA */}
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
+                <ScrollView 
+                    style={{ flex: 1, height: '100%' }} 
+                    showsVerticalScrollIndicator={false} 
+                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 100 }}
+                >
                     
                     <View style={styles.coverContainer}>
                         <Image 
@@ -241,8 +248,7 @@ const styles = StyleSheet.create({
     timeText: { color: '#888', fontSize: 11, fontWeight: 'bold' },
     controlsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 30 },
     playBtn: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-    // 🔥 Removemos o flex: 1 para o ScrollView pai assumir o controle do tamanho
-    listSection: { backgroundColor: '#111', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, paddingBottom: 50, minHeight: 400 },
+    listSection: { flex: 1, backgroundColor: '#111', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, paddingBottom: 50, minHeight: 400 },
     listHeader: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginBottom: 15 },
     chapterItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#222' },
     chapterNumber: { fontSize: 14, fontWeight: '900', width: 30 },
