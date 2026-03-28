@@ -147,7 +147,6 @@ export default function BibliotecaScreen({ navigation, route }) {
       const cardWidth = isLarge ? 160 : 130;
       const cardHeight = isLarge ? 220 : 180;
 
-      // 🔥 TEXTO DA ETIQUETA VIP
       let vipLabel = "CONTEÚDO VIP";
       if (item.type === 'ebook') vipLabel = "E-BOOK VIP";
       if (item.type === 'audio') vipLabel = "AUDIOBOOK VIP";
@@ -187,16 +186,21 @@ export default function BibliotecaScreen({ navigation, route }) {
                           </View>
                       )}
 
-                      {/* 🔥 O CADEADO COM A ETIQUETA CORRETA */}
+                      {/* 🔥 CIRURGIA: Ocultando título para E-books e Áudios (Conteúdo Bloqueado) */}
                       {item.locked ? (
                           <View style={styles.lockedCenter}>
                               <MaterialCommunityIcons name="lock" size={32} color="#FFCC00" />
-                              <Text style={styles.lockedTitle} numberOfLines={2}>{item.title}</Text>
+                              {item.type === 'video' && (
+                                  <Text style={styles.lockedTitle} numberOfLines={2}>{item.title}</Text>
+                              )}
                               <Text style={[styles.lockedSub, { color: '#FFCC00', fontWeight: 'bold' }]}>{vipLabel}</Text>
                           </View>
                       ) : (
                           <View style={styles.unlockedBottom}>
-                              <Text style={[styles.cardTitle, { color: theme.accent }]} numberOfLines={3}>{item.title}</Text>
+                              {/* 🔥 CIRURGIA: Ocultando título para E-books e Áudios (Conteúdo Liberado) */}
+                              {item.type === 'video' && (
+                                  <Text style={[styles.cardTitle, { color: theme.accent }]} numberOfLines={3}>{item.title}</Text>
+                              )}
                               
                               {item.type === 'ebook' ? (
                                   <View style={[styles.actionBtn, { backgroundColor: '#FFF' }]}>
