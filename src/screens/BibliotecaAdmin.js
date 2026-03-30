@@ -187,18 +187,8 @@ export default function BibliotecaAdmin({ navigation }) {
           });
           
           if (result.canceled) return;
-
           const fileToUpload = result.assets[0];
           
-          const fileName = fileToUpload.name.toLowerCase();
-          const isValidFormat = fileName.endsWith('.mp4') || fileName.endsWith('.mov') || fileName.endsWith('.avi');
-
-          if (!isValidFormat) {
-              if(isWeb) window.alert("Formato Inválido. Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.");
-              else Alert.alert("Formato Inválido", "Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.");
-              return; 
-          }
-
           setUploadingVideo(true);
           const formData = new FormData();
 
@@ -209,13 +199,11 @@ export default function BibliotecaAdmin({ navigation }) {
           } else {
               formData.append('file', {
                   uri: fileToUpload.uri,
-                  name: fileToUpload.name || 'video_exercicio.mp4',
+                  name: fileToUpload.name || 'video.mp4',
                   type: fileToUpload.mimeType || 'video/mp4'
               });
           }
           
-          formData.append('title', formExercise.name || 'Novo Exercicio PA TEAM');
-
           const response = await fetch('https://fitos-final.onrender.com/api/upload', {
               method: 'POST',
               body: formData,
@@ -226,16 +214,18 @@ export default function BibliotecaAdmin({ navigation }) {
           
           if (response.ok && data.videoUrl) {
               setFormExercise({ ...formExercise, videoUrl: data.videoUrl });
-              if(isWeb) window.alert("Vídeo enviado para a Nuvem! A Bunny.net está processando as qualidades. Aguarde 1 a 3 minutos antes de testar o vídeo.");
-              else Alert.alert("Sucesso", "Vídeo enviado para a Nuvem! A Bunny.net está processando as qualidades. Aguarde 1 a 3 minutos antes de testar o vídeo.");
+              const msg = "Vídeo processado pela Cloudflare! O play agora é instantâneo.";
+              if(isWeb) window.alert(msg);
+              else Alert.alert("Sucesso", msg);
           } else {
-              throw new Error(data.error || 'Erro no envio do vídeo.');
+              throw new Error(data.error || 'Erro no processamento do vídeo.');
           }
 
       } catch (error) {
-          console.error("Erro Upload Bunny:", error);
-          if(isWeb) window.alert("Falha ao subir vídeo: " + error.message);
-          else Alert.alert("Erro de Upload", "Falha ao subir o vídeo: " + error.message);
+          console.error("Erro Upload Cloudflare:", error);
+          const errMsg = "Falha ao subir vídeo: " + error.message;
+          if(isWeb) window.alert(errMsg);
+          else Alert.alert("Erro de Upload", errMsg);
       } finally {
           setUploadingVideo(false);
       }
