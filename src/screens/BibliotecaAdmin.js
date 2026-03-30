@@ -6,7 +6,7 @@ import {
   Platform, ScrollView, useWindowDimensions, StatusBar, ImageBackground 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av';
+import { Video, ResizeMode } from 'expo-av'; // 🔥 IMPORTAÇÃO ESSENCIAL
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker'; 
@@ -179,7 +179,6 @@ export default function BibliotecaAdmin({ navigation }) {
       }
   };
 
-  // 🔥 MÁQUINA DE UPLOAD BLINDADA
   const handleUploadVideo = async () => {
       try {
           const result = await DocumentPicker.getDocumentAsync({ 
@@ -191,14 +190,13 @@ export default function BibliotecaAdmin({ navigation }) {
 
           const fileToUpload = result.assets[0];
           
-          // VERIFICAÇÃO DE EXTENSÃO / FORMATO DE ARQUIVO
           const fileName = fileToUpload.name.toLowerCase();
           const isValidFormat = fileName.endsWith('.mp4') || fileName.endsWith('.mov') || fileName.endsWith('.avi');
 
           if (!isValidFormat) {
               if(isWeb) window.alert("Formato Inválido. Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.");
               else Alert.alert("Formato Inválido", "Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.");
-              return; // Bloqueia o upload aqui mesmo, nem gasta internet.
+              return; 
           }
 
           setUploadingVideo(true);
@@ -527,6 +525,7 @@ export default function BibliotecaAdmin({ navigation }) {
           </KeyboardAvoidingView>
         </Modal>
 
+        {/* MODAL DE VÍDEO ATUALIZADO (FIX: AUTOPLAY, MUTED, ENQUADRAMENTO) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
                 <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#111', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
@@ -538,12 +537,12 @@ export default function BibliotecaAdmin({ navigation }) {
                             <>
                                 <Video 
                                     ref={videoRef} 
-                                    style={{ position: 'absolute', width: '100%', height: '100%', opacity: 0.8 }} 
+                                    style={{ position: 'absolute', width: '100%', height: '100%', opacity: 1 }} // 🔥 Opacidade 1
                                     source={{ uri: currentVideoUrl }} 
-                                    resizeMode={isWeb ? ResizeMode.CONTAIN : "cover"} 
-                                    shouldPlay 
-                                    isLooping 
-                                    isMuted 
+                                    resizeMode={ResizeMode.COVER} // 🔥 FIX: Preencher tela inteira
+                                    shouldPlay={true} // 🔥 FIX: Autoplay
+                                    isLooping={true} // 🔥 Loop
+                                    isMuted={true} // 🔥 FIX: Mudo por padrão (obrigatório com autoplay)
                                 />
                                 <View style={{ alignItems: 'center', padding: 20, zIndex: 10, marginTop: 'auto', marginBottom: 20 }}>
                                     <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
