@@ -6,7 +6,7 @@ import {
   Platform, ScrollView, useWindowDimensions, StatusBar, ImageBackground 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { Video, ResizeMode } from 'expo-av'; // 🔥 IMPORTAÇÃO ESSENCIAL
+import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker'; 
@@ -525,34 +525,39 @@ export default function BibliotecaAdmin({ navigation }) {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* MODAL DE VÍDEO ATUALIZADO (FIX: AUTOPLAY, MUTED, ENQUADRAMENTO) */}
+        {/* MODAL DE VÍDEO CORRIGIDO E DEFINITIVO */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-                <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#111', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
+                {/* CAIXA DO MODAL (Fixa: 400x700 no PC, 90%x70% no Celular) */}
+                <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#000', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
+                    
                     <TouchableOpacity onPress={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }} style={{ position: 'absolute', top: 12, right: 12, zIndex: 100, backgroundColor: 'rgba(255,59,48,0.9)', borderRadius: 15, padding: 4 }}>
                         <MaterialCommunityIcons name="close" size={18} color="#FFF" />
                     </TouchableOpacity>
-                    <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+                    
+                    {/* CONTAINER DO VÍDEO SEM O ABSOLUTE QUE CAUSAVA O BUG */}
+                    <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#000' }}>
                         {videoModalVisible && currentVideoUrl ? (
-                            <>
-                                <Video 
-                                    ref={videoRef} 
-                                    style={{ position: 'absolute', width: '100%', height: '100%', opacity: 1 }} // 🔥 Opacidade 1
-                                    source={{ uri: currentVideoUrl }} 
-                                    resizeMode={ResizeMode.COVER} // 🔥 FIX: Preencher tela inteira
-                                    shouldPlay={true} // 🔥 FIX: Autoplay
-                                    isLooping={true} // 🔥 Loop
-                                    isMuted={true} // 🔥 FIX: Mudo por padrão (obrigatório com autoplay)
-                                />
-                                <View style={{ alignItems: 'center', padding: 20, zIndex: 10, marginTop: 'auto', marginBottom: 20 }}>
-                                    <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
-                                        <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>ECRÃ INTEIRO</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </>
+                            <Video 
+                                ref={videoRef} 
+                                style={{ flex: 1, width: '100%', height: '100%' }} // Flex 1 obriga a respeitar a caixa
+                                source={{ uri: currentVideoUrl }} 
+                                resizeMode={ResizeMode.CONTAIN} // CONTAIN garante que não corta
+                                shouldPlay={true} 
+                                isLooping={true} 
+                                isMuted={true}
+                                onLoad={() => videoRef.current?.playAsync()} // Força o play no PC
+                            />
                         ) : null}
+                        
+                        <View style={{ position: 'absolute', bottom: 20, left: 0, right: 0, alignItems: 'center', zIndex: 10 }}>
+                            <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
+                                <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                                <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>TELA CHEIA</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
+
                 </View>
             </View>
         </Modal>
