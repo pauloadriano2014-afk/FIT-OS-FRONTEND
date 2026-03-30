@@ -8,7 +8,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 IMPORTAÇÃO OBRIGATÓRIA
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker'; // 🔥 IMPORTAÇÃO PARA O UPLOAD DE VÍDEO
 
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -55,14 +56,14 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
               </View>
             </View>
 
-            {item.videoUrl && (
+            {item.videoUrl ? (
               <TouchableOpacity 
                 onPress={() => onPress(item.videoUrl)} 
                 style={[styles.videoPlayBtn, { backgroundColor: theme.accent }]}
               >
                 <MaterialCommunityIcons name="play" size={24} color={theme.isDark ? "#000" : "#FFF"} />
               </TouchableOpacity>
-            )}
+            ) : null}
 
           </View>
 
@@ -106,6 +107,7 @@ export default function BibliotecaAdmin({ navigation }) {
       videoUrl: '' 
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false); // 🔥 ESTADO PARA O UPLOAD DA BUNNY
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const videoRef = useRef(null);
 
@@ -127,7 +129,6 @@ export default function BibliotecaAdmin({ navigation }) {
 
   useEffect(() => { fetchLibrary(); }, []);
 
-  // 🔥 A MÁGICA DA BLINDAGEM: Mandando o crachá pro servidor!
   const fetchLibrary = async () => {
     setLoading(true);
     try {
@@ -178,7 +179,56 @@ export default function BibliotecaAdmin({ navigation }) {
       }
   };
 
-  // 🔥 A MÁGICA DE SALVAR COM O CRACHÁ DO DONO!
+  // 🔥 MÁQUINA DE UPLOAD DA BUNNY.NET
+  const handleUploadVideo = async () => {
+      try {
+          const result = await DocumentPicker.getDocumentAsync({ type: 'video/*', copyToCacheDirectory: true });
+          if (result.canceled) return;
+
+          setUploadingVideo(true);
+          const fileToUpload = result.assets[0];
+          const formData = new FormData();
+
+          if (Platform.OS === 'web') {
+              const res = await fetch(fileToUpload.uri);
+              const blob = await res.blob();
+              formData.append('file', blob, fileToUpload.name);
+          } else {
+              formData.append('file', {
+                  uri: fileToUpload.uri,
+                  name: fileToUpload.name || 'video_exercicio.mp4',
+                  type: fileToUpload.mimeType || 'video/mp4'
+              });
+          }
+          
+          // Envia o nome do exercício para ficar organizado lá no painel da Bunny
+          formData.append('title', formExercise.name || 'Novo Exercicio PA TEAM');
+
+          const response = await fetch('https://fitos-final.onrender.com/api/upload', {
+              method: 'POST',
+              body: formData,
+              headers: { 'Accept': 'application/json' }
+          });
+
+          const data = await response.json();
+          
+          if (response.ok && data.videoUrl) {
+              setFormExercise({ ...formExercise, videoUrl: data.videoUrl });
+              if(isWeb) window.alert("Vídeo enviado com sucesso para a Nuvem!");
+              else Alert.alert("Sucesso", "Vídeo enviado com sucesso para a Nuvem!");
+          } else {
+              throw new Error(data.error || 'Erro no envio do vídeo.');
+          }
+
+      } catch (error) {
+          console.error("Erro Upload Bunny:", error);
+          if(isWeb) window.alert("Falha ao subir vídeo: " + error.message);
+          else Alert.alert("Erro de Upload", "Falha ao subir o vídeo: " + error.message);
+      } finally {
+          setUploadingVideo(false);
+      }
+  };
+
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
       setSaving(true);
@@ -190,7 +240,6 @@ export default function BibliotecaAdmin({ navigation }) {
               adminId = userObj.id;
           }
 
-          // Adiciona o adminId aos dados do exercício que será salvo
           const payload = {
               ...formExercise,
               adminId: adminId
@@ -359,7 +408,6 @@ export default function BibliotecaAdmin({ navigation }) {
 
         </View>
 
-        {/* MODAL SELETOR DE CATEGORIA */}
         <Modal visible={catModalVisible} transparent animationType="fade" onRequestClose={() => setCatModalVisible(false)}>
             <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setCatModalVisible(false)}>
                 <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -380,7 +428,6 @@ export default function BibliotecaAdmin({ navigation }) {
             </TouchableOpacity>
         </Modal>
 
-        {/* MODAL CRIAR/EDITAR EXERCÍCIO */}
         <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
               <SafeAreaView style={{ flex:1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, borderRadius: 24, marginVertical: '2.5%', overflow: 'hidden'} : {}) }}>
@@ -428,7 +475,28 @@ export default function BibliotecaAdmin({ navigation }) {
                           </View>
                       )}
                       
-                      <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>LINK DO VÍDEO (URL)</Text>
+                      <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>VÍDEO DO EXERCÍCIO</Text>
+                      
+                      {/* 🔥 O BOTÃO DE UPLOAD PREMIUM DIRETO PARA A BUNNY */}
+                      <TouchableOpacity 
+                          style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} 
+                          onPress={handleUploadVideo}
+                          disabled={uploadingVideo}
+                      >
+                          {uploadingVideo ? (
+                              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                  <ActivityIndicator color={theme.accent} size="small" />
+                                  <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO PARA A NUVEM...</Text>
+                              </View>
+                          ) : (
+                              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                  <MaterialCommunityIcons name="cloud-upload" size={24} color={theme.accent} />
+                                  <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>FAZER UPLOAD DE VÍDEO</Text>
+                              </View>
+                          )}
+                      </TouchableOpacity>
+
+                      <Text style={[styles.inputLabelLabel, { color: theme.textSecondary, marginTop: 15 }]}>OU COLE O LINK DO VÍDEO (URL)</Text>
                       <TextInput 
                           style={[styles.modalInputPremium, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
                           value={formExercise.videoUrl} 
@@ -438,7 +506,7 @@ export default function BibliotecaAdmin({ navigation }) {
                           autoCapitalize="none" 
                       />
                       
-                      <TouchableOpacity style={[styles.btnPremium, { backgroundColor: theme.accent }]} onPress={handleSaveOrUpdate} disabled={saving}>
+                      <TouchableOpacity style={[styles.btnPremium, { backgroundColor: theme.accent }]} onPress={handleSaveOrUpdate} disabled={saving || uploadingVideo}>
                           {saving ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.btnTextPremium, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR NA BIBLIOTECA</Text>}
                       </TouchableOpacity>
                   </ScrollView>
@@ -468,7 +536,7 @@ export default function BibliotecaAdmin({ navigation }) {
                                 <View style={{ alignItems: 'center', padding: 20, zIndex: 10, marginTop: 'auto', marginBottom: 20 }}>
                                     <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
                                         <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>TELA CHEIA</Text>
+                                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>ECRÃ INTEIRO</Text>
                                     </TouchableOpacity>
                                 </View>
                             </>
@@ -515,6 +583,10 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '900' },
   inputLabelLabel: { fontSize: 11, fontWeight: '800', marginBottom: 10, letterSpacing: 1 },
   modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 15, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
+  
+  /* 🔥 NOVO ESTILO DO BOTÃO DE UPLOAD */
+  uploadBtn: { padding: 18, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  
   btnPremium: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 3 },
   btnTextPremium: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }
 });
