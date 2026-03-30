@@ -9,7 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as DocumentPicker from 'expo-document-picker'; // 🔥 IMPORTAÇÃO PARA O UPLOAD DE VÍDEO
+import * as DocumentPicker from 'expo-document-picker'; 
 
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -107,7 +107,7 @@ export default function BibliotecaAdmin({ navigation }) {
       videoUrl: '' 
   });
   const [saving, setSaving] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false); // 🔥 ESTADO PARA O UPLOAD DA BUNNY
+  const [uploadingVideo, setUploadingVideo] = useState(false); 
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const videoRef = useRef(null);
 
@@ -179,14 +179,29 @@ export default function BibliotecaAdmin({ navigation }) {
       }
   };
 
-  // 🔥 MÁQUINA DE UPLOAD DA BUNNY.NET
+  // 🔥 MÁQUINA DE UPLOAD BLINDADA
   const handleUploadVideo = async () => {
       try {
-          const result = await DocumentPicker.getDocumentAsync({ type: 'video/*', copyToCacheDirectory: true });
+          const result = await DocumentPicker.getDocumentAsync({ 
+              type: 'video/*', 
+              copyToCacheDirectory: true 
+          });
+          
           if (result.canceled) return;
 
-          setUploadingVideo(true);
           const fileToUpload = result.assets[0];
+          
+          // VERIFICAÇÃO DE EXTENSÃO / FORMATO DE ARQUIVO
+          const fileName = fileToUpload.name.toLowerCase();
+          const isValidFormat = fileName.endsWith('.mp4') || fileName.endsWith('.mov') || fileName.endsWith('.avi');
+
+          if (!isValidFormat) {
+              if(isWeb) window.alert("Formato Inválido. Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.");
+              else Alert.alert("Formato Inválido", "Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.");
+              return; // Bloqueia o upload aqui mesmo, nem gasta internet.
+          }
+
+          setUploadingVideo(true);
           const formData = new FormData();
 
           if (Platform.OS === 'web') {
@@ -201,7 +216,6 @@ export default function BibliotecaAdmin({ navigation }) {
               });
           }
           
-          // Envia o nome do exercício para ficar organizado lá no painel da Bunny
           formData.append('title', formExercise.name || 'Novo Exercicio PA TEAM');
 
           const response = await fetch('https://fitos-final.onrender.com/api/upload', {
@@ -214,8 +228,8 @@ export default function BibliotecaAdmin({ navigation }) {
           
           if (response.ok && data.videoUrl) {
               setFormExercise({ ...formExercise, videoUrl: data.videoUrl });
-              if(isWeb) window.alert("Vídeo enviado com sucesso para a Nuvem!");
-              else Alert.alert("Sucesso", "Vídeo enviado com sucesso para a Nuvem!");
+              if(isWeb) window.alert("Vídeo enviado para a Nuvem! A Bunny.net está processando as qualidades. Aguarde 1 a 3 minutos antes de testar o vídeo.");
+              else Alert.alert("Sucesso", "Vídeo enviado para a Nuvem! A Bunny.net está processando as qualidades. Aguarde 1 a 3 minutos antes de testar o vídeo.");
           } else {
               throw new Error(data.error || 'Erro no envio do vídeo.');
           }
@@ -477,7 +491,6 @@ export default function BibliotecaAdmin({ navigation }) {
                       
                       <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>VÍDEO DO EXERCÍCIO</Text>
                       
-                      {/* 🔥 O BOTÃO DE UPLOAD PREMIUM DIRETO PARA A BUNNY */}
                       <TouchableOpacity 
                           style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} 
                           onPress={handleUploadVideo}
@@ -514,7 +527,6 @@ export default function BibliotecaAdmin({ navigation }) {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* MODAL DE VÍDEO */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
                 <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#111', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
@@ -583,10 +595,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '900' },
   inputLabelLabel: { fontSize: 11, fontWeight: '800', marginBottom: 10, letterSpacing: 1 },
   modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 15, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
-  
-  /* 🔥 NOVO ESTILO DO BOTÃO DE UPLOAD */
   uploadBtn: { padding: 18, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  
   btnPremium: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 3 },
   btnTextPremium: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }
 });

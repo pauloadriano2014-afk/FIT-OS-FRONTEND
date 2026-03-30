@@ -8,7 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Image } from 'expo-image';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 OBRIGATÓRIO PARA LER O CRACHÁ
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as DocumentPicker from 'expo-document-picker'; 
 
 const getDirectImageUrl = (url) => {
     if (!url) return null;
@@ -38,6 +39,10 @@ export default function AdminAddContent({ navigation }) {
     });
     
     const [loadingAction, setLoadingAction] = useState(false);
+    
+    const [uploadingMedia, setUploadingMedia] = useState(false); 
+    const [uploadingIndex, setUploadingIndex] = useState(null);
+    const [uploadingThumb, setUploadingThumb] = useState(false); // 🔥 ESTADO PARA A CAPA
 
     const [accessModalVisible, setAccessModalVisible] = useState(false);
     const [selectedContentForAccess, setSelectedContentForAccess] = useState(null);
@@ -51,7 +56,6 @@ export default function AdminAddContent({ navigation }) {
         }
     }, [viewMode]);
 
-    // 🔥 A MÁGICA: Manda o crachá do Admin na busca
     const fetchContents = async () => {
         setLoadingData(true);
         try {
@@ -59,7 +63,7 @@ export default function AdminAddContent({ navigation }) {
             let adminId = '';
             if (userJson) {
                 const userObj = JSON.parse(userJson);
-                adminId = userObj.id; // Pegou o crachá!
+                adminId = userObj.id; 
             }
 
             const res = await fetch(`https://fitos-final.onrender.com/api/contents?adminId=${adminId}&t=${Date.now()}`);
@@ -200,19 +204,164 @@ export default function AdminAddContent({ navigation }) {
         setAudioChapters(newChapters);
     };
 
-    // 🔥 A MÁGICA: Manda o crachá do Admin na hora de SALVAR
+    // 🔥 MÁQUINA DE UPLOAD DE CAPAS (IMAGENS)
+    const handleUploadThumb = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({ 
+                type: 'image/*', 
+                copyToCacheDirectory: true 
+            });
+            
+            if (result.canceled) return;
+
+            const fileToUpload = result.assets[0];
+            const fileName = fileToUpload.name.toLowerCase();
+            const isValidFormat = fileName.match(/\.(jpg|jpeg|png|webp)$/i);
+
+            if (!isValidFormat) {
+                if(isWeb) window.alert("Formato Inválido. Use imagens JPG, PNG ou WEBP.");
+                else Alert.alert("Formato Inválido", "Use imagens JPG, PNG ou WEBP.");
+                return; 
+            }
+
+            setUploadingThumb(true);
+            const formData = new FormData();
+
+            if (Platform.OS === 'web') {
+                const res = await fetch(fileToUpload.uri);
+                const blob = await res.blob();
+                formData.append('file', blob, fileToUpload.name);
+            } else {
+                formData.append('file', {
+                    uri: fileToUpload.uri,
+                    name: fileToUpload.name || 'capa.jpg',
+                    type: fileToUpload.mimeType || 'image/jpeg'
+                });
+            }
+
+            const response = await fetch('https://fitos-final.onrender.com/api/upload-image', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+
+            const data = await response.json();
+            
+            if (response.ok && data.imageUrl) {
+                setForm({ ...form, thumbUrl: data.imageUrl });
+            } else {
+                throw new Error(data.error || 'Erro no envio da imagem.');
+            }
+
+        } catch (error) {
+            console.error("Erro Upload Capa:", error);
+            if(isWeb) window.alert("Falha ao subir capa: " + error.message);
+            else Alert.alert("Erro de Upload", "Falha ao subir a capa: " + error.message);
+        } finally {
+            setUploadingThumb(false);
+        }
+    };
+
+    // 🔥 MÁQUINA DE UPLOAD DE ÁUDIO/VÍDEO
+    const handleUploadMedia = async (chapterIndex = null) => {
+        try {
+            const isAudioUpload = contentType === 'audio' && chapterIndex !== null;
+            
+            const result = await DocumentPicker.getDocumentAsync({ 
+                type: isAudioUpload ? 'audio/*' : 'video/*', 
+                copyToCacheDirectory: true 
+            });
+            
+            if (result.canceled) return;
+  
+            const fileToUpload = result.assets[0];
+            const fileName = fileToUpload.name.toLowerCase();
+            
+            let isValidFormat = false;
+            if (isAudioUpload) {
+                isValidFormat = fileName.match(/\.(mp3|wav|m4a|aac)$/i);
+            } else {
+                isValidFormat = fileName.match(/\.(mp4|mov|avi)$/i);
+            }
+  
+            if (!isValidFormat) {
+                const msg = isAudioUpload 
+                    ? "Por favor, envie arquivos de áudio válidos (.mp3, .wav, .m4a)." 
+                    : "Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.";
+                
+                if(isWeb) window.alert(msg);
+                else Alert.alert("Formato Inválido", msg);
+                return; 
+            }
+  
+            setUploadingMedia(true);
+            setUploadingIndex(chapterIndex);
+
+            const formData = new FormData();
+  
+            if (Platform.OS === 'web') {
+                const res = await fetch(fileToUpload.uri);
+                const blob = await res.blob();
+                formData.append('file', blob, fileToUpload.name);
+            } else {
+                formData.append('file', {
+                    uri: fileToUpload.uri,
+                    name: fileToUpload.name || (isAudioUpload ? 'audio_aula.mp3' : 'video_aula.mp4'),
+                    type: fileToUpload.mimeType || (isAudioUpload ? 'audio/mpeg' : 'video/mp4')
+                });
+            }
+            
+            let mediaTitle = form.title || 'Nova Aula PA FLIX';
+            if (isAudioUpload && audioChapters[chapterIndex].title) {
+                mediaTitle = audioChapters[chapterIndex].title;
+            }
+            formData.append('title', mediaTitle);
+  
+            const response = await fetch('https://fitos-final.onrender.com/api/upload', {
+                method: 'POST',
+                body: formData,
+                headers: { 'Accept': 'application/json' }
+            });
+  
+            const data = await response.json();
+            
+            if (response.ok && data.videoUrl) {
+                if (isAudioUpload) {
+                    const newChapters = [...audioChapters];
+                    newChapters[chapterIndex].url = data.videoUrl;
+                    setAudioChapters(newChapters);
+                } else {
+                    setForm({ ...form, contentUrl: data.videoUrl }); 
+                }
+                
+                if(isWeb) window.alert("Mídia enviada para a Nuvem! A Bunny.net está processando.");
+                else Alert.alert("Sucesso", "Mídia enviada para a Nuvem! A Bunny.net está processando.");
+            } else {
+                throw new Error(data.error || 'Erro no envio.');
+            }
+  
+        } catch (error) {
+            console.error("Erro Upload Bunny:", error);
+            if(isWeb) window.alert("Falha ao subir arquivo: " + error.message);
+            else Alert.alert("Erro de Upload", "Falha ao subir arquivo: " + error.message);
+        } finally {
+            setUploadingMedia(false);
+            setUploadingIndex(null);
+        }
+    };
+
     const handleSave = async () => {
         if (!form.title || !form.thumbUrl) {
-            return Alert.alert("Erro", "Preencha Título e Capa.");
+            return Alert.alert("Erro", "Preencha Título e faça o upload da Capa.");
         }
 
         if (contentType !== 'audio' && !form.contentUrl) {
-            return Alert.alert("Erro", "Preencha o Link do Conteúdo.");
+            return Alert.alert("Erro", "Preencha o Link do Conteúdo (ou faça o Upload).");
         }
 
         if (contentType === 'audio') {
             const hasEmptyChapter = audioChapters.some(c => !c.url.trim());
-            if (hasEmptyChapter) return Alert.alert("Erro", "Preencha o link de todos os capítulos de áudio.");
+            if (hasEmptyChapter) return Alert.alert("Erro", "Preencha o link (ou faça upload) de todos os capítulos de áudio.");
         }
 
         setLoadingAction(true);
@@ -221,7 +370,7 @@ export default function AdminAddContent({ navigation }) {
             let adminId = '';
             if (userJson) {
                 const userObj = JSON.parse(userJson);
-                adminId = userObj.id; // Pegou o crachá!
+                adminId = userObj.id; 
             }
 
             const payload = {
@@ -230,7 +379,7 @@ export default function AdminAddContent({ navigation }) {
                 videoUrl: contentType === 'video' ? form.contentUrl : null,
                 pdfUrl: contentType === 'ebook' ? form.contentUrl : null,
                 audioUrl: contentType === 'audio' ? JSON.stringify(audioChapters) : null,
-                adminId: adminId // 🔥 CARIMBA O DONO
+                adminId: adminId 
             };
 
             const url = editingId 
@@ -256,12 +405,6 @@ export default function AdminAddContent({ navigation }) {
         } finally {
             setLoadingAction(false);
         }
-    };
-
-    const getContentLabel = () => {
-        if (contentType === 'ebook') return "LINK DO ARQUIVO PDF (Google Drive, Dropbox, etc)";
-        if (contentType === 'audio') return "LINK DO ÁUDIO MP3";
-        return "LINK DO VÍDEO (.mp4 ou .m3u8)";
     };
 
     const renderContentItem = ({ item }) => {
@@ -412,13 +555,54 @@ export default function AdminAddContent({ navigation }) {
                                     <Text style={[styles.label, { color: theme.accent }]}>CATEGORIA</Text>
                                     <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.category} onChangeText={t=>setForm({...form, category:t.toUpperCase()})} placeholderTextColor={theme.textSecondary}/>
 
-                                    <Text style={[styles.label, { color: theme.accent }]}>LINK DA CAPA (Imagem Thumbnail)</Text>
-                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.thumbUrl} onChangeText={t=>setForm({...form, thumbUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
+                                    {/* 🔥 BOTÃO DE UPLOAD DA CAPA */}
+                                    <Text style={[styles.label, { color: theme.accent }]}>CAPA DO CONTEÚDO (Thumbnail)</Text>
+                                    <TouchableOpacity 
+                                        style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15', padding: 12 }]} 
+                                        onPress={handleUploadThumb}
+                                        disabled={uploadingThumb}
+                                    >
+                                        {uploadingThumb ? (
+                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                                <ActivityIndicator color={theme.accent} size="small" />
+                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO IMAGEM...</Text>
+                                            </View>
+                                        ) : (
+                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                                <MaterialCommunityIcons name="image-plus" size={24} color={theme.accent} />
+                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>FAZER UPLOAD DA CAPA (JPG/PNG)</Text>
+                                            </View>
+                                        )}
+                                    </TouchableOpacity>
+                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, marginTop: 10 }]} value={form.thumbUrl} onChangeText={t=>setForm({...form, thumbUrl:t})} placeholder="Ou cole o link da imagem..." placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
 
                                     {contentType !== 'audio' && (
                                         <>
+                                            {contentType === 'video' && (
+                                                <>
+                                                    <Text style={[styles.label, { color: theme.accent, marginTop: 15 }]}>VÍDEO DA AULA</Text>
+                                                    <TouchableOpacity 
+                                                        style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} 
+                                                        onPress={() => handleUploadMedia(null)}
+                                                        disabled={uploadingMedia}
+                                                    >
+                                                        {uploadingMedia ? (
+                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                                                <ActivityIndicator color={theme.accent} size="small" />
+                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO PARA A NUVEM...</Text>
+                                                            </View>
+                                                        ) : (
+                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                                                <MaterialCommunityIcons name="cloud-upload" size={24} color={theme.accent} />
+                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>FAZER UPLOAD DE VÍDEO</Text>
+                                                            </View>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                </>
+                                            )}
+
                                             <Text style={[styles.label, { color: theme.accent }]}>
-                                                {contentType === 'ebook' ? "LINK DO ARQUIVO PDF" : "LINK DO VÍDEO (.mp4)"}
+                                                {contentType === 'ebook' ? "LINK DO ARQUIVO PDF" : "OU COLE O LINK DO VÍDEO (.mp4)"}
                                             </Text>
                                             <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.contentUrl} onChangeText={t=>setForm({...form, contentUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
                                             
@@ -452,11 +636,30 @@ export default function AdminAddContent({ navigation }) {
                                                         onChangeText={(t) => updateChapter(index, 'title', t)} 
                                                         placeholder="Ex: 01 - Introdução" placeholderTextColor={theme.textSecondary}
                                                     />
+
+                                                    <TouchableOpacity 
+                                                        style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15', marginTop: 15, padding: 12 }]} 
+                                                        onPress={() => handleUploadMedia(index)}
+                                                        disabled={uploadingMedia}
+                                                    >
+                                                        {uploadingMedia && uploadingIndex === index ? (
+                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                                                <ActivityIndicator color={theme.accent} size="small" />
+                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO ÁUDIO...</Text>
+                                                            </View>
+                                                        ) : (
+                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                                                                <MaterialCommunityIcons name="cloud-upload" size={20} color={theme.accent} />
+                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>UPLOAD DE ÁUDIO (.MP3)</Text>
+                                                            </View>
+                                                        )}
+                                                    </TouchableOpacity>
+
                                                     <TextInput 
                                                         style={[styles.inputChapter, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 10 }]} 
                                                         value={chapter.url} 
                                                         onChangeText={(t) => updateChapter(index, 'url', t)} 
-                                                        placeholder="Link do Áudio do Google Drive" placeholderTextColor={theme.textSecondary} autoCapitalize='none'
+                                                        placeholder="Ou cole o link do áudio..." placeholderTextColor={theme.textSecondary} autoCapitalize='none'
                                                     />
                                                 </View>
                                             ))}
@@ -481,7 +684,7 @@ export default function AdminAddContent({ navigation }) {
                                         />
                                     </View>
 
-                                    <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSave} disabled={loadingAction}>
+                                    <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSave} disabled={loadingAction || uploadingMedia || uploadingThumb}>
                                         {loadingAction ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'}/> : <Text style={[styles.btnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{editingId ? 'SALVAR ALTERAÇÕES' : 'PUBLICAR CONTEÚDO'}</Text>}
                                     </TouchableOpacity>
                                     <View style={{height: 60}}/>
@@ -571,5 +774,6 @@ const styles = StyleSheet.create({
     studentAccessRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1 },
     studentAvatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
     studentName: { fontWeight: 'bold', fontSize: 14 },
-    studentEmail: { color: '#888', fontSize: 12 }
+    studentEmail: { color: '#888', fontSize: 12 },
+    uploadBtn: { padding: 18, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }
 });

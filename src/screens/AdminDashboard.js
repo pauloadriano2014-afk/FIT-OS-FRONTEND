@@ -130,7 +130,7 @@ export default function AdminDashboard({ navigation }) {
       }
       
       const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${code}`; 
-      const message = `Fala, campeão! Bem-vindo ao time. Faça o seu cadastro no nosso app oficial por aqui:\n\n${inviteLink}`;
+      const message = `Seja bem-vindo(a) à nossa equipe! Para darmos o start no seu projeto, faça o cadastro no app oficial por aqui:\n\n${inviteLink}`;
       
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
       
