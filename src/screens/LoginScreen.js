@@ -1,26 +1,14 @@
 // src/screens/LoginScreen.js
 import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  Image,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  SafeAreaView,
-  Linking
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ActivityIndicator, Image, KeyboardAvoidingView,
+  Platform, ScrollView, SafeAreaView, Linking
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
 import { useTheme } from '../contexts/ThemeContext';
 
 const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
-const ADMIN_EMAIL = 'paulo_adriano2014@live.com';
 
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme(); 
@@ -55,8 +43,8 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      const emailLogado = data.user.email.toLowerCase().trim();
-      const isAdmin = emailLogado === ADMIN_EMAIL.toLowerCase();
+      // 🔥 A CIRURGIA: Lê a patente direto do banco de dados em vez de checar o e-mail
+      const isAdmin = data.user.role === 'ADMIN';
       const role = isAdmin ? 'admin' : 'student';
 
       await AsyncStorage.multiRemove(['user', 'role']);
@@ -90,7 +78,6 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // 🔥 ROTA 3: O CONCIERGE VIP (RECUPERAÇÃO PELO WHATSAPP)
   const handleForgotPassword = () => {
     if (!email || email.trim() === '') {
         const msg = "Digite seu E-MAIL no campo acima antes de pedir a troca de senha.";
@@ -134,7 +121,6 @@ export default function LoginScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           
           <View style={styles.brandContainer}>
-            {/* 🔥 O LEÃO OFICIAL TRANSPARENTE, GRANDE E IMPONENTE */}
             <Image
               source={require('../../assets/logo.png')}
               style={styles.logoImage}
@@ -162,7 +148,6 @@ export default function LoginScreen({ navigation }) {
               value={password}
             />
             
-            {/* 🔥 BOTÃO ESQUECI MINHA SENHA VIP */}
             <TouchableOpacity onPress={handleForgotPassword} style={{ alignSelf: 'flex-end', marginBottom: 20 }}>
                 <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: 'bold' }}>Esqueci minha senha</Text>
             </TouchableOpacity>
@@ -196,7 +181,7 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 30 },
   brandContainer: { alignItems: 'center', marginBottom: 40 },
-  logoImage: { width: 220, height: 220 }, /* 🔥 TAMANHO DEVOLVIDO AO PADRÃO DO LEÃO */
+  logoImage: { width: 220, height: 220 }, 
   formContainer: { width: '100%' },
   
   input: {
