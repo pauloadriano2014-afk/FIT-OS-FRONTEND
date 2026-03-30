@@ -150,27 +150,27 @@ function RootNavigator() {
     const restoreSession = async () => {
       try {
         const userJson = await AsyncStorage.getItem('user');
-        const role = await AsyncStorage.getItem('role');
+        let role = await AsyncStorage.getItem('role'); // Tenta pegar a chave 'role'
 
-        if (userJson && role) {
+        if (userJson) {
           const user = JSON.parse(userJson);
-          setSavedUser(user);
+          
+          // 🔥 BLINDAGEM: Se o 'role' não estiver salvo sozinho, busca dentro do usuário
+          const finalRole = role || user.role || user.type; 
 
-          if (role === 'admin') {
-            setInitialRoute('AdminDashboard');
-          } else if (role === 'student') {
-            setInitialRoute('Main');
+          if (finalRole) {
+            setSavedUser(user);
+            if (finalRole.toLowerCase() === 'admin') {
+              setInitialRoute('AdminDashboard');
+            } else {
+              setInitialRoute('Main');
+            }
+            setLoading(false);
+            return;
           }
-          // 🔥 Se achou o usuário, para a verificação e vai pra tela certa
-          setLoading(false);
-          return; 
         }
-        
-        // Se chegou aqui, é porque não tem usuário salvo
-        setInitialRoute('Login');
       } catch (e) {
         console.log('Erro ao restaurar sessão:', e);
-        setInitialRoute('Login');
       } finally {
         setLoading(false);
       }
