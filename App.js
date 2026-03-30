@@ -229,11 +229,23 @@ function RootNavigator() {
   );
 }
 
+/* ================= DEEP LINKING (ROTEAMENTO WEB) ================= */
+const linking = {
+  prefixes: ['https://www.pauloadrianoteam.com.br', 'https://pauloadrianoteam.com.br'],
+  config: {
+    screens: {
+      Login: '',
+      Register: 'registro', // 🔥 Transforma o "Register" na rota "/registro"
+    }
+  }
+};
+
 export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <NavigationContainer>
+        {/* 🔥 AQUI A MÁGICA ACONTECE: O App agora lê a URL */}
+        <NavigationContainer linking={linking}>
           <RootNavigator />
         </NavigationContainer>
       </ThemeProvider>

@@ -1,8 +1,9 @@
+// src/screens/AdminDashboard.js
 import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
   TextInput, StatusBar, RefreshControl, Modal, ScrollView, Image, Alert, 
-  KeyboardAvoidingView, Platform, Switch
+  KeyboardAvoidingView, Platform, Switch, Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { useFocusEffect } from '@react-navigation/native';
@@ -16,7 +17,7 @@ export default function AdminDashboard({ navigation }) {
   // 🔥 PUXA O TEMA E A FUNÇÃO DE TROCAR
   const { theme, changeTheme } = useTheme();
 
-  const [activeTab, setActiveTab] = useState('GESTAO'); 
+  const [activeTab, setActiveTab] = useState('ALUNOS'); // Mantendo a Aba ALUNOS como inicial
   const [alunos, setAlunos] = useState([]);
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
@@ -24,6 +25,9 @@ export default function AdminDashboard({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  
+  // 🔥 NOVO: Estado para saber quem está logado (Paulo ou Adri)
+  const [adminEmail, setAdminEmail] = useState('');
 
   // Modals
   const [selectedCheckin, setSelectedCheckin] = useState(null);
@@ -45,10 +49,11 @@ export default function AdminDashboard({ navigation }) {
       if(!refreshing) setLoading(true);
       const t = Date.now();
       
-      const [resData, resCheckins, savedThemeObj] = await Promise.all([
+      const [resData, resCheckins, savedThemeObj, userJson] = await Promise.all([
           fetch(`https://fitos-final.onrender.com/api/admin/data?t=${t}`),
           fetch(`https://fitos-final.onrender.com/api/checkin?t=${t}`),
-          AsyncStorage.getItem('app_theme')
+          AsyncStorage.getItem('app_theme'),
+          AsyncStorage.getItem('user') // 🔥 Pega os dados de quem está logado
       ]);
 
       const data = await resData.json();
@@ -60,6 +65,12 @@ export default function AdminDashboard({ navigation }) {
       }
       if (data.recentLogs) setFeed(data.recentLogs);
       if (Array.isArray(dataCheckins)) setCheckins(dataCheckins);
+
+      // Salva o email do Admin logado para usarmos no link de convite
+      if (userJson) {
+          const userObj = JSON.parse(userJson);
+          setAdminEmail(userObj.email);
+      }
 
       // Puxa a cor ativa para mostrar a bolinha certa
       if (savedThemeObj) {
@@ -114,7 +125,31 @@ export default function AdminDashboard({ navigation }) {
       finally { setSendingNotice(false); }
   };
 
-  // 🔥 FUNÇÕES DE CONTROLE DE TEMA
+  // 🔥 FUNÇÃO DE ELITE: BOTÃO DO WHATSAPP DE CONVITE
+  const handleInviteStudent = () => {
+      let code = 'PATEAM'; 
+      
+      if (adminEmail === 'adri.personal@hotmail.com') {
+          code = 'CURVAS';
+      }
+      
+      // 🔥 O LINK OFICIAL DO SEU IMPÉRIO
+      const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${code}`; 
+      const message = `Fala, campeão! Bem-vindo ao time. Faça o seu cadastro no nosso app oficial por aqui:\n\n${inviteLink}`;
+      
+      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+      
+      Linking.canOpenURL(whatsappUrl).then(supported => {
+          if (supported) {
+              Linking.openURL(whatsappUrl);
+          } else {
+              if (Platform.OS === 'web') window.open(whatsappUrl, '_blank');
+              else Alert.alert("Aviso", "Não foi possível abrir o WhatsApp neste dispositivo.");
+          }
+      }).catch(err => console.error('An error occurred', err));
+  };
+
+  // --- CONTROLE DE TEMA ---
   const toggleDarkMode = (newValue) => {
       if (newValue) {
           setSelectedColor('verde');
@@ -188,7 +223,6 @@ export default function AdminDashboard({ navigation }) {
   const renderAluno = ({ item }) => (
     <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
       
-      {/* 🔥 A MÁGICA DA FOTO: Se tiver photoUrl, mostra a imagem. Se não, mostra a letra. */}
       {item.photoUrl ? (
           <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
       ) : (
@@ -249,6 +283,15 @@ export default function AdminDashboard({ navigation }) {
             
             {activeTab === 'ALUNOS' && (
                 <>
+                    {/* 🔥 O BOTÃO DOURADO DE CONVITE */}
+                    <TouchableOpacity 
+                        style={[styles.inviteBtn, { backgroundColor: '#FFCC00' }]} 
+                        onPress={handleInviteStudent}
+                    >
+                        <MaterialCommunityIcons name="whatsapp" size={22} color="#000" />
+                        <Text style={styles.inviteBtnText}>CONVIDAR ALUNO</Text>
+                    </TouchableOpacity>
+
                     <TextInput 
                         style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, borderWidth: 1 }]} 
                         placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary}
@@ -295,7 +338,6 @@ export default function AdminDashboard({ navigation }) {
                 >
                     <View style={styles.gridGestao}>
 
-                        {/* 🔥 PAINEL DE CONTROLE DE APARÊNCIA */}
                         <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
                             <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
                             
@@ -436,6 +478,11 @@ const styles = StyleSheet.create({
   tabText: { color: '#888', fontWeight: 'bold', fontSize: 12 },
   badgeCount: { backgroundColor:'#FF3B30', paddingHorizontal:6, borderRadius:10, height:16, justifyContent:'center', marginLeft:5 },
   badgeText: { color:'#FFF', fontSize:9, fontWeight:'bold' },
+  
+  // 🔥 ESTILOS DO BOTÃO DE CONVITE
+  inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginBottom: 15, padding: 15, borderRadius: 12, gap: 8 },
+  inviteBtnText: { color: '#000', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+
   searchBar: { padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
   feedCard: { padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1 },
   iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
@@ -446,7 +493,7 @@ const styles = StyleSheet.create({
   progBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 6, borderRadius: 4, marginTop: 6, gap: 4 },
   progText: { fontSize: 9, fontWeight: 'bold' },
   card: { padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, cursor: 'pointer' },
-  avatarPlaceholder: { width: 45, height: 45, borderRadius: 25, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }, // Add overflow pra foto ficar redonda
+  avatarPlaceholder: { width: 45, height: 45, borderRadius: 25, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   avatarText: { fontWeight: 'bold', fontSize: 18 },
   alunoName: { fontWeight: 'bold', fontSize: 16 },
   alunoEmail: { color: '#888', fontSize: 12 },
