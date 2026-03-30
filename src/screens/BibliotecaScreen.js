@@ -47,9 +47,10 @@ export default function BibliotecaScreen({ navigation, route }) {
 
           if (!user) return;
 
+          // 🔥 A MÁGICA FINAL: O Aluno pede os conteúdos enviando o próprio ID
           const [resContents, resAccess] = await Promise.all([
-              fetch('https://fitos-final.onrender.com/api/contents'),
-              fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}`)
+              fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&t=${Date.now()}`),
+              fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}&t=${Date.now()}`)
           ]);
 
           const dataContents = await resContents.json();
@@ -186,7 +187,6 @@ export default function BibliotecaScreen({ navigation, route }) {
                           </View>
                       )}
 
-                      {/* 🔥 CIRURGIA: Ocultando título para E-books e Áudios (Conteúdo Bloqueado) */}
                       {item.locked ? (
                           <View style={styles.lockedCenter}>
                               <MaterialCommunityIcons name="lock" size={32} color="#FFCC00" />
@@ -197,7 +197,6 @@ export default function BibliotecaScreen({ navigation, route }) {
                           </View>
                       ) : (
                           <View style={styles.unlockedBottom}>
-                              {/* 🔥 CIRURGIA: Ocultando título para E-books e Áudios (Conteúdo Liberado) */}
                               {item.type === 'video' && (
                                   <Text style={[styles.cardTitle, { color: theme.accent }]} numberOfLines={3}>{item.title}</Text>
                               )}

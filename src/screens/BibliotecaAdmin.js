@@ -1,27 +1,15 @@
+// src/screens/BibliotecaAdmin.js
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  TouchableOpacity, 
-  FlatList, 
-  TextInput, 
-  Modal, 
-  Image, 
-  ActivityIndicator, 
-  Alert, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView, 
-  useWindowDimensions, 
-  StatusBar, 
-  ImageBackground 
+  View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, 
+  Modal, Image, ActivityIndicator, Alert, KeyboardAvoidingView, 
+  Platform, ScrollView, useWindowDimensions, StatusBar, ImageBackground 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 IMPORTAÇÃO OBRIGATÓRIA
 
-/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
 const categoryCovers = {
@@ -45,7 +33,6 @@ const categories = [
     'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
 ];
 
-// 🔥 DESIGN DE CARD PREMIUM
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme }) => {
     return (
         <View style={[styles.exerciseCard, { width: width, backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? '#000' : '#CCC' }]}>
@@ -107,7 +94,6 @@ export default function BibliotecaAdmin({ navigation }) {
   const [filterText, setFilterText] = useState('');
   const [selectedCat, setSelectedCat] = useState('TODOS');
   
-  // Modais e Controles
   const [modalVisible, setModalVisible] = useState(false); 
   const [catModalVisible, setCatModalVisible] = useState(false); 
   const [showFormDropdown, setShowFormDropdown] = useState(false);
@@ -137,16 +123,24 @@ export default function BibliotecaAdmin({ navigation }) {
       ? (containerWidth - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / 2
       : (containerWidth - (HORIZONTAL_PADDING * 2));
 
-  // 🔥 LÓGICA DE TAMANHO DAS LOGOS LATERAIS (WEB)
   const lateralSpace = (width - containerWidth) / 2;
 
   useEffect(() => { fetchLibrary(); }, []);
 
+  // 🔥 A MÁGICA DA BLINDAGEM: Mandando o crachá pro servidor!
   const fetchLibrary = async () => {
     setLoading(true);
     try {
-        const res = await fetch('https://fitos-final.onrender.com/api/admin/data?t=' + Date.now());
+        const userJson = await AsyncStorage.getItem('user');
+        let adminId = '';
+        if (userJson) {
+            const userObj = JSON.parse(userJson);
+            adminId = userObj.id;
+        }
+
+        const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
         const data = await res.json();
+        
         if (data.exercises) {
             setExercises(data.exercises.reverse()); 
         }
@@ -166,50 +160,54 @@ export default function BibliotecaAdmin({ navigation }) {
       }
   }, [isWeb]);
 
-  // 🔥 NOVA FUNÇÃO DE EXCLUSÃO BLINDADA CONTRA ERROS DO BANCO DE DADOS
   const deleteItem = async (id) => {
       try {
           const url = `https://fitos-final.onrender.com/api/exercise?id=${id}`;
           const res = await fetch(url, { method: 'DELETE' });
           
           if (res.ok) {
-              // Se deu certo, tira da lista visual na mesma hora
               setExercises(prev => prev.filter(item => item.id !== id));
           } else { 
-              // 🔥 O servidor barrou a exclusão (Provavelmente está sendo usado num treino)
               const errorData = await res.json();
-              if (isWeb) {
-                  window.alert(errorData.error || "Erro ao excluir.");
-              } else {
-                  Alert.alert("Ação Bloqueada", errorData.error || "Erro ao excluir.");
-              }
+              if (isWeb) window.alert(errorData.error || "Erro ao excluir.");
+              else Alert.alert("Ação Bloqueada", errorData.error || "Erro ao excluir.");
           }
       } catch (e) { 
-          if (isWeb) {
-              window.alert("Erro de Conexão. Verifique sua internet.");
-          } else {
-              Alert.alert("Erro de Conexão", "Verifique sua internet."); 
-          }
+          if (isWeb) window.alert("Erro de Conexão. Verifique sua internet.");
+          else Alert.alert("Erro de Conexão", "Verifique sua internet."); 
       }
   };
 
+  // 🔥 A MÁGICA DE SALVAR COM O CRACHÁ DO DONO!
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
       setSaving(true);
       try {
+          const userJson = await AsyncStorage.getItem('user');
+          let adminId = '';
+          if (userJson) {
+              const userObj = JSON.parse(userJson);
+              adminId = userObj.id;
+          }
+
+          // Adiciona o adminId aos dados do exercício que será salvo
+          const payload = {
+              ...formExercise,
+              adminId: adminId
+          };
+
           const apiUrl = 'https://fitos-final.onrender.com/api/exercise'; 
           const res = await fetch(apiUrl, {
               method: !!formExercise.id ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify(formExercise)
+              body: JSON.stringify(payload)
           });
+          
           if (res.ok) {
               setModalVisible(false);
               fetchLibrary();
-              
               if(isWeb) window.alert("Exercício salvo com sucesso!");
               else Alert.alert("Sucesso", "Exercício salvo com sucesso!");
-              
           } else { 
               const errorData = await res.json();
               if(isWeb) window.alert(errorData.error || "O servidor recusou os dados.");
@@ -243,34 +241,20 @@ export default function BibliotecaAdmin({ navigation }) {
     <RootComponent style={rootStyle}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        {/* 🔥 DUAS LOGOS CENTRALIZADAS NAS LATERAIS (WEB) */}
         {isWeb && lateralSpace > 10 && (
             <View style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
-                
-                {/* CAIXA ESQUERDA */}
                 <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
                     <Image 
                         source={require('../../assets/logo.png')} 
-                        style={{ 
-                            width: '85%', 
-                            height: '60%', 
-                            resizeMode: 'contain' // 🔥 Contain garante que a logo não vaze nem corte!
-                        }}
+                        style={{ width: '85%', height: '60%', resizeMode: 'contain' }}
                     />
                 </View>
-
-                {/* CAIXA DIREITA */}
                 <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
                     <Image 
                         source={require('../../assets/logo.png')} 
-                        style={{ 
-                            width: '85%', 
-                            height: '60%', 
-                            resizeMode: 'contain' // 🔥 Contain garante que a logo não vaze nem corte!
-                        }}
+                        style={{ width: '85%', height: '60%', resizeMode: 'contain' }}
                     />
                 </View>
-
             </View>
         )}
 
@@ -281,10 +265,7 @@ export default function BibliotecaAdmin({ navigation }) {
             alignSelf: 'center', 
             backgroundColor: theme.bg, 
             ...(isWeb ? {
-                borderLeftWidth: 1, 
-                borderRightWidth: 1, 
-                borderColor: theme.border,
-                overflow: 'hidden' 
+                borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, overflow: 'hidden' 
             } : {}) 
         }}>
             
@@ -325,14 +306,12 @@ export default function BibliotecaAdmin({ navigation }) {
                         />
                     </View>
 
-                    {/* SELETOR DE CATEGORIA (Filtro Principal) */}
                     <TouchableOpacity 
                         style={[styles.catSelector, { backgroundColor: theme.surface, borderColor: theme.border }]}
                         onPress={() => setCatModalVisible(true)}
                     >
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                             <MaterialCommunityIcons name="filter-variant" size={20} color={theme.accent} />
-                            <Text style={[styles.catSelectorText, { color: theme.textSecondary }]}>Categoria: </Text>
                             <Text style={[styles.catSelectorVal, { color: theme.text }]}>{selectedCat.toUpperCase()}</Text>
                         </View>
                         <MaterialCommunityIcons name="chevron-down" size={22} color={theme.textSecondary} />
@@ -380,10 +359,10 @@ export default function BibliotecaAdmin({ navigation }) {
 
         </View>
 
-        {/* MODAL SELETOR DE CATEGORIA DO FILTRO */}
+        {/* MODAL SELETOR DE CATEGORIA */}
         <Modal visible={catModalVisible} transparent animationType="fade" onRequestClose={() => setCatModalVisible(false)}>
             <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setCatModalVisible(false)}>
-                <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: '#000' }]}>
+                <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 20, textAlign: 'center' }]}>FILTRAR CATEGORIA</Text>
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                         {categories.map(cat => (
@@ -401,7 +380,7 @@ export default function BibliotecaAdmin({ navigation }) {
             </TouchableOpacity>
         </Modal>
 
-        {/* MODAL CRIAR/EDITAR EXERCÍCIO COM DROPDOWN SANFONA */}
+        {/* MODAL CRIAR/EDITAR EXERCÍCIO */}
         <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
               <SafeAreaView style={{ flex:1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, borderRadius: 24, marginVertical: '2.5%', overflow: 'hidden'} : {}) }}>
@@ -420,7 +399,6 @@ export default function BibliotecaAdmin({ navigation }) {
                           placeholderTextColor={theme.textSecondary} 
                       />
                       
-                      {/* O SELETOR PREMIUM INLINE (SANFONA) */}
                       <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>GRUPO MUSCULAR ALVO</Text>
                       <TouchableOpacity 
                           style={[styles.catSelector, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: showFormDropdown ? 10 : 25 }]}
@@ -433,7 +411,6 @@ export default function BibliotecaAdmin({ navigation }) {
                           <MaterialCommunityIcons name={showFormDropdown ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                       </TouchableOpacity>
 
-                      {/* LISTA SANFONA QUE DESCE AO CLICAR */}
                       {showFormDropdown && (
                           <View style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, marginBottom: 25, padding: 10, maxHeight: 200 }}>
                               <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
@@ -510,25 +487,19 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 24, fontWeight: '900' },
   headerSubtitle: { color: '#888', fontSize: 11, letterSpacing: 1, fontWeight: 'bold' },
   backBtn: { padding: 12, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-  
   searchBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20, height: 55, borderRadius: 30, borderWidth: 1 },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500', outlineStyle: 'none' },
-  
   catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
-  catSelectorText: { fontSize: 14, fontWeight: '600' },
   catSelectorVal: { fontSize: 15, fontWeight: '800' },
-  
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
   catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12 },
   catOptionText: { fontSize: 16, fontWeight: '600' },
-
   categoryCover: { height: 160, width: '100%', justifyContent: 'flex-end', overflow: 'hidden', elevation: 4 },
   coverOverlay: { backgroundColor: 'rgba(0,0,0,0.4)', padding: 20, height: '100%', justifyContent: 'flex-end', borderRadius: 24 },
   coverTitle: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: 1, marginBottom: 5 },
   coverBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   coverCount: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-  
   exerciseCard: { borderRadius: 20, padding: 18, marginBottom: 15, borderWidth: 1, elevation: 2 },
   cardInfo: { flexDirection: 'row', alignItems: 'center' },
   iconBox: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
@@ -536,19 +507,14 @@ const styles = StyleSheet.create({
   catTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
   exerciseSub: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   videoPlayBtn: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', elevation: 3 },
-  
   cardActions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 15, borderTopWidth: 1, paddingTop: 15, gap: 15 },
   actionBtn: { padding: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  
   fab: { position: 'absolute', width: 65, height: 65, borderRadius: 33, justifyContent: 'center', alignItems: 'center', elevation: 8, zIndex: 999 },
   emptyText: { color:'#888', textAlign:'center', marginTop:50, fontStyle:'italic' },
-  
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, alignItems: 'center', paddingTop: Platform.OS === 'android' ? 20 : 20 },
   modalTitle: { fontSize: 18, fontWeight: '900' },
-  
   inputLabelLabel: { fontSize: 11, fontWeight: '800', marginBottom: 10, letterSpacing: 1 },
   modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 15, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
-  
   btnPremium: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 3 },
   btnTextPremium: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }
 });

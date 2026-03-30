@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { Image } from 'expo-image';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 OBRIGATÓRIO PARA LER O CRACHÁ
 
 const getDirectImageUrl = (url) => {
     if (!url) return null;
@@ -30,7 +31,6 @@ export default function AdminAddContent({ navigation }) {
     const [editingId, setEditingId] = useState(null); 
     const [contentType, setContentType] = useState('video'); 
     
-    // 🔥 AGORA O CAMPO VEM EM BRANCO PARA VOCÊ DIGITAR
     const [audioChapters, setAudioChapters] = useState([{ title: '', url: '' }]);
 
     const [form, setForm] = useState({ 
@@ -51,10 +51,18 @@ export default function AdminAddContent({ navigation }) {
         }
     }, [viewMode]);
 
+    // 🔥 A MÁGICA: Manda o crachá do Admin na busca
     const fetchContents = async () => {
         setLoadingData(true);
         try {
-            const res = await fetch('https://fitos-final.onrender.com/api/contents');
+            const userJson = await AsyncStorage.getItem('user');
+            let adminId = '';
+            if (userJson) {
+                const userObj = JSON.parse(userJson);
+                adminId = userObj.id; // Pegou o crachá!
+            }
+
+            const res = await fetch(`https://fitos-final.onrender.com/api/contents?adminId=${adminId}&t=${Date.now()}`);
             const data = await res.json();
             if (Array.isArray(data)) setContents(data);
         } catch (e) {
@@ -70,7 +78,14 @@ export default function AdminAddContent({ navigation }) {
         setLoadingAccess(true);
 
         try {
-            const resStudents = await fetch('https://fitos-final.onrender.com/api/admin/data');
+            const userJson = await AsyncStorage.getItem('user');
+            let adminId = '';
+            if (userJson) {
+                const userObj = JSON.parse(userJson);
+                adminId = userObj.id; 
+            }
+
+            const resStudents = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
             const dataStudents = await resStudents.json();
             if (dataStudents.users) setAllStudents(dataStudents.users);
 
@@ -185,6 +200,7 @@ export default function AdminAddContent({ navigation }) {
         setAudioChapters(newChapters);
     };
 
+    // 🔥 A MÁGICA: Manda o crachá do Admin na hora de SALVAR
     const handleSave = async () => {
         if (!form.title || !form.thumbUrl) {
             return Alert.alert("Erro", "Preencha Título e Capa.");
@@ -201,12 +217,20 @@ export default function AdminAddContent({ navigation }) {
 
         setLoadingAction(true);
         try {
+            const userJson = await AsyncStorage.getItem('user');
+            let adminId = '';
+            if (userJson) {
+                const userObj = JSON.parse(userJson);
+                adminId = userObj.id; // Pegou o crachá!
+            }
+
             const payload = {
                 title: form.title, subtitle: form.subtitle, category: form.category,
                 thumbUrl: form.thumbUrl, duration: form.duration, type: contentType, isVIP: form.isVIP,
                 videoUrl: contentType === 'video' ? form.contentUrl : null,
                 pdfUrl: contentType === 'ebook' ? form.contentUrl : null,
                 audioUrl: contentType === 'audio' ? JSON.stringify(audioChapters) : null,
+                adminId: adminId // 🔥 CARIMBA O DONO
             };
 
             const url = editingId 

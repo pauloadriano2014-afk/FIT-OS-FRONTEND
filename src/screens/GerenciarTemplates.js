@@ -1,3 +1,4 @@
+// src/screens/GerenciarTemplates.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
@@ -5,8 +6,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker'; 
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 OBRIGATÓRIO PARA LER O CRACHÁ
 
-/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function GerenciarTemplates({ navigation }) {
@@ -26,17 +27,24 @@ export default function GerenciarTemplates({ navigation }) {
     return unsubscribe;
   }, [navigation]);
 
+  // 🔥 A MÁGICA: O Aplicativo manda o crachá do Admin logado
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-        const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?t=${Date.now()}`);
+        const userJson = await AsyncStorage.getItem('user');
+        let adminId = '';
+        if (userJson) {
+            const userObj = JSON.parse(userJson);
+            adminId = userObj.id; // Pegou o crachá!
+        }
+
+        const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${adminId}&t=${Date.now()}`);
         const data = await res.json();
         setTemplates(data || []);
     } catch(e) { Alert.alert("Erro", "Falha ao carregar"); }
     finally { setLoading(false); }
   };
 
-  // 🔥 MOTOR DE IA: IMPORTAÇÃO COMPLETA OU ÚNICA
   const handleImportPDF = async (mode = 'FULL') => {
       try {
           const result = await DocumentPicker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
@@ -46,7 +54,6 @@ export default function GerenciarTemplates({ navigation }) {
           const fileToUpload = result.assets[0];
           const formData = new FormData();
 
-          // 🔥 AQUI ESTAVA O ERRO: AVISAR O BACKEND SOBRE O MODO!
           formData.append('mode', mode);
 
           if (Platform.OS === 'web') {
@@ -72,7 +79,6 @@ export default function GerenciarTemplates({ navigation }) {
 
           setModalVisible(false);
 
-          // 🔥 Navega mandando a rotina separada certinha
           navigation.navigate('MontarTreinoAdmin', { 
               isTemplateMode: true, 
               templateData: { 
@@ -189,7 +195,6 @@ export default function GerenciarTemplates({ navigation }) {
                     </View>
                 ) : (
                     <View style={{gap: 12}}>
-                        {/* OPÇÃO 1: ROTINA COMPLETA */}
                         <TouchableOpacity 
                             style={[styles.aiButton, { backgroundColor: theme.accent, borderColor: theme.accent }]} 
                             onPress={() => handleImportPDF('FULL')}
@@ -198,7 +203,6 @@ export default function GerenciarTemplates({ navigation }) {
                             <Text style={[styles.aiButtonText, { color: theme.isDark ? '#000' : '#FFF' }]}>IMPORTAR ROTINA SEMANAL (PDF)</Text>
                         </TouchableOpacity>
 
-                        {/* OPÇÃO 2: TREINO ÚNICO */}
                         <TouchableOpacity 
                             style={[styles.aiButtonSingle, { borderColor: theme.accent }]} 
                             onPress={() => handleImportPDF('SINGLE')}
@@ -283,13 +287,11 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   badgeText: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
   
-  // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 },
   modalContent: { padding: 25, borderRadius: 24, borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center', maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
 
-  // Estilos IA
   aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 15, gap: 8 },
   aiButtonText: { fontWeight: '900', fontSize: 13 },
   
