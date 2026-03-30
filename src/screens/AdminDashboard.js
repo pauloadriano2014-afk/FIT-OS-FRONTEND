@@ -10,14 +10,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminDashboard({ navigation }) {
-  // 🔥 PUXA O TEMA E A FUNÇÃO DE TROCAR
   const { theme, changeTheme } = useTheme();
 
-  const [activeTab, setActiveTab] = useState('ALUNOS'); // Mantendo a Aba ALUNOS como inicial
+  const [activeTab, setActiveTab] = useState('ALUNOS'); 
   const [alunos, setAlunos] = useState([]);
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
@@ -26,10 +24,8 @@ export default function AdminDashboard({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   
-  // 🔥 NOVO: Estado para saber quem está logado (Paulo ou Adri)
   const [adminEmail, setAdminEmail] = useState('');
 
-  // Modals
   const [selectedCheckin, setSelectedCheckin] = useState(null);
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
   const [noticeModalVisible, setNoticeModalVisible] = useState(false);
@@ -37,7 +33,6 @@ export default function AdminDashboard({ navigation }) {
   const [noticeMessage, setNoticeMessage] = useState('');
   const [sendingNotice, setSendingNotice] = useState(false);
 
-  // Controle de Tema Local
   const [selectedColor, setSelectedColor] = useState('verde');
 
   useFocusEffect(
@@ -49,11 +44,19 @@ export default function AdminDashboard({ navigation }) {
       if(!refreshing) setLoading(true);
       const t = Date.now();
       
-      const [resData, resCheckins, savedThemeObj, userJson] = await Promise.all([
-          fetch(`https://fitos-final.onrender.com/api/admin/data?t=${t}`),
-          fetch(`https://fitos-final.onrender.com/api/checkin?t=${t}`),
-          AsyncStorage.getItem('app_theme'),
-          AsyncStorage.getItem('user') // 🔥 Pega os dados de quem está logado
+      const userJson = await AsyncStorage.getItem('user');
+      const savedThemeObj = await AsyncStorage.getItem('app_theme');
+      
+      let adminId = '';
+      if (userJson) {
+          const userObj = JSON.parse(userJson);
+          setAdminEmail(userObj.email);
+          adminId = userObj.id; 
+      }
+
+      const [resData, resCheckins] = await Promise.all([
+          fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`),
+          fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${adminId}&t=${t}`)
       ]);
 
       const data = await resData.json();
@@ -64,15 +67,9 @@ export default function AdminDashboard({ navigation }) {
         setFilteredAlunos(data.users);
       }
       if (data.recentLogs) setFeed(data.recentLogs);
+      
       if (Array.isArray(dataCheckins)) setCheckins(dataCheckins);
 
-      // Salva o email do Admin logado para usarmos no link de convite
-      if (userJson) {
-          const userObj = JSON.parse(userJson);
-          setAdminEmail(userObj.email);
-      }
-
-      // Puxa a cor ativa para mostrar a bolinha certa
       if (savedThemeObj) {
           const parsedTheme = JSON.parse(savedThemeObj);
           if (parsedTheme.accent === '#FF2D55') setSelectedColor('rosa');
@@ -125,7 +122,6 @@ export default function AdminDashboard({ navigation }) {
       finally { setSendingNotice(false); }
   };
 
-  // 🔥 FUNÇÃO DE ELITE: BOTÃO DO WHATSAPP DE CONVITE
   const handleInviteStudent = () => {
       let code = 'PATEAM'; 
       
@@ -133,7 +129,6 @@ export default function AdminDashboard({ navigation }) {
           code = 'CURVAS';
       }
       
-      // 🔥 O LINK OFICIAL DO SEU IMPÉRIO
       const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${code}`; 
       const message = `Fala, campeão! Bem-vindo ao time. Faça o seu cadastro no nosso app oficial por aqui:\n\n${inviteLink}`;
       
@@ -149,7 +144,6 @@ export default function AdminDashboard({ navigation }) {
       }).catch(err => console.error('An error occurred', err));
   };
 
-  // --- CONTROLE DE TEMA ---
   const toggleDarkMode = (newValue) => {
       if (newValue) {
           setSelectedColor('verde');
@@ -164,7 +158,6 @@ export default function AdminDashboard({ navigation }) {
       changeTheme(theme.isDark, colorKey);
   };
 
-  // --- RENDER ITEM FUNCTIONS ---
   const renderCheckinItem = ({ item }) => (
       <TouchableOpacity 
         style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
@@ -283,7 +276,6 @@ export default function AdminDashboard({ navigation }) {
             
             {activeTab === 'ALUNOS' && (
                 <>
-                    {/* 🔥 O BOTÃO DOURADO DE CONVITE */}
                     <TouchableOpacity 
                         style={[styles.inviteBtn, { backgroundColor: '#FFCC00' }]} 
                         onPress={handleInviteStudent}
@@ -413,7 +405,6 @@ export default function AdminDashboard({ navigation }) {
           </View>
       </View>
 
-      {/* MODAL CHECKIN */}
       <Modal visible={checkinModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -443,7 +434,6 @@ export default function AdminDashboard({ navigation }) {
         </View>
       </Modal>
 
-      {/* MODAL AVISO */}
       <Modal visible={noticeModalVisible} transparent animationType="slide">
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -479,7 +469,6 @@ const styles = StyleSheet.create({
   badgeCount: { backgroundColor:'#FF3B30', paddingHorizontal:6, borderRadius:10, height:16, justifyContent:'center', marginLeft:5 },
   badgeText: { color:'#FFF', fontSize:9, fontWeight:'bold' },
   
-  // 🔥 ESTILOS DO BOTÃO DE CONVITE
   inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginBottom: 15, padding: 15, borderRadius: 12, gap: 8 },
   inviteBtnText: { color: '#000', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
