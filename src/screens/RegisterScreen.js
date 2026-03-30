@@ -12,7 +12,6 @@ export default function RegisterScreen({ navigation, route }) {
 
   const [loading, setLoading] = useState(false);
   
-  // Pega o código direto do link de convite se ele existir
   const initialCode = route.params?.coach || '';
 
   const [form, setForm] = useState({
@@ -87,16 +86,20 @@ export default function RegisterScreen({ navigation, route }) {
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
+  
+  // 🔥 CIRURGIA DE FRONT-END: Forçando 100vh para PWA isolado
+  const rootStyle = isWeb
+    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
+    : { flex: 1, backgroundColor: theme.bg };
 
   return (
-    <RootComponent style={[styles.safe, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
-      {/* 🔥 MÁGICA APLICADA: KeyboardAvoidingView protege a tela do teclado */}
+    <RootComponent style={rootStyle}>
       <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}
       >
-          {/* 🔥 keyboardShouldPersistTaps="handled" garante que o scroll não trave com o teclado aberto */}
           <ScrollView 
+            style={{ flex: 1 }}
             contentContainerStyle={styles.container} 
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
