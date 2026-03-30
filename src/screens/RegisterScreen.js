@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform 
+  ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { useTheme } from '../contexts/ThemeContext';
@@ -12,7 +12,7 @@ export default function RegisterScreen({ navigation, route }) {
 
   const [loading, setLoading] = useState(false);
   
-  // 🔥 Pega o código direto do link de convite se ele existir
+  // Pega o código direto do link de convite se ele existir
   const initialCode = route.params?.coach || '';
 
   const [form, setForm] = useState({
@@ -61,7 +61,7 @@ export default function RegisterScreen({ navigation, route }) {
           birthDate: form.birthDate || "",
           phone: form.phone || "",
           gender: form.gender || "Não informado",
-          inviteCode: form.accessCode.trim() // 🔥 Agora mandamos o código pro servidor decidir
+          inviteCode: form.accessCode.trim() 
         })
       });
 
@@ -90,8 +90,17 @@ export default function RegisterScreen({ navigation, route }) {
 
   return (
     <RootComponent style={[styles.safe, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
-      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
-          <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      {/* 🔥 MÁGICA APLICADA: KeyboardAvoidingView protege a tela do teclado */}
+      <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}
+      >
+          {/* 🔥 keyboardShouldPersistTaps="handled" garante que o scroll não trave com o teclado aberto */}
+          <ScrollView 
+            contentContainerStyle={styles.container} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
             
             <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
@@ -208,14 +217,14 @@ export default function RegisterScreen({ navigation, route }) {
               </Text>
             </TouchableOpacity>
           </ScrollView>
-      </View>
+      </KeyboardAvoidingView>
     </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  container: { padding: 25, paddingBottom: 60 },
+  container: { padding: 25, paddingBottom: 60, flexGrow: 1 },
   backBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, marginBottom: 20 },
   title: { fontSize: 32, fontWeight: '900', letterSpacing: -1 },
   subtitle: { fontSize: 14, fontWeight: '500', marginTop: 5 },
