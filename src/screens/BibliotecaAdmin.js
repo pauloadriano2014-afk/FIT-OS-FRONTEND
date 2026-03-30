@@ -107,7 +107,8 @@ export default function BibliotecaAdmin({ navigation }) {
       videoUrl: '' 
   });
   const [saving, setSaving] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false); 
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState(''); // Estado para mensagem de feedback visual
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const videoRef = useRef(null);
 
@@ -190,6 +191,8 @@ export default function BibliotecaAdmin({ navigation }) {
           const fileToUpload = result.assets[0];
           
           setUploadingVideo(true);
+          setProcessingStatus('Enviando para o servidor...');
+          
           const formData = new FormData();
 
           if (Platform.OS === 'web') {
@@ -212,13 +215,41 @@ export default function BibliotecaAdmin({ navigation }) {
 
           const data = await response.json();
           
-          if (response.ok && data.videoUrl) {
+          if (response.ok && data.videoUrl && data.guid) {
+              setProcessingStatus('Processando no Cloudflare...');
+              
+              const checkStatus = async () => {
+                  try {
+                      const statusRes = await fetch(`https://fitos-final.onrender.com/api/exercise/status?guid=${data.guid}`);
+                      const statusData = await statusRes.json();
+                      return statusData.isReady === true;
+                  } catch (e) { return false; }
+              };
+
+              let ready = false;
+              let retries = 0;
+              const maxRetries = 20; // Espera máxima de 60s (20 tentativas x 3s)
+
+              while (!ready && retries < maxRetries) {
+                  ready = await checkStatus();
+                  if (!ready) {
+                      retries++;
+                      setProcessingStatus(`Processando no Cloudflare... (${retries}/${maxRetries})`);
+                      await new Promise(resolve => setTimeout(resolve, 3000));
+                  }
+              }
+
               setFormExercise({ ...formExercise, videoUrl: data.videoUrl });
-              const msg = "Vídeo processado pela Cloudflare! O play agora é instantâneo.";
+              
+              const msg = ready 
+                  ? "Vídeo pronto e otimizado! Pode salvar o exercício." 
+                  : "Upload concluído, mas o processamento vai terminar em background.";
+                  
               if(isWeb) window.alert(msg);
-              else Alert.alert("Sucesso", msg);
+              else Alert.alert(ready ? "Sucesso!" : "Atenção", msg);
+
           } else {
-              throw new Error(data.error || 'Erro no processamento do vídeo.');
+              throw new Error(data.error || 'Erro no envio do vídeo.');
           }
 
       } catch (error) {
@@ -228,6 +259,7 @@ export default function BibliotecaAdmin({ navigation }) {
           else Alert.alert("Erro de Upload", errMsg);
       } finally {
           setUploadingVideo(false);
+          setProcessingStatus('');
       }
   };
 
@@ -487,7 +519,7 @@ export default function BibliotecaAdmin({ navigation }) {
                           {uploadingVideo ? (
                               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                                   <ActivityIndicator color={theme.accent} size="small" />
-                                  <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO PARA A NUVEM...</Text>
+                                  <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>{processingStatus}</Text>
                               </View>
                           ) : (
                               <View style={{flexDirection: 'row', alignItems: 'center'}}>
