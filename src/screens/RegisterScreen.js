@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+// src/screens/RegisterScreen.js
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; 
-
-/* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
-export default function RegisterScreen({ navigation }) {
-  const { theme } = useTheme(); // 🔥 Traz as cores dinâmicas
+export default function RegisterScreen({ navigation, route }) {
+  const { theme } = useTheme();
 
   const [loading, setLoading] = useState(false);
+  
+  // 🔥 Pega o código direto do link de convite se ele existir
+  const initialCode = route.params?.coach || '';
+
   const [form, setForm] = useState({
-    accessCode: '', 
+    accessCode: initialCode, 
     name: '',
     birthDate: '',
     phone: '',
@@ -22,18 +25,13 @@ export default function RegisterScreen({ navigation }) {
     password: ''
   });
 
-  // 🔒 SENHA DO TIME
-  const TEAM_ACCESS_CODE = 'PATEAM';
-
-  // Máscara de Data simples
   const handleDateChange = (val) => {
-    let formatted = val.replace(/\D/g, ''); // Remove tudo que não é número
+    let formatted = val.replace(/\D/g, ''); 
     if (formatted.length > 2) formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
     if (formatted.length > 5) formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
     setForm({...form, birthDate: formatted});
   };
 
-  // Máscara de Telefone simples
   const handlePhoneChange = (val) => {
       let formatted = val.replace(/\D/g, '');
       if (formatted.length > 2) formatted = '(' + formatted.substring(0, 2) + ') ' + formatted.substring(2);
@@ -42,8 +40,8 @@ export default function RegisterScreen({ navigation }) {
   };
 
   const handleRegister = async () => {
-    if (!form.accessCode || form.accessCode.trim().toUpperCase() !== TEAM_ACCESS_CODE) {
-        return Alert.alert("Acesso Negado 🔒", "O Código de Convite está incorreto. Solicite ao seu treinador.");
+    if (!form.accessCode) {
+        return Alert.alert("Acesso Negado 🔒", "O Código de Convite é obrigatório. Solicite ao seu treinador.");
     }
 
     if (!form.email || !form.password || !form.name) {
@@ -63,7 +61,7 @@ export default function RegisterScreen({ navigation }) {
           birthDate: form.birthDate || "",
           phone: form.phone || "",
           gender: form.gender || "Não informado",
-          plan_tier: 'standard' 
+          inviteCode: form.accessCode.trim() // 🔥 Agora mandamos o código pro servidor decidir
         })
       });
 
@@ -86,14 +84,12 @@ export default function RegisterScreen({ navigation }) {
     }
   };
 
-  // 🔥 Lógica da "Gaiola" do PC (PWA)
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
 
   return (
     <RootComponent style={[styles.safe, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
-      {/* GAIOLA CENTRALIZADA */}
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
             
@@ -103,19 +99,18 @@ export default function RegisterScreen({ navigation }) {
 
             <View style={{marginBottom: 30}}>
                 <Text style={[styles.title, { color: theme.text }]}>NOVO <Text style={{color: theme.accent}}>MEMBRO</Text></Text>
-                <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Seu primeiro passo para o PA TEAM</Text>
+                <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Seu primeiro passo rumo ao resultado</Text>
             </View>
 
             <View style={styles.inputGroup}>
               
-              {/* CAMPO DE ACESSO (O "VIP PASS") */}
               <View style={[styles.vipCard, { borderColor: theme.accent, backgroundColor: theme.accent + '11' }]}>
                   <Text style={[styles.labelHighlight, { color: theme.accent }]}>CÓDIGO DE CONVITE *</Text>
                   <View style={styles.codeContainer}>
                     <MaterialCommunityIcons name="shield-key" size={20} color={theme.accent} style={{marginRight: 10}} />
                     <TextInput 
                         style={[styles.codeInput, { color: theme.text }]} 
-                        placeholder="Ex: PATEAM" 
+                        placeholder="Ex: PATEAM ou CURVAS" 
                         placeholderTextColor={theme.textSecondary}
                         autoCapitalize="characters"
                         value={form.accessCode}
@@ -209,7 +204,7 @@ export default function RegisterScreen({ navigation }) {
 
             <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 30}}>
               <Text style={{color: theme.textSecondary, textAlign: 'center', fontSize: 13}}>
-                  Já é da equipe? <Text style={{color: theme.accent, fontWeight: 'bold'}}>Faça Login</Text>
+                  Já tem conta? <Text style={{color: theme.accent, fontWeight: 'bold'}}>Faça Login</Text>
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -221,17 +216,12 @@ export default function RegisterScreen({ navigation }) {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   container: { padding: 25, paddingBottom: 60 },
-  
   backBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, marginBottom: 20 },
-  
   title: { fontSize: 32, fontWeight: '900', letterSpacing: -1 },
   subtitle: { fontSize: 14, fontWeight: '500', marginTop: 5 },
-  
   inputGroup: { marginBottom: 10 },
   row: { flexDirection: 'row' },
-  
   label: { fontSize: 10, fontWeight: 'bold', marginBottom: 8, letterSpacing: 1, marginLeft: 5 },
-  
   input: { 
     borderWidth: 1, 
     borderRadius: 16, 
@@ -240,28 +230,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     outlineStyle: 'none'
   },
-
-  // ESTILO VIP PASS
   vipCard: { padding: 15, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', marginBottom: 25 },
   labelHighlight: { fontSize: 10, fontWeight: 'bold', marginBottom: 5, letterSpacing: 1 },
   codeContainer: { flexDirection: 'row', alignItems: 'center' },
   codeInput: { flex: 1, fontWeight: 'bold', fontSize: 18, height: 40, outlineStyle: 'none' },
-
   genderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25, gap: 10 },
-  genderBtn: { 
-    flex: 1, 
-    padding: 16, 
-    borderWidth: 1, 
-    borderRadius: 16, 
-    alignItems: 'center'
-  },
+  genderBtn: { flex: 1, padding: 16, borderWidth: 1, borderRadius: 16, alignItems: 'center' },
   genderText: { fontSize: 14, fontWeight: '500' },
-  
-  button: { 
-    padding: 20, 
-    borderRadius: 16, 
-    alignItems: 'center', 
-    marginTop: 10,
-  },
+  button: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10 },
   buttonText: { fontWeight: '900', fontSize: 16, letterSpacing: 1 }
 });
