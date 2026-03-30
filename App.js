@@ -160,12 +160,17 @@ function RootNavigator() {
             setInitialRoute('AdminDashboard');
           } else if (role === 'student') {
             setInitialRoute('Main');
-          } else {
-            setInitialRoute('Login');
           }
+          // 🔥 Se achou o usuário, para a verificação e vai pra tela certa
+          setLoading(false);
+          return; 
         }
+        
+        // Se chegou aqui, é porque não tem usuário salvo
+        setInitialRoute('Login');
       } catch (e) {
         console.log('Erro ao restaurar sessão:', e);
+        setInitialRoute('Login');
       } finally {
         setLoading(false);
       }
