@@ -97,9 +97,20 @@ export const useMontarTreino = (route, navigation) => {
         setLoading(true);
         const t = new Date().getTime();
         try {
+            // 🔥 NOVA BUSCA BLINDADA COM ADMIN ID
             try {
-                const resLib = await fetch(`https://fitos-final.onrender.com/api/admin/data?t=${t}`);
-                if(resLib.ok) { const libData = await resLib.json(); setBiblioteca(libData.exercises || []); }
+                const userJson = await AsyncStorage.getItem('user');
+                let adminId = '';
+                if (userJson) {
+                    const userObj = JSON.parse(userJson);
+                    adminId = userObj.id;
+                }
+                
+                const resLib = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`);
+                if(resLib.ok) { 
+                    const libData = await resLib.json(); 
+                    setBiblioteca(libData.exercises || []); 
+                }
             } catch(e) {}
 
             if (aluno?.id) {
