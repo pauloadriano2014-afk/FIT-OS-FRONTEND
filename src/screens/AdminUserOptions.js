@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
-  ActivityIndicator, StatusBar, Alert, Platform, Image, Switch
+  ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, TextInput
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -26,9 +26,10 @@ export default function AdminUserOptions({ route, navigation }) {
   const [viewMode, setViewMode] = useState('active'); // 'active', 'archived', 'paflix'
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
 
-  // 🔥 STATES DA FOTO DO PERFIL
+  // 🔥 STATES DA FOTO DO PERFIL E AVALIAÇÃO
   const [photoUrl, setPhotoUrl] = useState(aluno.photoUrl || null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [evaluationUrl, setEvaluationUrl] = useState(aluno.evaluationUrl || ''); // Estado pro PDF
 
   // 🔥 STATES DE ACESSO AO PA FLIX
   const [vipContents, setVipContents] = useState([]);
@@ -439,7 +440,7 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 )}
 
-                {/* DADOS E SISTEMA - SEMPRE VISÍVEL NO FINAL */}
+                {/* DADOS E SISTEMA E AVALIAÇÃO - SEMPRE VISÍVEL NO FINAL */}
                 <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
                 
                 <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
@@ -458,6 +459,47 @@ export default function AdminUserOptions({ route, navigation }) {
                         {isActiveUser ? "Aluno Ativo (Toque para Bloquear)" : "Aluno Bloqueado (Toque para Ativar)"}
                     </Text>
                 </TouchableOpacity>
+
+                {/* 🔥 NOVO: GERENCIADOR DA AVALIAÇÃO EM PDF */}
+                <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
+                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15, flexDirection: 'column' }]}>
+                    <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva deste aluno.</Text>
+                    
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <TextInput 
+                            style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} 
+                            placeholder="https://drive.google.com/..." 
+                            placeholderTextColor={theme.textSecondary}
+                            value={evaluationUrl}
+                            onChangeText={setEvaluationUrl}
+                            autoCapitalize="none"
+                        />
+                        <TouchableOpacity 
+                            style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                            onPress={async () => {
+                                try {
+                                    const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+                                        method: 'PATCH',
+                                        headers: {'Content-Type': 'application/json'},
+                                        body: JSON.stringify({ evaluationUrl: evaluationUrl })
+                                    });
+                                    if (res.ok) {
+                                        if (Platform.OS === 'web') window.alert("Sucesso!\n\nLink do PDF salvo! O aluno já pode acessar.");
+                                        else Alert.alert("Sucesso", "Link do PDF salvo! O aluno já pode acessar.");
+                                    } else {
+                                        if (Platform.OS === 'web') window.alert("Erro\n\nFalha ao salvar o link.");
+                                        else Alert.alert("Erro", "Falha ao salvar o link.");
+                                    }
+                                } catch(e) {
+                                    if (Platform.OS === 'web') window.alert("Erro\n\nFalha de conexão.");
+                                    else Alert.alert("Erro", "Falha de conexão.");
+                                }
+                            }}
+                        >
+                            <MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
 
                 <TouchableOpacity style={styles.deleteUserRow} onPress={handleDeleteUser}>
                     <MaterialCommunityIcons name="account-remove" size={20} color="#FFF" />
@@ -515,5 +557,9 @@ const styles = StyleSheet.create({
   iconBox: { width: 36, height: 36, borderRadius: 18, justifyContent:'center', alignItems:'center' },
   actionText: { fontWeight: 'bold', fontSize: 13, flex:1 },
   deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 15, borderRadius: 12, marginTop: 20, gap: 10 },
-  deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 12 }
+  deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 12 },
+
+  // 🔥 ESTILOS DO PDF
+  inputPdf: { padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 13, outlineStyle: 'none' },
+  saveBtn: { padding: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', height: 45, width: 45 }
 });

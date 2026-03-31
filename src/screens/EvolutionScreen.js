@@ -63,6 +63,15 @@ const getAgeFromDate = (birthDate) => {
     return age.toString();
 };
 
+// 🔥 FUNÇÃO PARA TRANSFORMAR LINK DO DRIVE EM PREVIEW DIRETO
+const getGoogleDrivePreviewUrl = (url) => {
+    if (!url) return '';
+    if (url.includes('drive.google.com/file/d/')) {
+        return url.replace(/\/view.*$/, '/preview');
+    }
+    return url;
+};
+
 export default function EvolutionScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('PERFORMANCE'); 
   const [loading, setLoading] = useState(true);
@@ -105,10 +114,22 @@ export default function EvolutionScreen({ navigation }) {
       
       if (storedUser) {
           const user = JSON.parse(storedUser);
-          setUserData(user);
           
-          if (user.birthDate) setCurrentAge(getAgeFromDate(user.birthDate));
-          if (user.gender) setCurrentGender(user.gender.toUpperCase());
+          // 🔥 BUSCAR DADOS FRESCOS DO USUÁRIO (Para pegar a URL da Avaliação)
+          const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${Date.now()}`);
+          if (resUser.ok) {
+              const freshUser = await resUser.json();
+              // Mescla os dados frescos com o que já tem
+              const updatedUser = { ...user, evaluationUrl: freshUser.evaluationUrl || freshUser.user?.evaluationUrl };
+              setUserData(updatedUser);
+              
+              if (updatedUser.birthDate) setCurrentAge(getAgeFromDate(updatedUser.birthDate));
+              if (updatedUser.gender) setCurrentGender(updatedUser.gender.toUpperCase());
+          } else {
+              setUserData(user);
+              if (user.birthDate) setCurrentAge(getAgeFromDate(user.birthDate));
+              if (user.gender) setCurrentGender(user.gender.toUpperCase());
+          }
           
           const resAssess = await fetch(`https://fitos-final.onrender.com/api/assessment?userId=${user.id}`);
           const assessments = await resAssess.json();
@@ -676,6 +697,26 @@ export default function EvolutionScreen({ navigation }) {
               </>
           ) : (
               <>
+                  {/* 🔥 BOTÃO DE AVALIAÇÃO EM PDF (GOOGLE DRIVE) */}
+                  {userData?.evaluationUrl && (
+                      <TouchableOpacity 
+                          style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} 
+                          onPress={() => {
+                              navigation.navigate('PDFViewer', { 
+                                  url: getGoogleDrivePreviewUrl(userData.evaluationUrl), 
+                                  title: 'Minha Avaliação Física' 
+                              });
+                          }}
+                      >
+                          <MaterialCommunityIcons name="file-pdf-box" size={32} color={theme.accent} />
+                          <View style={{flex: 1, marginLeft: 15}}>
+                              <Text style={[styles.pdfAssessmentTitle, { color: theme.text }]}>MINHA AVALIAÇÃO FÍSICA</Text>
+                              <Text style={[styles.pdfAssessmentSub, { color: theme.textSecondary }]}>Ver relatório completo e medidas</Text>
+                          </View>
+                          <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                  )}
+
                   <TouchableOpacity style={[styles.newAssessmentBtn, { backgroundColor: '#32ADE6' }]} onPress={() => { resetForm(); setModalVisible(true); }}>
                       <MaterialCommunityIcons name="plus-circle" size={24} color={theme.isDark ? '#000' : '#FFF'} />
                       <Text style={[styles.newAssessmentText, { color: theme.isDark ? '#000' : '#FFF' }]}>REGISTRAR MEDIDAS / POLLOCK</Text>
@@ -992,6 +1033,12 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
   tabText: { fontWeight: '900', fontSize: 12 },
   scrollContent: { padding: 20 },
+  
+  // 🔥 ESTILOS DO BOTÃO DA AVALIAÇÃO EM PDF
+  pdfAssessmentBtn: { flexDirection: 'row', padding: 20, borderRadius: 20, alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, elevation: 4 },
+  pdfAssessmentTitle: { fontWeight: '900', fontSize: 15 },
+  pdfAssessmentSub: { fontSize: 11, marginTop: 2 },
+
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
   statCard: { width: '48%', padding: 20, borderRadius: 24, borderWidth: 1, alignItems: 'center' },
   statValue: { fontSize: 24, fontWeight: '900', marginVertical: 5 },
