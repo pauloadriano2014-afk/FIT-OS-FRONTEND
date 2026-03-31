@@ -115,12 +115,12 @@ export default function EvolutionScreen({ navigation }) {
       if (storedUser) {
           const user = JSON.parse(storedUser);
           
-          // 🔥 BUSCAR DADOS FRESCOS DO USUÁRIO (Para pegar a URL da Avaliação)
+          // 🔥 BUSCAR DADOS FRESCOS DO USUÁRIO (Para garantir a URL da Avaliação mais atual)
           const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${Date.now()}`);
           if (resUser.ok) {
               const freshUser = await resUser.json();
-              // Mescla os dados frescos com o que já tem
-              const updatedUser = { ...user, evaluationUrl: freshUser.evaluationUrl || freshUser.user?.evaluationUrl };
+              const serverUrl = freshUser.evaluationUrl || freshUser.user?.evaluationUrl || null;
+              const updatedUser = { ...user, evaluationUrl: serverUrl };
               setUserData(updatedUser);
               
               if (updatedUser.birthDate) setCurrentAge(getAgeFromDate(updatedUser.birthDate));
@@ -135,6 +135,7 @@ export default function EvolutionScreen({ navigation }) {
           const assessments = await resAssess.json();
           if (Array.isArray(assessments)) setAssessmentHistory(assessments);
 
+          // 🔥 BUSCAR HISTÓRICO DE TREINOS REAIS
           const resHistory = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
           const historyData = await resHistory.json();
           
@@ -157,7 +158,8 @@ export default function EvolutionScreen({ navigation }) {
               setWorkoutHistory(processedHistory);
           }
       }
-    } catch (e) { console.log(e); } finally { setLoading(false); }
+    } catch (e) { console.log("Erro ao carregar dados de evolução:", e); } 
+    finally { setLoading(false); }
   };
 
   const handleDateChange = (text) => {
@@ -680,25 +682,29 @@ export default function EvolutionScreen({ navigation }) {
                   )}
                   
                   <Text style={[styles.sectionTitle, { color: theme.accent }]}>HISTÓRICO RECENTE</Text>
-                  {workoutHistory.slice(0,5).map((item, i) => (
-                      <View key={i} style={[styles.historyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                          <View style={styles.historyHeader}>
-                              <Text style={[styles.historyDate, { color: theme.textSecondary }]}>{new Date(item.date).toLocaleDateString()}</Text>
-                              {item.rpe && (
-                                  <View style={[styles.rpeBadge, {backgroundColor: item.rpe >= 8 ? '#FF3B30' : theme.accent}]}>
-                                      <Text style={[styles.rpeText, { color: theme.isDark ? '#000' : '#FFF' }]}>RPE {item.rpe}</Text>
-                                  </View>
-                              )}
+                  {workoutHistory.length === 0 ? (
+                      <View style={[styles.emptyChart, { backgroundColor: theme.surface, borderColor: theme.border, height: 100 }]}><Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhum treino concluído.</Text></View>
+                  ) : (
+                      workoutHistory.slice(0,5).map((item, i) => (
+                          <View key={i} style={[styles.historyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                              <View style={styles.historyHeader}>
+                                  <Text style={[styles.historyDate, { color: theme.textSecondary }]}>{new Date(item.date).toLocaleDateString()}</Text>
+                                  {item.rpe && (
+                                      <View style={[styles.rpeBadge, {backgroundColor: item.rpe >= 8 ? '#FF3B30' : theme.accent}]}>
+                                          <Text style={[styles.rpeText, { color: theme.isDark ? '#000' : '#FFF' }]}>RPE {item.rpe}</Text>
+                                      </View>
+                                  )}
+                              </View>
+                              <Text style={[styles.historyWorkout, { color: theme.text }]}>{item.name || 'Treino'}</Text>
+                              <Text style={[styles.historyTonnage, { color: theme.accent }]}>{item.tonnage}kg totais movidos</Text>
                           </View>
-                          <Text style={[styles.historyWorkout, { color: theme.text }]}>{item.name || 'Treino'}</Text>
-                          <Text style={[styles.historyTonnage, { color: theme.accent }]}>{item.tonnage}kg totais movidos</Text>
-                      </View>
-                  ))}
+                      ))
+                  )}
               </>
           ) : (
               <>
-                  {/* 🔥 BOTÃO DE AVALIAÇÃO EM PDF (GOOGLE DRIVE) */}
-                  {userData?.evaluationUrl && (
+                  {/* 🔥 BOTÃO DE AVALIAÇÃO EM PDF (GOOGLE DRIVE) NA ABA CORPO */}
+                  {userData?.evaluationUrl ? (
                       <TouchableOpacity 
                           style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} 
                           onPress={() => {
@@ -715,7 +721,7 @@ export default function EvolutionScreen({ navigation }) {
                           </View>
                           <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} />
                       </TouchableOpacity>
-                  )}
+                  ) : null}
 
                   <TouchableOpacity style={[styles.newAssessmentBtn, { backgroundColor: '#32ADE6' }]} onPress={() => { resetForm(); setModalVisible(true); }}>
                       <MaterialCommunityIcons name="plus-circle" size={24} color={theme.isDark ? '#000' : '#FFF'} />

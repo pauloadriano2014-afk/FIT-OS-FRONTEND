@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
-  ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, TextInput
+  ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, TextInput, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -70,6 +70,13 @@ export default function AdminUserOptions({ route, navigation }) {
 
         setIsActiveUser(aluno.active); 
 
+        // 🔥 Opcional: Atualizar a URL direto do banco ao focar, garantindo sincronia
+        const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
+        if (resUser.ok) {
+            const freshData = await resUser.json();
+            if (freshData.evaluationUrl) setEvaluationUrl(freshData.evaluationUrl);
+        }
+
     } catch (error) { 
         console.log("Erro geral:", error); 
     } finally { 
@@ -95,7 +102,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
           if (resAccess.ok) {
               const accessData = await resAccess.json();
-              // accessData deve ser uma array de IDs de conteúdos liberados para este aluno
               if (Array.isArray(accessData)) {
                   setUserAccess(accessData);
               }
@@ -112,9 +118,9 @@ export default function AdminUserOptions({ route, navigation }) {
       const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
-          aspect: [1, 1], // Corta quadrado perfeito
-          quality: 0.3, // Comprime a imagem para não pesar no banco
-          base64: true // 🔥 Transforma em texto para salvar direto no Prisma
+          aspect: [1, 1], 
+          quality: 0.3, 
+          base64: true 
       });
 
       if (!result.canceled && result.assets[0].base64) {
@@ -144,7 +150,6 @@ export default function AdminUserOptions({ route, navigation }) {
   const handleToggleAccess = async (contentId, currentStatus) => {
       const newStatus = !currentStatus;
       
-      // Atualiza a tela instantaneamente (Optimistic Update)
       if (newStatus) setUserAccess(prev => [...prev, contentId]);
       else setUserAccess(prev => prev.filter(id => id !== contentId));
 
@@ -157,7 +162,6 @@ export default function AdminUserOptions({ route, navigation }) {
           
           if (!res.ok) throw new Error("Falha na API");
       } catch(e) {
-          // Desfaz a animação se a internet falhar
           if (!newStatus) setUserAccess(prev => [...prev, contentId]);
           else setUserAccess(prev => prev.filter(id => id !== contentId));
           Alert.alert("Erro", "Falha ao atualizar a permissão do aluno.");
@@ -460,10 +464,10 @@ export default function AdminUserOptions({ route, navigation }) {
                     </Text>
                 </TouchableOpacity>
 
-                {/* 🔥 NOVO: GERENCIADOR DA AVALIAÇÃO EM PDF */}
+                {/* 🔥 GERENCIADOR DA AVALIAÇÃO EM PDF - VERSÃO PRO */}
                 <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
-                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15, flexDirection: 'column' }]}>
-                    <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva deste aluno.</Text>
+                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
+                    <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva.</Text>
                     
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <TextInput 
@@ -484,21 +488,43 @@ export default function AdminUserOptions({ route, navigation }) {
                                         body: JSON.stringify({ evaluationUrl: evaluationUrl })
                                     });
                                     if (res.ok) {
-                                        if (Platform.OS === 'web') window.alert("Sucesso!\n\nLink do PDF salvo! O aluno já pode acessar.");
-                                        else Alert.alert("Sucesso", "Link do PDF salvo! O aluno já pode acessar.");
+                                        if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados atualizados.");
+                                        else Alert.alert("Sucesso", "Dados atualizados!");
                                     } else {
-                                        if (Platform.OS === 'web') window.alert("Erro\n\nFalha ao salvar o link.");
-                                        else Alert.alert("Erro", "Falha ao salvar o link.");
+                                        if (Platform.OS === 'web') window.alert("Erro ao salvar.");
+                                        else Alert.alert("Erro", "Erro ao salvar.");
                                     }
-                                } catch(e) {
-                                    if (Platform.OS === 'web') window.alert("Erro\n\nFalha de conexão.");
-                                    else Alert.alert("Erro", "Falha de conexão.");
-                                }
+                                } catch(e) { console.log(e); }
                             }}
                         >
                             <MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} />
                         </TouchableOpacity>
                     </View>
+
+                    {/* 🔥 BOTÕES DE APOIO AO COACH */}
+                    {evaluationUrl ? (
+                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 15 }}>
+                            <TouchableOpacity 
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border }}
+                                onPress={() => Linking.openURL(evaluationUrl)}
+                            >
+                                <MaterialCommunityIcons name="eye" size={16} color={theme.text} />
+                                <Text style={{ color: theme.text, fontSize: 11, fontWeight: 'bold' }}>VER PDF ATUAL</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderWidth: 1, borderColor: '#FF3B30' }}
+                                onPress={() => {
+                                    setEvaluationUrl('');
+                                    if (Platform.OS === 'web') window.alert("Link removido da caixa. Clique no botão de Salvar para confirmar.");
+                                    else Alert.alert("Aviso", "Link removido da caixa. Clique no botão de Salvar para confirmar a exclusão no banco.");
+                                }}
+                            >
+                                <MaterialCommunityIcons name="trash-can" size={16} color="#FF3B30" />
+                                <Text style={{ color: '#FF3B30', fontSize: 11, fontWeight: 'bold' }}>LIMPAR</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ) : null}
                 </View>
 
                 <TouchableOpacity style={styles.deleteUserRow} onPress={handleDeleteUser}>
