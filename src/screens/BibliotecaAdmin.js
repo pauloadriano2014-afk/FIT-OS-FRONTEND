@@ -107,8 +107,7 @@ export default function BibliotecaAdmin({ navigation }) {
       videoUrl: '' 
   });
   const [saving, setSaving] = useState(false);
-  const [uploadingVideo, setUploadingVideo] = useState(false);
-  const [processingStatus, setProcessingStatus] = useState(''); // Estado para mensagem de feedback visual
+  const [uploadingVideo, setUploadingVideo] = useState(false); 
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const videoRef = useRef(null);
 
@@ -191,8 +190,6 @@ export default function BibliotecaAdmin({ navigation }) {
           const fileToUpload = result.assets[0];
           
           setUploadingVideo(true);
-          setProcessingStatus('Enviando para o servidor...');
-          
           const formData = new FormData();
 
           if (Platform.OS === 'web') {
@@ -215,51 +212,22 @@ export default function BibliotecaAdmin({ navigation }) {
 
           const data = await response.json();
           
-          if (response.ok && data.videoUrl && data.guid) {
-              setProcessingStatus('Processando no Cloudflare...');
-              
-              const checkStatus = async () => {
-                  try {
-                      const statusRes = await fetch(`https://fitos-final.onrender.com/api/exercise/status?guid=${data.guid}`);
-                      const statusData = await statusRes.json();
-                      return statusData.isReady === true;
-                  } catch (e) { return false; }
-              };
-
-              let ready = false;
-              let retries = 0;
-              const maxRetries = 20; // Espera máxima de 60s (20 tentativas x 3s)
-
-              while (!ready && retries < maxRetries) {
-                  ready = await checkStatus();
-                  if (!ready) {
-                      retries++;
-                      setProcessingStatus(`Processando no Cloudflare... (${retries}/${maxRetries})`);
-                      await new Promise(resolve => setTimeout(resolve, 3000));
-                  }
-              }
-
+          if (response.ok && data.videoUrl) {
               setFormExercise({ ...formExercise, videoUrl: data.videoUrl });
-              
-              const msg = ready 
-                  ? "Vídeo pronto e otimizado! Pode salvar o exercício." 
-                  : "Upload concluído, mas o processamento vai terminar em background.";
-                  
+              const msg = "Vídeo enviado para a Cloudflare! Pode salvar o exercício.";
               if(isWeb) window.alert(msg);
-              else Alert.alert(ready ? "Sucesso!" : "Atenção", msg);
-
+              else Alert.alert("Sucesso", msg);
           } else {
               throw new Error(data.error || 'Erro no envio do vídeo.');
           }
 
       } catch (error) {
-          console.error("Erro Upload Cloudflare:", error);
+          console.error("Erro Upload:", error);
           const errMsg = "Falha ao subir vídeo: " + error.message;
           if(isWeb) window.alert(errMsg);
           else Alert.alert("Erro de Upload", errMsg);
       } finally {
           setUploadingVideo(false);
-          setProcessingStatus('');
       }
   };
 
@@ -519,7 +487,7 @@ export default function BibliotecaAdmin({ navigation }) {
                           {uploadingVideo ? (
                               <View style={{flexDirection: 'row', alignItems: 'center'}}>
                                   <ActivityIndicator color={theme.accent} size="small" />
-                                  <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>{processingStatus}</Text>
+                                  <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO PARA A NUVEM...</Text>
                               </View>
                           ) : (
                               <View style={{flexDirection: 'row', alignItems: 'center'}}>
@@ -547,37 +515,49 @@ export default function BibliotecaAdmin({ navigation }) {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* MODAL DE VÍDEO CORRIGIDO E DEFINITIVO */}
+        {/* 🔥 MODAL DE VÍDEO UNIVERSAL (RODA TUDO: BUNNY E CLOUDFLARE COM AUTOPLAY E SEM BORDA) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-                {/* CAIXA DO MODAL (Fixa: 400x700 no PC, 90%x70% no Celular) */}
+                {/* CAIXA DO MODAL */}
                 <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#000', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
                     
+                    {/* BOTÃO DE FECHAR */}
                     <TouchableOpacity onPress={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }} style={{ position: 'absolute', top: 12, right: 12, zIndex: 100, backgroundColor: 'rgba(255,59,48,0.9)', borderRadius: 15, padding: 4 }}>
                         <MaterialCommunityIcons name="close" size={18} color="#FFF" />
                     </TouchableOpacity>
                     
-                    {/* CONTAINER DO VÍDEO SEM O ABSOLUTE QUE CAUSAVA O BUG */}
+                    {/* 🔥 SEPARAÇÃO TOTAL: WEB VS CELULAR */}
                     <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#000' }}>
                         {videoModalVisible && currentVideoUrl ? (
-                            <Video 
-                                ref={videoRef} 
-                                style={{ flex: 1, width: '100%', height: '100%' }} // Flex 1 obriga a respeitar a caixa
-                                source={{ uri: currentVideoUrl }} 
-                                resizeMode={ResizeMode.CONTAIN} // CONTAIN garante que não corta
-                                shouldPlay={true} 
-                                isLooping={true} 
-                                isMuted={true}
-                                onLoad={() => videoRef.current?.playAsync()} // Força o play no PC
-                            />
+                            isWeb ? (
+                                /* 🔥 NO PC (WEB): HTML5 puro com Injeção Forçada de Autoplay */
+                                <video
+                                    src={currentVideoUrl}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                    controls={true}
+                                    autoPlay={true}
+                                    muted={true}
+                                    loop={true}
+                                    playsInline={true}
+                                    onLoadedMetadata={(e) => {
+                                        e.target.muted = true; // Garante que está mudo pro Chrome não bloquear
+                                        e.target.play();       // Força o play no momento exato que a Cloudflare entrega o arquivo
+                                    }}
+                                />
+                            ) : (
+                                /* 🔥 NO CELULAR: Usa o Expo-AV Nativo (com ResizeMode.COVER para matar bordas pretas tbm) */
+                                <Video 
+                                    ref={videoRef} 
+                                    style={{ flex: 1, width: '100%', height: '100%' }}
+                                    source={{ uri: currentVideoUrl }} 
+                                    resizeMode={ResizeMode.COVER} 
+                                    shouldPlay={true} 
+                                    isMuted={true}
+                                    isLooping={true} 
+                                    useNativeControls={true}
+                                />
+                            )
                         ) : null}
-                        
-                        <View style={{ position: 'absolute', bottom: 20, left: 0, right: 0, alignItems: 'center', zIndex: 10 }}>
-                            <TouchableOpacity onPress={() => videoRef.current?.presentFullscreenPlayer()} style={{ backgroundColor: theme.accent, paddingVertical: 14, paddingHorizontal: 20, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8, elevation: 5 }}>
-                                <MaterialCommunityIcons name="fullscreen" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                                <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>TELA CHEIA</Text>
-                            </TouchableOpacity>
-                        </View>
                     </View>
 
                 </View>
