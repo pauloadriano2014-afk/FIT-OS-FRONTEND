@@ -518,8 +518,12 @@ export default function BibliotecaAdmin({ navigation }) {
         {/* 🔥 MODAL DE VÍDEO UNIVERSAL (RODA TUDO: BUNNY E CLOUDFLARE COM AUTOPLAY E SEM BORDA) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }}>
             <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center', zIndex: 2000 }}>
-                {/* CAIXA DO MODAL */}
-                <View style={{ width: isWeb ? 400 : '90%', height: isWeb ? 700 : '70%', backgroundColor: '#000', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 }}>
+                {/* CAIXA DO MODAL (Ajuste Fino: Mantém 400x700 no PC, e 85%x65% no Celular) */}
+                <View style={{ 
+                    width: isWeb && width > 600 ? 400 : '85%', 
+                    height: isWeb && width > 600 ? 700 : '65%', 
+                    backgroundColor: '#000', borderRadius: 24, overflow: 'hidden', borderWidth: 1, borderColor: '#333', elevation: 20 
+                }}>
                     
                     {/* BOTÃO DE FECHAR */}
                     <TouchableOpacity onPress={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }} style={{ position: 'absolute', top: 12, right: 12, zIndex: 100, backgroundColor: 'rgba(255,59,48,0.9)', borderRadius: 15, padding: 4 }}>
