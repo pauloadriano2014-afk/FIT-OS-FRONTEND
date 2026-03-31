@@ -1,7 +1,7 @@
 // App.js
 import React, { useEffect, useState } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,7 +32,7 @@ import PAFlixScreen from './src/screens/PAFlixScreen';
 import BibliotecaScreen from './src/screens/BibliotecaScreen'; 
 import PDFViewerScreen from './src/screens/PDFViewerScreen'; 
 import VideoPlayerScreen from './src/screens/VideoPlayerScreen'; 
-import AudioPlayerScreen from './src/screens/AudioPlayerScreen'; // 🔥 NOVA TELA: MODO SPOTIFY
+import AudioPlayerScreen from './src/screens/AudioPlayerScreen';
 
 // TREINO
 import RoutineDetailsScreen from './src/screens/RoutineDetailsScreen';
@@ -80,9 +80,12 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
-/* ================= NAVIGATORS ================= */
+/* ================= NAVIGATORS E REFS ================= */
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// 🔥 Referência global para navegação forçada (Fuga do Login Web)
+const navigationRef = createNavigationContainerRef();
 
 /* ---------- ALUNO TABS ---------- */
 function StudentTabs({ route }) {
@@ -150,21 +153,30 @@ function RootNavigator() {
     const restoreSession = async () => {
       try {
         const userJson = await AsyncStorage.getItem('user');
-        let role = await AsyncStorage.getItem('role'); // Tenta pegar a chave 'role'
+        const role = await AsyncStorage.getItem('role'); 
 
         if (userJson) {
           const user = JSON.parse(userJson);
-          
-          // 🔥 BLINDAGEM: Se o 'role' não estiver salvo sozinho, busca dentro do usuário
           const finalRole = role || user.role || user.type; 
 
           if (finalRole) {
             setSavedUser(user);
-            if (finalRole.toLowerCase() === 'admin') {
-              setInitialRoute('AdminDashboard');
-            } else {
-              setInitialRoute('Main');
-            }
+            
+            const targetRoute = finalRole.toLowerCase() === 'admin' ? 'AdminDashboard' : 'Main';
+            setInitialRoute(targetRoute);
+            
+            // 🔥 A VOADORA NO LOGIN: Assim que monta, força o usuário logado para a Home
+            // Isso anula a regra do Deep Linking web que quer manter o cara no Login
+            setTimeout(() => {
+                if (navigationRef.isReady()) {
+                    if (targetRoute === 'AdminDashboard') {
+                        navigationRef.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
+                    } else {
+                        navigationRef.reset({ index: 0, routes: [{ name: 'Main', params: { userData: user } }] });
+                    }
+                }
+            }, 100);
+
             setLoading(false);
             return;
           }
@@ -192,6 +204,8 @@ function RootNavigator() {
     }
   }, [loading, savedUser]);
 
+  // 🔥 BARREIRA DE TELA DE CARREGAMENTO:
+  // Enquanto o loading for true, NENHUMA tela é montada, impedindo o app de exibir o Login sem querer.
   if (loading || loadingTheme) {
     return (
       <View style={{ flex: 1, backgroundColor: theme?.bg || '#000', justifyContent: 'center', alignItems: 'center' }}>
@@ -218,7 +232,6 @@ function RootNavigator() {
       
       <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
       <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
-      {/* 🔥 MODO SPOTIFY CONECTADO */}
       <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
 
       <Stack.Screen name="PAFlix" component={PAFlixScreen} />
@@ -234,13 +247,14 @@ function RootNavigator() {
   );
 }
 
-/* ================= DEEP LINKING (ROTEAMENTO WEB) ================= */
+/* ================= DEEP LINKING ================= */
+// Removemos a amarração explícita do Login à raiz ('/') 
+// O App decide sozinho baseado na memória.
 const linking = {
   prefixes: ['https://www.pauloadrianoteam.com.br', 'https://pauloadrianoteam.com.br'],
   config: {
     screens: {
-      Login: '',
-      Register: 'registro', // 🔥 Transforma o "Register" na rota "/registro"
+      Register: 'registro', 
     }
   }
 };
@@ -249,8 +263,8 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        {/* 🔥 AQUI A MÁGICA ACONTECE: O App agora lê a URL */}
-        <NavigationContainer linking={linking}>
+        {/* 🔥 NAVIGATION REF INJETADA AQUI */}
+        <NavigationContainer ref={navigationRef} linking={linking}>
           <RootNavigator />
         </NavigationContainer>
       </ThemeProvider>
