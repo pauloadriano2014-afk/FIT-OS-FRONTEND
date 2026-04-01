@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 CURA MÁGICA DO PWA: Impede o navegador de dar zoom e mover a tela ao abrir o teclado
+// 🔥 CURA MÁGICA DO PWA
 if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
   const handler = () => {
     const viewportHeight = window.visualViewport.height;
@@ -25,7 +25,6 @@ if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewp
   window.visualViewport.addEventListener('scroll', handler);
 }
 
-// 🔥 TRAVA DE ESCALA DO NAVEGADOR
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
     let meta = document.querySelector("meta[name=viewport]");
     if (!meta) {
@@ -40,12 +39,11 @@ export default function CheckInScreen({ navigation }) {
   const [weight, setWeight] = useState('');
   const [feedback, setFeedback] = useState('');
   const [photos, setPhotos] = useState({ front: null, back: null, side: null });
-  const [extraPhotos, setExtraPhotos] = useState([]); // 🔥 NOVO: Array para as fotos extras dos atletas
+  const [extraPhotos, setExtraPhotos] = useState([]); 
   const [sending, setSending] = useState(false);
 
   const { theme } = useTheme();
 
-  // --- LÓGICA DE FOTOS ---
   const handleSelectPhoto = (position, isExtra = false) => {
     if (Platform.OS === 'web') {
         window.alert("Escolha a origem da imagem:\n1. Tirar Foto\n2. Escolher da Galeria");
@@ -175,90 +173,101 @@ export default function CheckInScreen({ navigation }) {
     </TouchableOpacity>
   );
 
+  // 🔥 ESTRUTURA RAIZ BASEADA NA HOME
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  const RootComponent = isWeb ? View : SafeAreaView;
+
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
+    <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>NOVO CHECK-IN</Text>
-        <View style={{width: 40}}/> 
-      </View>
-
-      {/* 🔥 SCROLL 100% CORRIGIDO: Sem flexGrow e apenas com padding generoso */}
-      <ScrollView 
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ padding: 20, paddingBottom: 150 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Quinzenal</Text>
-        <Text style={[styles.desc, { color: theme.textSecondary }]}>Envie suas medidas e fotos para atualização do protocolo.</Text>
-
-        <Text style={[styles.label, { color: theme.text }]}>PESO ATUAL (KG)</Text>
-        <TextInput 
-            style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-            keyboardType="decimal-pad" 
-            placeholder="Ex: 80.5" 
-            placeholderTextColor={theme.textSecondary}
-            value={weight}
-            onChangeText={setWeight}
-        />
-
-        <Text style={[styles.label, { color: theme.text }]}>FOTOS OBRIGATÓRIAS</Text>
-        <View style={styles.photosRow}>
-            {renderPhotoBox("FRENTE", "front", "account")}
-            {renderPhotoBox("LADO", "side", "account-box-outline")}
-            {renderPhotoBox("COSTAS", "back", "account-convert")}
-        </View>
-
-        <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FOTOS EXTRAS / POSES (Opcional)</Text>
-        <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 10, marginTop: -5}}>Envie fotos de poses específicas (duplo bíceps, expansão, etc).</Text>
-        
-        <View style={styles.extraPhotosContainer}>
-            {extraPhotos.map((uri, index) => (
-                <View key={index} style={[styles.photoBox, { width: 80, height: 100, marginRight: 10, backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                    <Image source={{ uri }} style={styles.photoPreview} />
-                    <TouchableOpacity style={styles.deleteExtraBtn} onPress={() => removeExtraPhoto(index)}>
-                        <MaterialCommunityIcons name="close" size={12} color="#FFF" />
-                    </TouchableOpacity>
-                </View>
-            ))}
-            
-            <TouchableOpacity 
-                style={[styles.photoBox, { width: 80, height: 100, backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} 
-                onPress={() => handleSelectPhoto(null, true)}
-            >
-                <View style={styles.photoPlaceholder}>
-                    <MaterialCommunityIcons name="plus" size={24} color={theme.textSecondary} />
-                    <Text style={[styles.photoText, { color: theme.textSecondary, textAlign:'center' }]}>Adicionar</Text>
-                </View>
+      {/* 🔥 LIMITADOR DE LARGURA (MAX WIDTH 480) - IGUAL A HOME */}
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+          
+          {/* HEADER FIXO NO TOPO */}
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
             </TouchableOpacity>
-        </View>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>NOVO CHECK-IN</Text>
+            <View style={{width: 40}}/> 
+          </View>
 
-        <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FEEDBACK (Como foi a semana?)</Text>
-        <TextInput 
-            style={[styles.input, styles.textArea, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-            multiline 
-            placeholder="Ex: Senti mais força no treino de pernas, dieta 100%..." 
-            placeholderTextColor={theme.textSecondary}
-            value={feedback}
-            onChangeText={setFeedback}
-        />
+          {/* 🔥 SCROLL FLUIDO */}
+          <ScrollView 
+            style={{ flex: 1, width: '100%' }}
+            contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Quinzenal</Text>
+            <Text style={[styles.desc, { color: theme.textSecondary }]}>Envie suas medidas e fotos para atualização do protocolo.</Text>
 
-        <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.accent }]} onPress={handleSend} disabled={sending}>
-            {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ENVIAR PARA O COACH</Text>}
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+            <Text style={[styles.label, { color: theme.text }]}>PESO ATUAL (KG)</Text>
+            <TextInput 
+                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                keyboardType="decimal-pad" 
+                placeholder="Ex: 80.5" 
+                placeholderTextColor={theme.textSecondary}
+                value={weight}
+                onChangeText={setWeight}
+            />
+
+            <Text style={[styles.label, { color: theme.text }]}>FOTOS OBRIGATÓRIAS</Text>
+            <View style={styles.photosRow}>
+                {renderPhotoBox("FRENTE", "front", "account")}
+                {renderPhotoBox("LADO", "side", "account-box-outline")}
+                {renderPhotoBox("COSTAS", "back", "account-convert")}
+            </View>
+
+            <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FOTOS EXTRAS / POSES (Opcional)</Text>
+            <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 10, marginTop: -5}}>Envie fotos de poses específicas (duplo bíceps, expansão, etc).</Text>
+            
+            <View style={styles.extraPhotosContainer}>
+                {extraPhotos.map((uri, index) => (
+                    <View key={index} style={[styles.photoBox, { width: 80, height: 100, marginRight: 10, backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                        <Image source={{ uri }} style={styles.photoPreview} />
+                        <TouchableOpacity style={styles.deleteExtraBtn} onPress={() => removeExtraPhoto(index)}>
+                            <MaterialCommunityIcons name="close" size={12} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
+                ))}
+                
+                <TouchableOpacity 
+                    style={[styles.photoBox, { width: 80, height: 100, backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} 
+                    onPress={() => handleSelectPhoto(null, true)}
+                >
+                    <View style={styles.photoPlaceholder}>
+                        <MaterialCommunityIcons name="plus" size={24} color={theme.textSecondary} />
+                        <Text style={[styles.photoText, { color: theme.textSecondary, textAlign:'center' }]}>Adicionar</Text>
+                    </View>
+                </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FEEDBACK (Como foi a semana?)</Text>
+            <TextInput 
+                style={[styles.input, styles.textArea, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                multiline 
+                placeholder="Ex: Senti mais força no treino de pernas, dieta 100%..." 
+                placeholderTextColor={theme.textSecondary}
+                value={feedback}
+                onChangeText={setFeedback}
+            />
+
+            <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.accent }]} onPress={handleSend} disabled={sending}>
+                {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ENVIAR PARA O COACH</Text>}
+            </TouchableOpacity>
+          </ScrollView>
+
+      </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0, },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, },
+  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: 'transparent' },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
