@@ -1,5 +1,5 @@
 // src/screens/AdminUserOptions.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, createElement } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
   ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, TextInput, Linking
@@ -29,18 +29,17 @@ export default function AdminUserOptions({ route, navigation }) {
   const [activeWorkouts, setActiveWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
   
-  const [viewMode, setViewMode] = useState('active'); // 'active', 'archived', 'paflix'
+  const [viewMode, setViewMode] = useState('active'); 
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
 
-  // 🔥 STATES DA FOTO DO PERFIL E AVALIAÇÃO
   const [photoUrl, setPhotoUrl] = useState(aluno.photoUrl || null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [evaluationUrl, setEvaluationUrl] = useState(aluno.evaluationUrl || ''); // Estado pro PDF
+  const [evaluationUrl, setEvaluationUrl] = useState(aluno.evaluationUrl || ''); 
 
-  // 🔥 STATE DO SISTEMA HÍBRIDO DE CHECK-IN
+  // 🔥 STATES DE CONFIGURAÇÃO DE CHECK-IN
   const [nextCheckInDate, setNextCheckInDate] = useState(''); 
+  const [disableCheckIn, setDisableCheckIn] = useState(aluno.disableCheckIn || false);
 
-  // 🔥 STATES DE ACESSO AO PA FLIX
   const [vipContents, setVipContents] = useState([]);
   const [userAccess, setUserAccess] = useState([]);
   const [loadingPaflix, setLoadingPaflix] = useState(false);
@@ -84,6 +83,7 @@ export default function AdminUserOptions({ route, navigation }) {
             const freshData = await resUser.json();
             if (freshData.evaluationUrl) setEvaluationUrl(freshData.evaluationUrl);
             if (freshData.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshData.nextCheckInDate));
+            if (typeof freshData.disableCheckIn === 'boolean') setDisableCheckIn(freshData.disableCheckIn);
         }
 
     } catch (error) { 
@@ -272,7 +272,24 @@ export default function AdminUserOptions({ route, navigation }) {
       navigation.navigate('MontarTreinoAdmin', { aluno, isEditing: false });
   };
 
-  // 🔥 FORMATAÇÃO E SALVAMENTO DA DATA DO CHECKIN HÍBRIDO
+  // 🔥 SALVA O SWITCH DE DESATIVAR CHECK-IN
+  const handleToggleDisableCheckIn = async () => {
+      const newValue = !disableCheckIn;
+      setDisableCheckIn(newValue); 
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+              method: 'PATCH',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ disableCheckIn: newValue })
+          });
+          if (!res.ok) throw new Error("Erro API");
+      } catch(e) {
+          setDisableCheckIn(!newValue); 
+          if (Platform.OS === 'web') window.alert("Erro de conexão ao alterar configuração.");
+          else Alert.alert("Erro", "Não foi possível alterar a configuração.");
+      }
+  };
+
   const handleCheckInDateChange = (text) => {
       let cleaned = text.replace(/[^0-9]/g, '');
       if (cleaned.length > 2) cleaned = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
@@ -485,6 +502,18 @@ export default function AdminUserOptions({ route, navigation }) {
 
                 <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
                 
+                {/* 🔥 BOTÃO RE-APONTADO PARA A TELA NOVA */}
+                <TouchableOpacity 
+                    style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                    onPress={() => navigation.navigate('AdminStudentCheckins', { aluno })}
+                >
+                    <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
+                        <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
+                    </View>
+                    <Text style={[styles.actionText, { color: theme.text }]}>Gerenciar Check-ins do Aluno</Text>
+                    <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
+                </TouchableOpacity>
+
                 <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
                     <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
                         <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
@@ -502,22 +531,51 @@ export default function AdminUserOptions({ route, navigation }) {
                     </Text>
                 </TouchableOpacity>
 
-                {/* 🔥 NOVO: CONFIGURAÇÃO DE CHECK-IN HÍBRIDO */}
                 <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
                 <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
+                    
+                    {/* 🔥 SWITCH DE ISENÇÃO DE CHECKIN */}
+                    <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.border}}>
+                        <View style={{flex: 1, paddingRight: 10}}>
+                            <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 13}}>Desativar Cobrança</Text>
+                            <Text style={{color: theme.textSecondary, fontSize: 11}}>Oculta os avisos e bloqueia a pulsação do botão para este aluno.</Text>
+                        </View>
+                        <Switch 
+                            value={disableCheckIn}
+                            onValueChange={handleToggleDisableCheckIn}
+                            trackColor={{ false: '#333', true: '#FF3B30' }}
+                            thumbColor={Platform.OS === 'ios' ? '#FFF' : (disableCheckIn ? '#000' : '#888')}
+                        />
+                    </View>
+
                     <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Defina uma data fixa para o aluno fazer o check-in. Deixe em branco para usar o Piloto Automático (14 dias).</Text>
                     
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <TextInput 
-                            style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} 
-                            placeholder="DD/MM/AAAA" 
-                            placeholderTextColor={theme.textSecondary}
-                            value={nextCheckInDate}
-                            onChangeText={handleCheckInDateChange}
-                            keyboardType="numeric"
-                            maxLength={10}
-                            autoCapitalize="none"
-                        />
+                        {Platform.OS === 'web' ? createElement('input', {
+                            type: 'date',
+                            value: nextCheckInDate && nextCheckInDate.length === 10 ? nextCheckInDate.split('/').reverse().join('-') : '',
+                            onChange: (e) => {
+                                const val = e.target.value;
+                                if(val) {
+                                    const [y, m, d] = val.split('-');
+                                    setNextCheckInDate(`${d}/${m}/${y}`);
+                                } else {
+                                    setNextCheckInDate('');
+                                }
+                            },
+                            style: { flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, outline: 'none', fontSize: '13px', fontFamily: 'inherit' }
+                        }) : (
+                            <TextInput 
+                                style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} 
+                                placeholder="DD/MM/AAAA" 
+                                placeholderTextColor={theme.textSecondary}
+                                value={nextCheckInDate}
+                                onChangeText={handleCheckInDateChange}
+                                keyboardType="numeric"
+                                maxLength={10}
+                                autoCapitalize="none"
+                            />
+                        )}
                         <TouchableOpacity 
                             style={[styles.saveBtn, { backgroundColor: theme.accent }]}
                             onPress={handleSaveCheckInDate}

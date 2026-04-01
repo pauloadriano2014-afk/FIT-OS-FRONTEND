@@ -24,12 +24,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-/* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 
 const { width } = Dimensions.get('window');
 
-// 🔥 PERGUNTAS RÁPIDAS PARA O CHAT
 const QUICK_QUESTIONS = [
     "🤖 Como funciona a IA de Vídeo?",
     "🏋️‍♂️ Como marco as séries no treino?",
@@ -49,13 +47,13 @@ export default function HomeScreen({ navigation }) {
   const [xp, setXp] = useState(0); 
   const [streak, setStreak] = useState(0);
 
-  // 🔥 STATES DE URGÊNCIA DO CHECK-IN
   const [isCheckinPending, setIsCheckinPending] = useState(false);
   const [isCheckinLate, setIsCheckinLate] = useState(false);
+  const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
+  const [showScheduledBanner, setShowScheduledBanner] = useState(true);
   const [hasAlerted, setHasAlerted] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // STATES DO CHATBOT
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -81,7 +79,6 @@ export default function HomeScreen({ navigation }) {
     useCallback(() => { loadHomeData(); }, [])
   );
 
-  // 🔥 EFEITO PARA ANIMAR O BOTÃO SE ESTIVER PENDENTE
   useEffect(() => {
       if (isCheckinPending) {
           Animated.loop(
@@ -95,7 +92,6 @@ export default function HomeScreen({ navigation }) {
       }
   }, [isCheckinPending]);
 
-  // 🔥 EFEITO PARA DAR O AVISO SE ESTIVER ATRASADO (Roda 1x por sessão)
   useEffect(() => {
       if (isCheckinLate && !hasAlerted && !loading) {
           Alert.alert(
@@ -172,49 +168,61 @@ export default function HomeScreen({ navigation }) {
                 }
             }
 
-            // 🔥 LÓGICA DO SISTEMA HÍBRIDO DE CHECK-IN
             let checkinPending = false;
             let checkinLate = false;
+            let futureDateStr = null;
 
-            if (fetchedUser.nextCheckInDate) {
-                // PRIORIDADE 1: MODO ADMIN (Data fixada pelo Coach)
-                const targetDate = new Date(fetchedUser.nextCheckInDate);
+            if (fetchedUser.disableCheckIn) {
+                // 🔥 ALUNO ISENTO: Desliga os alarmes
+                checkinPending = false;
+                checkinLate = false;
+                futureDateStr = null;
+            } else {
                 const today = new Date();
-                
-                // Ignora as horas para não dar falso positivo
-                targetDate.setHours(0,0,0,0);
                 today.setHours(0,0,0,0);
 
-                const diffTime = today.getTime() - targetDate.getTime();
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (fetchedUser.nextCheckInDate) {
+                    const targetDate = new Date(fetchedUser.nextCheckInDate);
+                    targetDate.setHours(0,0,0,0);
 
-                if (diffDays >= 0) { // O dia chegou ou já passou
-                    checkinPending = true;
-                    if (diffDays >= 3) checkinLate = true; // 3 dias de atraso fica vermelho
-                }
-            } else {
-                // PRIORIDADE 2: MODO AUTOMÁTICO (14 dias após o último envio)
-                if (checkinRes.ok) {
-                    const checkins = await checkinRes.json();
-                    if (Array.isArray(checkins) && checkins.length > 0) {
-                        checkins.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
-                        const lastDate = new Date(checkins[0].date || checkins[0].createdAt);
-                        const today = new Date();
-                        const diffTime = Math.abs(today.getTime() - lastDate.getTime());
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        
-                        if (diffDays >= 14) checkinPending = true;
-                        if (diffDays >= 17) checkinLate = true;
-                    } else {
-                        // Nunca enviou
+                    if (today.getTime() >= targetDate.getTime()) {
                         checkinPending = true;
-                        checkinLate = true;
+                        const diffTime = today.getTime() - targetDate.getTime();
+                        const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+                        if (diffDays >= 3) checkinLate = true; 
+                    } else {
+                        futureDateStr = `${String(targetDate.getDate()).padStart(2,'0')}/${String(targetDate.getMonth()+1).padStart(2,'0')}`;
+                    }
+                } else {
+                    if (checkinRes.ok) {
+                        const checkins = await checkinRes.json();
+                        if (Array.isArray(checkins) && checkins.length > 0) {
+                            checkins.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
+                            const lastDate = new Date(checkins[0].date || checkins[0].createdAt);
+                            lastDate.setHours(0,0,0,0);
+                            
+                            const diffTime = today.getTime() - lastDate.getTime();
+                            const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+                            
+                            if (diffDays >= 14) {
+                                checkinPending = true;
+                                if (diffDays >= 17) checkinLate = true;
+                            } else {
+                                const futureDate = new Date(lastDate.getTime());
+                                futureDate.setDate(futureDate.getDate() + 14);
+                                futureDateStr = `${String(futureDate.getDate()).padStart(2,'0')}/${String(futureDate.getMonth()+1).padStart(2,'0')}`;
+                            }
+                        } else {
+                            checkinPending = true;
+                            checkinLate = true;
+                        }
                     }
                 }
             }
 
             setIsCheckinPending(checkinPending);
             setIsCheckinLate(checkinLate);
+            setScheduledCheckInDate(futureDateStr);
 
         } catch (err) {
             console.log("Erro ao carregar dados críticos:", err);
@@ -321,8 +329,7 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {/* 🔥 BANNER DE AVISO SE CHECK-IN ESTIVER PENDENTE */}
-            {isCheckinPending && (
+            {isCheckinPending ? (
                 <TouchableOpacity 
                     style={[styles.pendingBanner, isCheckinLate ? { backgroundColor: '#FF3B30' } : { backgroundColor: '#FF9500' }]}
                     onPress={() => navigation.navigate('CheckIn')}
@@ -340,6 +347,19 @@ export default function HomeScreen({ navigation }) {
                     </View>
                     <MaterialCommunityIcons name="chevron-right" size={24} color="#FFF" />
                 </TouchableOpacity>
+            ) : (
+                scheduledCheckInDate && showScheduledBanner && (
+                    <View style={[styles.pendingBanner, { backgroundColor: '#32ADE6' }]}>
+                        <MaterialCommunityIcons name="calendar-clock" size={28} color="#FFF" />
+                        <View style={{flex: 1, marginLeft: 12}}>
+                            <Text style={styles.pendingBannerTitle}>PRÓXIMO CHECK-IN</Text>
+                            <Text style={styles.pendingBannerText}>Agendado para o dia {scheduledCheckInDate}</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => setShowScheduledBanner(false)} style={{padding: 8, marginRight: -8}}>
+                            <MaterialCommunityIcons name="close" size={20} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
+                )
             )}
 
             <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -363,7 +383,6 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
 
             <View style={styles.gridContainer}>
-                {/* 🔥 BOTÃO DE CHECK-IN ANIMADO */}
                 <Animated.View style={{ transform: [{ scale: isCheckinPending ? pulseAnim : 1 }], width: '48%', marginBottom: 15 }}>
                     <TouchableOpacity 
                         style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: isCheckinPending ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} 
@@ -405,7 +424,6 @@ export default function HomeScreen({ navigation }) {
             </View>
           </ScrollView>
 
-          {/* FAB DO CHATBOT */}
           <TouchableOpacity style={[styles.fabChat, { shadowColor: theme.accent }]} onPress={() => setChatVisible(true)}>
             <LinearGradient colors={[theme.accent, theme.accent]} style={styles.fabGradient}>
                 <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
@@ -413,7 +431,6 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* MODAL DO CHATBOT */}
       <Modal visible={chatVisible} animationType="slide" transparent>
         <View style={styles.chatModalOverlay}>
             <KeyboardAvoidingView 
@@ -449,12 +466,7 @@ export default function HomeScreen({ navigation }) {
                     />
 
                     <View style={{ borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.surface, paddingTop: 10 }}>
-                        <ScrollView 
-                            horizontal 
-                            showsHorizontalScrollIndicator={false} 
-                            contentContainerStyle={{ paddingHorizontal: 15, gap: 10 }}
-                            style={{ maxHeight: 50 }}
-                        >
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15, gap: 10 }} style={{ maxHeight: 50 }}>
                             {QUICK_QUESTIONS.map((question, index) => (
                                 <TouchableOpacity 
                                     key={index}
@@ -502,7 +514,6 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   
-  // 🔥 ESTILOS DOS AVISOS DE CHECKIN PENDENTE
   pendingBanner: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 20, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 },
   pendingBannerTitle: { color: '#FFF', fontWeight: '900', fontSize: 14, marginBottom: 3, letterSpacing: 0.5 },
   pendingBannerText: { color: '#FFF', fontSize: 11, fontWeight: '600', opacity: 0.95 },
