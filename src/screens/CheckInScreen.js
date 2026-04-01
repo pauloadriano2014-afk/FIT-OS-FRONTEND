@@ -2,9 +2,9 @@
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, Platform, TouchableOpacity, 
-  TextInput, Image, ScrollView, Alert, ActivityIndicator, StatusBar, KeyboardAvoidingView
+  TextInput, Image, ScrollView, Alert, ActivityIndicator, StatusBar 
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // 🔥 A CURA DO CORTE NA TELA
+import { SafeAreaView } from 'react-native-safe-area-context'; // 🔥 A CURA: Usando a mesma biblioteca do AdminDashboard
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,7 +19,6 @@ export default function CheckInScreen({ navigation }) {
   const [sending, setSending] = useState(false);
 
   const { theme } = useTheme();
-  const insets = useSafeAreaInsets(); // 🔥 SUBSTITUI O SAFEAREAVIEW BUGADO
 
   const handleSelectPhoto = (position, isExtra = false) => {
     if (Platform.OS === 'web') {
@@ -150,15 +149,20 @@ export default function CheckInScreen({ navigation }) {
     </TouchableOpacity>
   );
 
+  // 🔥 ESTRUTURA MILIMETRICAMENTE IGUAL AO ADMIN DASHBOARD
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
+  const RootComponent = isWeb ? View : SafeAreaView;
+  const rootStyle = isWeb
+    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
+    : { flex: 1, backgroundColor: theme.bg };
+
   return (
-    <View style={[styles.root, { backgroundColor: isWeb ? webOuterBg : theme.bg, paddingTop: isWeb ? 0 : insets.top, paddingBottom: isWeb ? 0 : insets.bottom }]}>
+    <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* 🔥 OVERFLOW HIDDEN: Bloqueia a tela de vazar pra fora do celular */}
-      <View style={[styles.mainContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
@@ -168,86 +172,79 @@ export default function CheckInScreen({ navigation }) {
             <View style={{width: 40}}/> 
           </View>
 
-          <KeyboardAvoidingView 
-              style={{ flex: 1 }} 
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          <ScrollView 
+            style={{ flex: 1 }} 
+            contentContainerStyle={{ flexGrow: 1, padding: 20, paddingBottom: 150 }} 
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-              <ScrollView 
-                style={{ flex: 1, width: '100%' }}
-                contentContainerStyle={{ padding: 20, paddingBottom: 100 }} 
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                bounces={true}
-              >
-                <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Quinzenal</Text>
-                <Text style={[styles.desc, { color: theme.textSecondary }]}>Envie suas medidas e fotos para atualização do protocolo.</Text>
+            <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Quinzenal</Text>
+            <Text style={[styles.desc, { color: theme.textSecondary }]}>Envie suas medidas e fotos para atualização do protocolo.</Text>
 
-                <Text style={[styles.label, { color: theme.text }]}>PESO ATUAL (KG)</Text>
-                <TextInput 
-                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-                    keyboardType="decimal-pad" 
-                    placeholder="Ex: 80.5" 
-                    placeholderTextColor={theme.textSecondary}
-                    value={weight}
-                    onChangeText={setWeight}
-                />
+            <Text style={[styles.label, { color: theme.text }]}>PESO ATUAL (KG)</Text>
+            <TextInput 
+                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                keyboardType="decimal-pad" 
+                placeholder="Ex: 80.5" 
+                placeholderTextColor={theme.textSecondary}
+                value={weight}
+                onChangeText={setWeight}
+            />
 
-                <Text style={[styles.label, { color: theme.text }]}>FOTOS OBRIGATÓRIAS</Text>
-                <View style={styles.photosRow}>
-                    {renderPhotoBox("FRENTE", "front", "account")}
-                    {renderPhotoBox("LADO", "side", "account-box-outline")}
-                    {renderPhotoBox("COSTAS", "back", "account-convert")}
-                </View>
+            <Text style={[styles.label, { color: theme.text }]}>FOTOS OBRIGATÓRIAS</Text>
+            <View style={styles.photosRow}>
+                {renderPhotoBox("FRENTE", "front", "account")}
+                {renderPhotoBox("LADO", "side", "account-box-outline")}
+                {renderPhotoBox("COSTAS", "back", "account-convert")}
+            </View>
 
-                <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FOTOS EXTRAS / POSES (Opcional)</Text>
-                <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 10, marginTop: -5}}>Envie fotos de poses específicas (duplo bíceps, expansão, etc).</Text>
+            <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FOTOS EXTRAS / POSES (Opcional)</Text>
+            <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 10, marginTop: -5}}>Envie fotos de poses específicas (duplo bíceps, expansão, etc).</Text>
+            
+            <View style={styles.extraPhotosContainer}>
+                {extraPhotos.map((uri, index) => (
+                    <View key={index} style={[styles.photoBox, { width: 80, height: 100, marginRight: 10, backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                        <Image source={{ uri }} style={styles.photoPreview} />
+                        <TouchableOpacity style={styles.deleteExtraBtn} onPress={() => removeExtraPhoto(index)}>
+                            <MaterialCommunityIcons name="close" size={12} color="#FFF" />
+                        </TouchableOpacity>
+                    </View>
+                ))}
                 
-                <View style={styles.extraPhotosContainer}>
-                    {extraPhotos.map((uri, index) => (
-                        <View key={index} style={[styles.photoBox, { width: 80, height: 100, marginRight: 10, backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                            <Image source={{ uri }} style={styles.photoPreview} />
-                            <TouchableOpacity style={styles.deleteExtraBtn} onPress={() => removeExtraPhoto(index)}>
-                                <MaterialCommunityIcons name="close" size={12} color="#FFF" />
-                            </TouchableOpacity>
-                        </View>
-                    ))}
-                    
-                    <TouchableOpacity 
-                        style={[styles.photoBox, { width: 80, height: 100, backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} 
-                        onPress={() => handleSelectPhoto(null, true)}
-                    >
-                        <View style={styles.photoPlaceholder}>
-                            <MaterialCommunityIcons name="plus" size={24} color={theme.textSecondary} />
-                            <Text style={[styles.photoText, { color: theme.textSecondary, textAlign:'center' }]}>Adicionar</Text>
-                        </View>
-                    </TouchableOpacity>
-                </View>
-
-                <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FEEDBACK (Como foi a semana?)</Text>
-                <TextInput 
-                    style={[styles.input, styles.textArea, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-                    multiline 
-                    placeholder="Ex: Senti mais força no treino de pernas, dieta 100%..." 
-                    placeholderTextColor={theme.textSecondary}
-                    value={feedback}
-                    onChangeText={setFeedback}
-                />
-
-                <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.accent }]} onPress={handleSend} disabled={sending}>
-                    {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ENVIAR PARA O COACH</Text>}
+                <TouchableOpacity 
+                    style={[styles.photoBox, { width: 80, height: 100, backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} 
+                    onPress={() => handleSelectPhoto(null, true)}
+                >
+                    <View style={styles.photoPlaceholder}>
+                        <MaterialCommunityIcons name="plus" size={24} color={theme.textSecondary} />
+                        <Text style={[styles.photoText, { color: theme.textSecondary, textAlign:'center' }]}>Adicionar</Text>
+                    </View>
                 </TouchableOpacity>
-              </ScrollView>
-          </KeyboardAvoidingView>
+            </View>
+
+            <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FEEDBACK (Como foi a semana?)</Text>
+            <TextInput 
+                style={[styles.input, styles.textArea, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                multiline 
+                placeholder="Ex: Senti mais força no treino de pernas, dieta 100%..." 
+                placeholderTextColor={theme.textSecondary}
+                value={feedback}
+                onChangeText={setFeedback}
+            />
+
+            <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.accent }]} onPress={handleSend} disabled={sending}>
+                {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ENVIAR PARA O COACH</Text>}
+            </TouchableOpacity>
+          </ScrollView>
 
       </View>
-    </View>
+    </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  mainContainer: { flex: 1, width: '100%', maxWidth: Platform.OS === 'web' ? 480 : '100%', alignSelf: 'center', overflow: 'hidden', borderLeftWidth: Platform.OS === 'web' ? 1 : 0, borderRightWidth: Platform.OS === 'web' ? 1 : 0 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1 },
+  // 🔥 Header usa o mesmo espaçamento seguro do AdminDashboard
+  header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
