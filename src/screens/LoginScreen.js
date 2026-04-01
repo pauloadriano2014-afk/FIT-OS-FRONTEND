@@ -18,29 +18,32 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // 🔥 LÓGICA DO PWA INSTALL BANNER
+  // 🔥 LÓGICA BLINDADA DO PWA INSTALL BANNER
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isIOS, setIsIOS] = useState(false);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   useEffect(() => {
     if (Platform.OS === 'web') {
-      // 1. Verifica se já está instalado (rodando como standalone)
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
       
       if (!isStandalone) {
-        // 2. Detecta se é iOS (iPhone/iPad) para mostrar as instruções manuais
-        const isIosDevice = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+        const ua = window.navigator.userAgent.toLowerCase();
+        const isIosDevice = /iphone|ipad|ipod/.test(ua);
+        const isAndroidDevice = /android/.test(ua);
+        
         setIsIOS(isIosDevice);
 
-        if (isIosDevice) {
+        // Se for celular (iOS ou Android), nós ativamos o banner
+        if (isIosDevice || isAndroidDevice) {
             setShowInstallBanner(true);
-        } else {
-            // 3. Ouve o evento nativo do Android/Chrome para instalação
+        }
+
+        // Se for Android, tentamos capturar o botão automático do Google
+        if (isAndroidDevice) {
             const handleBeforeInstallPrompt = (e) => {
-                e.preventDefault(); // Previne o popup padrão automático do Chrome
-                setDeferredPrompt(e);
-                setShowInstallBanner(true); // Mostra o nosso banner personalizado
+                e.preventDefault();
+                setDeferredPrompt(e); 
             };
             window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
             return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -170,11 +173,11 @@ export default function LoginScreen({ navigation }) {
             />
           </View>
 
-          {/* 🔥 BANNER INTELIGENTE DE INSTALAÇÃO DO PWA */}
+          {/* 🔥 BANNER INTELIGENTE E BLINDADO DE INSTALAÇÃO DO PWA */}
           {showInstallBanner && Platform.OS === 'web' && (
               <View style={[styles.installBanner, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
                   {isIOS ? (
-                      // Instruções atualizadas para iPhone (Safari e Chrome)
+                      // 🍏 Instruções para iPhone (Safari)
                       <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                           <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="apple" size={24} color={theme.text} /></View>
                           <View style={{flex: 1, paddingHorizontal: 10}}>
@@ -184,8 +187,8 @@ export default function LoginScreen({ navigation }) {
                           </View>
                           <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={{padding: 5}}><MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} /></TouchableOpacity>
                       </View>
-                  ) : (
-                      // Botão Automático para Android/Chrome
+                  ) : deferredPrompt ? (
+                      // 🤖 Botão Automático do Android (Funcionou com sucesso)
                       <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                           <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="android" size={24} color={theme.accent} /></View>
                           <View style={{flex: 1, paddingHorizontal: 10}}>
@@ -195,6 +198,16 @@ export default function LoginScreen({ navigation }) {
                           <TouchableOpacity style={[styles.installBtn, {backgroundColor: theme.accent}]} onPress={handleInstallClick}>
                               <Text style={[styles.installBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>INSTALAR</Text>
                           </TouchableOpacity>
+                      </View>
+                  ) : (
+                      // ⚠️ Resgate do Android (Aberto no WhatsApp ou evento bloqueado)
+                      <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                          <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="android" size={24} color={theme.accent} /></View>
+                          <View style={{flex: 1, paddingHorizontal: 10}}>
+                              <Text style={[styles.installTitle, {color: theme.text}]}>Instale o App no Android</Text>
+                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>Abra este link no Chrome, clique nos 3 pontinhos no topo e selecione "Instalar Aplicativo".</Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={{padding: 5}}><MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} /></TouchableOpacity>
                       </View>
                   )}
               </View>
@@ -256,7 +269,6 @@ const styles = StyleSheet.create({
   logoImage: { width: 220, height: 220 }, 
   formContainer: { width: '100%' },
   
-  // Estilos do Banner de Instalação PWA
   installBanner: { padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 25, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
   iconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   installTitle: { fontWeight: '900', fontSize: 14, marginBottom: 2 },
