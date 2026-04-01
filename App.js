@@ -47,6 +47,7 @@ import GerenciarTemplates from './src/screens/GerenciarTemplates';
 import AdminUserOptions from './src/screens/AdminUserOptions';
 import AdminEvolutionScreen from './src/screens/AdminEvolutionScreen';
 import AdminAddContent from './src/screens/AdminAddContent';
+import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen'; // 🔥 NOVA TELA DE CHECK-INS DO ALUNO
 
 // GLOBAL
 import AIScannerModal from './src/components/AIScannerModal';
@@ -243,6 +244,7 @@ function RootNavigator() {
       <Stack.Screen name="AdminAlunoOptions" component={AdminUserOptions} />
       <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
       <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
+      <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
     </Stack.Navigator>
   );
 }
