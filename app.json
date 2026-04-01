@@ -49,12 +49,12 @@
         "name": "Paulo Adriano Team",
         "short_name": "PA TEAM",
         "description": "Consultoria de Performance",
-        "start_url": "/",
-        "scope": "/",
+        "start_url": ".",
         "display": "standalone",
         "orientation": "portrait",
         "background_color": "#000000",
         "theme_color": "#CCFF00",
+        "lang": "pt-BR",
         "prefer_related_applications": false
       }
     },
