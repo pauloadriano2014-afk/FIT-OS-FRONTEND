@@ -1,11 +1,12 @@
 // src/screens/LoginScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, Image, KeyboardAvoidingView,
   Platform, ScrollView, SafeAreaView, Linking
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
@@ -16,6 +17,48 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
+  // 🔥 LÓGICA DO PWA INSTALL BANNER
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // 1. Verifica se já está instalado (rodando como standalone)
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+      
+      if (!isStandalone) {
+        // 2. Detecta se é iOS (iPhone/iPad) para mostrar as instruções manuais
+        const isIosDevice = /iphone|ipad|ipod/.test(window.navigator.userAgent.toLowerCase());
+        setIsIOS(isIosDevice);
+
+        if (isIosDevice) {
+            setShowInstallBanner(true);
+        } else {
+            // 3. Ouve o evento nativo do Android/Chrome para instalação
+            const handleBeforeInstallPrompt = (e) => {
+                e.preventDefault(); // Previne o popup padrão automático do Chrome
+                setDeferredPrompt(e);
+                setShowInstallBanner(true); // Mostra o nosso banner personalizado
+            };
+            window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+        }
+      }
+    }
+  }, []);
+
+  const handleInstallClick = async () => {
+      if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (outcome === 'accepted') {
+              setDeferredPrompt(null);
+              setShowInstallBanner(false);
+          }
+      }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -43,7 +86,6 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      // 🔥 A CIRURGIA: Lê a patente direto do banco de dados em vez de checar o e-mail
       const isAdmin = data.user.role === 'ADMIN';
       const role = isAdmin ? 'admin' : 'student';
 
@@ -128,6 +170,36 @@ export default function LoginScreen({ navigation }) {
             />
           </View>
 
+          {/* 🔥 BANNER INTELIGENTE DE INSTALAÇÃO DO PWA */}
+          {showInstallBanner && Platform.OS === 'web' && (
+              <View style={[styles.installBanner, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                  {isIOS ? (
+                      // Instruções atualizadas para iPhone (Safari e Chrome)
+                      <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                          <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="apple" size={24} color={theme.text} /></View>
+                          <View style={{flex: 1, paddingHorizontal: 10}}>
+                              <Text style={[styles.installTitle, {color: theme.text}]}>Instale o App no iPhone</Text>
+                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>1. Toque em Compartilhar <MaterialCommunityIcons name="export-variant" size={14} /> (ou nos 3 pontinhos).</Text>
+                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>2. Vá em "Ver mais" e escolha "Adicionar à Tela de Início".</Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={{padding: 5}}><MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} /></TouchableOpacity>
+                      </View>
+                  ) : (
+                      // Botão Automático para Android/Chrome
+                      <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
+                          <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="android" size={24} color={theme.accent} /></View>
+                          <View style={{flex: 1, paddingHorizontal: 10}}>
+                              <Text style={[styles.installTitle, {color: theme.text}]}>Instale o Aplicativo</Text>
+                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>Acesse rápido direto da sua tela inicial.</Text>
+                          </View>
+                          <TouchableOpacity style={[styles.installBtn, {backgroundColor: theme.accent}]} onPress={handleInstallClick}>
+                              <Text style={[styles.installBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>INSTALAR</Text>
+                          </TouchableOpacity>
+                      </View>
+                  )}
+              </View>
+          )}
+
           <View style={styles.formContainer}>
             <TextInput
               style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
@@ -180,10 +252,18 @@ export default function LoginScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, justifyContent: 'center', padding: 30 },
-  brandContainer: { alignItems: 'center', marginBottom: 40 },
+  brandContainer: { alignItems: 'center', marginBottom: 30 },
   logoImage: { width: 220, height: 220 }, 
   formContainer: { width: '100%' },
   
+  // Estilos do Banner de Instalação PWA
+  installBanner: { padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 25, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+  iconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  installTitle: { fontWeight: '900', fontSize: 14, marginBottom: 2 },
+  installDesc: { fontSize: 11, fontWeight: '500', lineHeight: 16 },
+  installBtn: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 10 },
+  installBtnText: { fontWeight: '900', fontSize: 11 },
+
   input: {
     padding: 18,
     borderRadius: 16,
