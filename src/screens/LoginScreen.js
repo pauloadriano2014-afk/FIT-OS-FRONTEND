@@ -11,6 +11,16 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
 
+// 🔥 GATILHO GLOBAL: Fica de tocaia antes mesmo da tela existir para não perder o evento do Chrome
+let globalPrompt = null;
+if (Platform.OS === 'web' && typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    globalPrompt = e;
+    window.dispatchEvent(new Event('show_pwa_button'));
+  });
+}
+
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme(); 
   
@@ -18,8 +28,8 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // 🔥 LÓGICA BLINDADA DO PWA INSTALL BANNER
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  // 🔥 LÓGICA DO PWA INSTALL BANNER
+  const [deferredPrompt, setDeferredPrompt] = useState(globalPrompt);
   const [isIOS, setIsIOS] = useState(false);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
@@ -34,19 +44,21 @@ export default function LoginScreen({ navigation }) {
         
         setIsIOS(isIosDevice);
 
-        // Se for celular (iOS ou Android), nós ativamos o banner
         if (isIosDevice || isAndroidDevice) {
             setShowInstallBanner(true);
         }
 
-        // Se for Android, tentamos capturar o botão automático do Google
         if (isAndroidDevice) {
-            const handleBeforeInstallPrompt = (e) => {
-                e.preventDefault();
-                setDeferredPrompt(e); 
+            // Escuta o aviso global caso o evento dispare uns segundos atrasado
+            const promptListener = () => {
+                setDeferredPrompt(globalPrompt);
             };
-            window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
-            return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+            window.addEventListener('show_pwa_button', promptListener);
+            
+            // Força uma checagem imediata pra garantir
+            if (globalPrompt) setDeferredPrompt(globalPrompt);
+
+            return () => window.removeEventListener('show_pwa_button', promptListener);
         }
       }
     }
@@ -58,6 +70,7 @@ export default function LoginScreen({ navigation }) {
           const { outcome } = await deferredPrompt.userChoice;
           if (outcome === 'accepted') {
               setDeferredPrompt(null);
+              globalPrompt = null;
               setShowInstallBanner(false);
           }
       }
@@ -173,11 +186,11 @@ export default function LoginScreen({ navigation }) {
             />
           </View>
 
-          {/* 🔥 BANNER INTELIGENTE E BLINDADO DE INSTALAÇÃO DO PWA */}
+          {/* 🔥 BANNER INTELIGENTE DE INSTALAÇÃO DO PWA */}
           {showInstallBanner && Platform.OS === 'web' && (
               <View style={[styles.installBanner, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
                   {isIOS ? (
-                      // 🍏 Instruções para iPhone (Safari)
+                      // 🍏 Instruções para iPhone
                       <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                           <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="apple" size={24} color={theme.text} /></View>
                           <View style={{flex: 1, paddingHorizontal: 10}}>
@@ -188,7 +201,7 @@ export default function LoginScreen({ navigation }) {
                           <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={{padding: 5}}><MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} /></TouchableOpacity>
                       </View>
                   ) : deferredPrompt ? (
-                      // 🤖 Botão Automático do Android (Funcionou com sucesso)
+                      // 🤖 Botão Automático do Android (Conseguimos capturar!)
                       <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                           <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="android" size={24} color={theme.accent} /></View>
                           <View style={{flex: 1, paddingHorizontal: 10}}>
@@ -200,12 +213,12 @@ export default function LoginScreen({ navigation }) {
                           </TouchableOpacity>
                       </View>
                   ) : (
-                      // ⚠️ Resgate do Android (Aberto no WhatsApp ou evento bloqueado)
+                      // ⚠️ Fallback Android (Evento não disparou ou bloqueado pelo Chrome)
                       <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
                           <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="android" size={24} color={theme.accent} /></View>
                           <View style={{flex: 1, paddingHorizontal: 10}}>
                               <Text style={[styles.installTitle, {color: theme.text}]}>Instale o App no Android</Text>
-                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>Abra este link no Chrome, clique nos 3 pontinhos no topo e selecione "Instalar Aplicativo".</Text>
+                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>Clique nos 3 pontinhos no topo do Chrome e selecione "Instalar Aplicativo".</Text>
                           </View>
                           <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={{padding: 5}}><MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} /></TouchableOpacity>
                       </View>
