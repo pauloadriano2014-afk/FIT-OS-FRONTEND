@@ -14,6 +14,12 @@ const formatDate = (dateString) => {
     return `${date.getDate().toString().padStart(2,'0')}/${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getFullYear().toString().slice(-2)}`;
 };
 
+const formatToBRDate = (isoString) => {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+};
+
 export default function AdminUserOptions({ route, navigation }) {
   const { aluno } = route.params;
   const { theme } = useTheme(); 
@@ -30,6 +36,9 @@ export default function AdminUserOptions({ route, navigation }) {
   const [photoUrl, setPhotoUrl] = useState(aluno.photoUrl || null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [evaluationUrl, setEvaluationUrl] = useState(aluno.evaluationUrl || ''); // Estado pro PDF
+
+  // 🔥 STATE DO SISTEMA HÍBRIDO DE CHECK-IN
+  const [nextCheckInDate, setNextCheckInDate] = useState(''); 
 
   // 🔥 STATES DE ACESSO AO PA FLIX
   const [vipContents, setVipContents] = useState([]);
@@ -70,11 +79,11 @@ export default function AdminUserOptions({ route, navigation }) {
 
         setIsActiveUser(aluno.active); 
 
-        // 🔥 Opcional: Atualizar a URL direto do banco ao focar, garantindo sincronia
         const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
         if (resUser.ok) {
             const freshData = await resUser.json();
             if (freshData.evaluationUrl) setEvaluationUrl(freshData.evaluationUrl);
+            if (freshData.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshData.nextCheckInDate));
         }
 
     } catch (error) { 
@@ -84,7 +93,6 @@ export default function AdminUserOptions({ route, navigation }) {
     }
   };
 
-  // 🔥 BUSCA OS CONTEÚDOS VIP E OS ACESSOS DO ALUNO
   const fetchPaflixData = async () => {
       setLoadingPaflix(true);
       try {
@@ -113,7 +121,6 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  // 🔥 FUNÇÃO DE UPLOAD DA FOTO DA GALERIA
   const handlePickImage = async () => {
       const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -146,7 +153,6 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  // 🔥 LIGA/DESLIGA ACESSO VIP DO ALUNO
   const handleToggleAccess = async (contentId, currentStatus) => {
       const newStatus = !currentStatus;
       
@@ -266,6 +272,43 @@ export default function AdminUserOptions({ route, navigation }) {
       navigation.navigate('MontarTreinoAdmin', { aluno, isEditing: false });
   };
 
+  // 🔥 FORMATAÇÃO E SALVAMENTO DA DATA DO CHECKIN HÍBRIDO
+  const handleCheckInDateChange = (text) => {
+      let cleaned = text.replace(/[^0-9]/g, '');
+      if (cleaned.length > 2) cleaned = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
+      if (cleaned.length > 5) cleaned = cleaned.slice(0, 5) + '/' + cleaned.slice(5);
+      if (cleaned.length > 10) cleaned = cleaned.slice(0, 10);
+      setNextCheckInDate(cleaned);
+  };
+
+  const handleSaveCheckInDate = async () => {
+      let isoDate = null;
+      if (nextCheckInDate && nextCheckInDate.length === 10) {
+          const [day, month, year] = nextCheckInDate.split('/');
+          isoDate = new Date(`${year}-${month}-${day}T12:00:00Z`).toISOString();
+      } else if (nextCheckInDate.length > 0) {
+          return Platform.OS === 'web' ? window.alert("Formato de data inválido. Use DD/MM/AAAA") : Alert.alert("Erro", "Formato de data inválido. Use DD/MM/AAAA");
+      }
+
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+              method: 'PATCH',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ nextCheckInDate: isoDate })
+          });
+          if (res.ok) {
+              const msg = isoDate ? "Data de check-in agendada com sucesso!" : "Data removida. O sistema usará o Modo Automático (14 dias).";
+              if (Platform.OS === 'web') window.alert(`Sucesso!\n\n${msg}`);
+              else Alert.alert("Sucesso", msg);
+          } else {
+              if (Platform.OS === 'web') window.alert("Erro ao salvar a data.");
+              else Alert.alert("Erro", "Falha ao salvar a data no servidor.");
+          }
+      } catch(e) {
+          console.log(e);
+      }
+  };
+
   const listToShow = viewMode === 'active' ? activeWorkouts : archivedWorkouts;
 
   const isWeb = Platform.OS === 'web';
@@ -296,7 +339,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
-                {/* 🔥 NOVO: PERFIL VIP COM FOTO CLICÁVEL */}
                 <View style={[styles.profileHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <TouchableOpacity onPress={handlePickImage} style={styles.avatarContainer} activeOpacity={0.8}>
                         {uploadingPhoto ? (
@@ -320,7 +362,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* 🔥 ABAS REFORMULADAS (COM PA FLIX) */}
                 <View style={styles.tabsRow}>
                     <TouchableOpacity 
                         style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'active' && { borderBottomColor: theme.accent }]} 
@@ -346,7 +387,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
                 
-                {/* 🔥 ABA DE TREINOS (Ativos e Arquivados) */}
                 {(viewMode === 'active' || viewMode === 'archived') && (
                     <>
                         {viewMode === 'active' && (
@@ -404,7 +444,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </>
                 )}
 
-                {/* 🔥 NOVA ABA: PA FLIX VIP */}
                 {viewMode === 'paflix' && (
                     <View>
                         <Text style={styles.sectionLabel}>PERMISSÕES DE CONTEÚDO VIP</Text>
@@ -444,7 +483,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 )}
 
-                {/* DADOS E SISTEMA E AVALIAÇÃO - SEMPRE VISÍVEL NO FINAL */}
                 <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
                 
                 <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
@@ -464,7 +502,32 @@ export default function AdminUserOptions({ route, navigation }) {
                     </Text>
                 </TouchableOpacity>
 
-                {/* 🔥 GERENCIADOR DA AVALIAÇÃO EM PDF - VERSÃO PRO */}
+                {/* 🔥 NOVO: CONFIGURAÇÃO DE CHECK-IN HÍBRIDO */}
+                <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
+                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
+                    <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Defina uma data fixa para o aluno fazer o check-in. Deixe em branco para usar o Piloto Automático (14 dias).</Text>
+                    
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <TextInput 
+                            style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} 
+                            placeholder="DD/MM/AAAA" 
+                            placeholderTextColor={theme.textSecondary}
+                            value={nextCheckInDate}
+                            onChangeText={handleCheckInDateChange}
+                            keyboardType="numeric"
+                            maxLength={10}
+                            autoCapitalize="none"
+                        />
+                        <TouchableOpacity 
+                            style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                            onPress={handleSaveCheckInDate}
+                        >
+                            <MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* 🔥 GERENCIADOR DA AVALIAÇÃO EM PDF */}
                 <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
                 <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
                     <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva.</Text>
@@ -501,7 +564,6 @@ export default function AdminUserOptions({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* 🔥 BOTÕES DE APOIO AO COACH */}
                     {evaluationUrl ? (
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 15 }}>
                             <TouchableOpacity 
@@ -543,7 +605,6 @@ const styles = StyleSheet.create({
   headerTitle: { fontWeight:'900', fontSize:16 },
   headerSubtitle: { color: '#888', fontSize:10, fontWeight:'bold', letterSpacing:1 },
   
-  // 🔥 ESTILOS DA FOTO E PERFIL
   profileHeader: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 16, marginBottom: 20, borderWidth: 1 },
   avatarContainer: { position: 'relative', marginRight: 15 },
   avatarPlaceholder: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
@@ -573,7 +634,6 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems:'center', padding: 30, borderStyle:'dashed', borderWidth:1, borderRadius:10, marginVertical: 10 },
   emptyText: { color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 },
   
-  // 🔥 ESTILOS DOS CARDS DO PAFLIX
   accessCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 10, borderWidth: 1 },
   accessIconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   accessTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
@@ -585,7 +645,6 @@ const styles = StyleSheet.create({
   deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 15, borderRadius: 12, marginTop: 20, gap: 10 },
   deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 12 },
 
-  // 🔥 ESTILOS DO PDF
   inputPdf: { padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 13, outlineStyle: 'none' },
   saveBtn: { padding: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', height: 45, width: 45 }
 });

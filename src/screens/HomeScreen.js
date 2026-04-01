@@ -1,5 +1,5 @@
 // src/screens/HomeScreen.js
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -16,7 +16,8 @@ import {
   TextInput,
   KeyboardAvoidingView,
   FlatList,
-  Dimensions
+  Dimensions,
+  Animated
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -48,6 +49,12 @@ export default function HomeScreen({ navigation }) {
   const [xp, setXp] = useState(0); 
   const [streak, setStreak] = useState(0);
 
+  // 🔥 STATES DE URGÊNCIA DO CHECK-IN
+  const [isCheckinPending, setIsCheckinPending] = useState(false);
+  const [isCheckinLate, setIsCheckinLate] = useState(false);
+  const [hasAlerted, setHasAlerted] = useState(false);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
   // STATES DO CHATBOT
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -74,8 +81,38 @@ export default function HomeScreen({ navigation }) {
     useCallback(() => { loadHomeData(); }, [])
   );
 
+  // 🔥 EFEITO PARA ANIMAR O BOTÃO SE ESTIVER PENDENTE
+  useEffect(() => {
+      if (isCheckinPending) {
+          Animated.loop(
+              Animated.sequence([
+                  Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
+                  Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true })
+              ])
+          ).start();
+      } else {
+          pulseAnim.setValue(1);
+      }
+  }, [isCheckinPending]);
+
+  // 🔥 EFEITO PARA DAR O AVISO SE ESTIVER ATRASADO (Roda 1x por sessão)
+  useEffect(() => {
+      if (isCheckinLate && !hasAlerted && !loading) {
+          Alert.alert(
+              "⚠️ Check-in Atrasado!",
+              "Atleta, seu feedback quinzenal passou do prazo. Precisamos dos seus dados para ajustar o planejamento.\n\nVá na aba Check-in e envie agora!",
+              [
+                  { text: "Depois", style: "cancel" },
+                  { text: "Fazer Agora", onPress: () => navigation.navigate('CheckIn') }
+              ]
+          );
+          setHasAlerted(true);
+      }
+  }, [isCheckinLate, loading, hasAlerted]);
+
   const loadHomeData = async () => {
     try {
+      setLoading(true);
       const storedUser = await AsyncStorage.getItem('user');
       if (storedUser) {
         const user = JSON.parse(storedUser);
@@ -95,18 +132,21 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
-            const [homeRes, historyRes] = await Promise.all([
+            const [homeRes, historyRes, checkinRes] = await Promise.all([
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
-                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`)
+                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`),
+                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
             ]);
+
+            let fetchedUser = { ...user };
 
             if (homeRes.ok) {
                 const homeData = await homeRes.json();
                 if (homeData.user) {
                     const serverXP = homeData.user.currentXP || 0;
                     setXp(serverXP);
-                    const updatedUser = { ...user, currentXP: serverXP, ...homeData.user };
-                    await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+                    fetchedUser = { ...user, currentXP: serverXP, ...homeData.user };
+                    await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
                 }
             }
 
@@ -126,13 +166,56 @@ export default function HomeScreen({ navigation }) {
                         if (uniqueDates.includes(str)) { 
                             count++; 
                             checkDate.setDate(checkDate.getDate() - 1); 
-                        } else { 
-                            break; 
-                        }
+                        } else { break; }
                     }
                     setStreak(count);
                 }
             }
+
+            // 🔥 LÓGICA DO SISTEMA HÍBRIDO DE CHECK-IN
+            let checkinPending = false;
+            let checkinLate = false;
+
+            if (fetchedUser.nextCheckInDate) {
+                // PRIORIDADE 1: MODO ADMIN (Data fixada pelo Coach)
+                const targetDate = new Date(fetchedUser.nextCheckInDate);
+                const today = new Date();
+                
+                // Ignora as horas para não dar falso positivo
+                targetDate.setHours(0,0,0,0);
+                today.setHours(0,0,0,0);
+
+                const diffTime = today.getTime() - targetDate.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                if (diffDays >= 0) { // O dia chegou ou já passou
+                    checkinPending = true;
+                    if (diffDays >= 3) checkinLate = true; // 3 dias de atraso fica vermelho
+                }
+            } else {
+                // PRIORIDADE 2: MODO AUTOMÁTICO (14 dias após o último envio)
+                if (checkinRes.ok) {
+                    const checkins = await checkinRes.json();
+                    if (Array.isArray(checkins) && checkins.length > 0) {
+                        checkins.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
+                        const lastDate = new Date(checkins[0].date || checkins[0].createdAt);
+                        const today = new Date();
+                        const diffTime = Math.abs(today.getTime() - lastDate.getTime());
+                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                        
+                        if (diffDays >= 14) checkinPending = true;
+                        if (diffDays >= 17) checkinLate = true;
+                    } else {
+                        // Nunca enviou
+                        checkinPending = true;
+                        checkinLate = true;
+                    }
+                }
+            }
+
+            setIsCheckinPending(checkinPending);
+            setIsCheckinLate(checkinLate);
+
         } catch (err) {
             console.log("Erro ao carregar dados críticos:", err);
         }
@@ -211,8 +294,6 @@ export default function HomeScreen({ navigation }) {
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
-  
-  // 🔥 SCROLL BLINDADO: Copiado EXATAMENTE da sua ProfileScreen que funciona. Sem overflow escondido, sem 100vh.
   const RootComponent = isWeb ? View : SafeAreaView;
 
   if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
@@ -235,13 +316,31 @@ export default function HomeScreen({ navigation }) {
                 <Text style={[styles.name, { color: theme.text }]}>{userName.toUpperCase()} ⚡</Text>
               </View>
               
-              <TouchableOpacity 
-                style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                onPress={() => Alert.alert(levelData.title, levelData.desc)}
-              >
+              <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => Alert.alert(levelData.title, levelData.desc)}>
                 <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
               </TouchableOpacity>
             </View>
+
+            {/* 🔥 BANNER DE AVISO SE CHECK-IN ESTIVER PENDENTE */}
+            {isCheckinPending && (
+                <TouchableOpacity 
+                    style={[styles.pendingBanner, isCheckinLate ? { backgroundColor: '#FF3B30' } : { backgroundColor: '#FF9500' }]}
+                    onPress={() => navigation.navigate('CheckIn')}
+                >
+                    <MaterialCommunityIcons name="alert-circle-outline" size={28} color="#FFF" />
+                    <View style={{flex: 1, marginLeft: 12}}>
+                        <Text style={styles.pendingBannerTitle}>
+                            {isCheckinLate ? "⚠️ CHECK-IN MUITO ATRASADO!" : "⚠️ DIA DE CHECK-IN!"}
+                        </Text>
+                        <Text style={styles.pendingBannerText}>
+                            {isCheckinLate 
+                                ? "Você passou do prazo! Envie agora para não comprometer seu planejamento." 
+                                : "Sua atualização quinzenal está pendente. Envie suas fotos e peso."}
+                        </Text>
+                    </View>
+                    <MaterialCommunityIcons name="chevron-right" size={24} color="#FFF" />
+                </TouchableOpacity>
+            )}
 
             <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
@@ -253,11 +352,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
             </View>
 
-            <TouchableOpacity 
-                style={[styles.mainActionBtn, { backgroundColor: theme.accent, shadowColor: theme.accent }]} 
-                onPress={() => navigation.navigate('Treinos')}
-                activeOpacity={0.9}
-            >
+            <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: theme.accent, shadowColor: theme.accent }]} onPress={() => navigation.navigate('Treinos')} activeOpacity={0.9}>
                 <View>
                     <Text style={[styles.actionLabel, { color: theme.isDark ? '#000' : '#FFF' }]}>SEU OBJETIVO DE HOJE</Text>
                     <Text style={[styles.actionTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>INICIAR TREINO</Text>
@@ -267,14 +362,20 @@ export default function HomeScreen({ navigation }) {
                 </View>
             </TouchableOpacity>
 
-            {/* 🔥 NOVO GRID 2x2 PARA ACOMODAR A BIBLIOTECA VIP */}
             <View style={styles.gridContainer}>
-                <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('CheckIn')}>
-                    <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
-                        <MaterialCommunityIcons name="camera-plus" size={24} color={theme.accent} />
-                    </View>
-                    <Text style={[styles.gridText, { color: theme.text }]}>Check-in</Text>
-                </TouchableOpacity>
+                {/* 🔥 BOTÃO DE CHECK-IN ANIMADO */}
+                <Animated.View style={{ transform: [{ scale: isCheckinPending ? pulseAnim : 1 }], width: '48%', marginBottom: 15 }}>
+                    <TouchableOpacity 
+                        style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: isCheckinPending ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} 
+                        onPress={() => navigation.navigate('CheckIn')}
+                    >
+                        {isCheckinPending && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
+                        <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
+                            <MaterialCommunityIcons name="camera-plus" size={24} color={theme.accent} />
+                        </View>
+                        <Text style={[styles.gridText, { color: theme.text }]}>Check-in</Text>
+                    </TouchableOpacity>
+                </Animated.View>
 
                 <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('Evolução')}>
                     <View style={[styles.gridIcon, { backgroundColor: 'rgba(50, 173, 230, 0.2)' }]}>
@@ -290,7 +391,6 @@ export default function HomeScreen({ navigation }) {
                     <Text style={[styles.gridText, { color: theme.text }]}>Histórico</Text>
                 </TouchableOpacity>
 
-                {/* 🔥 BOTÃO DA NOVA TELA DA BIBLIOTECA (ESTILO NETFLIX) */}
                 <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('Biblioteca')}>
                     <View style={[styles.gridIcon, { backgroundColor: 'rgba(255, 149, 0, 0.2)' }]}>
                         <MaterialCommunityIcons name="play-box-multiple" size={24} color="#FF9500" />
@@ -306,10 +406,7 @@ export default function HomeScreen({ navigation }) {
           </ScrollView>
 
           {/* FAB DO CHATBOT */}
-          <TouchableOpacity 
-            style={[styles.fabChat, { shadowColor: theme.accent }]} 
-            onPress={() => setChatVisible(true)}
-          >
+          <TouchableOpacity style={[styles.fabChat, { shadowColor: theme.accent }]} onPress={() => setChatVisible(true)}>
             <LinearGradient colors={[theme.accent, theme.accent]} style={styles.fabGradient}>
                 <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
             </LinearGradient>
@@ -351,7 +448,6 @@ export default function HomeScreen({ navigation }) {
                         showsVerticalScrollIndicator={false}
                     />
 
-                    {/* BOTÕES RÁPIDOS */}
                     <View style={{ borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.surface, paddingTop: 10 }}>
                         <ScrollView 
                             horizontal 
@@ -406,6 +502,12 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   
+  // 🔥 ESTILOS DOS AVISOS DE CHECKIN PENDENTE
+  pendingBanner: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 20, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 },
+  pendingBannerTitle: { color: '#FFF', fontWeight: '900', fontSize: 14, marginBottom: 3, letterSpacing: 0.5 },
+  pendingBannerText: { color: '#FFF', fontSize: 11, fontWeight: '600', opacity: 0.95 },
+  notificationDot: { position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: 8, backgroundColor: '#FF3B30', borderWidth: 2, zIndex: 10 },
+
   xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
   levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   xpText: { fontSize: 11, fontWeight: 'bold' },
@@ -417,7 +519,6 @@ const styles = StyleSheet.create({
   actionTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   iconCircle: { width: 54, height: 54, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
   
-  /* 🔥 GRID 2x2 ATUALIZADO PARA ACOMODAR A BIBLIOTECA */
   gridContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 15 },
   gridItem: { width: '48%', padding: 18, borderRadius: 24, alignItems: 'center', borderWidth: 1, marginBottom: 15 },
   gridIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
