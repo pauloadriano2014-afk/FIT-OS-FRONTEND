@@ -129,7 +129,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                     </View>
                                 ) : null}
 
-                                <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 15, marginBottom: 10 }]}>Fotos Enviadas:</Text>
+                                <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 15, marginBottom: 10 }]}>Fotos Obrigatórias:</Text>
                                 <View style={styles.photoGrid}>
                                     {item.photoFront ? (
                                         <TouchableOpacity onPress={() => openPhoto(item.photoFront)} style={styles.photoThumb}>
@@ -150,9 +150,25 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                         </TouchableOpacity>
                                     ) : null}
                                     {!item.photoFront && !item.photoSide && !item.photoBack && (
-                                        <Text style={{color: theme.textSecondary, fontSize: 12, fontStyle: 'italic'}}>Nenhuma foto enviada neste check-in.</Text>
+                                        <Text style={{color: theme.textSecondary, fontSize: 12, fontStyle: 'italic'}}>Nenhuma foto base enviada.</Text>
                                     )}
                                 </View>
+
+                                {/* 🔥 RENDERIZA AS FOTOS EXTRAS AQUI */}
+                                {item.extraPhotos && item.extraPhotos.length > 0 && (
+                                    <View style={{marginTop: 15}}>
+                                        <Text style={[styles.dataLabel, { color: theme.textSecondary, marginBottom: 10 }]}>Fotos Extras (Poses Livres):</Text>
+                                        <View style={[styles.photoGrid, { flexWrap: 'wrap' }]}>
+                                            {item.extraPhotos.map((uri, index) => (
+                                                <TouchableOpacity key={index} onPress={() => openPhoto(uri)} style={[styles.photoThumb, { width: '31%', marginBottom: 10, flex: 'none' }]}>
+                                                    <Image source={{uri}} style={[styles.photo, { borderColor: theme.border }]} />
+                                                    <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>EXTRA {index + 1}</Text>
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    </View>
+                                )}
+
                             </View>
                         ))
                     )
