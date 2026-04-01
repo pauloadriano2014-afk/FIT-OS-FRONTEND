@@ -173,7 +173,6 @@ export default function HomeScreen({ navigation }) {
             let futureDateStr = null;
 
             if (fetchedUser.disableCheckIn) {
-                // 🔥 ALUNO ISENTO: Desliga os alarmes
                 checkinPending = false;
                 checkinLate = false;
                 futureDateStr = null;
@@ -224,6 +223,16 @@ export default function HomeScreen({ navigation }) {
             setIsCheckinLate(checkinLate);
             setScheduledCheckInDate(futureDateStr);
 
+            // 🔥 VERIFICA NA MEMÓRIA SE O ALUNO JÁ FECHOU O AVISO DESTA DATA ESPECÍFICA
+            if (futureDateStr) {
+                const dismissedDate = await AsyncStorage.getItem(`dismissedBannerDate_${user.id}`);
+                if (dismissedDate === futureDateStr) {
+                    setShowScheduledBanner(false);
+                } else {
+                    setShowScheduledBanner(true);
+                }
+            }
+
         } catch (err) {
             console.log("Erro ao carregar dados críticos:", err);
         }
@@ -234,6 +243,18 @@ export default function HomeScreen({ navigation }) {
         setLoading(false); 
         setRefreshing(false); 
     }
+  };
+
+  // 🔥 SALVA NA MEMÓRIA DO CELULAR QUE ELE ESCONDEU O AVISO DESTA DATA
+  const handleDismissBanner = async () => {
+      setShowScheduledBanner(false);
+      if (userData && scheduledCheckInDate) {
+          try {
+              await AsyncStorage.setItem(`dismissedBannerDate_${userData.id}`, scheduledCheckInDate);
+          } catch (e) {
+              console.log("Erro ao salvar dismiss do banner:", e);
+          }
+      }
   };
 
   const handleSendChat = async (quickMessage = null) => {
@@ -355,7 +376,8 @@ export default function HomeScreen({ navigation }) {
                             <Text style={styles.pendingBannerTitle}>PRÓXIMO CHECK-IN</Text>
                             <Text style={styles.pendingBannerText}>Agendado para o dia {scheduledCheckInDate}</Text>
                         </View>
-                        <TouchableOpacity onPress={() => setShowScheduledBanner(false)} style={{padding: 8, marginRight: -8}}>
+                        {/* 🔥 BOTÃO AGORA CHAMA A FUNÇÃO DE SALVAR NA MEMÓRIA */}
+                        <TouchableOpacity onPress={handleDismissBanner} style={{padding: 8, marginRight: -8}}>
                             <MaterialCommunityIcons name="close" size={20} color="#FFF" />
                         </TouchableOpacity>
                     </View>
