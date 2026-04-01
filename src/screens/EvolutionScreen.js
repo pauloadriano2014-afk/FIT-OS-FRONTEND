@@ -13,7 +13,7 @@ import * as Sharing from 'expo-sharing';
 
 /* 🔥 IMPORTAÇÃO DO TEMA E DOS NOVOS MÓDULOS */
 import { useTheme } from '../contexts/ThemeContext';
-import { calculateBodyFat, getAgeFromDate, getGoogleDrivePreviewUrl } from '../utils/EvolutionCalculators';
+import { calculateBodyFat, getAgeFromDate, getGoogleDriveDirectDownloadUrl } from '../utils/EvolutionCalculators';
 import AssessmentFormModal from '../components/AssessmentFormModal';
 import AssessmentDetailsModal from '../components/AssessmentDetailsModal';
 import CompareReportModal from '../components/CompareReportModal';
@@ -380,7 +380,10 @@ export default function EvolutionScreen({ navigation }) {
           ) : (
               <>
                   {userData?.evaluationUrl ? (
-                      <TouchableOpacity style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} onPress={() => Linking.openURL(userData.evaluationUrl)}>
+                      <TouchableOpacity 
+                          style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} 
+                          onPress={() => Linking.openURL(getGoogleDriveDirectDownloadUrl(userData.evaluationUrl))}
+                      >
                           <MaterialCommunityIcons name="file-pdf-box" size={32} color={theme.accent} />
                           <View style={{flex: 1, marginLeft: 15}}><Text style={[styles.pdfAssessmentTitle, { color: theme.text }]}>MINHA AVALIAÇÃO FÍSICA</Text><Text style={[styles.pdfAssessmentSub, { color: theme.textSecondary }]}>Toque para visualizar ou baixar</Text></View>
                           <MaterialCommunityIcons name="download" size={24} color={theme.textSecondary} />
@@ -457,7 +460,6 @@ export default function EvolutionScreen({ navigation }) {
         </ScrollView>
       </View>
 
-      {/* 🔥 OS MODAIS ESTÃO AGORA ISOLADOS NOS SEUS PRÓPRIOS FICHEIROS */}
       <AssessmentFormModal
           visible={modalVisible} onClose={() => { setModalVisible(false); resetForm(); }}
           editingId={editingId} customDate={customDate} handleDateChange={handleDateChange}

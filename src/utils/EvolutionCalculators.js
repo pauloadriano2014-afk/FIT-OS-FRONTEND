@@ -30,10 +30,14 @@ export const getAgeFromDate = (birthDate) => {
     return age.toString();
 };
 
-export const getGoogleDrivePreviewUrl = (url) => {
+// 🔥 FUNÇÃO MÁGICA: Converte o link padrão do Drive em um link de DOWNLOAD DIRETO
+export const getGoogleDriveDirectDownloadUrl = (url) => {
     if (!url) return '';
-    if (url.includes('drive.google.com/file/d/')) {
-        return url.replace(/\/view.*$/, '/preview');
+    // Extrai o ID do arquivo do meio do link padrão do Google Drive
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+        // Monta a URL de exportação que ignora a tela de login do Google
+        return `https://drive.google.com/uc?export=download&id=${match[1]}`;
     }
-    return url;
+    return url; // Retorna o link original caso seja um link de outro site
 };
