@@ -20,6 +20,10 @@ export default function AdminDashboard({ navigation }) {
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
   const [filteredAlunos, setFilteredAlunos] = useState([]);
+  
+  // 🔥 NOVO: Controle de Paginação (Quantos alunos mostrar por vez)
+  const [visibleCount, setVisibleCount] = useState(15); 
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
@@ -65,6 +69,7 @@ export default function AdminDashboard({ navigation }) {
       if (data.users) {
         setAlunos(data.users);
         setFilteredAlunos(data.users);
+        setVisibleCount(15); // 🔥 Reseta a páginação ao recarregar
       }
       if (data.recentLogs) setFeed(data.recentLogs);
       
@@ -287,15 +292,25 @@ export default function AdminDashboard({ navigation }) {
                     <TextInput 
                         style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, borderWidth: 1 }]} 
                         placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary}
-                        value={search} onChangeText={(t) => { setSearch(t); setFilteredAlunos(alunos.filter(a => a.name.toLowerCase().includes(t.toLowerCase()))); }} 
+                        value={search} 
+                        onChangeText={(t) => { 
+                            setSearch(t); 
+                            setFilteredAlunos(alunos.filter(a => a.name.toLowerCase().includes(t.toLowerCase()))); 
+                            setVisibleCount(15); // 🔥 Reseta a páginação ao buscar
+                        }} 
                     />
+                    {/* 🔥 A MÁGICA DA ROLAGEM INFINITA ESTÁ AQUI */}
                     <FlatList 
-                        data={filteredAlunos} keyExtractor={item => item.id}
+                        data={filteredAlunos.slice(0, visibleCount)} 
+                        keyExtractor={item => item.id}
                         contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
                         showsVerticalScrollIndicator={false}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor={theme.accent} />}
                         renderItem={renderAluno}
                         ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado.</Text>}
+                        onEndReached={() => setVisibleCount(prev => prev + 15)} // Ao chegar no fim, adiciona mais 15
+                        onEndReachedThreshold={0.5} // Define que deve carregar mais quando estiver na metade da última tela
+                        initialNumToRender={15}
                     />
                 </>
             )}
