@@ -11,7 +11,6 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const RENDER_URL = 'https://fitos-final.onrender.com/api/auth/login';
 
-// 🔥 GATILHO GLOBAL: Fica de tocaia antes mesmo da tela existir para não perder o evento do Chrome
 let globalPrompt = null;
 if (Platform.OS === 'web' && typeof window !== 'undefined') {
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -28,9 +27,9 @@ export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // 🔥 LÓGICA DO PWA INSTALL BANNER
   const [deferredPrompt, setDeferredPrompt] = useState(globalPrompt);
   const [isIOS, setIsIOS] = useState(false);
+  const [isChromeIOS, setIsChromeIOS] = useState(false); 
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   useEffect(() => {
@@ -41,21 +40,21 @@ export default function LoginScreen({ navigation }) {
         const ua = window.navigator.userAgent.toLowerCase();
         const isIosDevice = /iphone|ipad|ipod/.test(ua);
         const isAndroidDevice = /android/.test(ua);
+        const isChromeOnIos = ua.includes('crios'); 
         
         setIsIOS(isIosDevice);
+        setIsChromeIOS(isChromeOnIos);
 
         if (isIosDevice || isAndroidDevice) {
             setShowInstallBanner(true);
         }
 
         if (isAndroidDevice) {
-            // Escuta o aviso global caso o evento dispare uns segundos atrasado
             const promptListener = () => {
                 setDeferredPrompt(globalPrompt);
             };
             window.addEventListener('show_pwa_button', promptListener);
             
-            // Força uma checagem imediata pra garantir
             if (globalPrompt) setDeferredPrompt(globalPrompt);
 
             return () => window.removeEventListener('show_pwa_button', promptListener);
@@ -186,42 +185,49 @@ export default function LoginScreen({ navigation }) {
             />
           </View>
 
-          {/* 🔥 BANNER INTELIGENTE DE INSTALAÇÃO DO PWA */}
+          {/* 🔥 VISUAL URGENTE DE INSTALAÇÃO */}
           {showInstallBanner && Platform.OS === 'web' && (
-              <View style={[styles.installBanner, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                  {isIOS ? (
-                      // 🍏 Instruções para iPhone
-                      <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                          <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="apple" size={24} color={theme.text} /></View>
-                          <View style={{flex: 1, paddingHorizontal: 10}}>
-                              <Text style={[styles.installTitle, {color: theme.text}]}>Instale o App no iPhone</Text>
-                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>1. Toque em Compartilhar <MaterialCommunityIcons name="export-variant" size={14} /> (ou nos 3 pontinhos).</Text>
-                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>2. Vá em "Ver mais" e escolha "Adicionar à Tela de Início".</Text>
+              <View style={styles.installWrapper}>
+                  {isIOS || (!isIOS && !deferredPrompt) ? (
+                      // 🚨 Aviso com cara de Passo Obrigatório
+                      <View style={[styles.urgentBox, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                          <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
+                              <MaterialCommunityIcons name="alert-circle" size={18} color={theme.accent} />
+                              <Text style={[styles.urgentTitle, {color: theme.accent}]}>
+                                  PASSO IMPORTANTE: INSTALE O APP
+                              </Text>
                           </View>
-                          <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={{padding: 5}}><MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} /></TouchableOpacity>
-                      </View>
-                  ) : deferredPrompt ? (
-                      // 🤖 Botão Automático do Android (Conseguimos capturar!)
-                      <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                          <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="android" size={24} color={theme.accent} /></View>
-                          <View style={{flex: 1, paddingHorizontal: 10}}>
-                              <Text style={[styles.installTitle, {color: theme.text}]}>Instale o Aplicativo</Text>
-                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>Acesse rápido direto da sua tela inicial.</Text>
-                          </View>
-                          <TouchableOpacity style={[styles.installBtn, {backgroundColor: theme.accent}]} onPress={handleInstallClick}>
-                              <Text style={[styles.installBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>INSTALAR</Text>
+                          
+                          {/* 🔥 INSTRUÇÕES COM ÍCONES INLINE */}
+                          {isIOS ? (
+                              isChromeIOS ? (
+                                  <Text style={[styles.urgentText, {color: theme.text}]}>
+                                      No Chrome, toque em Compartilhar <MaterialCommunityIcons name="export-variant" size={16} color={theme.textSecondary} /> no topo, vá em "Ver mais" <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.textSecondary} /> e "Adicionar à Tela de Início" <MaterialCommunityIcons name="plus-box-outline" size={16} color={theme.textSecondary} />.
+                                  </Text>
+                              ) : (
+                                  <Text style={[styles.urgentText, {color: theme.text}]}>
+                                      No Safari, toque nos 3 pontinhos <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.textSecondary} /> na parte inferior, Compartilhar <MaterialCommunityIcons name="export-variant" size={16} color={theme.textSecondary} />, "Ver mais" e "Adicionar à Tela de Início" <MaterialCommunityIcons name="plus-box-outline" size={16} color={theme.textSecondary} />.
+                                  </Text>
+                              )
+                          ) : (
+                              <Text style={[styles.urgentText, {color: theme.text}]}>
+                                  Clique nos 3 pontinhos <MaterialCommunityIcons name="dots-vertical" size={16} color={theme.textSecondary} /> do navegador e selecione "Instalar Aplicativo" <MaterialCommunityIcons name="cellphone-arrow-down" size={16} color={theme.textSecondary} />.
+                              </Text>
+                          )}
+
+                          <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={styles.closeUrgentBtn}>
+                              <MaterialCommunityIcons name="close" size={18} color={theme.textSecondary} />
                           </TouchableOpacity>
                       </View>
                   ) : (
-                      // ⚠️ Fallback Android (Evento não disparou ou bloqueado pelo Chrome)
-                      <View style={{flexDirection: 'row', alignItems: 'center', flex: 1}}>
-                          <View style={[styles.iconCircle, {backgroundColor: theme.bg}]}><MaterialCommunityIcons name="android" size={24} color={theme.accent} /></View>
-                          <View style={{flex: 1, paddingHorizontal: 10}}>
-                              <Text style={[styles.installTitle, {color: theme.text}]}>Instale o App no Android</Text>
-                              <Text style={[styles.installDesc, {color: theme.textSecondary}]}>Clique nos 3 pontinhos no topo do Chrome e selecione "Instalar Aplicativo".</Text>
+                      // 🤖 Botão Elegante Android (Pronto pra instalar)
+                      <TouchableOpacity style={[styles.premiumInstallBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={handleInstallClick}>
+                          <MaterialCommunityIcons name="cellphone-arrow-down" size={24} color={theme.accent} />
+                          <View style={{ marginLeft: 12 }}>
+                              <Text style={[styles.premiumInstallText, { color: theme.text }]}>BAIXAR APP OFICIAL</Text>
+                              <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: '500' }}>Instalação rápida e segura</Text>
                           </View>
-                          <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={{padding: 5}}><MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} /></TouchableOpacity>
-                      </View>
+                      </TouchableOpacity>
                   )}
               </View>
           )}
@@ -282,12 +288,15 @@ const styles = StyleSheet.create({
   logoImage: { width: 220, height: 220 }, 
   formContainer: { width: '100%' },
   
-  installBanner: { padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 25, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
-  iconCircle: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  installTitle: { fontWeight: '900', fontSize: 14, marginBottom: 2 },
-  installDesc: { fontSize: 11, fontWeight: '500', lineHeight: 16 },
-  installBtn: { paddingHorizontal: 15, paddingVertical: 10, borderRadius: 10 },
-  installBtnText: { fontWeight: '900', fontSize: 11 },
+  installWrapper: { marginBottom: 25, width: '100%' },
+  
+  premiumInstallBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 20, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
+  premiumInstallText: { fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
+  
+  urgentBox: { padding: 16, borderRadius: 12, borderWidth: 2, position: 'relative' },
+  urgentTitle: { fontSize: 11, fontWeight: '900', marginLeft: 6, letterSpacing: 1 },
+  urgentText: { fontSize: 14, lineHeight: 22, fontWeight: '600' }, 
+  closeUrgentBtn: { position: 'absolute', top: 12, right: 12, padding: 4 },
 
   input: {
     padding: 18,
