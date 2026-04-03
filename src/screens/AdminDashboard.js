@@ -16,12 +16,16 @@ export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
 
   const [activeTab, setActiveTab] = useState('ALUNOS'); 
-  const [alunos, setAlunos] = useState([]);
+  
+  // 🔥 GAVETAS DE ALUNOS SEPARADAS
+  const [alunosAtivos, setAlunosAtivos] = useState([]);
+  const [alunosInativos, setAlunosInativos] = useState([]);
+  const [filteredAlunos, setFilteredAlunos] = useState([]);
+  const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
+
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
-  const [filteredAlunos, setFilteredAlunos] = useState([]);
   
-  // 🔥 NOVO: Controle de Paginação (Quantos alunos mostrar por vez)
   const [visibleCount, setVisibleCount] = useState(15); 
 
   const [loading, setLoading] = useState(true);
@@ -66,13 +70,24 @@ export default function AdminDashboard({ navigation }) {
       const data = await resData.json();
       const dataCheckins = await resCheckins.json();
       
-      if (data.users) {
-        setAlunos(data.users);
-        setFilteredAlunos(data.users);
-        setVisibleCount(15); // 🔥 Reseta a páginação ao recarregar
+      // 🔥 DISTRIBUI OS ALUNOS NAS GAVETAS CORRETAS
+      if (data.activeUsers || data.inactiveUsers) {
+          setAlunosAtivos(data.activeUsers || []);
+          setAlunosInativos(data.inactiveUsers || []);
+          
+          if (subTabAlunos === 'ATIVOS') {
+              setFilteredAlunos(data.activeUsers || []);
+          } else {
+              setFilteredAlunos(data.inactiveUsers || []);
+          }
+          setVisibleCount(15); 
+      } else if (data.users) {
+          // Fallback caso a API antiga ainda responda
+          setAlunosAtivos(data.users);
+          setFilteredAlunos(data.users);
       }
+
       if (data.recentLogs) setFeed(data.recentLogs);
-      
       if (Array.isArray(dataCheckins)) setCheckins(dataCheckins);
 
       if (savedThemeObj) {
@@ -129,20 +144,15 @@ export default function AdminDashboard({ navigation }) {
 
   const handleInviteStudent = () => {
       let code = 'PATEAM'; 
-      
-      if (adminEmail === 'adri.personal@hotmail.com') {
-          code = 'CURVAS';
-      }
+      if (adminEmail === 'adri.personal@hotmail.com') code = 'CURVAS';
       
       const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${code}`; 
       const message = `Seja bem-vindo(a) à nossa equipe! Para darmos o start no seu projeto, faça o cadastro no app oficial por aqui:\n\n${inviteLink}`;
-      
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
       
       Linking.canOpenURL(whatsappUrl).then(supported => {
-          if (supported) {
-              Linking.openURL(whatsappUrl);
-          } else {
+          if (supported) Linking.openURL(whatsappUrl);
+          else {
               if (Platform.OS === 'web') window.open(whatsappUrl, '_blank');
               else Alert.alert("Aviso", "Não foi possível abrir o WhatsApp neste dispositivo.");
           }
@@ -161,6 +171,37 @@ export default function AdminDashboard({ navigation }) {
   const selectThemeColor = (colorKey) => {
       setSelectedColor(colorKey);
       changeTheme(theme.isDark, colorKey);
+  };
+
+  // 🔥 LÓGICA PROFISSIONAL DE DOWNLOAD
+  const handleDownloadPhoto = async (url, photoType) => {
+      if (!url) return;
+      const alunoNome = selectedCheckin?.user?.name ? selectedCheckin.user.name.replace(/\s+/g, '_') : 'aluno';
+      const fileName = `Checkin_${alunoNome}_${photoType}.jpg`;
+      
+      if (Platform.OS === 'web') {
+          try {
+              const response = await fetch(url);
+              const blob = await response.blob();
+              const link = document.createElement('a');
+              link.href = window.URL.createObjectURL(blob);
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+          } catch (e) {
+              window.open(url, '_blank'); // Fallback se bloquear
+          }
+      } else {
+          Linking.openURL(url); // No mobile abre o navegador/arquivo
+      }
+  };
+
+  const switchSubTab = (tab) => {
+      setSubTabAlunos(tab);
+      setSearch('');
+      setFilteredAlunos(tab === 'ATIVOS' ? alunosAtivos : alunosInativos);
+      setVisibleCount(15);
   };
 
   const renderCheckinItem = ({ item }) => (
@@ -220,7 +261,6 @@ export default function AdminDashboard({ navigation }) {
 
   const renderAluno = ({ item }) => (
     <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
-      
       {item.photoUrl ? (
           <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
       ) : (
@@ -228,7 +268,6 @@ export default function AdminDashboard({ navigation }) {
             <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
           </View>
       )}
-
       <View style={{ flex: 1, marginLeft: 15 }}>
         <Text style={[styles.alunoName, { color: theme.text }]}>{item.name}</Text>
         <View style={{flexDirection:'row', gap:5, alignItems: 'center'}}>
@@ -244,9 +283,7 @@ export default function AdminDashboard({ navigation }) {
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
   const RootComponent = isWeb ? View : SafeAreaView;
-  const rootStyle = isWeb
-    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
-    : { flex: 1, backgroundColor: theme.bg };
+  const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
 
   return (
     <RootComponent style={rootStyle}>
@@ -295,11 +332,28 @@ export default function AdminDashboard({ navigation }) {
                         value={search} 
                         onChangeText={(t) => { 
                             setSearch(t); 
-                            setFilteredAlunos(alunos.filter(a => a.name.toLowerCase().includes(t.toLowerCase()))); 
-                            setVisibleCount(15); // 🔥 Reseta a páginação ao buscar
+                            const listToSearch = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
+                            setFilteredAlunos(listToSearch.filter(a => a.name.toLowerCase().includes(t.toLowerCase()))); 
+                            setVisibleCount(15); 
                         }} 
                     />
-                    {/* 🔥 A MÁGICA DA ROLAGEM INFINITA ESTÁ AQUI */}
+
+                    {/* 🔥 SUB-ABAS ATIVOS / INATIVOS */}
+                    <View style={styles.subTabsContainer}>
+                        <TouchableOpacity 
+                            style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} 
+                            onPress={() => switchSubTab('ATIVOS')}
+                        >
+                            <Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({alunosAtivos.length})</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} 
+                            onPress={() => switchSubTab('INATIVOS')}
+                        >
+                            <Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS ({alunosInativos.length})</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     <FlatList 
                         data={filteredAlunos.slice(0, visibleCount)} 
                         keyExtractor={item => item.id}
@@ -308,8 +362,8 @@ export default function AdminDashboard({ navigation }) {
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor={theme.accent} />}
                         renderItem={renderAluno}
                         ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado.</Text>}
-                        onEndReached={() => setVisibleCount(prev => prev + 15)} // Ao chegar no fim, adiciona mais 15
-                        onEndReachedThreshold={0.5} // Define que deve carregar mais quando estiver na metade da última tela
+                        onEndReached={() => setVisibleCount(prev => prev + 15)} 
+                        onEndReachedThreshold={0.5} 
                         initialNumToRender={15}
                     />
                 </>
@@ -338,29 +392,17 @@ export default function AdminDashboard({ navigation }) {
             )}
 
             {activeTab === 'GESTAO' && (
-                <ScrollView 
-                    style={{ flex: 1 }} 
-                    contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} 
-                    showsVerticalScrollIndicator={false}
-                >
+                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
                     <View style={styles.gridGestao}>
-
                         <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
                             <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
-                            
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 15, width: '100%' }}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                     <MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} />
                                     <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text>
                                 </View>
-                                <Switch 
-                                    value={theme.isDark}
-                                    onValueChange={toggleDarkMode}
-                                    trackColor={{ false: '#ccc', true: theme.accent }}
-                                    thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')}
-                                />
+                                <Switch value={theme.isDark} onValueChange={toggleDarkMode} trackColor={{ false: '#ccc', true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')} />
                             </View>
-
                             {!theme.isDark && (
                                 <View style={{ width: '100%' }}>
                                     <Text style={[styles.cardHeaderSmall, { marginBottom: 10, marginTop: 5 }]}>COR DE DESTAQUE</Text>
@@ -374,38 +416,33 @@ export default function AdminDashboard({ navigation }) {
                                 </View>
                             )}
                         </View>
-
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('GerenciarTemplates')}>
                             <View style={[styles.iconCircle, {backgroundColor: theme.accent}]}><MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} /></View>
                             <Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text>
                             <Text style={styles.bigCardDesc}>Crie fichas padrão.</Text>
                         </TouchableOpacity>
-                        
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
                             <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} /></View>
                             <Text style={[styles.bigCardTitle, { color: theme.text }]}>EXERCÍCIOS</Text>
                             <Text style={styles.bigCardDesc}>Gerencie a biblioteca.</Text>
                         </TouchableOpacity>
-
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>
                             <View style={[styles.iconCircle, {backgroundColor: '#BF5AF2'}]}><MaterialCommunityIcons name="video-plus" size={32} color="#FFF" /></View>
                             <Text style={[styles.bigCardTitle, {color: '#BF5AF2'}]}>PA FLIX ADMIN</Text>
                             <Text style={styles.bigCardDesc}>Adicionar novos vídeos.</Text>
                         </TouchableOpacity>
-
                         <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                             <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:15}}>
                                 <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
                                 <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
                             </View>
-                            {alunos.sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
+                            {alunosAtivos.sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
                                 <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
                                     <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name}</Text>
                                     <Text style={{color: theme.accent, fontWeight:'900'}}>{a.currentXP || 0} XP</Text>
                                 </View>
                             ))}
                         </View>
-
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setNoticeModalVisible(true)}>
                             <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
                                 <MaterialCommunityIcons name="bullhorn" size={24} color="#32ADE6" />
@@ -440,9 +477,33 @@ export default function AdminDashboard({ navigation }) {
                     )}
                     <Text style={[styles.infoLabel, {marginTop:20, marginBottom:10}]}>FOTOS</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                        {selectedCheckin?.photoFront && <View style={styles.photoContainer}><Image source={{uri: selectedCheckin.photoFront}} style={[styles.photo, { borderColor: theme.border }]} /><Text style={styles.photoLabel}>FRENTE</Text></View>}
-                        {selectedCheckin?.photoSide && <View style={styles.photoContainer}><Image source={{uri: selectedCheckin.photoSide}} style={[styles.photo, { borderColor: theme.border }]} /><Text style={styles.photoLabel}>LADO</Text></View>}
-                        {selectedCheckin?.photoBack && <View style={styles.photoContainer}><Image source={{uri: selectedCheckin.photoBack}} style={[styles.photo, { borderColor: theme.border }]} /><Text style={styles.photoLabel}>COSTAS</Text></View>}
+                        {selectedCheckin?.photoFront && (
+                            <View style={styles.photoContainer}>
+                                <Image source={{uri: selectedCheckin.photoFront}} style={[styles.photo, { borderColor: theme.border }]} />
+                                <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => handleDownloadPhoto(selectedCheckin.photoFront, 'FRENTE')}>
+                                    <MaterialCommunityIcons name="download" size={16} color={theme.text} />
+                                    <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                        {selectedCheckin?.photoSide && (
+                            <View style={styles.photoContainer}>
+                                <Image source={{uri: selectedCheckin.photoSide}} style={[styles.photo, { borderColor: theme.border }]} />
+                                <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => handleDownloadPhoto(selectedCheckin.photoSide, 'LADO')}>
+                                    <MaterialCommunityIcons name="download" size={16} color={theme.text} />
+                                    <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                        {selectedCheckin?.photoBack && (
+                            <View style={styles.photoContainer}>
+                                <Image source={{uri: selectedCheckin.photoBack}} style={[styles.photo, { borderColor: theme.border }]} />
+                                <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => handleDownloadPhoto(selectedCheckin.photoBack, 'COSTAS')}>
+                                    <MaterialCommunityIcons name="download" size={16} color={theme.text} />
+                                    <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
                     </ScrollView>
                 </ScrollView>
             </View>
@@ -488,6 +549,12 @@ const styles = StyleSheet.create({
   inviteBtnText: { color: '#000', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
   searchBar: { padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
+  
+  // 🔥 Estilos das Sub-Abas
+  subTabsContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, gap: 10 },
+  subTab: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, alignItems: 'center' },
+  subTabText: { fontSize: 12, fontWeight: 'bold' },
+
   feedCard: { padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1 },
   iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   feedUser: { fontWeight: 'bold', fontSize: 14 },
@@ -521,9 +588,15 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 16, fontWeight: 'bold' },
   feedbackBox: { padding: 15, borderRadius: 8 },
   feedbackText: { fontStyle: 'italic', marginTop: 5 },
+  
   photoContainer: { marginRight: 15, alignItems: 'center' },
   photo: { width: 120, height: 180, borderRadius: 8, borderWidth: 1 },
   photoLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', marginTop: 5 },
+  
+  // 🔥 Estilos do Botão de Download
+  downloadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, gap: 5, width: '100%' },
+  downloadText: { fontSize: 10, fontWeight: '900' },
+
   input: { padding: 15, borderRadius: 10, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
   sendBtn: { backgroundColor: '#32ADE6', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 20 },
   sendBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14 }
