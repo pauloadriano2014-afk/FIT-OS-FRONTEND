@@ -115,7 +115,8 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
+            {/* 🔥 CORREÇÃO DO SCROLL: Adicionado style={{ flex: 1 }} aqui */}
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
                 {loading ? <ActivityIndicator color={theme.accent} size="large" style={{marginTop: 50}} /> : (
                     checkins.length === 0 ? (
                         <View style={[styles.emptyBox, { borderColor: theme.border }]}>
@@ -155,7 +156,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                 <View style={styles.photoGrid}>
                                     {item.photoFront ? (
                                         <View style={styles.photoThumb}>
-                                            {/* 🔥 CORRIGIDO: width 100% no TouchableOpacity e fundo preto na imagem */}
                                             <TouchableOpacity onPress={() => openPhoto(item.photoFront)} style={{ width: '100%', alignItems: 'center' }}>
                                                 <Image source={{uri: item.photoFront}} style={[styles.photo, { borderColor: theme.border }]} />
                                             </TouchableOpacity>
@@ -260,7 +260,6 @@ const styles = StyleSheet.create({
 
   photoGrid: { flexDirection: 'row', gap: 10 },
   photoThumb: { flex: 1, alignItems: 'center' },
-  // 🔥 Fundo preto devolvido para a imagem
   photo: { width: '100%', height: 120, borderRadius: 8, borderWidth: 1, backgroundColor: '#000' },
   photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
 
