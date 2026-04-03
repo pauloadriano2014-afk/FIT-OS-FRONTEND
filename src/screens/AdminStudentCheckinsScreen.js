@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  ActivityIndicator, Alert, Platform, StatusBar, Image, Modal 
+  ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -14,7 +14,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [checkins, setCheckins] = useState([]);
   
-  // States para visualização em tela cheia da foto
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
@@ -68,6 +67,29 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       if (!uri) return;
       setSelectedPhoto(uri);
       setModalVisible(true);
+  };
+
+  const handleDownloadPhoto = async (url, photoType) => {
+      if (!url) return;
+      const alunoNome = aluno?.name ? aluno.name.replace(/\s+/g, '_') : 'aluno';
+      const fileName = `Checkin_${alunoNome}_${photoType}.jpg`;
+      
+      if (Platform.OS === 'web') {
+          try {
+              const response = await fetch(url);
+              const blob = await response.blob();
+              const link = document.createElement('a');
+              link.href = window.URL.createObjectURL(blob);
+              link.download = fileName;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+          } catch (e) {
+              window.open(url, '_blank'); 
+          }
+      } else {
+          Linking.openURL(url); 
+      }
   };
 
   const isWeb = Platform.OS === 'web';
@@ -132,38 +154,65 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                 <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 15, marginBottom: 10 }]}>Fotos Obrigatórias:</Text>
                                 <View style={styles.photoGrid}>
                                     {item.photoFront ? (
-                                        <TouchableOpacity onPress={() => openPhoto(item.photoFront)} style={styles.photoThumb}>
-                                            <Image source={{uri: item.photoFront}} style={[styles.photo, { borderColor: theme.border }]} />
+                                        <View style={styles.photoThumb}>
+                                            {/* 🔥 CORRIGIDO: width 100% no TouchableOpacity e fundo preto na imagem */}
+                                            <TouchableOpacity onPress={() => openPhoto(item.photoFront)} style={{ width: '100%', alignItems: 'center' }}>
+                                                <Image source={{uri: item.photoFront}} style={[styles.photo, { borderColor: theme.border }]} />
+                                            </TouchableOpacity>
                                             <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>FRENTE</Text>
-                                        </TouchableOpacity>
+                                            <TouchableOpacity style={[styles.downloadBtn, { borderColor: theme.border, backgroundColor: theme.bg }]} onPress={() => handleDownloadPhoto(item.photoFront, 'FRENTE')}>
+                                                <MaterialCommunityIcons name="download" size={14} color={theme.text} />
+                                                <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     ) : null}
+                                    
                                     {item.photoSide ? (
-                                        <TouchableOpacity onPress={() => openPhoto(item.photoSide)} style={styles.photoThumb}>
-                                            <Image source={{uri: item.photoSide}} style={[styles.photo, { borderColor: theme.border }]} />
+                                        <View style={styles.photoThumb}>
+                                            <TouchableOpacity onPress={() => openPhoto(item.photoSide)} style={{ width: '100%', alignItems: 'center' }}>
+                                                <Image source={{uri: item.photoSide}} style={[styles.photo, { borderColor: theme.border }]} />
+                                            </TouchableOpacity>
                                             <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>LADO</Text>
-                                        </TouchableOpacity>
+                                            <TouchableOpacity style={[styles.downloadBtn, { borderColor: theme.border, backgroundColor: theme.bg }]} onPress={() => handleDownloadPhoto(item.photoSide, 'LADO')}>
+                                                <MaterialCommunityIcons name="download" size={14} color={theme.text} />
+                                                <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     ) : null}
+                                    
                                     {item.photoBack ? (
-                                        <TouchableOpacity onPress={() => openPhoto(item.photoBack)} style={styles.photoThumb}>
-                                            <Image source={{uri: item.photoBack}} style={[styles.photo, { borderColor: theme.border }]} />
+                                        <View style={styles.photoThumb}>
+                                            <TouchableOpacity onPress={() => openPhoto(item.photoBack)} style={{ width: '100%', alignItems: 'center' }}>
+                                                <Image source={{uri: item.photoBack}} style={[styles.photo, { borderColor: theme.border }]} />
+                                            </TouchableOpacity>
                                             <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>COSTA</Text>
-                                        </TouchableOpacity>
+                                            <TouchableOpacity style={[styles.downloadBtn, { borderColor: theme.border, backgroundColor: theme.bg }]} onPress={() => handleDownloadPhoto(item.photoBack, 'COSTAS')}>
+                                                <MaterialCommunityIcons name="download" size={14} color={theme.text} />
+                                                <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                            </TouchableOpacity>
+                                        </View>
                                     ) : null}
+                                    
                                     {!item.photoFront && !item.photoSide && !item.photoBack && (
                                         <Text style={{color: theme.textSecondary, fontSize: 12, fontStyle: 'italic'}}>Nenhuma foto base enviada.</Text>
                                     )}
                                 </View>
 
-                                {/* 🔥 RENDERIZA AS FOTOS EXTRAS AQUI */}
                                 {item.extraPhotos && item.extraPhotos.length > 0 && (
                                     <View style={{marginTop: 15}}>
                                         <Text style={[styles.dataLabel, { color: theme.textSecondary, marginBottom: 10 }]}>Fotos Extras (Poses Livres):</Text>
                                         <View style={[styles.photoGrid, { flexWrap: 'wrap' }]}>
                                             {item.extraPhotos.map((uri, index) => (
-                                                <TouchableOpacity key={index} onPress={() => openPhoto(uri)} style={[styles.photoThumb, { width: '31%', marginBottom: 10, flex: 'none' }]}>
-                                                    <Image source={{uri}} style={[styles.photo, { borderColor: theme.border }]} />
+                                                <View key={index} style={[styles.photoThumb, { width: '31%', marginBottom: 15, flex: 'none' }]}>
+                                                    <TouchableOpacity onPress={() => openPhoto(uri)} style={{ width: '100%', alignItems: 'center' }}>
+                                                        <Image source={{uri}} style={[styles.photo, { borderColor: theme.border }]} />
+                                                    </TouchableOpacity>
                                                     <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>EXTRA {index + 1}</Text>
-                                                </TouchableOpacity>
+                                                    <TouchableOpacity style={[styles.downloadBtn, { borderColor: theme.border, backgroundColor: theme.bg }]} onPress={() => handleDownloadPhoto(uri, `EXTRA_${index + 1}`)}>
+                                                        <MaterialCommunityIcons name="download" size={14} color={theme.text} />
+                                                        <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                                    </TouchableOpacity>
+                                                </View>
                                             ))}
                                         </View>
                                     </View>
@@ -176,7 +225,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             </ScrollView>
         </View>
 
-        {/* Modal de Foto em Tela Cheia */}
         <Modal visible={modalVisible} transparent animationType="fade">
             <View style={styles.modalBg}>
                 <TouchableOpacity style={styles.modalClose} onPress={() => setModalVisible(false)}>
@@ -212,8 +260,12 @@ const styles = StyleSheet.create({
 
   photoGrid: { flexDirection: 'row', gap: 10 },
   photoThumb: { flex: 1, alignItems: 'center' },
+  // 🔥 Fundo preto devolvido para a imagem
   photo: { width: '100%', height: 120, borderRadius: 8, borderWidth: 1, backgroundColor: '#000' },
-  photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 5 },
+  photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
+
+  downloadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 6, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 6, borderWidth: 1, gap: 4, width: '100%' },
+  downloadText: { fontSize: 9, fontWeight: '900' },
 
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', justifyContent: 'center', alignItems: 'center' },
   modalClose: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 10, padding: 10 },
