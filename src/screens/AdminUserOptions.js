@@ -20,6 +20,30 @@ const formatToBRDate = (isoString) => {
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 };
 
+// 🔥 FUNÇÃO DO FAROL DE VENCIMENTO DO TREINO
+const getExpirationStatus = (endDateString, isArchived) => {
+    if (isArchived) return { text: 'ARQUIVADO', bg: '#E5E5EA', color: '#888', icon: 'archive-clock' };
+    if (!endDateString) return { text: 'SEM PRAZO', bg: '#E5E5EA', color: '#888', icon: 'calendar-blank' };
+
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const end = new Date(endDateString);
+    end.setHours(0,0,0,0);
+
+    const diffTime = end - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) {
+        return { text: `ATRASADO ${Math.abs(diffDays)}D`, bg: '#000', color: '#FFF', icon: 'alert-circle' };
+    } else if (diffDays <= 3) {
+        return { text: `VENCE EM ${diffDays}D`, bg: '#FF3B30', color: '#FFF', icon: 'clock-alert' };
+    } else if (diffDays <= 7) {
+        return { text: `VENCE EM ${diffDays}D`, bg: '#FFCC00', color: '#000', icon: 'clock-fast' };
+    } else {
+        return { text: `VENCE EM ${diffDays}D`, bg: 'rgba(52, 199, 89, 0.15)', color: '#34C759', icon: 'check-circle' };
+    }
+};
+
 export default function AdminUserOptions({ route, navigation }) {
   const { aluno } = route.params;
   const { theme } = useTheme(); 
@@ -36,7 +60,6 @@ export default function AdminUserOptions({ route, navigation }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [evaluationUrl, setEvaluationUrl] = useState(aluno.evaluationUrl || ''); 
 
-  // 🔥 STATES DE CONFIGURAÇÃO DE CHECK-IN
   const [nextCheckInDate, setNextCheckInDate] = useState(''); 
   const [disableCheckIn, setDisableCheckIn] = useState(aluno.disableCheckIn || false);
 
@@ -59,13 +82,12 @@ export default function AdminUserOptions({ route, navigation }) {
         const dataWorkouts = await responseWorkouts.json();
 
         if (Array.isArray(dataWorkouts)) {
-            const today = new Date();
             const active = [];
             const archived = [];
 
+            // 🔥 CORREÇÃO: A única coisa que move pra aba Arquivado é a sua chavinha explícita.
             dataWorkouts.forEach(w => {
-                const end = new Date(w.endDate);
-                if (end < today) {
+                if (w.archived === true) {
                     archived.push(w);
                 } else {
                     active.push(w);
@@ -126,27 +148,57 @@ export default function AdminUserOptions({ route, navigation }) {
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1], 
-          quality: 0.3, 
-          base64: true 
+          quality: 0.6, 
       });
 
-      if (!result.canceled && result.assets[0].base64) {
-          const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
+      if (!result.canceled) {
+          const fileToUpload = result.assets[0];
           setUploadingPhoto(true);
+
           try {
-              const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-                  method: 'PATCH',
-                  headers: {'Content-Type': 'application/json'},
-                  body: JSON.stringify({ photoUrl: base64Img })
-              });
-              if (res.ok) {
-                  setPhotoUrl(base64Img);
-                  Alert.alert("Sucesso", "Foto de perfil atualizada!");
+              const formData = new FormData();
+              if (Platform.OS === 'web') {
+                  const res = await fetch(fileToUpload.uri);
+                  const blob = await res.blob();
+                  formData.append('file', blob, fileToUpload.fileName || 'profile.jpg');
               } else {
-                  Alert.alert("Erro", "Falha ao salvar a foto no servidor.");
+                  formData.append('file', {
+                      uri: fileToUpload.uri,
+                      name: fileToUpload.fileName || 'profile.jpg',
+                      type: fileToUpload.mimeType || 'image/jpeg'
+                  });
+              }
+
+              const uploadRes = await fetch('https://fitos-final.onrender.com/api/upload-image', {
+                  method: 'POST',
+                  body: formData,
+                  headers: { 'Accept': 'application/json' }
+              });
+
+              const uploadData = await uploadRes.json();
+              const finalUrl = uploadData.imageUrl || uploadData.url; // A sua API do Bunny devolve 'imageUrl'
+
+              if (uploadRes.ok && finalUrl) {
+                  const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+                      method: 'PATCH',
+                      headers: {'Content-Type': 'application/json'},
+                      body: JSON.stringify({ photoUrl: finalUrl })
+                  });
+                  
+                  if (res.ok) {
+                      setPhotoUrl(finalUrl);
+                      if (Platform.OS === 'web') window.alert("Sucesso\n\nFoto atualizada na nuvem!");
+                      else Alert.alert("Sucesso", "Foto atualizada na nuvem!");
+                  } else {
+                      Alert.alert("Erro", "Falha ao vincular a foto no servidor.");
+                  }
+              } else {
+                  throw new Error(uploadData.error || "Erro no upload da nuvem.");
               }
           } catch(e) {
-              Alert.alert("Erro", "Falha de conexão ao enviar a foto.");
+              console.error("Erro Upload Imagem:", e);
+              if (Platform.OS === 'web') window.alert("Erro de conexão ao enviar a foto.");
+              else Alert.alert("Erro", "Falha de conexão ao enviar a foto.");
           } finally {
               setUploadingPhoto(false);
           }
@@ -155,17 +207,14 @@ export default function AdminUserOptions({ route, navigation }) {
 
   const handleToggleAccess = async (contentId, currentStatus) => {
       const newStatus = !currentStatus;
-      
       if (newStatus) setUserAccess(prev => [...prev, contentId]);
       else setUserAccess(prev => prev.filter(id => id !== contentId));
-
       try {
           const res = await fetch('https://fitos-final.onrender.com/api/admin/access', {
               method: 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify({ userId: aluno.id, contentId, grant: newStatus })
           });
-          
           if (!res.ok) throw new Error("Falha na API");
       } catch(e) {
           if (!newStatus) setUserAccess(prev => [...prev, contentId]);
@@ -240,12 +289,7 @@ export default function AdminUserOptions({ route, navigation }) {
                   method: 'DELETE',
                   headers: { 'Content-Type': 'application/json' }
               });
-              
-              if (!res.ok) {
-                  const errText = await res.text();
-                  throw new Error(`[Status ${res.status}] ${errText}`);
-              }
-              
+              if (!res.ok) throw new Error(`Status ${res.status}`);
               fetchStudentData(); 
           } catch(e) { 
               console.error(e);
@@ -264,6 +308,43 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
+  // 🔥 NOVO BOTÃO RÁPIDO DE ARQUIVAR
+  const handleToggleArchiveWorkout = async (workout) => {
+      const newStatus = !workout.archived;
+      const actionName = newStatus ? "Arquivar" : "Desarquivar";
+      
+      const toggleAction = async () => {
+          try {
+              const res = await fetch(`https://fitos-final.onrender.com/api/workout/${workout.id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ archived: newStatus })
+              });
+              if (!res.ok) {
+                  // Fallback se a API não suportar PATCH
+                  await fetch(`https://fitos-final.onrender.com/api/workout`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ id: workout.id, archived: newStatus })
+                  });
+              }
+              fetchStudentData(); 
+          } catch(e) {
+              if (Platform.OS === 'web') window.alert(`Erro ao ${actionName}`);
+              else Alert.alert("Erro", `Não foi possível ${actionName}.`);
+          }
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm(`Deseja ${actionName} este treino?`)) toggleAction();
+      } else {
+          Alert.alert(actionName, `Tem certeza?`, [
+              { text: "Cancelar", style: "cancel" },
+              { text: `Sim, ${actionName}`, onPress: toggleAction }
+          ]);
+      }
+  };
+
   const handleEditWorkout = (workout) => {
       navigation.navigate('MontarTreinoAdmin', { aluno, workoutToEdit: workout, isEditing: true });
   };
@@ -272,7 +353,6 @@ export default function AdminUserOptions({ route, navigation }) {
       navigation.navigate('MontarTreinoAdmin', { aluno, isEditing: false });
   };
 
-  // 🔥 SALVA O SWITCH DE DESATIVAR CHECK-IN
   const handleToggleDisableCheckIn = async () => {
       const newValue = !disableCheckIn;
       setDisableCheckIn(newValue); 
@@ -429,18 +509,29 @@ export default function AdminUserOptions({ route, navigation }) {
                                 ) : (
                                     listToShow.map((w) => {
                                         const isArchived = viewMode === 'archived';
+                                        // 🔥 APLICA A FUNÇÃO DO FAROL DE VENCIMENTO AQUI
+                                        const status = getExpirationStatus(w.endDate, isArchived);
+
                                         return (
-                                            <View key={w.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: isArchived ? theme.border : theme.accent, opacity: isArchived ? 0.8 : 1}]}>
+                                            <View key={w.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: isArchived ? theme.border : status.bg, opacity: isArchived ? 0.8 : 1}]}>
                                                 <View style={styles.cardHeader}>
                                                     <View style={{flexDirection:'row', gap:8, alignItems:'center'}}>
-                                                        <MaterialCommunityIcons name={isArchived ? "archive-clock" : "lightning-bolt"} size={16} color={isArchived ? theme.textSecondary : theme.accent} />
-                                                        <Text style={[styles.statusText, {color: isArchived ? theme.textSecondary : theme.accent}]}>
-                                                            {isArchived ? 'FINALIZADO' : 'EM ANDAMENTO'}
-                                                        </Text>
+                                                        <MaterialCommunityIcons name={status.icon} size={16} color={status.bg === '#E5E5EA' ? '#888' : status.bg} />
+                                                        <View style={{ backgroundColor: status.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
+                                                            <Text style={{ fontSize: 9, fontWeight: '900', letterSpacing: 1, color: status.color }}>
+                                                                {status.text}
+                                                            </Text>
+                                                        </View>
                                                     </View>
-                                                    <TouchableOpacity onPress={() => handleDeleteWorkout(w.id)} style={{padding:5}}>
-                                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color={isArchived ? theme.textSecondary : '#FF3B30'} />
-                                                    </TouchableOpacity>
+                                                    <View style={{flexDirection: 'row', gap: 10}}>
+                                                        {/* 🔥 NOVO BOTÃO RÁPIDO DE ARQUIVAR */}
+                                                        <TouchableOpacity onPress={() => handleToggleArchiveWorkout(w)} style={{padding:5}}>
+                                                            <MaterialCommunityIcons name={isArchived ? "package-up" : "archive-arrow-down"} size={20} color={theme.textSecondary} />
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity onPress={() => handleDeleteWorkout(w.id)} style={{padding:5}}>
+                                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={isArchived ? theme.textSecondary : '#FF3B30'} />
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 </View>
                                                 
                                                 <Text style={[styles.cardTitle, { color: theme.text }, isArchived && {color: theme.textSecondary}]}>{w.name}</Text>
@@ -502,7 +593,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
                 <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
                 
-                {/* 🔥 BOTÃO RE-APONTADO PARA A TELA NOVA */}
                 <TouchableOpacity 
                     style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} 
                     onPress={() => navigation.navigate('AdminStudentCheckins', { aluno })}
@@ -534,7 +624,6 @@ export default function AdminUserOptions({ route, navigation }) {
                 <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
                 <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
                     
-                    {/* 🔥 SWITCH DE ISENÇÃO DE CHECKIN */}
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.border}}>
                         <View style={{flex: 1, paddingRight: 10}}>
                             <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 13}}>Desativar Cobrança</Text>
@@ -585,7 +674,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* 🔥 GERENCIADOR DA AVALIAÇÃO EM PDF */}
                 <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
                 <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
                     <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva.</Text>
