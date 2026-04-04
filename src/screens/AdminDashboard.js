@@ -12,11 +12,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 
-const getExpirationStatus = (endDateString) => {
-    if (!endDateString) return null;
+// 🔥 LÓGICA DO FAROL CORRIGIDA: Separa "Sem Data" de "Sem Treino"
+const getExpirationStatus = (workout) => {
+    if (!workout) return null;
+    if (!workout.endDate) return { text: 'SEM PRAZO', bg: '#E5E5EA', color: '#888', cat: 'OK' }; 
+
     const today = new Date();
     today.setHours(0,0,0,0);
-    const end = new Date(endDateString);
+    const end = new Date(workout.endDate);
     end.setHours(0,0,0,0);
     
     const diffTime = end - today;
@@ -38,7 +41,7 @@ export default function AdminDashboard({ navigation }) {
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
   
   const [statusFilter, setStatusFilter] = useState('TODOS'); 
-  const [filterModalVisible, setFilterModalVisible] = useState(false); // 🔥 Controle do Modal de Filtro
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
@@ -66,9 +69,7 @@ export default function AdminDashboard({ navigation }) {
 
   useFocusEffect(useCallback(() => { fetchData(); }, []));
 
-  useEffect(() => {
-      setVisibleCount(15); 
-  }, [subTabAlunos, search, statusFilter]);
+  useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
 
   const fetchData = async () => {
     try {
@@ -114,22 +115,24 @@ export default function AdminDashboard({ navigation }) {
     finally { setLoading(false); setRefreshing(false); }
   };
 
+  // 🔥 O NOVO FILTRO BLINDADO
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       
-      if (search) {
-          list = list.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
-      }
+      if (search) list = list.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
       
       if (statusFilter !== 'TODOS') {
           list = list.filter(a => {
-              if (!a.workouts || a.workouts.length === 0) return statusFilter === 'SEM_TREINO';
-              const status = getExpirationStatus(a.workouts[0].endDate);
-              if (!status) return statusFilter === 'SEM_TREINO';
-              return status.cat === statusFilter;
+              const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
+              
+              if (!activeWorkout) {
+                  return statusFilter === 'SEM_TREINO';
+              }
+              
+              const status = getExpirationStatus(activeWorkout);
+              return status && status.cat === statusFilter;
           });
       }
-      
       return list;
   }, [alunosAtivos, alunosInativos, subTabAlunos, search, statusFilter]);
 
@@ -179,10 +182,8 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const toggleDarkMode = (newValue) => {
-      if (newValue) {
-          setSelectedColor('verde');
-          changeTheme(true, 'verde');
-      } else changeTheme(false, selectedColor);
+      if (newValue) { setSelectedColor('verde'); changeTheme(true, 'verde'); } 
+      else changeTheme(false, selectedColor);
   };
 
   const selectThemeColor = (colorKey) => {
@@ -194,7 +195,6 @@ export default function AdminDashboard({ navigation }) {
       if (!url) return;
       const alunoNome = selectedCheckin?.user?.name ? selectedCheckin.user.name.replace(/\s+/g, '_') : 'aluno';
       const fileName = `Checkin_${alunoNome}_${photoType}.jpg`;
-      
       if (Platform.OS === 'web') {
           try {
               const response = await fetch(url);
@@ -212,7 +212,6 @@ export default function AdminDashboard({ navigation }) {
   const switchSubTab = (tab) => {
       setSubTabAlunos(tab);
       setSearch('');
-      setFilteredAlunos(tab === 'ATIVOS' ? alunosAtivos : alunosInativos);
       setVisibleCount(15);
   };
 
@@ -258,10 +257,8 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const renderAluno = ({ item }) => {
-      let farol = null;
-      if (item.workouts && item.workouts.length > 0) {
-          farol = getExpirationStatus(item.workouts[0].endDate);
-      }
+      const activeWorkout = (item.workouts && item.workouts.length > 0) ? item.workouts[0] : null;
+      const farol = getExpirationStatus(activeWorkout);
 
       return (
         <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
@@ -277,7 +274,6 @@ export default function AdminDashboard({ navigation }) {
             <View style={{flexDirection:'row', gap:5, alignItems: 'center', flexWrap: 'wrap', marginTop: 2}}>
                 <Text style={styles.alunoEmail}>{item.email}</Text>
                 {item.plan === 'ELITE' && <View style={[styles.tagElite, { backgroundColor: theme.accent }]}><Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF' }]}>ELITE</Text></View>}
-                
                 {farol && (
                     <View style={{ backgroundColor: farol.bg, paddingHorizontal: 5, borderRadius: 4, justifyContent: 'center' }}>
                         <Text style={{ fontSize: 8, fontWeight: '900', color: farol.color, paddingVertical: 2 }}>{farol.text}</Text>
@@ -335,7 +331,6 @@ export default function AdminDashboard({ navigation }) {
                         value={search} onChangeText={setSearch} 
                     />
 
-                    {/* 🔥 NOVA CAIXA SELETORA DE FILTRO */}
                     <TouchableOpacity 
                         style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]}
                         onPress={() => setFilterModalVisible(true)}
@@ -350,10 +345,10 @@ export default function AdminDashboard({ navigation }) {
                     </TouchableOpacity>
 
                     <View style={styles.subTabsContainer}>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabAlunos('ATIVOS')}>
+                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('ATIVOS')}>
                             <Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({alunosAtivos.length})</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabAlunos('INATIVOS')}>
+                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('INATIVOS')}>
                             <Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS ({alunosInativos.length})</Text>
                         </TouchableOpacity>
                     </View>
@@ -461,7 +456,6 @@ export default function AdminDashboard({ navigation }) {
           </View>
       </View>
 
-      {/* 🔥 MODAL DE FILTRO DE STATUS */}
       <Modal visible={filterModalVisible} transparent animationType="fade" onRequestClose={() => setFilterModalVisible(false)}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setFilterModalVisible(false)}>
               <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -578,7 +572,6 @@ const styles = StyleSheet.create({
 
   searchBar: { padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
   
-  // 🔥 ESTILOS DA NOVA CAIXA SELETORA
   filterSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 15 },
   filterSelectorVal: { fontSize: 13, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
