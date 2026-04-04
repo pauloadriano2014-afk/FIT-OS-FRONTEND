@@ -3,7 +3,7 @@ import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
   TextInput, StatusBar, RefreshControl, Modal, ScrollView, Image, Alert, 
-  KeyboardAvoidingView, Platform, Switch, Linking
+  Platform, Switch, Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,8 +11,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
+// 🔥 IMPORTA O NOSSO NOVO MODAL
+import SendNoticeModal from '../components/SendNoticeModal';
 
-// 🔥 LÓGICA DO FAROL CORRIGIDA: Separa "Sem Data" de "Sem Treino"
 const getExpirationStatus = (workout) => {
     if (!workout) return null;
     if (!workout.endDate) return { text: 'SEM PRAZO', bg: '#E5E5EA', color: '#888', cat: 'OK' }; 
@@ -50,13 +51,14 @@ export default function AdminDashboard({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
+  const [adminId, setAdminId] = useState(''); // Armazena o ID do coach
 
   const [selectedCheckin, setSelectedCheckin] = useState(null);
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
-  const [noticeModalVisible, setNoticeModalVisible] = useState(false);
-  const [noticeTitle, setNoticeTitle] = useState('');
-  const [noticeMessage, setNoticeMessage] = useState('');
-  const [sendingNotice, setSendingNotice] = useState(false);
+  
+  // 🔥 ESTADO ÚNICO PARA O MODAL NOVO
+  const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
+  
   const [selectedColor, setSelectedColor] = useState('verde');
 
   const filterOptions = [
@@ -78,16 +80,17 @@ export default function AdminDashboard({ navigation }) {
       const userJson = await AsyncStorage.getItem('user');
       const savedThemeObj = await AsyncStorage.getItem('app_theme');
       
-      let adminId = '';
+      let localAdminId = '';
       if (userJson) {
           const userObj = JSON.parse(userJson);
           setAdminEmail(userObj.email);
-          adminId = userObj.id; 
+          setAdminId(userObj.id);
+          localAdminId = userObj.id; 
       }
 
       const [resData, resCheckins] = await Promise.all([
-          fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`),
-          fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${adminId}&t=${t}`)
+          fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`),
+          fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`)
       ]);
 
       const data = await resData.json();
@@ -115,20 +118,13 @@ export default function AdminDashboard({ navigation }) {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  // 🔥 O NOVO FILTRO BLINDADO
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
-      
       if (search) list = list.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
-      
       if (statusFilter !== 'TODOS') {
           list = list.filter(a => {
               const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
-              
-              if (!activeWorkout) {
-                  return statusFilter === 'SEM_TREINO';
-              }
-              
+              if (!activeWorkout) return statusFilter === 'SEM_TREINO';
               const status = getExpirationStatus(activeWorkout);
               return status && status.cat === statusFilter;
           });
@@ -147,23 +143,6 @@ export default function AdminDashboard({ navigation }) {
           { text: "Cancelar" },
           { text: "Sim", style: 'destructive', onPress: () => setFeed(current => current.filter(item => item.id !== logId)) }
       ]);
-  };
-
-  const handleSendNotice = async () => {
-      if (!noticeTitle || !noticeMessage) return Alert.alert("Erro", "Preencha título e mensagem.");
-      setSendingNotice(true);
-      try {
-          await fetch('https://fitos-final.onrender.com/api/notices', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ title: noticeTitle, content: noticeMessage })
-          });
-          Alert.alert("Sucesso", "Aviso enviado!");
-          setNoticeModalVisible(false);
-          setNoticeTitle('');
-          setNoticeMessage('');
-      } catch (e) { Alert.alert("Erro", "Falha ao enviar."); } 
-      finally { setSendingNotice(false); }
   };
 
   const handleInviteStudent = () => {
@@ -261,39 +240,36 @@ export default function AdminDashboard({ navigation }) {
       const farol = getExpirationStatus(activeWorkout);
 
       return (
-        <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15, alignItems: 'center', overflow: 'hidden' }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
-          
-          {/* Badge colada no topo direito */}
-          {farol && (
-              <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: farol.bg, paddingHorizontal: 10, paddingVertical: 4, borderBottomLeftRadius: 12 }}>
-                  <Text style={{ fontSize: 9, fontWeight: '900', color: farol.color, letterSpacing: 0.5 }}>{farol.text}</Text>
-              </View>
-          )}
-
+        <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 16, alignItems: 'center' }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
           {item.photoUrl ? (
-              <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0, marginTop: 8 }]} />
+              <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
           ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1, marginTop: 8 }]}>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
                 <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
               </View>
           )}
           
-          <View style={{ flex: 1, marginLeft: 15, marginTop: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={[styles.alunoName, { color: theme.text, fontSize: 16 }]} numberOfLines={1}>{item.name}</Text>
-                {item.plan === 'ELITE' && (
-                    <View style={[styles.tagElite, { backgroundColor: theme.accent, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }]}>
-                        <Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF', fontSize: 8 }]}>ELITE</Text>
-                    </View>
-                )}
-            </View>
-            <Text style={[styles.alunoEmail, { color: theme.textSecondary, fontSize: 12, marginTop: 2 }]} numberOfLines={1}>{item.email}</Text>
+          <View style={{ flex: 1, marginLeft: 15, justifyContent: 'center' }}>
+            <Text style={[styles.alunoName, { color: theme.text, fontSize: 16, marginBottom: 2 }]} numberOfLines={1}>{item.name}</Text>
+            <Text style={[styles.alunoEmail, { color: theme.textSecondary, fontSize: 12 }]} numberOfLines={1}>{item.email}</Text>
           </View>
-          
-          <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} style={{ marginTop: 8 }} />
+
+          <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginLeft: 10 }}>
+              {item.plan === 'ELITE' && (
+                  <View style={[styles.tagElite, { backgroundColor: theme.accent, marginBottom: farol ? 6 : 0, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }]}>
+                      <Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF', fontSize: 8 }]}>ELITE</Text>
+                  </View>
+              )}
+              {farol && (
+                  <View style={{ backgroundColor: farol.bg === 'rgba(52, 199, 89, 0.15)' ? '#34C759' : farol.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ fontSize: 9, fontWeight: '900', color: farol.bg === 'rgba(52, 199, 89, 0.15)' ? '#FFF' : farol.color, letterSpacing: 0.5 }}>{farol.text}</Text>
+                  </View>
+              )}
+          </View>
         </TouchableOpacity>
       );
   };
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
@@ -450,12 +426,14 @@ export default function AdminDashboard({ navigation }) {
                                 </View>
                             ))}
                         </View>
-                        <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setNoticeModalVisible(true)}>
+                        
+                        {/* 🔥 BOTÃO PARA ABRIR O NOVO MODAL */}
+                        <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setIsNoticeModalOpen(true)}>
                             <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
                                 <MaterialCommunityIcons name="bullhorn" size={24} color="#32ADE6" />
                                 <Text style={[styles.bigCardTitle, {marginBottom:0, color:'#32ADE6'}]}>ENVIAR AVISO</Text>
                             </View>
-                            <Text style={[styles.bigCardDesc, {marginTop:5}]}>Notifique a todos.</Text>
+                            <Text style={[styles.bigCardDesc, {marginTop:5}]}>Notifique todos ou um aluno.</Text>
                         </TouchableOpacity>
                     </View>
                 </ScrollView>
@@ -540,25 +518,14 @@ export default function AdminDashboard({ navigation }) {
         </View>
       </Modal>
 
-      <Modal visible={noticeModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                    <Text style={[styles.modalTitle, { color: theme.text }]}>NOVO AVISO</Text>
-                    <TouchableOpacity onPress={() => setNoticeModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.text}/></TouchableOpacity>
-                </View>
-                <View style={{padding: 20}}>
-                    <Text style={styles.infoLabel}>TÍTULO</Text>
-                    <TextInput style={[styles.input, { backgroundColor: theme.bg, borderColor: theme.border, color: theme.text }]} placeholder="Ex: Feriado" placeholderTextColor={theme.textSecondary} value={noticeTitle} onChangeText={setNoticeTitle} />
-                    <Text style={[styles.infoLabel, {marginTop:15}]}>MENSAGEM</Text>
-                    <TextInput style={[styles.input, { backgroundColor: theme.bg, borderColor: theme.border, color: theme.text, height:100, textAlignVertical:'top'}]} multiline placeholder="Digite..." placeholderTextColor={theme.textSecondary} value={noticeMessage} onChangeText={setNoticeMessage} />
-                    <TouchableOpacity style={styles.sendBtn} onPress={handleSendNotice} disabled={sendingNotice}>
-                        {sendingNotice ? <ActivityIndicator color="#FFF" /> : <Text style={styles.sendBtnText}>ENVIAR</Text>}
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </KeyboardAvoidingView>
-      </Modal>
+      {/* 🔥 INSERE O NOVO MODAL ISOLADO */}
+      <SendNoticeModal 
+          visible={isNoticeModalOpen}
+          onClose={() => setIsNoticeModalOpen(false)}
+          alunos={alunosAtivos}
+          adminId={adminId}
+          theme={theme}
+      />
 
     </RootComponent>
   );
@@ -633,9 +600,5 @@ const styles = StyleSheet.create({
   photoLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', marginTop: 5 },
   
   downloadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, gap: 5, width: '100%' },
-  downloadText: { fontSize: 10, fontWeight: '900' },
-
-  input: { padding: 15, borderRadius: 10, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
-  sendBtn: { backgroundColor: '#32ADE6', padding: 15, borderRadius: 12, alignItems: 'center', marginTop: 20 },
-  sendBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14 }
+  downloadText: { fontSize: 10, fontWeight: '900' }
 });
