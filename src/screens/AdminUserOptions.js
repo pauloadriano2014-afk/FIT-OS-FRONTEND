@@ -104,6 +104,7 @@ export default function AdminUserOptions({ route, navigation }) {
             if (freshData.evaluationUrl) setEvaluationUrl(freshData.evaluationUrl);
             if (freshData.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshData.nextCheckInDate));
             if (typeof freshData.disableCheckIn === 'boolean') setDisableCheckIn(freshData.disableCheckIn);
+            if (freshData.photoUrl) setPhotoUrl(freshData.photoUrl);
         }
     } catch (error) { 
         console.log("Erro geral:", error); 
