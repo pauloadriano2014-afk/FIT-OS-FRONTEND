@@ -261,31 +261,39 @@ export default function AdminDashboard({ navigation }) {
       const farol = getExpirationStatus(activeWorkout);
 
       return (
-        <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
+        <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15, alignItems: 'center', overflow: 'hidden' }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
+          
+          {/* Badge colada no topo direito */}
+          {farol && (
+              <View style={{ position: 'absolute', top: 0, right: 0, backgroundColor: farol.bg, paddingHorizontal: 10, paddingVertical: 4, borderBottomLeftRadius: 12 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '900', color: farol.color, letterSpacing: 0.5 }}>{farol.text}</Text>
+              </View>
+          )}
+
           {item.photoUrl ? (
-              <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
+              <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0, marginTop: 8 }]} />
           ) : (
-              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1, marginTop: 8 }]}>
                 <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
               </View>
           )}
-          <View style={{ flex: 1, marginLeft: 15 }}>
-            <Text style={[styles.alunoName, { color: theme.text }]}>{item.name}</Text>
-            <View style={{flexDirection:'row', gap:5, alignItems: 'center', flexWrap: 'wrap', marginTop: 2}}>
-                <Text style={styles.alunoEmail}>{item.email}</Text>
-                {item.plan === 'ELITE' && <View style={[styles.tagElite, { backgroundColor: theme.accent }]}><Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF' }]}>ELITE</Text></View>}
-                {farol && (
-                    <View style={{ backgroundColor: farol.bg, paddingHorizontal: 5, borderRadius: 4, justifyContent: 'center' }}>
-                        <Text style={{ fontSize: 8, fontWeight: '900', color: farol.color, paddingVertical: 2 }}>{farol.text}</Text>
+          
+          <View style={{ flex: 1, marginLeft: 15, marginTop: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={[styles.alunoName, { color: theme.text, fontSize: 16 }]} numberOfLines={1}>{item.name}</Text>
+                {item.plan === 'ELITE' && (
+                    <View style={[styles.tagElite, { backgroundColor: theme.accent, paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }]}>
+                        <Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF', fontSize: 8 }]}>ELITE</Text>
                     </View>
                 )}
             </View>
+            <Text style={[styles.alunoEmail, { color: theme.textSecondary, fontSize: 12, marginTop: 2 }]} numberOfLines={1}>{item.email}</Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} />
+          
+          <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} style={{ marginTop: 8 }} />
         </TouchableOpacity>
       );
   };
-
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
