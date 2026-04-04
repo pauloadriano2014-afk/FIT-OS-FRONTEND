@@ -137,7 +137,7 @@ export default function HomeScreen({ navigation }) {
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
                 fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`),
                 fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/notices/active?userId=${user.id}`) // Rota nova pra pegar avisos
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}`)
             ]);
 
             let fetchedUser = { ...user };
