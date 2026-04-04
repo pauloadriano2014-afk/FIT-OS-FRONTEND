@@ -20,7 +20,6 @@ const formatToBRDate = (isoString) => {
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 };
 
-// 🔥 FUNÇÃO DO FAROL DE VENCIMENTO DO TREINO
 const getExpirationStatus = (endDateString, isArchived) => {
     if (isArchived) return { text: 'ARQUIVADO', bg: '#E5E5EA', color: '#888', icon: 'archive-clock' };
     if (!endDateString) return { text: 'SEM PRAZO', bg: '#E5E5EA', color: '#888', icon: 'calendar-blank' };
@@ -85,7 +84,6 @@ export default function AdminUserOptions({ route, navigation }) {
             const active = [];
             const archived = [];
 
-            // 🔥 CORREÇÃO: A única coisa que move pra aba Arquivado é a sua chavinha explícita.
             dataWorkouts.forEach(w => {
                 if (w.archived === true) {
                     archived.push(w);
@@ -107,7 +105,6 @@ export default function AdminUserOptions({ route, navigation }) {
             if (freshData.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshData.nextCheckInDate));
             if (typeof freshData.disableCheckIn === 'boolean') setDisableCheckIn(freshData.disableCheckIn);
         }
-
     } catch (error) { 
         console.log("Erro geral:", error); 
     } finally { 
@@ -125,16 +122,12 @@ export default function AdminUserOptions({ route, navigation }) {
           
           if (resContents.ok) {
               const contents = await resContents.json();
-              if (Array.isArray(contents)) {
-                  setVipContents(contents.filter(c => c.isVIP));
-              }
+              if (Array.isArray(contents)) setVipContents(contents.filter(c => c.isVIP));
           }
 
           if (resAccess.ok) {
               const accessData = await resAccess.json();
-              if (Array.isArray(accessData)) {
-                  setUserAccess(accessData);
-              }
+              if (Array.isArray(accessData)) setUserAccess(accessData);
           }
       } catch (e) {
           console.log("Erro ao buscar PAFLIX", e);
@@ -143,29 +136,32 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
+  // 🔥 O NOVO MOTOR BLINDADO DA FOTO
   const handlePickImage = async () => {
-      const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1], 
-          quality: 0.6, 
-      });
+      try {
+          const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1], 
+              quality: 0.6, 
+          });
 
-      if (!result.canceled) {
-          const fileToUpload = result.assets[0];
-          setUploadingPhoto(true);
+          if (!result.canceled) {
+              const fileToUpload = result.assets[0];
+              setUploadingPhoto(true);
 
-          try {
               const formData = new FormData();
               if (Platform.OS === 'web') {
                   const res = await fetch(fileToUpload.uri);
                   const blob = await res.blob();
-                  formData.append('file', blob, fileToUpload.fileName || 'profile.jpg');
+                  formData.append('file', blob, 'profile.jpg');
               } else {
+                  // 🔥 CORREÇÃO IOS/ANDROID: Retira o file:// que quebra o upload
+                  const imageUri = Platform.OS === 'ios' ? fileToUpload.uri.replace('file://', '') : fileToUpload.uri;
                   formData.append('file', {
-                      uri: fileToUpload.uri,
-                      name: fileToUpload.fileName || 'profile.jpg',
-                      type: fileToUpload.mimeType || 'image/jpeg'
+                      uri: imageUri,
+                      name: 'profile.jpg',
+                      type: 'image/jpeg'
                   });
               }
 
@@ -175,10 +171,21 @@ export default function AdminUserOptions({ route, navigation }) {
                   headers: { 'Accept': 'application/json' }
               });
 
-              const uploadData = await uploadRes.json();
-              const finalUrl = uploadData.imageUrl || uploadData.url; // A sua API do Bunny devolve 'imageUrl'
+              let uploadData;
+              try {
+                  uploadData = await uploadRes.json();
+              } catch (e) {
+                  throw new Error(`O Servidor caiu ou está reiniciando (Status: ${uploadRes.status}). Tente de novo em 1 min.`);
+              }
 
-              if (uploadRes.ok && finalUrl) {
+              // 🔥 O APP DEDO-DURO: Agora ele vai mostrar na tela o problema exato!
+              if (!uploadRes.ok) {
+                  throw new Error(uploadData.details || uploadData.error || "Falha desconhecida no servidor");
+              }
+
+              const finalUrl = uploadData.imageUrl || uploadData.url;
+
+              if (finalUrl) {
                   const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
                       method: 'PATCH',
                       headers: {'Content-Type': 'application/json'},
@@ -190,18 +197,19 @@ export default function AdminUserOptions({ route, navigation }) {
                       if (Platform.OS === 'web') window.alert("Sucesso\n\nFoto atualizada na nuvem!");
                       else Alert.alert("Sucesso", "Foto atualizada na nuvem!");
                   } else {
-                      Alert.alert("Erro", "Falha ao vincular a foto no servidor.");
+                      Alert.alert("Erro", "A foto subiu, mas falhou ao vincular ao perfil.");
                   }
               } else {
-                  throw new Error(uploadData.error || "Erro no upload da nuvem.");
+                  throw new Error("O servidor não retornou o link da imagem.");
               }
-          } catch(e) {
-              console.error("Erro Upload Imagem:", e);
-              if (Platform.OS === 'web') window.alert("Erro de conexão ao enviar a foto.");
-              else Alert.alert("Erro", "Falha de conexão ao enviar a foto.");
-          } finally {
-              setUploadingPhoto(false);
           }
+      } catch(e) {
+          console.error("Erro Upload Imagem:", e);
+          // O erro que aparecer aqui é o diagnóstico FINAL do problema
+          if (Platform.OS === 'web') window.alert(`Erro: ${e.message}`);
+          else Alert.alert("Erro no Upload", e.message);
+      } finally {
+          setUploadingPhoto(false);
       }
   };
 
@@ -308,7 +316,6 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  // 🔥 NOVO BOTÃO RÁPIDO DE ARQUIVAR
   const handleToggleArchiveWorkout = async (workout) => {
       const newStatus = !workout.archived;
       const actionName = newStatus ? "Arquivar" : "Desarquivar";
@@ -321,7 +328,6 @@ export default function AdminUserOptions({ route, navigation }) {
                   body: JSON.stringify({ archived: newStatus })
               });
               if (!res.ok) {
-                  // Fallback se a API não suportar PATCH
                   await fetch(`https://fitos-final.onrender.com/api/workout`, {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
@@ -509,7 +515,6 @@ export default function AdminUserOptions({ route, navigation }) {
                                 ) : (
                                     listToShow.map((w) => {
                                         const isArchived = viewMode === 'archived';
-                                        // 🔥 APLICA A FUNÇÃO DO FAROL DE VENCIMENTO AQUI
                                         const status = getExpirationStatus(w.endDate, isArchived);
 
                                         return (
@@ -524,7 +529,6 @@ export default function AdminUserOptions({ route, navigation }) {
                                                         </View>
                                                     </View>
                                                     <View style={{flexDirection: 'row', gap: 10}}>
-                                                        {/* 🔥 NOVO BOTÃO RÁPIDO DE ARQUIVAR */}
                                                         <TouchableOpacity onPress={() => handleToggleArchiveWorkout(w)} style={{padding:5}}>
                                                             <MaterialCommunityIcons name={isArchived ? "package-up" : "archive-arrow-down"} size={20} color={theme.textSecondary} />
                                                         </TouchableOpacity>
