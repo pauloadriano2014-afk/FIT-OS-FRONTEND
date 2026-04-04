@@ -54,6 +54,10 @@ export default function HomeScreen({ navigation }) {
   const [hasAlerted, setHasAlerted] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // 🔥 ESTADOS DO NOVO AVISO GLOBAL 🔥
+  const [activeNotice, setActiveNotice] = useState(null);
+  const [noticeModalVisible, setNoticeModalVisible] = useState(false);
+
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -93,7 +97,7 @@ export default function HomeScreen({ navigation }) {
   }, [isCheckinPending]);
 
   useEffect(() => {
-      if (isCheckinLate && !hasAlerted && !loading) {
+      if (isCheckinLate && !hasAlerted && !loading && !noticeModalVisible) {
           Alert.alert(
               "⚠️ Check-in Atrasado!",
               "Atleta, seu feedback quinzenal passou do prazo. Precisamos dos seus dados para ajustar o planejamento.\n\nVá na aba Check-in e envie agora!",
@@ -104,7 +108,7 @@ export default function HomeScreen({ navigation }) {
           );
           setHasAlerted(true);
       }
-  }, [isCheckinLate, loading, hasAlerted]);
+  }, [isCheckinLate, loading, hasAlerted, noticeModalVisible]);
 
   const loadHomeData = async () => {
     try {
@@ -128,10 +132,12 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
-            const [homeRes, historyRes, checkinRes] = await Promise.all([
+            // 🔥 ADICIONADO FETCH DE AVISOS 🔥
+            const [homeRes, historyRes, checkinRes, noticeRes] = await Promise.all([
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
                 fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`),
+                fetch(`https://fitos-final.onrender.com/api/notices/active?userId=${user.id}`) // Rota nova pra pegar avisos
             ]);
 
             let fetchedUser = { ...user };
@@ -143,6 +149,20 @@ export default function HomeScreen({ navigation }) {
                     setXp(serverXP);
                     fetchedUser = { ...user, currentXP: serverXP, ...homeData.user };
                     await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
+                }
+            }
+
+            // 🔥 PROCESSA O AVISO GLOBAL 🔥
+            if (noticeRes.ok) {
+                const notices = await noticeRes.json();
+                if (Array.isArray(notices) && notices.length > 0) {
+                    const latestNotice = notices[0]; // Pega o aviso mais recente
+                    const hasRead = await AsyncStorage.getItem(`read_notice_${latestNotice.id}`);
+                    
+                    if (!hasRead) {
+                        setActiveNotice(latestNotice);
+                        setNoticeModalVisible(true);
+                    }
                 }
             }
 
@@ -223,7 +243,6 @@ export default function HomeScreen({ navigation }) {
             setIsCheckinLate(checkinLate);
             setScheduledCheckInDate(futureDateStr);
 
-            // 🔥 VERIFICA NA MEMÓRIA SE O ALUNO JÁ FECHOU O AVISO DESTA DATA ESPECÍFICA
             if (futureDateStr) {
                 const dismissedDate = await AsyncStorage.getItem(`dismissedBannerDate_${user.id}`);
                 if (dismissedDate === futureDateStr) {
@@ -245,7 +264,16 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // 🔥 SALVA NA MEMÓRIA DO CELULAR QUE ELE ESCONDEU O AVISO DESTA DATA
+  // 🔥 MARCA AVISO COMO LIDO PARA NUNCA MAIS MOSTRAR 🔥
+  const handleReadNotice = async () => {
+      if (activeNotice) {
+          try {
+              await AsyncStorage.setItem(`read_notice_${activeNotice.id}`, 'true');
+          } catch(e) { console.log(e) }
+      }
+      setNoticeModalVisible(false);
+  };
+
   const handleDismissBanner = async () => {
       setShowScheduledBanner(false);
       if (userData && scheduledCheckInDate) {
@@ -376,7 +404,6 @@ export default function HomeScreen({ navigation }) {
                             <Text style={styles.pendingBannerTitle}>PRÓXIMO CHECK-IN</Text>
                             <Text style={styles.pendingBannerText}>Agendado para o dia {scheduledCheckInDate}</Text>
                         </View>
-                        {/* 🔥 BOTÃO AGORA CHAMA A FUNÇÃO DE SALVAR NA MEMÓRIA */}
                         <TouchableOpacity onPress={handleDismissBanner} style={{padding: 8, marginRight: -8}}>
                             <MaterialCommunityIcons name="close" size={20} color="#FFF" />
                         </TouchableOpacity>
@@ -452,6 +479,31 @@ export default function HomeScreen({ navigation }) {
             </LinearGradient>
           </TouchableOpacity>
       </View>
+
+      {/* 🔥 MODAL DE AVISO GLOBAL (PÁSCOA, RECADOS, ETC) 🔥 */}
+      <Modal visible={noticeModalVisible} transparent animationType="fade">
+          <View style={styles.chatModalOverlay}>
+              <View style={[styles.noticeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <View style={[styles.noticeHeader, { backgroundColor: theme.accent }]}>
+                      <MaterialCommunityIcons name="bullhorn" size={24} color={theme.isDark ? '#000' : '#FFF'} />
+                      <Text style={[styles.noticeTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>
+                          MENSAGEM DO SEU COACH
+                      </Text>
+                  </View>
+                  <View style={{ padding: 25 }}>
+                      <Text style={[styles.noticeSubject, { color: theme.text }]}>{activeNotice?.title}</Text>
+                      <Text style={[styles.noticeBody, { color: theme.textSecondary }]}>{activeNotice?.content}</Text>
+                      
+                      <TouchableOpacity 
+                          style={[styles.noticeBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} 
+                          onPress={handleReadNotice}
+                      >
+                          <Text style={[styles.noticeBtnText, { color: theme.text }]}>OK, ENTENDI!</Text>
+                      </TouchableOpacity>
+                  </View>
+              </View>
+          </View>
+      </Modal>
 
       <Modal visible={chatVisible} animationType="slide" transparent>
         <View style={styles.chatModalOverlay}>
@@ -583,5 +635,14 @@ const styles = StyleSheet.create({
   chatBubbleAi: { alignSelf: 'flex-start', borderBottomLeftRadius: 4, borderWidth: 1 },
   chatBubbleUser: { alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   chatSenderName: { fontSize: 11, fontWeight: '900', marginBottom: 6, letterSpacing: 0.5 },
-  chatText: { fontSize: 15, lineHeight: 22, fontWeight: '500' }
+  chatText: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
+
+  // 🔥 ESTILOS DO NOVO MODAL DE AVISO 🔥
+  noticeCard: { width: '85%', maxWidth: 400, alignSelf: 'center', borderRadius: 24, overflow: 'hidden', borderWidth: 1, marginBottom: '20%' },
+  noticeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 15, gap: 10 },
+  noticeTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+  noticeSubject: { fontSize: 20, fontWeight: '900', marginBottom: 10, textAlign: 'center' },
+  noticeBody: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 25 },
+  noticeBtn: { padding: 15, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  noticeBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });
