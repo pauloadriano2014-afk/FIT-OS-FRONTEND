@@ -1,5 +1,5 @@
 // src/screens/AdminDashboard.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
   TextInput, StatusBar, RefreshControl, Modal, ScrollView, Image, Alert, 
@@ -12,26 +12,40 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 
+const getExpirationStatus = (endDateString) => {
+    if (!endDateString) return null;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    const end = new Date(endDateString);
+    end.setHours(0,0,0,0);
+    
+    const diffTime = end - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays < 0) return { text: `ATRASADO ${Math.abs(diffDays)}D`, bg: '#000', color: '#FFF', cat: 'ATRASADOS' };
+    if (diffDays <= 3) return { text: `VENCE EM ${diffDays}D`, bg: '#FF3B30', color: '#FFF', cat: 'ALERTA' };
+    if (diffDays <= 7) return { text: `VENCE EM ${diffDays}D`, bg: '#FFCC00', color: '#000', cat: 'ALERTA' };
+    return { text: `VENCE EM ${diffDays}D`, bg: 'rgba(52, 199, 89, 0.15)', color: '#34C759', cat: 'OK' };
+};
+
 export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
 
   const [activeTab, setActiveTab] = useState('ALUNOS'); 
   
-  // 🔥 GAVETAS DE ALUNOS SEPARADAS
   const [alunosAtivos, setAlunosAtivos] = useState([]);
   const [alunosInativos, setAlunosInativos] = useState([]);
-  const [filteredAlunos, setFilteredAlunos] = useState([]);
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
+  
+  const [statusFilter, setStatusFilter] = useState('TODOS'); 
+  const [filterModalVisible, setFilterModalVisible] = useState(false); // 🔥 Controle do Modal de Filtro
 
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
-  
   const [visibleCount, setVisibleCount] = useState(15); 
-
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
-  
   const [adminEmail, setAdminEmail] = useState('');
 
   const [selectedCheckin, setSelectedCheckin] = useState(null);
@@ -40,18 +54,26 @@ export default function AdminDashboard({ navigation }) {
   const [noticeTitle, setNoticeTitle] = useState('');
   const [noticeMessage, setNoticeMessage] = useState('');
   const [sendingNotice, setSendingNotice] = useState(false);
-
   const [selectedColor, setSelectedColor] = useState('verde');
 
-  useFocusEffect(
-    useCallback(() => { fetchData(); }, [])
-  );
+  const filterOptions = [
+    { id: 'TODOS', label: 'TODOS OS ALUNOS', icon: 'account-group', color: theme.text },
+    { id: 'ATRASADOS', label: 'TREINOS ATRASADOS', icon: 'alert-circle', color: '#FF3B30' },
+    { id: 'ALERTA', label: 'ALERTA (VENCE EM 7D)', icon: 'clock-fast', color: '#FFCC00' },
+    { id: 'OK', label: 'NO PRAZO', icon: 'check-circle', color: '#34C759' },
+    { id: 'SEM_TREINO', label: 'SEM TREINO', icon: 'calendar-blank', color: theme.textSecondary }
+  ];
+
+  useFocusEffect(useCallback(() => { fetchData(); }, []));
+
+  useEffect(() => {
+      setVisibleCount(15); 
+  }, [subTabAlunos, search, statusFilter]);
 
   const fetchData = async () => {
     try {
       if(!refreshing) setLoading(true);
       const t = Date.now();
-      
       const userJson = await AsyncStorage.getItem('user');
       const savedThemeObj = await AsyncStorage.getItem('app_theme');
       
@@ -70,21 +92,11 @@ export default function AdminDashboard({ navigation }) {
       const data = await resData.json();
       const dataCheckins = await resCheckins.json();
       
-      // 🔥 DISTRIBUI OS ALUNOS NAS GAVETAS CORRETAS
       if (data.activeUsers || data.inactiveUsers) {
           setAlunosAtivos(data.activeUsers || []);
           setAlunosInativos(data.inactiveUsers || []);
-          
-          if (subTabAlunos === 'ATIVOS') {
-              setFilteredAlunos(data.activeUsers || []);
-          } else {
-              setFilteredAlunos(data.inactiveUsers || []);
-          }
-          setVisibleCount(15); 
       } else if (data.users) {
-          // Fallback caso a API antiga ainda responda
           setAlunosAtivos(data.users);
-          setFilteredAlunos(data.users);
       }
 
       if (data.recentLogs) setFeed(data.recentLogs);
@@ -98,30 +110,39 @@ export default function AdminDashboard({ navigation }) {
           else if (parsedTheme.accent === '#FF3B30') setSelectedColor('vermelho');
           else setSelectedColor('verde');
       }
-
     } catch (e) { console.log(e); } 
     finally { setLoading(false); setRefreshing(false); }
   };
 
+  const displayList = useMemo(() => {
+      let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
+      
+      if (search) {
+          list = list.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
+      }
+      
+      if (statusFilter !== 'TODOS') {
+          list = list.filter(a => {
+              if (!a.workouts || a.workouts.length === 0) return statusFilter === 'SEM_TREINO';
+              const status = getExpirationStatus(a.workouts[0].endDate);
+              if (!status) return statusFilter === 'SEM_TREINO';
+              return status.cat === statusFilter;
+          });
+      }
+      
+      return list;
+  }, [alunosAtivos, alunosInativos, subTabAlunos, search, statusFilter]);
+
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(['user', 'role']);
-
-    if (Platform.OS === 'web') {
-      window.location.replace('/');
-    } else {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Login' }]
-      });
-    }
+    if (Platform.OS === 'web') window.location.replace('/');
+    else navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
   const handleDeleteLog = (logId) => {
       Alert.alert("Remover", "Deseja ocultar este item do feed?", [
           { text: "Cancelar" },
-          { text: "Sim", style: 'destructive', onPress: () => {
-              setFeed(current => current.filter(item => item.id !== logId));
-          }}
+          { text: "Sim", style: 'destructive', onPress: () => setFeed(current => current.filter(item => item.id !== logId)) }
       ]);
   };
 
@@ -145,11 +166,9 @@ export default function AdminDashboard({ navigation }) {
   const handleInviteStudent = () => {
       let code = 'PATEAM'; 
       if (adminEmail === 'adri.personal@hotmail.com') code = 'CURVAS';
-      
       const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${code}`; 
       const message = `Seja bem-vindo(a) à nossa equipe! Para darmos o start no seu projeto, faça o cadastro no app oficial por aqui:\n\n${inviteLink}`;
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
-      
       Linking.canOpenURL(whatsappUrl).then(supported => {
           if (supported) Linking.openURL(whatsappUrl);
           else {
@@ -163,9 +182,7 @@ export default function AdminDashboard({ navigation }) {
       if (newValue) {
           setSelectedColor('verde');
           changeTheme(true, 'verde');
-      } else {
-          changeTheme(false, selectedColor);
-      }
+      } else changeTheme(false, selectedColor);
   };
 
   const selectThemeColor = (colorKey) => {
@@ -173,7 +190,6 @@ export default function AdminDashboard({ navigation }) {
       changeTheme(theme.isDark, colorKey);
   };
 
-  // 🔥 LÓGICA PROFISSIONAL DE DOWNLOAD
   const handleDownloadPhoto = async (url, photoType) => {
       if (!url) return;
       const alunoNome = selectedCheckin?.user?.name ? selectedCheckin.user.name.replace(/\s+/g, '_') : 'aluno';
@@ -189,12 +205,8 @@ export default function AdminDashboard({ navigation }) {
               document.body.appendChild(link);
               link.click();
               document.body.removeChild(link);
-          } catch (e) {
-              window.open(url, '_blank'); // Fallback se bloquear
-          }
-      } else {
-          Linking.openURL(url); // No mobile abre o navegador/arquivo
-      }
+          } catch (e) { window.open(url, '_blank'); }
+      } else Linking.openURL(url); 
   };
 
   const switchSubTab = (tab) => {
@@ -205,21 +217,14 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const renderCheckinItem = ({ item }) => (
-      <TouchableOpacity 
-        style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-        onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}
-      >
-          <View style={[styles.iconBox, { backgroundColor: 'rgba(50, 173, 230, 0.15)' }]}>
-              <MaterialCommunityIcons name="camera-account" size={20} color="#32ADE6" />
-          </View>
+      <TouchableOpacity style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
+          <View style={[styles.iconBox, { backgroundColor: 'rgba(50, 173, 230, 0.15)' }]}><MaterialCommunityIcons name="camera-account" size={20} color="#32ADE6" /></View>
           <View style={{flex: 1}}>
               <View style={{flexDirection:'row', justifyContent:'space-between'}}>
                   <Text style={[styles.feedUser, { color: theme.text }]}>{item.user?.name || "Aluno"}</Text>
                   <Text style={styles.feedTime}>{new Date(item.date).toLocaleDateString('pt-BR')}</Text>
               </View>
-              <Text style={styles.feedAction}>
-                  Check-in: <Text style={{color: theme.text, fontWeight:'bold'}}>{item.weight ? `${item.weight}kg` : 'Fotos'}</Text>
-              </Text>
+              <Text style={styles.feedAction}>Check-in: <Text style={{color: theme.text, fontWeight:'bold'}}>{item.weight ? `${item.weight}kg` : 'Fotos'}</Text></Text>
               {item.feedback ? <Text numberOfLines={1} style={styles.checkinFeedback}>"{item.feedback}"</Text> : null}
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
@@ -228,23 +233,16 @@ export default function AdminDashboard({ navigation }) {
 
   const renderFeedItem = ({ item }) => {
       const date = new Date(item.date);
-      const isToday = date.getDate() === new Date().getDate();
-      const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      const dayString = isToday ? `Hoje às ${time}` : date.toLocaleDateString('pt-BR');
-
+      const dayString = date.getDate() === new Date().getDate() ? `Hoje às ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : date.toLocaleDateString('pt-BR');
       return (
         <View style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}>
-                <MaterialCommunityIcons name="check-bold" size={20} color={theme.accent} />
-            </View>
+            <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="check-bold" size={20} color={theme.accent} /></View>
             <View style={{flex: 1}}>
                 <View style={{flexDirection:'row', justifyContent:'space-between'}}>
                     <Text style={[styles.feedUser, { color: theme.text }]}>{item.user?.name || "Aluno"}</Text>
                     <Text style={styles.feedTime}>{dayString}</Text>
                 </View>
-                <Text style={styles.feedAction}>
-                    Concluiu <Text style={{color: theme.accent, fontWeight:'bold'}}>{item.workoutName ? item.workoutName.toUpperCase() : "TREINO"}</Text>
-                </Text>
+                <Text style={styles.feedAction}>Concluiu <Text style={{color: theme.accent, fontWeight:'bold'}}>{item.workoutName ? item.workoutName.toUpperCase() : "TREINO"}</Text></Text>
                 {item.progressions > 0 && (
                     <View style={[styles.progBadge, { backgroundColor: theme.accent }]}>
                         <MaterialCommunityIcons name="fire" size={12} color={theme.isDark ? '#000' : '#FFF'} />
@@ -259,25 +257,38 @@ export default function AdminDashboard({ navigation }) {
       );
   };
 
-  const renderAluno = ({ item }) => (
-    <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
-      {item.photoUrl ? (
-          <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
-      ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-            <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
+  const renderAluno = ({ item }) => {
+      let farol = null;
+      if (item.workouts && item.workouts.length > 0) {
+          farol = getExpirationStatus(item.workouts[0].endDate);
+      }
+
+      return (
+        <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
+          {item.photoUrl ? (
+              <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
+          ) : (
+              <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+                <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
+              </View>
+          )}
+          <View style={{ flex: 1, marginLeft: 15 }}>
+            <Text style={[styles.alunoName, { color: theme.text }]}>{item.name}</Text>
+            <View style={{flexDirection:'row', gap:5, alignItems: 'center', flexWrap: 'wrap', marginTop: 2}}>
+                <Text style={styles.alunoEmail}>{item.email}</Text>
+                {item.plan === 'ELITE' && <View style={[styles.tagElite, { backgroundColor: theme.accent }]}><Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF' }]}>ELITE</Text></View>}
+                
+                {farol && (
+                    <View style={{ backgroundColor: farol.bg, paddingHorizontal: 5, borderRadius: 4, justifyContent: 'center' }}>
+                        <Text style={{ fontSize: 8, fontWeight: '900', color: farol.color, paddingVertical: 2 }}>{farol.text}</Text>
+                    </View>
+                )}
+            </View>
           </View>
-      )}
-      <View style={{ flex: 1, marginLeft: 15 }}>
-        <Text style={[styles.alunoName, { color: theme.text }]}>{item.name}</Text>
-        <View style={{flexDirection:'row', gap:5, alignItems: 'center'}}>
-            <Text style={styles.alunoEmail}>{item.email}</Text>
-            {item.plan === 'ELITE' && <View style={[styles.tagElite, { backgroundColor: theme.accent }]}><Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF' }]}>ELITE</Text></View>}
-        </View>
-      </View>
-      <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} />
-    </TouchableOpacity>
-  );
+          <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} />
+        </TouchableOpacity>
+      );
+  };
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
@@ -304,24 +315,16 @@ export default function AdminDashboard({ navigation }) {
           <View style={styles.tabs}>
             {['ALUNOS', 'CHECKINS', 'FEED', 'GESTAO'].map(tab => (
                 <TouchableOpacity key={tab} style={[styles.tab, activeTab===tab && { borderBottomWidth: 3, borderBottomColor: theme.accent }]} onPress={()=>setActiveTab(tab)}>
-                    <Text style={[styles.tabText, activeTab===tab && { color: theme.text }]}>
-                        {tab === 'GESTAO' ? 'SISTEMA' : tab}
-                    </Text>
-                    {tab === 'CHECKINS' && checkins.length > 0 && (
-                        <View style={styles.badgeCount}><Text style={styles.badgeText}>{checkins.length}</Text></View>
-                    )}
+                    <Text style={[styles.tabText, activeTab===tab && { color: theme.text }]}>{tab === 'GESTAO' ? 'SISTEMA' : tab}</Text>
+                    {tab === 'CHECKINS' && checkins.length > 0 && <View style={styles.badgeCount}><Text style={styles.badgeText}>{checkins.length}</Text></View>}
                 </TouchableOpacity>
             ))}
           </View>
 
           <View style={{ flex: 1 }}>
-            
             {activeTab === 'ALUNOS' && (
                 <>
-                    <TouchableOpacity 
-                        style={[styles.inviteBtn, { backgroundColor: '#FFCC00' }]} 
-                        onPress={handleInviteStudent}
-                    >
+                    <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: '#FFCC00' }]} onPress={handleInviteStudent}>
                         <MaterialCommunityIcons name="whatsapp" size={22} color="#000" />
                         <Text style={styles.inviteBtnText}>CONVIDAR ALUNO</Text>
                     </TouchableOpacity>
@@ -329,39 +332,40 @@ export default function AdminDashboard({ navigation }) {
                     <TextInput 
                         style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, borderWidth: 1 }]} 
                         placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary}
-                        value={search} 
-                        onChangeText={(t) => { 
-                            setSearch(t); 
-                            const listToSearch = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
-                            setFilteredAlunos(listToSearch.filter(a => a.name.toLowerCase().includes(t.toLowerCase()))); 
-                            setVisibleCount(15); 
-                        }} 
+                        value={search} onChangeText={setSearch} 
                     />
 
-                    {/* 🔥 SUB-ABAS ATIVOS / INATIVOS */}
+                    {/* 🔥 NOVA CAIXA SELETORA DE FILTRO */}
+                    <TouchableOpacity 
+                        style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        onPress={() => setFilterModalVisible(true)}
+                    >
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                            <MaterialCommunityIcons name="filter-variant" size={20} color={theme.accent} />
+                            <Text style={[styles.filterSelectorVal, { color: theme.text }]}>
+                                FILTRAR: {filterOptions.find(f => f.id === statusFilter)?.label}
+                            </Text>
+                        </View>
+                        <MaterialCommunityIcons name="chevron-down" size={22} color={theme.textSecondary} />
+                    </TouchableOpacity>
+
                     <View style={styles.subTabsContainer}>
-                        <TouchableOpacity 
-                            style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} 
-                            onPress={() => switchSubTab('ATIVOS')}
-                        >
+                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabAlunos('ATIVOS')}>
                             <Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({alunosAtivos.length})</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} 
-                            onPress={() => switchSubTab('INATIVOS')}
-                        >
+                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabAlunos('INATIVOS')}>
                             <Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS ({alunosInativos.length})</Text>
                         </TouchableOpacity>
                     </View>
 
                     <FlatList 
-                        data={filteredAlunos.slice(0, visibleCount)} 
+                        data={displayList.slice(0, visibleCount)} 
                         keyExtractor={item => item.id}
                         contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
                         showsVerticalScrollIndicator={false}
                         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor={theme.accent} />}
                         renderItem={renderAluno}
-                        ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado.</Text>}
+                        ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno neste filtro.</Text>}
                         onEndReached={() => setVisibleCount(prev => prev + 15)} 
                         onEndReachedThreshold={0.5} 
                         initialNumToRender={15}
@@ -457,6 +461,30 @@ export default function AdminDashboard({ navigation }) {
           </View>
       </View>
 
+      {/* 🔥 MODAL DE FILTRO DE STATUS */}
+      <Modal visible={filterModalVisible} transparent animationType="fade" onRequestClose={() => setFilterModalVisible(false)}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setFilterModalVisible(false)}>
+              <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 20, textAlign: 'center' }]}>FILTRAR STATUS</Text>
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                      {filterOptions.map(opt => (
+                          <TouchableOpacity 
+                              key={opt.id} 
+                              style={[styles.catOption, statusFilter === opt.id && { backgroundColor: theme.accent + '22' }]}
+                              onPress={() => { setStatusFilter(opt.id); setFilterModalVisible(false); }}
+                          >
+                              <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                  <MaterialCommunityIcons name={opt.icon} size={20} color={opt.color} />
+                                  <Text style={[styles.catOptionText, { color: theme.text }, statusFilter === opt.id && { color: theme.accent, fontWeight: '800' }]}>{opt.label}</Text>
+                              </View>
+                              {statusFilter === opt.id && <MaterialCommunityIcons name="check-decagram" size={20} color={theme.accent} />}
+                          </TouchableOpacity>
+                      ))}
+                  </ScrollView>
+              </View>
+          </TouchableOpacity>
+      </Modal>
+
       <Modal visible={checkinModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -550,7 +578,14 @@ const styles = StyleSheet.create({
 
   searchBar: { padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
   
-  // 🔥 Estilos das Sub-Abas
+  // 🔥 ESTILOS DA NOVA CAIXA SELETORA
+  filterSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 15 },
+  filterSelectorVal: { fontSize: 13, fontWeight: '800' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
+  catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12 },
+  catOptionText: { fontSize: 14, fontWeight: '600' },
+
   subTabsContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, gap: 10 },
   subTab: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, alignItems: 'center' },
   subTabText: { fontSize: 12, fontWeight: 'bold' },
@@ -563,6 +598,7 @@ const styles = StyleSheet.create({
   checkinFeedback: { color: '#888', fontSize: 12, fontStyle:'italic', marginTop: 4 },
   progBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 6, borderRadius: 4, marginTop: 6, gap: 4 },
   progText: { fontSize: 9, fontWeight: 'bold' },
+  
   card: { padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, cursor: 'pointer' },
   avatarPlaceholder: { width: 45, height: 45, borderRadius: 25, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   avatarText: { fontWeight: 'bold', fontSize: 18 },
@@ -571,6 +607,7 @@ const styles = StyleSheet.create({
   tagElite: { paddingHorizontal: 5, borderRadius: 4 },
   tagText: { fontSize: 8, fontWeight: '900' },
   empty: { color: '#888', textAlign: 'center', marginTop: 50 },
+  
   gridGestao: { gap: 15 },
   bigCard: { padding: 25, borderRadius: 20, borderWidth: 1, alignItems: 'center', cursor: 'pointer' },
   iconCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
@@ -578,6 +615,7 @@ const styles = StyleSheet.create({
   bigCardDesc: { color: '#888', fontSize: 12, textAlign: 'center', paddingHorizontal: 20 },
   cardHeaderSmall: { color:'#888', fontWeight:'bold', fontSize:12 },
   colorCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 3 },
+  
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
   modalContent: { borderRadius: 20, maxHeight: '80%', borderWidth:1, width: '100%', maxWidth: 440, alignSelf: 'center' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth:1 },
@@ -593,7 +631,6 @@ const styles = StyleSheet.create({
   photo: { width: 120, height: 180, borderRadius: 8, borderWidth: 1 },
   photoLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', marginTop: 5 },
   
-  // 🔥 Estilos do Botão de Download
   downloadBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, gap: 5, width: '100%' },
   downloadText: { fontSize: 10, fontWeight: '900' },
 
