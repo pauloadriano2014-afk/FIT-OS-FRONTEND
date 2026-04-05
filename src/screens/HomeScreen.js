@@ -58,6 +58,9 @@ export default function HomeScreen({ navigation }) {
   const [activeNotice, setActiveNotice] = useState(null);
   const [noticeModalVisible, setNoticeModalVisible] = useState(false);
 
+  // 🔥 ESTADO DO MODAL DE NÍVEL 🔥
+  const [levelModalVisible, setLevelModalVisible] = useState(false);
+
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -132,12 +135,11 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
-            // 🔥 ADICIONADO FETCH DE AVISOS 🔥
             const [homeRes, historyRes, checkinRes, noticeRes] = await Promise.all([
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
                 fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`),
                 fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}`)
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}`) // Busca avisos
             ]);
 
             let fetchedUser = { ...user };
@@ -152,11 +154,10 @@ export default function HomeScreen({ navigation }) {
                 }
             }
 
-            // 🔥 PROCESSA O AVISO GLOBAL 🔥
             if (noticeRes.ok) {
                 const notices = await noticeRes.json();
                 if (Array.isArray(notices) && notices.length > 0) {
-                    const latestNotice = notices[0]; // Pega o aviso mais recente
+                    const latestNotice = notices[0]; 
                     const hasRead = await AsyncStorage.getItem(`read_notice_${latestNotice.id}`);
                     
                     if (!hasRead) {
@@ -264,7 +265,6 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
-  // 🔥 MARCA AVISO COMO LIDO PARA NUNCA MAIS MOSTRAR 🔥
   const handleReadNotice = async () => {
       if (activeNotice) {
           try {
@@ -373,7 +373,8 @@ export default function HomeScreen({ navigation }) {
                 <Text style={[styles.name, { color: theme.text }]}>{userName.toUpperCase()} ⚡</Text>
               </View>
               
-              <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => Alert.alert(levelData.title, levelData.desc)}>
+              {/* 🔥 ABRINDO O NOVO MODAL DE NÍVEL 🔥 */}
+              <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLevelModalVisible(true)}>
                 <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
               </TouchableOpacity>
             </View>
@@ -480,7 +481,7 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 MODAL DE AVISO GLOBAL (PÁSCOA, RECADOS, ETC) 🔥 */}
+      {/* 🔥 MODAL DE AVISO GLOBAL COM BOTÃO "TAMAMO JUNTO" 🔥 */}
       <Modal visible={noticeModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.noticeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -498,11 +499,42 @@ export default function HomeScreen({ navigation }) {
                           style={[styles.noticeBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} 
                           onPress={handleReadNotice}
                       >
-                          <Text style={[styles.noticeBtnText, { color: theme.text }]}>OK, ENTENDI!</Text>
+                          <Text style={[styles.noticeBtnText, { color: theme.text }]}>VALEU, COACH! 👊</Text>
                       </TouchableOpacity>
                   </View>
               </View>
           </View>
+      </Modal>
+
+      {/* 🔥 NOVO MODAL DE NÍVEL (SHAPE CARREGANDO) 🔥 */}
+      <Modal visible={levelModalVisible} transparent animationType="fade">
+          <TouchableOpacity style={styles.chatModalOverlay} activeOpacity={1} onPress={() => setLevelModalVisible(false)}>
+              <View style={[styles.levelModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22' }]}>
+                      <MaterialCommunityIcons name="lightning-bolt" size={32} color={theme.accent} />
+                  </View>
+                  
+                  <Text style={[styles.levelModalTitle, { color: theme.text }]}>{levelData.title}</Text>
+                  <Text style={[styles.levelModalDesc, { color: theme.textSecondary }]}>{levelData.desc}</Text>
+                  
+                  <View style={{ width: '100%', marginTop: 25, marginBottom: 15 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 12 }}>Nível {currentLevel}</Text>
+                          <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: 'bold' }}>{currentLevelProgress} / {nextLevelXP} XP</Text>
+                      </View>
+                      <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
+                          <View style={[styles.xpBarFill, { width: `${(currentLevelProgress/nextLevelXP)*100}%`, backgroundColor: theme.accent }]} />
+                      </View>
+                  </View>
+                  
+                  <TouchableOpacity 
+                      style={[styles.levelModalBtn, { backgroundColor: theme.accent }]} 
+                      onPress={() => setLevelModalVisible(false)}
+                  >
+                      <Text style={[styles.levelModalBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CONTINUAR EVOLUINDO 🚀</Text>
+                  </TouchableOpacity>
+              </View>
+          </TouchableOpacity>
       </Modal>
 
       <Modal visible={chatVisible} animationType="slide" transparent>
@@ -616,7 +648,7 @@ const styles = StyleSheet.create({
   fabChat: { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 10 },
   fabGradient: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
   
-  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' },
   chatModalContainer: { flex: 1, justifyContent: 'flex-end' },
   chatContent: { height: '85%', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', borderWidth: 1, borderBottomWidth: 0 },
   chatHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
@@ -637,12 +669,19 @@ const styles = StyleSheet.create({
   chatSenderName: { fontSize: 11, fontWeight: '900', marginBottom: 6, letterSpacing: 0.5 },
   chatText: { fontSize: 15, lineHeight: 22, fontWeight: '500' },
 
-  // 🔥 ESTILOS DO NOVO MODAL DE AVISO 🔥
   noticeCard: { width: '85%', maxWidth: 400, alignSelf: 'center', borderRadius: 24, overflow: 'hidden', borderWidth: 1, marginBottom: '20%' },
   noticeHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 15, gap: 10 },
   noticeTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   noticeSubject: { fontSize: 20, fontWeight: '900', marginBottom: 10, textAlign: 'center' },
   noticeBody: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 25 },
   noticeBtn: { padding: 15, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
-  noticeBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
+  noticeBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+
+  // 🔥 ESTILOS DO MODAL DE NÍVEL 🔥
+  levelModalContent: { width: '85%', maxWidth: 400, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 1, alignItems: 'center' },
+  levelIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+  levelModalTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, textAlign: 'center' },
+  levelModalDesc: { fontSize: 13, textAlign: 'center', lineHeight: 20, fontWeight: '500' },
+  levelModalBtn: { width: '100%', padding: 16, borderRadius: 12, alignItems: 'center' },
+  levelModalBtnText: { fontWeight: '900', fontSize: 12, letterSpacing: 1 }
 });
