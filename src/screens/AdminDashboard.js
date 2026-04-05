@@ -11,7 +11,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
-// 🔥 IMPORTA O NOSSO NOVO MODAL
 import SendNoticeModal from '../components/SendNoticeModal';
 
 const getExpirationStatus = (workout) => {
@@ -51,14 +50,11 @@ export default function AdminDashboard({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
-  const [adminId, setAdminId] = useState(''); // Armazena o ID do coach
+  const [adminId, setAdminId] = useState('');
 
   const [selectedCheckin, setSelectedCheckin] = useState(null);
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
-  
-  // 🔥 ESTADO ÚNICO PARA O MODAL NOVO
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
-  
   const [selectedColor, setSelectedColor] = useState('verde');
 
   const filterOptions = [
@@ -73,6 +69,7 @@ export default function AdminDashboard({ navigation }) {
 
   useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
 
+  // 🔥 A MÁGICA TÁ AQUI: Motor de busca blindado com try/catch isolado para não dar Efeito Dominó
   const fetchData = async () => {
     try {
       if(!refreshing) setLoading(true);
@@ -88,23 +85,28 @@ export default function AdminDashboard({ navigation }) {
           localAdminId = userObj.id; 
       }
 
-      const [resData, resCheckins] = await Promise.all([
-          fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`),
-          fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`)
-      ]);
+      const resData = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`).catch(() => null);
+      const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`).catch(() => null);
 
-      const data = await resData.json();
-      const dataCheckins = await resCheckins.json();
-      
-      if (data.activeUsers || data.inactiveUsers) {
-          setAlunosAtivos(data.activeUsers || []);
-          setAlunosInativos(data.inactiveUsers || []);
-      } else if (data.users) {
-          setAlunosAtivos(data.users);
+      if (resData && resData.ok) {
+          try {
+              const data = await resData.json();
+              if (data.activeUsers || data.inactiveUsers) {
+                  setAlunosAtivos(data.activeUsers || []);
+                  setAlunosInativos(data.inactiveUsers || []);
+              } else if (data.users) {
+                  setAlunosAtivos(data.users || []);
+              }
+              if (data.recentLogs) setFeed(data.recentLogs);
+          } catch(e) { console.log("Erro ao parsear Alunos", e); }
       }
 
-      if (data.recentLogs) setFeed(data.recentLogs);
-      if (Array.isArray(dataCheckins)) setCheckins(dataCheckins);
+      if (resCheckins && resCheckins.ok) {
+          try {
+              const dataCheckins = await resCheckins.json();
+              if (Array.isArray(dataCheckins)) setCheckins(dataCheckins);
+          } catch(e) { console.log("Erro ao parsear Checkins", e); }
+      }
 
       if (savedThemeObj) {
           const parsedTheme = JSON.parse(savedThemeObj);
@@ -114,14 +116,17 @@ export default function AdminDashboard({ navigation }) {
           else if (parsedTheme.accent === '#FF3B30') setSelectedColor('vermelho');
           else setSelectedColor('verde');
       }
-    } catch (e) { console.log(e); } 
-    finally { setLoading(false); setRefreshing(false); }
+    } catch (e) { 
+        console.log("Erro geral fetchData", e); 
+    } finally { 
+        setLoading(false); 
+        setRefreshing(false); 
+    }
   };
 
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       
-      // 🔥 BLINDAGEM 1: Evita travar a pesquisa se o aluno não tiver nome
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
       
       if (statusFilter !== 'TODOS') {
@@ -241,8 +246,6 @@ export default function AdminDashboard({ navigation }) {
   const renderAluno = ({ item }) => {
       const activeWorkout = (item.workouts && item.workouts.length > 0) ? item.workouts[0] : null;
       const farol = getExpirationStatus(activeWorkout);
-
-      // 🔥 BLINDAGEM 2: Se não tiver nome cadastrado, usa a letra "A" em vez de dar crash
       const primeiraLetra = item.name ? item.name.charAt(0).toUpperCase() : 'A';
 
       return (
@@ -256,7 +259,6 @@ export default function AdminDashboard({ navigation }) {
           )}
           
           <View style={{ flex: 1, marginLeft: 15, justifyContent: 'center' }}>
-            {/* 🔥 BLINDAGEM 3: Exibe "Aluno Sem Nome" caso o name esteja nulo */}
             <Text style={[styles.alunoName, { color: theme.text, fontSize: 16, marginBottom: 2 }]} numberOfLines={1}>{item.name || 'Aluno Sem Nome'}</Text>
             <Text style={[styles.alunoEmail, { color: theme.textSecondary, fontSize: 12 }]} numberOfLines={1}>{item.email || 'Sem E-mail'}</Text>
           </View>
@@ -344,18 +346,22 @@ export default function AdminDashboard({ navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    <FlatList 
-                        data={displayList.slice(0, visibleCount)} 
-                        keyExtractor={item => item.id}
-                        contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
-                        showsVerticalScrollIndicator={false}
-                        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor={theme.accent} />}
-                        renderItem={renderAluno}
-                        ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno neste filtro.</Text>}
-                        onEndReached={() => setVisibleCount(prev => prev + 15)} 
-                        onEndReachedThreshold={0.5} 
-                        initialNumToRender={15}
-                    />
+                    {loading ? (
+                        <View style={{marginTop: 50}}><ActivityIndicator size="large" color={theme.accent} /></View>
+                    ) : (
+                        <FlatList 
+                            data={displayList.slice(0, visibleCount)} 
+                            keyExtractor={item => item.id}
+                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
+                            showsVerticalScrollIndicator={false}
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); fetchData();}} tintColor={theme.accent} />}
+                            renderItem={renderAluno}
+                            ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno neste filtro.</Text>}
+                            onEndReached={() => setVisibleCount(prev => prev + 15)} 
+                            onEndReachedThreshold={0.5} 
+                            initialNumToRender={15}
+                        />
+                    )}
                 </>
             )}
 
@@ -426,8 +432,8 @@ export default function AdminDashboard({ navigation }) {
                                 <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
                                 <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
                             </View>
-                            {/* 🔥 BLINDAGEM 4: Ranking protegido contra aluno sem nome */}
-                            {alunosAtivos.sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
+                            {/* 🔥 BLINDAGEM DO RANKING: Usa um clone da array ([...]) para não dar crash na memória original */}
+                            {[...alunosAtivos].sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
                                 <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
                                     <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name || 'Aluno'}</Text>
                                     <Text style={{color: theme.accent, fontWeight:'900'}}>{a.currentXP || 0} XP</Text>
