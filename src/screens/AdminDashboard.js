@@ -120,7 +120,10 @@ export default function AdminDashboard({ navigation }) {
 
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
-      if (search) list = list.filter(a => a.name.toLowerCase().includes(search.toLowerCase()));
+      
+      // 🔥 BLINDAGEM 1: Evita travar a pesquisa se o aluno não tiver nome
+      if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
+      
       if (statusFilter !== 'TODOS') {
           list = list.filter(a => {
               const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
@@ -239,19 +242,23 @@ export default function AdminDashboard({ navigation }) {
       const activeWorkout = (item.workouts && item.workouts.length > 0) ? item.workouts[0] : null;
       const farol = getExpirationStatus(activeWorkout);
 
+      // 🔥 BLINDAGEM 2: Se não tiver nome cadastrado, usa a letra "A" em vez de dar crash
+      const primeiraLetra = item.name ? item.name.charAt(0).toUpperCase() : 'A';
+
       return (
         <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 16, alignItems: 'center' }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
           {item.photoUrl ? (
               <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
           ) : (
               <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-                <Text style={[styles.avatarText, { color: theme.accent }]}>{item.name?.charAt(0).toUpperCase()}</Text>
+                <Text style={[styles.avatarText, { color: theme.accent }]}>{primeiraLetra}</Text>
               </View>
           )}
           
           <View style={{ flex: 1, marginLeft: 15, justifyContent: 'center' }}>
-            <Text style={[styles.alunoName, { color: theme.text, fontSize: 16, marginBottom: 2 }]} numberOfLines={1}>{item.name}</Text>
-            <Text style={[styles.alunoEmail, { color: theme.textSecondary, fontSize: 12 }]} numberOfLines={1}>{item.email}</Text>
+            {/* 🔥 BLINDAGEM 3: Exibe "Aluno Sem Nome" caso o name esteja nulo */}
+            <Text style={[styles.alunoName, { color: theme.text, fontSize: 16, marginBottom: 2 }]} numberOfLines={1}>{item.name || 'Aluno Sem Nome'}</Text>
+            <Text style={[styles.alunoEmail, { color: theme.textSecondary, fontSize: 12 }]} numberOfLines={1}>{item.email || 'Sem E-mail'}</Text>
           </View>
 
           <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginLeft: 10 }}>
@@ -419,15 +426,15 @@ export default function AdminDashboard({ navigation }) {
                                 <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
                                 <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
                             </View>
+                            {/* 🔥 BLINDAGEM 4: Ranking protegido contra aluno sem nome */}
                             {alunosAtivos.sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
                                 <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
-                                    <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name}</Text>
+                                    <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name || 'Aluno'}</Text>
                                     <Text style={{color: theme.accent, fontWeight:'900'}}>{a.currentXP || 0} XP</Text>
                                 </View>
                             ))}
                         </View>
                         
-                        {/* 🔥 BOTÃO PARA ABRIR O NOVO MODAL */}
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setIsNoticeModalOpen(true)}>
                             <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
                                 <MaterialCommunityIcons name="bullhorn" size={24} color="#32ADE6" />
@@ -469,7 +476,7 @@ export default function AdminDashboard({ navigation }) {
         <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                    <Text style={[styles.modalTitle, { color: theme.text }]}>CHECK-IN: <Text style={{ color: theme.accent }}>{selectedCheckin?.user?.name}</Text></Text>
+                    <Text style={[styles.modalTitle, { color: theme.text }]}>CHECK-IN: <Text style={{ color: theme.accent }}>{selectedCheckin?.user?.name || 'Aluno'}</Text></Text>
                     <TouchableOpacity onPress={() => setCheckinModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.text}/></TouchableOpacity>
                 </View>
                 <ScrollView contentContainerStyle={{padding: 20}}>
@@ -518,7 +525,6 @@ export default function AdminDashboard({ navigation }) {
         </View>
       </Modal>
 
-      {/* 🔥 INSERE O NOVO MODAL ISOLADO */}
       <SendNoticeModal 
           visible={isNoticeModalOpen}
           onClose={() => setIsNoticeModalOpen(false)}
