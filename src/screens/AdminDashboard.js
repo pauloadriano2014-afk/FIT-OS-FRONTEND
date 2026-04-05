@@ -13,6 +13,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 import SendNoticeModal from '../components/SendNoticeModal';
 
+// Variável global para impedir que o App fique recarregando a cada segundo
+let lastFetchTime = 0;
+
 const getExpirationStatus = (workout) => {
     if (!workout) return null;
     if (!workout.endDate) return { text: 'SEM PRAZO', bg: '#E5E5EA', color: '#888', cat: 'OK' }; 
@@ -65,7 +68,6 @@ export default function AdminDashboard({ navigation }) {
     { id: 'SEM_TREINO', label: 'SEM TREINO', icon: 'calendar-blank', color: theme.textSecondary }
   ];
 
-  // 🔥 Carrega o cache IMEDIATAMENTE ao abrir o App
   useEffect(() => {
     const loadCache = async () => {
       try {
@@ -76,7 +78,7 @@ export default function AdminDashboard({ navigation }) {
           if (cacheInativos) setAlunosInativos(cacheInativos);
           if (cacheFeed) setFeed(cacheFeed);
           if (cacheCheckins) setCheckins(cacheCheckins);
-          setLoading(false); // Mata o loading se já tivermos cache!
+          setLoading(false);
         }
       } catch(e) { console.log("Erro no cache", e); }
     };
@@ -85,10 +87,14 @@ export default function AdminDashboard({ navigation }) {
 
   useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
 
-  // 🔥 O FocusEffect agora atua como uma "Atualização Fantasma"
+  // 🔥 COOLDOWN APLICADO: Só recarrega os dados se fizer mais de 15 segundos da última vez
   useFocusEffect(
     useCallback(() => {
-      fetchDataSilently();
+      const now = Date.now();
+      if (now - lastFetchTime > 15000) { 
+          fetchDataSilently();
+          lastFetchTime = now;
+      }
     }, [])
   );
 
@@ -98,13 +104,11 @@ export default function AdminDashboard({ navigation }) {
       const savedThemeObj = await AsyncStorage.getItem('app_theme');
       
       let localAdminId = '';
-      let localAdminEmail = '';
       if (userJson) {
           const userObj = JSON.parse(userJson);
-          localAdminEmail = userObj.email;
-          localAdminId = userObj.id;
-          setAdminEmail(localAdminEmail);
-          setAdminId(localAdminId);
+          setAdminEmail(userObj.email);
+          setAdminId(userObj.id);
+          localAdminId = userObj.id; 
       }
 
       if (savedThemeObj) {
@@ -116,42 +120,25 @@ export default function AdminDashboard({ navigation }) {
           else setSelectedColor('verde');
       }
 
-      // Se não tiver cache NENHUM, mostra o loading
-      if (alunosAtivos.length === 0 && alunosInativos.length === 0) {
-          setLoading(true);
-      }
+      if (alunosAtivos.length === 0 && alunosInativos.length === 0) setLoading(true);
 
       const t = Date.now();
 
-      // Disparo 1: Busca Alunos Silenciosamente
       fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`)
         .then(res => res.json())
         .then(async data => {
-            // 🔥 BLINDAGEM MÁXIMA: Expulsa a Adrielle, Admins e Você Mesmo da lista
             const rawAtivos = data.activeUsers || data.users || [];
             const rawInativos = data.inactiveUsers || [];
 
-            const safeFilter = (user) => {
-                if (!user) return false;
-                if (user.role === 'ADMIN') return false;
-                if (user.email === 'adri.personal@hotmail.com') return false;
-                if (user.id === localAdminId) return false;
-                return true;
-            };
-
-            const filtAtivos = rawAtivos.filter(safeFilter);
-            const filtInativos = rawInativos.filter(safeFilter);
-
-            setAlunosAtivos(filtAtivos);
-            setAlunosInativos(filtInativos);
+            setAlunosAtivos(rawAtivos);
+            setAlunosInativos(rawInativos);
             if (data.recentLogs) setFeed(data.recentLogs);
 
-            // Salva os dados atualizados no Cache para a próxima vez
             const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
             await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({
                 ...currentCache,
-                cacheAtivos: filtAtivos,
-                cacheInativos: filtInativos,
+                cacheAtivos: rawAtivos,
+                cacheInativos: rawInativos,
                 cacheFeed: data.recentLogs || []
             }));
         })
@@ -161,7 +148,6 @@ export default function AdminDashboard({ navigation }) {
             setRefreshing(false);
         });
 
-      // Disparo 2: Busca Checkins Silenciosamente
       fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`)
         .then(res => res.json())
         .then(async dataCheckins => {
@@ -186,13 +172,12 @@ export default function AdminDashboard({ navigation }) {
   const handleManualRefresh = () => {
       setRefreshing(true);
       fetchDataSilently();
+      lastFetchTime = Date.now();
   };
 
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
-      
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
-      
       if (statusFilter !== 'TODOS') {
           list = list.filter(a => {
               const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
@@ -206,6 +191,7 @@ export default function AdminDashboard({ navigation }) {
 
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache']);
+    lastFetchTime = 0;
     if (Platform.OS === 'web') window.location.replace('/');
     else navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
