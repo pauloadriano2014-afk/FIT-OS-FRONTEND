@@ -46,7 +46,11 @@ export default function AdminDashboard({ navigation }) {
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
   const [visibleCount, setVisibleCount] = useState(15); 
+  
+  // 🔥 ESTADO DE INTELIGÊNCIA DE CACHE AQUI 🔥
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [loading, setLoading] = useState(true);
+  
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
@@ -69,10 +73,13 @@ export default function AdminDashboard({ navigation }) {
 
   useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
 
-  // 🔥 A MÁGICA DO PARALELISMO: As requisições correm juntas e a tela é liberada na hora!
+  // 🔥 BUSCA SILENCIOSA: O Loading só trava a tela na primeira vez
   const fetchData = async () => {
     try {
-      if(!refreshing) setLoading(true);
+      if (isFirstLoad && !refreshing) {
+          setLoading(true); // Trava a tela só se for a primeira vez
+      }
+      
       const t = Date.now();
       const userJson = await AsyncStorage.getItem('user');
       const savedThemeObj = await AsyncStorage.getItem('app_theme');
@@ -94,7 +101,7 @@ export default function AdminDashboard({ navigation }) {
           else setSelectedColor('verde');
       }
 
-      // DISPARO 1: Busca Alunos (Assim que terminar, mata o Loading)
+      // Disparo 1: Busca os alunos silenciosamente
       fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`)
         .then(res => res.json())
         .then(data => {
@@ -108,11 +115,12 @@ export default function AdminDashboard({ navigation }) {
         })
         .catch(e => console.log("Erro Busca Alunos:", e))
         .finally(() => {
-            setLoading(false); // Mata a rodinha aqui! Não espera os checkins.
+            setLoading(false); 
+            setIsFirstLoad(false); // Diz pro App que a primeira carga já foi feita
             setRefreshing(false);
         });
 
-      // DISPARO 2: Busca Checkins (Corre solto por baixo dos panos)
+      // Disparo 2: Busca checkins silenciosamente
       fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`)
         .then(res => res.json())
         .then(dataCheckins => {
@@ -123,6 +131,7 @@ export default function AdminDashboard({ navigation }) {
     } catch (e) { 
         console.log("Erro geral fetchData", e); 
         setLoading(false);
+        setIsFirstLoad(false);
         setRefreshing(false);
     }
   };
