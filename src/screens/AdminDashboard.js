@@ -69,7 +69,7 @@ export default function AdminDashboard({ navigation }) {
 
   useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
 
-  // 🔥 A MÁGICA TÁ AQUI: Motor de busca blindado com try/catch isolado para não dar Efeito Dominó
+  // 🔥 A MÁGICA DO PARALELISMO: As requisições correm juntas e a tela é liberada na hora!
   const fetchData = async () => {
     try {
       if(!refreshing) setLoading(true);
@@ -85,29 +85,6 @@ export default function AdminDashboard({ navigation }) {
           localAdminId = userObj.id; 
       }
 
-      const resData = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`).catch(() => null);
-      const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`).catch(() => null);
-
-      if (resData && resData.ok) {
-          try {
-              const data = await resData.json();
-              if (data.activeUsers || data.inactiveUsers) {
-                  setAlunosAtivos(data.activeUsers || []);
-                  setAlunosInativos(data.inactiveUsers || []);
-              } else if (data.users) {
-                  setAlunosAtivos(data.users || []);
-              }
-              if (data.recentLogs) setFeed(data.recentLogs);
-          } catch(e) { console.log("Erro ao parsear Alunos", e); }
-      }
-
-      if (resCheckins && resCheckins.ok) {
-          try {
-              const dataCheckins = await resCheckins.json();
-              if (Array.isArray(dataCheckins)) setCheckins(dataCheckins);
-          } catch(e) { console.log("Erro ao parsear Checkins", e); }
-      }
-
       if (savedThemeObj) {
           const parsedTheme = JSON.parse(savedThemeObj);
           if (parsedTheme.accent === '#FF2D55') setSelectedColor('rosa');
@@ -116,11 +93,37 @@ export default function AdminDashboard({ navigation }) {
           else if (parsedTheme.accent === '#FF3B30') setSelectedColor('vermelho');
           else setSelectedColor('verde');
       }
+
+      // DISPARO 1: Busca Alunos (Assim que terminar, mata o Loading)
+      fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.activeUsers || data.inactiveUsers) {
+                setAlunosAtivos(data.activeUsers || []);
+                setAlunosInativos(data.inactiveUsers || []);
+            } else if (data.users) {
+                setAlunosAtivos(data.users || []);
+            }
+            if (data.recentLogs) setFeed(data.recentLogs);
+        })
+        .catch(e => console.log("Erro Busca Alunos:", e))
+        .finally(() => {
+            setLoading(false); // Mata a rodinha aqui! Não espera os checkins.
+            setRefreshing(false);
+        });
+
+      // DISPARO 2: Busca Checkins (Corre solto por baixo dos panos)
+      fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`)
+        .then(res => res.json())
+        .then(dataCheckins => {
+            if (Array.isArray(dataCheckins)) setCheckins(dataCheckins);
+        })
+        .catch(e => console.log("Erro Busca Checkins:", e));
+
     } catch (e) { 
         console.log("Erro geral fetchData", e); 
-    } finally { 
-        setLoading(false); 
-        setRefreshing(false); 
+        setLoading(false);
+        setRefreshing(false);
     }
   };
 
@@ -432,7 +435,6 @@ export default function AdminDashboard({ navigation }) {
                                 <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
                                 <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
                             </View>
-                            {/* 🔥 BLINDAGEM DO RANKING: Usa um clone da array ([...]) para não dar crash na memória original */}
                             {[...alunosAtivos].sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
                                 <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
                                     <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name || 'Aluno'}</Text>
