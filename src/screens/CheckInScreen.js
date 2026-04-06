@@ -1,10 +1,10 @@
 // src/screens/CheckInScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, Platform, TouchableOpacity, 
   TextInput, Image, ScrollView, Alert, ActivityIndicator, StatusBar 
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context'; // 🔥 A CURA: Usando a mesma biblioteca do AdminDashboard
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,8 +17,23 @@ export default function CheckInScreen({ navigation }) {
   const [photos, setPhotos] = useState({ front: null, back: null, side: null });
   const [extraPhotos, setExtraPhotos] = useState([]); 
   const [sending, setSending] = useState(false);
+  const [userGender, setUserGender] = useState('');
+  const [showGuide, setShowGuide] = useState(false); // Controle do Banner de Instruções
 
   const { theme } = useTheme();
+
+  useEffect(() => {
+      const loadUser = async () => {
+          try {
+              const stored = await AsyncStorage.getItem('user');
+              if (stored) {
+                  const userObj = JSON.parse(stored);
+                  setUserGender(userObj.gender || ''); 
+              }
+          } catch (e) {}
+      };
+      loadUser();
+  }, []);
 
   const handleSelectPhoto = (position, isExtra = false) => {
     if (Platform.OS === 'web') {
@@ -149,7 +164,6 @@ export default function CheckInScreen({ navigation }) {
     </TouchableOpacity>
   );
 
-  // 🔥 ESTRUTURA MILIMETRICAMENTE IGUAL AO ADMIN DASHBOARD
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
@@ -178,10 +192,61 @@ export default function CheckInScreen({ navigation }) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={[styles.subtitle, { color: theme.accent }]}>Acompanhamento Quinzenal</Text>
-            <Text style={[styles.desc, { color: theme.textSecondary }]}>Envie suas medidas e fotos para atualização do protocolo.</Text>
+            {/* 🔥 TERMO DE CONFIANÇA (SIGILO) */}
+            <View style={[styles.trustBox, { backgroundColor: theme.isDark ? '#1a221f' : '#f0fdf4', borderColor: theme.accent }]}>
+                <MaterialCommunityIcons name="shield-check" size={20} color={theme.accent} style={{marginTop: 2}} />
+                <View style={{flex: 1, marginLeft: 10}}>
+                    <Text style={{color: theme.accent, fontWeight: 'bold', fontSize: 13, marginBottom: 2}}>Sigilo Absoluto</Text>
+                    <Text style={{color: theme.text, fontSize: 11, lineHeight: 16}}>
+                        Suas fotos são de uso técnico exclusivo para análise de progressão e ajustes do protocolo. <Text style={{fontWeight: 'bold'}}>Nenhuma foto será divulgada ou postada sem sua autorização prévia e expressa.</Text>
+                    </Text>
+                </View>
+            </View>
 
-            <Text style={[styles.label, { color: theme.text }]}>PESO ATUAL (KG)</Text>
+            {/* 🔥 GUIA DE FOTOS PADRÃO ELITE (EXPANSÍVEL) */}
+            <TouchableOpacity 
+                style={[styles.guideBox, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                onPress={() => setShowGuide(!showGuide)}
+            >
+                <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                        <MaterialCommunityIcons name="camera-metering-center" size={22} color={theme.text} />
+                        <Text style={{color: theme.text, fontWeight: '900', fontSize: 13}}>COMO TIRAR SUAS FOTOS</Text>
+                    </View>
+                    <MaterialCommunityIcons name={showGuide ? "chevron-up" : "chevron-down"} size={24} color={theme.textSecondary} />
+                </View>
+                
+                {showGuide && (
+                    <View style={{marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: theme.border}}>
+                        <View style={styles.guideRow}>
+                            <MaterialCommunityIcons name="white-balance-sunny" size={16} color={theme.accent} />
+                            <Text style={[styles.guideText, {color: theme.text}]}>Tire as fotos com <Text style={{fontWeight: 'bold'}}>boa iluminação</Text>.</Text>
+                        </View>
+                        <View style={styles.guideRow}>
+                            <MaterialCommunityIcons name="account-details" size={16} color={theme.accent} />
+                            <Text style={[styles.guideText, {color: theme.text}]}>
+                                Mantenha sempre a <Text style={{fontWeight: 'bold'}}>mesma postura e distância</Text> em todos os check-ins.
+                            </Text>
+                        </View>
+                        <View style={styles.guideRow}>
+                            <MaterialCommunityIcons name="hanger" size={16} color={theme.accent} />
+                            <Text style={[styles.guideText, {color: theme.text}]}>
+                                {userGender === 'Feminino' || userGender === 'F' 
+                                    ? "Use biquíni (recomendado para melhor avaliação) ou top e short curto." 
+                                    : "Use sunga ou cueca, e sem camisa."}
+                            </Text>
+                        </View>
+                        <View style={styles.guideRow}>
+                            <MaterialCommunityIcons name="human-handsdown" size={16} color={theme.accent} />
+                            <Text style={[styles.guideText, {color: theme.text}]}>
+                                Braços relaxados ao lado do corpo nas fotos de Frente e Costas.
+                            </Text>
+                        </View>
+                    </View>
+                )}
+            </TouchableOpacity>
+
+            <Text style={[styles.label, { color: theme.text, marginTop: 5 }]}>PESO ATUAL (KG)</Text>
             <TextInput 
                 style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
                 keyboardType="decimal-pad" 
@@ -243,12 +308,16 @@ export default function CheckInScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // 🔥 Header usa o mesmo espaçamento seguro do AdminDashboard
   header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
-  subtitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-  desc: { fontSize: 12, marginBottom: 25 },
+  
+  // 🔥 Novos Estilos do Guia e Privacidade
+  trustBox: { flexDirection: 'row', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
+  guideBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 20 },
+  guideRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
+  guideText: { fontSize: 12, lineHeight: 18, flex: 1 },
+
   label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 15, letterSpacing: 0.5 },
   input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 16, fontWeight:'bold' }, 
   textArea: { height: 100, textAlignVertical: 'top' },
