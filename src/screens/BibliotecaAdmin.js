@@ -131,23 +131,36 @@ export default function BibliotecaAdmin({ navigation }) {
   useEffect(() => { fetchLibrary(); }, []);
 
   const fetchLibrary = async () => {
-    setLoading(true);
     try {
-        const userJson = await AsyncStorage.getItem('user');
-        let adminId = '';
-        if (userJson) {
-            const userObj = JSON.parse(userJson);
-            adminId = userObj.id;
-        }
+      const userJson = await AsyncStorage.getItem('user');
+      if (!userJson) return;
+      const adminId = JSON.parse(userJson).id;
 
-        const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
-        const data = await res.json();
-        
-        if (data.exercises) {
-            setExercises(data.exercises.reverse()); 
-        }
-    } catch (error) { console.log("Erro ao buscar biblioteca:", error); } 
-    finally { setLoading(false); }
+      // 1. Tenta carregar do CACHE (Instantâneo)
+      const cachedExercises = await AsyncStorage.getItem('@global_exercises');
+      if (cachedExercises) {
+          const parsed = JSON.parse(cachedExercises);
+          setExercises([...parsed].reverse());
+          setLoading(false); // Já mostra os dados na tela
+      } else {
+          setLoading(true);
+      }
+
+      // 2. Busca do servidor apenas EXERCÍCIOS (Rota leve que acabamos de criar)
+      const res = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${Date.now()}`);
+      const data = await res.json();
+      
+      if (Array.isArray(data)) {
+          const reversed = [...data].reverse();
+          setExercises(reversed);
+          // Atualiza o cache para a próxima vez
+          await AsyncStorage.setItem('@global_exercises', JSON.stringify(data));
+      }
+    } catch (error) { 
+        console.log("Erro ao buscar biblioteca:", error); 
+    } finally { 
+        setLoading(false); 
+    }
   };
 
   const handleDelete = useCallback((id) => {
@@ -237,19 +250,12 @@ export default function BibliotecaAdmin({ navigation }) {
       setSaving(true);
       try {
           const userJson = await AsyncStorage.getItem('user');
-          let adminId = '';
-          if (userJson) {
-              const userObj = JSON.parse(userJson);
-              adminId = userObj.id;
-          }
+          if (!userJson) return;
+          const adminId = JSON.parse(userJson).id;
 
-          const payload = {
-              ...formExercise,
-              adminId: adminId
-          };
+          const payload = { ...formExercise, adminId: adminId };
 
-          const apiUrl = 'https://fitos-final.onrender.com/api/exercise'; 
-          const res = await fetch(apiUrl, {
+          const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
               method: !!formExercise.id ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(payload)
@@ -257,19 +263,19 @@ export default function BibliotecaAdmin({ navigation }) {
           
           if (res.ok) {
               setModalVisible(false);
-              fetchLibrary();
+              // Força a atualização da lista e do cache
+              fetchLibrary(); 
               if(isWeb) window.alert("Exercício salvo com sucesso!");
               else Alert.alert("Sucesso", "Exercício salvo com sucesso!");
           } else { 
               const errorData = await res.json();
-              if(isWeb) window.alert(errorData.error || "O servidor recusou os dados.");
-              else Alert.alert("Atenção", errorData.error || "O servidor recusou os dados."); 
+              if(isWeb) window.alert(errorData.error || "Erro ao salvar.");
+              else Alert.alert("Atenção", errorData.error || "Erro ao salvar."); 
           }
       } catch (e) { 
           if(isWeb) window.alert(e.message);
           else Alert.alert("Erro de Conexão", e.message); 
-      } 
-      finally { setSaving(false); }
+      } finally { setSaving(false); }
   };
 
   const openVideoPreview = useCallback((url) => {

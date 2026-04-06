@@ -95,39 +95,40 @@ export const useMontarTreino = (route, navigation) => {
 
     const fetchDados = async () => {
         setLoading(true);
-        const t = new Date().getTime();
+        const t = Date.now();
         try {
-            // 🔥 NOVA BUSCA BLINDADA COM ADMIN ID
-            try {
-                const userJson = await AsyncStorage.getItem('user');
-                let adminId = '';
-                if (userJson) {
-                    const userObj = JSON.parse(userJson);
-                    adminId = userObj.id;
-                }
-                
-                const resLib = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`);
-                if(resLib.ok) { 
-                    const libData = await resLib.json(); 
-                    setBiblioteca(libData.exercises || []); 
-                }
-            } catch(e) {}
+            const userJson = await AsyncStorage.getItem('user');
+            if (!userJson) return;
+            const adminId = JSON.parse(userJson).id;
 
-            if (aluno?.id) {
-                try {
-                    const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`);
-                    if (resUser.ok) {
-                        const text = await resUser.text(); 
-                        if (text) {
-                            const u = JSON.parse(text); 
-                            let anam = u.anamnese || u.user?.anamnese || {};
-                            if (!anam.limitacoes && u.anamneses?.length > 0) anam = u.anamneses[0];
-                            setDetalhes({ ...u, anamnese: anam });
-                        }
-                    }
-                } catch(errUser) {}
+            // 1. Tenta carregar Exercícios do CACHE (Velocidade Instantânea)
+            const cachedEx = await AsyncStorage.getItem('@global_exercises');
+            if (cachedEx) {
+                setBiblioteca(JSON.parse(cachedEx));
+                if (!aluno?.id) setLoading(false); // Se não tiver aluno (template), libera a tela aqui
             }
 
+            // 2. Busca Exercícios na rota LEVE (em background)
+            fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${t}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (Array.isArray(data)) {
+                        setBiblioteca(data);
+                        AsyncStorage.setItem('@global_exercises', JSON.stringify(data));
+                    }
+                }).catch(() => null);
+
+            // 3. Busca Dados do Aluno (Puxando o Select cirúrgico que fizemos no backend)
+            if (aluno?.id) {
+                const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`);
+                if (resUser.ok) {
+                    const u = await resUser.json();
+                    let anam = u.anamneses?.[0] || u.anamnese || {};
+                    setDetalhes({ ...u, anamnese: anam });
+                }
+            }
+
+            // Lógica de Edição e Template
             if (isEditing && workoutToEdit) {
                 setCustomWorkoutName(workoutToEdit.name);
                 if (workoutToEdit.startDate) setStartDate(new Date(workoutToEdit.startDate));
@@ -152,7 +153,11 @@ export const useMontarTreino = (route, navigation) => {
                     setExercisesByDay(parsed || {'A': []});
                 } catch (e) { setExercisesByDay({'A': []}); }
             }
-        } catch (err) { } finally { setLoading(false); }
+        } catch (err) { 
+            console.log("Erro ao carregar dados do treino:", err);
+        } finally { 
+            setLoading(false); 
+        }
     };
 
     const processWorkoutDataToState = (exercisesArray) => {

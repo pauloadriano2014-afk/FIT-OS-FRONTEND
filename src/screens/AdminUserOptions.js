@@ -1,10 +1,11 @@
 // src/screens/AdminUserOptions.js
-import React, { useState, useEffect, createElement } from 'react';
+import React, { useState, useEffect, createElement, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
   ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, TextInput, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 Faltava esse cara!
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -67,74 +68,82 @@ export default function AdminUserOptions({ route, navigation }) {
   const [loadingPaflix, setLoadingPaflix] = useState(false);
 
   useEffect(() => {
+    const loadCache = async () => {
+      try {
+        const cached = await AsyncStorage.getItem(`@user_options_cache_${aluno.id}`);
+        if (cached) {
+          const { workouts, freshness } = JSON.parse(cached);
+          setActiveWorkouts(workouts.active || []);
+          setArchivedWorkouts(workouts.archived || []);
+          if (freshness) {
+              setEvaluationUrl(freshness.evaluationUrl || '');
+              if (freshness.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshness.nextCheckInDate));
+              setDisableCheckIn(!!freshness.disableCheckIn);
+              setPhotoUrl(freshness.photoUrl);
+          }
+          setLoading(false); // Libera a tela IMEDIATAMENTE se houver cache
+        }
+      } catch(e) { console.log("Erro Cache Local:", e); }
+    };
+
+    loadCache();
+
     const unsubscribe = navigation.addListener('focus', () => { 
-        fetchStudentData(); 
-        fetchPaflixData();
+        fetchAllData(); // 🔥 Chama a nova função unificada que faz tudo em paralelo
     });
     return unsubscribe;
   }, [navigation]);
 
-  const fetchStudentData = async () => {
-    setLoading(true);
+  const fetchAllData = async () => {
+    const t = Date.now();
     try {
-        const responseWorkouts = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${Date.now()}`);
-        const dataWorkouts = await responseWorkouts.json();
+        const [resWorkouts, resUser, resPaflix, resAccess] = await Promise.all([
+            fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${t}`),
+            fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`),
+            fetch(`https://fitos-final.onrender.com/api/contents`),
+            fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`)
+        ]);
 
-        if (Array.isArray(dataWorkouts)) {
-            const active = [];
-            const archived = [];
-
-            dataWorkouts.forEach(w => {
-                if (w.archived === true) {
-                    archived.push(w);
-                } else {
-                    active.push(w);
-                }
-            });
-
-            setActiveWorkouts(active.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt)));
-            setArchivedWorkouts(archived.sort((a,b) => new Date(b.endDate) - new Date(a.endDate)));
+        if (resWorkouts.ok) {
+            const dataW = await resWorkouts.json();
+            // 🔥 BLINDAGEM: Só tenta filtrar se o servidor mandar uma lista real
+            if (Array.isArray(dataW)) {
+                const active = dataW.filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                const archived = dataW.filter(w => w.archived).sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
+                setActiveWorkouts(active);
+                setArchivedWorkouts(archived);
+                
+                AsyncStorage.setItem(`@user_options_cache_${aluno.id}`, JSON.stringify({
+                    workouts: { active, archived },
+                    freshness: aluno 
+                }));
+            }
         }
 
-        setIsActiveUser(aluno.active); 
-
-        const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
         if (resUser.ok) {
-            const freshData = await resUser.json();
-            if (freshData.evaluationUrl) setEvaluationUrl(freshData.evaluationUrl);
-            if (freshData.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshData.nextCheckInDate));
-            if (typeof freshData.disableCheckIn === 'boolean') setDisableCheckIn(freshData.disableCheckIn);
-            if (freshData.photoUrl) setPhotoUrl(freshData.photoUrl);
+            const fresh = await resUser.json();
+            setEvaluationUrl(fresh.evaluationUrl || '');
+            if (fresh.nextCheckInDate) setNextCheckInDate(formatToBRDate(fresh.nextCheckInDate));
+            setDisableCheckIn(!!fresh.disableCheckIn);
+            setPhotoUrl(fresh.photoUrl);
+            setIsActiveUser(fresh.active);
         }
+
+        if (resPaflix.ok) {
+            const contents = await resPaflix.json();
+            if (Array.isArray(contents)) setVipContents(contents.filter(c => c.isVIP));
+        }
+        if (resAccess.ok) {
+            const access = await resAccess.json();
+            if (Array.isArray(access)) setUserAccess(access);
+        }
+
     } catch (error) { 
-        console.log("Erro geral:", error); 
+        console.log("Erro no Motor Turbo:", error); 
     } finally { 
         setLoading(false); 
+        setLoadingPaflix(false);
     }
-  };
-
-  const fetchPaflixData = async () => {
-      setLoadingPaflix(true);
-      try {
-          const [resContents, resAccess] = await Promise.all([
-              fetch('https://fitos-final.onrender.com/api/contents'),
-              fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`)
-          ]);
-          
-          if (resContents.ok) {
-              const contents = await resContents.json();
-              if (Array.isArray(contents)) setVipContents(contents.filter(c => c.isVIP));
-          }
-
-          if (resAccess.ok) {
-              const accessData = await resAccess.json();
-              if (Array.isArray(accessData)) setUserAccess(accessData);
-          }
-      } catch (e) {
-          console.log("Erro ao buscar PAFLIX", e);
-      } finally {
-          setLoadingPaflix(false);
-      }
   };
 
   // 🔥 O NOVO MOTOR BLINDADO DA FOTO
@@ -299,7 +308,7 @@ export default function AdminUserOptions({ route, navigation }) {
                   headers: { 'Content-Type': 'application/json' }
               });
               if (!res.ok) throw new Error(`Status ${res.status}`);
-              fetchStudentData(); 
+fetchAllData(); // 🔥 Trocado para o novo motor 
           } catch(e) { 
               console.error(e);
               if (Platform.OS === 'web') window.alert(`Erro ao excluir\n\n${e.message}`);
@@ -335,8 +344,8 @@ export default function AdminUserOptions({ route, navigation }) {
                       body: JSON.stringify({ id: workout.id, archived: newStatus })
                   });
               }
-              fetchStudentData(); 
-          } catch(e) {
+      fetchAllData(); // 🔥 Trocado para o novo motor
+  } catch(e) {
               if (Platform.OS === 'web') window.alert(`Erro ao ${actionName}`);
               else Alert.alert("Erro", `Não foi possível ${actionName}.`);
           }
@@ -436,9 +445,9 @@ export default function AdminUserOptions({ route, navigation }) {
                 <View style={{ alignItems: 'center' }}>
                     <Text style={[styles.headerTitle, { color: theme.text }]}>GERENCIAR ALUNO</Text>
                 </View>
-                <TouchableOpacity onPress={fetchStudentData} style={{ padding: 8 }}>
-                    <MaterialCommunityIcons name="refresh" size={24} color={theme.accent}/>
-                </TouchableOpacity>
+                <TouchableOpacity onPress={fetchAllData} style={{ padding: 8 }}>
+    <MaterialCommunityIcons name="refresh" size={24} color={theme.accent}/>
+</TouchableOpacity>
             </View>
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
