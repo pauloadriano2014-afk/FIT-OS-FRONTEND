@@ -1,15 +1,25 @@
 // src/components/MontarTreino/Modals/TemplateAndCloneModals.js
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 
 export default function TemplateAndCloneModals({
     theme, isWeb, webOuterBg,
     modalCloneVisible, setModalCloneVisible, cloneStudentsList, selectedCloneStudent, setSelectedCloneStudent, cloneWorkoutsList, applyClone, fetchWorkoutsOfStudent,
     modalTemplatesVisible, setModalTemplatesVisible, templatesList, goals, levels, templateGoal, setTemplateGoal, templateLevel, setTemplateLevel, fetchTemplates, applyTemplate,
     modalSaveTemplateVisible, setModalSaveTemplateVisible, saveTemplateName, setSaveTemplateName, templateGoalInput, setTemplateGoalInput, templateLevelInput, setTemplateLevelInput, saveAsTemplate,
-    collections, saveTemplateCollectionId, setSaveTemplateCollectionId // 🔥 NOVO: Props para receber as pastas do Hook
+    collections, saveTemplateCollectionId, setSaveTemplateCollectionId,
+    selectedLibraryCollection, setSelectedLibraryCollection,
+    selectedPillar, setSelectedPillar,
+    selectedLevelTab, setSelectedLevelTab
 }) {
+
+    const displayedTemplatesToImport = selectedLibraryCollection 
+        ? templatesList.filter(t => t.collectionId === selectedLibraryCollection.id)
+        : selectedPillar 
+            ? templatesList.filter(t => t.goal === selectedPillar && t.level === selectedLevelTab && !t.collectionId)
+            : []; 
+
     return (
         <>
             {/* MODAL DE CLONAR ALUNO */}
@@ -46,63 +56,113 @@ export default function TemplateAndCloneModals({
                 </View>
             </Modal>
 
-            {/* MODAL DE TEMPLATES VISUAIS COM PASTAS */}
+            {/* MODAL DA BIBLIOTECA - NOVA ARQUITETURA */}
             <Modal visible={modalTemplatesVisible} animationType="slide">
                 <View style={{ flex: 1, backgroundColor: webOuterBg }}>
                     <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
                         <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', paddingTop: isWeb ? 20 : 10, paddingHorizontal: 20, paddingBottom: 15 }}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text style={[styles.headerTitle, { color: theme.text }]}>BIBLIOTECA DE MODELOS</Text>
-                                <TouchableOpacity onPress={() => setModalTemplatesVisible(false)}>
-                                    <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                                <TouchableOpacity onPress={() => {
+                                    if(selectedLibraryCollection) setSelectedLibraryCollection(null);
+                                    else if(selectedPillar) setSelectedPillar(null);
+                                    else setModalTemplatesVisible(false);
+                                }}>
+                                    <MaterialCommunityIcons name={(selectedLibraryCollection || selectedPillar) ? "arrow-left" : "close"} size={24} color={theme.text} />
                                 </TouchableOpacity>
+                                
+                                <View style={{ alignItems: 'center' }}>
+                                    <Text style={[styles.headerTitle, { color: theme.text }]}>
+                                        {selectedLibraryCollection ? selectedLibraryCollection.name.toUpperCase() 
+                                          : selectedPillar ? selectedPillar.toUpperCase() 
+                                          : "IMPORTAR TREINO"}
+                                    </Text>
+                                    {selectedLibraryCollection && <Text style={{ color: selectedLibraryCollection.color, fontSize: 10, fontWeight: 'bold' }}>COLEÇÃO ESPECIAL</Text>}
+                                    {selectedPillar && <Text style={{ color: theme.accent, fontSize: 10, fontWeight: 'bold' }}>METODOLOGIA</Text>}
+                                </View>
+                                <View style={{width: 24}}/>
                             </View>
+
+                            {selectedPillar && (
+                                <View style={{ flexDirection: 'row', marginTop: 20, backgroundColor: theme.surface, borderRadius: 10, padding: 4 }}>
+                                    {levels.map(l => (
+                                        <TouchableOpacity 
+                                            key={l} 
+                                            style={[styles.levelTab, selectedLevelTab === l && { backgroundColor: theme.bg, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 }]}
+                                            onPress={() => setSelectedLevelTab(l)}
+                                        >
+                                            <Text style={[styles.levelTabText, { color: selectedLevelTab === l ? theme.text : theme.textSecondary }]}>{l}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            )}
                         </View>
                     </View>
+
                     <FlatList 
                         style={[{ flex: 1, width: '100%' }, isWeb && { overflowY: 'auto' }]}
                         contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 100, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
-                        data={templatesList} 
+                        data={displayedTemplatesToImport} 
                         keyExtractor={item => item.id} 
                         ListHeaderComponent={
-                            <View style={{marginBottom: 20}}>
-                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', marginBottom: 10}}>FILTRAR POR OBJETIVO</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 15}}>
-                                    {goals.map(g => (
-                                        <TouchableOpacity key={g} style={[styles.catChip, { backgroundColor: theme.surface, borderColor: theme.border }, templateGoal===g && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>{setTemplateGoal(g); fetchTemplates();}}>
-                                            <Text style={[styles.catText, { color: theme.textSecondary }, templateGoal===g && {color: theme.isDark ? '#000' : '#FFF'}]}>{g}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                                <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', marginBottom: 10}}>FILTRAR POR NÍVEL</Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                                    {levels.map(l => (
-                                        <TouchableOpacity key={l} style={[styles.catChip, { backgroundColor: theme.surface, borderColor: theme.border }, templateLevel===l && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>{setTemplateLevel(l); fetchTemplates();}}>
-                                            <Text style={[styles.catText, { color: theme.textSecondary }, templateLevel===l && {color: theme.isDark ? '#000' : '#FFF'}]}>{l}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </ScrollView>
-                            </View>
+                            (!selectedLibraryCollection && !selectedPillar) ? (
+                                <View style={{marginBottom: 20}}>
+                                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>PILARES DE TREINAMENTO</Text>
+                                    <View style={{ gap: 10, marginBottom: 30 }}>
+                                        {goals.map(goal => (
+                                            <TouchableOpacity 
+                                                key={goal} 
+                                                style={[styles.pillarCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                                onPress={() => setSelectedPillar(goal)}
+                                            >
+                                                <Text style={[styles.pillarTitle, { color: theme.text }]}>{goal}</Text>
+                                                <MaterialCommunityIcons name="chevron-right" size={24} color={theme.accent} />
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+
+                                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>PROJETOS E DESAFIOS (COLEÇÕES)</Text>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 20 }}>
+                                        {collections?.length === 0 ? (
+                                            <Text style={{color: theme.textSecondary, fontStyle:'italic'}}>Nenhuma coleção criada.</Text>
+                                        ) : (
+                                            collections?.map(col => (
+                                                <TouchableOpacity 
+                                                    key={col.id} 
+                                                    style={[styles.collectionCard, { backgroundColor: col.color + '15', borderColor: col.color }]}
+                                                    onPress={() => setSelectedLibraryCollection(col)}
+                                                >
+                                                    <MaterialCommunityIcons name="folder-star" size={24} color={col.color} style={{ marginBottom: 5 }} />
+                                                    <Text style={[styles.collectionTitle, { color: col.color }]} numberOfLines={2}>{col.name}</Text>
+                                                </TouchableOpacity>
+                                            ))
+                                        )}
+                                    </View>
+                                </View>
+                            ) : null
                         }
                         renderItem={({ item }) => (
-                            <TouchableOpacity style={[styles.templateCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => applyTemplate(item)}>
-                                <View>
+                            <TouchableOpacity style={[styles.templateCard, { backgroundColor: theme.surface, borderLeftColor: selectedLibraryCollection ? selectedLibraryCollection.color : theme.accent, borderLeftWidth: 4 }]} onPress={() => applyTemplate(item)}>
+                                <View style={{flex: 1, paddingRight: 10}}>
                                     <Text style={[styles.templateName, { color: theme.text }]}>{item.name}</Text>
-                                    <Text style={[styles.templateTags, { color: theme.textSecondary }]}>{item.goal} • {item.level}</Text>
+                                    <Text style={{fontSize: 10, fontWeight: 'bold', color: theme.textSecondary, marginTop: 4}}>
+                                        {Object.keys(JSON.parse(item.data || '{}')).length} Dia(s) de Treino
+                                    </Text>
                                 </View>
-                                <MaterialCommunityIcons name="download" size={24} color={theme.accent} />
+                                <View style={{padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border}}>
+                                    <MaterialCommunityIcons name="download" size={20} color={selectedLibraryCollection ? selectedLibraryCollection.color : theme.accent} />
+                                </View>
                             </TouchableOpacity>
                         )}
-                        ListEmptyComponent={<Text style={{textAlign:'center', color: theme.textSecondary, marginTop: 20}}>Nenhum modelo encontrado nesta pasta.</Text>}
+                        ListEmptyComponent={(selectedLibraryCollection || selectedPillar) ? <Text style={{textAlign:'center', color: theme.textSecondary, marginTop: 20}}>Nenhum treino encontrado nesta categoria.</Text> : null}
                     />
                 </View>
             </Modal>
 
-            {/* 📁 MODAL DE SALVAR TEMPLATE NA BIBLIOTECA (ATUALIZADO) */}
+            {/* 🔥 MODAL PREMIUM DE SALVAR TEMPLATE NA BIBLIOTECA */}
             <Modal visible={modalSaveTemplateVisible} transparent animationType="fade">
               <View style={styles.modalOverlay}>
                   <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 }}>
                           <Text style={[styles.modalTitle, { color: theme.accent }]}>SALVAR NA BIBLIOTECA</Text>
                           <TouchableOpacity onPress={() => setModalSaveTemplateVisible(false)}>
                               <MaterialCommunityIcons name="close" size={24} color={theme.text}/>
@@ -122,63 +182,66 @@ export default function TemplateAndCloneModals({
                               />
                           </View>
 
-                          {/* 🔥 A NOVA SELEÇÃO DE PASTAS */}
-                          <View>
-                              <Text style={styles.label}>SALVAR EM QUAL PASTA?</Text>
-                              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                          <View style={{ backgroundColor: theme.bg, padding: 18, borderRadius: 16, borderWidth: 1, borderColor: theme.border }}>
+                              
+                              {/* OPÇÃO 1: SALVAR EM COLEÇÃO FECHADA */}
+                              <Text style={[styles.label, {color: theme.accent, marginTop: 0}]}>OPÇÃO 1: SALVAR EM PROJETO/COLEÇÃO</Text>
+                              <View style={[styles.rowWrap, { marginBottom: 25, marginTop: 10 }]}>
                                   <TouchableOpacity 
-                                      style={[styles.chip, !saveTemplateCollectionId ? { borderColor: theme.accent, backgroundColor: theme.accent + '22' } : { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                      style={[styles.modernChip, !saveTemplateCollectionId ? styles.modernChipSelected : { backgroundColor: theme.surface, shadowColor: theme.isDark ? '#000' : '#888' }]}
                                       onPress={() => setSaveTemplateCollectionId(null)}
                                   >
-                                      <Text style={[styles.chipText, { color: !saveTemplateCollectionId ? theme.accent : theme.textSecondary }]}>Nenhuma (Avulso)</Text>
+                                      <Text style={[styles.modernChipText, { color: !saveTemplateCollectionId ? theme.accent : theme.textSecondary }]}>Não usar Coleção</Text>
                                   </TouchableOpacity>
 
                                   {collections?.map(col => (
                                       <TouchableOpacity 
                                           key={col.id}
-                                          style={[styles.chip, { flexDirection: 'row', alignItems: 'center', gap: 6 }, saveTemplateCollectionId === col.id ? { borderColor: col.color, backgroundColor: col.color + '22' } : { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                          style={[styles.modernChip, saveTemplateCollectionId === col.id ? { borderColor: col.color, backgroundColor: col.color + '15', shadowColor: col.color, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 } : { backgroundColor: theme.surface, shadowColor: theme.isDark ? '#000' : '#888' }]}
                                           onPress={() => setSaveTemplateCollectionId(col.id)}
                                       >
-                                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: col.color }} />
-                                          <Text style={[styles.chipText, { color: saveTemplateCollectionId === col.id ? col.color : theme.textSecondary }]}>{col.name}</Text>
-                                      </TouchableOpacity>
-                                  ))}
-                              </ScrollView>
-                          </View>
-
-                          {/* 🔥 TAGS COM WRAP (FIM DA ROLAGEM HORIZONTAL) */}
-                          <View>
-                              <Text style={styles.label}>OBJETIVO (TAG)</Text>
-                              <View style={styles.rowWrap}>
-                                  {['Hipertrofia', 'Emagrecimento', 'Força', 'Definição', 'Qualidade de Vida'].map(g => (
-                                      <TouchableOpacity 
-                                          key={g} 
-                                          onPress={() => setTemplateGoalInput(g)} 
-                                          style={[styles.chip, templateGoalInput === g ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.bg, borderColor: theme.border }]}
-                                      >
-                                          <Text style={[styles.chipText, templateGoalInput === g ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>{g}</Text>
+                                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: col.color, marginRight: 8 }} />
+                                          <Text style={[styles.modernChipText, { color: saveTemplateCollectionId === col.id ? col.color : theme.textSecondary }]}>{col.name}</Text>
                                       </TouchableOpacity>
                                   ))}
                               </View>
-                          </View>
 
-                          <View>
-                              <Text style={styles.label}>NÍVEL (TAG)</Text>
-                              <View style={styles.rowWrap}>
-                                  {['Iniciante', 'Intermediário', 'Avançado'].map(l => (
-                                      <TouchableOpacity 
-                                          key={l} 
-                                          onPress={() => setTemplateLevelInput(l)} 
-                                          style={[styles.chip, templateLevelInput === l ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.bg, borderColor: theme.border }]}
-                                      >
-                                          <Text style={[styles.chipText, templateLevelInput === l ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>{l}</Text>
-                                      </TouchableOpacity>
-                                  ))}
-                              </View>
+                              {/* OPÇÃO 2: SALVAR NOS PILARES PADRÕES */}
+                              {!saveTemplateCollectionId && (
+                                  <View style={{ opacity: saveTemplateCollectionId ? 0.3 : 1 }}>
+                                      <Text style={[styles.label, {color: theme.text}]}>OPÇÃO 2: METODOLOGIA PADRÃO</Text>
+                                      
+                                      <Text style={[styles.label, {marginTop: 15}]}>QUAL PILAR?</Text>
+                                      <View style={styles.rowWrap}>
+                                          {goals.map(g => (
+                                              <TouchableOpacity 
+                                                  key={g} 
+                                                  onPress={() => setTemplateGoalInput(g)} 
+                                                  style={[styles.modernChip, templateGoalInput === g ? { backgroundColor: theme.text, borderColor: theme.text, shadowColor: theme.text, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 } : { backgroundColor: theme.surface, shadowColor: theme.isDark ? '#000' : '#888' }]}
+                                              >
+                                                  <Text style={[styles.modernChipText, templateGoalInput === g ? { color: theme.bg } : { color: theme.textSecondary }]}>{g}</Text>
+                                              </TouchableOpacity>
+                                          ))}
+                                      </View>
+
+                                      <Text style={[styles.label, {marginTop: 20}]}>QUAL NÍVEL?</Text>
+                                      <View style={styles.rowWrap}>
+                                          {levels.map(l => (
+                                              <TouchableOpacity 
+                                                  key={l} 
+                                                  onPress={() => setTemplateLevelInput(l)} 
+                                                  style={[styles.modernChip, templateLevelInput === l ? { backgroundColor: theme.text, borderColor: theme.text, shadowColor: theme.text, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 } : { backgroundColor: theme.surface, shadowColor: theme.isDark ? '#000' : '#888' }]}
+                                              >
+                                                  <Text style={[styles.modernChipText, templateLevelInput === l ? { color: theme.bg } : { color: theme.textSecondary }]}>{l}</Text>
+                                              </TouchableOpacity>
+                                          ))}
+                                      </View>
+                                  </View>
+                              )}
                           </View>
 
                           <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.accent, marginTop: 10 }]} onPress={saveAsTemplate}>
-                              <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR NA BIBLIOTECA</Text>
+                              <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR TREINO</Text>
                           </TouchableOpacity>
                       </ScrollView>
                   </View>
@@ -189,20 +252,42 @@ export default function TemplateAndCloneModals({
 }
 
 const styles = StyleSheet.create({
-    headerTitle: { fontSize: 18, fontWeight: '900' },
-    templateCard: { padding:15, borderRadius:12, marginBottom:10, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:1 },
-    templateName: { fontWeight:'bold', fontSize:16 },
-    templateTags: { fontSize:12, marginTop:4 },
+    headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+    sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 15 },
+    
+    pillarCard: { padding: 18, borderRadius: 12, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    pillarTitle: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
+
+    levelTab: { flex: 1, paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
+    levelTabText: { fontWeight: 'bold', fontSize: 12 },
+    
+    collectionCard: { width: '48%', padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 10, alignItems: 'flex-start' },
+    collectionTitle: { fontWeight: '900', fontSize: 13, marginTop: 5 },
+
+    templateCard: { padding:18, borderRadius:12, marginBottom:10, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:1 },
+    templateName: { fontWeight:'900', fontSize:15 },
+    templateTags: { fontSize:11, marginTop:4, fontWeight: 'bold' },
+    
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
     modalContent: { borderRadius: 24, padding: 25, borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center', maxHeight: '85%' },
-    modalTitle: { fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
+    modalTitle: { fontWeight: '900', fontSize: 18, letterSpacing: 0.5 },
     label: { color: '#888', fontSize: 10, fontWeight: 'bold', marginBottom: 8, marginTop: 10 },
-    input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
-    rowWrap: { flexDirection:'row', flexWrap:'wrap', gap:8 },
-    chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
-    chipText: { fontSize: 11, fontWeight: 'bold' },
-    catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8, height:32, justifyContent:'center', borderWidth:1 },
-    catText: { fontSize: 11, fontWeight: 'bold' },
+    input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 15, fontWeight: 'bold', outlineStyle: 'none' },
+    rowWrap: { flexDirection:'row', flexWrap:'wrap', gap: 10 },
+    
+    // 🔥 OS NOVOS CARDS PREMIUM NO LUGAR DOS "CHIPS" VELHOS
+    modernChip: { 
+        paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12, 
+        borderWidth: 1, borderColor: 'transparent',
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 
+    },
+    modernChipSelected: {
+        borderColor: '#32ADE6', backgroundColor: '#32ADE622',
+        shadowColor: '#32ADE6', shadowOpacity: 0.3, shadowRadius: 6, elevation: 4
+    },
+    modernChipText: { fontSize: 12, fontWeight: 'bold' },
+
     createBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 10 },
     createBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });
