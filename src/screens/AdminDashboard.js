@@ -1,20 +1,16 @@
 // src/screens/AdminDashboard.js
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
   TextInput, StatusBar, RefreshControl, Modal, ScrollView, Image, Alert, 
   Platform, Switch, Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
-import { useFocusEffect } from '@react-navigation/native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import SendNoticeModal from '../components/SendNoticeModal';
-
-// Variável global para impedir que o App fique recarregando a cada segundo
-let lastFetchTime = 0;
 
 const getExpirationStatus = (workout) => {
     if (!workout) return null;
@@ -38,7 +34,6 @@ export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
 
   const [activeTab, setActiveTab] = useState('ALUNOS'); 
-  
   const [alunosAtivos, setAlunosAtivos] = useState([]);
   const [alunosInativos, setAlunosInativos] = useState([]);
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
@@ -68,38 +63,33 @@ export default function AdminDashboard({ navigation }) {
     { id: 'SEM_TREINO', label: 'SEM TREINO', icon: 'calendar-blank', color: theme.textSecondary }
   ];
 
+  // 🔥 REMOVIDO O USEFOCUSEFFECT. AGORA ELE SÓ CARREGA NO INÍCIO OU QUANDO VOCÊ PUXAR PARA ATUALIZAR.
   useEffect(() => {
-    const loadCache = async () => {
-      try {
-        const cachedData = await AsyncStorage.getItem('@dashboard_cache');
-        if (cachedData) {
-          const { cacheAtivos, cacheInativos, cacheFeed, cacheCheckins } = JSON.parse(cachedData);
-          if (cacheAtivos) setAlunosAtivos(cacheAtivos);
-          if (cacheInativos) setAlunosInativos(cacheInativos);
-          if (cacheFeed) setFeed(cacheFeed);
-          if (cacheCheckins) setCheckins(cacheCheckins);
-          setLoading(false);
-        }
-      } catch(e) { console.log("Erro no cache", e); }
-    };
-    loadCache();
+    fetchData(false); // Falso indica que não é um refresh manual
   }, []);
 
   useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
 
-  // 🔥 COOLDOWN APLICADO: Só recarrega os dados se fizer mais de 15 segundos da última vez
-  useFocusEffect(
-    useCallback(() => {
-      const now = Date.now();
-      if (now - lastFetchTime > 15000) { 
-          fetchDataSilently();
-          lastFetchTime = now;
-      }
-    }, [])
-  );
-
-  const fetchDataSilently = async () => {
+  const fetchData = async (isManualRefresh = false) => {
     try {
+      if (isManualRefresh) {
+          setRefreshing(true);
+      } else {
+          // Tenta carregar cache primeiro para mostrar os dados instantaneamente
+          const cachedData = await AsyncStorage.getItem('@dashboard_cache');
+          if (cachedData) {
+              const { cacheAtivos, cacheInativos, cacheFeed, cacheCheckins } = JSON.parse(cachedData);
+              if (cacheAtivos) setAlunosAtivos(cacheAtivos);
+              if (cacheInativos) setAlunosInativos(cacheInativos);
+              if (cacheFeed) setFeed(cacheFeed);
+              if (cacheCheckins) setCheckins(cacheCheckins);
+              setLoading(false); 
+          } else {
+              setLoading(true);
+          }
+      }
+      
+      const t = Date.now();
       const userJson = await AsyncStorage.getItem('user');
       const savedThemeObj = await AsyncStorage.getItem('app_theme');
       
@@ -120,10 +110,6 @@ export default function AdminDashboard({ navigation }) {
           else setSelectedColor('verde');
       }
 
-      if (alunosAtivos.length === 0 && alunosInativos.length === 0) setLoading(true);
-
-      const t = Date.now();
-
       fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`)
         .then(res => res.json())
         .then(async data => {
@@ -134,6 +120,7 @@ export default function AdminDashboard({ navigation }) {
             setAlunosInativos(rawInativos);
             if (data.recentLogs) setFeed(data.recentLogs);
 
+            // Grava na memória para ficar rápido da próxima vez
             const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
             await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({
                 ...currentCache,
@@ -141,6 +128,11 @@ export default function AdminDashboard({ navigation }) {
                 cacheInativos: rawInativos,
                 cacheFeed: data.recentLogs || []
             }));
+            
+            // Salva globalmente os exercícios para as outras telas (Biblioteca, etc) poderem usar rápido
+            if (data.exercises) {
+                await AsyncStorage.setItem('@global_exercises', JSON.stringify(data.exercises));
+            }
         })
         .catch(e => console.log("Erro Busca Alunos:", e))
         .finally(() => {
@@ -169,12 +161,6 @@ export default function AdminDashboard({ navigation }) {
     }
   };
 
-  const handleManualRefresh = () => {
-      setRefreshing(true);
-      fetchDataSilently();
-      lastFetchTime = Date.now();
-  };
-
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
@@ -190,8 +176,7 @@ export default function AdminDashboard({ navigation }) {
   }, [alunosAtivos, alunosInativos, subTabAlunos, search, statusFilter]);
 
   const handleLogout = async () => {
-    await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache']);
-    lastFetchTime = 0;
+    await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache', '@global_exercises']);
     if (Platform.OS === 'web') window.location.replace('/');
     else navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
@@ -404,7 +389,7 @@ export default function AdminDashboard({ navigation }) {
                             keyExtractor={item => item.id}
                             contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
                             showsVerticalScrollIndicator={false}
-                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleManualRefresh} tintColor={theme.accent} />}
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
                             renderItem={renderAluno}
                             ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno neste filtro.</Text>}
                             onEndReached={() => setVisibleCount(prev => prev + 15)} 
@@ -420,7 +405,7 @@ export default function AdminDashboard({ navigation }) {
                     data={checkins} keyExtractor={item => item.id}
                     contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
                     showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleManualRefresh} tintColor={theme.accent} />}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
                     renderItem={renderCheckinItem}
                     ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in.</Text>}
                 />
@@ -431,7 +416,7 @@ export default function AdminDashboard({ navigation }) {
                     data={feed} keyExtractor={item => item.id}
                     contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
                     showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleManualRefresh} tintColor={theme.accent} />}
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
                     renderItem={renderFeedItem}
                     ListEmptyComponent={<Text style={styles.empty}>Nada recente.</Text>}
                 />
