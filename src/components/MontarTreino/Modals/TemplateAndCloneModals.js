@@ -7,7 +7,8 @@ export default function TemplateAndCloneModals({
     theme, isWeb, webOuterBg,
     modalCloneVisible, setModalCloneVisible, cloneStudentsList, selectedCloneStudent, setSelectedCloneStudent, cloneWorkoutsList, applyClone, fetchWorkoutsOfStudent,
     modalTemplatesVisible, setModalTemplatesVisible, templatesList, goals, levels, templateGoal, setTemplateGoal, templateLevel, setTemplateLevel, fetchTemplates, applyTemplate,
-    modalSaveTemplateVisible, setModalSaveTemplateVisible, saveTemplateName, setSaveTemplateName, templateGoalInput, setTemplateGoalInput, templateLevelInput, setTemplateLevelInput, saveAsTemplate
+    modalSaveTemplateVisible, setModalSaveTemplateVisible, saveTemplateName, setSaveTemplateName, templateGoalInput, setTemplateGoalInput, templateLevelInput, setTemplateLevelInput, saveAsTemplate,
+    collections, saveTemplateCollectionId, setSaveTemplateCollectionId // 🔥 NOVO: Props para receber as pastas do Hook
 }) {
     return (
         <>
@@ -97,41 +98,91 @@ export default function TemplateAndCloneModals({
                 </View>
             </Modal>
 
-            {/* MODAL DE SALVAR TEMPLATE (MODELO NOVO) */}
+            {/* 📁 MODAL DE SALVAR TEMPLATE NA BIBLIOTECA (ATUALIZADO) */}
             <Modal visible={modalSaveTemplateVisible} transparent animationType="fade">
-                <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <Text style={[styles.modalTitle, { color: theme.accent }]}>SALVAR COMO MODELO</Text>
-                        <Text style={{color: theme.textSecondary, fontSize: 12, marginBottom: 15, textAlign: 'center'}}>Salve esta rotina para aplicar em outros alunos futuramente.</Text>
-                        
-                        <TextInput style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} placeholder="Nome do Template" placeholderTextColor={theme.textSecondary} value={saveTemplateName} onChangeText={setSaveTemplateName} />
-                        
-                        <Text style={[styles.miniLabelLeft, { color: theme.textSecondary }]}>OBJETIVO (PASTA)</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 15, maxHeight: 40}}>
-                            {goals.filter(g => g !== 'TODOS').map(g => (
-                                <TouchableOpacity key={g} style={[styles.tag, { borderColor: theme.border, backgroundColor: theme.bg }, templateGoalInput===g && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>setTemplateGoalInput(g)}>
-                                    <Text style={[styles.tagText, { color: theme.textSecondary }, templateGoalInput===g && {color: theme.isDark ? '#000' : '#FFF'}]}>{g}</Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+              <View style={styles.modalOverlay}>
+                  <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                          <Text style={[styles.modalTitle, { color: theme.accent }]}>SALVAR NA BIBLIOTECA</Text>
+                          <TouchableOpacity onPress={() => setModalSaveTemplateVisible(false)}>
+                              <MaterialCommunityIcons name="close" size={24} color={theme.text}/>
+                          </TouchableOpacity>
+                      </View>
 
-                        <Text style={[styles.miniLabelLeft, { color: theme.textSecondary }]}>NÍVEL (PASTA)</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{marginBottom: 20, maxHeight: 40}}>
-                                {['Iniciante','Intermediário','Avançado'].map(l => (
-                                    <TouchableOpacity key={l} style={[styles.tag, { borderColor: theme.border, backgroundColor: theme.bg }, templateLevelInput===l && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>setTemplateLevelInput(l)}>
-                                        <Text style={[styles.tagText, { color: theme.textSecondary }, templateLevelInput===l && {color: theme.isDark ? '#000' : '#FFF'}]}>{l}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                        </ScrollView>
+                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 20 }}>
+                          
+                          <View>
+                              <Text style={styles.label}>NOME DO TREINO</Text>
+                              <TextInput 
+                                  style={[styles.input, { backgroundColor: theme.bg, borderColor: theme.border, color: theme.text }]} 
+                                  placeholder="Ex: Costas e Bíceps - Foco Expansão" 
+                                  placeholderTextColor={theme.textSecondary}
+                                  value={saveTemplateName}
+                                  onChangeText={setSaveTemplateName}
+                              />
+                          </View>
 
-                        <TouchableOpacity style={[styles.saveBtnModal, { backgroundColor: theme.accent }]} onPress={saveAsTemplate}>
-                            <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR NA BIBLIOTECA</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={{marginTop:15}} onPress={() => setModalSaveTemplateVisible(false)}>
-                            <Text style={{color: theme.textSecondary, textAlign:'center'}}>Cancelar</Text>
-                        </TouchableOpacity>
-                    </View>
-                </KeyboardAvoidingView>
+                          {/* 🔥 A NOVA SELEÇÃO DE PASTAS */}
+                          <View>
+                              <Text style={styles.label}>SALVAR EM QUAL PASTA?</Text>
+                              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                                  <TouchableOpacity 
+                                      style={[styles.chip, !saveTemplateCollectionId ? { borderColor: theme.accent, backgroundColor: theme.accent + '22' } : { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                      onPress={() => setSaveTemplateCollectionId(null)}
+                                  >
+                                      <Text style={[styles.chipText, { color: !saveTemplateCollectionId ? theme.accent : theme.textSecondary }]}>Nenhuma (Avulso)</Text>
+                                  </TouchableOpacity>
+
+                                  {collections?.map(col => (
+                                      <TouchableOpacity 
+                                          key={col.id}
+                                          style={[styles.chip, { flexDirection: 'row', alignItems: 'center', gap: 6 }, saveTemplateCollectionId === col.id ? { borderColor: col.color, backgroundColor: col.color + '22' } : { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                          onPress={() => setSaveTemplateCollectionId(col.id)}
+                                      >
+                                          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: col.color }} />
+                                          <Text style={[styles.chipText, { color: saveTemplateCollectionId === col.id ? col.color : theme.textSecondary }]}>{col.name}</Text>
+                                      </TouchableOpacity>
+                                  ))}
+                              </ScrollView>
+                          </View>
+
+                          {/* 🔥 TAGS COM WRAP (FIM DA ROLAGEM HORIZONTAL) */}
+                          <View>
+                              <Text style={styles.label}>OBJETIVO (TAG)</Text>
+                              <View style={styles.rowWrap}>
+                                  {['Hipertrofia', 'Emagrecimento', 'Força', 'Definição', 'Qualidade de Vida'].map(g => (
+                                      <TouchableOpacity 
+                                          key={g} 
+                                          onPress={() => setTemplateGoalInput(g)} 
+                                          style={[styles.chip, templateGoalInput === g ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                      >
+                                          <Text style={[styles.chipText, templateGoalInput === g ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>{g}</Text>
+                                      </TouchableOpacity>
+                                  ))}
+                              </View>
+                          </View>
+
+                          <View>
+                              <Text style={styles.label}>NÍVEL (TAG)</Text>
+                              <View style={styles.rowWrap}>
+                                  {['Iniciante', 'Intermediário', 'Avançado'].map(l => (
+                                      <TouchableOpacity 
+                                          key={l} 
+                                          onPress={() => setTemplateLevelInput(l)} 
+                                          style={[styles.chip, templateLevelInput === l ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                      >
+                                          <Text style={[styles.chipText, templateLevelInput === l ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>{l}</Text>
+                                      </TouchableOpacity>
+                                  ))}
+                              </View>
+                          </View>
+
+                          <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.accent, marginTop: 10 }]} onPress={saveAsTemplate}>
+                              <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR NA BIBLIOTECA</Text>
+                          </TouchableOpacity>
+                      </ScrollView>
+                  </View>
+              </View>
             </Modal>
         </>
     );
@@ -142,14 +193,16 @@ const styles = StyleSheet.create({
     templateCard: { padding:15, borderRadius:12, marginBottom:10, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderWidth:1 },
     templateName: { fontWeight:'bold', fontSize:16 },
     templateTags: { fontSize:12, marginTop:4 },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 30 },
-    modalContent: { borderRadius: 15, padding: 20, borderWidth: 1, width: '100%', maxWidth: 400, alignSelf: 'center' },
-    modalTitle: { fontWeight: '900', textAlign: 'center', marginBottom: 10 },
-    modalInput: { padding:12, borderRadius:8, borderWidth:1, marginBottom:15, fontSize: 16, outlineStyle: 'none' },
-    saveBtnModal: { padding:15, borderRadius:10, alignItems:'center', width:'100%' },
-    tag: { paddingHorizontal:12, paddingVertical:6, borderRadius:20, borderWidth:1, marginRight:5, height: 30, justifyContent: 'center' },
-    tagText: { fontSize:10, fontWeight:'bold' },
-    miniLabelLeft: { fontSize:10, fontWeight:'bold', marginBottom:8 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
+    modalContent: { borderRadius: 24, padding: 25, borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center', maxHeight: '85%' },
+    modalTitle: { fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
+    label: { color: '#888', fontSize: 10, fontWeight: 'bold', marginBottom: 8, marginTop: 10 },
+    input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
+    rowWrap: { flexDirection:'row', flexWrap:'wrap', gap:8 },
+    chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+    chipText: { fontSize: 11, fontWeight: 'bold' },
     catChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8, height:32, justifyContent:'center', borderWidth:1 },
-    catText: { fontSize: 11, fontWeight: 'bold' }
+    catText: { fontSize: 11, fontWeight: 'bold' },
+    createBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 10 },
+    createBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });

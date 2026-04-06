@@ -338,6 +338,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           templateGoalInput={state.templateGoalInput} setTemplateGoalInput={setters.setTemplateGoalInput}
           templateLevelInput={state.templateLevelInput} setTemplateLevelInput={setters.setTemplateLevelInput}
           saveAsTemplate={actions.saveAsTemplate}
+          
+          collections={state.collections} 
+          saveTemplateCollectionId={state.saveTemplateCollectionId} 
+          setSaveTemplateCollectionId={setters.setSaveTemplateCollectionId}
       />
 
       {/* MODAIS DIVERSOS */}
