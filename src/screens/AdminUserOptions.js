@@ -151,14 +151,13 @@ export default function AdminUserOptions({ route, navigation }) {
     }
   };
 
-  // 🔥 NOVA TRAVA DE SEGURANÇA PARA MUDANÇA DE PLANO
   const confirmChangePlan = (newPlan) => {
       if (userPlan === newPlan) return;
 
       const planNames = {
-          'PREMIUM': 'Consultoria Premium',
+          'PREMIUM': 'Elite Premium',
           'FICHA_8S': 'Ficha 8 Semanas',
-          'LOW_COST': 'Low Cost (Básico)',
+          'LOW_COST': 'Plano Básico',
           'CHALLENGE_21': 'Desafio 21 Dias'
       };
 
@@ -403,7 +402,7 @@ export default function AdminUserOptions({ route, navigation }) {
                     <TouchableOpacity style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('PREMIUM')}>
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
                             <MaterialCommunityIcons name="crown" size={18} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>PREMIUM</Text>
+                            <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>ELITE PREMIUM</Text>
                         </View>
                         {userPlan === 'PREMIUM' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                     </TouchableOpacity>
@@ -419,7 +418,7 @@ export default function AdminUserOptions({ route, navigation }) {
                     <TouchableOpacity style={[styles.planCard, userPlan === 'LOW_COST' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('LOW_COST')}>
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
                             <MaterialCommunityIcons name="rocket-launch" size={18} color={userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>LOW COST (ESCALA)</Text>
+                            <Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>PLANO BÁSICO</Text>
                         </View>
                         {userPlan === 'LOW_COST' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                     </TouchableOpacity>
@@ -527,7 +526,6 @@ const styles = StyleSheet.create({
   profileName: { fontSize: 20, fontWeight: '900' },
   profileEmail: { color: '#888', fontSize: 12, marginTop: 2 },
 
-  // 🔥 ESTILOS REFINADOS (SEM VAZAR)
   plansContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 25 },
   planCard: { width: '48%', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   planTitle: { fontWeight: '900', fontSize: 10, letterSpacing: 0.5, flexShrink: 1 },

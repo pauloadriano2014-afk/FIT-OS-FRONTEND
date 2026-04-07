@@ -1,3 +1,4 @@
+// src/screens/ProfileScreen.js
 import React, { useState, useCallback } from 'react';
 import { 
   StyleSheet, Text, View, ScrollView, SafeAreaView, TouchableOpacity, 
@@ -184,10 +185,23 @@ export default function ProfileScreen({ route }) {
       changeTheme(theme.isDark, colorKey);
   };
 
+  // 🔥 Tradutor Visual de Planos
+  const getDisplayPlan = () => {
+      const dbPlan = userData?.plan || 'PREMIUM';
+      switch(dbPlan) {
+          case 'LOW_COST': return { name: 'PLANO BÁSICO', icon: 'rocket-launch', desc: 'Funcionalidades básicas.' };
+          case 'CHALLENGE_21': return { name: 'DESAFIO 21 DIAS', icon: 'fire', desc: 'Protocolo de 21 dias.' };
+          case 'FICHA_8S': return { name: 'FICHA 8 SEMANAS', icon: 'lightning-bolt', desc: 'Protocolo de 8 semanas.' };
+          default: return { name: 'ELITE', icon: 'crown', desc: 'Acesso total a treinos e suporte.' };
+      }
+  };
+
   // 🔥 Lógica da "Gaiola" PWA
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
+
+  const displayPlan = getDisplayPlan();
 
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
@@ -257,15 +271,13 @@ export default function ProfileScreen({ route }) {
                 )}
             </View>
 
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: userData?.plan === 'ELITE' ? theme.accent : theme.border }]}>
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: displayPlan.name === 'ELITE' ? theme.accent : theme.border }]}>
                 <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
                     <Text style={styles.cardTitle}>PLANO ATUAL</Text>
-                    {userData?.plan === 'ELITE' && <MaterialCommunityIcons name="crown" size={20} color={theme.accent} />}
+                    <MaterialCommunityIcons name={displayPlan.icon} size={20} color={displayPlan.name === 'ELITE' ? theme.accent : theme.textSecondary} />
                 </View>
-                <Text style={[styles.planName, { color: theme.text }]}>{userData?.plan || "GRATUITO"}</Text>
-                <Text style={styles.planDesc}>
-                    {userData?.plan === 'ELITE' ? 'Acesso total a treinos e dieta.' : 'Funcionalidades básicas.'}
-                </Text>
+                <Text style={[styles.planName, { color: theme.text }]}>{displayPlan.name}</Text>
+                <Text style={styles.planDesc}>{displayPlan.desc}</Text>
             </View>
 
             <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
