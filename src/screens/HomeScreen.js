@@ -41,6 +41,7 @@ export default function HomeScreen({ navigation }) {
   // Estados da Ficha 8S
   const [fichaDaysElapsed, setFichaDaysElapsed] = useState(0);
   const [fichaExpiredModalVisible, setFichaExpiredModalVisible] = useState(false);
+  const [isFichaPlaceholder, setIsFichaPlaceholder] = useState(false);
 
   // Estados de Check-in
   const [isCheckinPending, setIsCheckinPending] = useState(false);
@@ -138,21 +139,23 @@ export default function HomeScreen({ navigation }) {
                         let startD = new Date(fetchedUser.createdAt || new Date());
                         
                         if (fetchedUser.workouts && fetchedUser.workouts.length > 0) {
-                            // 1. Ordena todos os treinos do mais antigo para o mais novo
                             const sortedWorkouts = [...fetchedUser.workouts].sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
-                            
-                            // 2. Filtra treinos do ciclo atual (criados nos últimos 65 dias)
                             const recentWorkouts = sortedWorkouts.filter(w => {
                                 const diffDays = (new Date() - new Date(w.startDate)) / (1000 * 3600 * 24);
                                 return diffDays <= 65 && diffDays >= -10;
                             });
                             
-                            // 3. A âncora é o primeiro treino deste ciclo!
-                            if (recentWorkouts.length > 0) {
-                                startD = new Date(recentWorkouts[0].startDate);
+                            const firstRecent = recentWorkouts.length > 0 ? recentWorkouts[0] : sortedWorkouts[sortedWorkouts.length - 1];
+                            startD = new Date(firstRecent.startDate);
+
+                            // 🔥 VERIFICA SE A FICHA É A "EM CONSTRUÇÃO" (VAZIA)
+                            if (firstRecent.name.includes("CONSTRUÇÃO") || !firstRecent.routine || firstRecent.routine.length === 0) {
+                                setIsFichaPlaceholder(true);
                             } else {
-                                startD = new Date(sortedWorkouts[sortedWorkouts.length - 1].startDate);
+                                setIsFichaPlaceholder(false);
                             }
+                        } else {
+                            setIsFichaPlaceholder(true);
                         }
                         
                         startD.setHours(0,0,0,0);
@@ -161,8 +164,7 @@ export default function HomeScreen({ navigation }) {
                         const diffD = Math.max(0, Math.floor((todayD - startD) / (1000 * 3600 * 24)));
                         setFichaDaysElapsed(diffD);
                         
-                        // Tranca a ficha se passou de 56 dias
-                        if (diffD > 56) {
+                        if (diffD > 56 && !isFichaPlaceholder) {
                             setFichaExpiredModalVisible(true);
                         }
                     }
@@ -179,7 +181,6 @@ export default function HomeScreen({ navigation }) {
                 }
             }
 
-            // Streak e Checkins... (lógica omitida visualmente para encurtar, mas preservada na execução abaixo)
             let checkinPending = false;
             let checkinLate = false;
             let futureDateStr = null;
@@ -275,7 +276,7 @@ export default function HomeScreen({ navigation }) {
 
   if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
 
-  const isFichaExpired = userPlan === 'FICHA_8S' && fichaDaysElapsed > 56;
+  const isFichaExpired = userPlan === 'FICHA_8S' && fichaDaysElapsed > 56 && !isFichaPlaceholder;
   const fichaDaysLeft = Math.max(0, 56 - fichaDaysElapsed);
 
   return (
@@ -292,7 +293,10 @@ export default function HomeScreen({ navigation }) {
           >
             <View style={styles.header}>
               <View>
-                <Text style={[styles.greeting, { color: theme.textSecondary }]}>BEM-VINDO AO FOCO,</Text>
+                {/* 🔥 O NOME FICA BONITO AQUI EMBAIXO */}
+                <Text style={[styles.greeting, { color: theme.textSecondary }]}>
+                    BEM-VINDO AO {userPlan === 'LOW_COST' ? 'PLANO BÁSICO' : (userPlan === 'FICHA_8S' ? 'PROJETO DE FICHAS' : 'FOCO')},
+                </Text>
                 <Text style={[styles.name, { color: theme.text }]}>{userName.toUpperCase()} ⚡</Text>
               </View>
               <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLevelModalVisible(true)}>
@@ -304,13 +308,16 @@ export default function HomeScreen({ navigation }) {
             {userPlan === 'FICHA_8S' && !isFichaExpired && (
                 <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
-                        <Text style={[styles.levelText, { color: theme.accent }]}>PROJETO FICHA 8S</Text>
-                        <Text style={[styles.xpText, { color: theme.textSecondary }]}>SEMANA {Math.min(8, Math.ceil((fichaDaysElapsed === 0 ? 1 : fichaDaysElapsed) / 7))} DE 8</Text>
+                        {/* 🔥 TÍTULO E SEMANA ARRUMADOS */}
+                        <Text style={[styles.levelText, { color: theme.accent }]}>FICHA 8 SEMANAS</Text>
+                        <Text style={[styles.xpText, { color: theme.textSecondary }]}>
+                            {isFichaPlaceholder ? 'PREPARANDO TREINO' : `SEMANA ${Math.min(8, Math.max(1, Math.ceil(fichaDaysElapsed / 7)))} DE 8`}
+                        </Text>
                     </View>
                     <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                        <View style={[styles.xpBarFill, { width: `${Math.min(100, (fichaDaysElapsed / 56) * 100)}%`, backgroundColor: fichaDaysLeft <= 14 ? '#FF9500' : theme.accent }]} />
+                        <View style={[styles.xpBarFill, { width: `${Math.min(100, (fichaDaysElapsed / 56) * 100)}%`, backgroundColor: (fichaDaysLeft <= 14 && !isFichaPlaceholder) ? '#FF9500' : theme.accent }]} />
                     </View>
-                    {fichaDaysLeft <= 14 && (
+                    {fichaDaysLeft <= 14 && !isFichaPlaceholder && (
                         <TouchableOpacity
                             style={{marginTop: 15, padding: 12, backgroundColor: '#FF950022', borderRadius: 12, borderWidth: 1, borderColor: '#FF9500', flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}
                             onPress={() => Linking.openURL("https://wa.me/5541997991346?text=Coach, minha Ficha 8S está acabando! Quero renovar.")}
@@ -431,7 +438,6 @@ export default function HomeScreen({ navigation }) {
           QUICK_QUESTIONS={QUICK_QUESTIONS} 
       />
 
-      {/* Modal Upsell e Modal Expired Ficha mantidos inline pois precisam da lógica Linking direta da tela */}
       <Modal visible={fichaExpiredModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>

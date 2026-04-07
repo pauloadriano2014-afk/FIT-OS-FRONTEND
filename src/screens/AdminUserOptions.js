@@ -9,7 +9,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 NOSSOS DOIS COMPONENTES MODULARIZADOS
 import AdminUserWorkouts from '../components/AdminUserWorkouts';
 import AdminUserSystem from '../components/AdminUserSystem';
 
@@ -33,7 +32,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
   const [userPlan, setUserPlan] = useState('PREMIUM');
 
-  // Variáveis da Ficha 8S
   const [fichaDaysElapsed, setFichaDaysElapsed] = useState(0);
   const [hasActiveFicha, setHasActiveFicha] = useState(false);
 
@@ -67,7 +65,7 @@ export default function AdminUserOptions({ route, navigation }) {
           }
           setLoading(false); 
         }
-      } catch(e) { console.log("Erro Cache Local:", e); }
+      } catch(e) {}
     };
 
     loadCache();
@@ -85,15 +83,18 @@ export default function AdminUserOptions({ route, navigation }) {
             fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`)
         ]);
 
-        let active = [];
+        // 🔥 CORREÇÃO: As variáveis precisam estar disponíveis para toda a função!
+        let activeWk = [];
+        let archivedWk = [];
+
         if (resWorkouts.ok) {
             const dataW = await resWorkouts.json();
             if (Array.isArray(dataW)) {
-                active = dataW.filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-                const archived = dataW.filter(w => w.archived).sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
-                setActiveWorkouts(active);
-                setArchivedWorkouts(archived);
-                AsyncStorage.setItem(`@user_options_cache_${aluno.id}`, JSON.stringify({ workouts: { active, archived }, freshness: aluno }));
+                activeWk = dataW.filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                archivedWk = dataW.filter(w => w.archived).sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
+                setActiveWorkouts(activeWk);
+                setArchivedWorkouts(archivedWk);
+                AsyncStorage.setItem(`@user_options_cache_${aluno.id}`, JSON.stringify({ workouts: { active: activeWk, archived: archivedWk }, freshness: aluno }));
             }
         }
 
@@ -108,27 +109,24 @@ export default function AdminUserOptions({ route, navigation }) {
             const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
             setUserPlan(finalPlan);
 
-            // 🔥 LÓGICA DO RELÓGIO (ÂNCORA INTELIGENTE)
+            // 🔥 A MÁGICA REVELADA: Lê todas as fichas (inclusive as "Em Construção")
             if (finalPlan === 'FICHA_8S') {
-                const allWorkouts = [...active, ...archived];
+                const allWorkouts = [...activeWk, ...archivedWk];
                 let startD = new Date(fresh.createdAt || new Date());
                 
                 if (allWorkouts.length > 0) {
-                    // 1. Ordena todos os treinos do mais antigo para o mais novo
                     const sortedWorkouts = allWorkouts.sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
-                    
-                    // 2. Filtra treinos do ciclo atual (criados nos últimos 65 dias)
                     const recentWorkouts = sortedWorkouts.filter(w => {
                         const diffDays = (new Date() - new Date(w.startDate)) / (1000 * 3600 * 24);
-                        return diffDays <= 65 && diffDays >= -10; // margem para treinos agendados no futuro
+                        return diffDays <= 65 && diffDays >= -10; 
                     });
 
-                    // 3. A âncora é o primeiro treino deste ciclo!
                     if (recentWorkouts.length > 0) {
                         startD = new Date(recentWorkouts[0].startDate);
                     } else {
                         startD = new Date(sortedWorkouts[sortedWorkouts.length - 1].startDate);
                     }
+                    // AGORA O BOTÃO "VER EXERCÍCIOS DA FICHA" VAI ACENDER!
                     setHasActiveFicha(true);
                 } else {
                     setHasActiveFicha(false);
@@ -171,7 +169,7 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  const handlePickImage = async () => { /* Upload Code Intacto */
+  const handlePickImage = async () => { 
       try {
           const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.6 });
           if (!result.canceled) {
@@ -359,7 +357,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
-                {/* CABEÇALHO DO PERFIL */}
                 <View style={[styles.profileHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <TouchableOpacity onPress={handlePickImage} style={styles.avatarContainer} activeOpacity={0.8}>
                         {uploadingPhoto ? (
@@ -379,7 +376,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* ESTEIRA DE PRODUTOS */}
                 <Text style={styles.sectionLabel}>ESTEIRA DE PRODUTOS (ACESSO)</Text>
                 <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Defina qual produto este aluno comprou para ajustar as permissões do aplicativo.</Text>
                 
@@ -407,7 +403,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-                {/* CONTROLE DE ABAS GERAIS */}
                 <View style={styles.tabsRow}>
                     <TouchableOpacity style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'active' && { borderBottomColor: theme.accent }]} onPress={() => setViewMode('active')}>
                         <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'active' && { color: theme.accent }]}>ATIVAS</Text>
@@ -420,7 +415,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
                 
-                {/* 1. COMPONENTE DE TREINOS (Importado) */}
                 {(viewMode === 'active' || viewMode === 'archived') && (
                     <AdminUserWorkouts 
                         theme={theme} userPlan={userPlan} viewMode={viewMode} loading={loading}
@@ -433,7 +427,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     />
                 )}
 
-                {/* 2. PA FLIX ORIGINAL (Mantido na Página Pai) */}
                 {viewMode === 'paflix' && (
                     <View style={{marginTop: 15}}>
                         <Text style={styles.sectionLabel}>PERMISSÕES DE CONTEÚDO VIP</Text>
@@ -473,7 +466,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 )}
 
-                {/* 3. COMPONENTE DADOS E SISTEMA (Importado) */}
                 <AdminUserSystem 
                     theme={theme} navigation={navigation} aluno={aluno} userPlan={userPlan}
                     isActiveUser={isActiveUser} handleToggleStatus={handleToggleStatus}

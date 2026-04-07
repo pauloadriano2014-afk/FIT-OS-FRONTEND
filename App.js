@@ -16,12 +16,12 @@ import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 /* ================= TELAS ================= */
 
 // AUTH & SETUP
-import InstallScreen from './src/screens/InstallScreen'; // 🔥 NOVA PORTA DE OURO
+import InstallScreen from './src/screens/InstallScreen'; 
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
-import SetupTreinoScreen from './src/screens/SetupTreinoScreen'; // 🔥 NOVA MINI-ANAMNESE
+import SetupTreinoScreen from './src/screens/SetupTreinoScreen'; 
 
 // ALUNO
 import HomeScreen from './src/screens/HomeScreen';
@@ -147,7 +147,7 @@ function StudentTabs({ route }) {
 /* ================= NAVEGAÇÃO PRINCIPAL ================= */
 function RootNavigator() {
   const [loading, setLoading] = useState(true);
-  const [initialRoute, setInitialRoute] = useState('Install'); // 🔥 COMEÇA AQUI!
+  const [initialRoute, setInitialRoute] = useState('Install'); 
   const [savedUser, setSavedUser] = useState(null);
   const { theme, loadingTheme } = useTheme();
 
@@ -163,7 +163,6 @@ function RootNavigator() {
 
           if (finalRole) {
             setSavedUser(user);
-            
             const targetRoute = finalRole.toLowerCase() === 'admin' ? 'AdminDashboard' : 'Main';
             setInitialRoute(targetRoute);
             
@@ -172,17 +171,8 @@ function RootNavigator() {
                     if (targetRoute === 'AdminDashboard') {
                         navigationRef.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
                     } else {
-                        // 🔥 A LÓGICA DO PILOTO AUTOMÁTICO:
-                        // Se ele for LowCost/Ficha8S e NÃO TIVER TREINO, joga pro SetupTreino!
-                        const userPlan = user.plan || 'PREMIUM';
-                        const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(userPlan);
-                        const hasWorkouts = user.workouts && user.workouts.length > 0;
-
-                        if (isAutoPlan && !hasWorkouts) {
-                            navigationRef.reset({ index: 0, routes: [{ name: 'SetupTreino' }] });
-                        } else {
-                            navigationRef.reset({ index: 0, routes: [{ name: 'Main', params: { userData: user } }] });
-                        }
+                        // 🔥 FIM DO LOOP INFINITO: Joga o aluno direto pra Home! 
+                        navigationRef.reset({ index: 0, routes: [{ name: 'Main', params: { userData: user } }] });
                     }
                 }
             }, 100);
@@ -224,7 +214,6 @@ function RootNavigator() {
 
   return (
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-      {/* 🔥 MÓDULO DE ENTRADA */}
       <Stack.Screen name="Install" component={InstallScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
@@ -232,7 +221,6 @@ function RootNavigator() {
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
 
-      {/* MÓDULO ALUNO */}
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
@@ -246,7 +234,6 @@ function RootNavigator() {
       <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
       <Stack.Screen name="PAFlix" component={PAFlixScreen} />
 
-      {/* MÓDULO ADMIN */}
       <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
       <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
       <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
@@ -259,17 +246,15 @@ function RootNavigator() {
   );
 }
 
-/* ================= DEEP LINKING ================= */
 const linking = {
   prefixes: ['https://www.pauloadrianoteam.com.br', 'https://pauloadrianoteam.com.br'],
   config: {
     screens: {
-      // Quando acessar /registro, o App abre o InstallScreen e avisa: "Depois vai pro Register!"
       Install: {
           path: 'registro',
           parse: {
               coach: (coach) => coach,
-              plan: (plan) => plan // 🔥 AGORA A URL SABE LER O PLANO MÁGICO!
+              plan: (plan) => plan
           },
           initialRouteName: 'Install',
       },
