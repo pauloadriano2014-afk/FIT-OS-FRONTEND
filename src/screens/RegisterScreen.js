@@ -12,11 +12,18 @@ export default function RegisterScreen({ navigation, route }) {
 
   const [loading, setLoading] = useState(false);
   
-  const initialCode = route.params?.coach || '';
-  const incomingPlan = route.params?.plan || 'PREMIUM'; // 🔥 LÊ O PLANO DO LINK MÁGICO
+  // 🔥 BLINDAGEM CONTRA O VAZAMENTO DE URL NA WEB
+  let initCode = route.params?.coach || '';
+  let initPlan = route.params?.plan || 'PREMIUM';
+
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('coach')) initCode = urlParams.get('coach');
+      if (urlParams.get('plan')) initPlan = urlParams.get('plan');
+  }
 
   const [form, setForm] = useState({
-    accessCode: initialCode, 
+    accessCode: initCode, 
     name: '',
     birthDate: '',
     phone: '',
@@ -73,7 +80,7 @@ export default function RegisterScreen({ navigation, route }) {
           phone: form.phone || "",
           gender: form.gender || "Não informado",
           inviteCode: form.accessCode.trim(),
-          plan: incomingPlan // 🔥 ENVIA A CATRACA PRO BACKEND
+          plan: initPlan // 🔥 GARANTIDO QUE VAI ENVIAR O PLANO CERTO
         })
       });
 
@@ -85,12 +92,12 @@ export default function RegisterScreen({ navigation, route }) {
         
         // Pós-Registro: Joga para a Home, e a Home (que tem a portaria inteligente)
         // vai decidir se ele vai pra Anamnese do Premium ou pra Mini-Anamnese (SetupTreino)
-        const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(incomingPlan);
-if (isAutoPlan) {
-    navigation.replace('SetupTreino', { userData: data.user });
-} else {
-    navigation.replace('Anamnese', { userData: data.user });
-} 
+        const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(initPlan);
+        if (isAutoPlan) {
+            navigation.replace('SetupTreino', { userData: data.user });
+        } else {
+            navigation.replace('Anamnese', { userData: data.user });
+        } 
       } else {
         if(Platform.OS === 'web') window.alert(data.error || "Não foi possível realizar o cadastro.");
         else Alert.alert("Atenção", data.error || "Não foi possível realizar o cadastro.");

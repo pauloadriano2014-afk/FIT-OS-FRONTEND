@@ -14,9 +14,8 @@ export default function SetupTreinoScreen({ navigation }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [userPlan, setUserPlan] = useState('LOW_COST'); 
-  const [userGender, setUserGender] = useState('M'); // Vai ler automático do cadastro
+  const [userGender, setUserGender] = useState('M'); // Lê automático do cadastro
   
-  // Respostas (Apenas 3 agora!)
   const [goal, setGoal] = useState('');
   const [focus, setFocus] = useState('');
   const [level, setLevel] = useState('');
@@ -30,8 +29,6 @@ export default function SetupTreinoScreen({ navigation }) {
           if (userJson) {
               const user = JSON.parse(userJson);
               setUserPlan(user.plan || 'LOW_COST');
-              
-              // 🔥 LÊ O GÊNERO DO CADASTRO AUTOMATICAMENTE
               const isFemale = user.gender === 'Feminino' || user.gender === 'F';
               setUserGender(isFemale ? 'F' : 'M');
           }
@@ -50,6 +47,7 @@ export default function SetupTreinoScreen({ navigation }) {
   const handleBack = () => {
       if (step > 1) {
           setStep(step - 1);
+          setFocus(''); // Reseta o foco ao voltar, pois o objetivo pode mudar
       } else {
           if (Platform.OS === 'web') {
               const confirmLogout = window.confirm("Deseja sair da conta e voltar ao início?");
@@ -80,7 +78,36 @@ export default function SetupTreinoScreen({ navigation }) {
       else Alert.alert("Atenção", msg);
   };
 
-  // 🔥 A MÁGICA ACONTECE AQUI: Cria um treino "fantasma" informativo
+  // 🔥 LÓGICA DINÂMICA DE PERGUNTAS BASEADA NO OBJETIVO E GÊNERO 🔥
+  const getFocusOptions = () => {
+      if (goal === 'Emagrecimento') {
+          return [
+              { value: 'Queima Global', label: 'Queima Global', desc: 'Secar gordura no corpo todo', icon: 'fire' },
+              userGender === 'F' 
+                  ? { value: 'Abdômen e Cintura', label: 'Abdômen e Cintura', desc: 'Foco na região abdominal', icon: 'human-female' }
+                  : { value: 'Perder Barriga', label: 'Perder Barriga', desc: 'Secar a região abdominal', icon: 'human-male' },
+              { value: 'Definição Muscular', label: 'Definição Muscular', desc: 'Emagrecer mantendo tônus', icon: 'dumbbell' }
+          ];
+      } else if (goal === 'Hipertrofia') {
+          return userGender === 'F' ? [
+              { value: 'Glúteos e Pernas', label: 'Glúteos e Pernas', desc: 'Volume em membros inferiores', icon: 'human-female' },
+              { value: 'Costas e Curvas', label: 'Costas e Curvas', desc: 'Foco em membros superiores', icon: 'hanger' },
+              { value: 'Corpo Todo', label: 'Corpo Todo', desc: 'Crescimento equilibrado', icon: 'human-handsup' }
+          ] : [
+              { value: 'Peitoral e Braços', label: 'Peitoral e Braços', desc: 'Volume em membros superiores', icon: 'human-male' },
+              { value: 'Pernas Fortes', label: 'Pernas Fortes', desc: 'Foco em membros inferiores', icon: 'run' },
+              { value: 'Corpo Todo', label: 'Corpo Todo', desc: 'Crescimento equilibrado', icon: 'human-handsup' }
+          ];
+      } else {
+          // Qualidade de Vida
+          return [
+              { value: 'Fortalecimento Geral', label: 'Fortalecimento Geral', desc: 'Mais saúde e vigor físico', icon: 'shield-check' },
+              { value: 'Mobilidade e Postura', label: 'Mobilidade e Postura', desc: 'Foco em aliviar dores', icon: 'yoga' },
+              { value: 'Condicionamento', label: 'Condicionamento', desc: 'Melhorar fôlego e resistência', icon: 'heart-pulse' }
+          ];
+      }
+  };
+
   const finalizeSetup = async () => {
       setLoading(true);
       try {
@@ -90,6 +117,7 @@ export default function SetupTreinoScreen({ navigation }) {
           const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'PROJETO EM CONSTRUÇÃO 🚧';
           const descriptionText = `🎯 Objetivo: ${goal}\n🔍 Foco: ${focus}\n📈 Nível: ${level}\n\nO Coach Paulo Adriano já recebeu suas preferências e está montando o seu planejamento exclusivo. Em breve seus treinos aparecerão aqui!`;
 
+          // 🔥 PAYLOAD 100% SEGURO PARA O BACKEND
           const res = await fetch('https://fitos-final.onrender.com/api/workout', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -99,20 +127,21 @@ export default function SetupTreinoScreen({ navigation }) {
                   description: descriptionText,
                   startDate: new Date().toISOString(),
                   endDate: new Date(Date.now() + 56 * 24 * 60 * 60 * 1000).toISOString(),
-                  routine: []
+                  routine: [{ day: 'A', name: 'Protocolo Base', exercises: [] }] // Array válido garantido
               })
           });
 
-          if (!res.ok) throw new Error("Falha ao salvar setup");
+          if (!res.ok) {
+              const errTxt = await res.text();
+              console.error("Falha no servidor:", errTxt);
+              throw new Error("Falha ao salvar setup");
+          }
 
           const savedWorkout = await res.json();
-          
-          // Salva no aparelho para o App.js saber que ele já tem um "treino" e liberar a Home
           user.workouts = [savedWorkout];
           await AsyncStorage.setItem('user', JSON.stringify(user));
 
           setLoading(false);
-
           const successMsg = "O Coach Paulo Adriano recebeu suas informações e está preparando seu protocolo. Vamos entrar no app!";
           
           if (Platform.OS === 'web') {
@@ -204,15 +233,7 @@ export default function SetupTreinoScreen({ navigation }) {
                   {step === 2 && (
                       <View style={styles.stepContent}>
                           <Text style={[styles.stepTitle, { color: theme.text }]}>Qual área deseja focar?</Text>
-                          {userGender === 'F' ? renderOptions([
-                              { value: 'Glúteos e Pernas', label: 'Glúteos e Pernas', icon: 'human-female' },
-                              { value: 'Costas e Curvas', label: 'Costas e Curvas (Superiores)', icon: 'hanger' },
-                              { value: 'Corpo Todo', label: 'Corpo Todo (Equilibrado)', icon: 'human-handsup' }
-                          ], focus, setFocus) : renderOptions([
-                              { value: 'Peitoral e Braços', label: 'Peitoral e Braços', icon: 'human-male' },
-                              { value: 'Pernas', label: 'Pernas Fortes', icon: 'run' },
-                              { value: 'Corpo Todo', label: 'Corpo Todo (Equilibrado)', icon: 'human-handsup' }
-                          ], focus, setFocus)}
+                          {renderOptions(getFocusOptions(), focus, setFocus)}
                       </View>
                   )}
 
