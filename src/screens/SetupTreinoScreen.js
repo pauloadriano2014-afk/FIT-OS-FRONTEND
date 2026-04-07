@@ -14,8 +14,9 @@ export default function SetupTreinoScreen({ navigation }) {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [userPlan, setUserPlan] = useState('LOW_COST'); 
-  const [userGender, setUserGender] = useState('M'); // Lê automático do cadastro
+  const [userGender, setUserGender] = useState('M'); // Lê automático
   
+  // Respostas
   const [goal, setGoal] = useState('');
   const [focus, setFocus] = useState('');
   const [level, setLevel] = useState('');
@@ -47,7 +48,7 @@ export default function SetupTreinoScreen({ navigation }) {
   const handleBack = () => {
       if (step > 1) {
           setStep(step - 1);
-          setFocus(''); // Reseta o foco ao voltar, pois o objetivo pode mudar
+          setFocus(''); 
       } else {
           if (Platform.OS === 'web') {
               const confirmLogout = window.confirm("Deseja sair da conta e voltar ao início?");
@@ -61,6 +62,7 @@ export default function SetupTreinoScreen({ navigation }) {
       }
   };
 
+  // 🔥 CORREÇÃO CRÍTICA: Validação do Passo 3 (Sem cobrar o Gênero fantasma)
   const handleNext = () => {
       if (step === 1 && !goal) return showAlert("Selecione seu objetivo principal.");
       if (step === 2 && !focus) return showAlert("Selecione o foco do treino.");
@@ -78,7 +80,6 @@ export default function SetupTreinoScreen({ navigation }) {
       else Alert.alert("Atenção", msg);
   };
 
-  // 🔥 LÓGICA DINÂMICA DE PERGUNTAS BASEADA NO OBJETIVO E GÊNERO 🔥
   const getFocusOptions = () => {
       if (goal === 'Emagrecimento') {
           return [
@@ -99,7 +100,6 @@ export default function SetupTreinoScreen({ navigation }) {
               { value: 'Corpo Todo', label: 'Corpo Todo', desc: 'Crescimento equilibrado', icon: 'human-handsup' }
           ];
       } else {
-          // Qualidade de Vida
           return [
               { value: 'Fortalecimento Geral', label: 'Fortalecimento Geral', desc: 'Mais saúde e vigor físico', icon: 'shield-check' },
               { value: 'Mobilidade e Postura', label: 'Mobilidade e Postura', desc: 'Foco em aliviar dores', icon: 'yoga' },
@@ -117,7 +117,6 @@ export default function SetupTreinoScreen({ navigation }) {
           const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'PROJETO EM CONSTRUÇÃO 🚧';
           const descriptionText = `🎯 Objetivo: ${goal}\n🔍 Foco: ${focus}\n📈 Nível: ${level}\n\nO Coach Paulo Adriano já recebeu suas preferências e está montando o seu planejamento exclusivo. Em breve seus treinos aparecerão aqui!`;
 
-          // 🔥 PAYLOAD 100% SEGURO PARA O BACKEND
           const res = await fetch('https://fitos-final.onrender.com/api/workout', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -127,7 +126,7 @@ export default function SetupTreinoScreen({ navigation }) {
                   description: descriptionText,
                   startDate: new Date().toISOString(),
                   endDate: new Date(Date.now() + 56 * 24 * 60 * 60 * 1000).toISOString(),
-                  routine: [{ day: 'A', name: 'Protocolo Base', exercises: [] }] // Array válido garantido
+                  routine: [{ day: 'A', name: 'Protocolo Base', exercises: [] }] 
               })
           });
 
