@@ -8,7 +8,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 ADICIONEI O "route" AQUI PARA PEGAR O ALUNO QUE VEM DO REGISTRO
 export default function SetupTreinoScreen({ navigation, route }) {
   const { theme } = useTheme();
   
@@ -26,13 +25,10 @@ export default function SetupTreinoScreen({ navigation, route }) {
   const RootComponent = isWeb ? View : SafeAreaView;
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
-  // 🔥 CORREÇÃO DA SESSÃO INVISÍVEL
   useEffect(() => {
       const loadUser = async () => {
-          // 1. Tenta pegar o aluno que acabou de vir da tela de Registro
           let user = route.params?.userData;
           
-          // 2. Se não veio da tela de registro (ex: fechou o app e abriu de novo), pega da memória
           if (!user) {
               const userJson = await AsyncStorage.getItem('user');
               if (userJson) user = JSON.parse(userJson);
@@ -43,7 +39,6 @@ export default function SetupTreinoScreen({ navigation, route }) {
               const isFemale = user.gender === 'Feminino' || user.gender === 'F';
               setUserGender(isFemale ? 'F' : 'M');
               
-              // Garante que o aluno recém-criado seja salvo na memória do celular!
               await AsyncStorage.setItem('user', JSON.stringify(user));
               if (user.role || user.type) {
                   await AsyncStorage.setItem('role', user.role || user.type || 'USER');
@@ -128,7 +123,6 @@ export default function SetupTreinoScreen({ navigation, route }) {
   const finalizeSetup = async () => {
       setLoading(true);
       try {
-          // 🔥 PEGA OS DADOS CORRETAMENTE DA ROTA OU DA MEMÓRIA
           let user = route.params?.userData;
           if (!user) {
               const userJson = await AsyncStorage.getItem('user');
@@ -137,32 +131,40 @@ export default function SetupTreinoScreen({ navigation, route }) {
 
           if (!user || !user.id) throw new Error("Sessão não encontrada");
 
-          const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'PROJETO EM CONSTRUÇÃO 🚧';
           const finalGoal = `${goal} (Foco: ${focus})`;
 
-          const res = await fetch('https://fitos-final.onrender.com/api/workout', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                  userId: user.id,
-                  name: placeholderName,
-                  goal: finalGoal,
-                  level: level,
-                  startDate: new Date().toISOString(),
-                  endDate: new Date(Date.now() + 56 * 24 * 60 * 60 * 1000).toISOString(),
-                  routine: [] 
-              })
-          });
+          // 🔥 A MÁGICA ESTÁ AQUI: BLOQUEANDO O TREINO FANTASMA PRO LOW COST
+          if (userPlan !== 'LOW_COST') {
+              const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'DESAFIO EM CONSTRUÇÃO 🚧';
+              const durationDays = userPlan === 'CHALLENGE_21' ? 21 : 56;
 
-          if (!res.ok) {
-              const errTxt = await res.text();
-              console.error("Falha no servidor:", errTxt);
-              throw new Error("O servidor rejeitou a ficha.");
+              const res = await fetch('https://fitos-final.onrender.com/api/workout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      userId: user.id,
+                      name: placeholderName,
+                      goal: finalGoal,
+                      level: level,
+                      startDate: new Date().toISOString(),
+                      endDate: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString(),
+                      routine: [] 
+                  })
+              });
+
+              if (!res.ok) {
+                  const errTxt = await res.text();
+                  console.error("Falha no servidor:", errTxt);
+                  throw new Error("O servidor rejeitou a ficha.");
+              }
+
+              const savedWorkout = await res.json();
+              user.workouts = [savedWorkout];
+          } else {
+              // LOW COST: O aluno entra zerado de treino para o Admin atribuir manualmente!
+              user.workouts = [];
           }
-
-          const savedWorkout = await res.json();
           
-          user.workouts = [savedWorkout];
           await AsyncStorage.setItem('user', JSON.stringify(user));
 
           setLoading(false);
@@ -219,7 +221,6 @@ export default function SetupTreinoScreen({ navigation, route }) {
       </View>
   );
 
-  const isLoadingFicha = userPlan === 'FICHA_8S';
   const loadingTitle = "ENVIANDO DADOS...";
   const loadingDesc = "Nossa plataforma está repassando o seu perfil diretamente para a prancheta do Coach.";
   const finalBtnText = 'FINALIZAR CONFIGURAÇÃO 🔥';
