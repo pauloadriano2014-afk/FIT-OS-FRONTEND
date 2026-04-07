@@ -8,13 +8,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
-export default function SetupTreinoScreen({ navigation }) {
+// 🔥 ADICIONEI O "route" AQUI PARA PEGAR O ALUNO QUE VEM DO REGISTRO
+export default function SetupTreinoScreen({ navigation, route }) {
   const { theme } = useTheme();
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [userPlan, setUserPlan] = useState('LOW_COST'); 
-  const [userGender, setUserGender] = useState('M'); // Lê automático
+  const [userGender, setUserGender] = useState('M'); 
   
   // Respostas
   const [goal, setGoal] = useState('');
@@ -25,16 +26,33 @@ export default function SetupTreinoScreen({ navigation }) {
   const RootComponent = isWeb ? View : SafeAreaView;
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
+  // 🔥 CORREÇÃO DA SESSÃO INVISÍVEL
   useEffect(() => {
-      AsyncStorage.getItem('user').then(userJson => {
-          if (userJson) {
-              const user = JSON.parse(userJson);
+      const loadUser = async () => {
+          // 1. Tenta pegar o aluno que acabou de vir da tela de Registro
+          let user = route.params?.userData;
+          
+          // 2. Se não veio da tela de registro (ex: fechou o app e abriu de novo), pega da memória
+          if (!user) {
+              const userJson = await AsyncStorage.getItem('user');
+              if (userJson) user = JSON.parse(userJson);
+          }
+
+          if (user) {
               setUserPlan(user.plan || 'LOW_COST');
               const isFemale = user.gender === 'Feminino' || user.gender === 'F';
               setUserGender(isFemale ? 'F' : 'M');
+              
+              // Garante que o aluno recém-criado seja salvo na memória do celular!
+              await AsyncStorage.setItem('user', JSON.stringify(user));
+              if (user.role || user.type) {
+                  await AsyncStorage.setItem('role', user.role || user.type || 'USER');
+              }
           }
-      });
-  }, []);
+      };
+      
+      loadUser();
+  }, [route.params]);
 
   const handleLogout = async () => {
       await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache', '@global_exercises']);
@@ -110,13 +128,16 @@ export default function SetupTreinoScreen({ navigation }) {
   const finalizeSetup = async () => {
       setLoading(true);
       try {
-          const userJson = await AsyncStorage.getItem('user');
-          if (!userJson) throw new Error("Sessão não encontrada");
-          const user = JSON.parse(userJson);
+          // 🔥 PEGA OS DADOS CORRETAMENTE DA ROTA OU DA MEMÓRIA
+          let user = route.params?.userData;
+          if (!user) {
+              const userJson = await AsyncStorage.getItem('user');
+              if (userJson) user = JSON.parse(userJson);
+          }
+
+          if (!user || !user.id) throw new Error("Sessão não encontrada");
 
           const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'PROJETO EM CONSTRUÇÃO 🚧';
-          
-          // 🔥 AGORA ESTAMOS SALVANDO NAS COLUNAS CORRETAS DO PRISMA (goal e level)
           const finalGoal = `${goal} (Foco: ${focus})`;
 
           const res = await fetch('https://fitos-final.onrender.com/api/workout', {
@@ -141,7 +162,6 @@ export default function SetupTreinoScreen({ navigation }) {
 
           const savedWorkout = await res.json();
           
-          // Atualiza o cache para a Home abrir imediatamente sem precisar de reload
           user.workouts = [savedWorkout];
           await AsyncStorage.setItem('user', JSON.stringify(user));
 
