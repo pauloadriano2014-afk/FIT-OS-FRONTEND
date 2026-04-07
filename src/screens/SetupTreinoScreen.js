@@ -13,9 +13,10 @@ export default function SetupTreinoScreen({ navigation }) {
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [userPlan, setUserPlan] = useState('LOW_COST'); // 🔥 GUARDA O PLANO
+  const [userPlan, setUserPlan] = useState('LOW_COST'); 
+  const [userGender, setUserGender] = useState('M'); // Vai ler automático do cadastro
   
-  const [gender, setGender] = useState('');
+  // Respostas (Apenas 3 agora!)
   const [goal, setGoal] = useState('');
   const [focus, setFocus] = useState('');
   const [level, setLevel] = useState('');
@@ -29,11 +30,14 @@ export default function SetupTreinoScreen({ navigation }) {
           if (userJson) {
               const user = JSON.parse(userJson);
               setUserPlan(user.plan || 'LOW_COST');
+              
+              // 🔥 LÊ O GÊNERO DO CADASTRO AUTOMATICAMENTE
+              const isFemale = user.gender === 'Feminino' || user.gender === 'F';
+              setUserGender(isFemale ? 'F' : 'M');
           }
       });
   }, []);
 
-  // 🔥 LÓGICA INTELIGENTE DE LOGOUT (VÁLVULA DE ESCAPE)
   const handleLogout = async () => {
       await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache', '@global_exercises']);
       if (Platform.OS === 'web') {
@@ -51,28 +55,23 @@ export default function SetupTreinoScreen({ navigation }) {
               const confirmLogout = window.confirm("Deseja sair da conta e voltar ao início?");
               if (confirmLogout) handleLogout();
           } else {
-              Alert.alert(
-                  "Sair da Conta",
-                  "Deseja fazer logout e voltar para a tela inicial?",
-                  [
-                      { text: "Cancelar", style: "cancel" },
-                      { text: "Sair", style: "destructive", onPress: handleLogout }
-                  ]
-              );
+              Alert.alert("Sair da Conta", "Deseja fazer logout e voltar para a tela inicial?", [
+                  { text: "Cancelar", style: "cancel" },
+                  { text: "Sair", style: "destructive", onPress: handleLogout }
+              ]);
           }
       }
   };
 
   const handleNext = () => {
-      if (step === 1 && !gender) return showAlert("Selecione seu gênero.");
-      if (step === 2 && !goal) return showAlert("Selecione seu objetivo.");
-      if (step === 3 && !focus) return showAlert("Selecione o foco do treino.");
-      if (step === 4 && !level) return showAlert("Selecione seu nível.");
+      if (step === 1 && !goal) return showAlert("Selecione seu objetivo principal.");
+      if (step === 2 && !focus) return showAlert("Selecione o foco do treino.");
+      if (step === 3 && !level) return showAlert("Selecione seu nível de experiência.");
 
-      if (step < 4) {
+      if (step < 3) {
           setStep(step + 1);
       } else {
-          generateWorkout();
+          finalizeSetup();
       }
   };
 
@@ -81,36 +80,62 @@ export default function SetupTreinoScreen({ navigation }) {
       else Alert.alert("Atenção", msg);
   };
 
-  const generateWorkout = async () => {
+  // 🔥 A MÁGICA ACONTECE AQUI: Cria um treino "fantasma" informativo
+  const finalizeSetup = async () => {
       setLoading(true);
       try {
           const userJson = await AsyncStorage.getItem('user');
           const user = JSON.parse(userJson);
 
-          const res = await fetch('https://fitos-final.onrender.com/api/workout/auto-setup', {
+          const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'PROJETO EM CONSTRUÇÃO 🚧';
+          const descriptionText = `🎯 Objetivo: ${goal}\n🔍 Foco: ${focus}\n📈 Nível: ${level}\n\nO Coach Paulo Adriano já recebeu suas preferências e está montando o seu planejamento exclusivo. Em breve seus treinos aparecerão aqui!`;
+
+          const res = await fetch('https://fitos-final.onrender.com/api/workout', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   userId: user.id,
-                  gender, goal, focus, level
+                  name: placeholderName,
+                  description: descriptionText,
+                  startDate: new Date().toISOString(),
+                  endDate: new Date(Date.now() + 56 * 24 * 60 * 60 * 1000).toISOString(),
+                  routine: []
               })
           });
 
-          if (!res.ok) throw new Error("Falha ao gerar treino");
+          if (!res.ok) throw new Error("Falha ao salvar setup");
 
-          navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+          const savedWorkout = await res.json();
+          
+          // Salva no aparelho para o App.js saber que ele já tem um "treino" e liberar a Home
+          user.workouts = [savedWorkout];
+          await AsyncStorage.setItem('user', JSON.stringify(user));
+
+          setLoading(false);
+
+          const successMsg = "O Coach Paulo Adriano recebeu suas informações e está preparando seu protocolo. Vamos entrar no app!";
+          
+          if (Platform.OS === 'web') {
+              window.alert(`Tudo Certo! 🚀\n\n${successMsg}`);
+              navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+          } else {
+              Alert.alert("Tudo Certo! 🚀", successMsg, [
+                  { text: "Entrar no App", onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Main' }] }) }
+              ]);
+          }
+
       } catch (e) {
           setLoading(false);
-          showAlert("Não conseguimos gerar seu treino agora. Tente novamente.");
+          showAlert("Não conseguimos enviar seus dados agora. Verifique sua conexão e tente novamente.");
       }
   };
 
   const renderProgress = () => (
       <View style={styles.progressContainer}>
           <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-              <View style={[styles.progressFill, { width: `${(step / 4) * 100}%`, backgroundColor: theme.accent }]} />
+              <View style={[styles.progressFill, { width: `${(step / 3) * 100}%`, backgroundColor: theme.accent }]} />
           </View>
-          <Text style={[styles.progressText, { color: theme.textSecondary }]}>PASSO {step} DE 4</Text>
+          <Text style={[styles.progressText, { color: theme.textSecondary }]}>PASSO {step} DE 3</Text>
       </View>
   );
 
@@ -140,13 +165,10 @@ export default function SetupTreinoScreen({ navigation }) {
       </View>
   );
 
-  // 🔥 TEXTOS ADAPTATIVOS
   const isLoadingFicha = userPlan === 'FICHA_8S';
-  const loadingTitle = isLoadingFicha ? "PREPARANDO SUA FICHA..." : "MONTANDO SEU TREINO...";
-  const loadingDesc = isLoadingFicha 
-      ? "Buscando a Ficha de 8 Semanas ideal para o seu perfil e nível na nossa base." 
-      : "Nossa inteligência está buscando o melhor protocolo para o seu perfil na biblioteca do PA Team.";
-  const finalBtnText = isLoadingFicha ? 'LIBERAR MINHA FICHA 🔥' : 'GERAR MEU TREINO 🔥';
+  const loadingTitle = "ENVIANDO DADOS...";
+  const loadingDesc = "Nossa plataforma está repassando o seu perfil diretamente para a prancheta do Coach.";
+  const finalBtnText = 'FINALIZAR CONFIGURAÇÃO 🔥';
 
   return (
     <RootComponent style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
@@ -170,16 +192,6 @@ export default function SetupTreinoScreen({ navigation }) {
 
                   {step === 1 && (
                       <View style={styles.stepContent}>
-                          <Text style={[styles.stepTitle, { color: theme.text }]}>Qual o seu gênero?</Text>
-                          {renderOptions([
-                              { value: 'M', label: 'Masculino', icon: 'gender-male' },
-                              { value: 'F', label: 'Feminino', icon: 'gender-female' }
-                          ], gender, setGender)}
-                      </View>
-                  )}
-
-                  {step === 2 && (
-                      <View style={styles.stepContent}>
                           <Text style={[styles.stepTitle, { color: theme.text }]}>Qual seu objetivo principal?</Text>
                           {renderOptions([
                               { value: 'Emagrecimento', label: 'Emagrecimento', desc: 'Perder gordura e definir', icon: 'fire' },
@@ -189,10 +201,10 @@ export default function SetupTreinoScreen({ navigation }) {
                       </View>
                   )}
 
-                  {step === 3 && (
+                  {step === 2 && (
                       <View style={styles.stepContent}>
                           <Text style={[styles.stepTitle, { color: theme.text }]}>Qual área deseja focar?</Text>
-                          {gender === 'F' ? renderOptions([
+                          {userGender === 'F' ? renderOptions([
                               { value: 'Glúteos e Pernas', label: 'Glúteos e Pernas', icon: 'human-female' },
                               { value: 'Costas e Curvas', label: 'Costas e Curvas (Superiores)', icon: 'hanger' },
                               { value: 'Corpo Todo', label: 'Corpo Todo (Equilibrado)', icon: 'human-handsup' }
@@ -204,7 +216,7 @@ export default function SetupTreinoScreen({ navigation }) {
                       </View>
                   )}
 
-                  {step === 4 && (
+                  {step === 3 && (
                       <View style={styles.stepContent}>
                           <Text style={[styles.stepTitle, { color: theme.text }]}>Qual o seu nível de treino?</Text>
                           {renderOptions([
@@ -217,7 +229,7 @@ export default function SetupTreinoScreen({ navigation }) {
 
                   <TouchableOpacity style={[styles.nextBtn, { backgroundColor: theme.accent }]} onPress={handleNext}>
                       <Text style={[styles.nextBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>
-                          {step === 4 ? finalBtnText : 'PRÓXIMO PASSO'}
+                          {step === 3 ? finalBtnText : 'PRÓXIMO PASSO'}
                       </Text>
                   </TouchableOpacity>
               </>

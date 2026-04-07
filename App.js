@@ -268,7 +268,8 @@ const linking = {
       Install: {
           path: 'registro',
           parse: {
-              coach: (coach) => coach
+              coach: (coach) => coach,
+              plan: (plan) => plan // 🔥 AGORA A URL SABE LER O PLANO MÁGICO!
           },
           initialRouteName: 'Install',
       },
