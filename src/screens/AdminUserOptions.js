@@ -109,20 +109,13 @@ export default function AdminUserOptions({ route, navigation }) {
             setUserPlan(finalPlan);
 
             if (finalPlan === 'FICHA_8S') {
-                const allWorkouts = [...activeWk, ...archivedWk];
                 let startD = new Date(fresh.createdAt || new Date());
                 
-                if (allWorkouts.length > 0) {
-                    const sortedWorkouts = allWorkouts.sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
-                    const recentWorkouts = sortedWorkouts.filter(w => {
-                        const diffDays = (new Date() - new Date(w.startDate)) / (1000 * 3600 * 24);
-                        return diffDays <= 65 && diffDays >= -10; 
-                    });
-
-                    if (recentWorkouts.length > 0) {
-                        startD = new Date(recentWorkouts[0].startDate);
-                    } else {
-                        startD = new Date(sortedWorkouts[sortedWorkouts.length - 1].startDate);
+                // 🔥 MATEMÁTICA CORRIGIDA: Olha apenas para o treino ativo atual!
+                if (activeWk.length > 0) {
+                    const currentWorkout = activeWk[0];
+                    if (currentWorkout.startDate) {
+                        startD = new Date(currentWorkout.startDate);
                     }
                     setHasActiveFicha(true);
                 } else {
@@ -130,8 +123,11 @@ export default function AdminUserOptions({ route, navigation }) {
                 }
                 
                 startD.setHours(0,0,0,0);
-                const todayD = new Date(); todayD.setHours(0,0,0,0);
-                setFichaDaysElapsed(Math.max(0, Math.floor((todayD - startD) / (1000 * 3600 * 24))));
+                const todayD = new Date(); 
+                todayD.setHours(0,0,0,0);
+                
+                const diffD = Math.floor((todayD.getTime() - startD.getTime()) / (1000 * 3600 * 24));
+                setFichaDaysElapsed(Math.max(0, diffD));
             }
         }
 
