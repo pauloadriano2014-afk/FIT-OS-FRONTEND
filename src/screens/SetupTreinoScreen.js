@@ -62,7 +62,6 @@ export default function SetupTreinoScreen({ navigation }) {
       }
   };
 
-  // 🔥 CORREÇÃO CRÍTICA: Validação do Passo 3 (Sem cobrar o Gênero fantasma)
   const handleNext = () => {
       if (step === 1 && !goal) return showAlert("Selecione seu objetivo principal.");
       if (step === 2 && !focus) return showAlert("Selecione o foco do treino.");
@@ -112,10 +111,13 @@ export default function SetupTreinoScreen({ navigation }) {
       setLoading(true);
       try {
           const userJson = await AsyncStorage.getItem('user');
+          if (!userJson) throw new Error("Sessão não encontrada");
           const user = JSON.parse(userJson);
 
           const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'PROJETO EM CONSTRUÇÃO 🚧';
-          const descriptionText = `🎯 Objetivo: ${goal}\n🔍 Foco: ${focus}\n📈 Nível: ${level}\n\nO Coach Paulo Adriano já recebeu suas preferências e está montando o seu planejamento exclusivo. Em breve seus treinos aparecerão aqui!`;
+          
+          // 🔥 AGORA ESTAMOS SALVANDO NAS COLUNAS CORRETAS DO PRISMA (goal e level)
+          const finalGoal = `${goal} (Foco: ${focus})`;
 
           const res = await fetch('https://fitos-final.onrender.com/api/workout', {
               method: 'POST',
@@ -123,20 +125,23 @@ export default function SetupTreinoScreen({ navigation }) {
               body: JSON.stringify({
                   userId: user.id,
                   name: placeholderName,
-                  description: descriptionText,
+                  goal: finalGoal,
+                  level: level,
                   startDate: new Date().toISOString(),
                   endDate: new Date(Date.now() + 56 * 24 * 60 * 60 * 1000).toISOString(),
-                  routine: [{ day: 'A', name: 'Protocolo Base', exercises: [] }] 
+                  routine: [] 
               })
           });
 
           if (!res.ok) {
               const errTxt = await res.text();
               console.error("Falha no servidor:", errTxt);
-              throw new Error("Falha ao salvar setup");
+              throw new Error("O servidor rejeitou a ficha.");
           }
 
           const savedWorkout = await res.json();
+          
+          // Atualiza o cache para a Home abrir imediatamente sem precisar de reload
           user.workouts = [savedWorkout];
           await AsyncStorage.setItem('user', JSON.stringify(user));
 
@@ -154,6 +159,7 @@ export default function SetupTreinoScreen({ navigation }) {
 
       } catch (e) {
           setLoading(false);
+          console.error("Erro ao finalizar setup:", e);
           showAlert("Não conseguimos enviar seus dados agora. Verifique sua conexão e tente novamente.");
       }
   };
