@@ -1,23 +1,9 @@
 // src/screens/HomeScreen.js
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  SafeAreaView, 
-  ScrollView, 
-  TouchableOpacity, 
-  StatusBar, 
-  RefreshControl, 
-  ActivityIndicator, 
-  Alert, 
-  Platform, 
-  Modal,
-  TextInput,
-  KeyboardAvoidingView,
-  FlatList,
-  Dimensions,
-  Animated
+  View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
+  StatusBar, RefreshControl, ActivityIndicator, Alert, Platform, Modal,
+  TextInput, KeyboardAvoidingView, FlatList, Dimensions, Animated, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -44,6 +30,8 @@ export default function HomeScreen({ navigation }) {
 
   const [userName, setUserName] = useState('');
   const [userData, setUserData] = useState(null);
+  const [userPlan, setUserPlan] = useState('PREMIUM'); 
+  
   const [xp, setXp] = useState(0); 
   const [streak, setStreak] = useState(0);
 
@@ -54,12 +42,13 @@ export default function HomeScreen({ navigation }) {
   const [hasAlerted, setHasAlerted] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔥 ESTADOS DO NOVO AVISO GLOBAL 🔥
   const [activeNotice, setActiveNotice] = useState(null);
   const [noticeModalVisible, setNoticeModalVisible] = useState(false);
 
-  // 🔥 ESTADO DO MODAL DE NÍVEL 🔥
   const [levelModalVisible, setLevelModalVisible] = useState(false);
+  
+  const [upsellModalVisible, setUpsellModalVisible] = useState(false);
+  const [upsellFeature, setUpsellFeature] = useState('');
 
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
@@ -87,7 +76,7 @@ export default function HomeScreen({ navigation }) {
   );
 
   useEffect(() => {
-      if (isCheckinPending) {
+      if (isCheckinPending && userPlan === 'PREMIUM') {
           Animated.loop(
               Animated.sequence([
                   Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
@@ -97,10 +86,10 @@ export default function HomeScreen({ navigation }) {
       } else {
           pulseAnim.setValue(1);
       }
-  }, [isCheckinPending]);
+  }, [isCheckinPending, userPlan]);
 
   useEffect(() => {
-      if (isCheckinLate && !hasAlerted && !loading && !noticeModalVisible) {
+      if (isCheckinLate && !hasAlerted && !loading && !noticeModalVisible && userPlan === 'PREMIUM') {
           Alert.alert(
               "⚠️ Check-in Atrasado!",
               "Atleta, seu feedback quinzenal passou do prazo. Precisamos dos seus dados para ajustar o planejamento.\n\nVá na aba Check-in e envie agora!",
@@ -111,7 +100,7 @@ export default function HomeScreen({ navigation }) {
           );
           setHasAlerted(true);
       }
-  }, [isCheckinLate, loading, hasAlerted, noticeModalVisible]);
+  }, [isCheckinLate, loading, hasAlerted, noticeModalVisible, userPlan]);
 
   const loadHomeData = async () => {
     try {
@@ -121,6 +110,11 @@ export default function HomeScreen({ navigation }) {
         const user = JSON.parse(storedUser);
         setUserData(user);
         
+        // 🔥 BLINDAGEM DE LEGADO: Se não for explicitamente os planos baratos, é PREMIUM!
+        const dbPlan = user.plan || 'PREMIUM';
+        const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
+        setUserPlan(resolvedPlan);
+
         const firstName = user.name?.split(' ')[0] || 'Atleta';
         setUserName(firstName);
         
@@ -139,7 +133,7 @@ export default function HomeScreen({ navigation }) {
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
                 fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`),
                 fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}`) // Busca avisos
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}`)
             ]);
 
             let fetchedUser = { ...user };
@@ -150,6 +144,12 @@ export default function HomeScreen({ navigation }) {
                     const serverXP = homeData.user.currentXP || 0;
                     setXp(serverXP);
                     fetchedUser = { ...user, currentXP: serverXP, ...homeData.user };
+                    
+                    // 🔥 Mantém a blindagem após receber dados do servidor
+                    const serverPlan = fetchedUser.plan || 'PREMIUM';
+                    const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(serverPlan) ? serverPlan : 'PREMIUM';
+                    setUserPlan(finalPlan); 
+                    
                     await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
                 }
             }
@@ -193,7 +193,8 @@ export default function HomeScreen({ navigation }) {
             let checkinLate = false;
             let futureDateStr = null;
 
-            if (fetchedUser.disableCheckIn) {
+            // Só cobra checkin se for PREMIUM
+            if (fetchedUser.disableCheckIn || !['PREMIUM'].includes(resolvedPlan)) {
                 checkinPending = false;
                 checkinLate = false;
                 futureDateStr = null;
@@ -267,9 +268,8 @@ export default function HomeScreen({ navigation }) {
 
   const handleReadNotice = async () => {
       if (activeNotice) {
-          try {
-              await AsyncStorage.setItem(`read_notice_${activeNotice.id}`, 'true');
-          } catch(e) { console.log(e) }
+          try { await AsyncStorage.setItem(`read_notice_${activeNotice.id}`, 'true'); } 
+          catch(e) { console.log(e) }
       }
       setNoticeModalVisible(false);
   };
@@ -277,11 +277,8 @@ export default function HomeScreen({ navigation }) {
   const handleDismissBanner = async () => {
       setShowScheduledBanner(false);
       if (userData && scheduledCheckInDate) {
-          try {
-              await AsyncStorage.setItem(`dismissedBannerDate_${userData.id}`, scheduledCheckInDate);
-          } catch (e) {
-              console.log("Erro ao salvar dismiss do banner:", e);
-          }
+          try { await AsyncStorage.setItem(`dismissedBannerDate_${userData.id}`, scheduledCheckInDate); } 
+          catch (e) {}
       }
   };
 
@@ -299,34 +296,17 @@ export default function HomeScreen({ navigation }) {
     try {
         const gender = userData?.anamneses?.[0]?.genero || userData?.gender || 'Não informado';
         const goal = userData?.anamneses?.[0]?.objetivo || userData?.goal || 'Melhorar o shape';
-        const userLevelTitle = levelData.title; 
 
         const res = await fetch('https://fitos-final.onrender.com/api/ai/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message: userMsg.text,
-                userId: userData.id,
-                userName: userName,
-                userGender: gender,
-                userGoal: goal,
-                userLevel: userLevelTitle
-            })
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userMsg.text, userId: userData.id, userName: userName, userGender: gender, userGoal: goal, userLevel: levelData.title })
         });
-
         const data = await res.json();
         
-        if (data.reply) {
-             const aiMsg = { id: Date.now() + 1, text: data.reply, sender: 'ai' };
-             setMessages(prev => [...prev, aiMsg]);
-        } else {
-            throw new Error("Sem resposta da IA");
-        }
-
+        if (data.reply) { setMessages(prev => [...prev, { id: Date.now() + 1, text: data.reply, sender: 'ai' }]); } 
+        else { throw new Error("Sem resposta"); }
     } catch (error) {
-        console.log("Erro Chat:", error);
-        const errorMsg = { id: Date.now() + 1, text: "Falha na comunicação com a base, atleta. Tente novamente.", sender: 'ai' };
-        setMessages(prev => [...prev, errorMsg]);
+        setMessages(prev => [...prev, { id: Date.now() + 1, text: "Falha na comunicação com a base, atleta.", sender: 'ai' }]);
     } finally {
         setIsTyping(false);
         setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
@@ -336,17 +316,16 @@ export default function HomeScreen({ navigation }) {
   const renderChatMessage = ({ item }) => {
     const isAi = item.sender === 'ai';
     return (
-        <View style={[
-            styles.chatBubble, 
-            isAi ? [styles.chatBubbleAi, { backgroundColor: theme.surface, borderColor: theme.border }] 
-                 : [styles.chatBubbleUser, { backgroundColor: theme.accent }]
-        ]}>
+        <View style={[styles.chatBubble, isAi ? [styles.chatBubbleAi, { backgroundColor: theme.surface, borderColor: theme.border }] : [styles.chatBubbleUser, { backgroundColor: theme.accent }]]}>
             {isAi && <Text style={[styles.chatSenderName, { color: theme.accent }]}>PA COACH</Text>}
-            <Text style={[styles.chatText, isAi ? {color: theme.text} : {color: theme.isDark ? '#000' : '#FFF'}]}>
-                {item.text}
-            </Text>
+            <Text style={[styles.chatText, isAi ? {color: theme.text} : {color: theme.isDark ? '#000' : '#FFF'}]}>{item.text}</Text>
         </View>
     );
+  };
+
+  const openUpsell = (featureName) => {
+      setUpsellFeature(featureName);
+      setUpsellModalVisible(true);
   };
 
   const isWeb = Platform.OS === 'web';
@@ -373,43 +352,37 @@ export default function HomeScreen({ navigation }) {
                 <Text style={[styles.name, { color: theme.text }]}>{userName.toUpperCase()} ⚡</Text>
               </View>
               
-              {/* 🔥 ABRINDO O NOVO MODAL DE NÍVEL 🔥 */}
               <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLevelModalVisible(true)}>
                 <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
               </TouchableOpacity>
             </View>
 
-            {isCheckinPending ? (
+            {userPlan === 'PREMIUM' && isCheckinPending && (
                 <TouchableOpacity 
                     style={[styles.pendingBanner, isCheckinLate ? { backgroundColor: '#FF3B30' } : { backgroundColor: '#FF9500' }]}
                     onPress={() => navigation.navigate('CheckIn')}
                 >
                     <MaterialCommunityIcons name="alert-circle-outline" size={28} color="#FFF" />
                     <View style={{flex: 1, marginLeft: 12}}>
-                        <Text style={styles.pendingBannerTitle}>
-                            {isCheckinLate ? "⚠️ CHECK-IN MUITO ATRASADO!" : "⚠️ DIA DE CHECK-IN!"}
-                        </Text>
+                        <Text style={styles.pendingBannerTitle}>{isCheckinLate ? "⚠️ CHECK-IN MUITO ATRASADO!" : "⚠️ DIA DE CHECK-IN!"}</Text>
                         <Text style={styles.pendingBannerText}>
-                            {isCheckinLate 
-                                ? "Você passou do prazo! Envie agora para não comprometer seu planejamento." 
-                                : "Sua atualização quinzenal está pendente. Envie suas fotos e peso."}
+                            {isCheckinLate ? "Você passou do prazo! Envie agora para não comprometer seu planejamento." : "Sua atualização quinzenal está pendente. Envie suas fotos e peso."}
                         </Text>
                     </View>
                     <MaterialCommunityIcons name="chevron-right" size={24} color="#FFF" />
                 </TouchableOpacity>
-            ) : (
-                scheduledCheckInDate && showScheduledBanner && (
-                    <View style={[styles.pendingBanner, { backgroundColor: '#32ADE6' }]}>
-                        <MaterialCommunityIcons name="calendar-clock" size={28} color="#FFF" />
-                        <View style={{flex: 1, marginLeft: 12}}>
-                            <Text style={styles.pendingBannerTitle}>PRÓXIMO CHECK-IN</Text>
-                            <Text style={styles.pendingBannerText}>Agendado para o dia {scheduledCheckInDate}</Text>
-                        </View>
-                        <TouchableOpacity onPress={handleDismissBanner} style={{padding: 8, marginRight: -8}}>
-                            <MaterialCommunityIcons name="close" size={20} color="#FFF" />
-                        </TouchableOpacity>
+            )}
+            {userPlan === 'PREMIUM' && !isCheckinPending && scheduledCheckInDate && showScheduledBanner && (
+                <View style={[styles.pendingBanner, { backgroundColor: '#32ADE6' }]}>
+                    <MaterialCommunityIcons name="calendar-clock" size={28} color="#FFF" />
+                    <View style={{flex: 1, marginLeft: 12}}>
+                        <Text style={styles.pendingBannerTitle}>PRÓXIMO CHECK-IN</Text>
+                        <Text style={styles.pendingBannerText}>Agendado para o dia {scheduledCheckInDate}</Text>
                     </View>
-                )
+                    <TouchableOpacity onPress={handleDismissBanner} style={{padding: 8, marginRight: -8}}>
+                        <MaterialCommunityIcons name="close" size={20} color="#FFF" />
+                    </TouchableOpacity>
+                </View>
             )}
 
             <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -433,14 +406,20 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
 
             <View style={styles.gridContainer}>
-                <Animated.View style={{ transform: [{ scale: isCheckinPending ? pulseAnim : 1 }], width: '48%', marginBottom: 15 }}>
+                
+                <Animated.View style={{ transform: [{ scale: (isCheckinPending && userPlan === 'PREMIUM') ? pulseAnim : 1 }], width: '48%', marginBottom: 15 }}>
                     <TouchableOpacity 
-                        style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: isCheckinPending ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} 
-                        onPress={() => navigation.navigate('CheckIn')}
+                        style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: (isCheckinPending && userPlan === 'PREMIUM') ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} 
+                        onPress={() => userPlan === 'PREMIUM' ? navigation.navigate('CheckIn') : openUpsell('Check-in e Análise Quinzenal')}
                     >
-                        {isCheckinPending && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
-                        <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
-                            <MaterialCommunityIcons name="camera-plus" size={24} color={theme.accent} />
+                        {(isCheckinPending && userPlan === 'PREMIUM') && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
+                        
+                        <View style={[styles.gridIcon, { backgroundColor: userPlan === 'PREMIUM' ? theme.accent + '33' : theme.textSecondary + '22' }]}>
+                            {userPlan === 'PREMIUM' ? (
+                                <MaterialCommunityIcons name="camera-plus" size={24} color={theme.accent} />
+                            ) : (
+                                <MaterialCommunityIcons name="lock" size={22} color={theme.textSecondary} />
+                            )}
                         </View>
                         <Text style={[styles.gridText, { color: theme.text }]}>Check-in</Text>
                     </TouchableOpacity>
@@ -464,7 +443,7 @@ export default function HomeScreen({ navigation }) {
                     <View style={[styles.gridIcon, { backgroundColor: 'rgba(255, 149, 0, 0.2)' }]}>
                         <MaterialCommunityIcons name="play-box-multiple" size={24} color="#FF9500" />
                     </View>
-                    <Text style={[styles.gridText, { color: theme.text }]}>Biblioteca</Text>
+                    <Text style={[styles.gridText, { color: theme.text }]}>PA Flix</Text>
                 </TouchableOpacity>
             </View>
 
@@ -474,31 +453,77 @@ export default function HomeScreen({ navigation }) {
             </View>
           </ScrollView>
 
-          <TouchableOpacity style={[styles.fabChat, { shadowColor: theme.accent }]} onPress={() => setChatVisible(true)}>
-            <LinearGradient colors={[theme.accent, theme.accent]} style={styles.fabGradient}>
-                <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
+          <TouchableOpacity 
+              style={[styles.fabChat, { shadowColor: userPlan === 'PREMIUM' ? theme.accent : '#000' }]} 
+              onPress={() => userPlan === 'PREMIUM' ? setChatVisible(true) : openUpsell('Chat Direto com o Coach')}
+          >
+            <LinearGradient colors={userPlan === 'PREMIUM' ? [theme.accent, theme.accent] : [theme.surface, theme.surface]} style={[styles.fabGradient, userPlan !== 'PREMIUM' && {borderWidth: 1, borderColor: theme.border}]}>
+                {userPlan === 'PREMIUM' ? (
+                    <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
+                ) : (
+                    <MaterialCommunityIcons name="lock" size={28} color={theme.textSecondary} />
+                )}
             </LinearGradient>
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 MODAL DE AVISO GLOBAL COM BOTÃO "TAMAMO JUNTO" 🔥 */}
+      <Modal visible={upsellModalVisible} transparent animationType="fade">
+          <View style={styles.chatModalOverlay}>
+              <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                  <TouchableOpacity style={styles.upsellClose} onPress={() => setUpsellModalVisible(false)}>
+                      <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                  </TouchableOpacity>
+
+                  <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
+                      <MaterialCommunityIcons name="crown" size={36} color={theme.accent} />
+                  </View>
+                  
+                  <Text style={[styles.upsellTitle, { color: theme.text }]}>FUNCIONALIDADE VIP</Text>
+                  
+                  <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>
+                      O recurso de <Text style={{color: theme.accent, fontWeight: 'bold'}}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Premium.
+                  </Text>
+
+                  <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                      <View style={styles.upsellBenefitRow}>
+                          <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
+                          <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text>
+                      </View>
+                      <View style={styles.upsellBenefitRow}>
+                          <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
+                          <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text>
+                      </View>
+                      <View style={styles.upsellBenefitRow}>
+                          <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
+                          <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text>
+                      </View>
+                  </View>
+
+                  <TouchableOpacity 
+                      style={styles.upsellBtn} 
+                      onPress={() => {
+                          setUpsellModalVisible(false);
+                          Linking.openURL("https://wa.me/5541997991346?text=Coach, quero fazer o upgrade para a Consultoria Premium Padrão Elite!");
+                      }}
+                  >
+                      <Text style={styles.upsellBtnText}>FAZER UPGRADE AGORA</Text>
+                      <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
+
       <Modal visible={noticeModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.noticeCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   <View style={[styles.noticeHeader, { backgroundColor: theme.accent }]}>
                       <MaterialCommunityIcons name="bullhorn" size={24} color={theme.isDark ? '#000' : '#FFF'} />
-                      <Text style={[styles.noticeTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>
-                          MENSAGEM DO SEU COACH
-                      </Text>
+                      <Text style={[styles.noticeTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>MENSAGEM DO SEU COACH</Text>
                   </View>
                   <View style={{ padding: 25 }}>
                       <Text style={[styles.noticeSubject, { color: theme.text }]}>{activeNotice?.title}</Text>
                       <Text style={[styles.noticeBody, { color: theme.textSecondary }]}>{activeNotice?.content}</Text>
-                      
-                      <TouchableOpacity 
-                          style={[styles.noticeBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} 
-                          onPress={handleReadNotice}
-                      >
+                      <TouchableOpacity style={[styles.noticeBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={handleReadNotice}>
                           <Text style={[styles.noticeBtnText, { color: theme.text }]}>VALEU, COACH! 👊</Text>
                       </TouchableOpacity>
                   </View>
@@ -506,17 +531,14 @@ export default function HomeScreen({ navigation }) {
           </View>
       </Modal>
 
-      {/* 🔥 NOVO MODAL DE NÍVEL (SHAPE CARREGANDO) 🔥 */}
       <Modal visible={levelModalVisible} transparent animationType="fade">
           <TouchableOpacity style={styles.chatModalOverlay} activeOpacity={1} onPress={() => setLevelModalVisible(false)}>
               <View style={[styles.levelModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22' }]}>
                       <MaterialCommunityIcons name="lightning-bolt" size={32} color={theme.accent} />
                   </View>
-                  
                   <Text style={[styles.levelModalTitle, { color: theme.text }]}>{levelData.title}</Text>
                   <Text style={[styles.levelModalDesc, { color: theme.textSecondary }]}>{levelData.desc}</Text>
-                  
                   <View style={{ width: '100%', marginTop: 25, marginBottom: 15 }}>
                       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
                           <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 12 }}>Nível {currentLevel}</Text>
@@ -526,11 +548,7 @@ export default function HomeScreen({ navigation }) {
                           <View style={[styles.xpBarFill, { width: `${(currentLevelProgress/nextLevelXP)*100}%`, backgroundColor: theme.accent }]} />
                       </View>
                   </View>
-                  
-                  <TouchableOpacity 
-                      style={[styles.levelModalBtn, { backgroundColor: theme.accent }]} 
-                      onPress={() => setLevelModalVisible(false)}
-                  >
+                  <TouchableOpacity style={[styles.levelModalBtn, { backgroundColor: theme.accent }]} onPress={() => setLevelModalVisible(false)}>
                       <Text style={[styles.levelModalBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CONTINUAR EVOLUINDO 🚀</Text>
                   </TouchableOpacity>
               </View>
@@ -539,11 +557,7 @@ export default function HomeScreen({ navigation }) {
 
       <Modal visible={chatVisible} animationType="slide" transparent>
         <View style={styles.chatModalOverlay}>
-            <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-                style={[styles.chatModalContainer, isWeb && { width: '100%', maxWidth: 480, alignSelf: 'center' }]}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-            >
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={[styles.chatModalContainer, isWeb && { width: '100%', maxWidth: 480, alignSelf: 'center' }]} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}>
                 <View style={[styles.chatContent, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                     <View style={[styles.chatHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
                         <View style={{flexDirection:'row', alignItems:'center'}}>
@@ -574,33 +588,18 @@ export default function HomeScreen({ navigation }) {
                     <View style={{ borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.surface, paddingTop: 10 }}>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 15, gap: 10 }} style={{ maxHeight: 50 }}>
                             {QUICK_QUESTIONS.map((question, index) => (
-                                <TouchableOpacity 
-                                    key={index}
-                                    style={[styles.quickActionBtn, { borderColor: theme.accent, backgroundColor: theme.bg }]}
-                                    onPress={() => handleSendChat(question)}
-                                    disabled={isTyping}
-                                >
+                                <TouchableOpacity key={index} style={[styles.quickActionBtn, { borderColor: theme.accent, backgroundColor: theme.bg }]} onPress={() => handleSendChat(question)} disabled={isTyping}>
                                     <Text style={[styles.quickActionText, { color: theme.text }]}>{question}</Text>
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
-
                         <View style={styles.chatInputArea}>
-                            <TextInput 
-                                style={[styles.chatInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
-                                placeholder="Ou digite sua dúvida..."
-                                placeholderTextColor={theme.textSecondary}
-                                value={chatInput}
-                                onChangeText={setChatInput}
-                                onSubmitEditing={() => handleSendChat()}
-                                outlineStyle="none"
-                            />
+                            <TextInput style={[styles.chatInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} placeholder="Ou digite sua dúvida..." placeholderTextColor={theme.textSecondary} value={chatInput} onChangeText={setChatInput} onSubmitEditing={() => handleSendChat()} outlineStyle="none" />
                             <TouchableOpacity style={[styles.chatSendBtn, { backgroundColor: theme.accent }]} onPress={() => handleSendChat()} disabled={isTyping}>
                                 {isTyping ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <MaterialCommunityIcons name="send" size={20} color={theme.isDark ? '#000' : '#FFF'} />}
                             </TouchableOpacity>
                         </View>
                     </View>
-
                 </View>
             </KeyboardAvoidingView>
         </View>
@@ -677,11 +676,21 @@ const styles = StyleSheet.create({
   noticeBtn: { padding: 15, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   noticeBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
-  // 🔥 ESTILOS DO MODAL DE NÍVEL 🔥
   levelModalContent: { width: '85%', maxWidth: 400, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 1, alignItems: 'center' },
   levelIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   levelModalTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, textAlign: 'center' },
   levelModalDesc: { fontSize: 13, textAlign: 'center', lineHeight: 20, fontWeight: '500' },
   levelModalBtn: { width: '100%', padding: 16, borderRadius: 12, alignItems: 'center' },
-  levelModalBtnText: { fontWeight: '900', fontSize: 12, letterSpacing: 1 }
+  levelModalBtnText: { fontWeight: '900', fontSize: 12, letterSpacing: 1 },
+
+  // 🔥 ESTILOS DO MODAL DE UPSELL 🔥
+  upsellCard: { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
+  upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
+  upsellTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
+  upsellDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
+  upsellBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
+  upsellBtn: { width: '100%', backgroundColor: '#25D366', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: '#25D366', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
+  upsellBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });

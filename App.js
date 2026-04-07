@@ -15,11 +15,13 @@ import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
 /* ================= TELAS ================= */
 
-// AUTH
+// AUTH & SETUP
+import InstallScreen from './src/screens/InstallScreen'; // 🔥 NOVA PORTA DE OURO
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
+import SetupTreinoScreen from './src/screens/SetupTreinoScreen'; // 🔥 NOVA MINI-ANAMNESE
 
 // ALUNO
 import HomeScreen from './src/screens/HomeScreen';
@@ -47,7 +49,7 @@ import GerenciarTemplates from './src/screens/GerenciarTemplates';
 import AdminUserOptions from './src/screens/AdminUserOptions';
 import AdminEvolutionScreen from './src/screens/AdminEvolutionScreen';
 import AdminAddContent from './src/screens/AdminAddContent';
-import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen'; // 🔥 NOVA TELA DE CHECK-INS DO ALUNO
+import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen';
 
 // GLOBAL
 import AIScannerModal from './src/components/AIScannerModal';
@@ -85,7 +87,6 @@ async function registerForPushNotificationsAsync() {
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// 🔥 Referência global para navegação forçada (Fuga do Login Web)
 const navigationRef = createNavigationContainerRef();
 
 /* ---------- ALUNO TABS ---------- */
@@ -146,7 +147,7 @@ function StudentTabs({ route }) {
 /* ================= NAVEGAÇÃO PRINCIPAL ================= */
 function RootNavigator() {
   const [loading, setLoading] = useState(true);
-  const [initialRoute, setInitialRoute] = useState('Login');
+  const [initialRoute, setInitialRoute] = useState('Install'); // 🔥 COMEÇA AQUI!
   const [savedUser, setSavedUser] = useState(null);
   const { theme, loadingTheme } = useTheme();
 
@@ -166,14 +167,22 @@ function RootNavigator() {
             const targetRoute = finalRole.toLowerCase() === 'admin' ? 'AdminDashboard' : 'Main';
             setInitialRoute(targetRoute);
             
-            // 🔥 A VOADORA NO LOGIN: Assim que monta, força o usuário logado para a Home
-            // Isso anula a regra do Deep Linking web que quer manter o cara no Login
             setTimeout(() => {
                 if (navigationRef.isReady()) {
                     if (targetRoute === 'AdminDashboard') {
                         navigationRef.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
                     } else {
-                        navigationRef.reset({ index: 0, routes: [{ name: 'Main', params: { userData: user } }] });
+                        // 🔥 A LÓGICA DO PILOTO AUTOMÁTICO:
+                        // Se ele for LowCost/Ficha8S e NÃO TIVER TREINO, joga pro SetupTreino!
+                        const userPlan = user.plan || 'PREMIUM';
+                        const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(userPlan);
+                        const hasWorkouts = user.workouts && user.workouts.length > 0;
+
+                        if (isAutoPlan && !hasWorkouts) {
+                            navigationRef.reset({ index: 0, routes: [{ name: 'SetupTreino' }] });
+                        } else {
+                            navigationRef.reset({ index: 0, routes: [{ name: 'Main', params: { userData: user } }] });
+                        }
                     }
                 }
             }, 100);
@@ -205,8 +214,6 @@ function RootNavigator() {
     }
   }, [loading, savedUser]);
 
-  // 🔥 BARREIRA DE TELA DE CARREGAMENTO:
-  // Enquanto o loading for true, NENHUMA tela é montada, impedindo o app de exibir o Login sem querer.
   if (loading || loadingTheme) {
     return (
       <View style={{ flex: 1, backgroundColor: theme?.bg || '#000', justifyContent: 'center', alignItems: 'center' }}>
@@ -217,11 +224,15 @@ function RootNavigator() {
 
   return (
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
+      {/* 🔥 MÓDULO DE ENTRADA */}
+      <Stack.Screen name="Install" component={InstallScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="Anamnese" component={AnamneseScreen} />
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
+      <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
 
+      {/* MÓDULO ALUNO */}
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
@@ -230,13 +241,12 @@ function RootNavigator() {
       <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
       <Stack.Screen name="ScannerIA" component={AIScannerModal} />
       <Stack.Screen name="Biblioteca" component={BibliotecaScreen} />
-      
       <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
       <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
-
       <Stack.Screen name="PAFlix" component={PAFlixScreen} />
 
+      {/* MÓDULO ADMIN */}
       <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
       <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
       <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
@@ -250,13 +260,18 @@ function RootNavigator() {
 }
 
 /* ================= DEEP LINKING ================= */
-// Removemos a amarração explícita do Login à raiz ('/') 
-// O App decide sozinho baseado na memória.
 const linking = {
   prefixes: ['https://www.pauloadrianoteam.com.br', 'https://pauloadrianoteam.com.br'],
   config: {
     screens: {
-      Register: 'registro', 
+      // Quando acessar /registro, o App abre o InstallScreen e avisa: "Depois vai pro Register!"
+      Install: {
+          path: 'registro',
+          parse: {
+              coach: (coach) => coach
+          },
+          initialRouteName: 'Install',
+      },
     }
   }
 };
@@ -265,7 +280,6 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        {/* 🔥 NAVIGATION REF INJETADA AQUI */}
         <NavigationContainer ref={navigationRef} linking={linking}>
           <RootNavigator />
         </NavigationContainer>

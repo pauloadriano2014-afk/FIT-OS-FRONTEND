@@ -30,6 +30,15 @@ const getExpirationStatus = (workout) => {
     return { text: `VENCE EM ${diffDays}D`, bg: 'rgba(52, 199, 89, 0.15)', color: '#34C759', cat: 'OK' };
 };
 
+const getPlanBadge = (plan) => {
+    switch(plan) {
+        case 'LOW_COST': return { text: 'LOW COST', color: '#32ADE6', icon: 'rocket-launch' };
+        case 'CHALLENGE_21': return { text: 'DESAFIO 21D', color: '#FF9500', icon: 'fire' };
+        case 'FICHA_8S': return { text: 'FICHA 8S', color: '#AF52DE', icon: 'lightning-bolt' };
+        default: return { text: 'PREMIUM', color: '#FFCC00', icon: 'crown' };
+    }
+};
+
 export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
 
@@ -55,17 +64,23 @@ export default function AdminDashboard({ navigation }) {
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState('verde');
 
+  // 🔥 ESTADO DO NOVO MENU DE CONVITE
+  const [inviteModalVisible, setInviteModalVisible] = useState(false);
+
   const filterOptions = [
     { id: 'TODOS', label: 'TODOS OS ALUNOS', icon: 'account-group', color: theme.text },
     { id: 'ATRASADOS', label: 'TREINOS ATRASADOS', icon: 'alert-circle', color: '#FF3B30' },
     { id: 'ALERTA', label: 'ALERTA (VENCE EM 7D)', icon: 'clock-fast', color: '#FFCC00' },
     { id: 'OK', label: 'NO PRAZO', icon: 'check-circle', color: '#34C759' },
-    { id: 'SEM_TREINO', label: 'SEM TREINO', icon: 'calendar-blank', color: theme.textSecondary }
+    { id: 'SEM_TREINO', label: 'SEM TREINO', icon: 'calendar-blank', color: theme.textSecondary },
+    { id: 'PLAN_PREMIUM', label: 'SÓ PREMIUM', icon: 'crown', color: '#FFCC00' },
+    { id: 'PLAN_FICHA_8S', label: 'SÓ FICHA 8 SEMANAS', icon: 'lightning-bolt', color: '#AF52DE' },
+    { id: 'PLAN_LOW_COST', label: 'SÓ LOW COST', icon: 'rocket-launch', color: '#32ADE6' },
+    { id: 'PLAN_CHALLENGE_21', label: 'SÓ DESAFIO 21D', icon: 'fire', color: '#FF9500' }
   ];
 
-  // 🔥 REMOVIDO O USEFOCUSEFFECT. AGORA ELE SÓ CARREGA NO INÍCIO OU QUANDO VOCÊ PUXAR PARA ATUALIZAR.
   useEffect(() => {
-    fetchData(false); // Falso indica que não é um refresh manual
+    fetchData(false);
   }, []);
 
   useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
@@ -75,7 +90,6 @@ export default function AdminDashboard({ navigation }) {
       if (isManualRefresh) {
           setRefreshing(true);
       } else {
-          // Tenta carregar cache primeiro para mostrar os dados instantaneamente
           const cachedData = await AsyncStorage.getItem('@dashboard_cache');
           if (cachedData) {
               const { cacheAtivos, cacheInativos, cacheFeed, cacheCheckins } = JSON.parse(cachedData);
@@ -120,7 +134,6 @@ export default function AdminDashboard({ navigation }) {
             setAlunosInativos(rawInativos);
             if (data.recentLogs) setFeed(data.recentLogs);
 
-            // Grava na memória para ficar rápido da próxima vez
             const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
             await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({
                 ...currentCache,
@@ -129,7 +142,6 @@ export default function AdminDashboard({ navigation }) {
                 cacheFeed: data.recentLogs || []
             }));
             
-            // Salva globalmente os exercícios para as outras telas (Biblioteca, etc) poderem usar rápido
             if (data.exercises) {
                 await AsyncStorage.setItem('@global_exercises', JSON.stringify(data.exercises));
             }
@@ -164,8 +176,15 @@ export default function AdminDashboard({ navigation }) {
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
+      
       if (statusFilter !== 'TODOS') {
           list = list.filter(a => {
+              if (statusFilter.startsWith('PLAN_')) {
+                  const targetPlan = statusFilter.replace('PLAN_', '');
+                  const currentPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(a.plan) ? a.plan : 'PREMIUM';
+                  return currentPlan === targetPlan;
+              }
+
               const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
               if (!activeWorkout) return statusFilter === 'SEM_TREINO';
               const status = getExpirationStatus(activeWorkout);
@@ -188,17 +207,34 @@ export default function AdminDashboard({ navigation }) {
       ]);
   };
 
-  const handleInviteStudent = () => {
-      let code = 'PATEAM'; 
-      if (adminEmail === 'adri.personal@hotmail.com') code = 'CURVAS';
-      const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${code}`; 
-      const message = `Seja bem-vindo(a) à nossa equipe! Para darmos o start no seu projeto, faça o cadastro no app oficial por aqui:\n\n${inviteLink}`;
+  // 🔥 O NOVO GERADOR DE LINKS DE CONVITE
+  const generateInviteLink = (planType) => {
+      // 1. Define o código do treinador (Adriana ou Paulo)
+      let coachCode = 'PATEAM'; 
+      let teamName = "à nossa equipe";
+      
+      // Checa se o e-mail logado é o da Adri
+      if (adminEmail && adminEmail.toLowerCase().includes('adri.personal@hotmail.com')) {
+          coachCode = 'CURVAS';
+          teamName = "ao projeto Costas & Curvas";
+      }
+
+      // 2. Monta a URL mágica que o app vai ler depois que instalar
+      const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${coachCode}&plan=${planType}`; 
+      
+      // 3. Monta a mensagem que vai pro WhatsApp
+      const planNameStr = planType === 'PREMIUM' ? 'Consultoria Premium' : (planType === 'LOW_COST' ? 'Plano de Fichas' : 'Desafio');
+      const message = `Opa! Tudo pronto para começarmos o seu ${planNameStr}.\n\nPara darmos o start, acesse o link abaixo, instale o aplicativo oficial e faça seu cadastro:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
+      
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+      
+      // 4. Executa
+      setInviteModalVisible(false);
       Linking.canOpenURL(whatsappUrl).then(supported => {
           if (supported) Linking.openURL(whatsappUrl);
           else {
               if (Platform.OS === 'web') window.open(whatsappUrl, '_blank');
-              else Alert.alert("Aviso", "Não foi possível abrir o WhatsApp neste dispositivo.");
+              else Alert.alert("Aviso", "Não foi possível abrir o WhatsApp.");
           }
       }).catch(err => console.error('An error occurred', err));
   };
@@ -282,6 +318,9 @@ export default function AdminDashboard({ navigation }) {
       const activeWorkout = (item.workouts && item.workouts.length > 0) ? item.workouts[0] : null;
       const farol = getExpirationStatus(activeWorkout);
       const primeiraLetra = item.name ? item.name.charAt(0).toUpperCase() : 'A';
+      
+      const dbPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(item.plan) ? item.plan : 'PREMIUM';
+      const badge = getPlanBadge(dbPlan);
 
       return (
         <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 16, alignItems: 'center' }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
@@ -294,16 +333,19 @@ export default function AdminDashboard({ navigation }) {
           )}
           
           <View style={{ flex: 1, marginLeft: 15, justifyContent: 'center' }}>
-            <Text style={[styles.alunoName, { color: theme.text, fontSize: 16, marginBottom: 2 }]} numberOfLines={1}>{item.name || 'Aluno Sem Nome'}</Text>
-            <Text style={[styles.alunoEmail, { color: theme.textSecondary, fontSize: 12 }]} numberOfLines={1}>{item.email || 'Sem E-mail'}</Text>
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2}}>
+                <Text style={[styles.alunoName, { color: theme.text, fontSize: 16 }]} numberOfLines={1}>{item.name || 'Aluno Sem Nome'}</Text>
+            </View>
+            
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2}}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: badge.color + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                    <MaterialCommunityIcons name={badge.icon} size={10} color={badge.color} />
+                    <Text style={{ fontSize: 9, fontWeight: '900', color: badge.color }}>{badge.text}</Text>
+                </View>
+            </View>
           </View>
 
           <View style={{ alignItems: 'flex-end', justifyContent: 'center', marginLeft: 10 }}>
-              {item.plan === 'ELITE' && (
-                  <View style={[styles.tagElite, { backgroundColor: theme.accent, marginBottom: farol ? 6 : 0, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }]}>
-                      <Text style={[styles.tagText, { color: theme.isDark ? '#000' : '#FFF', fontSize: 8 }]}>ELITE</Text>
-                  </View>
-              )}
               {farol && (
                   <View style={{ backgroundColor: farol.bg === 'rgba(52, 199, 89, 0.15)' ? '#34C759' : farol.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}>
                       <Text style={{ fontSize: 9, fontWeight: '900', color: farol.bg === 'rgba(52, 199, 89, 0.15)' ? '#FFF' : farol.color, letterSpacing: 0.5 }}>{farol.text}</Text>
@@ -348,9 +390,10 @@ export default function AdminDashboard({ navigation }) {
           <View style={{ flex: 1 }}>
             {activeTab === 'ALUNOS' && (
                 <>
-                    <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: '#FFCC00' }]} onPress={handleInviteStudent}>
-                        <MaterialCommunityIcons name="whatsapp" size={22} color="#000" />
-                        <Text style={styles.inviteBtnText}>CONVIDAR ALUNO</Text>
+                    {/* 🔥 BOTÃO DE CONVIDAR ATUALIZADO */}
+                    <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: '#FFCC00' }]} onPress={() => setInviteModalVisible(true)}>
+                        <MaterialCommunityIcons name="link-variant" size={22} color="#000" />
+                        <Text style={styles.inviteBtnText}>GERAR LINK DE CADASTRO</Text>
                     </TouchableOpacity>
 
                     <TextInput 
@@ -512,6 +555,56 @@ export default function AdminDashboard({ navigation }) {
           </TouchableOpacity>
       </Modal>
 
+      {/* 🔥 MODAL DE CONVITE (ESTEIRA DE PRODUTOS) 🔥 */}
+      <Modal visible={inviteModalVisible} transparent animationType="slide" onRequestClose={() => setInviteModalVisible(false)}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setInviteModalVisible(false)}>
+              <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}>
+                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
+                      <Text style={[styles.modalTitle, { color: theme.text }]}>GERAR LINK PARA:</Text>
+                      <TouchableOpacity onPress={() => setInviteModalVisible(false)}>
+                          <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                  </View>
+                  
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                      
+                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#FFCC00', backgroundColor: '#FFCC0011'}]} onPress={() => generateInviteLink('PREMIUM')}>
+                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                              <MaterialCommunityIcons name="crown" size={24} color="#FFCC00" />
+                              <Text style={[styles.catOptionText, { color: '#FFCC00', fontWeight: '900' }]}>CONSULTORIA PREMIUM</Text>
+                          </View>
+                          <MaterialCommunityIcons name="whatsapp" size={20} color="#FFCC00" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#32ADE6', backgroundColor: '#32ADE611'}]} onPress={() => generateInviteLink('LOW_COST')}>
+                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                              <MaterialCommunityIcons name="rocket-launch" size={24} color="#32ADE6" />
+                              <Text style={[styles.catOptionText, { color: '#32ADE6', fontWeight: '900' }]}>PLANO LOW COST</Text>
+                          </View>
+                          <MaterialCommunityIcons name="whatsapp" size={20} color="#32ADE6" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#AF52DE', backgroundColor: '#AF52DE11'}]} onPress={() => generateInviteLink('FICHA_8S')}>
+                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                              <MaterialCommunityIcons name="lightning-bolt" size={24} color="#AF52DE" />
+                              <Text style={[styles.catOptionText, { color: '#AF52DE', fontWeight: '900' }]}>FICHA 8 SEMANAS</Text>
+                          </View>
+                          <MaterialCommunityIcons name="whatsapp" size={20} color="#AF52DE" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#FF9500', backgroundColor: '#FF950011'}]} onPress={() => generateInviteLink('CHALLENGE_21')}>
+                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                              <MaterialCommunityIcons name="fire" size={24} color="#FF9500" />
+                              <Text style={[styles.catOptionText, { color: '#FF9500', fontWeight: '900' }]}>DESAFIO 21 DIAS</Text>
+                          </View>
+                          <MaterialCommunityIcons name="whatsapp" size={20} color="#FF9500" />
+                      </TouchableOpacity>
+
+                  </ScrollView>
+              </View>
+          </TouchableOpacity>
+      </Modal>
+
       <Modal visible={checkinModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -597,7 +690,7 @@ const styles = StyleSheet.create({
   filterSelectorVal: { fontSize: 13, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
-  catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12 },
+  catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 10 },
   catOptionText: { fontSize: 14, fontWeight: '600' },
 
   subTabsContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, gap: 10 },
@@ -618,8 +711,6 @@ const styles = StyleSheet.create({
   avatarText: { fontWeight: 'bold', fontSize: 18 },
   alunoName: { fontWeight: 'bold', fontSize: 16 },
   alunoEmail: { color: '#888', fontSize: 12 },
-  tagElite: { paddingHorizontal: 5, borderRadius: 4 },
-  tagText: { fontSize: 8, fontWeight: '900' },
   empty: { color: '#888', textAlign: 'center', marginTop: 50 },
   
   gridGestao: { gap: 15 },

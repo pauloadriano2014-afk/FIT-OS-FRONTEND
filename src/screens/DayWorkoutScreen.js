@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, SafeAreaView, ScrollView, TouchableOpacity, 
   ActivityIndicator, Alert, Modal, StatusBar, TextInput, 
-  KeyboardAvoidingView, Platform, AppState, StyleSheet, Dimensions
+  KeyboardAvoidingView, Platform, AppState, StyleSheet, Dimensions, Linking
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,7 +29,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [exercisesToShow, setExercisesToShow] = useState([]);
   const [userData, setUserData] = useState(null);
   
-  // 🔥 COFRE OFFLINE: Agora as cargas e as marcações (checks) ficam no topo!
+  const [userPlan, setUserPlan] = useState('PREMIUM');
+
   const [lastWeights, setLastWeights] = useState({});
   const [checkedSets, setCheckedSets] = useState({}); 
   const [historyWeights, setHistoryWeights] = useState({});
@@ -38,8 +39,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const appState = useRef(AppState.currentState);
-  
-  // 🔥 PASSE LIVRE: Avisa o Cão de Guarda que o treino acabou oficialmente
   const isFinishingRef = useRef(false);
 
   const [techModalVisible, setTechModalVisible] = useState(false);
@@ -61,6 +60,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [finishModalVisible, setFinishModalVisible] = useState(false);
   const [rpe, setRpe] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
+
+  // 🔥 ESTADOS DO NOVO UPSELL DINÂMICO 🔥
+  const [upsellModalVisible, setUpsellModalVisible] = useState(false);
+  const [upsellType, setUpsellType] = useState('ia'); // 'ia' ou 'calc'
 
   const isIOSWeb = Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
@@ -106,7 +109,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
       } catch (e) {}
   };
 
-  // 🔥 O CÃO DE GUARDA AGORA RESPEITA O PASSE LIVRE (isFinishingRef)
   useEffect(() => {
       const unsubscribe = navigation.addListener('beforeRemove', (e) => {
           if (!isTimerRunning || isFinishingRef.current) {
@@ -172,7 +174,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
     return () => clearInterval(interval);
   }, [isTimerRunning]);
 
-  // 🔥 SALVAMENTO NO COFRE OFFLINE (Agora salva as cargas e os Checks juntos!)
   useEffect(() => {
     const saveProgress = async () => {
         if (Object.keys(lastWeights).length > 0 || Object.keys(checkedSets).length > 0) {
@@ -229,12 +230,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
       const user = JSON.parse(stored);
       setUserData(user);
 
-      // 🔥 TENTA PUXAR DO CACHE OFFLINE PRIMEIRO (Garante que a tela abra sem internet)
+      // 🔥 LÊ A CATRACA E BLINDA SE FOR ANTIGO
+      const dbPlan = user.plan || 'PREMIUM';
+      const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
+      setUserPlan(resolvedPlan);
+
       const cacheKey = `@cached_workout_${workoutId}_${day}`;
       const cachedData = await AsyncStorage.getItem(cacheKey);
       if (cachedData) setExercisesToShow(JSON.parse(cachedData));
 
-      // 🔥 PUXA AS CARGAS E CHECKS DO RASCUNHO
       const draftKey = `draft_workout_${workoutId}_${day}`;
       const draft = await AsyncStorage.getItem(draftKey);
       if (draft) { 
@@ -249,7 +253,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
           } catch(e) {}
       }
 
-      // TENTA BUSCAR DADOS NOVOS DO SERVIDOR
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`);
       const data = await response.json();
       
@@ -286,11 +289,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
             await AsyncStorage.setItem(`@cached_history_${workoutId}_${day}`, JSON.stringify(data.lastWeights));
         }
 
-        // SALVA O TREINO NO CACHE PARA A PRÓXIMA VEZ QUE ABRIR OFFLINE
         await AsyncStorage.setItem(cacheKey, JSON.stringify(filteredExercises));
       }
     } catch (error) { 
-        // SE CAIR AQUI É PORQUE ESTÁ SEM INTERNET. PUXA O HISTÓRICO DO CACHE!
         const histCache = await AsyncStorage.getItem(`@cached_history_${workoutId}_${day}`);
         if (histCache) setHistoryWeights(JSON.parse(histCache));
     } finally { setLoading(false); }
@@ -309,7 +310,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
     setLastWeights(newWeights);
   };
 
-  // 🔥 FUNÇÃO PARA MARCAR O CHECK VERDE
   const handleCheckSet = (itemId, setIndex) => {
     setCheckedSets(prev => ({
         ...prev,
@@ -389,7 +389,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
         const json = await res.json();
 
         if (res.ok) {
-            // 🔥 ATIVA O PASSE LIVRE ANTES DE FINALIZAR! O Cão de Guarda vai ignorar.
             isFinishingRef.current = true;
 
             setIsTimerRunning(false); 
@@ -437,6 +436,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
     const startTime = Date.now().toString();
     await AsyncStorage.setItem(`@workout_start_${workoutId}_${day}`, startTime);
     setIsTimerRunning(true);
+  };
+
+  // 🔥 FUNÇÃO DE UPSELL INTELIGENTE (Detecta se é IA ou Calc) 🔥
+  const openDynamicUpsell = (type) => {
+      setUpsellType(type);
+      setUpsellModalVisible(true);
   };
 
   const isWeb = Platform.OS === 'web';
@@ -567,8 +572,25 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                     lastWeights={lastWeights} historyWeights={historyWeights} handleSaveWeight={handleSaveWeight}
                                     checkedSets={checkedSets} handleCheckSet={handleCheckSet} 
                                     handleOpenVideo={() => handleOpenVideo(item.exercise?.videoUrl)} 
-                                    setModalVisible={() => { try { navigation.navigate('ScannerIA', { exName: item.exercise?.name }); } catch (e) {} }} 
-                                    onOpenCalc={() => setCalcModalVisible(true)}
+                                    
+                                    setModalVisible={() => { 
+                                        if (userPlan === 'PREMIUM') {
+                                            try { navigation.navigate('ScannerIA', { exName: item.exercise?.name }); } catch (e) {} 
+                                        } else {
+                                            openDynamicUpsell('ia'); // 🔥 MANDA 'ia' PRO MODAL
+                                        }
+                                    }} 
+                                    
+                                    onOpenCalc={() => {
+                                        if (userPlan === 'PREMIUM') {
+                                            setCalcModalVisible(true);
+                                        } else {
+                                            openDynamicUpsell('calc'); // 🔥 MANDA 'calc' PRO MODAL
+                                        }
+                                    }}
+                                    
+                                    hasPremiumFeatures={userPlan === 'PREMIUM'} 
+
                                     TECH_GUIDE={TECH_GUIDE} setTechModalVisible={setTechModalVisible} setSelectedTech={setSelectedTech}
                                     biSetType={biSetType} isLastExercise={index === exercisesToShow.length - 1} 
                                     onSwap={item.substitute ? () => handleSwap(index) : null}
@@ -597,6 +619,63 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 </View>
             </ScrollView>
         </View>
+
+        {/* 🔥 MODAL DE UPSELL INTELIGENTE (IA vs CALCULADORA) 🔥 */}
+        <Modal visible={upsellModalVisible} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+                <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: upsellType === 'ia' ? '#CCFF00' : '#32ADE6' }]}>
+                    <TouchableOpacity style={styles.upsellClose} onPress={() => setUpsellModalVisible(false)}>
+                        <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                    </TouchableOpacity>
+
+                    <View style={[styles.upsellIconBox, { backgroundColor: upsellType === 'ia' ? '#CCFF0022' : '#32ADE622', marginBottom: 20 }]}>
+                        <MaterialCommunityIcons 
+                            name={upsellType === 'ia' ? "camera-metering-spot" : "calculator"} 
+                            size={36} 
+                            color={upsellType === 'ia' ? '#CCFF00' : '#32ADE6'} 
+                        />
+                    </View>
+                    
+                    <Text style={[styles.upsellTitle, { color: theme.text }]}>FERRAMENTA DE ELITE</Text>
+                    
+                    <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>
+                        {upsellType === 'ia' 
+                            ? "A Inteligência Artificial que corrige sua postura e previne lesões em tempo real"
+                            : "O algoritmo exato que calcula a carga que você precisa colocar na máquina para gerar resultado"
+                        } é uma ferramenta restrita para atletas da Consultoria Premium.
+                    </Text>
+
+                    <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                        <View style={styles.upsellBenefitRow}>
+                            <MaterialCommunityIcons name="check-circle" size={18} color={upsellType === 'ia' ? '#CCFF00' : '#32ADE6'} />
+                            <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Inteligência Artificial Nativa</Text>
+                        </View>
+                        <View style={styles.upsellBenefitRow}>
+                            <MaterialCommunityIcons name="check-circle" size={18} color={upsellType === 'ia' ? '#CCFF00' : '#32ADE6'} />
+                            <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Cálculo Exato de Cargas</Text>
+                        </View>
+                        <View style={styles.upsellBenefitRow}>
+                            <MaterialCommunityIcons name="check-circle" size={18} color={upsellType === 'ia' ? '#CCFF00' : '#32ADE6'} />
+                            <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Análise Quinzenal de Fotos</Text>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity 
+                        style={[styles.upsellBtn, { backgroundColor: upsellType === 'ia' ? '#CCFF00' : '#32ADE6', shadowColor: upsellType === 'ia' ? '#CCFF00' : '#32ADE6' }]} 
+                        onPress={() => {
+                            setUpsellModalVisible(false);
+                            const msg = upsellType === 'ia' 
+                                ? "Coach, quero desbloquear a Inteligência Artificial e a Consultoria Premium!"
+                                : "Coach, quero desbloquear a Calculadora Exata de Cargas e a Consultoria Premium!";
+                            Linking.openURL(`https://wa.me/5597991346?text=${encodeURIComponent(msg)}`);
+                        }}
+                    >
+                        <Text style={[styles.upsellBtnText, { color: upsellType === 'ia' ? '#000' : '#FFF' }]}>DESBLOQUEAR TUDO AGORA</Text>
+                        <MaterialCommunityIcons name="whatsapp" size={20} color={upsellType === 'ia' ? '#000' : '#FFF'} style={{marginLeft: 8}}/>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
 
         {/* MODAL DE TÉCNICA */}
         <Modal visible={techModalVisible} transparent animationType="fade" onRequestClose={closeTechModal}>
@@ -798,3 +877,17 @@ export default function DayWorkoutScreen({ route, navigation }) {
     </RootComponent>
   );
 }
+
+const styles = StyleSheet.create({
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
+  upsellCard: { width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
+  upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
+  upsellIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+  upsellTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
+  upsellDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
+  upsellBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
+  upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
+  upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
+});

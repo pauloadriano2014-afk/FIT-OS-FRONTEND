@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  StatusBar, Platform, Alert, ActivityIndicator, Linking
+  StatusBar, Platform, Alert, ActivityIndicator, Linking, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,6 +29,13 @@ export default function BibliotecaScreen({ navigation, route }) {
   const [accessIds, setAccessIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 ESTADO DA PORTARIA
+  const [userPlan, setUserPlan] = useState('PREMIUM');
+
+  // 🔥 MODAL DE UPSELL DO PA FLIX 🔥
+  const [upsellModalVisible, setUpsellModalVisible] = useState(false);
+  const [upsellContent, setUpsellContent] = useState(null);
+
   const isWeb = Platform.OS === 'web';
   const RootComponent = isWeb ? View : SafeAreaView;
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
@@ -47,7 +54,11 @@ export default function BibliotecaScreen({ navigation, route }) {
 
           if (!user) return;
 
-          // 🔥 A MÁGICA FINAL: O Aluno pede os conteúdos enviando o próprio ID
+          // Lê o plano e aplica a Blindagem de Legado
+          const dbPlan = user.plan || 'PREMIUM';
+          const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
+          setUserPlan(resolvedPlan);
+
           const [resContents, resAccess] = await Promise.all([
               fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&t=${Date.now()}`),
               fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}&t=${Date.now()}`)
@@ -73,7 +84,18 @@ export default function BibliotecaScreen({ navigation, route }) {
       const bloqueados = [];
 
       contents.forEach(c => {
-          const isLocked = c.isVIP && !accessIds.includes(c.id);
+          // 🔥 A LÓGICA DA VITRINE: Se for Premium, destranca tudo VIP. Se não for, verifica se o Coach liberou a exceção.
+          let isLocked = false;
+          
+          if (c.isVIP) {
+              if (userPlan === 'PREMIUM') {
+                  isLocked = false; // Premium passa reto
+              } else if (accessIds.includes(c.id)) {
+                  isLocked = false; // O Coach liberou só esse material na mão para ele
+              } else {
+                  isLocked = true; // Tranca na vitrine
+              }
+          }
           
           const mappedItem = {
               id: c.id,
@@ -104,8 +126,8 @@ export default function BibliotecaScreen({ navigation, route }) {
 
   const handlePressItem = (item) => {
       if (item.locked) {
-          if (isWeb) window.alert("CONTEÚDO VIP\nFaça o upgrade do seu plano com o Coach para acessar este material exclusivo.");
-          else Alert.alert("CONTEÚDO VIP 🔒", "Faça o upgrade do seu plano com o Coach para acessar este material exclusivo.");
+          setUpsellContent(item);
+          setUpsellModalVisible(true);
           return;
       }
       
@@ -250,15 +272,15 @@ export default function BibliotecaScreen({ navigation, route }) {
         {loading ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" color={theme.accent} />
-                <Text style={{ color: theme.textSecondary, marginTop: 10, fontWeight: 'bold' }}>Carregando Biblioteca...</Text>
+                <Text style={{ color: theme.textSecondary, marginTop: 10, fontWeight: 'bold' }}>Carregando PA FLIX...</Text>
             </View>
         ) : (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
                 
                 {ebooks.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionMainTitle, { color: theme.text }]}>MEU CONTEÚDO LIBERADO</Text>
-                        <Text style={[styles.sectionSubTitle, { color: theme.textSecondary }]}>E-BOOKS DE TREINO E DIETA</Text>
+                        <Text style={[styles.sectionMainTitle, { color: theme.text }]}>MEUS E-BOOKS</Text>
+                        <Text style={[styles.sectionSubTitle, { color: theme.textSecondary }]}>MATERIAIS DE APOIO LIBERADOS</Text>
                         
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                             {ebooks.map(item => renderCard(item, true))}
@@ -268,7 +290,7 @@ export default function BibliotecaScreen({ navigation, route }) {
 
                 {videos.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.text }]}>MASTERCLASSES PA FLIX</Text>
+                        <Text style={[styles.sectionTitle, { color: theme.text }]}>AULAS E MASTERCLASSES</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                             {videos.map(item => renderCard(item, false))}
                         </ScrollView>
@@ -277,17 +299,18 @@ export default function BibliotecaScreen({ navigation, route }) {
 
                 {audios.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.text }]}>AUDIOBOOKS EXCLUSIVOS</Text>
+                        <Text style={[styles.sectionTitle, { color: theme.text }]}>AUDIOBOOKS</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                             {audios.map(item => renderCard(item, false))}
                         </ScrollView>
                     </View>
                 )}
 
+                {/* 🔥 A VITRINE DE VIDRO (OS MATERIAIS TRANCADOS) */}
                 {bloqueados.length > 0 && (
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: theme.text }]}>CONTEÚDO VIP (BLOQUEADO)</Text>
-                        <Text style={[styles.sectionSubTitle, { color: theme.textSecondary, marginBottom: 15, marginTop: -5 }]}>Disponível apenas no Plano VIP</Text>
+                        <Text style={[styles.sectionSubTitle, { color: theme.textSecondary, marginBottom: 15, marginTop: -5 }]}>Apenas Consultoria Premium ou Venda Avulsa</Text>
                         
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                             {bloqueados.map(item => renderCard(item, false))}
@@ -298,12 +321,57 @@ export default function BibliotecaScreen({ navigation, route }) {
                 {contents.length === 0 && (
                     <View style={styles.emptyContainer}>
                         <MaterialCommunityIcons name="bookshelf" size={48} color={theme.textSecondary} />
-                        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Sua biblioteca ainda está vazia.</Text>
+                        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhum conteúdo na biblioteca ainda.</Text>
                     </View>
                 )}
 
             </ScrollView>
         )}
+
+        {/* 🔥 MODAL DE UPSELL DO PA FLIX 🔥 */}
+        <Modal visible={upsellModalVisible} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+                <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FFCC00' }]}>
+                    <TouchableOpacity style={styles.upsellClose} onPress={() => setUpsellModalVisible(false)}>
+                        <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                    </TouchableOpacity>
+
+                    <View style={[styles.upsellIconBox, { backgroundColor: '#FFCC0022', marginBottom: 20 }]}>
+                        <MaterialCommunityIcons name="lock" size={36} color="#FFCC00" />
+                    </View>
+                    
+                    <Text style={[styles.upsellTitle, { color: theme.text }]}>MATERIAL VIP</Text>
+                    
+                    <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>
+                        O material <Text style={{color: '#FFCC00', fontWeight: 'bold'}}>{upsellContent?.title}</Text> faz parte do cofre exclusivo do <Text style={{fontWeight:'bold'}}>PA FLIX</Text>.
+                    </Text>
+
+                    <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                        <View style={styles.upsellBenefitRow}>
+                            <MaterialCommunityIcons name="check-circle" size={18} color="#FFCC00" />
+                            <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso Imediato via PIX (Avulso)</Text>
+                        </View>
+                        <View style={styles.upsellBenefitRow}>
+                            <MaterialCommunityIcons name="check-circle" size={18} color="#FFCC00" />
+                            <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ou Liberado no Plano Premium</Text>
+                        </View>
+                    </View>
+
+                    <TouchableOpacity 
+                        style={[styles.upsellBtn, { backgroundColor: '#25D366', shadowColor: '#25D366' }]} 
+                        onPress={() => {
+                            setUpsellModalVisible(false);
+                            const msg = `Coach, tenho interesse em acessar o material VIP "${upsellContent?.title}" lá no PA FLIX. Como faço?`;
+                            Linking.openURL(`https://wa.me/5541997991346?text=${encodeURIComponent(msg)}`);
+                        }}
+                    >
+                        <Text style={[styles.upsellBtnText, { color: '#FFF' }]}>CHAMAR NO WHATSAPP</Text>
+                        <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
+
       </View>
     </RootComponent>
   );
@@ -334,5 +402,18 @@ const styles = StyleSheet.create({
   progressBarFill: { height: '100%', borderRadius: 2 },
   progressText: { fontSize: 10, fontWeight: 'bold', marginLeft: 8 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100, paddingHorizontal: 20 },
-  emptyText: { textAlign: 'center', marginTop: 15, fontWeight: 'bold' }
+  emptyText: { textAlign: 'center', marginTop: 15, fontWeight: 'bold' },
+
+  // 🔥 ESTILOS DO MODAL DE UPSELL 🔥
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
+  upsellCard: { width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
+  upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
+  upsellIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+  upsellTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
+  upsellDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+  upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
+  upsellBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
+  upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
+  upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });

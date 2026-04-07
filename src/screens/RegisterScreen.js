@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView
+  ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons'; 
 import { useTheme } from '../contexts/ThemeContext';
@@ -13,6 +13,7 @@ export default function RegisterScreen({ navigation, route }) {
   const [loading, setLoading] = useState(false);
   
   const initialCode = route.params?.coach || '';
+  const incomingPlan = route.params?.plan || 'PREMIUM'; // 🔥 LÊ O PLANO DO LINK MÁGICO
 
   const [form, setForm] = useState({
     accessCode: initialCode, 
@@ -23,6 +24,10 @@ export default function RegisterScreen({ navigation, route }) {
     email: '',
     password: ''
   });
+
+  // 🔥 ESTADOS DOS TERMOS JURÍDICOS
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [termsModalVisible, setTermsModalVisible] = useState(false);
 
   const handleDateChange = (val) => {
     let formatted = val.replace(/\D/g, ''); 
@@ -48,6 +53,13 @@ export default function RegisterScreen({ navigation, route }) {
       return;
     }
 
+    // 🔥 TRAVA DE SEGURANÇA
+    if (!acceptedTerms) {
+        const msg = "Você precisa ler e aceitar os Termos de Uso e Responsabilidade Técnica para criar sua conta.";
+        if (Platform.OS === 'web') return window.alert(msg);
+        return Alert.alert("Aceite Obrigatório", msg);
+    }
+
     setLoading(true);
     try {
       const response = await fetch('https://fitos-final.onrender.com/api/auth/register', {
@@ -60,7 +72,8 @@ export default function RegisterScreen({ navigation, route }) {
           birthDate: form.birthDate || "",
           phone: form.phone || "",
           gender: form.gender || "Não informado",
-          inviteCode: form.accessCode.trim() 
+          inviteCode: form.accessCode.trim(),
+          plan: incomingPlan // 🔥 ENVIA A CATRACA PRO BACKEND
         })
       });
 
@@ -70,7 +83,9 @@ export default function RegisterScreen({ navigation, route }) {
         if(Platform.OS === 'web') window.alert("Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         else Alert.alert("Sucesso! 🦁", "Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         
-        navigation.replace('Anamnese', { userData: data.user }); 
+        // Pós-Registro: Joga para a Home, e a Home (que tem a portaria inteligente)
+        // vai decidir se ele vai pra Anamnese do Premium ou pra Mini-Anamnese (SetupTreino)
+        navigation.replace('Main', { userData: data.user }); 
       } else {
         if(Platform.OS === 'web') window.alert(data.error || "Não foi possível realizar o cadastro.");
         else Alert.alert("Atenção", data.error || "Não foi possível realizar o cadastro.");
@@ -87,7 +102,6 @@ export default function RegisterScreen({ navigation, route }) {
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
   
-  // 🔥 CIRURGIA DE FRONT-END: Forçando 100vh para PWA isolado
   const rootStyle = isWeb
     ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
     : { flex: 1, backgroundColor: theme.bg };
@@ -206,10 +220,28 @@ export default function RegisterScreen({ navigation, route }) {
               />
             </View>
 
+            {/* 🔥 CAIXA OBRIGATÓRIA DE TERMOS E RESPONSABILIDADE */}
             <TouchableOpacity 
-              style={[styles.button, { backgroundColor: theme.accent }, loading && {opacity: 0.7}]} 
+                style={styles.termsContainer} 
+                activeOpacity={0.8} 
+                onPress={() => setAcceptedTerms(!acceptedTerms)}
+            >
+                <View style={[styles.checkbox, { borderColor: acceptedTerms ? theme.accent : theme.border, backgroundColor: acceptedTerms ? theme.accent : theme.surface }]}>
+                    {acceptedTerms && <MaterialCommunityIcons name="check" size={14} color={theme.isDark ? '#000' : '#FFF'} />}
+                </View>
+                <View style={{flex: 1, flexDirection: 'row', flexWrap: 'wrap'}}>
+                    <Text style={{color: theme.textSecondary, fontSize: 12, lineHeight: 18}}>Li e concordo com a </Text>
+                    <TouchableOpacity onPress={() => setTermsModalVisible(true)}>
+                        <Text style={{color: theme.accent, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline', lineHeight: 18}}>Responsabilidade Técnica e Termos de Uso</Text>
+                    </TouchableOpacity>
+                    <Text style={{color: theme.textSecondary, fontSize: 12, lineHeight: 18}}>.</Text>
+                </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.button, { backgroundColor: theme.accent }, (loading || !acceptedTerms) && {opacity: 0.7}]} 
               onPress={handleRegister}
-              disabled={loading}
+              disabled={loading || !acceptedTerms}
             >
               {loading ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> : <Text style={[styles.buttonText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR CONTA</Text>}
             </TouchableOpacity>
@@ -220,6 +252,50 @@ export default function RegisterScreen({ navigation, route }) {
               </Text>
             </TouchableOpacity>
           </ScrollView>
+
+          {/* 🔥 MODAL DE CONTRATO JURÍDICO 🔥 */}
+          <Modal visible={termsModalVisible} animationType="slide" transparent onRequestClose={() => setTermsModalVisible(false)}>
+              <View style={styles.modalOverlay}>
+                  <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      
+                      <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                          <Text style={[styles.modalTitle, { color: theme.text }]}>TERMOS E CONDIÇÕES</Text>
+                          <TouchableOpacity onPress={() => setTermsModalVisible(false)} style={{padding: 5}}>
+                              <MaterialCommunityIcons name="close" size={24} color={theme.text} />
+                          </TouchableOpacity>
+                      </View>
+
+                      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 25 }}>
+                          <Text style={[styles.legalText, { color: theme.text, marginBottom: 20 }]}>
+                              O aplicativo PAULO ADRIANO TEAM é uma plataforma de fornecimento de conteúdo de bem-estar, treinos e protocolos físicos online.
+                          </Text>
+
+                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Responsabilidade Técnica</Text>
+                          <Text style={[styles.legalText, { color: theme.textSecondary }]}>
+                              O usuário declara estar ciente e concordar que o profissional <Text style={{fontWeight: 'bold', color: theme.text}}>Paulo Adriano (CREF a Inserir)</Text> atua como o único Diretor e Responsável Técnico da plataforma. Todas as rotinas, periodizações e prescrições de treinamento físico disponibilizadas neste aplicativo são elaboradas, validadas e/ou supervisionadas diretamente por ele.
+                          </Text>
+
+                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Equipe Multidisciplinar e Mentoria</Text>
+                          <Text style={[styles.legalText, { color: theme.textSecondary }]}>
+                              A plataforma opera através de uma equipe multidisciplinar. O acompanhamento diário, suporte motivacional, correção de poses em vídeos/fotos, atendimento via chat e suporte à execução poderão ser realizados por mentores, parceiros e treinadores adjuntos (inclusive profissionais em formação ou estagiários), operando estritamente sob a chancela, diretrizes e aprovação prévia do Diretor Técnico.
+                          </Text>
+
+                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Condição de Saúde</Text>
+                          <Text style={[styles.legalText, { color: theme.textSecondary }]}>
+                              O usuário declara, sob as penas da lei, estar em plenas condições de saúde física e mental para a prática de atividades físicas, isentando a plataforma, o Diretor Técnico e a equipe de suporte de qualquer responsabilidade por lesões, acidentes ou problemas decorrentes de omissão de informações médicas ou da execução inadequada dos movimentos propostos.
+                          </Text>
+
+                          <TouchableOpacity 
+                              style={[styles.acceptBtn, { backgroundColor: theme.accent, marginTop: 30 }]} 
+                              onPress={() => { setAcceptedTerms(true); setTermsModalVisible(false); }}
+                          >
+                              <Text style={[styles.acceptBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>LI E ACEITO OS TERMOS</Text>
+                          </TouchableOpacity>
+                      </ScrollView>
+                  </View>
+              </View>
+          </Modal>
+
       </KeyboardAvoidingView>
     </RootComponent>
   );
@@ -249,6 +325,19 @@ const styles = StyleSheet.create({
   genderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25, gap: 10 },
   genderBtn: { flex: 1, padding: 16, borderWidth: 1, borderRadius: 16, alignItems: 'center' },
   genderText: { fontSize: 14, fontWeight: '500' },
+  
+  // 🔥 ESTILOS DOS TERMOS
+  termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingHorizontal: 5 },
+  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+  modalContent: { width: '100%', maxWidth: 480, alignSelf: 'center', height: '85%', borderTopLeftRadius: 30, borderTopRightRadius: 30, borderWidth: 1, borderBottomWidth: 0, overflow: 'hidden' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1 },
+  modalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  legalHeading: { fontSize: 14, fontWeight: 'bold', marginTop: 20, marginBottom: 8, letterSpacing: 0.5 },
+  legalText: { fontSize: 14, lineHeight: 22, textAlign: 'justify' },
+  acceptBtn: { padding: 18, borderRadius: 16, alignItems: 'center', elevation: 2 },
+  acceptBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+
   button: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10 },
   buttonText: { fontWeight: '900', fontSize: 16, letterSpacing: 1 }
 });

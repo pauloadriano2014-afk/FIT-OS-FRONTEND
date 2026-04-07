@@ -33,13 +33,14 @@ export const ExerciseCard = ({
   setSelectedTech, setTechModalVisible, TECH_GUIDE,
   isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning,
   isVoiceEnabled, colors, 
-  checkedSets, handleCheckSet 
+  checkedSets, handleCheckSet,
+  // 🔥 CHAVE DA PORTARIA (RECEBIDA DA DAYWORKOUTSCREEN)
+  hasPremiumFeatures 
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
   const videoLink = item.exercise?.videoUrl || item.videoUrl;
   
-  // 🔥 INTERCEPTADOR DE IMAGEM: Busca por uma capa leve no banco de dados
   const thumbLink = item.exercise?.thumbUrl || item.thumbUrl || item.exercise?.imageUrl || item.imageUrl || item.exercise?.image || item.image;
   
   const standardRestTime = item.restTime || 60;
@@ -561,14 +562,12 @@ export const ExerciseCard = ({
           (biSetType) && { borderColor: colors.primary, borderWidth: 2 }
       ]}>
         
-        {/* 🔥 OPÇÃO 1: A ÁREA DO VÍDEO AGORA É UM BOTÃO GIGANTE (O TOQUE GLOBAL) */}
         <TouchableOpacity 
             activeOpacity={0.9}
             onPress={() => handleOpenVideo(videoLink)} 
             style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}
         >
             
-            {/* 🔥 A MÁGICA DA THUMBNAIL (Imagem Nativa ou Hack do Frame 0.1s) */}
             {thumbLink ? (
                 <Image 
                     source={{ uri: thumbLink }} 
@@ -592,7 +591,7 @@ export const ExerciseCard = ({
                             resizeMode={ResizeMode.COVER} 
                             isMuted={true} 
                             shouldPlay={false} 
-                            positionMillis={100} // 🔥 O HACK DO iOS: Força o frame no lugar da tela preta
+                            positionMillis={100} 
                             isLooping={false} 
                         />
                     )}
@@ -617,15 +616,25 @@ export const ExerciseCard = ({
                     </View>
                 </View>
                 
+                {/* 🔥 OS BOTÕES DE OURO (COM CADEADO INTELIGENTE) 🔥 */}
                 {showTools && (
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignSelf:'flex-start' }} pointerEvents="auto">
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={onOpenCalc}>
-                            <MaterialCommunityIcons name="calculator" size={14} color="#FFF" />
-                            <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold' }}>CALCULAR</Text>
+                        {/* CALCULADORA DE 1RM */}
+                        <TouchableOpacity 
+                            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} 
+                            onPress={onOpenCalc}
+                        >
+                            <MaterialCommunityIcons name={hasPremiumFeatures ? "calculator" : "lock"} size={14} color={hasPremiumFeatures ? "#FFF" : colors.textMuted} />
+                            <Text style={{ color: hasPremiumFeatures ? '#FFF' : colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>CALCULAR</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={setModalVisible}>
-                            <MaterialCommunityIcons name="camera-metering-spot" size={14} color="#FFF" />
-                            <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold' }}>ANÁLISE IA</Text>
+                        
+                        {/* ANÁLISE IA DE MOVIMENTO */}
+                        <TouchableOpacity 
+                            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} 
+                            onPress={setModalVisible}
+                        >
+                            <MaterialCommunityIcons name={hasPremiumFeatures ? "camera-metering-spot" : "lock"} size={14} color={hasPremiumFeatures ? "#FFF" : colors.textMuted} />
+                            <Text style={{ color: hasPremiumFeatures ? '#FFF' : colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>ANÁLISE IA</Text>
                         </TouchableOpacity>
                     </View>
                 )}
@@ -637,7 +646,6 @@ export const ExerciseCard = ({
                             <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{calculateTotalSets()} Séries Totais</Text>
                         </View>
                         
-                        {/* 🔥 NOVO BOTÃO VERDE DE PLAY POSICIONADO NO CANTO INFERIOR DIREITO */}
                         <View style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}>
                             <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
                             <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
@@ -711,7 +719,6 @@ export const ExerciseCard = ({
             <MaterialCommunityIcons name="link-variant" size={20} color={colors.primaryText}/>
         </View>
       }
-      {/* 🔥 Atualização final da Thumbnail */}
     </View>
   );
 };
