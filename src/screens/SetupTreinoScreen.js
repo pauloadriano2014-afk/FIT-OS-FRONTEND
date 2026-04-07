@@ -43,6 +43,13 @@ export default function SetupTreinoScreen({ navigation, route }) {
               if (user.role || user.type) {
                   await AsyncStorage.setItem('role', user.role || user.type || 'USER');
               }
+              
+              // 🔥 SE FOR DESAFIO, JÁ DEIXA AS RESPOSTAS NO GATILHO
+              if (user.plan === 'CHALLENGE_21') {
+                  setGoal('Emagrecimento');
+                  setFocus('Queima Total');
+                  setLevel('Desafio 21D');
+              }
           }
       };
       
@@ -76,6 +83,8 @@ export default function SetupTreinoScreen({ navigation, route }) {
   };
 
   const handleNext = () => {
+      if (userPlan === 'CHALLENGE_21') return finalizeSetup();
+
       if (step === 1 && !goal) return showAlert("Selecione seu objetivo principal.");
       if (step === 2 && !focus) return showAlert("Selecione o foco do treino.");
       if (step === 3 && !level) return showAlert("Selecione seu nível de experiência.");
@@ -131,9 +140,9 @@ export default function SetupTreinoScreen({ navigation, route }) {
 
           if (!user || !user.id) throw new Error("Sessão não encontrada");
 
-          const finalGoal = `${goal} (Foco: ${focus})`;
+          const finalGoal = userPlan === 'CHALLENGE_21' ? 'Emagrecimento Acelerado' : `${goal} (Foco: ${focus})`;
+          const finalLevel = userPlan === 'CHALLENGE_21' ? 'Desafio Único' : level;
 
-          // 🔥 A MÁGICA ESTÁ AQUI: BLOQUEANDO O TREINO FANTASMA PRO LOW COST
           if (userPlan !== 'LOW_COST') {
               const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'DESAFIO EM CONSTRUÇÃO 🚧';
               const durationDays = userPlan === 'CHALLENGE_21' ? 21 : 56;
@@ -145,7 +154,7 @@ export default function SetupTreinoScreen({ navigation, route }) {
                       userId: user.id,
                       name: placeholderName,
                       goal: finalGoal,
-                      level: level,
+                      level: finalLevel,
                       startDate: new Date().toISOString(),
                       endDate: new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000).toISOString(),
                       routine: [] 
@@ -161,14 +170,15 @@ export default function SetupTreinoScreen({ navigation, route }) {
               const savedWorkout = await res.json();
               user.workouts = [savedWorkout];
           } else {
-              // LOW COST: O aluno entra zerado de treino para o Admin atribuir manualmente!
               user.workouts = [];
           }
           
           await AsyncStorage.setItem('user', JSON.stringify(user));
 
           setLoading(false);
-          const successMsg = "O Coach Paulo Adriano recebeu suas informações e está preparando seu protocolo. Vamos entrar no app!";
+          const successMsg = userPlan === 'CHALLENGE_21' 
+            ? "Seu perfil foi configurado para o Desafio 21 Dias! Prepare-se para a transformação."
+            : "O Coach Paulo Adriano recebeu suas informações e está preparando seu protocolo. Vamos entrar no app!";
           
           if (Platform.OS === 'web') {
               window.alert(`Tudo Certo! 🚀\n\n${successMsg}`);
@@ -186,14 +196,17 @@ export default function SetupTreinoScreen({ navigation, route }) {
       }
   };
 
-  const renderProgress = () => (
-      <View style={styles.progressContainer}>
-          <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
-              <View style={[styles.progressFill, { width: `${(step / 3) * 100}%`, backgroundColor: theme.accent }]} />
-          </View>
-          <Text style={[styles.progressText, { color: theme.textSecondary }]}>PASSO {step} DE 3</Text>
-      </View>
-  );
+  const renderProgress = () => {
+      if (userPlan === 'CHALLENGE_21') return null;
+      return (
+        <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { backgroundColor: theme.border }]}>
+                <View style={[styles.progressFill, { width: `${(step / 3) * 100}%`, backgroundColor: theme.accent }]} />
+            </View>
+            <Text style={[styles.progressText, { color: theme.textSecondary }]}>PASSO {step} DE 3</Text>
+        </View>
+      );
+  };
 
   const renderOptions = (options, stateValue, setStateFunction) => (
       <View style={styles.optionsContainer}>
@@ -223,7 +236,7 @@ export default function SetupTreinoScreen({ navigation, route }) {
 
   const loadingTitle = "ENVIANDO DADOS...";
   const loadingDesc = "Nossa plataforma está repassando o seu perfil diretamente para a prancheta do Coach.";
-  const finalBtnText = 'FINALIZAR CONFIGURAÇÃO 🔥';
+  const finalBtnText = userPlan === 'CHALLENGE_21' ? 'INICIAR DESAFIO 21D 🔥' : 'FINALIZAR CONFIGURAÇÃO 🔥';
 
   return (
     <RootComponent style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
@@ -245,38 +258,54 @@ export default function SetupTreinoScreen({ navigation, route }) {
 
                   {renderProgress()}
 
-                  {step === 1 && (
+                  {userPlan === 'CHALLENGE_21' ? (
                       <View style={styles.stepContent}>
-                          <Text style={[styles.stepTitle, { color: theme.text }]}>Qual seu objetivo principal?</Text>
-                          {renderOptions([
-                              { value: 'Emagrecimento', label: 'Emagrecimento', desc: 'Perder gordura e definir', icon: 'fire' },
-                              { value: 'Hipertrofia', label: 'Hipertrofia', desc: 'Ganhar massa muscular', icon: 'arm-flex' },
-                              { value: 'Qualidade de Vida', label: 'Qualidade de Vida', desc: 'Saúde e fortalecimento', icon: 'heart-pulse' }
-                          ], goal, setGoal)}
+                          <View style={{alignItems: 'center', marginVertical: 40}}>
+                              <View style={{backgroundColor: theme.accent + '22', width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 20}}>
+                                  <MaterialCommunityIcons name="fire" size={60} color={theme.accent} />
+                              </View>
+                              <Text style={[styles.stepTitle, { color: theme.text, textAlign: 'center' }]}>PRONTO PARA O{"\n"}DESAFIO 21 DIAS?</Text>
+                              <Text style={{color: theme.textSecondary, textAlign: 'center', fontSize: 16, lineHeight: 24, paddingHorizontal: 20}}>
+                                  Prepare-se para uma jornada intensa de emagrecimento. O Coach Paulo Adriano está no comando!
+                              </Text>
+                          </View>
                       </View>
-                  )}
+                  ) : (
+                      <>
+                        {step === 1 && (
+                            <View style={styles.stepContent}>
+                                <Text style={[styles.stepTitle, { color: theme.text }]}>Qual seu objetivo principal?</Text>
+                                {renderOptions([
+                                    { value: 'Emagrecimento', label: 'Emagrecimento', desc: 'Perder gordura e definir', icon: 'fire' },
+                                    { value: 'Hipertrofia', label: 'Hipertrofia', desc: 'Ganhar massa muscular', icon: 'arm-flex' },
+                                    { value: 'Qualidade de Vida', label: 'Qualidade de Vida', desc: 'Saúde e fortalecimento', icon: 'heart-pulse' }
+                                ], goal, setGoal)}
+                            </View>
+                        )}
 
-                  {step === 2 && (
-                      <View style={styles.stepContent}>
-                          <Text style={[styles.stepTitle, { color: theme.text }]}>Qual área deseja focar?</Text>
-                          {renderOptions(getFocusOptions(), focus, setFocus)}
-                      </View>
-                  )}
+                        {step === 2 && (
+                            <View style={styles.stepContent}>
+                                <Text style={[styles.stepTitle, { color: theme.text }]}>Qual área deseja focar?</Text>
+                                {renderOptions(getFocusOptions(), focus, setFocus)}
+                            </View>
+                        )}
 
-                  {step === 3 && (
-                      <View style={styles.stepContent}>
-                          <Text style={[styles.stepTitle, { color: theme.text }]}>Qual o seu nível de treino?</Text>
-                          {renderOptions([
-                              { value: 'Iniciante', label: 'Iniciante', desc: 'Começando agora ou parado há tempo', icon: 'battery-10' },
-                              { value: 'Intermediário', label: 'Intermediário', desc: 'Treina há mais de 6 meses', icon: 'battery-50' },
-                              { value: 'Avançado', label: 'Avançado', desc: 'Treina pesado há mais de 2 anos', icon: 'battery-high' }
-                          ], level, setLevel)}
-                      </View>
+                        {step === 3 && (
+                            <View style={styles.stepContent}>
+                                <Text style={[styles.stepTitle, { color: theme.text }]}>Qual o seu nível de treino?</Text>
+                                {renderOptions([
+                                    { value: 'Iniciante', label: 'Iniciante', desc: 'Começando agora ou parado há tempo', icon: 'battery-10' },
+                                    { value: 'Intermediário', label: 'Intermediário', desc: 'Treina há mais de 6 meses', icon: 'battery-50' },
+                                    { value: 'Avançado', label: 'Avançado', desc: 'Treina pesado há mais de 2 anos', icon: 'battery-high' }
+                                ], level, setLevel)}
+                            </View>
+                        )}
+                      </>
                   )}
 
                   <TouchableOpacity style={[styles.nextBtn, { backgroundColor: theme.accent }]} onPress={handleNext}>
                       <Text style={[styles.nextBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>
-                          {step === 3 ? finalBtnText : 'PRÓXIMO PASSO'}
+                          {userPlan === 'CHALLENGE_21' || step === 3 ? finalBtnText : 'PRÓXIMO PASSO'}
                       </Text>
                   </TouchableOpacity>
               </>

@@ -25,6 +25,66 @@ const QUICK_QUESTIONS = [
   "🚨 Estou com dor na articulação!"
 ];
 
+// 🥗 DADOS DA SUGESTÃO ALIMENTAR 21D (ESTRATÉGIA AGRESSIVA)
+const DIET_21D = {
+    instructions: [
+        "A constância é o que separa o resultado da frustração. Siga o plano 100%.",
+        "A ingestão proteica é sagrada para manter sua massa magra enquanto secamos.",
+        "Beba no mínimo 3L a 4L de água por dia. Metabolismo hidratado queima mais.",
+        "Use as opções de troca apenas se necessário para não enjoar do plano.",
+        "O foco aqui é o déficit calórico estratégico para perda de 3 a 5kg."
+    ],
+    trainingDays: [
+        { 
+            time: "05:00 - PRÉ-TREINO (ENERGIA)", 
+            base: "70g Banana + 30g Whey Protein + 50g Iogurte Grego + 20g Aveia.", 
+            subs: "Trocas: Mamão (146g), Morango (201g) ou Abacaxi (124g)." 
+        },
+        { 
+            time: "08:00 - PÓS-TREINO (RECUPERAÇÃO)", 
+            base: "2 Ovos Inteiros + 2 Fatias de Pão Integral.", 
+            subs: "Trocas: Carne Moída/Patinho (45g) ou Frango Desfiado (40g)." 
+        },
+        { 
+            time: "12:00 - ALMOÇO (SACIEDADE)", 
+            base: "70g Arroz Branco + 50g Feijão + 120g Frango Grelhado + 150g Abobrinha.", 
+            subs: "Trocas: Macarrão (65g), Batata Inglesa (200g) ou Patinho (133g)." 
+        },
+        { 
+            time: "17:00 - LANCHE DA TARDE", 
+            base: "Crepioca (40g Tapioca + 1 Ovo) + 80g Frango Desfiado.", 
+            subs: "Trocas: Patinho (89g) ou Omelete (2 ovos)." 
+        },
+        { 
+            time: "21:00 - JANTAR (LIMPO)", 
+            base: "70g Arroz Branco + 120g Frango Grelhado + 150g Abobrinha.", 
+            subs: "Trocas: Vegetais Verdes (Brócolis/Couve) à vontade." 
+        }
+    ],
+    cardioDays: [
+        { 
+            time: "08:00 - CAFÉ DA MANHÃ", 
+            base: "1 Pão Francês + 3 Ovos Inteiros + 1 Colher de Requeijão Light.", 
+            subs: "Trocas: Pão Integral (2 fatias) ou Cream Cheese Light (23g)." 
+        },
+        { 
+            time: "12:00 - ALMOÇO", 
+            base: "100g Macarrão Cozido + 120g Carne Moída (Patinho) + 100g Brócolis.", 
+            subs: "Trocas: Mandioca (70g) ou Frango Grelhado (108g)." 
+        },
+        { 
+            time: "16:00 - LANCHE DA TARDE", 
+            base: "60g Tapioca + 70g Frango Desfiado.", 
+            subs: "Trocas: Ovos Cozidos (3 unidades)." 
+        },
+        { 
+            time: "20:00 - JANTAR", 
+            base: "100g Arroz Integral + 50g Feijão + 100g Carne Moída + 100g Abobrinha.", 
+            subs: "Trocas: Beterraba ou Couve-Flor (100g)." 
+        }
+    ]
+};
+
 export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,19 +96,19 @@ export default function HomeScreen({ navigation }) {
   const [userPlan, setUserPlan] = useState('PREMIUM'); 
   
   const [xp, setXp] = useState(0); 
-  const [streak, setStreak] = useState(0);
 
-  // Estados da Ficha 8S
+  // Estados da Ficha / Desafio
   const [fichaDaysElapsed, setFichaDaysElapsed] = useState(0);
+  const [daysToStart, setDaysToStart] = useState(0); 
   const [fichaExpiredModalVisible, setFichaExpiredModalVisible] = useState(false);
   const [isFichaPlaceholder, setIsFichaPlaceholder] = useState(false);
+  const [dietModalVisible, setDietModalVisible] = useState(false); 
 
   // Estados de Check-in
   const [isCheckinPending, setIsCheckinPending] = useState(false);
   const [isCheckinLate, setIsCheckinLate] = useState(false);
   const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
   const [showScheduledBanner, setShowScheduledBanner] = useState(true);
-  const [hasAlerted, setHasAlerted] = useState(false);
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // Estados de Modais
@@ -65,7 +125,6 @@ export default function HomeScreen({ navigation }) {
   const [messages, setMessages] = useState([]); 
   const flatListRef = useRef(null);
 
-  // Lógica de Nível
   const currentLevel = Math.floor(xp / 1000) + 1;
   const nextLevelXP = 1000;
   const currentLevelProgress = xp % 1000;
@@ -135,31 +194,34 @@ export default function HomeScreen({ navigation }) {
                     const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(serverPlan) ? serverPlan : 'PREMIUM';
                     setUserPlan(finalPlan); 
                     
-                    if (finalPlan === 'FICHA_8S') {
+                    if (finalPlan === 'FICHA_8S' || finalPlan === 'CHALLENGE_21') {
                         let startD = new Date(fetchedUser.createdAt || new Date());
-                        
                         const activeWorkouts = (fetchedUser.workouts || []).filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
                         
                         if (activeWorkouts.length > 0) {
                             const currentWorkout = activeWorkouts[0];
                             startD = new Date(currentWorkout.startDate); 
-
-                            if (currentWorkout.name.includes("CONSTRUÇÃO") || !currentWorkout.routine || currentWorkout.routine.length === 0) {
-                                setIsFichaPlaceholder(true);
-                            } else {
-                                setIsFichaPlaceholder(false);
-                            }
+                            setIsFichaPlaceholder(currentWorkout.name.includes("CONSTRUÇÃO") || !currentWorkout.routine || currentWorkout.routine.length === 0);
                         } else {
                             setIsFichaPlaceholder(true);
                         }
                         
                         startD.setHours(0,0,0,0);
-                        const todayD = new Date(); 
-                        todayD.setHours(0,0,0,0);
-                        const diffD = Math.max(0, Math.floor((todayD - startD) / (1000 * 3600 * 24)));
-                        setFichaDaysElapsed(diffD);
+                        const todayD = new Date(); todayD.setHours(0,0,0,0);
                         
-                        if (diffD > 56 && !isFichaPlaceholder) {
+                        const diffTime = todayD.getTime() - startD.getTime();
+                        const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+                        
+                        if (diffDays < 0) {
+                            setDaysToStart(Math.abs(diffDays));
+                            setFichaDaysElapsed(0);
+                        } else {
+                            setDaysToStart(0);
+                            setFichaDaysElapsed(diffDays);
+                        }
+                        
+                        const limit = finalPlan === 'CHALLENGE_21' ? 21 : 56;
+                        if (diffDays >= limit && !isFichaPlaceholder) {
                             setFichaExpiredModalVisible(true);
                         }
                     }
@@ -215,11 +277,6 @@ export default function HomeScreen({ navigation }) {
             setIsCheckinPending(checkinPending);
             setIsCheckinLate(checkinLate);
             setScheduledCheckInDate(futureDateStr);
-
-            if (futureDateStr) {
-                const dismissedDate = await AsyncStorage.getItem(`dismissedBannerDate_${user.id}`);
-                setShowScheduledBanner(dismissedDate !== futureDateStr);
-            }
         } catch (err) { console.log("Erro ao carregar dados críticos:", err); }
       }
     } catch (e) { console.log("Erro geral loadHome:", e); } 
@@ -230,8 +287,6 @@ export default function HomeScreen({ navigation }) {
       if (activeNotice) { try { await AsyncStorage.setItem(`read_notice_${activeNotice.id}`, 'true'); } catch(e) {} }
       setNoticeModalVisible(false);
   };
-
-  const handleDismissBanner = async () => { setShowScheduledBanner(false); };
 
   const handleSendChat = async (quickMessage = null) => {
     const textToSend = typeof quickMessage === 'string' ? quickMessage : chatInput;
@@ -271,14 +326,15 @@ export default function HomeScreen({ navigation }) {
 
   if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
 
-  const isFichaExpired = userPlan === 'FICHA_8S' && fichaDaysElapsed > 56 && !isFichaPlaceholder;
-  const fichaDaysLeft = Math.max(0, 56 - fichaDaysElapsed);
+  const limitDays = userPlan === 'CHALLENGE_21' ? 21 : 56;
+  const isFichaExpired = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && fichaDaysElapsed >= limitDays && !isFichaPlaceholder;
+  const isWaitingStart = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && daysToStart > 0;
 
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           
           <ScrollView 
             style={{ flex: 1, width: '100%' }}
@@ -298,30 +354,31 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {userPlan === 'FICHA_8S' && !isFichaExpired && (
+            {(userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && !isFichaExpired && (
                 <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
-                        <Text style={[styles.levelText, { color: theme.accent }]}>FICHA 8 SEMANAS</Text>
+                        <Text style={[styles.levelText, { color: theme.accent }]}>{userPlan === 'CHALLENGE_21' ? 'CRONOGRAMA DO DESAFIO' : 'FICHA 8 SEMANAS'}</Text>
                         <Text style={[styles.xpText, { color: theme.textSecondary }]}>
-                            {isFichaPlaceholder ? 'PREPARANDO TREINO' : `SEMANA ${Math.min(8, Math.max(1, Math.ceil(fichaDaysElapsed / 7)))} DE 8`}
+                            {isWaitingStart ? `INICIA EM ${daysToStart} DIAS` : (isFichaPlaceholder ? 'PREPARANDO TREINO' : (userPlan === 'CHALLENGE_21' ? `DIA ${fichaDaysElapsed + 1} DE 21` : `SEMANA ${Math.min(8, Math.max(1, Math.ceil(fichaDaysElapsed / 7)))} DE 8`))}
                         </Text>
                     </View>
                     <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                        <View style={[styles.xpBarFill, { width: `${Math.min(100, (fichaDaysElapsed / 56) * 100)}%`, backgroundColor: (fichaDaysLeft <= 14 && !isFichaPlaceholder) ? '#FF9500' : theme.accent }]} />
+                        <View style={[styles.xpBarFill, { width: `${Math.min(100, (fichaDaysElapsed / limitDays) * 100)}%`, backgroundColor: theme.accent }]} />
                     </View>
-                    {fichaDaysLeft <= 14 && !isFichaPlaceholder && (
-                        <TouchableOpacity
-                            style={{marginTop: 15, padding: 12, backgroundColor: '#FF950022', borderRadius: 12, borderWidth: 1, borderColor: '#FF9500', flexDirection: 'row', alignItems: 'center', justifyContent: 'center'}}
-                            onPress={() => Linking.openURL("https://wa.me/5541997991346?text=Coach, minha Ficha 8S está acabando! Quero renovar.")}
+                    
+                    {userPlan === 'CHALLENGE_21' && (
+                        <TouchableOpacity 
+                            style={{marginTop: 15, padding: 15, backgroundColor: theme.accent, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10}}
+                            onPress={() => setDietModalVisible(true)}
                         >
-                            <MaterialCommunityIcons name="alert-circle" size={16} color="#FF9500" />
-                            <Text style={{color: '#FF9500', fontSize: 11, fontWeight: 'bold', marginLeft: 6}}>FALTAM {fichaDaysLeft} DIAS! RENOVE AGORA.</Text>
+                            <MaterialCommunityIcons name="food-apple" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                            <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13}}>GUIA DE SUGESTÃO ALIMENTAR 🍏</Text>
                         </TouchableOpacity>
                     )}
                 </View>
             )}
 
-            {userPlan !== 'FICHA_8S' && (
+            {userPlan !== 'FICHA_8S' && userPlan !== 'CHALLENGE_21' && (
                 <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
                         <Text style={[styles.levelText, { color: theme.accent }]}>NÍVEL {currentLevel}</Text>
@@ -333,33 +390,25 @@ export default function HomeScreen({ navigation }) {
                 </View>
             )}
 
-            {userPlan === 'PREMIUM' && isCheckinPending && (
-                <TouchableOpacity style={[styles.pendingBanner, isCheckinLate ? { backgroundColor: '#FF3B30' } : { backgroundColor: '#FF9500' }]} onPress={() => navigation.navigate('CheckIn')}>
-                    <MaterialCommunityIcons name="alert-circle-outline" size={28} color="#FFF" />
-                    <View style={{flex: 1, marginLeft: 12}}>
-                        <Text style={styles.pendingBannerTitle}>{isCheckinLate ? "⚠️ CHECK-IN ATRASADO!" : "⚠️ DIA DE CHECK-IN!"}</Text>
-                        <Text style={styles.pendingBannerText}>{isCheckinLate ? "Você passou do prazo! Envie agora." : "Sua atualização quinzenal está pendente."}</Text>
-                    </View>
-                    <MaterialCommunityIcons name="chevron-right" size={24} color="#FFF" />
-                </TouchableOpacity>
-            )}
-
             <TouchableOpacity 
-                style={[styles.mainActionBtn, { backgroundColor: isFichaExpired ? '#FF3B30' : theme.accent, shadowColor: isFichaExpired ? '#FF3B30' : theme.accent }]} 
-                onPress={() => { isFichaExpired ? setFichaExpiredModalVisible(true) : navigation.navigate('Treinos') }} 
+                style={[styles.mainActionBtn, { backgroundColor: (isFichaExpired || isWaitingStart) ? '#333' : theme.accent, shadowColor: (isFichaExpired || isWaitingStart) ? '#000' : theme.accent }]} 
+                onPress={() => { 
+                    if (isFichaExpired) setFichaExpiredModalVisible(true);
+                    else if (isWaitingStart) Alert.alert("Aguarde", `Seu treino será liberado em ${daysToStart} dias.`);
+                    else navigation.navigate('Treinos'); 
+                }} 
                 activeOpacity={0.9}
             >
                 <View>
-                    <Text style={[styles.actionLabel, { color: theme.isDark ? '#000' : '#FFF' }]}>{isFichaExpired ? 'TREINO BLOQUEADO' : 'SEU OBJETIVO DE HOJE'}</Text>
-                    <Text style={[styles.actionTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>{isFichaExpired ? 'RENOVAR FICHA' : 'INICIAR TREINO'}</Text>
+                    <Text style={[styles.actionLabel, { color: theme.isDark ? '#000' : '#FFF' }]}>{(isFichaExpired || isWaitingStart) ? 'STATUS ATUAL' : 'SEU OBJETIVO DE HOJE'}</Text>
+                    <Text style={[styles.actionTitle, { color: theme.isDark ? '#000' : '#FFF' }]}>{isFichaExpired ? 'DESAFIO CONCLUÍDO' : (isWaitingStart ? 'AGUARDANDO DATA' : 'INICIAR TREINO')}</Text>
                 </View>
                 <View style={styles.iconCircle}>
-                    <MaterialCommunityIcons name={isFichaExpired ? "lock" : "dumbbell"} size={28} color={theme.isDark ? '#000' : '#FFF'} />
+                    <MaterialCommunityIcons name={isWaitingStart ? "clock-outline" : (isFichaExpired ? "check-decagram" : "dumbbell")} size={28} color={theme.isDark ? '#000' : '#FFF'} />
                 </View>
             </TouchableOpacity>
 
             <View style={styles.gridContainer}>
-                {/* 🔥 AQUI ESTÁ A CORREÇÃO QUE BLINDA O LAYOUT DO CHROME: pulseAnim SEMPRE COMO ARRAY */}
                 <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '48%', marginBottom: 15 }}>
                     <TouchableOpacity style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: (isCheckinPending && userPlan === 'PREMIUM') ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} onPress={() => userPlan === 'PREMIUM' ? navigation.navigate('CheckIn') : openUpsell('Check-in e Análise Quinzenal')}>
                         {(isCheckinPending && userPlan === 'PREMIUM') && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
@@ -399,6 +448,50 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
+      {/* 🔥 MODAL DE SUGESTÃO ALIMENTAR (EXCLUSIVO 21D) 🔥 */}
+      <Modal visible={dietModalVisible} animationType="slide" transparent>
+          <View style={styles.chatModalOverlay}>
+              <View style={[styles.dietCard, { backgroundColor: theme.bg }]}>
+                  <View style={styles.dietHeader}>
+                      <Text style={[styles.dietTitle, { color: theme.text }]}>SUGESTÃO ALIMENTAR 21D 🥗</Text>
+                      <TouchableOpacity onPress={() => setDietModalVisible(false)}><MaterialCommunityIcons name="close" size={28} color={theme.text} /></TouchableOpacity>
+                  </View>
+                  <ScrollView style={{padding: 20}} showsVerticalScrollIndicator={false}>
+                      
+                      {/* 🔥 INSTRUÇÕES DO COACH 🔥 */}
+                      <View style={[styles.instructionBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+                          <Text style={[styles.dietSectionTitle, { color: theme.accent, marginBottom: 10 }]}>REGRAS DO COACH 👊</Text>
+                          {DIET_21D.instructions.map((text, i) => (
+                              <View key={i} style={{flexDirection: 'row', marginBottom: 6, gap: 8}}>
+                                  <MaterialCommunityIcons name="check-circle-outline" size={16} color={theme.accent} />
+                                  <Text style={{color: theme.text, fontSize: 13, flex: 1, fontWeight: '600'}}>{text}</Text>
+                              </View>
+                          ))}
+                      </View>
+
+                      <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 20}]}>DIAS DE MUSCULAÇÃO 💪</Text>
+                      {DIET_21D.trainingDays.map((meal, i) => (
+                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}>
+                              <Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text>
+                              <Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text>
+                              <Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text>
+                          </View>
+                      ))}
+
+                      <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 25}]}>DIAS DE CARDIO (SEM MUSCULAÇÃO) 🏃‍♂️</Text>
+                      {DIET_21D.cardioDays.map((meal, i) => (
+                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}>
+                              <Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text>
+                              <Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text>
+                              <Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text>
+                          </View>
+                      ))}
+                      <View style={{height: 100}} />
+                  </ScrollView>
+              </View>
+          </View>
+      </Modal>
+
       <LevelUpModal visible={levelModalVisible} onClose={() => setLevelModalVisible(false)} theme={theme} levelData={levelData} currentLevel={currentLevel} currentLevelProgress={currentLevelProgress} nextLevelXP={nextLevelXP} />
       <HomeNoticeModal visible={noticeModalVisible} onClose={handleReadNotice} theme={theme} activeNotice={activeNotice} />
       <ChatAIAssistantModal visible={chatVisible} onClose={() => setChatVisible(false)} theme={theme} isWeb={isWeb} messages={messages} flatListRef={flatListRef} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isTyping={isTyping} QUICK_QUESTIONS={QUICK_QUESTIONS} />
@@ -406,16 +499,12 @@ export default function HomeScreen({ navigation }) {
       <Modal visible={fichaExpiredModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
-                  <TouchableOpacity style={styles.upsellClose} onPress={() => setFichaExpiredModalVisible(false)}>
-                      <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                  </TouchableOpacity>
-                  <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}>
-                      <MaterialCommunityIcons name="trophy-variant" size={36} color="#FF3B30" />
-                  </View>
-                  <Text style={[styles.upsellTitle, { color: theme.text }]}>DESAFIO CONCLUÍDO! 🎉</Text>
-                  <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>As suas 8 semanas da Ficha acabaram. Você evoluiu muito até aqui! Garanta seu próximo treino ou faça o upgrade para a Consultoria Premium.</Text>
-                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#25D366', shadowColor: '#25D366' }]} onPress={() => { setFichaExpiredModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, acabei minhas 8 semanas da Ficha! Quero renovar o projeto."); }}>
-                      <Text style={[styles.upsellBtnText, {color: '#FFF'}]}>FALAR COM O COACH</Text>
+                  <TouchableOpacity style={styles.upsellClose} onPress={() => setFichaExpiredModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
+                  <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}><MaterialCommunityIcons name="trophy-variant" size={36} color="#FF3B30" /></View>
+                  <Text style={[styles.upsellTitle, { color: theme.text }]}>MISSÃO CUMPRIDA! 🎉</Text>
+                  <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>Você finalizou seu projeto atual. A evolução não pode parar! Garanta sua próxima etapa ou faça o upgrade para a Consultoria Elite.</Text>
+                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#25D366' }]} onPress={() => { setFichaExpiredModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, finalizei meu projeto! Quero renovar."); }}>
+                      <Text style={[styles.upsellBtnText, {color: '#FFF'}]}>RENOVAR AGORA</Text>
                       <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
                   </TouchableOpacity>
               </View>
@@ -425,21 +514,17 @@ export default function HomeScreen({ navigation }) {
       <Modal visible={upsellModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                  <TouchableOpacity style={styles.upsellClose} onPress={() => setUpsellModalVisible(false)}>
-                      <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                  </TouchableOpacity>
-                  <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
-                      <MaterialCommunityIcons name="crown" size={36} color={theme.accent} />
-                  </View>
-                  <Text style={[styles.upsellTitle, { color: theme.text }]}>FUNCIONALIDADE VIP</Text>
-                  <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>O recurso de <Text style={{color: theme.accent, fontWeight: 'bold'}}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Premium.</Text>
+                  <TouchableOpacity style={styles.upsellClose} onPress={() => setUpsellModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
+                  <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}><MaterialCommunityIcons name="crown" size={36} color={theme.accent} /></View>
+                  <Text style={[styles.upsellTitle, { color: theme.text }]}>FUNCIONALIDADE ELITE</Text>
+                  <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>O recurso de <Text style={{color: theme.accent, fontWeight: 'bold'}}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Elite.</Text>
                   <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                       <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text></View>
                       <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text></View>
                       <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text></View>
                   </View>
-                  <TouchableOpacity style={styles.upsellBtn} onPress={() => { setUpsellModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, quero fazer o upgrade para a Consultoria Premium!"); }}>
-                      <Text style={styles.upsellBtnText}>FAZER UPGRADE AGORA</Text>
+                  <TouchableOpacity style={styles.upsellBtn} onPress={() => { setUpsellModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, quero ser Elite!"); }}>
+                      <Text style={styles.upsellBtnText}>SER ELITE AGORA</Text>
                       <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
                   </TouchableOpacity>
               </View>
@@ -458,10 +543,6 @@ const styles = StyleSheet.create({
   name: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
-  pendingBanner: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 20, marginBottom: 20, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.2, shadowRadius: 5, elevation: 5 },
-  pendingBannerTitle: { color: '#FFF', fontWeight: '900', fontSize: 14, marginBottom: 3, letterSpacing: 0.5 },
-  pendingBannerText: { color: '#FFF', fontSize: 11, fontWeight: '600', opacity: 0.95 },
-  notificationDot: { position: 'absolute', top: -5, right: -5, width: 16, height: 16, borderRadius: 8, backgroundColor: '#FF3B30', borderWidth: 2, zIndex: 10 },
   xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
   levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   xpText: { fontSize: 11, fontWeight: 'bold' },
@@ -480,9 +561,7 @@ const styles = StyleSheet.create({
   footerSubText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginTop: 4 },
   fabChat: { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 10 },
   fabGradient: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-  
-  // Estilos Modais Locais (Upsell / Expirado)
-  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center' },
+  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center' },
   levelIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   upsellCard: { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
   upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
@@ -491,6 +570,17 @@ const styles = StyleSheet.create({
   upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
   upsellBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
-  upsellBtn: { width: '100%', backgroundColor: '#25D366', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowColor: '#25D366', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
-  upsellBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }
+  upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  
+  // 🔥 Estilos do Modal de Dieta
+  dietCard: { flex: 1, marginTop: 60, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
+  dietHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, borderColor: '#333' },
+  dietTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+  dietSectionTitle: { fontSize: 16, fontWeight: '900', marginBottom: 15, letterSpacing: 1, textDecorationLine: 'underline' },
+  instructionBox: { padding: 15, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderStyle: 'dashed' },
+  mealCard: { padding: 18, borderRadius: 20, marginBottom: 15, borderWidth: 1 },
+  mealTime: { fontSize: 13, fontWeight: '900', marginBottom: 8, letterSpacing: 0.5 },
+  mealDesc: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
+  mealSubs: { fontSize: 12, fontStyle: 'italic', marginTop: 10, opacity: 0.8 }
 });

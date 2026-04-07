@@ -90,8 +90,6 @@ export default function RegisterScreen({ navigation, route }) {
         if(Platform.OS === 'web') window.alert("Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         else Alert.alert("Sucesso! 🦁", "Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         
-        // Pós-Registro: Joga para a Home, e a Home (que tem a portaria inteligente)
-        // vai decidir se ele vai pra Anamnese do Premium ou pra Mini-Anamnese (SetupTreino)
         const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(initPlan);
         if (isAutoPlan) {
             navigation.replace('SetupTreino', { userData: data.user });
@@ -265,13 +263,13 @@ export default function RegisterScreen({ navigation, route }) {
             </TouchableOpacity>
           </ScrollView>
 
-          {/* 🔥 MODAL DE CONTRATO JURÍDICO 🔥 */}
+          {/* 🔥 MODAL DE CONTRATO JURÍDICO ATUALIZADO 🔥 */}
           <Modal visible={termsModalVisible} animationType="slide" transparent onRequestClose={() => setTermsModalVisible(false)}>
               <View style={styles.modalOverlay}>
                   <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                       
                       <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                          <Text style={[styles.modalTitle, { color: theme.text }]}>TERMOS E CONDIÇÕES</Text>
+                          <Text style={[styles.modalTitle, { color: theme.text }]}>TERMOS E RESPONSABILIDADE</Text>
                           <TouchableOpacity onPress={() => setTermsModalVisible(false)} style={{padding: 5}}>
                               <MaterialCommunityIcons name="close" size={24} color={theme.text} />
                           </TouchableOpacity>
@@ -284,24 +282,29 @@ export default function RegisterScreen({ navigation, route }) {
 
                           <Text style={[styles.legalHeading, { color: theme.accent }]}>Responsabilidade Técnica</Text>
                           <Text style={[styles.legalText, { color: theme.textSecondary }]}>
-                              O usuário declara estar ciente e concordar que o profissional <Text style={{fontWeight: 'bold', color: theme.text}}>Paulo Adriano (CREF a Inserir)</Text> atua como o único Diretor e Responsável Técnico da plataforma. Todas as rotinas, periodizações e prescrições de treinamento físico disponibilizadas neste aplicativo são elaboradas, validadas e/ou supervisionadas diretamente por ele.
+                              O usuário declara estar ciente que o profissional <Text style={{fontWeight: 'bold', color: theme.text}}>Paulo Adriano</Text> atua como Responsável Técnico da plataforma. Todas as rotinas e periodizações de treinamento físico são elaboradas e/ou supervisionadas diretamente por ele.
                           </Text>
 
-                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Equipe Multidisciplinar e Mentoria</Text>
+                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Natureza das Sugestões Alimentares</Text>
                           <Text style={[styles.legalText, { color: theme.textSecondary }]}>
-                              A plataforma opera através de uma equipe multidisciplinar. O acompanhamento diário, suporte motivacional, correção de poses em vídeos/fotos, atendimento via chat e suporte à execução poderão ser realizados por mentores, parceiros e treinadores adjuntos (inclusive profissionais em formação ou estagiários), operando estritamente sob a chancela, diretrizes e aprovação prévia do Diretor Técnico.
+                              A plataforma poderá disponibilizar <Text style={{fontWeight: 'bold', color: theme.text}}>Guias de Sugestão Alimentar</Text>. O usuário declara compreender que tais guias possuem caráter estritamente <Text style={{fontWeight: 'bold', color: theme.text}}>INFORMATIVO E EDUCATIVO</Text>, servindo como referência de bons hábitos. Estas sugestões NÃO substituem uma consulta individualizada com um nutricionista. O usuário possui total autonomia para seguir ou não as sugestões apresentadas.
                           </Text>
 
-                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Condição de Saúde</Text>
+                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Condição de Saúde e Resultados</Text>
                           <Text style={[styles.legalText, { color: theme.textSecondary }]}>
-                              O usuário declara, sob as penas da lei, estar em plenas condições de saúde física e mental para a prática de atividades físicas, isentando a plataforma, o Diretor Técnico e a equipe de suporte de qualquer responsabilidade por lesões, acidentes ou problemas decorrentes de omissão de informações médicas ou da execução inadequada dos movimentos propostos.
+                              O usuário declara estar em plenas condições de saúde para a prática de exercícios e protocolos de déficit calórico. Qualquer patologia prévia deve ser comunicada. O usuário reconhece que as estimativas de resultados (como a perda de 3 a 5kg no desafio de 21 dias) são médias baseadas em aderência total e podem variar de acordo com o metabolismo individual.
+                          </Text>
+
+                          <Text style={[styles.legalHeading, { color: theme.accent }]}>Equipe Multidisciplinar</Text>
+                          <Text style={[styles.legalText, { color: theme.textSecondary }]}>
+                              O acompanhamento motivacional, suporte via chat e correção de poses poderão ser realizados pela equipe multidisciplinar sob supervisão direta do Diretor Técnico.
                           </Text>
 
                           <TouchableOpacity 
-                              style={[styles.acceptBtn, { backgroundColor: theme.accent, marginTop: 30 }]} 
+                              style={[styles.acceptBtn, { backgroundColor: theme.accent, marginTop: 30, marginBottom: 40 }]} 
                               onPress={() => { setAcceptedTerms(true); setTermsModalVisible(false); }}
                           >
-                              <Text style={[styles.acceptBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>LI E ACEITO OS TERMOS</Text>
+                              <Text style={[styles.acceptBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CONCORDO E ACEITO OS TERMOS</Text>
                           </TouchableOpacity>
                       </ScrollView>
                   </View>
@@ -314,7 +317,6 @@ export default function RegisterScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
   container: { padding: 25, paddingBottom: 60, flexGrow: 1 },
   backBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1, marginBottom: 20 },
   title: { fontSize: 32, fontWeight: '900', letterSpacing: -1 },
