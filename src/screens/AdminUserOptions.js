@@ -83,7 +83,6 @@ export default function AdminUserOptions({ route, navigation }) {
             fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`)
         ]);
 
-        // 🔥 CORREÇÃO: As variáveis precisam estar disponíveis para toda a função!
         let activeWk = [];
         let archivedWk = [];
 
@@ -109,7 +108,6 @@ export default function AdminUserOptions({ route, navigation }) {
             const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
             setUserPlan(finalPlan);
 
-            // 🔥 A MÁGICA REVELADA: Lê todas as fichas (inclusive as "Em Construção")
             if (finalPlan === 'FICHA_8S') {
                 const allWorkouts = [...activeWk, ...archivedWk];
                 let startD = new Date(fresh.createdAt || new Date());
@@ -126,7 +124,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     } else {
                         startD = new Date(sortedWorkouts[sortedWorkouts.length - 1].startDate);
                     }
-                    // AGORA O BOTÃO "VER EXERCÍCIOS DA FICHA" VAI ACENDER!
                     setHasActiveFicha(true);
                 } else {
                     setHasActiveFicha(false);
@@ -154,6 +151,29 @@ export default function AdminUserOptions({ route, navigation }) {
     }
   };
 
+  // 🔥 NOVA TRAVA DE SEGURANÇA PARA MUDANÇA DE PLANO
+  const confirmChangePlan = (newPlan) => {
+      if (userPlan === newPlan) return;
+
+      const planNames = {
+          'PREMIUM': 'Consultoria Premium',
+          'FICHA_8S': 'Ficha 8 Semanas',
+          'LOW_COST': 'Low Cost (Básico)',
+          'CHALLENGE_21': 'Desafio 21 Dias'
+      };
+
+      const msg = `Tem certeza que deseja alterar o acesso deste aluno para o plano ${planNames[newPlan]}?`;
+
+      if (Platform.OS === 'web') {
+          if (window.confirm(msg)) handleChangePlan(newPlan);
+      } else {
+          Alert.alert("Alterar Plano", msg, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Sim, Alterar", onPress: () => handleChangePlan(newPlan) }
+          ]);
+      }
+  };
+
   const handleChangePlan = async (newPlan) => {
       setUserPlan(newPlan); 
       try {
@@ -161,7 +181,7 @@ export default function AdminUserOptions({ route, navigation }) {
               method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ plan: newPlan })
           });
           if (!res.ok) throw new Error("Falha na API");
-          if (Platform.OS === 'web') window.alert("Esteira atualizada! O app do aluno já foi modificado.");
+          if (Platform.OS === 'web') window.alert("Sucesso! Esteira do aluno atualizada.");
       } catch(e) {
           if (Platform.OS === 'web') window.alert("Erro ao atualizar o plano.");
           else Alert.alert("Erro", "Falha ao atualizar o plano do aluno.");
@@ -380,24 +400,36 @@ export default function AdminUserOptions({ route, navigation }) {
                 <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Defina qual produto este aluno comprou para ajustar as permissões do aplicativo.</Text>
                 
                 <View style={styles.plansContainer}>
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('PREMIUM')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="crown" size={20} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]}>PREMIUM</Text></View>
-                        {userPlan === 'PREMIUM' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('PREMIUM')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                            <MaterialCommunityIcons name="crown" size={18} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} />
+                            <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>PREMIUM</Text>
+                        </View>
+                        {userPlan === 'PREMIUM' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'FICHA_8S' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('FICHA_8S')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="lightning-bolt" size={20} color={userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary }]}>FICHA 8 SEMANAS</Text></View>
-                        {userPlan === 'FICHA_8S' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'FICHA_8S' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('FICHA_8S')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                            <MaterialCommunityIcons name="lightning-bolt" size={18} color={userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary} />
+                            <Text style={[styles.planTitle, { color: userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>FICHA 8 SEMANAS</Text>
+                        </View>
+                        {userPlan === 'FICHA_8S' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'LOW_COST' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('LOW_COST')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="rocket-launch" size={20} color={userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]}>LOW COST (ESCALA)</Text></View>
-                        {userPlan === 'LOW_COST' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'LOW_COST' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('LOW_COST')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                            <MaterialCommunityIcons name="rocket-launch" size={18} color={userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary} />
+                            <Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>LOW COST (ESCALA)</Text>
+                        </View>
+                        {userPlan === 'LOW_COST' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'CHALLENGE_21' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('CHALLENGE_21')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="fire" size={20} color={userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary }]}>DESAFIO 21 DIAS</Text></View>
-                        {userPlan === 'CHALLENGE_21' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'CHALLENGE_21' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('CHALLENGE_21')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                            <MaterialCommunityIcons name="fire" size={18} color={userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary} />
+                            <Text style={[styles.planTitle, { color: userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>DESAFIO 21 DIAS</Text>
+                        </View>
+                        {userPlan === 'CHALLENGE_21' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                     </TouchableOpacity>
                 </View>
 
@@ -495,9 +527,10 @@ const styles = StyleSheet.create({
   profileName: { fontSize: 20, fontWeight: '900' },
   profileEmail: { color: '#888', fontSize: 12, marginTop: 2 },
 
+  // 🔥 ESTILOS REFINADOS (SEM VAZAR)
   plansContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 25 },
-  planCard: { width: '48%', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  planTitle: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  planCard: { width: '48%', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  planTitle: { fontWeight: '900', fontSize: 10, letterSpacing: 0.5, flexShrink: 1 },
 
   tabsRow: { flexDirection: 'row', gap: 10, marginBottom: 5 },
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2 },

@@ -110,27 +110,14 @@ export default function LoginScreen({ navigation }) {
         ['role', role]
       ]);
 
+      // 🔥 LÓGICA CEGA DE ENCAMINHAMENTO (O FIM DO LOOP INFINITO)
+      // O Login não pensa mais. Se é Admin, vai pro painel. Se é Aluno, vai pra Home.
       if (isAdmin) {
         navigation.replace('AdminDashboard');
-        return;
+      } else {
+        navigation.replace('Main', { userData: data.user });
       }
 
-      const temAnamnese = data.user.anamneses && data.user.anamneses.length > 0;
-const userPlan = data.user.plan || 'PREMIUM';
-const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(userPlan);
-const hasWorkouts = data.user.workouts && data.user.workouts.length > 0;
-
-// Se ele já tem ficha montada OU já preencheu a anamnese gigante, vai pra Home
-if (hasWorkouts || temAnamnese) {
-    navigation.replace('Main', { userData: data.user });
-} else {
-    // Se não tem treino, avalia pra qual portaria ele vai:
-    if (isAutoPlan) {
-        navigation.replace('SetupTreino', { userData: data.user }); // Mini-Anamnese de 4 cliques
-    } else {
-        navigation.replace('Anamnese', { userData: data.user }); // Anamnese Premium Completa
-    }
-}
     } catch (e) {
       console.log(e);
       if (Platform.OS === 'web') window.alert('Erro de Conexão. Verifique sua internet.');
@@ -194,7 +181,6 @@ if (hasWorkouts || temAnamnese) {
           {showInstallBanner && Platform.OS === 'web' && (
               <View style={styles.installWrapper}>
                   {isIOS || (!isIOS && !deferredPrompt) ? (
-                      // 🚨 Aviso com cara de Passo Obrigatório
                       <View style={[styles.urgentBox, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
                           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
                               <MaterialCommunityIcons name="alert-circle" size={18} color={theme.accent} />
@@ -203,7 +189,6 @@ if (hasWorkouts || temAnamnese) {
                               </Text>
                           </View>
                           
-                          {/* 🔥 INSTRUÇÕES COM ÍCONES INLINE */}
                           {isIOS ? (
                               isChromeIOS ? (
                                   <Text style={[styles.urgentText, {color: theme.text}]}>
@@ -225,7 +210,6 @@ if (hasWorkouts || temAnamnese) {
                           </TouchableOpacity>
                       </View>
                   ) : (
-                      // 🤖 Botão Elegante Android (Pronto pra instalar)
                       <TouchableOpacity style={[styles.premiumInstallBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={handleInstallClick}>
                           <MaterialCommunityIcons name="cellphone-arrow-down" size={24} color={theme.accent} />
                           <View style={{ marginLeft: 12 }}>
