@@ -116,16 +116,21 @@ export default function LoginScreen({ navigation }) {
       }
 
       const temAnamnese = data.user.anamneses && data.user.anamneses.length > 0;
+const userPlan = data.user.plan || 'PREMIUM';
+const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(userPlan);
+const hasWorkouts = data.user.workouts && data.user.workouts.length > 0;
 
-      if (temAnamnese) {
-        navigation.replace('Main', { userData: data.user });
-      } else {
-        if (data.user.plan_tier === 'vip') {
-          navigation.replace('AnamneseVIP', { userData: data.user });
-        } else {
-          navigation.replace('Anamnese', { userData: data.user });
-        }
-      }
+// Se ele já tem ficha montada OU já preencheu a anamnese gigante, vai pra Home
+if (hasWorkouts || temAnamnese) {
+    navigation.replace('Main', { userData: data.user });
+} else {
+    // Se não tem treino, avalia pra qual portaria ele vai:
+    if (isAutoPlan) {
+        navigation.replace('SetupTreino', { userData: data.user }); // Mini-Anamnese de 4 cliques
+    } else {
+        navigation.replace('Anamnese', { userData: data.user }); // Anamnese Premium Completa
+    }
+}
     } catch (e) {
       console.log(e);
       if (Platform.OS === 'web') window.alert('Erro de Conexão. Verifique sua internet.');

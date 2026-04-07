@@ -1,47 +1,22 @@
 // src/screens/AdminUserOptions.js
-import React, { useState, useEffect, createElement, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
-  ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, TextInput, Linking
+  ActivityIndicator, StatusBar, Alert, Platform, Image, Switch
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '../contexts/ThemeContext';
 
-const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return `${date.getDate().toString().padStart(2,'0')}/${(date.getMonth()+1).toString().padStart(2,'0')}/${date.getFullYear().toString().slice(-2)}`;
-};
+// 🔥 NOSSOS DOIS COMPONENTES MODULARIZADOS
+import AdminUserWorkouts from '../components/AdminUserWorkouts';
+import AdminUserSystem from '../components/AdminUserSystem';
 
 const formatToBRDate = (isoString) => {
     if (!isoString) return '';
     const d = new Date(isoString);
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
-};
-
-const getExpirationStatus = (endDateString, isArchived) => {
-    if (isArchived) return { text: 'ARQUIVADO', bg: '#E5E5EA', color: '#888', icon: 'archive-clock' };
-    if (!endDateString) return { text: 'SEM PRAZO', bg: '#E5E5EA', color: '#888', icon: 'calendar-blank' };
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const end = new Date(endDateString);
-    end.setHours(0,0,0,0);
-
-    const diffTime = end - today;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-    if (diffDays < 0) {
-        return { text: `ATRASADO ${Math.abs(diffDays)}D`, bg: '#000', color: '#FFF', icon: 'alert-circle' };
-    } else if (diffDays <= 3) {
-        return { text: `VENCE EM ${diffDays}D`, bg: '#FF3B30', color: '#FFF', icon: 'clock-alert' };
-    } else if (diffDays <= 7) {
-        return { text: `VENCE EM ${diffDays}D`, bg: '#FFCC00', color: '#000', icon: 'clock-fast' };
-    } else {
-        return { text: `VENCE EM ${diffDays}D`, bg: 'rgba(52, 199, 89, 0.15)', color: '#34C759', icon: 'check-circle' };
-    }
 };
 
 export default function AdminUserOptions({ route, navigation }) {
@@ -56,8 +31,11 @@ export default function AdminUserOptions({ route, navigation }) {
   const [viewMode, setViewMode] = useState('active'); 
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
 
-  // 🔥 ESTADO DA ESTEIRA DE PRODUTOS
   const [userPlan, setUserPlan] = useState('PREMIUM');
+
+  // Variáveis da Ficha 8S
+  const [fichaDaysElapsed, setFichaDaysElapsed] = useState(0);
+  const [hasActiveFicha, setHasActiveFicha] = useState(false);
 
   const [photoUrl, setPhotoUrl] = useState(aluno.photoUrl || null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -84,7 +62,6 @@ export default function AdminUserOptions({ route, navigation }) {
               setDisableCheckIn(!!freshness.disableCheckIn);
               setPhotoUrl(freshness.photoUrl);
               
-              // Resolve o plano cacheado (Blindagem)
               const dbPlan = freshness.plan || 'PREMIUM';
               setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM');
           }
@@ -94,10 +71,7 @@ export default function AdminUserOptions({ route, navigation }) {
     };
 
     loadCache();
-
-    const unsubscribe = navigation.addListener('focus', () => { 
-        fetchAllData(); 
-    });
+    const unsubscribe = navigation.addListener('focus', () => { fetchAllData(); });
     return unsubscribe;
   }, [navigation]);
 
@@ -111,18 +85,15 @@ export default function AdminUserOptions({ route, navigation }) {
             fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`)
         ]);
 
+        let active = [];
         if (resWorkouts.ok) {
             const dataW = await resWorkouts.json();
             if (Array.isArray(dataW)) {
-                const active = dataW.filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                active = dataW.filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
                 const archived = dataW.filter(w => w.archived).sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
                 setActiveWorkouts(active);
                 setArchivedWorkouts(archived);
-                
-                AsyncStorage.setItem(`@user_options_cache_${aluno.id}`, JSON.stringify({
-                    workouts: { active, archived },
-                    freshness: aluno 
-                }));
+                AsyncStorage.setItem(`@user_options_cache_${aluno.id}`, JSON.stringify({ workouts: { active, archived }, freshness: aluno }));
             }
         }
 
@@ -134,9 +105,39 @@ export default function AdminUserOptions({ route, navigation }) {
             setPhotoUrl(fresh.photoUrl);
             setIsActiveUser(fresh.active);
             
-            // Resolve o plano servidor (Blindagem)
-            const dbPlan = fresh.plan || 'PREMIUM';
-            setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM');
+            const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
+            setUserPlan(finalPlan);
+
+            // 🔥 LÓGICA DO RELÓGIO (ÂNCORA INTELIGENTE)
+            if (finalPlan === 'FICHA_8S') {
+                const allWorkouts = [...active, ...archived];
+                let startD = new Date(fresh.createdAt || new Date());
+                
+                if (allWorkouts.length > 0) {
+                    // 1. Ordena todos os treinos do mais antigo para o mais novo
+                    const sortedWorkouts = allWorkouts.sort((a,b) => new Date(a.startDate) - new Date(b.startDate));
+                    
+                    // 2. Filtra treinos do ciclo atual (criados nos últimos 65 dias)
+                    const recentWorkouts = sortedWorkouts.filter(w => {
+                        const diffDays = (new Date() - new Date(w.startDate)) / (1000 * 3600 * 24);
+                        return diffDays <= 65 && diffDays >= -10; // margem para treinos agendados no futuro
+                    });
+
+                    // 3. A âncora é o primeiro treino deste ciclo!
+                    if (recentWorkouts.length > 0) {
+                        startD = new Date(recentWorkouts[0].startDate);
+                    } else {
+                        startD = new Date(sortedWorkouts[sortedWorkouts.length - 1].startDate);
+                    }
+                    setHasActiveFicha(true);
+                } else {
+                    setHasActiveFicha(false);
+                }
+                
+                startD.setHours(0,0,0,0);
+                const todayD = new Date(); todayD.setHours(0,0,0,0);
+                setFichaDaysElapsed(Math.max(0, Math.floor((todayD - startD) / (1000 * 3600 * 24))));
+            }
         }
 
         if (resPaflix.ok) {
@@ -151,42 +152,31 @@ export default function AdminUserOptions({ route, navigation }) {
     } catch (error) { 
         console.log("Erro no Motor Turbo:", error); 
     } finally { 
-        setLoading(false); 
-        setLoadingPaflix(false);
+        setLoading(false); setLoadingPaflix(false);
     }
   };
 
-  // 🔥 FUNÇÃO DE ALTERAR O PLANO (CATRACA)
   const handleChangePlan = async (newPlan) => {
-      setUserPlan(newPlan); // UI Optimistic
+      setUserPlan(newPlan); 
       try {
           const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-              method: 'PATCH',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ plan: newPlan })
+              method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ plan: newPlan })
           });
           if (!res.ok) throw new Error("Falha na API");
           if (Platform.OS === 'web') window.alert("Esteira atualizada! O app do aluno já foi modificado.");
       } catch(e) {
           if (Platform.OS === 'web') window.alert("Erro ao atualizar o plano.");
           else Alert.alert("Erro", "Falha ao atualizar o plano do aluno.");
-          fetchAllData(); // Reverte em caso de falha
+          fetchAllData(); 
       }
   };
 
-  const handlePickImage = async () => {
+  const handlePickImage = async () => { /* Upload Code Intacto */
       try {
-          const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1], 
-              quality: 0.6, 
-          });
-
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.6 });
           if (!result.canceled) {
               const fileToUpload = result.assets[0];
               setUploadingPhoto(true);
-
               const formData = new FormData();
               if (Platform.OS === 'web') {
                   const res = await fetch(fileToUpload.uri);
@@ -194,57 +184,26 @@ export default function AdminUserOptions({ route, navigation }) {
                   formData.append('file', blob, 'profile.jpg');
               } else {
                   const imageUri = Platform.OS === 'ios' ? fileToUpload.uri.replace('file://', '') : fileToUpload.uri;
-                  formData.append('file', {
-                      uri: imageUri,
-                      name: 'profile.jpg',
-                      type: 'image/jpeg'
-                  });
+                  formData.append('file', { uri: imageUri, name: 'profile.jpg', type: 'image/jpeg' });
               }
-
-              const uploadRes = await fetch('https://fitos-final.onrender.com/api/upload-image', {
-                  method: 'POST',
-                  body: formData,
-                  headers: { 'Accept': 'application/json' }
-              });
-
+              const uploadRes = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' }});
               let uploadData;
-              try {
-                  uploadData = await uploadRes.json();
-              } catch (e) {
-                  throw new Error(`O Servidor caiu ou está reiniciando (Status: ${uploadRes.status}). Tente de novo em 1 min.`);
-              }
-
-              if (!uploadRes.ok) {
-                  throw new Error(uploadData.details || uploadData.error || "Falha desconhecida no servidor");
-              }
-
+              try { uploadData = await uploadRes.json(); } catch (e) { throw new Error(`Status: ${uploadRes.status}`); }
+              if (!uploadRes.ok) throw new Error(uploadData.error || "Falha");
               const finalUrl = uploadData.imageUrl || uploadData.url;
-
               if (finalUrl) {
-                  const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-                      method: 'PATCH',
-                      headers: {'Content-Type': 'application/json'},
-                      body: JSON.stringify({ photoUrl: finalUrl })
-                  });
-                  
+                  const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ photoUrl: finalUrl }) });
                   if (res.ok) {
                       setPhotoUrl(finalUrl);
-                      if (Platform.OS === 'web') window.alert("Sucesso\n\nFoto atualizada na nuvem!");
+                      if (Platform.OS === 'web') window.alert("Sucesso\n\nFoto atualizada!");
                       else Alert.alert("Sucesso", "Foto atualizada na nuvem!");
-                  } else {
-                      Alert.alert("Erro", "A foto subiu, mas falhou ao vincular ao perfil.");
-                  }
-              } else {
-                  throw new Error("O servidor não retornou o link da imagem.");
+                  } else { Alert.alert("Erro", "A foto subiu, mas falhou."); }
               }
           }
       } catch(e) {
-          console.error("Erro Upload Imagem:", e);
           if (Platform.OS === 'web') window.alert(`Erro: ${e.message}`);
-          else Alert.alert("Erro no Upload", e.message);
-      } finally {
-          setUploadingPhoto(false);
-      }
+          else Alert.alert("Erro", e.message);
+      } finally { setUploadingPhoto(false); }
   };
 
   const handleToggleAccess = async (contentId, currentStatus) => {
@@ -253,9 +212,7 @@ export default function AdminUserOptions({ route, navigation }) {
       else setUserAccess(prev => prev.filter(id => id !== contentId));
       try {
           const res = await fetch('https://fitos-final.onrender.com/api/admin/access', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ userId: aluno.id, contentId, grant: newStatus })
+              method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: aluno.id, contentId, grant: newStatus })
           });
           if (!res.ok) throw new Error("Falha na API");
       } catch(e) {
@@ -268,13 +225,10 @@ export default function AdminUserOptions({ route, navigation }) {
   const handleToggleStatus = async () => {
       const newStatus = !isActiveUser;
       const actionText = newStatus ? "ATIVAR" : "INATIVAR";
-      
       const confirmAction = async () => {
           try {
               await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-                  method: 'PATCH',
-                  headers: {'Content-Type': 'application/json'},
-                  body: JSON.stringify({ active: newStatus })
+                  method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ active: newStatus })
               });
               setIsActiveUser(newStatus);
               if (Platform.OS === 'web') window.alert(`Sucesso\n\nAluno ${newStatus ? 'ativado' : 'inativado'}!`);
@@ -284,13 +238,11 @@ export default function AdminUserOptions({ route, navigation }) {
               else Alert.alert("Erro", "Falha ao atualizar status."); 
           }
       };
-
       if (Platform.OS === 'web') {
           if (window.confirm(`Deseja ${actionText.toLowerCase()} o acesso deste aluno?`)) confirmAction();
       } else {
           Alert.alert(actionText, `Deseja ${actionText.toLowerCase()} o acesso deste aluno?`, [
-              { text: "Cancelar", style: "cancel" },
-              { text: "Confirmar", onPress: confirmAction }
+              { text: "Cancelar", style: "cancel" }, { text: "Confirmar", onPress: confirmAction }
           ]);
       }
   };
@@ -303,161 +255,92 @@ export default function AdminUserOptions({ route, navigation }) {
                   if (Platform.OS === 'web') window.alert("Excluído\n\nAluno removido permanentemente.");
                   else Alert.alert("Excluído", "Aluno removido.");
                   navigation.goBack();
-              } else { 
-                  if (Platform.OS === 'web') window.alert("Erro\n\nNão foi possível excluir.");
-                  else Alert.alert("Erro", "Não foi possível excluir."); 
               }
-          } catch (e) { 
-              if (Platform.OS === 'web') window.alert("Erro\n\nFalha na conexão.");
-              else Alert.alert("Erro", "Falha na conexão."); 
-          }
+          } catch (e) {}
       };
-
       const msg = "ATENÇÃO: Isso apagará TODOS os treinos, histórico e check-ins deste aluno permanentemente.\n\nTem certeza?";
       if (Platform.OS === 'web') {
           if (window.confirm(msg)) confirmDelete();
       } else {
-          Alert.alert("EXCLUIR ALUNO", msg, [
-              { text: "Cancelar", style: "cancel" },
-              { text: "EXCLUIR TUDO", style: 'destructive', onPress: confirmDelete }
-          ]);
+          Alert.alert("EXCLUIR ALUNO", msg, [{ text: "Cancelar", style: "cancel" }, { text: "EXCLUIR TUDO", style: 'destructive', onPress: confirmDelete }]);
       }
+  };
+
+  const handleSaveEvaluation = async () => {
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+              method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ evaluationUrl: evaluationUrl })
+          });
+          if (res.ok) {
+              if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados atualizados.");
+              else Alert.alert("Sucesso", "Dados atualizados!");
+          } else {
+              if (Platform.OS === 'web') window.alert("Erro ao salvar.");
+              else Alert.alert("Erro", "Erro ao salvar.");
+          }
+      } catch(e) { console.log(e); }
   };
 
   const handleDeleteWorkout = (workoutId) => {
       const deleteAction = async () => {
           try {
-              const res = await fetch(`https://fitos-final.onrender.com/api/workout/${workoutId}`, { 
-                  method: 'DELETE',
-                  headers: { 'Content-Type': 'application/json' }
-              });
-              if (!res.ok) throw new Error(`Status ${res.status}`);
+              await fetch(`https://fitos-final.onrender.com/api/workout/${workoutId}`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }});
               fetchAllData(); 
-          } catch(e) { 
-              console.error(e);
-              if (Platform.OS === 'web') window.alert(`Erro ao excluir\n\n${e.message}`);
-              else Alert.alert("Erro ao excluir", e.message); 
-          }
+          } catch(e) {}
       };
-
-      if (Platform.OS === 'web') {
-          if (window.confirm("Deseja realmente apagar esta rotina?")) deleteAction();
-      } else {
-          Alert.alert("Excluir Rotina", "Tem certeza?", [
-              { text: "Cancelar", style: "cancel" },
-              { text: "Sim, Excluir", style:'destructive', onPress: deleteAction }
-          ]);
-      }
+      if (Platform.OS === 'web') { if (window.confirm("Deseja realmente apagar esta rotina?")) deleteAction(); } 
+      else { Alert.alert("Excluir Rotina", "Tem certeza?", [{ text: "Cancelar", style: "cancel" }, { text: "Sim", style:'destructive', onPress: deleteAction }]); }
   };
 
   const handleToggleArchiveWorkout = async (workout) => {
       const newStatus = !workout.archived;
-      const actionName = newStatus ? "Arquivar" : "Desarquivar";
-      
       const toggleAction = async () => {
           try {
-              const res = await fetch(`https://fitos-final.onrender.com/api/workout/${workout.id}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ archived: newStatus })
-              });
+              const res = await fetch(`https://fitos-final.onrender.com/api/workout/${workout.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ archived: newStatus }) });
               if (!res.ok) {
-                  await fetch(`https://fitos-final.onrender.com/api/workout`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ id: workout.id, archived: newStatus })
-                  });
+                  await fetch(`https://fitos-final.onrender.com/api/workout`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: workout.id, archived: newStatus }) });
               }
               fetchAllData(); 
-          } catch(e) {
-              if (Platform.OS === 'web') window.alert(`Erro ao ${actionName}`);
-              else Alert.alert("Erro", `Não foi possível ${actionName}.`);
-          }
+          } catch(e) {}
       };
-
-      if (Platform.OS === 'web') {
-          if (window.confirm(`Deseja ${actionName} este treino?`)) toggleAction();
-      } else {
-          Alert.alert(actionName, `Tem certeza?`, [
-              { text: "Cancelar", style: "cancel" },
-              { text: `Sim, ${actionName}`, onPress: toggleAction }
-          ]);
-      }
+      if (Platform.OS === 'web') { if (window.confirm(`Tem certeza?`)) toggleAction(); } 
+      else { Alert.alert("Confirmar", "Tem certeza?", [{ text: "Cancelar", style: "cancel" }, { text: "Sim", onPress: toggleAction }]); }
   };
 
-  const handleEditWorkout = (workout) => {
-      navigation.navigate('MontarTreinoAdmin', { aluno, workoutToEdit: workout, isEditing: true });
-  };
-
-  const handleNewWorkout = () => {
-      navigation.navigate('MontarTreinoAdmin', { aluno, isEditing: false });
-  };
+  const handleEditWorkout = (workout) => { navigation.navigate('MontarTreinoAdmin', { aluno, workoutToEdit: workout, isEditing: true }); };
+  const handleNewWorkout = () => { navigation.navigate('MontarTreinoAdmin', { aluno, isEditing: false }); };
 
   const handleToggleDisableCheckIn = async () => {
       const newValue = !disableCheckIn;
       setDisableCheckIn(newValue); 
       try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-              method: 'PATCH',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ disableCheckIn: newValue })
-          });
-          if (!res.ok) throw new Error("Erro API");
-      } catch(e) {
-          setDisableCheckIn(!newValue); 
-          if (Platform.OS === 'web') window.alert("Erro de conexão ao alterar configuração.");
-          else Alert.alert("Erro", "Não foi possível alterar a configuração.");
-      }
+          await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ disableCheckIn: newValue }) });
+      } catch(e) { setDisableCheckIn(!newValue); }
   };
 
-  const handleCheckInDateChange = (text) => {
-      let cleaned = text.replace(/[^0-9]/g, '');
-      if (cleaned.length > 2) cleaned = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
-      if (cleaned.length > 5) cleaned = cleaned.slice(0, 5) + '/' + cleaned.slice(5);
-      if (cleaned.length > 10) cleaned = cleaned.slice(0, 10);
-      setNextCheckInDate(cleaned);
-  };
-
+  const handleCheckInDateChange = (text) => setNextCheckInDate(text);
+  
   const handleSaveCheckInDate = async () => {
       let isoDate = null;
       if (nextCheckInDate && nextCheckInDate.length === 10) {
           const [day, month, year] = nextCheckInDate.split('/');
           isoDate = new Date(`${year}-${month}-${day}T12:00:00Z`).toISOString();
-      } else if (nextCheckInDate.length > 0) {
-          return Platform.OS === 'web' ? window.alert("Formato de data inválido. Use DD/MM/AAAA") : Alert.alert("Erro", "Formato de data inválido. Use DD/MM/AAAA");
       }
-
       try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-              method: 'PATCH',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({ nextCheckInDate: isoDate })
-          });
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ nextCheckInDate: isoDate }) });
           if (res.ok) {
-              const msg = isoDate ? "Data de check-in agendada com sucesso!" : "Data removida. O sistema usará o Modo Automático (14 dias).";
-              if (Platform.OS === 'web') window.alert(`Sucesso!\n\n${msg}`);
-              else Alert.alert("Sucesso", msg);
-          } else {
-              if (Platform.OS === 'web') window.alert("Erro ao salvar a data.");
-              else Alert.alert("Erro", "Falha ao salvar a data no servidor.");
+              if (Platform.OS === 'web') window.alert(`Sucesso!`);
+              else Alert.alert("Sucesso", "Data de check-in atualizada!");
           }
-      } catch(e) {
-          console.log(e);
-      }
+      } catch(e) {}
   };
-
-  const listToShow = viewMode === 'active' ? activeWorkouts : archivedWorkouts;
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
-  
   const RootComponent = isWeb ? View : SafeAreaView;
-  const rootStyle = isWeb
-    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
-    : { flex: 1, backgroundColor: theme.bg };
 
   return (
-    <RootComponent style={rootStyle}>
+    <RootComponent style={{ height: isWeb ? '100vh' : '100%', width: '100%', backgroundColor: isWeb ? webOuterBg : theme.bg }}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
         <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
@@ -476,12 +359,11 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
+                {/* CABEÇALHO DO PERFIL */}
                 <View style={[styles.profileHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <TouchableOpacity onPress={handlePickImage} style={styles.avatarContainer} activeOpacity={0.8}>
                         {uploadingPhoto ? (
-                            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                <ActivityIndicator color={theme.accent} />
-                            </View>
+                            <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border }]}><ActivityIndicator color={theme.accent} /></View>
                         ) : photoUrl ? (
                             <Image source={{uri: photoUrl}} style={[styles.avatarImage, { borderColor: theme.border }]} />
                         ) : (
@@ -489,9 +371,7 @@ export default function AdminUserOptions({ route, navigation }) {
                                 <Text style={[styles.avatarText, { color: theme.accent }]}>{aluno.name.charAt(0).toUpperCase()}</Text>
                             </View>
                         )}
-                        <View style={[styles.editBadge, { backgroundColor: theme.accent }]}>
-                            <MaterialCommunityIcons name="camera-plus" size={14} color="#000" />
-                        </View>
+                        <View style={[styles.editBadge, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="camera-plus" size={14} color="#000" /></View>
                     </TouchableOpacity>
                     <View style={styles.profileInfo}>
                         <Text style={[styles.profileName, { color: theme.text }]}>{aluno.name}</Text>
@@ -499,147 +379,61 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* 🔥 ESTEIRA DE PRODUTOS: CONTROLE DA CATRACA 🔥 */}
+                {/* ESTEIRA DE PRODUTOS */}
                 <Text style={styles.sectionLabel}>ESTEIRA DE PRODUTOS (ACESSO)</Text>
                 <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Defina qual produto este aluno comprou para ajustar as permissões do aplicativo.</Text>
                 
                 <View style={styles.plansContainer}>
-                    <TouchableOpacity 
-                        style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                        onPress={() => handleChangePlan('PREMIUM')}
-                    >
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                            <MaterialCommunityIcons name="crown" size={20} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]}>PREMIUM</Text>
-                        </View>
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('PREMIUM')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="crown" size={20} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]}>PREMIUM</Text></View>
                         {userPlan === 'PREMIUM' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
-                        style={[styles.planCard, userPlan === 'FICHA_8S' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                        onPress={() => handleChangePlan('FICHA_8S')}
-                    >
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                            <MaterialCommunityIcons name="lightning-bolt" size={20} color={userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary }]}>FICHA 8 SEMANAS</Text>
-                        </View>
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'FICHA_8S' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('FICHA_8S')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="lightning-bolt" size={20} color={userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary }]}>FICHA 8 SEMANAS</Text></View>
                         {userPlan === 'FICHA_8S' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
-                        style={[styles.planCard, userPlan === 'LOW_COST' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                        onPress={() => handleChangePlan('LOW_COST')}
-                    >
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                            <MaterialCommunityIcons name="rocket-launch" size={20} color={userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]}>LOW COST (ESCALA)</Text>
-                        </View>
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'LOW_COST' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('LOW_COST')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="rocket-launch" size={20} color={userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]}>LOW COST (ESCALA)</Text></View>
                         {userPlan === 'LOW_COST' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
                     </TouchableOpacity>
 
-                    <TouchableOpacity 
-                        style={[styles.planCard, userPlan === 'CHALLENGE_21' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                        onPress={() => handleChangePlan('CHALLENGE_21')}
-                    >
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                            <MaterialCommunityIcons name="fire" size={20} color={userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary }]}>DESAFIO 21 DIAS</Text>
-                        </View>
+                    <TouchableOpacity style={[styles.planCard, userPlan === 'CHALLENGE_21' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleChangePlan('CHALLENGE_21')}>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}><MaterialCommunityIcons name="fire" size={20} color={userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary} /><Text style={[styles.planTitle, { color: userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary }]}>DESAFIO 21 DIAS</Text></View>
                         {userPlan === 'CHALLENGE_21' && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
                     </TouchableOpacity>
                 </View>
 
                 <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
+                {/* CONTROLE DE ABAS GERAIS */}
                 <View style={styles.tabsRow}>
-                    <TouchableOpacity 
-                        style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'active' && { borderBottomColor: theme.accent }]} 
-                        onPress={() => setViewMode('active')}
-                    >
+                    <TouchableOpacity style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'active' && { borderBottomColor: theme.accent }]} onPress={() => setViewMode('active')}>
                         <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'active' && { color: theme.accent }]}>ATIVAS</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity 
-                        style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'archived' && { borderBottomColor: theme.accent }]} 
-                        onPress={() => setViewMode('archived')}
-                    >
+                    <TouchableOpacity style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'archived' && { borderBottomColor: theme.accent }]} onPress={() => setViewMode('archived')}>
                         <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'archived' && { color: theme.accent }]}>ARQUIVADAS</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity 
-                        style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'paflix' && { borderBottomColor: theme.accent }]} 
-                        onPress={() => setViewMode('paflix')}
-                    >
+                    <TouchableOpacity style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'paflix' && { borderBottomColor: theme.accent }]} onPress={() => setViewMode('paflix')}>
                         <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'paflix' && { color: theme.accent }]}>PA FLIX VIP</Text>
                     </TouchableOpacity>
                 </View>
                 
+                {/* 1. COMPONENTE DE TREINOS (Importado) */}
                 {(viewMode === 'active' || viewMode === 'archived') && (
-                    <>
-                        {viewMode === 'active' && (
-                            <TouchableOpacity style={[styles.createBtn, { backgroundColor: theme.accent, marginTop: 15 }]} onPress={handleNewWorkout}>
-                                <MaterialCommunityIcons name="plus-circle" size={28} color={theme.isDark ? '#000' : '#FFF'} />
-                                <Text style={[styles.createBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR NOVA ROTINA</Text>
-                            </TouchableOpacity>
-                        )}
-                        
-                        <Text style={[styles.sectionLabel, {marginTop: 15}]}>
-                            {viewMode === 'active' ? 'ROTINAS VIGENTES' : 'HISTÓRICO DE TREINOS'}
-                        </Text>
-
-                        {loading ? <ActivityIndicator color={theme.accent} style={{marginTop:20}} /> : (
-                            <>
-                                {listToShow.length === 0 ? (
-                                    <View style={[styles.emptyBox, { borderColor: theme.border }]}>
-                                        <MaterialCommunityIcons name={viewMode === 'active' ? "dumbbell" : "archive-off-outline"} size={40} color={theme.textSecondary} />
-                                        <Text style={styles.emptyText}>
-                                            {viewMode === 'active' ? "Nenhuma rotina ativa." : "Nenhum histórico arquivado."}
-                                        </Text>
-                                    </View>
-                                ) : (
-                                    listToShow.map((w) => {
-                                        const isArchived = viewMode === 'archived';
-                                        const status = getExpirationStatus(w.endDate, isArchived);
-
-                                        return (
-                                            <View key={w.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: isArchived ? theme.border : status.bg, opacity: isArchived ? 0.8 : 1}]}>
-                                                <View style={styles.cardHeader}>
-                                                    <View style={{flexDirection:'row', gap:8, alignItems:'center'}}>
-                                                        <MaterialCommunityIcons name={status.icon} size={16} color={status.bg === '#E5E5EA' ? '#888' : status.bg} />
-                                                        <View style={{ backgroundColor: status.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 }}>
-                                                            <Text style={{ fontSize: 9, fontWeight: '900', letterSpacing: 1, color: status.color }}>
-                                                                {status.text}
-                                                            </Text>
-                                                        </View>
-                                                    </View>
-                                                    <View style={{flexDirection: 'row', gap: 10}}>
-                                                        <TouchableOpacity onPress={() => handleToggleArchiveWorkout(w)} style={{padding:5}}>
-                                                            <MaterialCommunityIcons name={isArchived ? "package-up" : "archive-arrow-down"} size={20} color={theme.textSecondary} />
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity onPress={() => handleDeleteWorkout(w.id)} style={{padding:5}}>
-                                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color={isArchived ? theme.textSecondary : '#FF3B30'} />
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                                
-                                                <Text style={[styles.cardTitle, { color: theme.text }, isArchived && {color: theme.textSecondary}]}>{w.name}</Text>
-                                                <View style={styles.dateRow}>
-                                                    <Text style={styles.cardDates}>Vigência: {formatDate(w.startDate)} até {formatDate(w.endDate)}</Text>
-                                                </View>
-
-                                                <TouchableOpacity style={[styles.editBtn, {backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1}]} onPress={() => handleEditWorkout(w)}>
-                                                    <Text style={{color: theme.text, fontWeight:'bold', fontSize:12}}>ABRIR / VER</Text>
-                                                    <MaterialCommunityIcons name="chevron-right" size={16} color={theme.text} />
-                                                </TouchableOpacity>
-                                            </View>
-                                        );
-                                    })
-                                )}
-                            </>
-                        )}
-                    </>
+                    <AdminUserWorkouts 
+                        theme={theme} userPlan={userPlan} viewMode={viewMode} loading={loading}
+                        activeWorkouts={activeWorkouts} archivedWorkouts={archivedWorkouts}
+                        handleNewWorkout={handleNewWorkout} handleEditWorkout={handleEditWorkout}
+                        handleToggleArchiveWorkout={handleToggleArchiveWorkout} handleDeleteWorkout={handleDeleteWorkout}
+                        hasActiveFicha={hasActiveFicha} fichaDaysElapsed={fichaDaysElapsed} 
+                        isFichaExpired={userPlan === 'FICHA_8S' && fichaDaysElapsed > 56} 
+                        fichaDaysLeft={Math.max(0, 56 - fichaDaysElapsed)}
+                    />
                 )}
 
+                {/* 2. PA FLIX ORIGINAL (Mantido na Página Pai) */}
                 {viewMode === 'paflix' && (
                     <View style={{marginTop: 15}}>
                         <Text style={styles.sectionLabel}>PERMISSÕES DE CONTEÚDO VIP</Text>
@@ -679,158 +473,15 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 )}
 
-                <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
-                
-                <TouchableOpacity 
-                    style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                    onPress={() => navigation.navigate('AdminStudentCheckins', { aluno })}
-                >
-                    <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
-                        <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
-                    </View>
-                    <Text style={[styles.actionText, { color: theme.text }]}>Gerenciar Check-ins do Aluno</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
-                    <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
-                        <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
-                    </View>
-                    <Text style={[styles.actionText, { color: theme.text }]}>Ver Gráficos de Evolução</Text>
-                    <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={handleToggleStatus}>
-                    <View style={[styles.iconBox, {backgroundColor: isActiveUser ? theme.accent + '22' : 'rgba(255,59,48,0.15)'}]}>
-                        <MaterialCommunityIcons name={isActiveUser ? "lock-open" : "lock"} size={20} color={isActiveUser ? theme.accent : "#FF3B30"} />
-                    </View>
-                    <Text style={[styles.actionText, {color: isActiveUser ? theme.text : '#FF3B30'}]}>
-                        {isActiveUser ? "Aluno Ativo (Toque para Bloquear)" : "Aluno Bloqueado (Toque para Ativar)"}
-                    </Text>
-                </TouchableOpacity>
-
-                {/* SÓ MOSTRA AS CONF. DE CHECKIN SE O PLANO FOR PREMIUM */}
-                {userPlan === 'PREMIUM' && (
-                    <View>
-                        <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
-                        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
-                            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.border}}>
-                                <View style={{flex: 1, paddingRight: 10}}>
-                                    <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 13}}>Desativar Cobrança</Text>
-                                    <Text style={{color: theme.textSecondary, fontSize: 11}}>Oculta os avisos e bloqueia a pulsação do botão para este aluno.</Text>
-                                </View>
-                                <Switch 
-                                    value={disableCheckIn}
-                                    onValueChange={handleToggleDisableCheckIn}
-                                    trackColor={{ false: '#333', true: '#FF3B30' }}
-                                    thumbColor={Platform.OS === 'ios' ? '#FFF' : (disableCheckIn ? '#000' : '#888')}
-                                />
-                            </View>
-
-                            <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Defina uma data fixa para o aluno fazer o check-in. Deixe em branco para usar o Piloto Automático (14 dias).</Text>
-                            
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                {Platform.OS === 'web' ? createElement('input', {
-                                    type: 'date',
-                                    value: nextCheckInDate && nextCheckInDate.length === 10 ? nextCheckInDate.split('/').reverse().join('-') : '',
-                                    onChange: (e) => {
-                                        const val = e.target.value;
-                                        if(val) {
-                                            const [y, m, d] = val.split('-');
-                                            setNextCheckInDate(`${d}/${m}/${y}`);
-                                        } else {
-                                            setNextCheckInDate('');
-                                        }
-                                    },
-                                    style: { flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, outline: 'none', fontSize: '13px', fontFamily: 'inherit' }
-                                }) : (
-                                    <TextInput 
-                                        style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} 
-                                        placeholder="DD/MM/AAAA" 
-                                        placeholderTextColor={theme.textSecondary}
-                                        value={nextCheckInDate}
-                                        onChangeText={handleCheckInDateChange}
-                                        keyboardType="numeric"
-                                        maxLength={10}
-                                        autoCapitalize="none"
-                                    />
-                                )}
-                                <TouchableOpacity 
-                                    style={[styles.saveBtn, { backgroundColor: theme.accent }]}
-                                    onPress={handleSaveCheckInDate}
-                                >
-                                    <MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                )}
-
-                <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
-                <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
-                    <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva.</Text>
-                    
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                        <TextInput 
-                            style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} 
-                            placeholder="https://drive.google.com/..." 
-                            placeholderTextColor={theme.textSecondary}
-                            value={evaluationUrl}
-                            onChangeText={setEvaluationUrl}
-                            autoCapitalize="none"
-                        />
-                        <TouchableOpacity 
-                            style={[styles.saveBtn, { backgroundColor: theme.accent }]}
-                            onPress={async () => {
-                                try {
-                                    const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-                                        method: 'PATCH',
-                                        headers: {'Content-Type': 'application/json'},
-                                        body: JSON.stringify({ evaluationUrl: evaluationUrl })
-                                    });
-                                    if (res.ok) {
-                                        if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados atualizados.");
-                                        else Alert.alert("Sucesso", "Dados atualizados!");
-                                    } else {
-                                        if (Platform.OS === 'web') window.alert("Erro ao salvar.");
-                                        else Alert.alert("Erro", "Erro ao salvar.");
-                                    }
-                                } catch(e) { console.log(e); }
-                            }}
-                        >
-                            <MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                        </TouchableOpacity>
-                    </View>
-
-                    {evaluationUrl ? (
-                        <View style={{ flexDirection: 'row', gap: 10, marginTop: 15 }}>
-                            <TouchableOpacity 
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border }}
-                                onPress={() => Linking.openURL(evaluationUrl)}
-                            >
-                                <MaterialCommunityIcons name="eye" size={16} color={theme.text} />
-                                <Text style={{ color: theme.text, fontSize: 11, fontWeight: 'bold' }}>VER PDF ATUAL</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity 
-                                style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: 'rgba(255,59,48,0.1)', borderWidth: 1, borderColor: '#FF3B30' }}
-                                onPress={() => {
-                                    setEvaluationUrl('');
-                                    if (Platform.OS === 'web') window.alert("Link removido da caixa. Clique no botão de Salvar para confirmar.");
-                                    else Alert.alert("Aviso", "Link removido da caixa. Clique no botão de Salvar para confirmar a exclusão no banco.");
-                                }}
-                            >
-                                <MaterialCommunityIcons name="trash-can" size={16} color="#FF3B30" />
-                                <Text style={{ color: '#FF3B30', fontSize: 11, fontWeight: 'bold' }}>LIMPAR</Text>
-                            </TouchableOpacity>
-                        </View>
-                    ) : null}
-                </View>
-
-                <TouchableOpacity style={styles.deleteUserRow} onPress={handleDeleteUser}>
-                    <MaterialCommunityIcons name="account-remove" size={20} color="#FFF" />
-                    <Text style={styles.deleteUserText}>EXCLUIR ALUNO PERMANENTEMENTE</Text>
-                </TouchableOpacity>
+                {/* 3. COMPONENTE DADOS E SISTEMA (Importado) */}
+                <AdminUserSystem 
+                    theme={theme} navigation={navigation} aluno={aluno} userPlan={userPlan}
+                    isActiveUser={isActiveUser} handleToggleStatus={handleToggleStatus}
+                    disableCheckIn={disableCheckIn} handleToggleDisableCheckIn={handleToggleDisableCheckIn}
+                    nextCheckInDate={nextCheckInDate} handleCheckInDateChange={handleCheckInDateChange} handleSaveCheckInDate={handleSaveCheckInDate}
+                    evaluationUrl={evaluationUrl} setEvaluationUrl={setEvaluationUrl} handleSaveEvaluation={handleSaveEvaluation}
+                    handleDeleteUser={handleDeleteUser}
+                />
 
             </ScrollView>
         </View>
@@ -852,13 +503,10 @@ const styles = StyleSheet.create({
   profileName: { fontSize: 20, fontWeight: '900' },
   profileEmail: { color: '#888', fontSize: 12, marginTop: 2 },
 
-  // 🔥 ESTILOS DOS CARDS DA ESTEIRA DE PRODUTOS
   plansContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 25 },
   planCard: { width: '48%', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   planTitle: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
 
-  createBtn: { padding: 15, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 15 },
-  createBtnText: { fontWeight: '900', fontSize: 14, letterSpacing:0.5 },
   tabsRow: { flexDirection: 'row', gap: 10, marginBottom: 5 },
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2 },
   tabText: { fontWeight: 'bold', fontSize: 11 },
@@ -866,27 +514,11 @@ const styles = StyleSheet.create({
   sectionLabel: { color:'#888', fontWeight:'900', marginBottom:5, fontSize:12, letterSpacing:1 },
   sectionSubDesc: { color: '#888', fontSize: 11, marginBottom: 15 },
   
-  card: { borderRadius: 12, padding: 15, marginBottom: 15, borderWidth: 1 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  statusText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-  cardTitle: { fontSize: 20, fontWeight: '900', marginBottom: 5 },
-  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15 },
-  cardDates: { color: '#888', fontSize: 12, fontWeight:'bold' },
-  editBtn: { padding: 12, borderRadius: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   emptyBox: { alignItems:'center', padding: 30, borderStyle:'dashed', borderWidth:1, borderRadius:10, marginVertical: 10 },
   emptyText: { color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 },
   
   accessCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 10, borderWidth: 1 },
   accessIconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   accessTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
-  accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' },
-
-  actionRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 10, gap: 15, borderWidth:1 },
-  iconBox: { width: 36, height: 36, borderRadius: 18, justifyContent:'center', alignItems:'center' },
-  actionText: { fontWeight: 'bold', fontSize: 13, flex:1 },
-  deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 15, borderRadius: 12, marginTop: 20, gap: 10 },
-  deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 12 },
-
-  inputPdf: { padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 13, outlineStyle: 'none' },
-  saveBtn: { padding: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', height: 45, width: 45 }
+  accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' }
 });

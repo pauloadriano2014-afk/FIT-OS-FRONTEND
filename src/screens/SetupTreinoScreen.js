@@ -1,5 +1,5 @@
 // src/screens/SetupTreinoScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, TouchableOpacity, 
   ActivityIndicator, StatusBar, Platform, Alert 
@@ -13,8 +13,8 @@ export default function SetupTreinoScreen({ navigation }) {
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [userPlan, setUserPlan] = useState('LOW_COST'); // 🔥 GUARDA O PLANO
   
-  // Respostas do Aluno
   const [gender, setGender] = useState('');
   const [goal, setGoal] = useState('');
   const [focus, setFocus] = useState('');
@@ -23,6 +23,45 @@ export default function SetupTreinoScreen({ navigation }) {
   const isWeb = Platform.OS === 'web';
   const RootComponent = isWeb ? View : SafeAreaView;
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+
+  useEffect(() => {
+      AsyncStorage.getItem('user').then(userJson => {
+          if (userJson) {
+              const user = JSON.parse(userJson);
+              setUserPlan(user.plan || 'LOW_COST');
+          }
+      });
+  }, []);
+
+  // 🔥 LÓGICA INTELIGENTE DE LOGOUT (VÁLVULA DE ESCAPE)
+  const handleLogout = async () => {
+      await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache', '@global_exercises']);
+      if (Platform.OS === 'web') {
+          window.location.replace('/');
+      } else {
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      }
+  };
+
+  const handleBack = () => {
+      if (step > 1) {
+          setStep(step - 1);
+      } else {
+          if (Platform.OS === 'web') {
+              const confirmLogout = window.confirm("Deseja sair da conta e voltar ao início?");
+              if (confirmLogout) handleLogout();
+          } else {
+              Alert.alert(
+                  "Sair da Conta",
+                  "Deseja fazer logout e voltar para a tela inicial?",
+                  [
+                      { text: "Cancelar", style: "cancel" },
+                      { text: "Sair", style: "destructive", onPress: handleLogout }
+                  ]
+              );
+          }
+      }
+  };
 
   const handleNext = () => {
       if (step === 1 && !gender) return showAlert("Selecione seu gênero.");
@@ -48,24 +87,18 @@ export default function SetupTreinoScreen({ navigation }) {
           const userJson = await AsyncStorage.getItem('user');
           const user = JSON.parse(userJson);
 
-          // 🔥 ROTA DO PILOTO AUTOMÁTICO QUE VAMOS CRIAR NO BACKEND DEPOIS
           const res = await fetch('https://fitos-final.onrender.com/api/workout/auto-setup', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   userId: user.id,
-                  gender,
-                  goal,
-                  focus,
-                  level
+                  gender, goal, focus, level
               })
           });
 
           if (!res.ok) throw new Error("Falha ao gerar treino");
 
-          // Tudo certo, volta pra Home para ver o treino!
           navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
-
       } catch (e) {
           setLoading(false);
           showAlert("Não conseguimos gerar seu treino agora. Tente novamente.");
@@ -107,6 +140,14 @@ export default function SetupTreinoScreen({ navigation }) {
       </View>
   );
 
+  // 🔥 TEXTOS ADAPTATIVOS
+  const isLoadingFicha = userPlan === 'FICHA_8S';
+  const loadingTitle = isLoadingFicha ? "PREPARANDO SUA FICHA..." : "MONTANDO SEU TREINO...";
+  const loadingDesc = isLoadingFicha 
+      ? "Buscando a Ficha de 8 Semanas ideal para o seu perfil e nível na nossa base." 
+      : "Nossa inteligência está buscando o melhor protocolo para o seu perfil na biblioteca do PA Team.";
+  const finalBtnText = isLoadingFicha ? 'LIBERAR MINHA FICHA 🔥' : 'GERAR MEU TREINO 🔥';
+
   return (
     <RootComponent style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -116,14 +157,12 @@ export default function SetupTreinoScreen({ navigation }) {
           {loading ? (
               <View style={styles.loadingContainer}>
                   <ActivityIndicator size="large" color={theme.accent} />
-                  <Text style={[styles.loadingTitle, { color: theme.text }]}>MONTANDO SEU TREINO...</Text>
-                  <Text style={[styles.loadingDesc, { color: theme.textSecondary }]}>
-                      Nossa inteligência está buscando o melhor protocolo para o seu perfil na biblioteca do PA Team.
-                  </Text>
+                  <Text style={[styles.loadingTitle, { color: theme.text }]}>{loadingTitle}</Text>
+                  <Text style={[styles.loadingDesc, { color: theme.textSecondary }]}>{loadingDesc}</Text>
               </View>
           ) : (
               <>
-                  <TouchableOpacity style={styles.backBtn} onPress={() => step > 1 ? setStep(step - 1) : navigation.goBack()}>
+                  <TouchableOpacity style={styles.backBtn} onPress={handleBack}>
                       <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
                   </TouchableOpacity>
 
@@ -178,7 +217,7 @@ export default function SetupTreinoScreen({ navigation }) {
 
                   <TouchableOpacity style={[styles.nextBtn, { backgroundColor: theme.accent }]} onPress={handleNext}>
                       <Text style={[styles.nextBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>
-                          {step === 4 ? 'GERAR MEU TREINO 🔥' : 'PRÓXIMO PASSO'}
+                          {step === 4 ? finalBtnText : 'PRÓXIMO PASSO'}
                       </Text>
                   </TouchableOpacity>
               </>
@@ -206,6 +245,6 @@ const styles = StyleSheet.create({
   nextBtn: { padding: 20, borderRadius: 16, alignItems: 'center', marginBottom: 20, elevation: 2 },
   nextBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 30 },
-  loadingTitle: { fontSize: 20, fontWeight: '900', marginTop: 25, marginBottom: 10 },
+  loadingTitle: { fontSize: 20, fontWeight: '900', marginTop: 25, marginBottom: 10, textAlign: 'center' },
   loadingDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22 }
 });

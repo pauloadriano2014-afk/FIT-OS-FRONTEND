@@ -85,7 +85,12 @@ export default function RegisterScreen({ navigation, route }) {
         
         // Pós-Registro: Joga para a Home, e a Home (que tem a portaria inteligente)
         // vai decidir se ele vai pra Anamnese do Premium ou pra Mini-Anamnese (SetupTreino)
-        navigation.replace('Main', { userData: data.user }); 
+        const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(incomingPlan);
+if (isAutoPlan) {
+    navigation.replace('SetupTreino', { userData: data.user });
+} else {
+    navigation.replace('Anamnese', { userData: data.user });
+} 
       } else {
         if(Platform.OS === 'web') window.alert(data.error || "Não foi possível realizar o cadastro.");
         else Alert.alert("Atenção", data.error || "Não foi possível realizar o cadastro.");
