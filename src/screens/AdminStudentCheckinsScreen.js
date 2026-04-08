@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking, TextInput, KeyboardAvoidingView
+  ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking, TextInput, Dimensions 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -17,18 +17,15 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
-  // 🔥 ESTADOS DO PAINEL DE AVALIAÇÃO IA 🔥
   const [evaluationModalVisible, setEvaluationModalVisible] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
-  const [evaluationType, setEvaluationType] = useState('initial'); // 'initial' ou 'comparison'
+  const [evaluationType, setEvaluationType] = useState('initial');
   const [currentCheckinForEval, setCurrentCheckinForEval] = useState(null);
   
-  // Para comparação de evolução
   const [selectedOldCheckinId, setSelectedOldCheckinId] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [sendingEvaluation, setSendingEvaluation] = useState(false);
   
-  // Menu suspenso de datas
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
@@ -41,7 +38,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
           const res = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`);
           if (res.ok) {
               const data = await res.json();
-              // Ordena do mais recente para o mais antigo (index 0 = mais novo)
               const sorted = data.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
               setCheckins(sorted);
           }
@@ -108,19 +104,16 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       }
   };
 
-  // 🔥 LÓGICA DO QUARTEL GENERAL DE IA 🔥
   const openEvaluationPanel = (checkin, type) => {
       setCurrentCheckinForEval(checkin);
       setEvaluationType(type);
-      setFeedbackText(checkin.coachFeedback || ''); // Se já tiver feedback salvo, carrega
+      setFeedbackText(checkin.coachFeedback || ''); 
 
       if (type === 'comparison') {
-          // Acha os checkins anteriores a este
           const currentIdx = checkins.findIndex(c => c.id === checkin.id);
           const olderCheckins = checkins.slice(currentIdx + 1);
           
           if (olderCheckins.length > 0) {
-              // Por padrão, seleciona a foto mais antiga (Ponto de Partida)
               setSelectedOldCheckinId(olderCheckins[olderCheckins.length - 1].id);
           }
       } else {
@@ -140,7 +133,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       try {
           const payload = { 
               checkInId: currentCheckinForEval.id,
-              // Manda o ID antigo se estiver na aba de comparação
               oldCheckInId: evaluationType === 'comparison' ? selectedOldCheckinId : null 
           };
 
@@ -180,7 +172,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
       setSendingEvaluation(true);
       try {
-          // Atualiza o checkin específico com o feedback do coach
           const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -191,7 +182,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
           });
 
           if (res.ok) {
-              // Atualiza a lista local para refletir a mudança
               setCheckins(prev => prev.map(c => 
                   c.id === currentCheckinForEval.id ? { ...c, coachFeedback: feedbackText } : c
               ));
@@ -217,10 +207,25 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const RootComponent = isWeb ? View : SafeAreaView;
 
   return (
-    <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
+    <RootComponent style={[
+      styles.container, 
+      { 
+        backgroundColor: isWeb ? webOuterBg : theme.bg,
+        ...(isWeb ? { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {}) 
+      }
+    ]}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+        <View style={{ 
+          flex: 1, 
+          minHeight: 0,
+          width: '100%', 
+          maxWidth: isWeb ? 480 : '100%', 
+          alignSelf: 'center', 
+          backgroundColor: theme.bg, 
+          overflow: 'hidden',
+          ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
+        }}>
             
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
@@ -235,7 +240,12 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ flex: 1 }} contentContainerStyle={{padding: 20, paddingBottom: 100}} showsVerticalScrollIndicator={false}>
+            {/* Wrapper com position relative + absolute ScrollView = scroll garantido na web */}
+            <View style={{ flex: 1, position: 'relative' }}>
+            <ScrollView 
+              style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} 
+              contentContainerStyle={{ padding: 20 }}
+            >
                 {loading ? <ActivityIndicator color={theme.accent} size="large" style={{marginTop: 50}} /> : (
                     checkins.length === 0 ? (
                         <View style={[styles.emptyBox, { borderColor: theme.border }]}>
@@ -244,7 +254,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         </View>
                     ) : (
                         checkins.map((item, index) => {
-                            const isOldest = index === checkins.length - 1; // Se for o último da array ordenada (mais antigo)
+                            const isOldest = index === checkins.length - 1;
                             const isEvaluated = !!item.coachFeedback;
 
                             return (
@@ -326,7 +336,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                         )}
                                     </View>
 
-                                    {/* 🔥 BOTÃO DO QUARTEL GENERAL IA 🔥 */}
                                     <TouchableOpacity 
                                         style={[styles.aiButton, { backgroundColor: isEvaluated ? theme.surface : theme.accent, borderColor: isEvaluated ? theme.border : theme.accent }]} 
                                         onPress={() => openEvaluationPanel(item, isOldest ? 'initial' : 'comparison')}
@@ -343,14 +352,15 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                     )
                 )}
             </ScrollView>
+            </View>
         </View>
 
-        {/* 🔥 MODAL DE AVALIAÇÃO (O QUARTEL GENERAL) 🔥 */}
-        <Modal visible={evaluationModalVisible} transparent animationType="fade">
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalBg}>
+        {/* Modal de Avaliação */}
+        {evaluationModalVisible && (
+            <View style={styles.modalBgAbsolute}>
                 <View style={[styles.evalModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     
-                    <View style={styles.evalHeader}>
+                    <View style={[styles.evalHeader, { borderBottomColor: 'rgba(128,128,128,0.2)' }]}>
                         <Text style={[styles.evalTitle, { color: theme.accent }]}>
                             {evaluationType === 'initial' ? 'AVALIAÇÃO INICIAL' : 'COMPARATIVO DE EVOLUÇÃO'}
                         </Text>
@@ -359,7 +369,12 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{padding: 20}}>
+                    <ScrollView 
+                        style={styles.evalScrollView}
+                        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+                        showsVerticalScrollIndicator={true}
+                        nestedScrollEnabled={true}
+                    >
                         
                         {evaluationType === 'comparison' && (
                             <View style={{marginBottom: 20}}>
@@ -396,7 +411,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             </View>
                         )}
 
-                        {/* VISUALIZAÇÃO DE FOTOS (APENAS FRENTE PARA REFERÊNCIA RÁPIDA) */}
                         <View style={styles.comparePhotosContainer}>
                             {evaluationType === 'comparison' && getOldCheckin() && (
                                 <View style={styles.comparePhotoCol}>
@@ -411,7 +425,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             </View>
                         </View>
 
-                        {/* BOTÃO GERAR IA */}
                         <TouchableOpacity 
                             style={[styles.generateAIBtn, {backgroundColor: theme.accent + '22', borderColor: theme.accent}]}
                             onPress={generateAIFeedback}
@@ -447,12 +460,12 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
                     </ScrollView>
                 </View>
-            </KeyboardAvoidingView>
-        </Modal>
+            </View>
+        )}
 
-        {/* Modal Simples de Foto Cheia */}
-        <Modal visible={modalVisible} transparent animationType="fade">
-            <View style={styles.modalBg}>
+        {/* Modal de Foto */}
+        {modalVisible && (
+            <View style={styles.modalBgAbsolute}>
                 <TouchableOpacity style={styles.modalClose} onPress={() => setModalVisible(false)}>
                     <MaterialCommunityIcons name="close" size={32} color="#FFF" />
                 </TouchableOpacity>
@@ -460,14 +473,16 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                     <Image source={{ uri: selectedPhoto }} style={styles.fullImage} resizeMode="contain" />
                 )}
             </View>
-        </Modal>
+        )}
     </RootComponent>
   );
 }
 
+const isWeb = Platform.OS === 'web';
+
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 },
-  header: { flexDirection:'row', justifyContent:'space-between', paddingHorizontal:20, paddingBottom: 20, paddingTop: Platform.OS === 'android' ? 10 : 20, alignItems:'center', borderBottomWidth:1 },
+  header: { flexDirection:'row', justifyContent:'space-between', paddingHorizontal:20, paddingBottom: 20, paddingTop: Platform.OS === 'android' ? 10 : 20, alignItems:'center', borderBottomWidth:1, flexShrink: 0 },
   headerTitle: { fontWeight:'900', fontSize:14, letterSpacing: 1 },
   
   emptyBox: { alignItems:'center', padding: 40, borderStyle:'dashed', borderWidth:1, borderRadius:16, marginVertical: 20 },
@@ -492,11 +507,34 @@ const styles = StyleSheet.create({
   aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
   aiButtonText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
 
-  // 🔥 Estilos do Quartel General de Avaliação 🔥
-  modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  // 🔥 Adicionado 'flex: 1' para o ScrollView voltar a funcionar
-  evalModalContent: { flex: 1, width: '100%', maxWidth: 500, maxHeight: '90%', borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
-  evalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(128,128,128,0.2)' },
+  modalBgAbsolute: { 
+    position: isWeb ? 'fixed' : 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    zIndex: 9999,
+    backgroundColor: 'rgba(0,0,0,0.9)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20,
+  },
+  
+  evalModalContent: { 
+      width: '100%', 
+      maxWidth: 500, 
+      height: Dimensions.get('window').height * 0.85,
+      borderRadius: 24, 
+      borderWidth: 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+  },
+  
+  evalScrollView: {
+      flex: 1,
+      minHeight: 0,
+      ...(Platform.OS === 'web' ? { overflowY: 'auto' } : {}),
+  },
+  
+  evalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, flexShrink: 0 },
   evalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   
   dateDropdown: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1 },
