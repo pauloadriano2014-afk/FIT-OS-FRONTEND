@@ -143,11 +143,12 @@ export default function SetupTreinoScreen({ navigation, route }) {
           const finalGoal = userPlan === 'CHALLENGE_21' ? 'Emagrecimento Acelerado' : `${goal} (Foco: ${focus})`;
           const finalLevel = userPlan === 'CHALLENGE_21' ? 'Desafio Único' : level;
 
-          // 🔥 ROTA CORRIGIDA: Agora aponta para o ID específico do aluno
-          await fetch(`https://fitos-final.onrender.com/api/user/${user.id}`, {
+          // 🔥 AGORA ESTÁ ALINHADO: Bate em /api/user e manda o userId no body
+          await fetch(`https://fitos-final.onrender.com/api/user`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ 
+                  userId: user.id, // O segredo está aqui
                   goal: finalGoal, 
                   level: finalLevel 
               })
