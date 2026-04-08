@@ -17,58 +17,98 @@ const formatDateToString = (date) => { if (!date) return ''; const d = new Date(
 export default function MontarTreinoAdmin({ route, navigation }) {
   const { theme } = useTheme(); 
   const previewVideoRef = useRef(null);
-  const controller = useMontarTreino(route, navigation);
+  
+  // 🔥 O SCANNER DE ROTA DEFINITIVO 🔥
+  let aluno = null;
+  let isRouteCorrupted = false;
+
+  try {
+      const alunoParam = route.params?.aluno;
+      if (typeof alunoParam === 'string') {
+          if (alunoParam.includes('[object Object]')) {
+              isRouteCorrupted = true;
+          } else {
+              aluno = JSON.parse(alunoParam);
+          }
+      } else if (alunoParam) {
+          aluno = alunoParam;
+      }
+  } catch (e) {
+      console.error("Erro ao decodificar aluno da rota:", e);
+  }
+
+  // Passa o aluno processado para o hook
+  const patchedRoute = { ...route, params: { ...route.params, aluno } };
+  const controller = useMontarTreino(patchedRoute, navigation);
 
   const { state, setters, actions } = controller;
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaViewContext;
 
-  const aluno = route.params?.aluno;
   const [anamneseData, setAnamneseData] = useState(null);
 
+  // 🔥 CIRURGIA 2: Lógica de leitura de Raio-X atualizada para ler do perfil do aluno
   useEffect(() => {
-      if (aluno && !state.isTemplateMode) {
-          let foundAnamnese = null;
-          let isSetupTreino = false; // 🔥 Flag para identificar de onde veio a info
-          
-          if (aluno.anamnese) foundAnamnese = aluno.anamnese;
-          else if (aluno.anamneses && aluno.anamneses.length > 0) foundAnamnese = aluno.anamneses[aluno.anamneses.length - 1];
-          else if (aluno.Anamnese) foundAnamnese = aluno.Anamnese;
-          else if (aluno.Anamneses && aluno.Anamneses.length > 0) foundAnamnese = aluno.Anamneses[aluno.Anamneses.length - 1];
+      if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
+          const fetchDadosRaioX = async () => {
+              let foundAnamnese = null;
 
-          // 🔥 SE NÃO ACHOU ANAMNESE PREMIUM, BUSCA AS RESPOSTAS DO SETUP TREINO (Low Cost, 8S, 21D)
-          if (!foundAnamnese && aluno.workouts && aluno.workouts.length > 0) {
-              const baseWorkout = aluno.workouts[0];
-              if (baseWorkout.goal || baseWorkout.level) {
-                  // Constrói um objeto "falso" de anamnese baseado no treino inicial
+              // 1. LÊ DIRETO DO PERFIL DO ALUNO (Onde o SetupTreino agora crava os dados via PATCH)
+              if (aluno.goal || aluno.level) {
+                  let rawGoal = aluno.goal || '';
                   foundAnamnese = {
-                      objetivo: baseWorkout.goal || 'Melhorar o Shape',
-                      nivel: baseWorkout.level || 'Não informado',
-                      // Extrai o foco se estiver no formato "Objetivo (Foco: XYZ)"
-                      foco: baseWorkout.goal?.includes('(Foco:') ? baseWorkout.goal.split('(Foco:')[1].replace(')','').trim() : 'Geral'
+                      objetivo: rawGoal.split('(Foco:')[0].trim() || 'Não informado',
+                      nivel: aluno.level || 'Não informado',
+                      foco: rawGoal.includes('(Foco:') ? rawGoal.split('(Foco:')[1].replace(')','').trim() : 'Geral',
+                      isSetupTreino: true
                   };
-                  isSetupTreino = true;
               }
-          }
-
-          if (foundAnamnese) {
-              setAnamneseData({ ...foundAnamnese, isSetupTreino });
-          } else {
-              const fetchAnamnese = async () => {
+              
+              // 2. SE NÃO ACHOU NO PERFIL, BUSCA ANAMNESE PREMIUM (Via API)
+              if (!foundAnamnese) {
                   try {
-                      const res = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
-                      if (res.ok) {
-                          const data = await res.json();
-                          if (Array.isArray(data) && data.length > 0) setAnamneseData(data[0]);
-                          else if (data && data.id) setAnamneseData(data);
+                      const resAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
+                      if (resAnamnese.ok) {
+                          const data = await resAnamnese.json();
+                          if (Array.isArray(data) && data.length > 0) {
+                              foundAnamnese = { ...data[0], isSetupTreino: false };
+                          } else if (data && data.id) {
+                              foundAnamnese = { ...data, isSetupTreino: false };
+                          }
                       }
                   } catch (e) {}
-              };
-              fetchAnamnese();
-          }
+              }
+
+              // 3. ATRIBUIÇÃO FINAL
+              if (foundAnamnese) {
+                  setAnamneseData(foundAnamnese);
+              } else {
+                  setAnamneseData({ objetivo: 'Sem dados', nivel: 'Sem dados', foco: 'Sem dados', isSetupTreino: true });
+              }
+          };
+
+          fetchDadosRaioX();
       }
-  }, [aluno, state.isTemplateMode]);
+  }, [aluno, state.isTemplateMode, isRouteCorrupted]);
+
+  const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
+
+  // 🔥 TELA DE ERRO SE A ROTA BUGAR NA WEB
+  if (isRouteCorrupted) {
+      return (
+          <RootComponent style={[styles.center, rootStyle]}>
+              <MaterialCommunityIcons name="alert-decagram" size={60} color="#FF3B30" style={{marginBottom: 20}} />
+              <Text style={{color: theme.text, fontSize: 20, fontWeight: '900', textAlign: 'center'}}>ERRO DE ROTA WEB</Text>
+              <Text style={{color: theme.textSecondary, textAlign: 'center', marginTop: 10, paddingHorizontal: 30, lineHeight: 22}}>
+                  O objeto do aluno foi corrompido para <Text style={{fontWeight: 'bold', color: '#FF3B30'}}>[object Object]</Text>. Volte para a tela anterior e tente novamente.
+              </Text>
+              <TouchableOpacity style={{marginTop: 30, backgroundColor: theme.accent, padding: 15, borderRadius: 10}} onPress={() => navigation.goBack()}>
+                  <Text style={{color: '#FFF', fontWeight: 'bold'}}>VOLTAR</Text>
+              </TouchableOpacity>
+          </RootComponent>
+      );
+  }
 
   if (state.loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
@@ -77,13 +117,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const modalOptionsToShow = isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis;
   const modalTitleToShow = isCurrentCardio ? 'INTENSIDADE' : 'TÉCNICA';
 
-  const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
-
   return (
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* HEADER ISOLADO DO SCROLL */}
       <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
           <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: isWeb ? 20 : 10, paddingBottom: 15 }}>
               <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, width: 45, alignItems: 'center' }}>
@@ -104,9 +141,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
               contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} 
               showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never"
           >
-              <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100%' } : {}) }}>
+              <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100%' } : {}) }}>
                     
-                      {/* 🔥 RAIO-X ADAPTADO PARA LER TANTO PREMIUM QUANTO OUTROS PLANOS */}
                       {!state.isTemplateMode && anamneseData && (
                           <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15}}>
@@ -114,19 +150,17 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO {anamneseData.isSetupTreino ? '(BÁSICO)' : ''}</Text>
                               </View>
 
-                              {/* 🔥 DADOS COMUNS */}
                               <View style={styles.anamneseRow}>
                                   <View style={styles.anamneseCol}>
                                       <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
-                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo ? (anamneseData.objetivo.split('(Foco:')[0].trim()) : '-'}</Text>
+                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo}</Text>
                                   </View>
                                   <View style={styles.anamneseCol}>
                                       <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
-                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel || '-'}</Text>
+                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel}</Text>
                                   </View>
                               </View>
 
-                              {/* 🔥 DADOS EXCLUSIVOS DO SETUP BÁSICO */}
                               {anamneseData.isSetupTreino && anamneseData.foco && (
                                   <View style={[styles.anamneseRow, { marginBottom: 0 }]}>
                                       <View style={styles.anamneseCol}>
@@ -136,7 +170,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   </View>
                               )}
 
-                              {/* 🔥 DADOS EXCLUSIVOS DA ANAMNESE PREMIUM */}
                               {!anamneseData.isSetupTreino && (
                                   <>
                                       <View style={styles.anamneseRow}>

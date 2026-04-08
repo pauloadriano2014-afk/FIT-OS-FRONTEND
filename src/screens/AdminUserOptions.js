@@ -111,7 +111,6 @@ export default function AdminUserOptions({ route, navigation }) {
             if (finalPlan === 'FICHA_8S') {
                 let startD = new Date(fresh.createdAt || new Date());
                 
-                // 🔥 MATEMÁTICA CORRIGIDA: Olha apenas para o treino ativo atual!
                 if (activeWk.length > 0) {
                     const currentWorkout = activeWk[0];
                     if (currentWorkout.startDate) {
@@ -320,8 +319,21 @@ export default function AdminUserOptions({ route, navigation }) {
       else { Alert.alert("Confirmar", "Tem certeza?", [{ text: "Cancelar", style: "cancel" }, { text: "Sim", onPress: toggleAction }]); }
   };
 
-  const handleEditWorkout = (workout) => { navigation.navigate('MontarTreinoAdmin', { aluno, workoutToEdit: workout, isEditing: true }); };
-  const handleNewWorkout = () => { navigation.navigate('MontarTreinoAdmin', { aluno, isEditing: false }); };
+  // 🔥 CORREÇÃO DE ROTA (O Escudo Antimíssil)
+  const handleEditWorkout = (workout) => { 
+      navigation.navigate('MontarTreinoAdmin', { 
+          aluno: JSON.stringify(aluno), // 🔥 Empacota o aluno
+          workoutToEdit: workout, 
+          isEditing: true 
+      }); 
+  };
+  
+  const handleNewWorkout = () => { 
+      navigation.navigate('MontarTreinoAdmin', { 
+          aluno: JSON.stringify(aluno), // 🔥 Empacota o aluno
+          isEditing: false 
+      }); 
+  };
 
   const handleToggleDisableCheckIn = async () => {
       const newValue = !disableCheckIn;
@@ -446,7 +458,7 @@ export default function AdminUserOptions({ route, navigation }) {
                     <AdminUserWorkouts 
                         theme={theme} userPlan={userPlan} viewMode={viewMode} loading={loading}
                         activeWorkouts={activeWorkouts} archivedWorkouts={archivedWorkouts}
-                        handleNewWorkout={handleNewWorkout} handleEditWorkout={handleEditWorkout}
+                        handleNewWorkout={handleNewWorkout} handleEditWorkout={handleEditWorkout} // 🔥 Aqui a mágica vai acontecer
                         handleToggleArchiveWorkout={handleToggleArchiveWorkout} handleDeleteWorkout={handleDeleteWorkout}
                         hasActiveFicha={hasActiveFicha} fichaDaysElapsed={fichaDaysElapsed} 
                         isFichaExpired={userPlan === 'FICHA_8S' && fichaDaysElapsed > 56} 

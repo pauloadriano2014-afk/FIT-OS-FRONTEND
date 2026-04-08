@@ -143,6 +143,13 @@ export default function SetupTreinoScreen({ navigation, route }) {
           const finalGoal = userPlan === 'CHALLENGE_21' ? 'Emagrecimento Acelerado' : `${goal} (Foco: ${focus})`;
           const finalLevel = userPlan === 'CHALLENGE_21' ? 'Desafio Único' : level;
 
+          // 🔥 O SEGREDO AQUI: Crava as respostas direto no Perfil do Aluno no Banco de Dados!
+          await fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ goal: finalGoal, level: finalLevel })
+          });
+
           if (userPlan !== 'LOW_COST') {
               const placeholderName = userPlan === 'FICHA_8S' ? 'FICHA EM CONSTRUÇÃO 🚧' : 'DESAFIO EM CONSTRUÇÃO 🚧';
               const durationDays = userPlan === 'CHALLENGE_21' ? 21 : 56;
