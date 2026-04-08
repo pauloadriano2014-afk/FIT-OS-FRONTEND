@@ -143,8 +143,8 @@ export default function SetupTreinoScreen({ navigation, route }) {
           const finalGoal = userPlan === 'CHALLENGE_21' ? 'Emagrecimento Acelerado' : `${goal} (Foco: ${focus})`;
           const finalLevel = userPlan === 'CHALLENGE_21' ? 'Desafio Único' : level;
 
-          // 🔥 O SEGREDO AQUI: Crava as respostas direto no Perfil do Aluno no Banco de Dados!
-          await fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}`, {
+          // 🔥 ROTA CORRIGIDA: Usa a rota de perfil do próprio usuário (acesso liberado)
+          await fetch(`https://fitos-final.onrender.com/api/user/${user.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ goal: finalGoal, level: finalLevel })

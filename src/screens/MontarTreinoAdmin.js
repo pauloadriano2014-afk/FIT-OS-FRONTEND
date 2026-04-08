@@ -48,49 +48,54 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
   const [anamneseData, setAnamneseData] = useState(null);
 
-  // 🔥 CIRURGIA 2: Lógica de leitura de Raio-X atualizada para ler do perfil do aluno
+  // 🔥 SOLUÇÃO DEFINITIVA: BUSCA O ALUNO FRESCO NO BANCO PARA O RAIO-X
   useEffect(() => {
       if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
           const fetchDadosRaioX = async () => {
-              let foundAnamnese = null;
+              try {
+                  // 1. BUSCA O ALUNO ATUALIZADO DIRETO DA API (Ignora o lixo do cache/rota)
+                  const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
+                  const freshUser = resUser.ok ? await resUser.json() : aluno;
 
-              // 1. LÊ DIRETO DO PERFIL DO ALUNO (Onde o SetupTreino agora crava os dados via PATCH)
-              if (aluno.goal || aluno.level) {
-                  let rawGoal = aluno.goal || '';
-                  foundAnamnese = {
-                      objetivo: rawGoal.split('(Foco:')[0].trim() || 'Não informado',
-                      nivel: aluno.level || 'Não informado',
-                      foco: rawGoal.includes('(Foco:') ? rawGoal.split('(Foco:')[1].replace(')','').trim() : 'Geral',
-                      isSetupTreino: true
-                  };
-              }
-              
-              // 2. SE NÃO ACHOU NO PERFIL, BUSCA ANAMNESE PREMIUM (Via API)
-              if (!foundAnamnese) {
-                  try {
+                  let foundAnamnese = null;
+
+                  // 2. TENTA LER DO PERFIL ATUALIZADO (Plano Básico / Fichas / Desafio)
+                  if (freshUser.goal || freshUser.level) {
+                      let rawGoal = freshUser.goal || '';
+                      foundAnamnese = {
+                          objetivo: rawGoal.split('(Foco:')[0].trim() || 'Não informado',
+                          nivel: freshUser.level || 'Não informado',
+                          foco: rawGoal.includes('(Foco:') ? rawGoal.split('(Foco:')[1].replace(')','').trim() : 'Geral',
+                          isSetupTreino: true
+                      };
+                  }
+                  
+                  // 3. SE NÃO TINHA NO PERFIL, BUSCA ANAMNESE PREMIUM (Premium Raiz)
+                  if (!foundAnamnese) {
                       const resAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
                       if (resAnamnese.ok) {
                           const data = await resAnamnese.json();
-                          if (Array.isArray(data) && data.length > 0) {
-                              foundAnamnese = { ...data[0], isSetupTreino: false };
-                          } else if (data && data.id) {
-                              foundAnamnese = { ...data, isSetupTreino: false };
+                          const ana = Array.isArray(data) ? data[0] : data;
+                          if (ana && ana.id) {
+                              foundAnamnese = { ...ana, isSetupTreino: false };
                           }
                       }
-                  } catch (e) {}
-              }
+                  }
 
-              // 3. ATRIBUIÇÃO FINAL
-              if (foundAnamnese) {
-                  setAnamneseData(foundAnamnese);
-              } else {
-                  setAnamneseData({ objetivo: 'Sem dados', nivel: 'Sem dados', foco: 'Sem dados', isSetupTreino: true });
+                  if (foundAnamnese) {
+                      setAnamneseData(foundAnamnese);
+                  } else {
+                      setAnamneseData({ objetivo: 'Sem dados no DB', nivel: 'Sem dados', foco: 'Sem dados', isSetupTreino: true });
+                  }
+              } catch (e) {
+                  console.error("Erro ao carregar Raio-X:", e);
+                  setAnamneseData({ objetivo: 'Erro de conexão', nivel: 'Erro', foco: 'Erro', isSetupTreino: true });
               }
           };
 
           fetchDadosRaioX();
       }
-  }, [aluno, state.isTemplateMode, isRouteCorrupted]);
+  }, [aluno?.id, state.isTemplateMode, isRouteCorrupted]);
 
   const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
 
