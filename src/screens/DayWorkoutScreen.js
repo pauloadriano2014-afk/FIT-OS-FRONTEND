@@ -61,9 +61,11 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [rpe, setRpe] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
 
-  // 🔥 ESTADOS DO NOVO UPSELL DINÂMICO 🔥
+  // 🔥 ESTADOS DO NOVO UPSELL E PEDÁGIO 🔥
   const [upsellModalVisible, setUpsellModalVisible] = useState(false);
-  const [upsellType, setUpsellType] = useState('ia'); // 'ia' ou 'calc'
+  const [upsellType, setUpsellType] = useState('ia');
+  const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
+  const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
 
   const isIOSWeb = Platform.OS === 'web' && typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent);
 
@@ -230,7 +232,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
       const user = JSON.parse(stored);
       setUserData(user);
 
-      // 🔥 LÊ A CATRACA E BLINDA SE FOR ANTIGO
       const dbPlan = user.plan || 'PREMIUM';
       const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
       setUserPlan(resolvedPlan);
@@ -253,10 +254,21 @@ export default function DayWorkoutScreen({ route, navigation }) {
           } catch(e) {}
       }
 
-      const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`);
-      const data = await response.json();
+      // 🔥 BATE NA API PRA BUSCAR O TREINO E AVISAR SE TEM FOTOS 🔥
+      const [resWorkout, resCheckin] = await Promise.all([
+          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`),
+          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+      ]);
       
-      if (response.ok && data && data.exercises) {
+      const data = await resWorkout.json();
+      
+      // CHECA FOTOS (Para liberar o botão de iniciar caso necessário)
+      if (resCheckin.ok) {
+          const checkinsData = await resCheckin.json();
+          setHasSentInitialPhotos(Array.isArray(checkinsData) && checkinsData.length > 0);
+      }
+      
+      if (resWorkout.ok && data && data.exercises) {
         
         const filteredExercises = data.exercises
             .filter(item => item.day === day)
@@ -432,13 +444,21 @@ export default function DayWorkoutScreen({ route, navigation }) {
     } finally { setLoading(false); }
   };
 
-  const handleStartTimer = async () => {
-    const startTime = Date.now().toString();
-    await AsyncStorage.setItem(`@workout_start_${workoutId}_${day}`, startTime);
-    setIsTimerRunning(true);
+  const handleStartTimerRequest = () => {
+      // 🔥 LÓGICA DE PEDÁGIO FLEXÍVEL 🔥
+      if (!hasSentInitialPhotos && userPlan !== 'PREMIUM') {
+          setInitialPhotosModalVisible(true);
+      } else {
+          executeStartTimer();
+      }
   };
 
-  // 🔥 FUNÇÃO DE UPSELL INTELIGENTE (Detecta se é IA ou Calc) 🔥
+  const executeStartTimer = async () => {
+      const startTime = Date.now().toString();
+      await AsyncStorage.setItem(`@workout_start_${workoutId}_${day}`, startTime);
+      setIsTimerRunning(true);
+  };
+
   const openDynamicUpsell = (type) => {
       setUpsellType(type);
       setUpsellModalVisible(true);
@@ -527,7 +547,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 }}>
                     <View style={{ marginBottom: 20 }}>
                         {!isTimerRunning && elapsedSeconds === 0 ? (
-                            <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }} onPress={handleStartTimer}>
+                            <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }} onPress={handleStartTimerRequest}>
                                 <MaterialCommunityIcons name="play" size={30} color={theme.isDark ? '#000' : '#FFF'} />
                                 <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 }}>INICIAR TREINO</Text>
                             </TouchableOpacity>
@@ -577,7 +597,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         if (userPlan === 'PREMIUM') {
                                             try { navigation.navigate('ScannerIA', { exName: item.exercise?.name }); } catch (e) {} 
                                         } else {
-                                            openDynamicUpsell('ia'); // 🔥 MANDA 'ia' PRO MODAL
+                                            openDynamicUpsell('ia'); 
                                         }
                                     }} 
                                     
@@ -585,7 +605,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                         if (userPlan === 'PREMIUM') {
                                             setCalcModalVisible(true);
                                         } else {
-                                            openDynamicUpsell('calc'); // 🔥 MANDA 'calc' PRO MODAL
+                                            openDynamicUpsell('calc'); 
                                         }
                                     }}
                                     
@@ -619,6 +639,41 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 </View>
             </ScrollView>
         </View>
+
+        {/* 🔥 MODAL DE PEDÁGIO FLEXÍVEL (NAG SCREEN) 🔥 */}
+        <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
+            <View style={styles.modalOverlay}>
+                <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                    <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}>
+                        <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                    <View style={[styles.upsellIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
+                        <MaterialCommunityIcons name="camera-timer" size={36} color={theme.accent} />
+                    </View>
+                    <Text style={[styles.upsellTitle, { color: theme.text }]}>FOTOS PENDENTES 📸</Text>
+                    <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>
+                        Para mapearmos a sua evolução real, precisamos do seu Ponto de Partida. Sabemos que pode não ser o momento ideal agora, mas envie assim que possível!
+                    </Text>
+                    
+                    <TouchableOpacity 
+                        style={[styles.upsellBtn, {backgroundColor: theme.accent, marginBottom: 10}]} 
+                        onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
+                    >
+                        <MaterialCommunityIcons name="camera" size={20} color={theme.isDark ? '#000' : '#FFF'} style={{marginRight: 8}}/>
+                        <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>TIRAR FOTOS AGORA</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={{padding: 15, alignItems: 'center'}} 
+                        onPress={() => { setInitialPhotosModalVisible(false); executeStartTimer(); }}
+                    >
+                        <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>
+                            TREINAR MESMO ASSIM (Lembrar Depois)
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </Modal>
 
         {/* 🔥 MODAL DE UPSELL INTELIGENTE (IA vs CALCULADORA) 🔥 */}
         <Modal visible={upsellModalVisible} transparent animationType="fade">

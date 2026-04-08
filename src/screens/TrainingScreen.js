@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  Dimensions, StatusBar, Alert, ActivityIndicator, RefreshControl, Platform 
+  Dimensions, StatusBar, Alert, ActivityIndicator, RefreshControl, Platform, Modal
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,12 +27,17 @@ export default function TrainingScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   
   const [activeProgram, setActiveProgram] = useState(null); 
+  const [userPlan, setUserPlan] = useState('PREMIUM');
   
   const { theme } = useTheme();
   
   const [isTodayDone, setIsTodayDone] = useState(false);
   const [energyLevel, setEnergyLevel] = useState(null);
   const [dailyTip, setDailyTip] = useState("");
+
+  // 🔥 CONTROLE DE PEDÁGIO FLEXÍVEL (DIA 1)
+  const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
+  const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
 
   const generateWeeklyView = (history = []) => {
       const today = new Date();
@@ -68,7 +73,24 @@ export default function TrainingScreen({ navigation }) {
       if (!stored) { setLoading(false); return; }
       const user = JSON.parse(stored);
 
-      const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`);
+      const dbPlan = user.plan || 'PREMIUM';
+      const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
+      setUserPlan(resolvedPlan);
+
+      const [response, historyRes, checkinRes] = await Promise.all([
+          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`),
+          fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`),
+          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+      ]);
+
+      let hasPhotosInDb = false;
+      if (checkinRes.ok) {
+          const checkinsData = await checkinRes.json();
+          if (Array.isArray(checkinsData) && checkinsData.length > 0) {
+              hasPhotosInDb = true;
+          }
+      }
+
       const data = await response.json();
 
       if (response.ok && Array.isArray(data) && data.length > 0) {
@@ -76,7 +98,29 @@ export default function TrainingScreen({ navigation }) {
         const activeList = data.filter(w => new Date(w.endDate) >= today && !w.archived);
 
         if (activeList.length > 0) {
-            setActiveProgram(activeList[0]);
+            const currentWorkout = activeList[0];
+            setActiveProgram(currentWorkout);
+            
+            // 🔥 Lógica do Pedágio (Nag Screen)
+            if (resolvedPlan !== 'PREMIUM') {
+                let startD = new Date(currentWorkout.startDate); 
+                startD.setHours(0,0,0,0);
+                const todayD = new Date(); todayD.setHours(0,0,0,0);
+                const diffTime = todayD.getTime() - startD.getTime();
+                const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+                
+                const isPlaceholder = currentWorkout.name.includes("CONSTRUÇÃO") || !currentWorkout.routine || currentWorkout.routine.length === 0;
+
+                // Se o treino já começou, não é placeholder e não tem foto, a trava arma!
+                if (!hasPhotosInDb && diffDays >= 0 && !isPlaceholder) {
+                    setHasSentInitialPhotos(false);
+                } else {
+                    setHasSentInitialPhotos(true);
+                }
+            } else {
+                setHasSentInitialPhotos(true);
+            }
+
         } else {
             setActiveProgram(null);
         }
@@ -84,7 +128,6 @@ export default function TrainingScreen({ navigation }) {
         setActiveProgram(null);
       }
 
-      const historyRes = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
       const historyData = await historyRes.json();
 
       if (Array.isArray(historyData)) {
@@ -121,6 +164,14 @@ export default function TrainingScreen({ navigation }) {
            msg = "Aproveite a energia! Dia de buscar o melhor rendimento.";
       }
       if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
+  };
+
+  const handleStartWorkout = () => {
+      if (!hasSentInitialPhotos && userPlan !== 'PREMIUM') {
+          setInitialPhotosModalVisible(true);
+      } else {
+          navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name });
+      }
   };
 
   const isWeb = Platform.OS === 'web';
@@ -199,7 +250,7 @@ export default function TrainingScreen({ navigation }) {
                   <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
                     <TouchableOpacity 
                         style={[styles.heroCardMod, { borderColor: theme.border }, isTodayDone && {borderColor: theme.accent} ]}
-                        onPress={() => navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name })}
+                        onPress={handleStartWorkout} // 🔥 TRAVA APLICADA AQUI
                         activeOpacity={0.9}
                     >
                         <LinearGradient 
@@ -234,7 +285,6 @@ export default function TrainingScreen({ navigation }) {
                             </View>
                         </View>
 
-                        {/* 🔥 CIRURGIA AQUI: flexShrink e gap ajustados para o botão caber */}
                         <View style={[styles.heroFooterMod, {borderTopColor: theme.border}]}>
                             <View style={styles.heroInfoItemMod}>
                                 <Ionicons name="calendar" size={14} color={theme.accent} />
@@ -245,9 +295,9 @@ export default function TrainingScreen({ navigation }) {
                             
                             <View style={[styles.startBtnMod, { backgroundColor: isTodayDone ? theme.border : theme.accent, elevation: isTodayDone ? 0 : 4 }]}>
                                 <Text style={[styles.startBtnTextMod, { color: isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                                    {isTodayDone ? 'REVISAR' : 'TREINAR'}
+                                    {isTodayDone ? 'REVISAR' : (!hasSentInitialPhotos && userPlan !== 'PREMIUM' ? 'FOTO PENDENTE' : 'TREINAR')}
                                 </Text>
-                                <Ionicons name={isTodayDone ? "book-outline" : "play-forward"} size={14} color={isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
+                                <Ionicons name={isTodayDone ? "book-outline" : (!hasSentInitialPhotos && userPlan !== 'PREMIUM' ? "camera" : "play-forward")} size={14} color={isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
                             </View>
                         </View>
                     </TouchableOpacity>
@@ -277,6 +327,45 @@ export default function TrainingScreen({ navigation }) {
 
           </ScrollView>
       </View>
+
+      {/* 🔥 MODAL DE AVISO FLEXÍVEL (Dia 1) 🔥 */}
+      <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 }}>
+              <View style={{ width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.accent }}>
+                  <TouchableOpacity style={{ position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 }} onPress={() => setInitialPhotosModalVisible(false)}>
+                      <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                  <View style={{ width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.accent + '22', marginBottom: 20 }}>
+                      <MaterialCommunityIcons name="camera-timer" size={36} color={theme.accent} />
+                  </View>
+                  <Text style={{ fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center', color: theme.text }}>FOTOS PENDENTES 📸</Text>
+                  <Text style={{ fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20, color: theme.textSecondary }}>
+                      Para mapearmos a sua evolução real, precisamos do seu Ponto de Partida. Sabemos que pode não ser o momento ideal agora, mas envie assim que possível!
+                  </Text>
+                  
+                  <TouchableOpacity 
+                      style={{ width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5, backgroundColor: theme.accent, marginBottom: 10 }} 
+                      onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
+                  >
+                      <MaterialCommunityIcons name="camera" size={20} color={theme.isDark ? '#000' : '#FFF'} style={{marginRight: 8}}/>
+                      <Text style={{ fontWeight: '900', fontSize: 14, letterSpacing: 1, color: theme.isDark ? '#000' : '#FFF' }}>TIRAR FOTOS AGORA</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                      style={{padding: 15, alignItems: 'center'}} 
+                      onPress={() => { 
+                          setInitialPhotosModalVisible(false); 
+                          navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name }); 
+                      }}
+                  >
+                      <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>
+                          TREINAR MESMO ASSIM (Lembrar Depois)
+                      </Text>
+                  </TouchableOpacity>
+              </View>
+          </View>
+      </Modal>
+
     </RootComponent>
   );
 }
@@ -313,7 +402,6 @@ const styles = StyleSheet.create({
   heroTitleMod: { fontSize: 22, fontWeight: '900', lineHeight: 28 },
   iconCircleMod: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, justifyContent: 'center', alignItems: 'center', zIndex: 2 },
   
-  // 🔥 CIRURGIA AQUI: Gap e flexShrink
   heroFooterMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, zIndex: 2, gap: 5 },
   heroInfoItemMod: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
   heroInfoTextMod: { flexShrink: 1 },

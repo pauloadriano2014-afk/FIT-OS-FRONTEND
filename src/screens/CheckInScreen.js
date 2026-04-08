@@ -18,7 +18,11 @@ export default function CheckInScreen({ navigation }) {
   const [extraPhotos, setExtraPhotos] = useState([]); 
   const [sending, setSending] = useState(false);
   const [userGender, setUserGender] = useState('');
-  const [showGuide, setShowGuide] = useState(false); // Controle do Banner de Instruções
+  const [userPlan, setUserPlan] = useState('PREMIUM'); 
+  const [showGuide, setShowGuide] = useState(false);
+  
+  // 🔥 AUTORIZAÇÃO DE MARKETING (O SEU ESCUDO JURÍDICO)
+  const [allowMarketing, setAllowMarketing] = useState(false);
 
   const { theme } = useTheme();
 
@@ -29,11 +33,15 @@ export default function CheckInScreen({ navigation }) {
               if (stored) {
                   const userObj = JSON.parse(stored);
                   setUserGender(userObj.gender || ''); 
+                  const dbPlan = userObj.plan || 'PREMIUM';
+                  setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM');
               }
           } catch (e) {}
       };
       loadUser();
   }, []);
+
+  const isPremium = userPlan === 'PREMIUM';
 
   const handleSelectPhoto = (position, isExtra = false) => {
     if (Platform.OS === 'web') {
@@ -110,7 +118,7 @@ export default function CheckInScreen({ navigation }) {
     }
     if (!photos.front || !photos.side || !photos.back) {
         if (Platform.OS === 'web') window.alert("Atenção: Você precisa anexar as 3 fotos base (Frente, Lado e Costas).");
-        else Alert.alert("Faltam Fotos", "Você precisa anexar as 3 fotos base (Frente, Lado e Costas) para concluir o check-in.");
+        else Alert.alert("Faltam Fotos", "Você precisa anexar as 3 fotos base (Frente, Lado e Costas) para concluir o envio.");
         return;
     }
     
@@ -119,28 +127,34 @@ export default function CheckInScreen({ navigation }) {
         const stored = await AsyncStorage.getItem('user');
         const user = JSON.parse(stored);
 
+        const payload = {
+            userId: user.id,
+            weight: weight.replace(',', '.'), 
+            photoFront: photos.front,
+            photoBack: photos.back,
+            photoSide: photos.side,
+            allowMarketing: allowMarketing // 🔥 SALVANDO A PERMISSÃO NO BANCO
+        };
+
+        if (isPremium) {
+            payload.feedback = feedback;
+            payload.extraPhotos = extraPhotos;
+        }
+
         const res = await fetch('https://fitos-final.onrender.com/api/checkin', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                userId: user.id,
-                weight: weight.replace(',', '.'), 
-                feedback,
-                photoFront: photos.front,
-                photoBack: photos.back,
-                photoSide: photos.side,
-                extraPhotos: extraPhotos 
-            })
+            body: JSON.stringify(payload)
         });
 
         if (res.ok) {
-            if (Platform.OS === 'web') window.alert("Recebido! 🔥\nSeu treinador analisará suas fotos em breve.");
-            else Alert.alert("Recebido! 🔥", "Seu treinador analisará suas fotos em breve.");
+            if (Platform.OS === 'web') window.alert("Recebido! 🔥\nSuas fotos foram enviadas com sucesso para a base.");
+            else Alert.alert("Recebido! 🔥", "Fotos enviadas com sucesso para a base.");
             navigation.goBack();
         } else {
             const errorJson = await res.json();
             if (Platform.OS === 'web') window.alert("Erro ao enviar: " + (errorJson.error || "Falha desconhecida"));
-            else Alert.alert("Erro", errorJson.error || "Falha ao enviar check-in.");
+            else Alert.alert("Erro", errorJson.error || "Falha ao enviar.");
         }
     } catch (e) {
         if (Platform.OS === 'web') window.alert("Erro de Conexão. Tente novamente.");
@@ -182,7 +196,7 @@ export default function CheckInScreen({ navigation }) {
             <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
             </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: theme.text }]}>NOVO CHECK-IN</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>{isPremium ? "NOVO CHECK-IN" : "FOTOS DE EVOLUÇÃO"}</Text>
             <View style={{width: 40}}/> 
           </View>
 
@@ -192,18 +206,16 @@ export default function CheckInScreen({ navigation }) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {/* 🔥 TERMO DE CONFIANÇA (SIGILO) */}
             <View style={[styles.trustBox, { backgroundColor: theme.isDark ? '#1a221f' : '#f0fdf4', borderColor: theme.accent }]}>
                 <MaterialCommunityIcons name="shield-check" size={20} color={theme.accent} style={{marginTop: 2}} />
                 <View style={{flex: 1, marginLeft: 10}}>
                     <Text style={{color: theme.accent, fontWeight: 'bold', fontSize: 13, marginBottom: 2}}>Sigilo Absoluto</Text>
                     <Text style={{color: theme.text, fontSize: 11, lineHeight: 16}}>
-                        Suas fotos são de uso técnico exclusivo para análise de progressão e ajustes do protocolo. <Text style={{fontWeight: 'bold'}}>Nenhuma foto será divulgada ou postada sem sua autorização prévia e expressa.</Text>
+                        Suas fotos são de uso técnico exclusivo para análise de progressão. <Text style={{fontWeight: 'bold'}}>Nenhuma foto será divulgada ou postada sem sua autorização prévia.</Text>
                     </Text>
                 </View>
             </View>
 
-            {/* 🔥 GUIA DE FOTOS PADRÃO ELITE (EXPANSÍVEL) */}
             <TouchableOpacity 
                 style={[styles.guideBox, { backgroundColor: theme.surface, borderColor: theme.border }]} 
                 onPress={() => setShowGuide(!showGuide)}
@@ -225,14 +237,14 @@ export default function CheckInScreen({ navigation }) {
                         <View style={styles.guideRow}>
                             <MaterialCommunityIcons name="account-details" size={16} color={theme.accent} />
                             <Text style={[styles.guideText, {color: theme.text}]}>
-                                Mantenha sempre a <Text style={{fontWeight: 'bold'}}>mesma postura e distância</Text> em todos os check-ins.
+                                Mantenha sempre a <Text style={{fontWeight: 'bold'}}>mesma postura e distância</Text> em todas as avaliações.
                             </Text>
                         </View>
                         <View style={styles.guideRow}>
                             <MaterialCommunityIcons name="hanger" size={16} color={theme.accent} />
                             <Text style={[styles.guideText, {color: theme.text}]}>
                                 {userGender === 'Feminino' || userGender === 'F' 
-                                    ? "Use biquíni (recomendado para melhor avaliação) ou top e short curto." 
+                                    ? "Use biquíni (recomendado) ou top e short curto." 
                                     : "Use sunga ou cueca, e sem camisa."}
                             </Text>
                         </View>
@@ -263,42 +275,60 @@ export default function CheckInScreen({ navigation }) {
                 {renderPhotoBox("COSTAS", "back", "account-convert")}
             </View>
 
-            <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FOTOS EXTRAS / POSES (Opcional)</Text>
-            <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 10, marginTop: -5}}>Envie fotos de poses específicas (duplo bíceps, expansão, etc).</Text>
-            
-            <View style={styles.extraPhotosContainer}>
-                {extraPhotos.map((uri, index) => (
-                    <View key={index} style={[styles.photoBox, { width: 80, height: 100, marginRight: 10, backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                        <Image source={{ uri }} style={styles.photoPreview} />
-                        <TouchableOpacity style={styles.deleteExtraBtn} onPress={() => removeExtraPhoto(index)}>
-                            <MaterialCommunityIcons name="close" size={12} color="#FFF" />
+            {isPremium && (
+                <>
+                    <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FOTOS EXTRAS / POSES (Opcional)</Text>
+                    <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 10, marginTop: -5}}>Envie fotos de poses específicas (duplo bíceps, expansão, etc).</Text>
+                    
+                    <View style={styles.extraPhotosContainer}>
+                        {extraPhotos.map((uri, index) => (
+                            <View key={index} style={[styles.photoBox, { width: 80, height: 100, marginRight: 10, backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                                <Image source={{ uri }} style={styles.photoPreview} />
+                                <TouchableOpacity style={styles.deleteExtraBtn} onPress={() => removeExtraPhoto(index)}>
+                                    <MaterialCommunityIcons name="close" size={12} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        
+                        <TouchableOpacity 
+                            style={[styles.photoBox, { width: 80, height: 100, backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} 
+                            onPress={() => handleSelectPhoto(null, true)}
+                        >
+                            <View style={styles.photoPlaceholder}>
+                                <MaterialCommunityIcons name="plus" size={24} color={theme.textSecondary} />
+                                <Text style={[styles.photoText, { color: theme.textSecondary, textAlign:'center' }]}>Adicionar</Text>
+                            </View>
                         </TouchableOpacity>
                     </View>
-                ))}
-                
-                <TouchableOpacity 
-                    style={[styles.photoBox, { width: 80, height: 100, backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} 
-                    onPress={() => handleSelectPhoto(null, true)}
-                >
-                    <View style={styles.photoPlaceholder}>
-                        <MaterialCommunityIcons name="plus" size={24} color={theme.textSecondary} />
-                        <Text style={[styles.photoText, { color: theme.textSecondary, textAlign:'center' }]}>Adicionar</Text>
-                    </View>
-                </TouchableOpacity>
-            </View>
 
-            <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FEEDBACK (Como foi a semana?)</Text>
-            <TextInput 
-                style={[styles.input, styles.textArea, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-                multiline 
-                placeholder="Ex: Senti mais força no treino de pernas, dieta 100%..." 
-                placeholderTextColor={theme.textSecondary}
-                value={feedback}
-                onChangeText={setFeedback}
-            />
+                    <Text style={[styles.label, { color: theme.text, marginTop: 25 }]}>FEEDBACK (Como foi a semana?)</Text>
+                    <TextInput 
+                        style={[styles.input, styles.textArea, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                        multiline 
+                        placeholder="Ex: Senti mais força no treino de pernas, dieta 100%..." 
+                        placeholderTextColor={theme.textSecondary}
+                        value={feedback}
+                        onChangeText={setFeedback}
+                    />
+                </>
+            )}
+
+            {/* 🔥 CAIXA DE AUTORIZAÇÃO DE MARKETING 🔥 */}
+            <TouchableOpacity 
+                style={styles.marketingContainer} 
+                onPress={() => setAllowMarketing(!allowMarketing)}
+                activeOpacity={0.8}
+            >
+                <View style={[styles.checkbox, allowMarketing ? { borderColor: theme.accent, backgroundColor: theme.accent } : { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                    {allowMarketing && <MaterialCommunityIcons name="check" size={16} color={theme.isDark ? '#000' : '#FFF'} />}
+                </View>
+                <Text style={{flex: 1, color: theme.textSecondary, fontSize: 12, lineHeight: 18}}>
+                    Autorizo o Coach a usar meu Antes/Depois <Text style={{fontWeight: 'bold', color: theme.text}}>anonimamente</Text> no Instagram para inspirar outras pessoas.
+                </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.accent }]} onPress={handleSend} disabled={sending}>
-                {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ENVIAR PARA O COACH</Text>}
+                {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{isPremium ? "ENVIAR PARA O COACH" : "ENVIAR FOTOS DE EVOLUÇÃO"}</Text>}
             </TouchableOpacity>
           </ScrollView>
 
@@ -312,7 +342,6 @@ const styles = StyleSheet.create({
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   
-  // 🔥 Novos Estilos do Guia e Privacidade
   trustBox: { flexDirection: 'row', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
   guideBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 20 },
   guideRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
@@ -331,6 +360,10 @@ const styles = StyleSheet.create({
   
   extraPhotosContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5 },
   deleteExtraBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(255, 59, 48, 0.8)', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
+
+  // 🔥 Estilos do Marketing
+  marketingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 25, marginBottom: -10, paddingHorizontal: 5 },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
 
   sendBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 40 },
   sendBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }

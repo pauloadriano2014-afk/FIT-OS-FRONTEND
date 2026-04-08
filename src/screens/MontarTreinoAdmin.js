@@ -30,13 +30,30 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   useEffect(() => {
       if (aluno && !state.isTemplateMode) {
           let foundAnamnese = null;
+          let isSetupTreino = false; // 🔥 Flag para identificar de onde veio a info
+          
           if (aluno.anamnese) foundAnamnese = aluno.anamnese;
           else if (aluno.anamneses && aluno.anamneses.length > 0) foundAnamnese = aluno.anamneses[aluno.anamneses.length - 1];
           else if (aluno.Anamnese) foundAnamnese = aluno.Anamnese;
           else if (aluno.Anamneses && aluno.Anamneses.length > 0) foundAnamnese = aluno.Anamneses[aluno.Anamneses.length - 1];
 
+          // 🔥 SE NÃO ACHOU ANAMNESE PREMIUM, BUSCA AS RESPOSTAS DO SETUP TREINO (Low Cost, 8S, 21D)
+          if (!foundAnamnese && aluno.workouts && aluno.workouts.length > 0) {
+              const baseWorkout = aluno.workouts[0];
+              if (baseWorkout.goal || baseWorkout.level) {
+                  // Constrói um objeto "falso" de anamnese baseado no treino inicial
+                  foundAnamnese = {
+                      objetivo: baseWorkout.goal || 'Melhorar o Shape',
+                      nivel: baseWorkout.level || 'Não informado',
+                      // Extrai o foco se estiver no formato "Objetivo (Foco: XYZ)"
+                      foco: baseWorkout.goal?.includes('(Foco:') ? baseWorkout.goal.split('(Foco:')[1].replace(')','').trim() : 'Geral'
+                  };
+                  isSetupTreino = true;
+              }
+          }
+
           if (foundAnamnese) {
-              setAnamneseData(foundAnamnese);
+              setAnamneseData({ ...foundAnamnese, isSetupTreino });
           } else {
               const fetchAnamnese = async () => {
                   try {
@@ -60,7 +77,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const modalOptionsToShow = isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis;
   const modalTitleToShow = isCurrentCardio ? 'INTENSIDADE' : 'TÉCNICA';
 
-  // 🔥 CIRURGIA DO LAYOUT (100dvh para barrar o teclado empurrando a tela)
   const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
 
   return (
@@ -82,28 +98,27 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </View>
       </View>
 
-      {/* 🔥 KEYBOARD AVOIDING AJUSTADO PARA FLEX: 1 AO INVÉS DE 100VH */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, width: '100%' }} enabled={Platform.OS !== 'web'}>
-          {/* 🔥 SCROLLVIEW COM OVERSCROLLBEHAVIOR PRA MATAR A "GELATINA" */}
           <ScrollView 
               style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto', overscrollBehaviorY: 'none' } : { flex: 1, width: '100%' }} 
               contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} 
               showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never"
           >
-              {/* 🔥 TELA PRINCIPAL AGORA USA MINHEIGHT 100% PARA NÃO EXTRAPOLAR A TELA QUANDO ABRIR O TECLADO */}
               <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100%' } : {}) }}>
                     
+                      {/* 🔥 RAIO-X ADAPTADO PARA LER TANTO PREMIUM QUANTO OUTROS PLANOS */}
                       {!state.isTemplateMode && anamneseData && (
                           <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                               <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15}}>
                                   <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={theme.accent} />
-                                  <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO</Text>
+                                  <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO {anamneseData.isSetupTreino ? '(BÁSICO)' : ''}</Text>
                               </View>
 
+                              {/* 🔥 DADOS COMUNS */}
                               <View style={styles.anamneseRow}>
                                   <View style={styles.anamneseCol}>
                                       <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
-                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo || '-'}</Text>
+                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo ? (anamneseData.objetivo.split('(Foco:')[0].trim()) : '-'}</Text>
                                   </View>
                                   <View style={styles.anamneseCol}>
                                       <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
@@ -111,29 +126,44 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   </View>
                               </View>
 
-                              <View style={styles.anamneseRow}>
-                                  <View style={styles.anamneseCol}>
-                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
-                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x sem` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel}min` : '-'}</Text>
-                                  </View>
-                                  <View style={styles.anamneseCol}>
-                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
-                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
-                                  </View>
-                              </View>
-
-                              {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
-                                  <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
-                                      <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
-                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
+                              {/* 🔥 DADOS EXCLUSIVOS DO SETUP BÁSICO */}
+                              {anamneseData.isSetupTreino && anamneseData.foco && (
+                                  <View style={[styles.anamneseRow, { marginBottom: 0 }]}>
+                                      <View style={styles.anamneseCol}>
+                                          <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>FOCO PRINCIPAL</Text>
+                                          <Text style={{color: theme.accent, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.foco}</Text>
+                                      </View>
                                   </View>
                               )}
 
-                              {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
-                                  <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
-                                      <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
-                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
-                                  </View>
+                              {/* 🔥 DADOS EXCLUSIVOS DA ANAMNESE PREMIUM */}
+                              {!anamneseData.isSetupTreino && (
+                                  <>
+                                      <View style={styles.anamneseRow}>
+                                          <View style={styles.anamneseCol}>
+                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
+                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x sem` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel}min` : '-'}</Text>
+                                          </View>
+                                          <View style={styles.anamneseCol}>
+                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
+                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
+                                          </View>
+                                      </View>
+
+                                      {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
+                                          <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
+                                              <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
+                                              <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
+                                          </View>
+                                      )}
+
+                                      {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
+                                          <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
+                                              <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
+                                              <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
+                                          </View>
+                                      )}
+                                  </>
                               )}
                           </View>
                       )}
@@ -310,7 +340,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* COMPONENTES EXTRAÍDOS (MODAIS) */}
       <LibraryModals 
           theme={theme} isWeb={isWeb} webOuterBg={webOuterBg}
           modalBuscaVisible={state.modalBuscaVisible} setModalBuscaVisible={setters.setModalBuscaVisible}
@@ -341,13 +370,11 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           collections={state.collections} 
           saveTemplateCollectionId={state.saveTemplateCollectionId} 
           setSaveTemplateCollectionId={setters.setSaveTemplateCollectionId}
-          // 🔥 AS 3 LINHAS NOVAS
           selectedLibraryCollection={state.selectedLibraryCollection} setSelectedLibraryCollection={setters.setSelectedLibraryCollection}
           selectedPillar={state.selectedPillar} setSelectedPillar={setters.setSelectedPillar}
           selectedLevelTab={state.selectedLevelTab} setSelectedLevelTab={setters.setSelectedLevelTab}
       />
 
-      {/* MODAIS DIVERSOS */}
       <Modal visible={state.renameTabModalVisible} transparent animationType="fade" onRequestClose={() => setters.setRenameTabModalVisible(false)}>
           <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -415,7 +442,6 @@ const styles = StyleSheet.create({
   anamneseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   anamneseCol: { flex: 1 },
   planningContainer: { padding:15, borderRadius:15, borderWidth:1, marginBottom:20 },
-  // 🔥 Fim do Zoom no nome da rotina
   nameInput: { padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, fontSize: 16, fontWeight: 'bold', textAlign: 'center', outlineStyle: 'none' },
   dateRow: { flexDirection: 'row', gap: 10, marginBottom:15 },
   dateInputGroup: { flex: 1 },
@@ -440,7 +466,6 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 30 },
   modalContent: { borderRadius: 15, padding: 20, borderWidth: 1, width: '100%', maxWidth: 400, alignSelf: 'center' },
   modalTitle: { fontWeight: '900', textAlign: 'center', marginBottom: 10 },
-  // 🔥 Fim do Zoom no modal
   modalInput: { padding:12, borderRadius:8, borderWidth:1, marginBottom:15, fontSize: 16, outlineStyle: 'none' },
   saveBtnModal: { padding:15, borderRadius:10, alignItems:'center', width:'100%' },
   techOption: { paddingVertical: 12, borderBottomWidth: 1 },
@@ -451,5 +476,6 @@ const styles = StyleSheet.create({
   infoValue: { fontSize:14 },
   tag: { paddingHorizontal:12, paddingVertical:6, borderRadius:20, borderWidth:1, marginRight:5, height: 30, justifyContent: 'center' },
   tagText: { fontSize:10, fontWeight:'bold' },
-  miniLabelLeft: { fontSize:10, fontWeight:'bold', marginBottom:8 }
+  miniLabelLeft: { fontSize:10, fontWeight:'bold', marginBottom:8 },
+  miniLabel: { fontSize:10, fontWeight:'bold', marginBottom:5 }
 });
