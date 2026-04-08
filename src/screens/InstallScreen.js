@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, SafeAreaView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
 let globalPrompt = null;
@@ -25,23 +26,40 @@ export default function InstallScreen({ navigation, route }) {
     const nextParams = isRegisterLink ? { coach: route.params?.coach, plan: route.params?.plan } : {};
 
     useEffect(() => {
-        if (Platform.OS === 'web') {
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-            
-            // SE JÁ ESTIVER INSTALADO, PULA ESSA TELA DIRETO!
-            if (isStandalone) {
-                navigation.replace(nextRoute, nextParams);
-                return;
-            }
+        const checkInstallStatus = async () => {
+            if (Platform.OS === 'web') {
+                try {
+                    // 🔥 MEMÓRIA PERMANENTE: Verifica se o usuário já pulou/instalou antes
+                    const dismissed = await AsyncStorage.getItem('@install_screen_dismissed');
+                    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+                    
+                    // SE JÁ ESTIVER INSTALADO OU JÁ TIVER PULADO ANTES, PULA ESSA TELA DIRETO!
+                    if (isStandalone || dismissed === 'true') {
+                        navigation.replace(nextRoute, nextParams);
+                        return;
+                    }
 
-            const ua = window.navigator.userAgent.toLowerCase();
-            setIsIOS(/iphone|ipad|ipod/.test(ua));
-            setIsChromeIOS(ua.includes('crios'));
-        } else {
-            // Se for aplicativo nativo rodando (App Store/Play Store), pula também
-            navigation.replace(nextRoute, nextParams);
-        }
+                    const ua = window.navigator.userAgent.toLowerCase();
+                    setIsIOS(/iphone|ipad|ipod/.test(ua));
+                    setIsChromeIOS(ua.includes('crios'));
+                } catch(e) {
+                    console.error("Erro ao ler AsyncStorage na InstallScreen:", e);
+                }
+            } else {
+                // Se for aplicativo nativo rodando (App Store/Play Store), pula também
+                navigation.replace(nextRoute, nextParams);
+            }
+        };
+
+        checkInstallStatus();
     }, []);
+
+    const saveInstallStateAndProceed = async () => {
+        try {
+            await AsyncStorage.setItem('@install_screen_dismissed', 'true');
+        } catch(e) {}
+        navigation.replace(nextRoute, nextParams);
+    };
 
     const handleInstallClick = async () => {
         if (globalPrompt) {
@@ -49,7 +67,7 @@ export default function InstallScreen({ navigation, route }) {
             const { outcome } = await globalPrompt.userChoice;
             if (outcome === 'accepted') {
                 globalPrompt = null;
-                navigation.replace(nextRoute, nextParams);
+                saveInstallStateAndProceed();
             }
         } else {
             // Se for iOS ou o Android não gerou o prompt automático, mostra as instruções visuais
@@ -58,7 +76,7 @@ export default function InstallScreen({ navigation, route }) {
     };
 
     const handleSkip = () => {
-        navigation.replace(nextRoute, nextParams);
+        saveInstallStateAndProceed();
     };
 
     return (
