@@ -20,25 +20,82 @@ export default function CheckInScreen({ navigation }) {
   const [userGender, setUserGender] = useState('');
   const [userPlan, setUserPlan] = useState('PREMIUM'); 
   const [showGuide, setShowGuide] = useState(false);
-  
-  // 🔥 AUTORIZAÇÃO DE MARKETING (O SEU ESCUDO JURÍDICO)
   const [allowMarketing, setAllowMarketing] = useState(false);
+
+  // 🔥 ESTADOS DA TRAVA DE CHECK-IN
+  const [checkingLock, setCheckingLock] = useState(true); // carregando status
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockMessage, setLockMessage] = useState('');
+  const [daysRemaining, setDaysRemaining] = useState(0);
+  const [isDisabled, setIsDisabled] = useState(false); // disableCheckIn do admin
 
   const { theme } = useTheme();
 
   useEffect(() => {
-      const loadUser = async () => {
+      const loadUserAndCheckLock = async () => {
           try {
               const stored = await AsyncStorage.getItem('user');
-              if (stored) {
-                  const userObj = JSON.parse(stored);
-                  setUserGender(userObj.gender || ''); 
-                  const dbPlan = userObj.plan || 'PREMIUM';
-                  setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM');
+              if (!stored) return;
+              
+              const userObj = JSON.parse(stored);
+              setUserGender(userObj.gender || ''); 
+              const dbPlan = userObj.plan || 'PREMIUM';
+              setUserPlan(['LOW_COST', 'PERFORMANCE', 'standard', 'CHALLENGE_21', 'FICHA_8S', 'FICHAS'].includes(dbPlan) ? dbPlan : 'PREMIUM');
+
+              // 🔥 Busca status de check-in do backend
+              const res = await fetch(`https://fitos-final.onrender.com/api/checkin/status?userId=${userObj.id}`);
+              if (res.ok) {
+                  const data = await res.json();
+                  
+                  // Se o admin desativou check-in completamente
+                  if (data.disableCheckIn) {
+                      setIsDisabled(true);
+                      setIsLocked(true);
+                      setLockMessage('Seu check-in está desativado no momento. Entre em contato com seu Coach.');
+                      return;
+                  }
+
+                  // Se não tem nextCheckInDate, está travado (coach ainda não liberou)
+                  if (!data.nextCheckInDate) {
+                      setIsLocked(true);
+                      setLockMessage('Seu Coach ainda não liberou o check-in. Aguarde a liberação!');
+                      return;
+                  }
+
+                  // Compara a data
+                  const nextDate = new Date(data.nextCheckInDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  nextDate.setHours(0, 0, 0, 0);
+
+                  if (today < nextDate) {
+                      // Ainda não chegou a data
+                      const diffTime = nextDate.getTime() - today.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      setDaysRemaining(diffDays);
+                      setIsLocked(true);
+                      setLockMessage(`Seu próximo check-in será liberado em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}.`);
+                  } else {
+                      // Data chegou ou já passou — liberado!
+                      setIsLocked(false);
+                  }
+
+                  // Verifica se o ciclo acabou (Fichas/Desafio)
+                  if (data.cycleCompleted) {
+                      setIsLocked(true);
+                      setLockMessage('Você completou todos os check-ins do seu plano! 🏆 Parabéns pela disciplina. Entre em contato com seu Coach para os próximos passos.');
+                  }
+
               }
-          } catch (e) {}
+          } catch (e) {
+              console.log("Erro ao verificar trava:", e);
+              // Em caso de erro, libera para não travar o aluno
+              setIsLocked(false);
+          } finally {
+              setCheckingLock(false);
+          }
       };
-      loadUser();
+      loadUserAndCheckLock();
   }, []);
 
   const isPremium = userPlan === 'PREMIUM';
@@ -133,7 +190,7 @@ export default function CheckInScreen({ navigation }) {
             photoFront: photos.front,
             photoBack: photos.back,
             photoSide: photos.side,
-            allowMarketing: allowMarketing // 🔥 SALVANDO A PERMISSÃO NO BANCO
+            allowMarketing: allowMarketing
         };
 
         if (isPremium) {
@@ -186,6 +243,81 @@ export default function CheckInScreen({ navigation }) {
     ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
     : { flex: 1, backgroundColor: theme.bg };
 
+  // 🔥 TELA DE CARREGAMENTO
+  if (checkingLock) {
+    return (
+      <RootComponent style={rootStyle}>
+        <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg }}>
+          <ActivityIndicator color={theme.accent} size="large" />
+          <Text style={{ color: theme.textSecondary, marginTop: 15, fontSize: 12 }}>Verificando disponibilidade...</Text>
+        </View>
+      </RootComponent>
+    );
+  }
+
+  // 🔥 TELA TRAVADA
+  if (isLocked) {
+    return (
+      <RootComponent style={rootStyle}>
+        <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
+        <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+          
+          <View style={[styles.header, { borderBottomColor: theme.border }]}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+            </TouchableOpacity>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>CHECK-IN</Text>
+            <View style={{width: 40}}/> 
+          </View>
+
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
+            <View style={{
+              width: 80, height: 80, borderRadius: 40, 
+              backgroundColor: isDisabled ? 'rgba(255,59,48,0.1)' : theme.accent + '15',
+              justifyContent: 'center', alignItems: 'center', marginBottom: 25
+            }}>
+              <MaterialCommunityIcons 
+                name={isDisabled ? "lock" : "calendar-clock"} 
+                size={36} 
+                color={isDisabled ? '#FF3B30' : theme.accent} 
+              />
+            </View>
+
+            <Text style={{ color: theme.text, fontWeight: '900', fontSize: 18, textAlign: 'center', marginBottom: 12 }}>
+              {isDisabled ? 'Check-in Desativado' : daysRemaining > 0 ? 'Ainda não é a hora!' : 'Aguarde a Liberação'}
+            </Text>
+            
+            <Text style={{ color: theme.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22, maxWidth: 300 }}>
+              {lockMessage}
+            </Text>
+
+            {daysRemaining > 0 && !isDisabled && (
+              <View style={{
+                flexDirection: 'row', alignItems: 'center', gap: 8,
+                marginTop: 25, paddingHorizontal: 20, paddingVertical: 12,
+                borderRadius: 12, backgroundColor: theme.accent + '15',
+                borderWidth: 1, borderColor: theme.accent + '30'
+              }}>
+                <MaterialCommunityIcons name="timer-sand" size={20} color={theme.accent} />
+                <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 24 }}>{daysRemaining}</Text>
+                <Text style={{ color: theme.accent, fontWeight: 'bold', fontSize: 12 }}>{daysRemaining === 1 ? 'dia restante' : 'dias restantes'}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={{ marginTop: 40, padding: 15, borderRadius: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
+              onPress={() => navigation.goBack()}
+            >
+              <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 13 }}>← Voltar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </RootComponent>
+    );
+  }
+
+  // 🔥 TELA NORMAL (LIBERADO)
   return (
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -200,9 +332,10 @@ export default function CheckInScreen({ navigation }) {
             <View style={{width: 40}}/> 
           </View>
 
+          <View style={{ flex: 1, position: 'relative' }}>
           <ScrollView 
-            style={{ flex: 1 }} 
-            contentContainerStyle={{ flexGrow: 1, padding: 20, paddingBottom: 150 }} 
+            style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }}
+            contentContainerStyle={{ padding: 20, paddingBottom: 150 }} 
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -313,7 +446,6 @@ export default function CheckInScreen({ navigation }) {
                 </>
             )}
 
-            {/* 🔥 CAIXA DE AUTORIZAÇÃO DE MARKETING 🔥 */}
             <TouchableOpacity 
                 style={styles.marketingContainer} 
                 onPress={() => setAllowMarketing(!allowMarketing)}
@@ -331,6 +463,7 @@ export default function CheckInScreen({ navigation }) {
                 {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{isPremium ? "ENVIAR PARA O COACH" : "ENVIAR FOTOS DE EVOLUÇÃO"}</Text>}
             </TouchableOpacity>
           </ScrollView>
+          </View>
 
       </View>
     </RootComponent>
@@ -338,7 +471,7 @@ export default function CheckInScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1 },
+  header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1, flexShrink: 0 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   
@@ -361,7 +494,6 @@ const styles = StyleSheet.create({
   extraPhotosContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5 },
   deleteExtraBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(255, 59, 48, 0.8)', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
 
-  // 🔥 Estilos do Marketing
   marketingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 25, marginBottom: -10, paddingHorizontal: 5 },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
 
