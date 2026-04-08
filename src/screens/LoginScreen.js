@@ -33,46 +33,58 @@ export default function LoginScreen({ navigation }) {
   const [showInstallBanner, setShowInstallBanner] = useState(false);
 
   useEffect(() => {
-    if (Platform.OS === 'web') {
-      // 🔥 VERIFICA SE O USUÁRIO JÁ DISSE QUE ESTÁ INSTALADO (MEMÓRIA PERMANENTE)
-      const alreadyInstalled = localStorage.getItem('@app_pwa_installed');
-      
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-      
-      // Se já estiver no modo APP ou se o usuário já marcou que instalou antes, não mostra nada
-      if (!isStandalone && !alreadyInstalled) {
-        const ua = window.navigator.userAgent.toLowerCase();
-        const isIosDevice = /iphone|ipad|ipod/.test(ua);
-        const isAndroidDevice = /android/.test(ua);
-        const isChromeOnIos = ua.includes('crios'); 
-        
-        setIsIOS(isIosDevice);
-        setIsChromeIOS(isChromeOnIos);
+    const checkInstallBanner = async () => {
+      if (Platform.OS === 'web') {
+        try {
+          // 🔥 Usamos o AsyncStorage em vez do localStorage para maior estabilidade
+          const dismissed = await AsyncStorage.getItem('@pwa_dismissed');
+          const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+          
+          // Se já está a correr como app instalada (Standalone), gravamos logo na memória
+          if (isStandalone) {
+              await AsyncStorage.setItem('@pwa_dismissed', 'true');
+              return;
+          }
 
-        if (isIosDevice || isAndroidDevice) {
-            setShowInstallBanner(true);
-        }
+          // Se o Coach já clicou alguma vez em "Já instalei", abortamos e não mostramos nada
+          if (dismissed === 'true') {
+              return;
+          }
 
-        if (isAndroidDevice) {
-            const promptListener = () => {
-                setDeferredPrompt(globalPrompt);
-            };
-            window.addEventListener('show_pwa_button', promptListener);
-            
-            if (globalPrompt) setDeferredPrompt(globalPrompt);
+          const ua = window.navigator.userAgent.toLowerCase();
+          const isIosDevice = /iphone|ipad|ipod/.test(ua);
+          const isAndroidDevice = /android/.test(ua);
+          const isChromeOnIos = ua.includes('crios'); 
+          
+          setIsIOS(isIosDevice);
+          setIsChromeIOS(isChromeOnIos);
 
-            return () => window.removeEventListener('show_pwa_button', promptListener);
-        }
+          if (isIosDevice || isAndroidDevice) {
+              setShowInstallBanner(true);
+          }
+
+          if (isAndroidDevice) {
+              const promptListener = () => {
+                  setDeferredPrompt(globalPrompt);
+              };
+              window.addEventListener('show_pwa_button', promptListener);
+              
+              if (globalPrompt) setDeferredPrompt(globalPrompt);
+
+              return () => window.removeEventListener('show_pwa_button', promptListener);
+          }
+        } catch(e) {}
       }
-    }
+    };
+    
+    checkInstallBanner();
   }, []);
 
-  // 🔥 FUNÇÃO PARA ESCONDER E NUNCA MAIS VOLTAR
-  const hideInstallForever = () => {
-      if (Platform.OS === 'web') {
-          localStorage.setItem('@app_pwa_installed', 'true');
+  const hideInstallForever = async () => {
+      try {
+          await AsyncStorage.setItem('@pwa_dismissed', 'true');
           setShowInstallBanner(false);
-      }
+      } catch(e) {}
   };
 
   const handleInstallClick = async () => {
@@ -130,8 +142,8 @@ export default function LoginScreen({ navigation }) {
 
     } catch (e) {
       console.log(e);
-      if (Platform.OS === 'web') window.alert('Erro de Conexão. Verifique sua internet.');
-      else Alert.alert('Erro de Conexão', 'Verifique sua internet.');
+      if (Platform.OS === 'web') window.alert('Erro de Conexão. Verifique a sua internet.');
+      else Alert.alert('Erro de Conexão', 'Verifique a sua internet.');
     } finally {
       setLoading(false);
     }
@@ -139,20 +151,20 @@ export default function LoginScreen({ navigation }) {
 
   const handleForgotPassword = () => {
     if (!email || email.trim() === '') {
-        const msg = "Digite seu E-MAIL no campo acima antes de pedir a troca de senha.";
+        const msg = "Digite o seu E-MAIL no campo acima antes de pedir a troca de senha.";
         if (Platform.OS === 'web') return window.alert(msg);
         return Alert.alert('E-mail necessário', msg);
     }
 
     const myPhone = "5541997991346";
-    const wppMessage = `Fala, Paulo! Esqueci a senha do app. Meu e-mail de acesso é o: ${email.toLowerCase().trim()}`;
+    const wppMessage = `Fala, Paulo! Esqueci-me da senha da app. O meu e-mail de acesso é: ${email.toLowerCase().trim()}`;
     const wppLink = `https://wa.me/${myPhone}?text=${encodeURIComponent(wppMessage)}`;
 
     Linking.canOpenURL(wppLink)
         .then(supported => {
             if (!supported) {
                 if (Platform.OS === 'web') window.alert('Não foi possível abrir o WhatsApp.');
-                else Alert.alert('Erro', 'WhatsApp não encontrado no celular.');
+                else Alert.alert('Erro', 'WhatsApp não encontrado no telemóvel.');
             } else {
                 return Linking.openURL(wppLink);
             }
@@ -195,23 +207,23 @@ export default function LoginScreen({ navigation }) {
                           <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 8}}>
                               <MaterialCommunityIcons name="alert-circle" size={18} color={theme.accent} />
                               <Text style={[styles.urgentTitle, {color: theme.accent}]}>
-                                  PASSO IMPORTANTE: INSTALE O APP
+                                  PASSO IMPORTANTE: INSTALE A APP
                               </Text>
                           </View>
                           
                           {isIOS ? (
                               isChromeIOS ? (
                                   <Text style={[styles.urgentText, {color: theme.text}]}>
-                                      No Chrome, toque em Compartilhar <MaterialCommunityIcons name="export-variant" size={16} color={theme.textSecondary} /> no topo, vá em "Ver mais" <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.textSecondary} /> e "Adicionar à Tela de Início" <MaterialCommunityIcons name="plus-box-outline" size={16} color={theme.textSecondary} />.
+                                      No Chrome, toque em Compartilhar <MaterialCommunityIcons name="export-variant" size={16} color={theme.textSecondary} /> no topo, vá a "Ver mais" <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.textSecondary} /> e "Adicionar ao Ecrã Principal" <MaterialCommunityIcons name="plus-box-outline" size={16} color={theme.textSecondary} />.
                                   </Text>
                               ) : (
                                   <Text style={[styles.urgentText, {color: theme.text}]}>
-                                      No Safari, toque nos 3 pontinhos <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.textSecondary} /> na parte inferior, Compartilhar <MaterialCommunityIcons name="export-variant" size={16} color={theme.textSecondary} />, "Ver mais" e "Adicionar à Tela de Início" <MaterialCommunityIcons name="plus-box-outline" size={16} color={theme.textSecondary} />.
+                                      No Safari, toque nos 3 pontinhos <MaterialCommunityIcons name="dots-horizontal" size={16} color={theme.textSecondary} /> na parte inferior, Compartilhar <MaterialCommunityIcons name="export-variant" size={16} color={theme.textSecondary} />, "Ver mais" e "Adicionar ao Ecrã Principal" <MaterialCommunityIcons name="plus-box-outline" size={16} color={theme.textSecondary} />.
                                   </Text>
                               )
                           ) : (
                               <Text style={[styles.urgentText, {color: theme.text}]}>
-                                  Clique nos 3 pontinhos <MaterialCommunityIcons name="dots-vertical" size={16} color={theme.textSecondary} /> do navegador e selecione "Instalar Aplicativo" <MaterialCommunityIcons name="cellphone-arrow-down" size={16} color={theme.textSecondary} />.
+                                  Clique nos 3 pontinhos <MaterialCommunityIcons name="dots-vertical" size={16} color={theme.textSecondary} /> do navegador e selecione "Instalar Aplicação" <MaterialCommunityIcons name="cellphone-arrow-down" size={16} color={theme.textSecondary} />.
                               </Text>
                           )}
 
@@ -233,7 +245,7 @@ export default function LoginScreen({ navigation }) {
                             </View>
                         </TouchableOpacity>
                         <TouchableOpacity onPress={hideInstallForever} style={{alignSelf: 'center'}}>
-                            <Text style={{fontSize: 11, fontWeight: 'bold', color: theme.textSecondary, textDecorationLine: 'underline'}}>JÁ TENHO O APP INSTALADO</Text>
+                            <Text style={{fontSize: 11, fontWeight: 'bold', color: theme.textSecondary, textDecorationLine: 'underline'}}>JÁ TENHO A APP INSTALADA</Text>
                         </TouchableOpacity>
                       </View>
                   )}
@@ -261,7 +273,7 @@ export default function LoginScreen({ navigation }) {
             />
             
             <TouchableOpacity onPress={handleForgotPassword} style={{ alignSelf: 'flex-end', marginBottom: 20 }}>
-                <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: 'bold' }}>Esqueci minha senha</Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: 'bold' }}>Esqueci-me da senha</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -279,7 +291,7 @@ export default function LoginScreen({ navigation }) {
             <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{ marginTop: 25 }}>
               <Text style={[styles.linkText, { color: theme.textSecondary }]}>
                 Ainda não tem conta?{' '}
-                <Text style={{ color: theme.accent, fontWeight: '900' }}>Cadastre-se</Text>
+                <Text style={{ color: theme.accent, fontWeight: '900' }}>Registe-se</Text>
               </Text>
             </TouchableOpacity>
           </View>
