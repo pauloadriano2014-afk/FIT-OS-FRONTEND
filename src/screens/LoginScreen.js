@@ -34,9 +34,13 @@ export default function LoginScreen({ navigation }) {
 
   useEffect(() => {
     if (Platform.OS === 'web') {
+      // 🔥 VERIFICA SE O USUÁRIO JÁ DISSE QUE ESTÁ INSTALADO (MEMÓRIA PERMANENTE)
+      const alreadyInstalled = localStorage.getItem('@app_pwa_installed');
+      
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
       
-      if (!isStandalone) {
+      // Se já estiver no modo APP ou se o usuário já marcou que instalou antes, não mostra nada
+      if (!isStandalone && !alreadyInstalled) {
         const ua = window.navigator.userAgent.toLowerCase();
         const isIosDevice = /iphone|ipad|ipod/.test(ua);
         const isAndroidDevice = /android/.test(ua);
@@ -63,6 +67,14 @@ export default function LoginScreen({ navigation }) {
     }
   }, []);
 
+  // 🔥 FUNÇÃO PARA ESCONDER E NUNCA MAIS VOLTAR
+  const hideInstallForever = () => {
+      if (Platform.OS === 'web') {
+          localStorage.setItem('@app_pwa_installed', 'true');
+          setShowInstallBanner(false);
+      }
+  };
+
   const handleInstallClick = async () => {
       if (deferredPrompt) {
           deferredPrompt.prompt();
@@ -70,7 +82,7 @@ export default function LoginScreen({ navigation }) {
           if (outcome === 'accepted') {
               setDeferredPrompt(null);
               globalPrompt = null;
-              setShowInstallBanner(false);
+              hideInstallForever();
           }
       }
   };
@@ -110,8 +122,6 @@ export default function LoginScreen({ navigation }) {
         ['role', role]
       ]);
 
-      // 🔥 LÓGICA CEGA DE ENCAMINHAMENTO (O FIM DO LOOP INFINITO)
-      // O Login não pensa mais. Se é Admin, vai pro painel. Se é Aluno, vai pra Home.
       if (isAdmin) {
         navigation.replace('AdminDashboard');
       } else {
@@ -205,18 +215,27 @@ export default function LoginScreen({ navigation }) {
                               </Text>
                           )}
 
-                          <TouchableOpacity onPress={() => setShowInstallBanner(false)} style={styles.closeUrgentBtn}>
-                              <MaterialCommunityIcons name="close" size={18} color={theme.textSecondary} />
+                          {/* 🔥 BOTAO DE JÁ INSTALEI / FECHAR */}
+                          <TouchableOpacity onPress={hideInstallForever} style={styles.closeUrgentBtn}>
+                              <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                                <Text style={{fontSize: 10, fontWeight: 'bold', color: theme.textSecondary}}>JÁ INSTALEI</Text>
+                                <MaterialCommunityIcons name="close" size={18} color={theme.textSecondary} />
+                              </View>
                           </TouchableOpacity>
                       </View>
                   ) : (
-                      <TouchableOpacity style={[styles.premiumInstallBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={handleInstallClick}>
-                          <MaterialCommunityIcons name="cellphone-arrow-down" size={24} color={theme.accent} />
-                          <View style={{ marginLeft: 12 }}>
-                              <Text style={[styles.premiumInstallText, { color: theme.text }]}>BAIXAR APP OFICIAL</Text>
-                              <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: '500' }}>Instalação rápida e segura</Text>
-                          </View>
-                      </TouchableOpacity>
+                      <View style={{gap: 10}}>
+                        <TouchableOpacity style={[styles.premiumInstallBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={handleInstallClick}>
+                            <MaterialCommunityIcons name="cellphone-arrow-down" size={24} color={theme.accent} />
+                            <View style={{ marginLeft: 12 }}>
+                                <Text style={[styles.premiumInstallText, { color: theme.text }]}>BAIXAR APP OFICIAL</Text>
+                                <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: '500' }}>Instalação rápida e segura</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={hideInstallForever} style={{alignSelf: 'center'}}>
+                            <Text style={{fontSize: 11, fontWeight: 'bold', color: theme.textSecondary, textDecorationLine: 'underline'}}>JÁ TENHO O APP INSTALADO</Text>
+                        </TouchableOpacity>
+                      </View>
                   )}
               </View>
           )}
