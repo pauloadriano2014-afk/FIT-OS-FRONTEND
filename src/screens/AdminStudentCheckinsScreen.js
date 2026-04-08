@@ -138,41 +138,31 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const generateAIFeedback = async () => {
       setIsGeneratingAI(true);
       try {
-          const oldCheckin = getOldCheckin();
-          
-          // Prepara as URLs das fotos (prioriza Frente, depois Lado)
-          const currentPhoto = currentCheckinForEval?.photoFront || currentCheckinForEval?.photoSide || currentCheckinForEval?.photoBack;
-          const oldPhoto = oldCheckin?.photoFront || oldCheckin?.photoSide || oldCheckin?.photoBack;
-
-          const payload = {
-              userId: aluno.id,
-              userName: aluno.name,
-              type: evaluationType, // 'initial' ou 'comparison'
-              currentPhotoUrl: currentPhoto,
-              oldPhotoUrl: oldPhoto,
-              currentWeight: currentCheckinForEval?.weight,
-              oldWeight: oldCheckin?.weight
+          const payload = { 
+              checkInId: currentCheckinForEval.id,
+              // Manda o ID antigo se estiver na aba de comparação
+              oldCheckInId: evaluationType === 'comparison' ? selectedOldCheckinId : null 
           };
 
-          // 🔥 Bate no seu endpoint configurado com as chaves do Gemini no Render
           const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-checkin', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(payload)
           });
 
-          if (!res.ok) throw new Error("Falha na geração");
+          if (!res.ok) throw new Error("Falha na geração do Motor");
 
           const data = await res.json();
-          if (data.feedback) {
-              setFeedbackText(data.feedback);
+
+          if (data.analysis) {
+              setFeedbackText(data.analysis);
           } else {
-              throw new Error("Feedback vazio retornado.");
+              throw new Error("Feedback veio vazio.");
           }
 
       } catch (error) {
           console.error("Erro IA:", error);
-          const msgErro = "Não foi possível gerar o feedback com IA no momento. Tente novamente ou digite manualmente.";
+          const msgErro = "O motor de IA falhou. Verifique o console ou tente novamente.";
           if (Platform.OS === 'web') window.alert(msgErro);
           else Alert.alert("Erro", msgErro);
       } finally {
@@ -504,7 +494,8 @@ const styles = StyleSheet.create({
 
   // 🔥 Estilos do Quartel General de Avaliação 🔥
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  evalModalContent: { width: '100%', maxWidth: 500, maxHeight: '90%', borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
+  // 🔥 Adicionado 'flex: 1' para o ScrollView voltar a funcionar
+  evalModalContent: { flex: 1, width: '100%', maxWidth: 500, maxHeight: '90%', borderRadius: 24, borderWidth: 1, overflow: 'hidden' },
   evalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(128,128,128,0.2)' },
   evalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   
