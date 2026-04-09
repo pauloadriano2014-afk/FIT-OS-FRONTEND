@@ -39,7 +39,7 @@ export default function AdminUserSystem({
         <View>
             <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
             
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { aluno })}>
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: aluno.id, alunoName: aluno.name })}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
                     <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
                 </View>

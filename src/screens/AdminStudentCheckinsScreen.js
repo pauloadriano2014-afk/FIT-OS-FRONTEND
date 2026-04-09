@@ -8,7 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminStudentCheckinsScreen({ route, navigation }) {
-  const { aluno } = route.params;
+  const { alunoId, alunoName } = route.params;
   const { theme } = useTheme();
 
   const [loading, setLoading] = useState(true);
