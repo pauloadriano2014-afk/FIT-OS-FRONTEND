@@ -56,7 +56,8 @@ export default function AdminUserSystem({
         <View>
             <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
             
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { aluno })}>
+            {/* 🔥 BLINDAGEM: Enviando apenas o essencial para evitar o crash do Safari */}
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { aluno: { id: aluno.id, name: aluno.name } })}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
                     <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
                 </View>
@@ -64,7 +65,8 @@ export default function AdminUserSystem({
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
+            {/* 🔥 Aplicando a mesma blindagem para a tela de Evolução */}
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno: { id: aluno.id, name: aluno.name } })}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
                     <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
                 </View>
