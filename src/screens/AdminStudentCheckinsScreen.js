@@ -8,7 +8,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminStudentCheckinsScreen({ route, navigation }) {
-  const { aluno } = route.params;
+  // 🔥 BLINDAGEM: Lê o objeto 'aluno' com cuidado. Se a tela chamadora não tiver mandado os dados certos, previne o crash imediato.
+  const aluno = route.params?.aluno || { id: '', name: 'ALUNO' };
+  
   const { theme } = useTheme();
 
   const [loading, setLoading] = useState(true);
@@ -29,13 +31,18 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-      fetchCheckins();
-  }, []);
+      if (aluno.id) {
+          fetchCheckins();
+      } else {
+          setLoading(false);
+      }
+  }, [aluno.id]);
 
   const fetchCheckins = async () => {
       setLoading(true);
       try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`);
+          // 🔥 MARRETA ANTICACHE no Admin para garantir fotos novas
+          const res = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}&t=${Date.now()}`);
           if (res.ok) {
               const data = await res.json();
               const sorted = data.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
@@ -182,7 +189,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
           });
 
           if (res.ok) {
-              // 🔥 O Pulo do Gato: Atualiza a lista local com o novo texto para não sumir ao fechar
               setCheckins(prev => prev.map(c => 
                   c.id === currentCheckinForEval.id ? { ...c, coachFeedback: feedbackText } : c
               ));
@@ -448,7 +454,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             onChangeText={setFeedbackText}
                         />
 
-                        {/* 🔥 O BOTÃO INTELIGENTE: Muda texto se já tiver avaliação */}
                         <TouchableOpacity 
                             style={[styles.submitEvalBtn, {backgroundColor: currentCheckinForEval?.coachFeedback ? theme.surface : theme.accent, borderColor: currentCheckinForEval?.coachFeedback ? theme.border : theme.accent, borderWidth: 1}]}
                             onPress={submitEvaluation}
