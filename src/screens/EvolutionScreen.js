@@ -28,7 +28,7 @@ export default function EvolutionScreen({ navigation }) {
 
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [assessmentHistory, setAssessmentHistory] = useState([]);
-  const [checkinHistory, setCheckinHistory] = useState([]); // 🔥 NOVO: Histórico de Check-ins
+  const [checkinHistory, setCheckinHistory] = useState([]); 
   
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
@@ -104,13 +104,10 @@ export default function EvolutionScreen({ navigation }) {
               setWorkoutHistory(processedHistory);
           }
 
-          // 🔥 NOVO: Busca todos os check-ins do aluno para montar a galeria de Feedbacks
-          // 🔥 NOVO: Busca todos os check-ins do aluno para montar a galeria de Feedbacks
-const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`);
+          const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`);
           if (resCheckins.ok) {
               const allCheckins = await resCheckins.json();
               if (Array.isArray(allCheckins)) {
-                  // Pega apenas os que têm feedback do coach (já foram avaliados)
                   const evaluated = allCheckins.filter(c => c.coachFeedback);
                   setCheckinHistory(evaluated);
               }
@@ -401,7 +398,6 @@ const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?us
               </>
           ) : (
               <>
-                  {/* 🔥 BOTÃO PDF (SE TIVER) 🔥 */}
                   {userData?.evaluationUrl ? (
                       <TouchableOpacity 
                           style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} 
@@ -413,20 +409,15 @@ const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?us
                       </TouchableOpacity>
                   ) : null}
 
-                  {/* 🔥 GALERIA DE FEEDBACKS (NOVO) 🔥 */}
                   {checkinHistory.length > 0 && (
                       <View style={{ marginBottom: 25 }}>
                           <Text style={[styles.sectionTitle, {color: theme.accent, marginBottom: 10, marginTop: 0}]}>AVALIAÇÕES RÁPIDAS DO COACH</Text>
                           {checkinHistory.map((checkin) => {
-                              // Verifica o cache local de forma síncrona dentro da renderização é ruim.
-                              // Vamos assumir que a Home já marcou como lido se ele abriu lá.
-                              // Mas mantemos a lógica visual.
                               return (
                                   <TouchableOpacity 
                                       key={checkin.id} 
                                       style={[styles.feedbackListCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
                                       onPress={async () => {
-                                          // Quando ele abrir por aqui, marca como lido no celular dele.
                                           await AsyncStorage.setItem(`read_feedback_${checkin.id}`, 'true');
                                           openFeedbackModal(checkin);
                                       }}
@@ -552,14 +543,25 @@ const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?us
 
                   <ScrollView style={{flex: 1, padding: 20}} showsVerticalScrollIndicator={false}>
                       
-                      {selectedFeedback?.photoFront && (
-                          <View style={{flexDirection: 'row', gap: 15, marginBottom: 20}}>
-                              <View style={{flex: 1, alignItems: 'center'}}>
-                                  <Image source={{uri: selectedFeedback.photoFront}} style={[styles.feedbackPhotoImg, {borderColor: theme.border}]} />
-                                  <Text style={[styles.feedbackPhotoLabel, {color: theme.textSecondary}]}>FRENTE</Text>
-                              </View>
+                      {/* 🔥 GALERIA DE FOTOS NA EVOLUÇÃO (SEM CORTES) 🔥 */}
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                          <View style={{ flexDirection: 'row', gap: 15 }}>
+                              {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
+                                  selectedFeedback?.[key] && (
+                                      <View key={i} style={{ width: 220, alignItems: 'center' }}>
+                                          <Image 
+                                              source={{ uri: selectedFeedback[key] }} 
+                                              style={[styles.feedbackPhotoImg, { borderColor: theme.border }]} 
+                                              resizeMode="contain" 
+                                          />
+                                          <Text style={[styles.feedbackPhotoLabel, { color: theme.textSecondary }]}>
+                                              {key === 'photoFront' ? 'FRENTE' : key === 'photoSide' ? 'LADO' : 'COSTAS'}
+                                          </Text>
+                                      </View>
+                                  )
+                              ))}
                           </View>
-                      )}
+                      </ScrollView>
 
                       <View style={[styles.feedbackTextBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                           <MaterialCommunityIcons name="format-quote-open" size={24} color={theme.accent} style={{marginBottom: 10}} />
@@ -597,7 +599,6 @@ const styles = StyleSheet.create({
   pdfAssessmentTitle: { fontWeight: '900', fontSize: 15 },
   pdfAssessmentSub: { fontSize: 11, marginTop: 2 },
   
-  // 🔥 ESTILOS DA LISTA DE FEEDBACKS 🔥
   feedbackListCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 10 },
   feedbackListIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   feedbackListTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
@@ -620,7 +621,6 @@ const styles = StyleSheet.create({
   newAssessmentBtn: { flexDirection: 'row', padding: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 25 },
   newAssessmentText: { fontWeight: '900', fontSize: 14 },
 
-  // 🔥 ESTILOS DO MODAL DE FEEDBACK (O mesmo da Home) 🔥
   modalOverlayFull: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
   feedbackModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', marginTop: 40 },
   feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 25, borderBottomWidth: 1, borderColor: 'rgba(128,128,128,0.2)' },
