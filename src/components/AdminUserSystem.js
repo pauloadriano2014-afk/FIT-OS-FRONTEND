@@ -26,7 +26,6 @@ export default function AdminUserSystem({
             return;
         }
 
-        // Converte a string "DD/MM/YYYY" para Date()
         const parts = nextCheckInDate.split('/');
         if (parts.length !== 3) return;
         
@@ -56,8 +55,8 @@ export default function AdminUserSystem({
         <View>
             <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
             
-            {/* 🔥 BLINDAGEM: Enviando apenas o essencial para evitar o crash do Safari */}
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { aluno: { id: aluno.id, name: aluno.name } })}>
+            {/* 🔥 BLINDAGEM MÁXIMA PARA O SAFARI: Enviando os dados soltos (ID e Nome) para não bugar a URL */}
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name) })}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
                     <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
                 </View>
@@ -65,8 +64,7 @@ export default function AdminUserSystem({
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            {/* 🔥 Aplicando a mesma blindagem para a tela de Evolução */}
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno: { id: aluno.id, name: aluno.name } })}>
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
                     <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
                 </View>
@@ -111,7 +109,6 @@ export default function AdminUserSystem({
                     }
                 </Text>
 
-                {/* 🔥 O VISUALIZADOR SEMÁFORO 🔥 */}
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, backgroundColor: semaforoConfig.bg, borderWidth: 1, borderColor: semaforoConfig.color, marginBottom: 15}}>
                     <MaterialCommunityIcons name={semaforoConfig.icon} size={20} color={semaforoConfig.color} />
                     <View style={{flex: 1}}>
