@@ -64,7 +64,8 @@ export default function AdminUserSystem({
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoBirthDate: String(aluno.birthDate || ''), alunoGender: String(aluno.gender || '') })}
+
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
                     <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
                 </View>
