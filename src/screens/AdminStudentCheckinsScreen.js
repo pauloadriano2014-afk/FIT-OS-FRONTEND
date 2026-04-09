@@ -7,6 +7,28 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
+// 🔥 O COMPONENTE INTELIGENTE: Carrega a miniatura (se tiver) e fallback pra original se falhar
+const ThumbnailImage = ({ originalUri, onPress, theme }) => {
+    const thumbUri = originalUri && originalUri.includes('.jpg') 
+        ? originalUri.replace('.jpg', '-thumb.jpg') 
+        : originalUri;
+
+    const [imageUri, setImageUri] = useState(thumbUri);
+
+    return (
+        <TouchableOpacity onPress={() => onPress(originalUri)} style={{ width: '100%', alignItems: 'center' }}>
+            <Image 
+                source={{ uri: imageUri }} 
+                style={[styles.photo, { borderColor: theme.border }]} 
+                onError={() => {
+                    // Se a miniatura der erro 404 (fotos velhas), ele carrega a grandona no lugar
+                    if (imageUri !== originalUri) setImageUri(originalUri);
+                }}
+            />
+        </TouchableOpacity>
+    );
+};
+
 export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const { theme } = useTheme();
 
@@ -114,7 +136,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       setEvaluationModalVisible(true);
   };
 
-  // 🔥 Troca manual de aba no modal
   const handleTabChange = (type) => {
       setEvaluationType(type);
       if (type === 'comparison' && !selectedOldCheckinId) {
@@ -291,6 +312,13 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                                     </View>
                                                 )}
                                             </View>
+
+                                            {item.allowMarketing && (
+                                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
+                                                    <MaterialCommunityIcons name="instagram" size={14} color="#BF5AF2" />
+                                                    <Text style={{fontSize: 9, fontWeight: 'bold', color: '#BF5AF2'}}>AUTORIZADO</Text>
+                                                </View>
+                                            )}
                                         </View>
 
                                         {item.weight ? (
@@ -302,33 +330,25 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
                                         <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 10, marginBottom: 10 }]}>Fotos Base:</Text>
                                         
+                                        {/* 🔥 BLINDAGEM DE MEMÓRIA DO SAFARI 2.0: Componente Inteligente de Miniatura 🔥 */}
                                         <View style={styles.photoGrid}>
                                             {item.photoFront ? (
                                                 <View style={styles.photoThumb}>
-                                                    <TouchableOpacity onPress={() => openPhoto(item.photoFront)} style={[styles.photoBtnPlaceholder, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-                                                        <MaterialCommunityIcons name="camera-image" size={32} color={theme.accent} />
-                                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.text, marginTop: 5 }}>VER FOTO</Text>
-                                                    </TouchableOpacity>
+                                                    <ThumbnailImage originalUri={item.photoFront} onPress={openPhoto} theme={theme} />
                                                     <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>FRENTE</Text>
                                                 </View>
                                             ) : null}
                                             
                                             {item.photoSide ? (
                                                 <View style={styles.photoThumb}>
-                                                    <TouchableOpacity onPress={() => openPhoto(item.photoSide)} style={[styles.photoBtnPlaceholder, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-                                                        <MaterialCommunityIcons name="camera-image" size={32} color={theme.accent} />
-                                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.text, marginTop: 5 }}>VER FOTO</Text>
-                                                    </TouchableOpacity>
+                                                    <ThumbnailImage originalUri={item.photoSide} onPress={openPhoto} theme={theme} />
                                                     <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>LADO</Text>
                                                 </View>
                                             ) : null}
                                             
                                             {item.photoBack ? (
                                                 <View style={styles.photoThumb}>
-                                                    <TouchableOpacity onPress={() => openPhoto(item.photoBack)} style={[styles.photoBtnPlaceholder, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-                                                        <MaterialCommunityIcons name="camera-image" size={32} color={theme.accent} />
-                                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.text, marginTop: 5 }}>VER FOTO</Text>
-                                                    </TouchableOpacity>
+                                                    <ThumbnailImage originalUri={item.photoBack} onPress={openPhoto} theme={theme} />
                                                     <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>COSTA</Text>
                                                 </View>
                                             ) : null}
@@ -382,7 +402,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         showsVerticalScrollIndicator={true}
                         nestedScrollEnabled={true}
                     >
-                        {/* 🔥 SELETOR MANUAL DE TIPO DE AVALIAÇÃO */}
                         <View style={{flexDirection: 'row', backgroundColor: theme.bg, borderRadius: 10, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: theme.border}}>
                             <TouchableOpacity 
                                 style={[styles.tabBtn, { backgroundColor: evaluationType === 'initial' ? theme.accent : 'transparent' }]}
@@ -524,7 +543,7 @@ const styles = StyleSheet.create({
   
   photoGrid: { flexDirection: 'row', gap: 10 },
   photoThumb: { flex: 1, alignItems: 'center' },
-  photoBtnPlaceholder: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  photo: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, backgroundColor: '#000' },
   photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
 
   aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
