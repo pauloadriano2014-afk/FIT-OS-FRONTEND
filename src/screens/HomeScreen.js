@@ -78,7 +78,7 @@ export default function HomeScreen({ navigation }) {
   const [daysToFinalCheckin, setDaysToFinalCheckin] = useState(null); 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔥 ESTADOS DO FEEDBACK DO COACH (MODAL NATIVO)
+  // 🔥 ESTADOS DO FEEDBACK DO COACH
   const [pendingFeedback, setPendingFeedback] = useState(null);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
@@ -146,7 +146,6 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
-            // 🔥 MARRETA ANTICACHE: Obriga o app a baixar a avaliação na hora!
             const headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
             const [homeRes, historyRes, checkinRes, noticeRes] = await Promise.all([
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`, { headers }),
@@ -163,10 +162,20 @@ export default function HomeScreen({ navigation }) {
                 checkinsData = await checkinRes.json();
                 if (Array.isArray(checkinsData) && checkinsData.length > 0) {
                     hasPhotosInDb = true;
-                    // 🔥 GARANTIA DE FEEDBACK: Lê a avaliação mesmo se o status vier quebrado do banco
-                    const unreadFeedback = checkinsData.find(c => c.coachFeedback && c.hasReadFeedback !== true);
-                    if (unreadFeedback) {
-                        setPendingFeedback(unreadFeedback);
+                    
+                    // 🔥 BUSCA DE FEEDBACK COM MEMÓRIA LOCAL 🔥
+                    const evaluated = checkinsData.filter(c => c.coachFeedback);
+                    let unread = null;
+                    for (let c of evaluated) {
+                        const isRead = await AsyncStorage.getItem(`read_feedback_${c.id}`);
+                        if (!isRead) {
+                            unread = c;
+                            break;
+                        }
+                    }
+                    
+                    if (unread) {
+                        setPendingFeedback(unread);
                         setFeedbackModalVisible(true);
                     } else {
                         setPendingFeedback(null);
@@ -298,23 +307,17 @@ export default function HomeScreen({ navigation }) {
       setNoticeModalVisible(false);
   };
 
-  // 🔥 FUNÇÃO PARA MARCAR FEEDBACK COMO LIDO COM RELOAD
+  // 🔥 MARCAR FEEDBACK COMO LIDO NA MEMÓRIA DO CELULAR 🔥
   const markFeedbackAsRead = async () => {
       if (!pendingFeedback) return;
       setIsMarkingAsRead(true);
       try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/checkin/read-feedback`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ checkinId: pendingFeedback.id })
-          });
-          if (res.ok) {
-              setFeedbackModalVisible(false);
-              setPendingFeedback(null);
-              loadHomeData(); 
-          }
+          await AsyncStorage.setItem(`read_feedback_${pendingFeedback.id}`, 'true');
+          setFeedbackModalVisible(false);
+          setPendingFeedback(null);
+          loadHomeData(); 
       } catch (error) {
-          console.error("Erro ao marcar feedback como lido:", error);
+          console.error("Erro ao salvar leitura:", error);
           setFeedbackModalVisible(false); 
       } finally {
           setIsMarkingAsRead(false);
@@ -355,46 +358,11 @@ export default function HomeScreen({ navigation }) {
 
   const getPhotoModalContent = () => {
       switch (userPlan) {
-          case 'PREMIUM':
-              return {
-                  title: 'REGISTRE SEU PONTO DE PARTIDA 📸',
-                  desc: 'Quando puder, envie suas 3 fotos iniciais para que possamos mapear sua evolução juntos. Sem pressa — envie quando estiver pronto!',
-                  btnText: 'ENVIAR FOTOS AGORA',
-                  escapeText: 'TREINAR PRIMEIRO (Envio Depois)',
-                  showEscape: true,
-              };
-          case 'LOW_COST':
-              return {
-                  title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸',
-                  desc: 'Para acompanharmos sua progressão mensal, precisamos do seu registro inicial. Envie suas 3 fotos (frente, lado e costas) o quanto antes!',
-                  btnText: 'ENVIAR FOTOS AGORA',
-                  escapeText: 'IR PARA O TREINO',
-                  showEscape: true,
-              };
-          case 'FICHA_8S':
-              return {
-                  title: 'FOTOS DO DIA 1 PENDENTES ⚠️',
-                  desc: 'Suas fotos de ponto de partida são essenciais para a avaliação que o Coach fará no final das 8 semanas. Sem elas, não conseguimos medir sua evolução real. Envie agora!',
-                  btnText: 'ENVIAR FOTOS DO DIA 1',
-                  escapeText: 'TREINAR MESMO ASSIM',
-                  showEscape: true,
-              };
-          case 'CHALLENGE_21':
-              return {
-                  title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️',
-                  desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois". Envie agora para começar oficialmente!',
-                  btnText: 'ENVIAR FOTOS E COMEÇAR',
-                  escapeText: 'TREINAR MESMO ASSIM',
-                  showEscape: true,
-              };
-          default:
-              return {
-                  title: 'FOTOS PENDENTES 📸',
-                  desc: 'Envie suas fotos iniciais para mapearmos sua evolução.',
-                  btnText: 'ENVIAR FOTOS',
-                  escapeText: 'TREINAR MESMO ASSIM',
-                  showEscape: true,
-              };
+          case 'PREMIUM': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Quando puder, envie suas 3 fotos iniciais para que possamos mapear sua evolução juntos. Sem pressa — envie quando estiver pronto!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'TREINAR PRIMEIRO (Envio Depois)', showEscape: true };
+          case 'LOW_COST': return { title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸', desc: 'Para acompanharmos sua progressão mensal, precisamos do seu registro inicial. Envie suas 3 fotos (frente, lado e costas) o quanto antes!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'IR PARA O TREINO', showEscape: true };
+          case 'FICHA_8S': return { title: 'FOTOS DO DIA 1 PENDENTES ⚠️', desc: 'Suas fotos de ponto de partida são essenciais para a avaliação que o Coach fará no final das 8 semanas. Sem elas, não conseguimos medir sua evolução real. Envie agora!', btnText: 'ENVIAR FOTOS DO DIA 1', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
+          case 'CHALLENGE_21': return { title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️', desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois". Envie agora para começar oficialmente!', btnText: 'ENVIAR FOTOS E COMEÇAR', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
+          default: return { title: 'FOTOS PENDENTES 📸', desc: 'Envie suas fotos iniciais para mapearmos sua evolução.', btnText: 'ENVIAR FOTOS', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
       }
   };
 
@@ -404,16 +372,11 @@ export default function HomeScreen({ navigation }) {
       if (isWaiting) return null;
 
       switch (userPlan) {
-          case 'PREMIUM':
-              return { icon: 'camera-outline', text: 'Envie seu check-in inicial quando puder 📸', color: theme.accent, dismissable: true, urgency: 'low' };
-          case 'LOW_COST':
-              return { icon: 'camera-timer', text: 'Suas fotos de evolução estão pendentes!', color: '#FF9500', dismissable: false, urgency: 'medium' };
-          case 'FICHA_8S':
-              return { icon: 'camera-timer', text: 'Envie suas fotos do Dia 1 para começar!', color: '#FF9500', dismissable: false, urgency: 'high' };
-          case 'CHALLENGE_21':
-              return { icon: 'alert-circle', text: '⚠️ Fotos do Dia 1 pendentes — envie agora!', color: '#FF3B30', dismissable: false, urgency: 'high' };
-          default:
-              return null;
+          case 'PREMIUM': return { icon: 'camera-outline', text: 'Envie seu check-in inicial quando puder 📸', color: theme.accent, dismissable: true, urgency: 'low' };
+          case 'LOW_COST': return { icon: 'camera-timer', text: 'Suas fotos de evolução estão pendentes!', color: '#FF9500', dismissable: false, urgency: 'medium' };
+          case 'FICHA_8S': return { icon: 'camera-timer', text: 'Envie suas fotos do Dia 1 para começar!', color: '#FF9500', dismissable: false, urgency: 'high' };
+          case 'CHALLENGE_21': return { icon: 'alert-circle', text: '⚠️ Fotos do Dia 1 pendentes — envie agora!', color: '#FF3B30', dismissable: false, urgency: 'high' };
+          default: return null;
       }
   };
 
@@ -557,7 +520,6 @@ export default function HomeScreen({ navigation }) {
                 </View>
             )}
 
-            {/* 🔥 BOTÃO DE AÇÃO PRINCIPAL / AVISO DE FEEDBACK */}
             {pendingFeedback ? (
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                     <TouchableOpacity 
@@ -653,7 +615,6 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 O MODAL DE IMPACTO (FEEDBACK DO COACH) 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.feedbackModalContent, { backgroundColor: theme.bg }]}>
@@ -697,42 +658,26 @@ export default function HomeScreen({ navigation }) {
           </View>
       </Modal>
 
-      {/* Modal de Fotos Iniciais */}
       <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent }]}>
-                  <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}>
-                      <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                  </TouchableOpacity>
-                  <View style={[styles.levelIconBox, { backgroundColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF950022' : theme.accent + '22', marginBottom: 20 }]}>
-                      <MaterialCommunityIcons name="camera-timer" size={36} color={(userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent} />
-                  </View>
+                  <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
+                  <View style={[styles.levelIconBox, { backgroundColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF950022' : theme.accent + '22', marginBottom: 20 }]}><MaterialCommunityIcons name="camera-timer" size={36} color={(userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent} /></View>
                   <Text style={[styles.upsellTitle, { color: theme.text }]}>{photoModal.title}</Text>
                   <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>{photoModal.desc}</Text>
-                  
-                  <TouchableOpacity 
-                      style={[styles.upsellBtn, {backgroundColor: theme.accent, marginBottom: 10}]} 
-                      onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
-                  >
+                  <TouchableOpacity style={[styles.upsellBtn, {backgroundColor: theme.accent, marginBottom: 10}]} onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}>
                       <MaterialCommunityIcons name="camera" size={20} color={theme.isDark ? '#000' : '#FFF'} style={{marginRight: 8}}/>
                       <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>{photoModal.btnText}</Text>
                   </TouchableOpacity>
-
                   {photoModal.showEscape && (
-                      <TouchableOpacity 
-                          style={{padding: 15, alignItems: 'center'}} 
-                          onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('Treinos'); }}
-                      >
-                          <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>
-                              {photoModal.escapeText}
-                          </Text>
+                      <TouchableOpacity style={{padding: 15, alignItems: 'center'}} onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('Treinos'); }}>
+                          <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>{photoModal.escapeText}</Text>
                       </TouchableOpacity>
                   )}
               </View>
           </View>
       </Modal>
 
-      {/* Modal de Sugestão Alimentar (21D) */}
       <Modal visible={dietModalVisible} animationType="slide" transparent>
           <View style={styles.chatModalOverlay}>
               <View style={[styles.dietCard, { backgroundColor: theme.bg }]}>
@@ -744,29 +689,16 @@ export default function HomeScreen({ navigation }) {
                       <View style={[styles.instructionBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
                           <Text style={[styles.dietSectionTitle, { color: theme.accent, marginBottom: 10 }]}>REGRAS DO COACH 👊</Text>
                           {DIET_21D.instructions.map((text, i) => (
-                              <View key={i} style={{flexDirection: 'row', marginBottom: 6, gap: 8}}>
-                                  <MaterialCommunityIcons name="check-circle-outline" size={16} color={theme.accent} />
-                                  <Text style={{color: theme.text, fontSize: 13, flex: 1, fontWeight: '600'}}>{text}</Text>
-                              </View>
+                              <View key={i} style={{flexDirection: 'row', marginBottom: 6, gap: 8}}><MaterialCommunityIcons name="check-circle-outline" size={16} color={theme.accent} /><Text style={{color: theme.text, fontSize: 13, flex: 1, fontWeight: '600'}}>{text}</Text></View>
                           ))}
                       </View>
-
                       <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 20}]}>DIAS DE MUSCULAÇÃO 💪</Text>
                       {DIET_21D.trainingDays.map((meal, i) => (
-                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                              <Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text>
-                              <Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text>
-                              <Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text>
-                          </View>
+                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}><Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text><Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text><Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text></View>
                       ))}
-
                       <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 25}]}>DIAS DE CARDIO (SEM MUSCULAÇÃO) 🏃‍♂️</Text>
                       {DIET_21D.cardioDays.map((meal, i) => (
-                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                              <Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text>
-                              <Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text>
-                              <Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text>
-                          </View>
+                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}><Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text><Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text><Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text></View>
                       ))}
                       <View style={{height: 100}} />
                   </ScrollView>
@@ -778,7 +710,6 @@ export default function HomeScreen({ navigation }) {
       <HomeNoticeModal visible={noticeModalVisible} onClose={handleReadNotice} theme={theme} activeNotice={activeNotice} />
       <ChatAIAssistantModal visible={chatVisible} onClose={() => setChatVisible(false)} theme={theme} isWeb={isWeb} messages={messages} flatListRef={flatListRef} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isTyping={isTyping} QUICK_QUESTIONS={QUICK_QUESTIONS} />
 
-      {/* Modal Ciclo Encerrado */}
       <Modal visible={fichaExpiredModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
@@ -786,24 +717,12 @@ export default function HomeScreen({ navigation }) {
                   <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}><MaterialCommunityIcons name="trophy-variant" size={36} color="#FF3B30" /></View>
                   <Text style={[styles.upsellTitle, { color: theme.text }]}>MISSÃO CUMPRIDA! 🎉</Text>
                   <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>Você finalizou seu projeto atual. Para resgatar sua avaliação final do Coach e os seus bônus, envie suas fotos de resultado (Hoje).</Text>
-                  
-                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#FF3B30', marginBottom: 10 }]} onPress={() => { setFichaExpiredModalVisible(false); navigation.navigate('CheckIn'); }}>
-                      <MaterialCommunityIcons name="camera" size={20} color="#FFF" style={{marginRight: 8}}/>
-                      <Text style={[styles.upsellBtnText, {color: '#FFF'}]}>ENVIAR FOTO FINAL</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                      style={[styles.upsellBtn, { backgroundColor: '#25D366' }]} 
-                      onPress={() => { setFichaExpiredModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, finalizei meu plano! Quero saber os próximos passos."); }}
-                  >
-                      <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginRight: 8}}/>
-                      <Text style={[styles.upsellBtnText, {color: '#FFF'}]}>FALAR COM O COACH</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#FF3B30', marginBottom: 10 }]} onPress={() => { setFichaExpiredModalVisible(false); navigation.navigate('CheckIn'); }}><MaterialCommunityIcons name="camera" size={20} color="#FFF" style={{marginRight: 8}}/><Text style={[styles.upsellBtnText, {color: '#FFF'}]}>ENVIAR FOTO FINAL</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#25D366' }]} onPress={() => { setFichaExpiredModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, finalizei meu plano! Quero saber os próximos passos."); }}><MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginRight: 8}}/><Text style={[styles.upsellBtnText, {color: '#FFF'}]}>FALAR COM O COACH</Text></TouchableOpacity>
               </View>
           </View>
       </Modal>
 
-      {/* Modal Upsell */}
       <Modal visible={upsellModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
@@ -811,15 +730,8 @@ export default function HomeScreen({ navigation }) {
                   <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}><MaterialCommunityIcons name="crown" size={36} color={theme.accent} /></View>
                   <Text style={[styles.upsellTitle, { color: theme.text }]}>FUNCIONALIDADE ELITE</Text>
                   <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>O recurso de <Text style={{color: theme.accent, fontWeight: 'bold'}}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Elite.</Text>
-                  <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                      <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text></View>
-                      <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text></View>
-                      <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text></View>
-                  </View>
-                  <TouchableOpacity style={styles.upsellBtn} onPress={() => { setUpsellModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, quero ser Elite!"); }}>
-                      <Text style={styles.upsellBtnText}>SER ELITE AGORA</Text>
-                      <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
-                  </TouchableOpacity>
+                  <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text></View></View>
+                  <TouchableOpacity style={styles.upsellBtn} onPress={() => { setUpsellModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, quero ser Elite!"); }}><Text style={styles.upsellBtnText}>SER ELITE AGORA</Text><MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/></TouchableOpacity>
               </View>
           </View>
       </Modal>
@@ -836,37 +748,29 @@ const styles = StyleSheet.create({
   name: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
-  
   photoBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
   photoBannerText: { flex: 1, fontSize: 12, fontWeight: '700' },
-
   xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
   levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   xpText: { fontSize: 11, fontWeight: 'bold' },
   xpBarBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
   xpBarFill: { height: '100%', borderRadius: 4 },
-  
   mainActionBtn: { padding: 25, borderRadius: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, shadowOffset: {width: 0, height: 6}, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
   actionLabel: { fontSize: 11, fontWeight: '900', opacity: 0.8, marginBottom: 4, letterSpacing: 0.5 },
   actionTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   iconCircle: { width: 54, height: 54, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
-  
   gridContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 15 },
   gridItem: { width: '48%', padding: 18, borderRadius: 24, alignItems: 'center', borderWidth: 1, marginBottom: 15 },
   gridIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   gridText: { fontSize: 11, fontWeight: 'bold' },
   notificationDot: { position: 'absolute', top: -4, right: -4, width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF3B30', borderWidth: 2, zIndex: 10 },
-  
   footerContainer: { alignItems: 'center', marginTop: 20, marginBottom: 10 },
   footerText: { fontWeight: '900', fontSize: 16, letterSpacing: 1.5 },
   footerSubText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginTop: 4 },
-  
   fabChat: { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 10 },
   fabGradient: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-  
   chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
   levelIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  
   upsellCard: { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
   upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
   upsellTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
@@ -876,8 +780,6 @@ const styles = StyleSheet.create({
   upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
   upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  
-  // 🔥 ESTILOS DO MODAL DE FEEDBACK 🔥
   feedbackModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', marginTop: 40 },
   feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 25, borderBottomWidth: 1, borderColor: 'rgba(128,128,128,0.2)' },
   feedbackTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
@@ -887,7 +789,6 @@ const styles = StyleSheet.create({
   feedbackPhotoLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, letterSpacing: 1 },
   feedbackTextBox: { padding: 20, borderRadius: 20, borderWidth: 1 },
   feedbackText: { fontSize: 16, lineHeight: 26, fontWeight: '500' },
-
   dietCard: { flex: 1, marginTop: 60, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
   dietHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, borderColor: '#333' },
   dietTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
