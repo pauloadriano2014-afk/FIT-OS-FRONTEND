@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  Dimensions, ActivityIndicator, Alert, Platform, StatusBar, Linking 
+  Dimensions, ActivityIndicator, Alert, Platform, StatusBar, Linking, Modal, Image 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -28,6 +28,7 @@ export default function EvolutionScreen({ navigation }) {
 
   const [workoutHistory, setWorkoutHistory] = useState([]);
   const [assessmentHistory, setAssessmentHistory] = useState([]);
+  const [checkinHistory, setCheckinHistory] = useState([]); // 🔥 NOVO: Histórico de Check-ins
   
   const [modalVisible, setModalVisible] = useState(false);
   const [detailsVisible, setDetailsVisible] = useState(false);
@@ -37,6 +38,10 @@ export default function EvolutionScreen({ navigation }) {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const [compareModalVisible, setCompareModalVisible] = useState(false);
+
+  // 🔥 ESTADOS DO MODAL DE FEEDBACK 🔥
+  const [selectedFeedback, setSelectedFeedback] = useState(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
 
   const [chartMode, setChartMode] = useState('WEIGHT'); 
 
@@ -97,6 +102,18 @@ export default function EvolutionScreen({ navigation }) {
                   };
               });
               setWorkoutHistory(processedHistory);
+          }
+
+          // 🔥 NOVO: Busca todos os check-ins do aluno para montar a galeria de Feedbacks
+          const headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
+          const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`, { headers });
+          if (resCheckins.ok) {
+              const allCheckins = await resCheckins.json();
+              if (Array.isArray(allCheckins)) {
+                  // Pega apenas os que têm feedback do coach (já foram avaliados)
+                  const evaluated = allCheckins.filter(c => c.coachFeedback);
+                  setCheckinHistory(evaluated);
+              }
           }
       }
     } catch (e) { console.log(e); } 
@@ -279,6 +296,11 @@ export default function EvolutionScreen({ navigation }) {
       }
   };
 
+  const openFeedbackModal = (checkin) => {
+      setSelectedFeedback(checkin);
+      setFeedbackModalVisible(true);
+  };
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -379,16 +401,45 @@ export default function EvolutionScreen({ navigation }) {
               </>
           ) : (
               <>
+                  {/* 🔥 BOTÃO PDF (SE TIVER) 🔥 */}
                   {userData?.evaluationUrl ? (
                       <TouchableOpacity 
                           style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} 
                           onPress={() => Linking.openURL(getGoogleDriveDirectDownloadUrl(userData.evaluationUrl))}
                       >
                           <MaterialCommunityIcons name="file-pdf-box" size={32} color={theme.accent} />
-                          <View style={{flex: 1, marginLeft: 15}}><Text style={[styles.pdfAssessmentTitle, { color: theme.text }]}>MINHA AVALIAÇÃO FÍSICA</Text><Text style={[styles.pdfAssessmentSub, { color: theme.textSecondary }]}>Toque para visualizar ou baixar</Text></View>
+                          <View style={{flex: 1, marginLeft: 15}}><Text style={[styles.pdfAssessmentTitle, { color: theme.text }]}>MINHA AVALIAÇÃO FÍSICA</Text><Text style={[styles.pdfAssessmentSub, { color: theme.textSecondary }]}>Toque para visualizar ou baixar (PDF)</Text></View>
                           <MaterialCommunityIcons name="download" size={24} color={theme.textSecondary} />
                       </TouchableOpacity>
                   ) : null}
+
+                  {/* 🔥 GALERIA DE FEEDBACKS (NOVO) 🔥 */}
+                  {checkinHistory.length > 0 && (
+                      <View style={{ marginBottom: 25 }}>
+                          <Text style={[styles.sectionTitle, {color: theme.accent, marginBottom: 10, marginTop: 0}]}>AVALIAÇÕES RÁPIDAS DO COACH</Text>
+                          {checkinHistory.map((checkin, idx) => (
+                              <TouchableOpacity 
+                                  key={checkin.id} 
+                                  style={[styles.feedbackListCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                  onPress={() => openFeedbackModal(checkin)}
+                              >
+                                  <View style={[styles.feedbackListIcon, { backgroundColor: theme.accent + '22' }]}>
+                                      <MaterialCommunityIcons name="comment-check" size={20} color={theme.accent} />
+                                  </View>
+                                  <View style={{ flex: 1 }}>
+                                      <Text style={[styles.feedbackListTitle, { color: theme.text }]}>Feedback do Coach</Text>
+                                      <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Enviado em {new Date(checkin.date).toLocaleDateString('pt-BR')}</Text>
+                                  </View>
+                                  {!checkin.hasReadFeedback && (
+                                      <View style={{ backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>
+                                          <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold' }}>NOVO</Text>
+                                      </View>
+                                  )}
+                                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} style={{marginLeft: 10}} />
+                              </TouchableOpacity>
+                          ))}
+                      </View>
+                  )}
 
                   <TouchableOpacity style={[styles.newAssessmentBtn, { backgroundColor: '#32ADE6' }]} onPress={() => { resetForm(); setModalVisible(true); }}>
                       <MaterialCommunityIcons name="plus-circle" size={24} color={theme.isDark ? '#000' : '#FFF'} />
@@ -481,6 +532,48 @@ export default function EvolutionScreen({ navigation }) {
           onGeneratePDF={generateComparePDF} theme={theme}
       />
 
+      {/* 🔥 MODAL DE LEITURA DE FEEDBACK NA ABA EVOLUÇÃO 🔥 */}
+      <Modal visible={feedbackModalVisible} transparent animationType="fade">
+          <View style={styles.modalOverlayFull}>
+              <View style={[styles.feedbackModalContent, { backgroundColor: theme.bg }]}>
+                  <View style={styles.feedbackHeader}>
+                      <View style={[styles.feedbackIconBox, { backgroundColor: theme.accent + '22' }]}>
+                          <MaterialCommunityIcons name="bullseye-arrow" size={24} color={theme.accent} />
+                      </View>
+                      <Text style={[styles.feedbackTitle, { color: theme.text }]}>ANÁLISE DO COACH</Text>
+                      <TouchableOpacity style={{position: 'absolute', right: 20, top: 25}} onPress={() => setFeedbackModalVisible(false)}>
+                          <MaterialCommunityIcons name="close" size={28} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                  </View>
+
+                  <ScrollView style={{flex: 1, padding: 20}} showsVerticalScrollIndicator={false}>
+                      
+                      {selectedFeedback?.photoFront && (
+                          <View style={{flexDirection: 'row', gap: 15, marginBottom: 20}}>
+                              <View style={{flex: 1, alignItems: 'center'}}>
+                                  <Image source={{uri: selectedFeedback.photoFront}} style={[styles.feedbackPhotoImg, {borderColor: theme.border}]} />
+                                  <Text style={[styles.feedbackPhotoLabel, {color: theme.textSecondary}]}>FRENTE</Text>
+                              </View>
+                          </View>
+                      )}
+
+                      <View style={[styles.feedbackTextBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                          <MaterialCommunityIcons name="format-quote-open" size={24} color={theme.accent} style={{marginBottom: 10}} />
+                          <Text style={[styles.feedbackText, { color: theme.text }]}>{selectedFeedback?.coachFeedback}</Text>
+                      </View>
+
+                      <TouchableOpacity 
+                          style={[styles.closeFeedbackBtn, {backgroundColor: theme.accent, marginTop: 25}]} 
+                          onPress={() => setFeedbackModalVisible(false)}
+                      >
+                          <Text style={[styles.closeFeedbackBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>FECHAR</Text>
+                      </TouchableOpacity>
+                      <View style={{height: 40}} />
+                  </ScrollView>
+              </View>
+          </View>
+      </Modal>
+
     </RootComponent>
   );
 }
@@ -495,9 +588,16 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
   tabText: { fontWeight: '900', fontSize: 12 },
   scrollContent: { padding: 20 },
+  
   pdfAssessmentBtn: { flexDirection: 'row', padding: 20, borderRadius: 20, alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, elevation: 4 },
   pdfAssessmentTitle: { fontWeight: '900', fontSize: 15 },
   pdfAssessmentSub: { fontSize: 11, marginTop: 2 },
+  
+  // 🔥 ESTILOS DA LISTA DE FEEDBACKS 🔥
+  feedbackListCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 10 },
+  feedbackListIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  feedbackListTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
+
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
   statCard: { width: '48%', padding: 20, borderRadius: 24, borderWidth: 1, alignItems: 'center' },
   statValue: { fontSize: 24, fontWeight: '900', marginVertical: 5 },
@@ -514,5 +614,18 @@ const styles = StyleSheet.create({
   historyWorkout: { fontSize: 18, fontWeight: 'bold' },
   historyTonnage: { fontSize: 13, fontWeight: '900', marginTop: 4 },
   newAssessmentBtn: { flexDirection: 'row', padding: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 25 },
-  newAssessmentText: { fontWeight: '900', fontSize: 14 }
+  newAssessmentText: { fontWeight: '900', fontSize: 14 },
+
+  // 🔥 ESTILOS DO MODAL DE FEEDBACK (O mesmo da Home) 🔥
+  modalOverlayFull: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
+  feedbackModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', marginTop: 40 },
+  feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 25, borderBottomWidth: 1, borderColor: 'rgba(128,128,128,0.2)' },
+  feedbackIconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  feedbackTitle: { fontSize: 20, fontWeight: '900', letterSpacing: 1 },
+  feedbackPhotoImg: { width: '100%', height: 250, borderRadius: 20, borderWidth: 2, backgroundColor: '#000' },
+  feedbackPhotoLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, letterSpacing: 1 },
+  feedbackTextBox: { padding: 20, borderRadius: 20, borderWidth: 1 },
+  feedbackText: { fontSize: 16, lineHeight: 26, fontWeight: '500' },
+  closeFeedbackBtn: { width: '100%', padding: 18, borderRadius: 12, alignItems: 'center', elevation: 5 },
+  closeFeedbackBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 });
