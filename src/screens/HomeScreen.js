@@ -122,7 +122,6 @@ export default function HomeScreen({ navigation }) {
   const loadHomeData = async () => {
     try {
       setLoading(true);
-      // 🔥 BLINDAGEM: Sempre busca do AsyncStorage primeiro, ignorando a URL
       const storedUser = await AsyncStorage.getItem('user');
       
       if (storedUser) {
@@ -142,14 +141,13 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
-            // Remova a linha "const headers = ..." inteira.
-const t = Date.now(); // Usamos o tempo na URL para evitar cache sem quebrar o CORS
-const [homeRes, checkinRes, noticeRes, resUserDirect] = await Promise.all([
-    fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
-    fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
-    fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
-    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`)
-]);
+            const t = Date.now();
+            const [homeRes, checkinRes, noticeRes, resUserDirect] = await Promise.all([
+                fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
+                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
+                fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`)
+            ]);
 
             let fetchedUser = { ...user };
             let hasPhotosInDb = false;
@@ -282,7 +280,6 @@ const [homeRes, checkinRes, noticeRes, resUserDirect] = await Promise.all([
 
         } catch (err) { console.log("Erro ao carregar dados críticos:", err); }
       } else {
-          // Se não encontrou usuário no AsyncStorage, algo deu muito errado no login.
           console.error("Usuário não encontrado no AsyncStorage na Home.");
       }
     } catch (e) { console.log("Erro geral loadHome:", e); } 
@@ -618,14 +615,25 @@ const [homeRes, checkinRes, noticeRes, resUserDirect] = await Promise.all([
 
                   <ScrollView style={{flex: 1, padding: 20}} showsVerticalScrollIndicator={false}>
                       
-                      {pendingFeedback?.photoFront && (
-                          <View style={styles.feedbackPhotosRow}>
-                              <View style={styles.feedbackPhotoBox}>
-                                  <Image source={{uri: pendingFeedback.photoFront}} style={[styles.feedbackPhotoImg, {borderColor: theme.border}]} />
-                                  <Text style={[styles.feedbackPhotoLabel, {color: theme.textSecondary}]}>SUA FOTO DO CHECK-IN</Text>
-                              </View>
+                      {/* 🔥 GALERIA DE FOTOS NO FEEDBACK (SEM CORTES) 🔥 */}
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                          <View style={{ flexDirection: 'row', gap: 15 }}>
+                              {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
+                                  pendingFeedback?.[key] && (
+                                      <View key={i} style={{ width: 220, alignItems: 'center' }}>
+                                          <Image 
+                                              source={{ uri: pendingFeedback[key] }} 
+                                              style={[styles.feedbackPhotoImg, { borderColor: theme.border }]} 
+                                              resizeMode="contain" 
+                                          />
+                                          <Text style={[styles.feedbackPhotoLabel, { color: theme.textSecondary }]}>
+                                              {key === 'photoFront' ? 'FRENTE' : key === 'photoSide' ? 'LADO' : 'COSTAS'}
+                                          </Text>
+                                      </View>
+                                  )
+                              ))}
                           </View>
-                      )}
+                      </ScrollView>
 
                       <View style={[styles.feedbackTextBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                           <MaterialCommunityIcons name="format-quote-open" size={24} color={theme.accent} style={{marginBottom: 10}} />
