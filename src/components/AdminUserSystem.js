@@ -56,7 +56,8 @@ export default function AdminUserSystem({
             <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
             
             {/* 🔥 BLINDAGEM MÁXIMA PARA O SAFARI: Enviando os dados soltos (ID e Nome) para não bugar a URL */}
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name) })}>
+                        <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoBirthDate: String(aluno.birthDate || ''), alunoGender: String(aluno.gender || '') })}>
+
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
                     <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
                 </View>
