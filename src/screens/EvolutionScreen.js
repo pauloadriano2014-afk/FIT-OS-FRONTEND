@@ -417,27 +417,31 @@ export default function EvolutionScreen({ navigation }) {
                   {checkinHistory.length > 0 && (
                       <View style={{ marginBottom: 25 }}>
                           <Text style={[styles.sectionTitle, {color: theme.accent, marginBottom: 10, marginTop: 0}]}>AVALIAÇÕES RÁPIDAS DO COACH</Text>
-                          {checkinHistory.map((checkin, idx) => (
-                              <TouchableOpacity 
-                                  key={checkin.id} 
-                                  style={[styles.feedbackListCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                  onPress={() => openFeedbackModal(checkin)}
-                              >
-                                  <View style={[styles.feedbackListIcon, { backgroundColor: theme.accent + '22' }]}>
-                                      <MaterialCommunityIcons name="comment-check" size={20} color={theme.accent} />
-                                  </View>
-                                  <View style={{ flex: 1 }}>
-                                      <Text style={[styles.feedbackListTitle, { color: theme.text }]}>Feedback do Coach</Text>
-                                      <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Enviado em {new Date(checkin.date).toLocaleDateString('pt-BR')}</Text>
-                                  </View>
-                                  {!checkin.hasReadFeedback && (
-                                      <View style={{ backgroundColor: '#FF3B30', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 }}>
-                                          <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold' }}>NOVO</Text>
+                          {checkinHistory.map((checkin) => {
+                              // Verifica o cache local de forma síncrona dentro da renderização é ruim.
+                              // Vamos assumir que a Home já marcou como lido se ele abriu lá.
+                              // Mas mantemos a lógica visual.
+                              return (
+                                  <TouchableOpacity 
+                                      key={checkin.id} 
+                                      style={[styles.feedbackListCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                      onPress={async () => {
+                                          // Quando ele abrir por aqui, marca como lido no celular dele.
+                                          await AsyncStorage.setItem(`read_feedback_${checkin.id}`, 'true');
+                                          openFeedbackModal(checkin);
+                                      }}
+                                  >
+                                      <View style={[styles.feedbackListIcon, { backgroundColor: theme.accent + '22' }]}>
+                                          <MaterialCommunityIcons name="comment-check" size={20} color={theme.accent} />
                                       </View>
-                                  )}
-                                  <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} style={{marginLeft: 10}} />
-                              </TouchableOpacity>
-                          ))}
+                                      <View style={{ flex: 1 }}>
+                                          <Text style={[styles.feedbackListTitle, { color: theme.text }]}>Feedback do Coach</Text>
+                                          <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Enviado em {new Date(checkin.date || checkin.createdAt).toLocaleDateString('pt-BR')}</Text>
+                                      </View>
+                                      <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} style={{marginLeft: 10}} />
+                                  </TouchableOpacity>
+                              )
+                          })}
                       </View>
                   )}
 

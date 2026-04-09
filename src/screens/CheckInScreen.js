@@ -53,27 +53,23 @@ export default function CheckInScreen({ navigation }) {
                   const history = await historyRes.json();
                   const hasPhotosInDb = Array.isArray(history) && history.length > 0;
                   
-                  // 🔥 1. CHAVE MESTRA CORRIGIDA: Se o Admin desativou a cobrança, cala a boca e ABRE a porta.
                   if (data.disableCheckIn) {
                       setIsDisabled(true);
-                      setIsLocked(false); // Porta livre para alunos tímidos/presenciais
+                      setIsLocked(false); 
                       return;
                   }
 
-                  // 2. REGRA DE OURO ELITE: Premium nunca trava.
                   if (resolvedPlan === 'PREMIUM') {
                       setIsLocked(false);
                       return;
                   }
 
-                  // 3. REGRA DO PONTO DE PARTIDA: A 1ª foto é livre em todos os planos.
+                  // 🔥 AQUI ESTÁ A CORREÇÃO DA PORTA OBRIGATÓRIA 🔥
                   if (!hasPhotosInDb) {
-                      setIsLocked(false);
+                      setIsLocked(false); // DESTRAVADO para a foto obrigatória
                       return;
                   }
 
-                  // 4. REGIME MILITAR: Planos não-Premium que JÁ mandaram a 1ª foto.
-                  
                   if (data.cycleCompleted) {
                       setIsLocked(true);
                       setLockTitle('PROJETO CONCLUÍDO 🏆');

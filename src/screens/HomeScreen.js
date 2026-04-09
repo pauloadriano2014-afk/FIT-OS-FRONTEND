@@ -72,7 +72,7 @@ export default function HomeScreen({ navigation }) {
   const [isCheckinLate, setIsCheckinLate] = useState(false);
   const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
   const [isEliteAwaitingCoach, setIsEliteAwaitingCoach] = useState(false); 
-  const [disableCheckIn, setDisableCheckIn] = useState(false); // 🔥 Novo estado
+  const [disableCheckIn, setDisableCheckIn] = useState(false); 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const [pendingFeedback, setPendingFeedback] = useState(null);
@@ -141,11 +141,12 @@ export default function HomeScreen({ navigation }) {
 
         try {
             const headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
-            const [homeRes, historyRes, checkinRes, noticeRes] = await Promise.all([
+            // 🔥 BUSCA DIRETA INJETADA AQUI PARA ATUALIZAR A DATA INSTANTANEAMENTE 🔥
+            const [homeRes, checkinRes, noticeRes, resUserDirect] = await Promise.all([
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`, { headers }),
-                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}&t=${Date.now()}`, { headers }),
                 fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`, { headers }),
-                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${Date.now()}`, { headers })
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${Date.now()}`, { headers }),
+                fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${Date.now()}`, { headers }) 
             ]);
 
             let fetchedUser = { ...user };
@@ -178,15 +179,20 @@ export default function HomeScreen({ navigation }) {
 
             if (homeRes.ok) {
                 const homeData = await homeRes.json();
+                let directUserData = {};
+                if (resUserDirect.ok) directUserData = await resUserDirect.json(); // Pega a data fresquinha do banco
+
                 if (homeData.user) {
                     const serverXP = homeData.user.currentXP || 0;
                     setXp(serverXP);
-                    fetchedUser = { ...user, currentXP: serverXP, ...homeData.user };
+                    
+                    // 🔥 MESCLA OS DADOS PRA PEGAR O nextCheckInDate ATUALIZADO 🔥
+                    fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
                     
                     const serverPlan = fetchedUser.plan || 'PREMIUM';
                     const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(serverPlan) ? serverPlan : 'PREMIUM';
                     setUserPlan(finalPlan); 
-                    setDisableCheckIn(!!fetchedUser.disableCheckIn); // 🔥 Atualiza o state do disable
+                    setDisableCheckIn(!!fetchedUser.disableCheckIn); 
                     
                     if (finalPlan === 'FICHA_8S' || finalPlan === 'CHALLENGE_21' || finalPlan === 'LOW_COST') {
                         let startD = new Date(fetchedUser.createdAt || new Date());
@@ -213,12 +219,6 @@ export default function HomeScreen({ navigation }) {
                             setDaysToStart(0);
                             setFichaDaysElapsed(diffDays);
                         }
-
-                        if (!hasPhotosInDb && diffDays >= 0) {
-                            setHasSentInitialPhotos(false);
-                        } else {
-                            setHasSentInitialPhotos(true);
-                        }
                         
                         const limit = finalPlan === 'CHALLENGE_21' ? 21 : 56;
                         if (diffDays >= limit && !isFichaPlaceholder && finalPlan !== 'LOW_COST') {
@@ -243,11 +243,15 @@ export default function HomeScreen({ navigation }) {
             let futureDateStr = null;
             let eliteAwaiting = false;
 
+            setHasSentInitialPhotos(hasPhotosInDb);
+
             if (!fetchedUser.disableCheckIn && !unreadFeedback) { 
                 const today = new Date();
                 today.setHours(0,0,0,0);
 
-                if (fetchedUser.nextCheckInDate) {
+                if (!hasPhotosInDb) {
+                    checkinPending = true; 
+                } else if (fetchedUser.nextCheckInDate) {
                     const targetDate = new Date(fetchedUser.nextCheckInDate);
                     targetDate.setHours(0,0,0,0);
                     
@@ -263,17 +267,9 @@ export default function HomeScreen({ navigation }) {
                     }
                 } else {
                     if (resolvedPlan === 'PREMIUM') {
-                        if (!hasPhotosInDb) {
-                            checkinPending = true;
-                        } else {
-                            eliteAwaiting = true;
-                        }
+                        eliteAwaiting = true;
                     } else {
-                        if (!hasPhotosInDb) {
-                            checkinPending = true; 
-                        } else {
-                            futureDateStr = null; 
-                        }
+                        futureDateStr = null; 
                     }
                 }
             }
@@ -362,7 +358,7 @@ export default function HomeScreen({ navigation }) {
   const isFichaExpired = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && fichaDaysElapsed >= limitDays && !isFichaPlaceholder;
   const isWaitingStart = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21' || userPlan === 'LOW_COST') && daysToStart > 0;
   
-  const needsInitialPhoto = !hasSentInitialPhotos && !isWaitingStart;
+  const needsInitialPhoto = !hasSentInitialPhotos; 
   const photoModal = getPhotoModalContent();
 
   return (
@@ -398,7 +394,7 @@ export default function HomeScreen({ navigation }) {
                     <MaterialCommunityIcons name="alert" size={22} color="#FF3B30" />
                     <View style={{flex: 1, marginLeft: 5}}>
                         <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>AÇÃO OBRIGATÓRIA:</Text>
-                        <Text style={{color: '#FF3B30', fontSize: 13, fontWeight: 'bold'}}>{userPlan === 'PREMIUM' ? 'Seu check-in inicial está pendente!' : 'Envie as fotos iniciais para começar.'}</Text>
+                        <Text style={{color: '#FF3B30', fontSize: 13, fontWeight: 'bold'}}>Envie sua foto de ponto de partida.</Text>
                     </View>
                     <MaterialCommunityIcons name="camera" size={20} color="#FF3B30" />
                 </TouchableOpacity>
@@ -556,21 +552,20 @@ export default function HomeScreen({ navigation }) {
                     <TouchableOpacity 
                         style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: (isCheckinPending && !disableCheckIn) ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} 
                         onPress={() => {
-                            // 🔥 SE A COBRANÇA FOI DESATIVADA, A PORTA ESTÁ ABERTA
-                            if (userPlan === 'PREMIUM' || disableCheckIn) {
+                            if (disableCheckIn) {
+                                navigation.navigate('CheckIn');
+                                return;
+                            }
+                            if (userPlan === 'PREMIUM' || needsInitialPhoto || isCheckinPending) {
                                 navigation.navigate('CheckIn');
                             } else {
-                                if (needsInitialPhoto || isCheckinPending) {
-                                    navigation.navigate('CheckIn');
-                                } else {
-                                    Alert.alert("Acesso Bloqueado", "O Coach precisa liberar o seu próximo check-in no sistema.");
-                                }
+                                Alert.alert("Acesso Bloqueado", "O Coach precisa liberar o seu próximo check-in no sistema.");
                             }
                         }}
                     >
                         {(isCheckinPending && !disableCheckIn) && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
                         <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
-                            <MaterialCommunityIcons name={(userPlan === 'PREMIUM' || disableCheckIn) ? "camera-plus" : (isCheckinPending || needsInitialPhoto ? "camera" : "camera-off")} size={24} color={theme.accent} />
+                            <MaterialCommunityIcons name={(userPlan === 'PREMIUM' || disableCheckIn || needsInitialPhoto || isCheckinPending) ? "camera-plus" : "camera-off"} size={24} color={theme.accent} />
                         </View>
                         <Text style={[styles.gridText, { color: theme.text }]}>
                             {(userPlan === 'PREMIUM' || disableCheckIn) ? 'Check-in Livre' : 'Fotos do Shape'}
@@ -735,61 +730,33 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
-  greeting: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
-  name: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
-  statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
-  statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
-  photoBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
-  photoBannerText: { flex: 1, fontSize: 12, fontWeight: '700' },
-  xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
-  levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
-  xpText: { fontSize: 11, fontWeight: 'bold' },
-  xpBarBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
-  xpBarFill: { height: '100%', borderRadius: 4 },
-  mainActionBtn: { padding: 25, borderRadius: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, shadowOffset: {width: 0, height: 6}, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
-  actionLabel: { fontSize: 11, fontWeight: '900', opacity: 0.8, marginBottom: 4, letterSpacing: 0.5 },
-  actionTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
-  iconCircle: { width: 54, height: 54, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
-  gridContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 15 },
-  gridItem: { width: '48%', padding: 18, borderRadius: 24, alignItems: 'center', borderWidth: 1, marginBottom: 15 },
-  gridIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  gridText: { fontSize: 11, fontWeight: 'bold' },
-  notificationDot: { position: 'absolute', top: -4, right: -4, width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF3B30', borderWidth: 2, zIndex: 10 },
-  footerContainer: { alignItems: 'center', marginTop: 20, marginBottom: 10 },
-  footerText: { fontWeight: '900', fontSize: 16, letterSpacing: 1.5 },
-  footerSubText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginTop: 4 },
-  fabChat: { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 10 },
-  fabGradient: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-  levelIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  upsellCard: { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
-  upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
-  upsellTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
-  upsellDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
-  upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
-  upsellBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
-  upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  feedbackModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', marginTop: 40 },
-  feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 25, borderBottomWidth: 1, borderColor: 'rgba(128,128,128,0.2)' },
-  feedbackTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
-  feedbackPhotosRow: { flexDirection: 'row', gap: 15, marginBottom: 20 },
-  feedbackPhotoBox: { flex: 1, alignItems: 'center' },
-  feedbackPhotoImg: { width: '100%', height: 250, borderRadius: 20, borderWidth: 2, backgroundColor: '#000' },
-  feedbackPhotoLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, letterSpacing: 1 },
-  feedbackTextBox: { padding: 20, borderRadius: 20, borderWidth: 1 },
-  feedbackText: { fontSize: 16, lineHeight: 26, fontWeight: '500' },
-  dietCard: { flex: 1, marginTop: 60, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
-  dietHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, borderColor: '#333' },
-  dietTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
-  dietSectionTitle: { fontSize: 16, fontWeight: '900', marginBottom: 15, letterSpacing: 1, textDecorationLine: 'underline' },
-  instructionBox: { padding: 15, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderStyle: 'dashed' },
-  mealCard: { padding: 18, borderRadius: 20, marginBottom: 15, borderWidth: 1 },
-  mealTime: { fontSize: 13, fontWeight: '900', marginBottom: 8, letterSpacing: 0.5 },
-  mealDesc: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
-  mealSubs: { fontSize: 12, fontStyle: 'italic', marginTop: 10, opacity: 0.8 }
+  header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 15, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1, flexShrink: 0 },
+  backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
+  headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  trustBox: { flexDirection: 'row', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
+  guideBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 20 },
+  guideRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
+  guideText: { fontSize: 12, lineHeight: 18, flex: 1 },
+  label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 15, letterSpacing: 0.5 },
+  input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 16, fontWeight:'bold' }, 
+  textArea: { height: 100, textAlignVertical: 'top' },
+  photosRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
+  photoBox: { width: '31%', aspectRatio: 0.8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+  photoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  photoText: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
+  photoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
+  checkBadge: { position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
+  extraPhotosContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5 },
+  deleteExtraBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(255, 59, 48, 0.8)', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
+  marketingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 25, marginBottom: -10, paddingHorizontal: 5 },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
+  sendBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 40 },
+  sendBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  lockedModal: { width: '85%', maxWidth: 350, padding: 30, borderRadius: 24, borderWidth: 1, alignItems: 'center', elevation: 10, shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.1, shadowRadius: 20 },
+  lockedIconBox: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  lockedTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },
+  lockedMessage: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 20 },
+  daysBox: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, paddingHorizontal: 25, paddingVertical: 15, borderRadius: 16, borderWidth: 1 },
+  daysNumber: { fontSize: 32, fontWeight: '900', lineHeight: 36 },
+  daysLabel: { fontSize: 12, fontWeight: 'bold', marginBottom: 5, letterSpacing: 1 }
 });
