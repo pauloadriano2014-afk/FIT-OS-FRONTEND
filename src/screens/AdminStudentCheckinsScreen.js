@@ -10,13 +10,14 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const { theme } = useTheme();
 
-  // 🔥 BLINDAGEM MÁXIMA: Lê os parâmetros soltos da URL para evitar [object Object]
   const rawId = route.params?.alunoId || route.params?.aluno?.id || '';
   const rawName = route.params?.alunoName || route.params?.aluno?.name || 'ALUNO';
   const aluno = { id: rawId, name: rawName };
 
   const [loading, setLoading] = useState(true);
   const [checkins, setCheckins] = useState([]);
+  
+  const [visibleCount, setVisibleCount] = useState(3);
   
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
@@ -56,6 +57,12 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       }
   };
 
+  const safeDate = (dateStr) => {
+      if (!dateStr) return new Date();
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? new Date() : d;
+  };
+
   const handleDelete = (id) => {
       const confirmDelete = async () => {
           try {
@@ -89,38 +96,14 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       setModalVisible(true);
   };
 
-  const handleDownloadPhoto = async (url, photoType) => {
-      if (!url) return;
-      const alunoNome = aluno?.name ? aluno.name.replace(/\s+/g, '_') : 'aluno';
-      const fileName = `Checkin_${alunoNome}_${photoType}.jpg`;
-      
-      if (Platform.OS === 'web') {
-          try {
-              const response = await fetch(url);
-              const blob = await response.blob();
-              const link = document.createElement('a');
-              link.href = window.URL.createObjectURL(blob);
-              link.download = fileName;
-              document.body.appendChild(link);
-              link.click();
-              document.body.removeChild(link);
-          } catch (e) {
-              window.open(url, '_blank'); 
-          }
-      } else {
-          Linking.openURL(url); 
-      }
-  };
-
-  const openEvaluationPanel = (checkin, type) => {
+  const openEvaluationPanel = (checkin, initialTypeSugestion) => {
       setCurrentCheckinForEval(checkin);
-      setEvaluationType(type);
+      setEvaluationType(initialTypeSugestion);
       setFeedbackText(checkin.coachFeedback || ''); 
 
-      if (type === 'comparison') {
+      if (initialTypeSugestion === 'comparison') {
           const currentIdx = checkins.findIndex(c => c.id === checkin.id);
           const olderCheckins = checkins.slice(currentIdx + 1);
-          
           if (olderCheckins.length > 0) {
               setSelectedOldCheckinId(olderCheckins[olderCheckins.length - 1].id);
           }
@@ -129,6 +112,18 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       }
       
       setEvaluationModalVisible(true);
+  };
+
+  // 🔥 Troca manual de aba no modal
+  const handleTabChange = (type) => {
+      setEvaluationType(type);
+      if (type === 'comparison' && !selectedOldCheckinId) {
+          const currentIdx = checkins.findIndex(c => c.id === currentCheckinForEval.id);
+          const olderCheckins = checkins.slice(currentIdx + 1);
+          if (olderCheckins.length > 0) {
+              setSelectedOldCheckinId(olderCheckins[olderCheckins.length - 1].id);
+          }
+      }
   };
 
   const getOldCheckin = () => {
@@ -251,7 +246,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             <View style={{ flex: 1, position: 'relative' }}>
             <ScrollView 
               style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} 
-              contentContainerStyle={{ padding: 20 }}
+              contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
             >
                 {loading ? <ActivityIndicator color={theme.accent} size="large" style={{marginTop: 50}} /> : (
                     checkins.length === 0 ? (
@@ -260,102 +255,109 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Este aluno ainda não enviou nenhum check-in pelo aplicativo.</Text>
                         </View>
                     ) : (
-                        checkins.map((item, index) => {
-                            const isOldest = index === checkins.length - 1;
-                            const isEvaluated = !!item.coachFeedback;
+                        <>
+                            {checkins.slice(0, visibleCount).map((item) => {
+                                const globalIndex = checkins.findIndex(c => c.id === item.id);
+                                const isOldest = globalIndex === checkins.length - 1;
+                                const isEvaluated = !!item.coachFeedback;
+                                const itemDate = safeDate(item.date || item.createdAt);
 
-                            return (
-                                <View key={item.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                    
-                                    <View style={styles.cardHeader}>
-                                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                                            <MaterialCommunityIcons name="calendar-check" size={16} color={theme.accent} />
-                                            <Text style={[styles.dateText, { color: theme.text }]}>
-                                                {new Date(item.date || item.createdAt).toLocaleDateString('pt-BR')} às {new Date(item.date || item.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
-                                            </Text>
-                                        </View>
-                                        <TouchableOpacity onPress={() => handleDelete(item.id)} style={{padding: 5}}>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
-                                        </TouchableOpacity>
-                                    </View>
-
-                                    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15}}>
-                                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                                            <View style={[styles.badge, { backgroundColor: isOldest ? '#FF950022' : theme.accent + '22', borderColor: isOldest ? '#FF9500' : theme.accent }]}>
-                                                <Text style={[styles.badgeText, { color: isOldest ? '#FF9500' : theme.accent }]}>
-                                                    {isOldest ? 'PONTO DE PARTIDA' : 'AVALIAÇÃO'}
+                                return (
+                                    <View key={item.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                        
+                                        <View style={styles.cardHeader}>
+                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                                                <MaterialCommunityIcons name="calendar-check" size={16} color={theme.accent} />
+                                                <Text style={[styles.dateText, { color: theme.text }]}>
+                                                    {itemDate.toLocaleDateString('pt-BR')} às {itemDate.toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
                                                 </Text>
                                             </View>
-                                            {isEvaluated && (
-                                                <View style={[styles.badge, { backgroundColor: '#34C75922', borderColor: '#34C759' }]}>
-                                                    <MaterialCommunityIcons name="check" size={10} color="#34C759" style={{marginRight: 2}} />
-                                                    <Text style={[styles.badgeText, { color: '#34C759' }]}>AVALIADO</Text>
+                                            <TouchableOpacity onPress={() => handleDelete(item.id)} style={{padding: 5}}>
+                                                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15}}>
+                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                                                <View style={[styles.badge, { backgroundColor: isOldest ? '#FF950022' : theme.accent + '22', borderColor: isOldest ? '#FF9500' : theme.accent }]}>
+                                                    <Text style={[styles.badgeText, { color: isOldest ? '#FF9500' : theme.accent }]}>
+                                                        {isOldest ? 'PONTO DE PARTIDA' : 'CHECK-IN'}
+                                                    </Text>
                                                 </View>
-                                            )}
+                                                {isEvaluated && (
+                                                    <View style={[styles.badge, { backgroundColor: '#34C75922', borderColor: '#34C759' }]}>
+                                                        <MaterialCommunityIcons name="check" size={10} color="#34C759" style={{marginRight: 2}} />
+                                                        <Text style={[styles.badgeText, { color: '#34C759' }]}>AVALIADO</Text>
+                                                    </View>
+                                                )}
+                                            </View>
                                         </View>
 
-                                        {item.allowMarketing && (
-                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 4}}>
-                                                <MaterialCommunityIcons name="instagram" size={14} color="#BF5AF2" />
-                                                <Text style={{fontSize: 9, fontWeight: 'bold', color: '#BF5AF2'}}>AUTORIZADO</Text>
+                                        {item.weight ? (
+                                            <View style={styles.dataRow}>
+                                                <Text style={[styles.dataLabel, { color: theme.textSecondary }]}>Peso Relatado:</Text>
+                                                <Text style={[styles.dataValue, { color: theme.text }]}>{item.weight} kg</Text>
                                             </View>
-                                        )}
-                                    </View>
+                                        ) : null}
 
-                                    {item.weight ? (
-                                        <View style={styles.dataRow}>
-                                            <Text style={[styles.dataLabel, { color: theme.textSecondary }]}>Peso Relatado:</Text>
-                                            <Text style={[styles.dataValue, { color: theme.text }]}>{item.weight} kg</Text>
+                                        <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 10, marginBottom: 10 }]}>Fotos Base:</Text>
+                                        
+                                        <View style={styles.photoGrid}>
+                                            {item.photoFront ? (
+                                                <View style={styles.photoThumb}>
+                                                    <TouchableOpacity onPress={() => openPhoto(item.photoFront)} style={[styles.photoBtnPlaceholder, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                                                        <MaterialCommunityIcons name="camera-image" size={32} color={theme.accent} />
+                                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.text, marginTop: 5 }}>VER FOTO</Text>
+                                                    </TouchableOpacity>
+                                                    <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>FRENTE</Text>
+                                                </View>
+                                            ) : null}
+                                            
+                                            {item.photoSide ? (
+                                                <View style={styles.photoThumb}>
+                                                    <TouchableOpacity onPress={() => openPhoto(item.photoSide)} style={[styles.photoBtnPlaceholder, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                                                        <MaterialCommunityIcons name="camera-image" size={32} color={theme.accent} />
+                                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.text, marginTop: 5 }}>VER FOTO</Text>
+                                                    </TouchableOpacity>
+                                                    <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>LADO</Text>
+                                                </View>
+                                            ) : null}
+                                            
+                                            {item.photoBack ? (
+                                                <View style={styles.photoThumb}>
+                                                    <TouchableOpacity onPress={() => openPhoto(item.photoBack)} style={[styles.photoBtnPlaceholder, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                                                        <MaterialCommunityIcons name="camera-image" size={32} color={theme.accent} />
+                                                        <Text style={{ fontSize: 10, fontWeight: 'bold', color: theme.text, marginTop: 5 }}>VER FOTO</Text>
+                                                    </TouchableOpacity>
+                                                    <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>COSTA</Text>
+                                                </View>
+                                            ) : null}
                                         </View>
-                                    ) : null}
 
-                                    <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 10, marginBottom: 10 }]}>Fotos Base:</Text>
-                                    <View style={styles.photoGrid}>
-                                        {item.photoFront ? (
-                                            <View style={styles.photoThumb}>
-                                                <TouchableOpacity onPress={() => openPhoto(item.photoFront)} style={{ width: '100%', alignItems: 'center' }}>
-                                                    <Image source={{uri: item.photoFront}} style={[styles.photo, { borderColor: theme.border }]} />
-                                                </TouchableOpacity>
-                                                <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>FRENTE</Text>
-                                            </View>
-                                        ) : null}
-                                        
-                                        {item.photoSide ? (
-                                            <View style={styles.photoThumb}>
-                                                <TouchableOpacity onPress={() => openPhoto(item.photoSide)} style={{ width: '100%', alignItems: 'center' }}>
-                                                    <Image source={{uri: item.photoSide}} style={[styles.photo, { borderColor: theme.border }]} />
-                                                </TouchableOpacity>
-                                                <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>LADO</Text>
-                                            </View>
-                                        ) : null}
-                                        
-                                        {item.photoBack ? (
-                                            <View style={styles.photoThumb}>
-                                                <TouchableOpacity onPress={() => openPhoto(item.photoBack)} style={{ width: '100%', alignItems: 'center' }}>
-                                                    <Image source={{uri: item.photoBack}} style={[styles.photo, { borderColor: theme.border }]} />
-                                                </TouchableOpacity>
-                                                <Text style={[styles.photoLabel, { color: theme.textSecondary }]}>COSTA</Text>
-                                            </View>
-                                        ) : null}
-                                        
-                                        {!item.photoFront && !item.photoSide && !item.photoBack && (
-                                            <Text style={{color: theme.textSecondary, fontSize: 12, fontStyle: 'italic'}}>Nenhuma foto base enviada.</Text>
-                                        )}
+                                        <TouchableOpacity 
+                                            style={[styles.aiButton, { backgroundColor: isEvaluated ? theme.surface : theme.accent, borderColor: isEvaluated ? theme.border : theme.accent }]} 
+                                            onPress={() => openEvaluationPanel(item, isOldest ? 'initial' : 'comparison')}
+                                        >
+                                            <MaterialCommunityIcons name={isEvaluated ? "pencil" : "robot-outline"} size={18} color={isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF')} />
+                                            <Text style={[styles.aiButtonText, { color: isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
+                                                {isEvaluated ? "EDITAR AVALIAÇÃO" : "FAZER AVALIAÇÃO"}
+                                            </Text>
+                                        </TouchableOpacity>
+
                                     </View>
+                                )
+                            })}
 
-                                    <TouchableOpacity 
-                                        style={[styles.aiButton, { backgroundColor: isEvaluated ? theme.surface : theme.accent, borderColor: isEvaluated ? theme.border : theme.accent }]} 
-                                        onPress={() => openEvaluationPanel(item, isOldest ? 'initial' : 'comparison')}
-                                    >
-                                        <MaterialCommunityIcons name={isEvaluated ? "pencil" : "robot-outline"} size={18} color={isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF')} />
-                                        <Text style={[styles.aiButtonText, { color: isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
-                                            {isEvaluated ? "EDITAR AVALIAÇÃO" : (isOldest ? "AVALIAR PONTO DE PARTIDA" : "COMPARAR EVOLUÇÃO")}
-                                        </Text>
-                                    </TouchableOpacity>
-
-                                </View>
-                            )
-                        })
+                            {visibleCount < checkins.length && (
+                                <TouchableOpacity 
+                                    style={[styles.loadMoreBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                    onPress={() => setVisibleCount(prev => prev + 3)}
+                                >
+                                    <MaterialCommunityIcons name="history" size={20} color={theme.text} />
+                                    <Text style={[styles.loadMoreText, { color: theme.text }]}>Carregar Mais Antigos</Text>
+                                </TouchableOpacity>
+                            )}
+                        </>
                     )
                 )}
             </ScrollView>
@@ -368,9 +370,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 <View style={[styles.evalModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     
                     <View style={[styles.evalHeader, { borderBottomColor: 'rgba(128,128,128,0.2)' }]}>
-                        <Text style={[styles.evalTitle, { color: theme.accent }]}>
-                            {evaluationType === 'initial' ? 'AVALIAÇÃO INICIAL' : 'COMPARATIVO DE EVOLUÇÃO'}
-                        </Text>
+                        <Text style={[styles.evalTitle, { color: theme.text }]}>NOVA AVALIAÇÃO</Text>
                         <TouchableOpacity onPress={() => setEvaluationModalVisible(false)} style={{padding: 5}}>
                             <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
                         </TouchableOpacity>
@@ -382,6 +382,21 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         showsVerticalScrollIndicator={true}
                         nestedScrollEnabled={true}
                     >
+                        {/* 🔥 SELETOR MANUAL DE TIPO DE AVALIAÇÃO */}
+                        <View style={{flexDirection: 'row', backgroundColor: theme.bg, borderRadius: 10, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: theme.border}}>
+                            <TouchableOpacity 
+                                style={[styles.tabBtn, { backgroundColor: evaluationType === 'initial' ? theme.accent : 'transparent' }]}
+                                onPress={() => handleTabChange('initial')}
+                            >
+                                <Text style={[styles.tabBtnText, { color: evaluationType === 'initial' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>AVALIAÇÃO INICIAL</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.tabBtn, { backgroundColor: evaluationType === 'comparison' ? theme.accent : 'transparent' }]}
+                                onPress={() => handleTabChange('comparison')}
+                            >
+                                <Text style={[styles.tabBtnText, { color: evaluationType === 'comparison' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>COMPARATIVO</Text>
+                            </TouchableOpacity>
+                        </View>
                         
                         {evaluationType === 'comparison' && (
                             <View style={{marginBottom: 20}}>
@@ -393,7 +408,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                 >
                                     <MaterialCommunityIcons name="calendar" size={16} color={theme.accent} />
                                     <Text style={{flex: 1, color: theme.text, fontWeight: 'bold', fontSize: 13, marginLeft: 8}}>
-                                        {getOldCheckin() ? new Date(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : 'Selecione uma data...'}
+                                        {getOldCheckin() ? safeDate(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : 'Selecione uma data...'}
                                     </Text>
                                     <MaterialCommunityIcons name={showDatePicker ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
                                 </TouchableOpacity>
@@ -407,8 +422,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                                 onPress={() => { setSelectedOldCheckinId(c.id); setShowDatePicker(false); }}
                                             >
                                                 <Text style={{color: theme.text, fontSize: 13}}>
-                                                    {new Date(c.date || c.createdAt).toLocaleDateString('pt-BR')} 
-                                                    {idx === arr.length - 1 ? ' (Ponto de Partida)' : ''}
+                                                    {safeDate(c.date || c.createdAt).toLocaleDateString('pt-BR')} 
                                                 </Text>
                                                 {selectedOldCheckinId === c.id && <MaterialCommunityIcons name="check" size={16} color={theme.accent} />}
                                             </TouchableOpacity>
@@ -455,7 +469,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             onChangeText={setFeedbackText}
                         />
 
-                        {/* 🔥 O BOTÃO INTELIGENTE: Muda texto se já tiver avaliação */}
                         <TouchableOpacity 
                             style={[styles.submitEvalBtn, {backgroundColor: currentCheckinForEval?.coachFeedback ? theme.surface : theme.accent, borderColor: currentCheckinForEval?.coachFeedback ? theme.border : theme.accent, borderWidth: 1}]}
                             onPress={submitEvaluation}
@@ -473,7 +486,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             </View>
         )}
 
-        {/* Modal de Foto */}
+        {/* Modal de Foto Grande */}
         {modalVisible && (
             <View style={styles.modalBgAbsolute}>
                 <TouchableOpacity style={styles.modalClose} onPress={() => setModalVisible(false)}>
@@ -511,11 +524,14 @@ const styles = StyleSheet.create({
   
   photoGrid: { flexDirection: 'row', gap: 10 },
   photoThumb: { flex: 1, alignItems: 'center' },
-  photo: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, backgroundColor: '#000' },
+  photoBtnPlaceholder: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
 
   aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
   aiButtonText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+
+  loadMoreBtn: { flexDirection: 'row', padding: 15, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10, marginBottom: 20 },
+  loadMoreText: { fontWeight: 'bold', fontSize: 13 },
 
   modalBgAbsolute: { 
     position: isWeb ? 'fixed' : 'absolute',
@@ -547,6 +563,9 @@ const styles = StyleSheet.create({
   evalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, flexShrink: 0 },
   evalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   
+  tabBtn: { flex: 1, padding: 10, borderRadius: 8, alignItems: 'center' },
+  tabBtnText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+
   dateDropdown: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1 },
   dateList: { borderWidth: 1, borderRadius: 12, marginTop: 5, maxHeight: 150, overflow: 'hidden' },
   dateListItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 15, borderBottomWidth: 1 },
