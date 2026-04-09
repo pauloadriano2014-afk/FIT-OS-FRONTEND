@@ -22,13 +22,12 @@ export default function CheckInScreen({ navigation }) {
   const [showGuide, setShowGuide] = useState(false);
   const [allowMarketing, setAllowMarketing] = useState(false);
 
-  // 🔥 ESTADOS DA TRAVA DE CHECK-IN
-  const [checkingLock, setCheckingLock] = useState(true); // carregando status
+  const [checkingLock, setCheckingLock] = useState(true); 
   const [isLocked, setIsLocked] = useState(false);
-  const [lockTitle, setLockTitle] = useState(''); // 🔥 NOVO: Título do modal
+  const [lockTitle, setLockTitle] = useState(''); 
   const [lockMessage, setLockMessage] = useState('');
   const [daysRemaining, setDaysRemaining] = useState(0);
-  const [isDisabled, setIsDisabled] = useState(false); // disableCheckIn do admin
+  const [isDisabled, setIsDisabled] = useState(false); 
 
   const { theme } = useTheme();
 
@@ -41,38 +40,60 @@ export default function CheckInScreen({ navigation }) {
               const userObj = JSON.parse(stored);
               setUserGender(userObj.gender || ''); 
               const dbPlan = userObj.plan || 'PREMIUM';
-              setUserPlan(['LOW_COST', 'PERFORMANCE', 'standard', 'CHALLENGE_21', 'FICHA_8S', 'FICHAS'].includes(dbPlan) ? dbPlan : 'PREMIUM');
+              const resolvedPlan = ['LOW_COST', 'PERFORMANCE', 'standard', 'CHALLENGE_21', 'FICHA_8S', 'FICHAS'].includes(dbPlan) ? dbPlan : 'PREMIUM';
+              setUserPlan(resolvedPlan);
 
-              // 🔥 Busca status de check-in do backend
-              const res = await fetch(`https://fitos-final.onrender.com/api/checkin/status?userId=${userObj.id}`);
-              if (res.ok) {
-                  const data = await res.json();
+              const [statusRes, historyRes] = await Promise.all([
+                  fetch(`https://fitos-final.onrender.com/api/checkin/status?userId=${userObj.id}`),
+                  fetch(`https://fitos-final.onrender.com/api/checkin?userId=${userObj.id}&t=${Date.now()}`)
+              ]);
+
+              if (statusRes.ok && historyRes.ok) {
+                  const data = await statusRes.json();
+                  const history = await historyRes.json();
+                  const hasPhotosInDb = Array.isArray(history) && history.length > 0;
                   
-                  // Se o admin desativou check-in completamente
+                  // 🔥 1. CHAVE MESTRA CORRIGIDA: Se o Admin desativou a cobrança, cala a boca e ABRE a porta.
                   if (data.disableCheckIn) {
                       setIsDisabled(true);
-                      setIsLocked(true);
-                      setLockTitle('AVALIAÇÃO DESATIVADA 🔒');
-                      setLockMessage('Seu check-in não está ativo no momento. Entre em contato com seu Coach para dúvidas.');
+                      setIsLocked(false); // Porta livre para alunos tímidos/presenciais
                       return;
                   }
 
-                  // Se não tem nextCheckInDate, está travado (coach ainda não liberou)
+                  // 2. REGRA DE OURO ELITE: Premium nunca trava.
+                  if (resolvedPlan === 'PREMIUM') {
+                      setIsLocked(false);
+                      return;
+                  }
+
+                  // 3. REGRA DO PONTO DE PARTIDA: A 1ª foto é livre em todos os planos.
+                  if (!hasPhotosInDb) {
+                      setIsLocked(false);
+                      return;
+                  }
+
+                  // 4. REGIME MILITAR: Planos não-Premium que JÁ mandaram a 1ª foto.
+                  
+                  if (data.cycleCompleted) {
+                      setIsLocked(true);
+                      setLockTitle('PROJETO CONCLUÍDO 🏆');
+                      setLockMessage('Você finalizou todos os registros do seu plano atual. Excelente constância! Fale com o Coach.');
+                      return;
+                  }
+
                   if (!data.nextCheckInDate) {
                       setIsLocked(true);
-                      setLockTitle('CHECK-IN PROGRAMADO 🔒');
-                      setLockMessage('Foque 100% no processo agora. Seu Coach liberará o envio em breve.');
+                      setLockTitle('AVALIAÇÃO EM ANDAMENTO 🔒');
+                      setLockMessage('O Coach está analisando sua última avaliação. Fique tranquilo, logo a próxima data será liberada!');
                       return;
                   }
 
-                  // Compara a data
                   const nextDate = new Date(data.nextCheckInDate);
                   const today = new Date();
                   today.setHours(0, 0, 0, 0);
                   nextDate.setHours(0, 0, 0, 0);
 
                   if (today < nextDate) {
-                      // Ainda não chegou a data
                       const diffTime = nextDate.getTime() - today.getTime();
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                       setDaysRemaining(diffDays);
@@ -80,22 +101,12 @@ export default function CheckInScreen({ navigation }) {
                       setLockTitle('TEMPO DE EVOLUÇÃO ⏳');
                       setLockMessage('O seu corpo precisa de tempo para responder aos estímulos da rotina.');
                   } else {
-                      // Data chegou ou já passou — liberado!
-                      setIsLocked(false);
+                      setIsLocked(false); 
                   }
-
-                  // Verifica se o ciclo acabou (Fichas/Desafio)
-                  if (data.cycleCompleted) {
-                      setIsLocked(true);
-                      setLockTitle('PROJETO CONCLUÍDO 🏆');
-                      setLockMessage('Você finalizou todos os registros do seu plano atual. Excelente constância! Fale com o Coach.');
-                  }
-
               }
           } catch (e) {
               console.log("Erro ao verificar trava:", e);
-              // Em caso de erro, libera para não travar o aluno
-              setIsLocked(false);
+              setIsLocked(false); 
           } finally {
               setCheckingLock(false);
           }
@@ -106,7 +117,7 @@ export default function CheckInScreen({ navigation }) {
   const isPremium = userPlan === 'PREMIUM';
 
   const handleSelectPhoto = (position, isExtra = false) => {
-    if (isLocked) return; // Bloqueia clique se estiver travado
+    if (isLocked) return; 
     if (Platform.OS === 'web') {
         window.alert("Escolha a origem da imagem:\n1. Tirar Foto\n2. Escolher da Galeria");
         openGallery(position, isExtra); 
@@ -251,7 +262,6 @@ export default function CheckInScreen({ navigation }) {
     ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
     : { flex: 1, backgroundColor: theme.bg };
 
-  // 🔥 TELA DE CARREGAMENTO
   if (checkingLock) {
     return (
       <RootComponent style={rootStyle}>
@@ -264,7 +274,6 @@ export default function CheckInScreen({ navigation }) {
     );
   }
 
-  // 🔥 TELA PRINCIPAL (LIBERADA OU BLOQUEADA COM OVERLAY)
   return (
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -285,7 +294,7 @@ export default function CheckInScreen({ navigation }) {
             contentContainerStyle={{ padding: 20, paddingBottom: 150 }} 
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
-            scrollEnabled={!isLocked} // Trava o scroll se estiver bloqueado
+            scrollEnabled={!isLocked} 
           >
             <View style={[styles.trustBox, { backgroundColor: theme.isDark ? '#1a221f' : '#f0fdf4', borderColor: theme.accent }]}>
                 <MaterialCommunityIcons name="shield-check" size={20} color={theme.accent} style={{marginTop: 2}} />
@@ -418,21 +427,15 @@ export default function CheckInScreen({ navigation }) {
             )}
           </ScrollView>
 
-          {/* 🔥 O VIDRO FOSCO E O MODAL CENTRAL (SE ESTIVER TRAVADO) 🔥 */}
           {isLocked && !checkingLock && (
               <View style={[StyleSheet.absoluteFillObject, { zIndex: 20, justifyContent: 'center', alignItems: 'center' }]}>
-                  {/* Overlay Escuro com leve desfoque */}
                   <View style={[StyleSheet.absoluteFillObject, { backgroundColor: theme.isDark ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.85)' }]} />
-                  
-                  {/* Modal Elegante */}
                   <View style={[styles.lockedModal, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                       <View style={[styles.lockedIconBox, { backgroundColor: isDisabled ? 'rgba(255,59,48,0.15)' : theme.accent + '15' }]}>
                           <MaterialCommunityIcons name={isDisabled ? "lock" : "calendar-clock"} size={36} color={isDisabled ? '#FF3B30' : theme.accent} />
                       </View>
-                      
                       <Text style={[styles.lockedTitle, { color: theme.text }]}>{lockTitle}</Text>
                       <Text style={[styles.lockedMessage, { color: theme.textSecondary }]}>{lockMessage}</Text>
-                      
                       {daysRemaining > 0 && !isDisabled && (
                           <View style={[styles.daysBox, { borderColor: theme.border }]}>
                               <Text style={[styles.daysNumber, { color: theme.text }]}>{daysRemaining}</Text>
@@ -454,33 +457,25 @@ const styles = StyleSheet.create({
   header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 15, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1, flexShrink: 0 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
-  
   trustBox: { flexDirection: 'row', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
   guideBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 20 },
   guideRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
   guideText: { fontSize: 12, lineHeight: 18, flex: 1 },
-
   label: { fontSize: 12, fontWeight: 'bold', marginBottom: 10, marginTop: 15, letterSpacing: 0.5 },
   input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 16, fontWeight:'bold' }, 
   textArea: { height: 100, textAlignVertical: 'top' },
-  
   photosRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
   photoBox: { width: '31%', aspectRatio: 0.8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
   photoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   photoText: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
   photoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
   checkBadge: { position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
-  
   extraPhotosContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5 },
   deleteExtraBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(255, 59, 48, 0.8)', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
-
   marketingContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 25, marginBottom: -10, paddingHorizontal: 5 },
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
-
   sendBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 40 },
   sendBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-
-  // 🔥 ESTILOS DO MODAL DE BLOQUEIO 🔥
   lockedModal: { width: '85%', maxWidth: 350, padding: 30, borderRadius: 24, borderWidth: 1, alignItems: 'center', elevation: 10, shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.1, shadowRadius: 20 },
   lockedIconBox: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   lockedTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },

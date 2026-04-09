@@ -27,9 +27,11 @@ export default function AdminUserOptions({ route, navigation }) {
   const [activeWorkouts, setActiveWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
   
-  const [viewMode, setViewMode] = useState('active'); 
+  // 🔥 ESTADOS DAS SUPER-ABAS
+  const [superTab, setSuperTab] = useState('treinos'); // 'treinos', 'acessos', 'sistema'
+  const [workoutTab, setWorkoutTab] = useState('active'); // Sub-aba de treinos: 'active', 'archived'
+  
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
-
   const [userPlan, setUserPlan] = useState('PREMIUM');
 
   const [fichaDaysElapsed, setFichaDaysElapsed] = useState(0);
@@ -319,20 +321,12 @@ export default function AdminUserOptions({ route, navigation }) {
       else { Alert.alert("Confirmar", "Tem certeza?", [{ text: "Cancelar", style: "cancel" }, { text: "Sim", onPress: toggleAction }]); }
   };
 
-  // 🔥 CORREÇÃO DE ROTA (O Escudo Antimíssil)
   const handleEditWorkout = (workout) => { 
-      navigation.navigate('MontarTreinoAdmin', { 
-          aluno: JSON.stringify(aluno), // 🔥 Empacota o aluno
-          workoutToEdit: workout, 
-          isEditing: true 
-      }); 
+      navigation.navigate('MontarTreinoAdmin', { aluno: JSON.stringify(aluno), workoutToEdit: workout, isEditing: true }); 
   };
   
   const handleNewWorkout = () => { 
-      navigation.navigate('MontarTreinoAdmin', { 
-          aluno: JSON.stringify(aluno), // 🔥 Empacota o aluno
-          isEditing: false 
-      }); 
+      navigation.navigate('MontarTreinoAdmin', { aluno: JSON.stringify(aluno), isEditing: false }); 
   };
 
   const handleToggleDisableCheckIn = async () => {
@@ -384,6 +378,7 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 150, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
+                {/* CABEÇALHO DO PERFIL */}
                 <View style={[styles.profileHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <TouchableOpacity onPress={handlePickImage} style={styles.avatarContainer} activeOpacity={0.8}>
                         {uploadingPhoto ? (
@@ -403,73 +398,102 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
-                <Text style={styles.sectionLabel}>ESTEIRA DE PRODUTOS (ACESSO)</Text>
-                <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Defina qual produto este aluno comprou para ajustar as permissões do aplicativo.</Text>
-                
-                <View style={styles.plansContainer}>
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('PREMIUM')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
-                            <MaterialCommunityIcons name="crown" size={18} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>ELITE PREMIUM</Text>
-                        </View>
-                        {userPlan === 'PREMIUM' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                {/* 🔥 O NOVO CONTROLE DE SUPER-ABAS 🔥 */}
+                <View style={[styles.superTabsContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <TouchableOpacity 
+                        style={[styles.superTabBtn, superTab === 'treinos' && { backgroundColor: theme.accent }]}
+                        onPress={() => setSuperTab('treinos')}
+                    >
+                        <Text style={[styles.superTabText, { color: superTab === 'treinos' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>TREINOS</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'FICHA_8S' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('FICHA_8S')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
-                            <MaterialCommunityIcons name="lightning-bolt" size={18} color={userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>FICHA 8 SEMANAS</Text>
-                        </View>
-                        {userPlan === 'FICHA_8S' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                    
+                    <TouchableOpacity 
+                        style={[styles.superTabBtn, superTab === 'acessos' && { backgroundColor: theme.accent }]}
+                        onPress={() => setSuperTab('acessos')}
+                    >
+                        <Text style={[styles.superTabText, { color: superTab === 'acessos' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>ACESSOS</Text>
                     </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'LOW_COST' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('LOW_COST')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
-                            <MaterialCommunityIcons name="rocket-launch" size={18} color={userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>PLANO BÁSICO</Text>
-                        </View>
-                        {userPlan === 'LOW_COST' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={[styles.planCard, userPlan === 'CHALLENGE_21' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('CHALLENGE_21')}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
-                            <MaterialCommunityIcons name="fire" size={18} color={userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary} />
-                            <Text style={[styles.planTitle, { color: userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>DESAFIO 21 DIAS</Text>
-                        </View>
-                        {userPlan === 'CHALLENGE_21' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                    
+                    <TouchableOpacity 
+                        style={[styles.superTabBtn, superTab === 'sistema' && { backgroundColor: theme.accent }]}
+                        onPress={() => setSuperTab('sistema')}
+                    >
+                        <Text style={[styles.superTabText, { color: superTab === 'sistema' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>SISTEMA</Text>
                     </TouchableOpacity>
                 </View>
 
-                <View style={[styles.divider, { backgroundColor: theme.border }]} />
-
-                <View style={styles.tabsRow}>
-                    <TouchableOpacity style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'active' && { borderBottomColor: theme.accent }]} onPress={() => setViewMode('active')}>
-                        <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'active' && { color: theme.accent }]}>ATIVAS</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'archived' && { borderBottomColor: theme.accent }]} onPress={() => setViewMode('archived')}>
-                        <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'archived' && { color: theme.accent }]}>ARQUIVADAS</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.tabBtn, { borderBottomColor: theme.border }, viewMode === 'paflix' && { borderBottomColor: theme.accent }]} onPress={() => setViewMode('paflix')}>
-                        <Text style={[styles.tabText, { color: theme.textSecondary }, viewMode === 'paflix' && { color: theme.accent }]}>PA FLIX VIP</Text>
-                    </TouchableOpacity>
-                </View>
-                
-                {(viewMode === 'active' || viewMode === 'archived') && (
-                    <AdminUserWorkouts 
-                        theme={theme} userPlan={userPlan} viewMode={viewMode} loading={loading}
-                        activeWorkouts={activeWorkouts} archivedWorkouts={archivedWorkouts}
-                        handleNewWorkout={handleNewWorkout} handleEditWorkout={handleEditWorkout} // 🔥 Aqui a mágica vai acontecer
-                        handleToggleArchiveWorkout={handleToggleArchiveWorkout} handleDeleteWorkout={handleDeleteWorkout}
-                        hasActiveFicha={hasActiveFicha} fichaDaysElapsed={fichaDaysElapsed} 
-                        isFichaExpired={userPlan === 'FICHA_8S' && fichaDaysElapsed > 56} 
-                        fichaDaysLeft={Math.max(0, 56 - fichaDaysElapsed)}
-                    />
+                {/* =========================================
+                    TAB 1: TREINOS 
+                ========================================= */}
+                {superTab === 'treinos' && (
+                    <View style={styles.tabContent}>
+                        <View style={styles.subTabsRow}>
+                            <TouchableOpacity style={[styles.subTabBtn, { borderBottomColor: theme.border }, workoutTab === 'active' && { borderBottomColor: theme.accent }]} onPress={() => setWorkoutTab('active')}>
+                                <Text style={[styles.subTabText, { color: theme.textSecondary }, workoutTab === 'active' && { color: theme.accent }]}>ATIVAS</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.subTabBtn, { borderBottomColor: theme.border }, workoutTab === 'archived' && { borderBottomColor: theme.accent }]} onPress={() => setWorkoutTab('archived')}>
+                                <Text style={[styles.subTabText, { color: theme.textSecondary }, workoutTab === 'archived' && { color: theme.accent }]}>ARQUIVADAS</Text>
+                            </TouchableOpacity>
+                        </View>
+                        
+                        <AdminUserWorkouts 
+                            theme={theme} userPlan={userPlan} viewMode={workoutTab} loading={loading}
+                            activeWorkouts={activeWorkouts} archivedWorkouts={archivedWorkouts}
+                            handleNewWorkout={handleNewWorkout} handleEditWorkout={handleEditWorkout}
+                            handleToggleArchiveWorkout={handleToggleArchiveWorkout} handleDeleteWorkout={handleDeleteWorkout}
+                            hasActiveFicha={hasActiveFicha} fichaDaysElapsed={fichaDaysElapsed} 
+                            isFichaExpired={userPlan === 'FICHA_8S' && fichaDaysElapsed > 56} 
+                            fichaDaysLeft={Math.max(0, 56 - fichaDaysElapsed)}
+                        />
+                    </View>
                 )}
 
-                {viewMode === 'paflix' && (
-                    <View style={{marginTop: 15}}>
-                        <Text style={styles.sectionLabel}>PERMISSÕES DE CONTEÚDO VIP</Text>
-                        <Text style={styles.sectionSubDesc}>Ligue a chave para dar acesso manual a este aluno.</Text>
+                {/* =========================================
+                    TAB 2: ESTEIRA & ACESSOS 
+                ========================================= */}
+                {superTab === 'acessos' && (
+                    <View style={styles.tabContent}>
+                        <Text style={styles.sectionLabel}>ESTEIRA DE PRODUTOS</Text>
+                        <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Defina qual plano ou projeto este aluno comprou.</Text>
+                        
+                        <View style={styles.plansContainer}>
+                            <TouchableOpacity style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('PREMIUM')}>
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                                    <MaterialCommunityIcons name="crown" size={18} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>ELITE PREMIUM</Text>
+                                </View>
+                                {userPlan === 'PREMIUM' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={[styles.planCard, userPlan === 'FICHA_8S' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('FICHA_8S')}>
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                                    <MaterialCommunityIcons name="lightning-bolt" size={18} color={userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.planTitle, { color: userPlan === 'FICHA_8S' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>FICHA 8 SEMANAS</Text>
+                                </View>
+                                {userPlan === 'FICHA_8S' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={[styles.planCard, userPlan === 'LOW_COST' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('LOW_COST')}>
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                                    <MaterialCommunityIcons name="rocket-launch" size={18} color={userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.planTitle, { color: userPlan === 'LOW_COST' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>PLANO BÁSICO</Text>
+                                </View>
+                                {userPlan === 'LOW_COST' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={[styles.planCard, userPlan === 'CHALLENGE_21' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('CHALLENGE_21')}>
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                                    <MaterialCommunityIcons name="fire" size={18} color={userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.planTitle, { color: userPlan === 'CHALLENGE_21' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>DESAFIO 21 DIAS</Text>
+                                </View>
+                                {userPlan === 'CHALLENGE_21' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+                        <Text style={styles.sectionLabel}>PERMISSÕES DE CONTEÚDO VIP (PA FLIX)</Text>
+                        <Text style={styles.sectionSubDesc}>Ligue a chave para liberar o acesso manual aos bônus.</Text>
 
                         {loadingPaflix ? <ActivityIndicator color={theme.accent} style={{marginTop:20}} /> : (
                             vipContents.length === 0 ? (
@@ -505,14 +529,21 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 )}
 
-                <AdminUserSystem 
-                    theme={theme} navigation={navigation} aluno={aluno} userPlan={userPlan}
-                    isActiveUser={isActiveUser} handleToggleStatus={handleToggleStatus}
-                    disableCheckIn={disableCheckIn} handleToggleDisableCheckIn={handleToggleDisableCheckIn}
-                    nextCheckInDate={nextCheckInDate} handleCheckInDateChange={handleCheckInDateChange} handleSaveCheckInDate={handleSaveCheckInDate}
-                    evaluationUrl={evaluationUrl} setEvaluationUrl={setEvaluationUrl} handleSaveEvaluation={handleSaveEvaluation}
-                    handleDeleteUser={handleDeleteUser}
-                />
+                {/* =========================================
+                    TAB 3: SISTEMA & DADOS 
+                ========================================= */}
+                {superTab === 'sistema' && (
+                    <View style={styles.tabContent}>
+                        <AdminUserSystem 
+                            theme={theme} navigation={navigation} aluno={aluno} userPlan={userPlan}
+                            isActiveUser={isActiveUser} handleToggleStatus={handleToggleStatus}
+                            disableCheckIn={disableCheckIn} handleToggleDisableCheckIn={handleToggleDisableCheckIn}
+                            nextCheckInDate={nextCheckInDate} handleCheckInDateChange={handleCheckInDateChange} handleSaveCheckInDate={handleSaveCheckInDate}
+                            evaluationUrl={evaluationUrl} setEvaluationUrl={setEvaluationUrl} handleSaveEvaluation={handleSaveEvaluation}
+                            handleDeleteUser={handleDeleteUser}
+                        />
+                    </View>
+                )}
 
             </ScrollView>
         </View>
@@ -534,22 +565,30 @@ const styles = StyleSheet.create({
   profileName: { fontSize: 20, fontWeight: '900' },
   profileEmail: { color: '#888', fontSize: 12, marginTop: 2 },
 
-  plansContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 25 },
+  // 🔥 ESTILOS DAS SUPER-ABAS
+  superTabsContainer: { flexDirection: 'row', borderRadius: 12, padding: 5, marginBottom: 25, borderWidth: 1 },
+  superTabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
+  superTabText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+  tabContent: { flex: 1, animationDuration: '0.3s' },
+
+  // ESTILOS DA ABA TREINOS
+  subTabsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  subTabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2 },
+  subTabText: { fontWeight: 'bold', fontSize: 11 },
+
+  // ESTILOS DA ABA ACESSOS
+  plansContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
   planCard: { width: '48%', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   planTitle: { fontWeight: '900', fontSize: 10, letterSpacing: 0.5, flexShrink: 1 },
+  accessCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 10, borderWidth: 1 },
+  accessIconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
+  accessTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
+  accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' },
 
-  tabsRow: { flexDirection: 'row', gap: 10, marginBottom: 5 },
-  tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2 },
-  tabText: { fontWeight: 'bold', fontSize: 11 },
   divider: { height:1, marginVertical:20 },
   sectionLabel: { color:'#888', fontWeight:'900', marginBottom:5, fontSize:12, letterSpacing:1 },
   sectionSubDesc: { color: '#888', fontSize: 11, marginBottom: 15 },
   
   emptyBox: { alignItems:'center', padding: 30, borderStyle:'dashed', borderWidth:1, borderRadius:10, marginVertical: 10 },
   emptyText: { color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 },
-  
-  accessCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 10, borderWidth: 1 },
-  accessIconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
-  accessTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
-  accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' }
 });

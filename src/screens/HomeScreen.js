@@ -59,38 +59,32 @@ export default function HomeScreen({ navigation }) {
   
   const [xp, setXp] = useState(0); 
 
-  // Ficha / Desafio
   const [fichaDaysElapsed, setFichaDaysElapsed] = useState(0);
   const [daysToStart, setDaysToStart] = useState(0); 
   const [fichaExpiredModalVisible, setFichaExpiredModalVisible] = useState(false);
   const [isFichaPlaceholder, setIsFichaPlaceholder] = useState(false);
   const [dietModalVisible, setDietModalVisible] = useState(false); 
 
-  // Pedágio de Fotos
   const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
-  const [photoBannerDismissed, setPhotoBannerDismissed] = useState(false);
 
-  // Check-in
   const [isCheckinPending, setIsCheckinPending] = useState(false);
   const [isCheckinLate, setIsCheckinLate] = useState(false);
   const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
-  const [daysToFinalCheckin, setDaysToFinalCheckin] = useState(null); 
+  const [isEliteAwaitingCoach, setIsEliteAwaitingCoach] = useState(false); 
+  const [disableCheckIn, setDisableCheckIn] = useState(false); // 🔥 Novo estado
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔥 ESTADOS DO FEEDBACK DO COACH
   const [pendingFeedback, setPendingFeedback] = useState(null);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
 
-  // Modais
   const [activeNotice, setActiveNotice] = useState(null);
   const [noticeModalVisible, setNoticeModalVisible] = useState(false);
   const [levelModalVisible, setLevelModalVisible] = useState(false);
   const [upsellModalVisible, setUpsellModalVisible] = useState(false);
   const [upsellFeature, setUpsellFeature] = useState('');
 
-  // Chat IA
   const [chatVisible, setChatVisible] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -157,25 +151,24 @@ export default function HomeScreen({ navigation }) {
             let fetchedUser = { ...user };
             let hasPhotosInDb = false;
             let checkinsData = [];
+            let unreadFeedback = null;
 
             if (checkinRes.ok) {
                 checkinsData = await checkinRes.json();
                 if (Array.isArray(checkinsData) && checkinsData.length > 0) {
                     hasPhotosInDb = true;
                     
-                    // 🔥 BUSCA DE FEEDBACK COM MEMÓRIA LOCAL 🔥
                     const evaluated = checkinsData.filter(c => c.coachFeedback);
-                    let unread = null;
                     for (let c of evaluated) {
                         const isRead = await AsyncStorage.getItem(`read_feedback_${c.id}`);
                         if (!isRead) {
-                            unread = c;
+                            unreadFeedback = c;
                             break;
                         }
                     }
                     
-                    if (unread) {
-                        setPendingFeedback(unread);
+                    if (unreadFeedback) {
+                        setPendingFeedback(unreadFeedback);
                         setFeedbackModalVisible(true);
                     } else {
                         setPendingFeedback(null);
@@ -193,6 +186,7 @@ export default function HomeScreen({ navigation }) {
                     const serverPlan = fetchedUser.plan || 'PREMIUM';
                     const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(serverPlan) ? serverPlan : 'PREMIUM';
                     setUserPlan(finalPlan); 
+                    setDisableCheckIn(!!fetchedUser.disableCheckIn); // 🔥 Atualiza o state do disable
                     
                     if (finalPlan === 'FICHA_8S' || finalPlan === 'CHALLENGE_21' || finalPlan === 'LOW_COST') {
                         let startD = new Date(fetchedUser.createdAt || new Date());
@@ -227,16 +221,6 @@ export default function HomeScreen({ navigation }) {
                         }
                         
                         const limit = finalPlan === 'CHALLENGE_21' ? 21 : 56;
-                        
-                        if (hasPhotosInDb && diffDays >= 0 && !isFichaPlaceholder && finalPlan !== 'LOW_COST') {
-                            const remaining = limit - diffDays;
-                            if (remaining > 0 && remaining <= 5) {
-                                setDaysToFinalCheckin(remaining);
-                            } else {
-                                setDaysToFinalCheckin(null);
-                            }
-                        }
-                        
                         if (diffDays >= limit && !isFichaPlaceholder && finalPlan !== 'LOW_COST') {
                             setFichaExpiredModalVisible(true);
                         }
@@ -257,8 +241,9 @@ export default function HomeScreen({ navigation }) {
             let checkinPending = false;
             let checkinLate = false;
             let futureDateStr = null;
+            let eliteAwaiting = false;
 
-            if (!fetchedUser.disableCheckIn) {
+            if (!fetchedUser.disableCheckIn && !unreadFeedback) { 
                 const today = new Date();
                 today.setHours(0,0,0,0);
 
@@ -273,29 +258,31 @@ export default function HomeScreen({ navigation }) {
                     } else {
                         const dd = String(targetDate.getDate()).padStart(2,'0');
                         const mm = String(targetDate.getMonth()+1).padStart(2,'0');
-                        futureDateStr = `${dd}/${mm}`;
+                        const yyyy = targetDate.getFullYear();
+                        futureDateStr = `${dd}/${mm}/${yyyy}`; 
                     }
-                } else if (resolvedPlan === 'PREMIUM' && hasPhotosInDb) {
-                    checkinsData.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
-                    const lastDate = new Date(checkinsData[0].date || checkinsData[0].createdAt);
-                    lastDate.setHours(0,0,0,0);
-                    const diffDays = Math.floor((today.getTime() - lastDate.getTime()) / (1000 * 3600 * 24));
-                    if (diffDays >= 14) {
-                        checkinPending = true;
-                        if (diffDays >= 17) checkinLate = true;
+                } else {
+                    if (resolvedPlan === 'PREMIUM') {
+                        if (!hasPhotosInDb) {
+                            checkinPending = true;
+                        } else {
+                            eliteAwaiting = true;
+                        }
                     } else {
-                        const futureDate = new Date(lastDate.getTime());
-                        futureDate.setDate(futureDate.getDate() + 14);
-                        futureDateStr = `${String(futureDate.getDate()).padStart(2,'0')}/${String(futureDate.getMonth()+1).padStart(2,'0')}`;
+                        if (!hasPhotosInDb) {
+                            checkinPending = true; 
+                        } else {
+                            futureDateStr = null; 
+                        }
                     }
-                } else if (resolvedPlan === 'PREMIUM' && !hasPhotosInDb) {
-                    checkinPending = true; 
-                    checkinLate = true;
                 }
             }
+
             setIsCheckinPending(checkinPending);
             setIsCheckinLate(checkinLate);
             setScheduledCheckInDate(futureDateStr);
+            setIsEliteAwaitingCoach(eliteAwaiting);
+
         } catch (err) { console.log("Erro ao carregar dados críticos:", err); }
       }
     } catch (e) { console.log("Erro geral loadHome:", e); } 
@@ -307,7 +294,6 @@ export default function HomeScreen({ navigation }) {
       setNoticeModalVisible(false);
   };
 
-  // 🔥 MARCAR FEEDBACK COMO LIDO NA MEMÓRIA DO CELULAR 🔥
   const markFeedbackAsRead = async () => {
       if (!pendingFeedback) return;
       setIsMarkingAsRead(true);
@@ -358,25 +344,11 @@ export default function HomeScreen({ navigation }) {
 
   const getPhotoModalContent = () => {
       switch (userPlan) {
-          case 'PREMIUM': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Quando puder, envie suas 3 fotos iniciais para que possamos mapear sua evolução juntos. Sem pressa — envie quando estiver pronto!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'TREINAR PRIMEIRO (Envio Depois)', showEscape: true };
-          case 'LOW_COST': return { title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸', desc: 'Para acompanharmos sua progressão mensal, precisamos do seu registro inicial. Envie suas 3 fotos (frente, lado e costas) o quanto antes!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'IR PARA O TREINO', showEscape: true };
-          case 'FICHA_8S': return { title: 'FOTOS DO DIA 1 PENDENTES ⚠️', desc: 'Suas fotos de ponto de partida são essenciais para a avaliação que o Coach fará no final das 8 semanas. Sem elas, não conseguimos medir sua evolução real. Envie agora!', btnText: 'ENVIAR FOTOS DO DIA 1', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
-          case 'CHALLENGE_21': return { title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️', desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois". Envie agora para começar oficialmente!', btnText: 'ENVIAR FOTOS E COMEÇAR', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
+          case 'PREMIUM': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Para mapear sua evolução na Consultoria Elite, faça o seu primeiro registro. É rápido e 100% sigiloso.', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'FAZER DEPOIS', showEscape: true };
+          case 'LOW_COST': return { title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸', desc: 'Para acompanharmos sua progressão no plano, precisamos do seu registro inicial. Sem ele, a evolução não existe!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'IR PARA O TREINO', showEscape: false };
+          case 'FICHA_8S': return { title: 'FOTOS DO DIA 1 PENDENTES ⚠️', desc: 'Suas fotos de ponto de partida são essenciais para a avaliação de encerramento do Projeto. O envio é obrigatório para começar!', btnText: 'ENVIAR FOTOS DO DIA 1', escapeText: 'TREINAR MESMO ASSIM', showEscape: false };
+          case 'CHALLENGE_21': return { title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️', desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois".', btnText: 'ENVIAR FOTOS E COMEÇAR', escapeText: 'TREINAR MESMO ASSIM', showEscape: false };
           default: return { title: 'FOTOS PENDENTES 📸', desc: 'Envie suas fotos iniciais para mapearmos sua evolução.', btnText: 'ENVIAR FOTOS', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
-      }
-  };
-
-  const getPhotoBanner = () => {
-      if (hasSentInitialPhotos || photoBannerDismissed) return null;
-      const isWaiting = daysToStart > 0;
-      if (isWaiting) return null;
-
-      switch (userPlan) {
-          case 'PREMIUM': return { icon: 'camera-outline', text: 'Envie seu check-in inicial quando puder 📸', color: theme.accent, dismissable: true, urgency: 'low' };
-          case 'LOW_COST': return { icon: 'camera-timer', text: 'Suas fotos de evolução estão pendentes!', color: '#FF9500', dismissable: false, urgency: 'medium' };
-          case 'FICHA_8S': return { icon: 'camera-timer', text: 'Envie suas fotos do Dia 1 para começar!', color: '#FF9500', dismissable: false, urgency: 'high' };
-          case 'CHALLENGE_21': return { icon: 'alert-circle', text: '⚠️ Fotos do Dia 1 pendentes — envie agora!', color: '#FF3B30', dismissable: false, urgency: 'high' };
-          default: return null;
       }
   };
 
@@ -390,8 +362,7 @@ export default function HomeScreen({ navigation }) {
   const isFichaExpired = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && fichaDaysElapsed >= limitDays && !isFichaPlaceholder;
   const isWaitingStart = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21' || userPlan === 'LOW_COST') && daysToStart > 0;
   
-  const needsInitialPhoto = !hasSentInitialPhotos && !isWaitingStart && userPlan !== 'PREMIUM';
-  const photoBanner = getPhotoBanner();
+  const needsInitialPhoto = !hasSentInitialPhotos && !isWaitingStart;
   const photoModal = getPhotoModalContent();
 
   return (
@@ -418,70 +389,77 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {photoBanner && (
+            {needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
                 <TouchableOpacity 
-                    style={[styles.photoBanner, { backgroundColor: photoBanner.color + '15', borderColor: photoBanner.color }]}
-                    onPress={() => { setInitialPhotosModalVisible(true); }}
+                    style={[styles.photoBanner, { backgroundColor: '#FF3B3015', borderColor: '#FF3B30', padding: 16 }]}
+                    onPress={() => setInitialPhotosModalVisible(true)}
                     activeOpacity={0.8}
                 >
-                    <MaterialCommunityIcons name={photoBanner.icon} size={20} color={photoBanner.color} />
-                    <Text style={[styles.photoBannerText, { color: photoBanner.color }]}>{photoBanner.text}</Text>
-                    {photoBanner.dismissable && (
-                        <TouchableOpacity onPress={() => setPhotoBannerDismissed(true)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                            <MaterialCommunityIcons name="close" size={16} color={photoBanner.color} />
-                        </TouchableOpacity>
-                    )}
-                    {!photoBanner.dismissable && (
-                        <MaterialCommunityIcons name="chevron-right" size={18} color={photoBanner.color} />
-                    )}
+                    <MaterialCommunityIcons name="alert" size={22} color="#FF3B30" />
+                    <View style={{flex: 1, marginLeft: 5}}>
+                        <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>AÇÃO OBRIGATÓRIA:</Text>
+                        <Text style={{color: '#FF3B30', fontSize: 13, fontWeight: 'bold'}}>{userPlan === 'PREMIUM' ? 'Seu check-in inicial está pendente!' : 'Envie as fotos iniciais para começar.'}</Text>
+                    </View>
+                    <MaterialCommunityIcons name="camera" size={20} color="#FF3B30" />
                 </TouchableOpacity>
             )}
 
-            {isCheckinPending && !needsInitialPhoto && !pendingFeedback && (
+            {isCheckinPending && !needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
                 <TouchableOpacity 
-                    style={[styles.photoBanner, { backgroundColor: isCheckinLate ? '#FF3B3015' : '#FF950015', borderColor: isCheckinLate ? '#FF3B30' : '#FF9500' }]}
+                    style={[styles.photoBanner, { backgroundColor: isCheckinLate ? '#FF3B3015' : '#FF950015', borderColor: isCheckinLate ? '#FF3B30' : '#FF9500', padding: 16 }]}
                     onPress={() => navigation.navigate('CheckIn')}
                     activeOpacity={0.8}
                 >
-                    <MaterialCommunityIcons name={isCheckinLate ? "alert" : "camera-plus"} size={20} color={isCheckinLate ? '#FF3B30' : '#FF9500'} />
-                    <Text style={[styles.photoBannerText, { color: isCheckinLate ? '#FF3B30' : '#FF9500' }]}>
-                        {isCheckinLate ? 'Check-in ATRASADO — envie suas fotos!' : 'Seu check-in está liberado! Envie suas fotos 📸'}
-                    </Text>
-                    <MaterialCommunityIcons name="chevron-right" size={18} color={isCheckinLate ? '#FF3B30' : '#FF9500'} />
+                    <MaterialCommunityIcons name={isCheckinLate ? "alert" : "camera-timer"} size={22} color={isCheckinLate ? '#FF3B30' : '#FF9500'} />
+                    <View style={{flex: 1, marginLeft: 5}}>
+                        <Text style={{color: isCheckinLate ? '#FF3B30' : '#FF9500', fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>O COACH ESTÁ TE ESPERANDO:</Text>
+                        <Text style={{color: isCheckinLate ? '#FF3B30' : '#FF9500', fontSize: 13, fontWeight: 'bold'}}>{isCheckinLate ? 'Seu check-in está atrasado!' : 'Seu check-in foi liberado!'}</Text>
+                    </View>
+                    <MaterialCommunityIcons name="camera" size={20} color={isCheckinLate ? '#FF3B30' : '#FF9500'} />
                 </TouchableOpacity>
             )}
 
-            {/* 🔥 MODO SEMÁFORO (STATUS DO ALUNO) 🔥 */}
-            {scheduledCheckInDate && !isCheckinPending && !needsInitialPhoto && !pendingFeedback && (
+            {isEliteAwaitingCoach && !needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
+                <View style={[styles.photoBanner, { backgroundColor: theme.accent + '15', borderColor: theme.accent, padding: 16 }]}>
+                    <MaterialCommunityIcons name="check-circle" size={22} color={theme.accent} />
+                    <View style={{flex: 1, marginLeft: 5}}>
+                        <Text style={{color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>TUDO EM ORDEM:</Text>
+                        <Text style={{color: theme.accent, fontSize: 13, fontWeight: 'bold'}}>Avaliação recebida! O Coach programará seu próximo check-in.</Text>
+                    </View>
+                </View>
+            )}
+
+            {userPlan !== 'PREMIUM' && !scheduledCheckInDate && hasSentInitialPhotos && !pendingFeedback && !disableCheckIn && (
+                <View style={[styles.photoBanner, { backgroundColor: theme.textSecondary + '15', borderColor: theme.border, padding: 16 }]}>
+                    <MaterialCommunityIcons name="calendar-lock" size={22} color={theme.textSecondary} />
+                    <View style={{flex: 1, marginLeft: 5}}>
+                        <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS DO PLANO:</Text>
+                        <Text style={{color: theme.textSecondary, fontSize: 13, fontWeight: 'bold'}}>As próximas avaliações serão liberadas na data agendada.</Text>
+                    </View>
+                </View>
+            )}
+
+            {scheduledCheckInDate && !isCheckinPending && !needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
                 (() => {
                     const parts = scheduledCheckInDate.split('/');
-                    const tDate = new Date(new Date().getFullYear(), parts[1] - 1, parts[0]);
+                    const tDate = new Date(parts[2], parts[1] - 1, parts[0]);
                     const today = new Date(); today.setHours(0,0,0,0);
                     const diff = Math.ceil((tDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
                     
-                    let bg = 'rgba(50, 173, 230, 0.15)', border = '#32ADE6', icon = 'shield-check', text = `Avaliação em ${diff} dias`;
-                    if (diff <= 3) { bg = 'rgba(255, 59, 48, 0.15)'; border = '#FF3B30'; icon = 'timer-sand'; text = `Atenção: Faltam apenas ${diff} dias!`; }
-                    else if (diff <= 7) { bg = 'rgba(255, 149, 0, 0.15)'; border = '#FF9500'; icon = 'calendar-clock'; text = `Faltam ${diff} dias para o envio`; }
+                    let bg = 'rgba(50, 173, 230, 0.15)', border = '#32ADE6', icon = 'shield-check', text = `Seu próximo check-in será em ${diff} dias.`;
+                    if (diff <= 3) { bg = 'rgba(255, 59, 48, 0.15)'; border = '#FF3B30'; icon = 'timer-sand'; text = `Atenção: Faltam apenas ${diff} dias para a avaliação!`; }
+                    else if (diff <= 7) { bg = 'rgba(255, 149, 0, 0.15)'; border = '#FF9500'; icon = 'calendar-clock'; text = `Faltam ${diff} dias para enviar fotos.`; }
 
                     return (
                         <View style={[styles.photoBanner, { backgroundColor: bg, borderColor: border, padding: 16 }]}>
                             <MaterialCommunityIcons name={icon} size={22} color={border} />
                             <View style={{flex: 1, marginLeft: 5}}>
-                                <Text style={{color: border, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS DO PLANO:</Text>
+                                <Text style={{color: border, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS DA AVALIAÇÃO:</Text>
                                 <Text style={{color: border, fontSize: 13, fontWeight: 'bold'}}>{text}</Text>
                             </View>
                         </View>
                     );
                 })()
-            )}
-
-            {daysToFinalCheckin && daysToFinalCheckin <= 5 && !pendingFeedback && (
-                <View style={[styles.photoBanner, { backgroundColor: '#BF5AF215', borderColor: '#BF5AF2' }]}>
-                    <MaterialCommunityIcons name="timer-sand" size={18} color="#BF5AF2" />
-                    <Text style={[styles.photoBannerText, { color: '#BF5AF2' }]}>
-                        📸 {daysToFinalCheckin === 1 ? 'AMANHÃ' : `Faltam ${daysToFinalCheckin} dias`} para suas fotos de resultado!
-                    </Text>
-                </View>
             )}
 
             {(userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && !isFichaExpired && (
@@ -541,7 +519,7 @@ export default function HomeScreen({ navigation }) {
                     style={[
                         styles.mainActionBtn, 
                         { 
-                            backgroundColor: (isFichaExpired || isWaitingStart) ? theme.surface : (needsInitialPhoto ? theme.surface : theme.accent), 
+                            backgroundColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.surface : theme.accent, 
                             shadowColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? '#000' : theme.accent,
                             borderWidth: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? 1 : 0,
                             borderColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.border : 'transparent'
@@ -557,10 +535,10 @@ export default function HomeScreen({ navigation }) {
                 >
                     <View>
                         <Text style={[styles.actionLabel, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                            {isFichaExpired ? 'CICLO ENCERRADO' : (isWaitingStart ? 'STATUS ATUAL' : (needsInitialPhoto ? 'LEMBRETE IMPORTANTE' : 'SEU OBJETIVO DE HOJE'))}
+                            {isFichaExpired ? 'CICLO ENCERRADO' : (isWaitingStart ? 'STATUS ATUAL' : (needsInitialPhoto ? 'FOTOS PENDENTES' : 'SEU OBJETIVO DE HOJE'))}
                         </Text>
                         <Text style={[styles.actionTitle, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
-                            {isFichaExpired ? 'PRÓXIMOS PASSOS' : (isWaitingStart ? 'AGUARDANDO DATA' : (needsInitialPhoto ? 'FOTOS PENDENTES' : 'INICIAR TREINO'))}
+                            {isFichaExpired ? 'PRÓXIMOS PASSOS' : (isWaitingStart ? 'AGUARDANDO DATA' : (needsInitialPhoto ? 'ENVIO OBRIGATÓRIO' : 'INICIAR TREINO'))}
                         </Text>
                     </View>
                     <View style={[styles.iconCircle, (isFichaExpired || isWaitingStart || needsInitialPhoto) && {backgroundColor: theme.bg}]}>
@@ -575,13 +553,27 @@ export default function HomeScreen({ navigation }) {
 
             <View style={styles.gridContainer}>
                 <Animated.View style={{ transform: [{ scale: pendingFeedback ? 1 : pulseAnim }], width: '48%', marginBottom: 15 }}>
-                    <TouchableOpacity style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: isCheckinPending ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} onPress={() => navigation.navigate('CheckIn')}>
-                        {isCheckinPending && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
+                    <TouchableOpacity 
+                        style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: (isCheckinPending && !disableCheckIn) ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} 
+                        onPress={() => {
+                            // 🔥 SE A COBRANÇA FOI DESATIVADA, A PORTA ESTÁ ABERTA
+                            if (userPlan === 'PREMIUM' || disableCheckIn) {
+                                navigation.navigate('CheckIn');
+                            } else {
+                                if (needsInitialPhoto || isCheckinPending) {
+                                    navigation.navigate('CheckIn');
+                                } else {
+                                    Alert.alert("Acesso Bloqueado", "O Coach precisa liberar o seu próximo check-in no sistema.");
+                                }
+                            }
+                        }}
+                    >
+                        {(isCheckinPending && !disableCheckIn) && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
                         <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
-                            <MaterialCommunityIcons name="camera-plus" size={24} color={theme.accent} />
+                            <MaterialCommunityIcons name={(userPlan === 'PREMIUM' || disableCheckIn) ? "camera-plus" : (isCheckinPending || needsInitialPhoto ? "camera" : "camera-off")} size={24} color={theme.accent} />
                         </View>
                         <Text style={[styles.gridText, { color: theme.text }]}>
-                            {userPlan === 'PREMIUM' ? 'Check-in' : 'Fotos do Shape'}
+                            {(userPlan === 'PREMIUM' || disableCheckIn) ? 'Check-in Livre' : 'Fotos do Shape'}
                         </Text>
                     </TouchableOpacity>
                 </Animated.View>
@@ -631,7 +623,7 @@ export default function HomeScreen({ navigation }) {
                           <View style={styles.feedbackPhotosRow}>
                               <View style={styles.feedbackPhotoBox}>
                                   <Image source={{uri: pendingFeedback.photoFront}} style={[styles.feedbackPhotoImg, {borderColor: theme.border}]} />
-                                  <Text style={[styles.feedbackPhotoLabel, {color: theme.textSecondary}]}>SUA FOTO ATUAL</Text>
+                                  <Text style={[styles.feedbackPhotoLabel, {color: theme.textSecondary}]}>SUA FOTO DO CHECK-IN</Text>
                               </View>
                           </View>
                       )}
@@ -661,7 +653,9 @@ export default function HomeScreen({ navigation }) {
       <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent }]}>
-                  <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
+                  {photoModal.showEscape && (
+                      <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
+                  )}
                   <View style={[styles.levelIconBox, { backgroundColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF950022' : theme.accent + '22', marginBottom: 20 }]}><MaterialCommunityIcons name="camera-timer" size={36} color={(userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent} /></View>
                   <Text style={[styles.upsellTitle, { color: theme.text }]}>{photoModal.title}</Text>
                   <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>{photoModal.desc}</Text>
@@ -670,7 +664,7 @@ export default function HomeScreen({ navigation }) {
                       <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>{photoModal.btnText}</Text>
                   </TouchableOpacity>
                   {photoModal.showEscape && (
-                      <TouchableOpacity style={{padding: 15, alignItems: 'center'}} onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('Treinos'); }}>
+                      <TouchableOpacity style={{padding: 15, alignItems: 'center'}} onPress={() => { setInitialPhotosModalVisible(false); }}>
                           <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>{photoModal.escapeText}</Text>
                       </TouchableOpacity>
                   )}
