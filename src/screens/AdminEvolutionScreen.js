@@ -45,7 +45,12 @@ const getRpeInfo = (val) => {
 };
 
 export default function AdminEvolutionScreen({ route, navigation }) {
-  const { aluno } = route.params; 
+const rawId = route.params?.alunoId || route.params?.aluno?.id || '';
+const rawName = route.params?.alunoName || route.params?.aluno?.name || 'ALUNO';
+const rawBirthDate = route.params?.alunoBirthDate || route.params?.aluno?.birthDate || '';
+const rawGender = route.params?.alunoGender || route.params?.aluno?.gender || '';
+const aluno = { id: rawId, name: rawName, birthDate: rawBirthDate, gender: rawGender };
+ 
   const { theme } = useTheme(); // 🔥 PUXA O TEMA AQUI
 
   const [activeTab, setActiveTab] = useState('AVALIACAO'); 

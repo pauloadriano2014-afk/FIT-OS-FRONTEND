@@ -1,28 +1,10 @@
 // src/components/AdminUserSystem.js
-import React, { createElement } from 'react';
+import React, { createElement, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, TextInput, Linking, Platform, Alert, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Intervalo automático por plano (em dias)
-const PLAN_AUTO_DAYS = {
-    PREMIUM: 14,
-    PERFORMANCE: 30,
-    standard: 30,
-    LOW_COST: 30,
-    FICHA_8S: 56,
-    FICHAS: 56,
-    CHALLENGE_21: 21,
-};
-
-const PLAN_LABELS = {
-    PREMIUM: 'Premium (a cada 14 dias)',
-    PERFORMANCE: 'Básico (a cada 30 dias)',
-    standard: 'Básico (a cada 30 dias)',
-    LOW_COST: 'Básico (a cada 30 dias)',
-    FICHA_8S: 'Fichas 8 Semanas (Dia 1 → Dia 56)',
-    FICHAS: 'Fichas 8 Semanas (Dia 1 → Dia 56)',
-    CHALLENGE_21: 'Desafio 21 Dias (Dia 1 → Dia 21)',
-};
+const PLAN_AUTO_DAYS = { PREMIUM: 14, PERFORMANCE: 30, standard: 30, LOW_COST: 30, FICHA_8S: 56, FICHAS: 56, CHALLENGE_21: 21 };
+const PLAN_LABELS = { PREMIUM: 'Premium (a cada 14 dias)', PERFORMANCE: 'Básico (a cada 30 dias)', standard: 'Básico (a cada 30 dias)', LOW_COST: 'Básico (a cada 30 dias)', FICHA_8S: 'Fichas 8 Semanas (Dia 1 → Dia 56)', FICHAS: 'Fichas 8 Semanas (Dia 1 → Dia 56)', CHALLENGE_21: 'Desafio 21 Dias (Dia 1 → Dia 21)' };
 
 export default function AdminUserSystem({
     theme, navigation, aluno, userPlan, isActiveUser, handleToggleStatus,
@@ -35,11 +17,46 @@ export default function AdminUserSystem({
     const planLabel = PLAN_LABELS[userPlan] || 'Personalizado';
     const isCyclePlan = ['FICHA_8S', 'FICHAS', 'CHALLENGE_21'].includes(userPlan);
 
+    // 🔥 ESTADOS DO SEMÁFORO INTELIGENTE
+    const [semaforoConfig, setSemaforoConfig] = useState({ color: theme.border, icon: 'clock-outline', text: 'Calculando status...', bg: theme.bg });
+
+    useEffect(() => {
+        if (!nextCheckInDate || disableCheckIn) {
+            setSemaforoConfig({ color: '#888', icon: disableCheckIn ? 'bell-off-outline' : 'calendar-remove', text: disableCheckIn ? 'Cobrança desativada para este aluno.' : 'Sem data definida.', bg: theme.surface });
+            return;
+        }
+
+        const parts = nextCheckInDate.split('/');
+        if (parts.length !== 3) return;
+        
+        const targetDate = new Date(parts[2], parts[1] - 1, parts[0]);
+        targetDate.setHours(0,0,0,0);
+        
+        const today = new Date();
+        today.setHours(0,0,0,0);
+
+        const diffTime = targetDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+
+        if (diffDays < 0) {
+            setSemaforoConfig({ color: theme.isDark ? '#FFF' : '#000', icon: 'alert-decagram', text: `Atrasado há ${Math.abs(diffDays)} dia(s)`, bg: theme.isDark ? '#222' : '#E5E5E5' });
+        } else if (diffDays === 0) {
+            setSemaforoConfig({ color: '#FF3B30', icon: 'bell-ring', text: 'É HOJE! Cobrança ativa no app do aluno.', bg: '#FF3B3022' });
+        } else if (diffDays <= 3) {
+            setSemaforoConfig({ color: '#FF3B30', icon: 'timer-sand', text: `Atenção: Faltam apenas ${diffDays} dias!`, bg: '#FF3B3022' });
+        } else if (diffDays <= 7) {
+            setSemaforoConfig({ color: '#FF9500', icon: 'calendar-clock', text: `Faltam ${diffDays} dias para o envio.`, bg: '#FF950022' });
+        } else {
+            setSemaforoConfig({ color: '#32ADE6', icon: 'shield-check', text: `Faltam ${diffDays} dias. Aluno no prazo.`, bg: '#32ADE622' });
+        }
+    }, [nextCheckInDate, disableCheckIn]);
+
     return (
         <View>
             <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
             
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: aluno.id, alunoName: aluno.name })}>
+            {/* 🔥 BLINDAGEM MÁXIMA PARA O SAFARI: Enviando os dados soltos (ID e Nome) para não bugar a URL */}
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name) })}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
                     <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
                 </View>
@@ -64,17 +81,14 @@ export default function AdminUserSystem({
                 </Text>
             </TouchableOpacity>
 
-            {/* 🔥 CONFIGURAÇÃO DE CHECK-IN — TODOS OS PLANOS */}
             <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
                 
-                {/* Info do plano */}
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: theme.border}}>
                     <MaterialCommunityIcons name="information-outline" size={16} color={theme.accent} />
                     <Text style={{color: theme.accent, fontSize: 11, fontWeight: 'bold', flex: 1}}>{planLabel}</Text>
                 </View>
 
-                {/* Toggle desativar cobrança */}
                 <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.border}}>
                     <View style={{flex: 1, paddingRight: 10}}>
                         <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 13}}>Desativar Cobrança</Text>
@@ -88,7 +102,6 @@ export default function AdminUserSystem({
                     />
                 </View>
 
-                {/* Data do próximo check-in */}
                 <Text style={[styles.sectionSubDesc, { marginBottom: 5 }]}>
                     {isCyclePlan 
                         ? `Defina a data para liberar o check-in. Após o envio, o sistema calcula automaticamente o próximo para o dia ${autoDays}.`
@@ -96,22 +109,14 @@ export default function AdminUserSystem({
                     }
                 </Text>
 
-                {nextCheckInDate ? (
-                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10}}>
-                        <MaterialCommunityIcons name="calendar-check" size={14} color={theme.accent} />
-                        <Text style={{color: theme.accent, fontSize: 11, fontWeight: 'bold'}}>
-                            Próximo check-in: {nextCheckInDate}
-                        </Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, backgroundColor: semaforoConfig.bg, borderWidth: 1, borderColor: semaforoConfig.color, marginBottom: 15}}>
+                    <MaterialCommunityIcons name={semaforoConfig.icon} size={20} color={semaforoConfig.color} />
+                    <View style={{flex: 1}}>
+                        <Text style={{color: semaforoConfig.color, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS ATUAL:</Text>
+                        <Text style={{color: semaforoConfig.color, fontSize: 13, fontWeight: 'bold', marginTop: 2}}>{semaforoConfig.text}</Text>
                     </View>
-                ) : (
-                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10}}>
-                        <MaterialCommunityIcons name="calendar-remove" size={14} color="#FF9500" />
-                        <Text style={{color: '#FF9500', fontSize: 11, fontWeight: 'bold'}}>
-                            Nenhuma data definida — check-in TRAVADO para o aluno.
-                        </Text>
-                    </View>
-                )}
-                
+                </View>
+
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                     {Platform.OS === 'web' ? createElement('input', {
                         type: 'date',
@@ -125,10 +130,10 @@ export default function AdminUserSystem({
                                 handleCheckInDateChange('');
                             }
                         },
-                        style: { flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, outline: 'none', fontSize: '13px', fontFamily: 'inherit' }
+                        style: { flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, outline: 'none', fontSize: '13px', fontFamily: 'inherit', fontWeight: 'bold' }
                     }) : (
                         <TextInput 
-                            style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} 
+                            style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1, fontWeight: 'bold' }]} 
                             placeholder="DD/MM/AAAA" 
                             placeholderTextColor={theme.textSecondary}
                             value={nextCheckInDate}
@@ -143,7 +148,6 @@ export default function AdminUserSystem({
                     </TouchableOpacity>
                 </View>
 
-                {/* Botão de liberar agora (atalho) */}
                 <TouchableOpacity 
                     style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, padding: 12, borderRadius: 10, backgroundColor: theme.accent + '15', borderWidth: 1, borderColor: theme.accent, borderStyle: 'dashed'}}
                     onPress={() => {
@@ -163,7 +167,6 @@ export default function AdminUserSystem({
                 </TouchableOpacity>
             </View>
 
-            {/* AVALIAÇÃO EM PDF */}
             <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
                 <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva.</Text>

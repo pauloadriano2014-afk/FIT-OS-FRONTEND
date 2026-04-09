@@ -8,8 +8,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminStudentCheckinsScreen({ route, navigation }) {
-  const { alunoId, alunoName } = route.params;
   const { theme } = useTheme();
+
+  // 🔥 BLINDAGEM MÁXIMA: Lê os parâmetros soltos da URL para evitar [object Object]
+  const rawId = route.params?.alunoId || route.params?.aluno?.id || '';
+  const rawName = route.params?.alunoName || route.params?.aluno?.name || 'ALUNO';
+  const aluno = { id: rawId, name: rawName };
 
   const [loading, setLoading] = useState(true);
   const [checkins, setCheckins] = useState([]);
@@ -29,13 +33,17 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   useEffect(() => {
-      fetchCheckins();
-  }, []);
+      if (aluno.id) {
+          fetchCheckins();
+      } else {
+          setLoading(false);
+      }
+  }, [aluno.id]);
 
   const fetchCheckins = async () => {
       setLoading(true);
       try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`);
+          const res = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}&t=${Date.now()}`);
           if (res.ok) {
               const data = await res.json();
               const sorted = data.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
@@ -186,8 +194,8 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                   c.id === currentCheckinForEval.id ? { ...c, coachFeedback: feedbackText } : c
               ));
               
-              if (Platform.OS === 'web') window.alert("Avaliação enviada com sucesso! O aluno foi notificado.");
-              else Alert.alert("Sucesso!", "Avaliação enviada com sucesso! O aluno foi notificado.");
+              if (Platform.OS === 'web') window.alert(currentCheckinForEval.coachFeedback ? "Avaliação editada e salva com sucesso!" : "Avaliação enviada com sucesso! O aluno foi notificado.");
+              else Alert.alert("Sucesso!", currentCheckinForEval.coachFeedback ? "Avaliação editada com sucesso." : "Avaliação enviada com sucesso! O aluno foi notificado.");
               
               setEvaluationModalVisible(false);
           } else {
@@ -240,7 +248,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 </TouchableOpacity>
             </View>
 
-            {/* Wrapper com position relative + absolute ScrollView = scroll garantido na web */}
             <View style={{ flex: 1, position: 'relative' }}>
             <ScrollView 
               style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} 
@@ -340,7 +347,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                         style={[styles.aiButton, { backgroundColor: isEvaluated ? theme.surface : theme.accent, borderColor: isEvaluated ? theme.border : theme.accent }]} 
                                         onPress={() => openEvaluationPanel(item, isOldest ? 'initial' : 'comparison')}
                                     >
-                                        <MaterialCommunityIcons name="robot-outline" size={18} color={isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF')} />
+                                        <MaterialCommunityIcons name={isEvaluated ? "pencil" : "robot-outline"} size={18} color={isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF')} />
                                         <Text style={[styles.aiButtonText, { color: isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
                                             {isEvaluated ? "EDITAR AVALIAÇÃO" : (isOldest ? "AVALIAR PONTO DE PARTIDA" : "COMPARAR EVOLUÇÃO")}
                                         </Text>
@@ -448,13 +455,16 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             onChangeText={setFeedbackText}
                         />
 
+                        {/* 🔥 O BOTÃO INTELIGENTE: Muda texto se já tiver avaliação */}
                         <TouchableOpacity 
-                            style={[styles.submitEvalBtn, {backgroundColor: theme.accent}]}
+                            style={[styles.submitEvalBtn, {backgroundColor: currentCheckinForEval?.coachFeedback ? theme.surface : theme.accent, borderColor: currentCheckinForEval?.coachFeedback ? theme.border : theme.accent, borderWidth: 1}]}
                             onPress={submitEvaluation}
                             disabled={sendingEvaluation}
                         >
-                            {sendingEvaluation ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
-                                <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1}}>APROVAR E NOTIFICAR ALUNO</Text>
+                            {sendingEvaluation ? <ActivityIndicator color={currentCheckinForEval?.coachFeedback ? theme.text : (theme.isDark ? '#000' : '#FFF')} /> : (
+                                <Text style={{color: currentCheckinForEval?.coachFeedback ? theme.text : (theme.isDark ? '#000' : '#FFF'), fontWeight: '900', fontSize: 14, letterSpacing: 1}}>
+                                    {currentCheckinForEval?.coachFeedback ? 'SALVAR ALTERAÇÕES' : 'APROVAR E NOTIFICAR ALUNO'}
+                                </Text>
                             )}
                         </TouchableOpacity>
 

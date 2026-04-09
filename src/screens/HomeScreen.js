@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
   StatusBar, RefreshControl, ActivityIndicator, Alert, Platform, Modal,
-  Animated, Linking
+  Animated, Linking, Image
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -71,13 +71,17 @@ export default function HomeScreen({ navigation }) {
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
   const [photoBannerDismissed, setPhotoBannerDismissed] = useState(false);
 
-  // Check-in (TODOS OS PLANOS)
+  // Check-in
   const [isCheckinPending, setIsCheckinPending] = useState(false);
   const [isCheckinLate, setIsCheckinLate] = useState(false);
   const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
-  const [showScheduledBanner, setShowScheduledBanner] = useState(true);
-  const [daysToFinalCheckin, setDaysToFinalCheckin] = useState(null); // Contagem regressiva pro check-in final
+  const [daysToFinalCheckin, setDaysToFinalCheckin] = useState(null); 
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  // 🔥 ESTADOS DO FEEDBACK DO COACH
+  const [pendingFeedback, setPendingFeedback] = useState(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
 
   // Modais
   const [activeNotice, setActiveNotice] = useState(null);
@@ -108,9 +112,8 @@ export default function HomeScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { loadHomeData(); }, []));
 
-  // 🔥 Pulsação para TODOS os planos com check-in pendente
   useEffect(() => {
-      if (isCheckinPending) {
+      if (isCheckinPending || pendingFeedback) {
           Animated.loop(
               Animated.sequence([
                   Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
@@ -120,7 +123,7 @@ export default function HomeScreen({ navigation }) {
       } else {
           pulseAnim.setValue(1);
       }
-  }, [isCheckinPending]);
+  }, [isCheckinPending, pendingFeedback]);
 
   const loadHomeData = async () => {
     try {
@@ -143,11 +146,12 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
+            const headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
             const [homeRes, historyRes, checkinRes, noticeRes] = await Promise.all([
-                fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
-                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}`)
+                fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`, { headers }),
+                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}&t=${Date.now()}`, { headers }),
+                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`, { headers }),
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${Date.now()}`, { headers })
             ]);
 
             let fetchedUser = { ...user };
@@ -158,6 +162,24 @@ export default function HomeScreen({ navigation }) {
                 checkinsData = await checkinRes.json();
                 if (Array.isArray(checkinsData) && checkinsData.length > 0) {
                     hasPhotosInDb = true;
+                    
+                    // 🔥 BUSCA DE FEEDBACK COM MEMÓRIA LOCAL 🔥
+                    const evaluated = checkinsData.filter(c => c.coachFeedback);
+                    let unread = null;
+                    for (let c of evaluated) {
+                        const isRead = await AsyncStorage.getItem(`read_feedback_${c.id}`);
+                        if (!isRead) {
+                            unread = c;
+                            break;
+                        }
+                    }
+                    
+                    if (unread) {
+                        setPendingFeedback(unread);
+                        setFeedbackModalVisible(true);
+                    } else {
+                        setPendingFeedback(null);
+                    }
                 }
             }
 
@@ -198,7 +220,6 @@ export default function HomeScreen({ navigation }) {
                             setFichaDaysElapsed(diffDays);
                         }
 
-                        // Trava de Fotos (Flexível)
                         if (!hasPhotosInDb && diffDays >= 0) {
                             setHasSentInitialPhotos(false);
                         } else {
@@ -207,7 +228,6 @@ export default function HomeScreen({ navigation }) {
                         
                         const limit = finalPlan === 'CHALLENGE_21' ? 21 : 56;
                         
-                        // 🔥 Contagem regressiva para o check-in final
                         if (hasPhotosInDb && diffDays >= 0 && !isFichaPlaceholder && finalPlan !== 'LOW_COST') {
                             const remaining = limit - diffDays;
                             if (remaining > 0 && remaining <= 5) {
@@ -234,7 +254,6 @@ export default function HomeScreen({ navigation }) {
                 }
             }
 
-            // 🔥 LÓGICA DE CHECK-IN PENDENTE — TODOS OS PLANOS
             let checkinPending = false;
             let checkinLate = false;
             let futureDateStr = null;
@@ -257,7 +276,6 @@ export default function HomeScreen({ navigation }) {
                         futureDateStr = `${dd}/${mm}`;
                     }
                 } else if (resolvedPlan === 'PREMIUM' && hasPhotosInDb) {
-                    // Fallback para Premium sem nextCheckInDate: calcula pelo último check-in
                     checkinsData.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
                     const lastDate = new Date(checkinsData[0].date || checkinsData[0].createdAt);
                     lastDate.setHours(0,0,0,0);
@@ -287,6 +305,23 @@ export default function HomeScreen({ navigation }) {
   const handleReadNotice = async () => {
       if (activeNotice) { try { await AsyncStorage.setItem(`read_notice_${activeNotice.id}`, 'true'); } catch(e) {} }
       setNoticeModalVisible(false);
+  };
+
+  // 🔥 MARCAR FEEDBACK COMO LIDO NA MEMÓRIA DO CELULAR 🔥
+  const markFeedbackAsRead = async () => {
+      if (!pendingFeedback) return;
+      setIsMarkingAsRead(true);
+      try {
+          await AsyncStorage.setItem(`read_feedback_${pendingFeedback.id}`, 'true');
+          setFeedbackModalVisible(false);
+          setPendingFeedback(null);
+          loadHomeData(); 
+      } catch (error) {
+          console.error("Erro ao salvar leitura:", error);
+          setFeedbackModalVisible(false); 
+      } finally {
+          setIsMarkingAsRead(false);
+      }
   };
 
   const handleSendChat = async (quickMessage = null) => {
@@ -321,69 +356,27 @@ export default function HomeScreen({ navigation }) {
 
   const openUpsell = (featureName) => { setUpsellFeature(featureName); setUpsellModalVisible(true); };
 
-  // 🔥 TEXTOS DO MODAL DE FOTOS POR PLANO
   const getPhotoModalContent = () => {
       switch (userPlan) {
-          case 'PREMIUM':
-              return {
-                  title: 'REGISTRE SEU PONTO DE PARTIDA 📸',
-                  desc: 'Quando puder, envie suas 3 fotos iniciais para que possamos mapear sua evolução juntos. Sem pressa — envie quando estiver pronto!',
-                  btnText: 'ENVIAR FOTOS AGORA',
-                  escapeText: 'TREINAR PRIMEIRO (Envio Depois)',
-                  showEscape: true,
-              };
-          case 'LOW_COST':
-              return {
-                  title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸',
-                  desc: 'Para acompanharmos sua progressão mensal, precisamos do seu registro inicial. Envie suas 3 fotos (frente, lado e costas) o quanto antes!',
-                  btnText: 'ENVIAR FOTOS AGORA',
-                  escapeText: 'IR PARA O TREINO',
-                  showEscape: true,
-              };
-          case 'FICHA_8S':
-              return {
-                  title: 'FOTOS DO DIA 1 PENDENTES ⚠️',
-                  desc: 'Suas fotos de ponto de partida são essenciais para a avaliação que o Coach fará no final das 8 semanas. Sem elas, não conseguimos medir sua evolução real. Envie agora!',
-                  btnText: 'ENVIAR FOTOS DO DIA 1',
-                  escapeText: 'TREINAR MESMO ASSIM',
-                  showEscape: true,
-              };
-          case 'CHALLENGE_21':
-              return {
-                  title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️',
-                  desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois". Envie agora para começar oficialmente!',
-                  btnText: 'ENVIAR FOTOS E COMEÇAR',
-                  escapeText: 'TREINAR MESMO ASSIM',
-                  showEscape: true,
-              };
-          default:
-              return {
-                  title: 'FOTOS PENDENTES 📸',
-                  desc: 'Envie suas fotos iniciais para mapearmos sua evolução.',
-                  btnText: 'ENVIAR FOTOS',
-                  escapeText: 'TREINAR MESMO ASSIM',
-                  showEscape: true,
-              };
+          case 'PREMIUM': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Quando puder, envie suas 3 fotos iniciais para que possamos mapear sua evolução juntos. Sem pressa — envie quando estiver pronto!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'TREINAR PRIMEIRO (Envio Depois)', showEscape: true };
+          case 'LOW_COST': return { title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸', desc: 'Para acompanharmos sua progressão mensal, precisamos do seu registro inicial. Envie suas 3 fotos (frente, lado e costas) o quanto antes!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'IR PARA O TREINO', showEscape: true };
+          case 'FICHA_8S': return { title: 'FOTOS DO DIA 1 PENDENTES ⚠️', desc: 'Suas fotos de ponto de partida são essenciais para a avaliação que o Coach fará no final das 8 semanas. Sem elas, não conseguimos medir sua evolução real. Envie agora!', btnText: 'ENVIAR FOTOS DO DIA 1', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
+          case 'CHALLENGE_21': return { title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️', desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois". Envie agora para começar oficialmente!', btnText: 'ENVIAR FOTOS E COMEÇAR', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
+          default: return { title: 'FOTOS PENDENTES 📸', desc: 'Envie suas fotos iniciais para mapearmos sua evolução.', btnText: 'ENVIAR FOTOS', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
       }
   };
 
-  // 🔥 CONTEÚDO DO BANNER DE FOTOS PENDENTES
   const getPhotoBanner = () => {
       if (hasSentInitialPhotos || photoBannerDismissed) return null;
       const isWaiting = daysToStart > 0;
       if (isWaiting) return null;
 
       switch (userPlan) {
-          case 'PREMIUM':
-              return { icon: 'camera-outline', text: 'Envie seu check-in inicial quando puder 📸', color: theme.accent, dismissable: true, urgency: 'low' };
-          case 'LOW_COST':
-              return { icon: 'camera-timer', text: 'Suas fotos de evolução estão pendentes!', color: '#FF9500', dismissable: false, urgency: 'medium' };
-          case 'FICHA_8S':
-              return { icon: 'camera-timer', text: 'Envie suas fotos do Dia 1 para começar!', color: '#FF9500', dismissable: false, urgency: 'high' };
-          case 'CHALLENGE_21':
-              return { icon: 'alert-circle', text: '⚠️ Fotos do Dia 1 pendentes — envie agora!', color: '#FF3B30', dismissable: false, urgency: 'high' };
-          default:
-              return null;
+          case 'PREMIUM': return { icon: 'camera-outline', text: 'Envie seu check-in inicial quando puder 📸', color: theme.accent, dismissable: true, urgency: 'low' };
+          case 'LOW_COST': return { icon: 'camera-timer', text: 'Suas fotos de evolução estão pendentes!', color: '#FF9500', dismissable: false, urgency: 'medium' };
+          case 'FICHA_8S': return { icon: 'camera-timer', text: 'Envie suas fotos do Dia 1 para começar!', color: '#FF9500', dismissable: false, urgency: 'high' };
+          case 'CHALLENGE_21': return { icon: 'alert-circle', text: '⚠️ Fotos do Dia 1 pendentes — envie agora!', color: '#FF3B30', dismissable: false, urgency: 'high' };
+          default: return null;
       }
   };
 
@@ -425,7 +418,6 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {/* 🔥 BANNER DE FOTOS PENDENTES */}
             {photoBanner && (
                 <TouchableOpacity 
                     style={[styles.photoBanner, { backgroundColor: photoBanner.color + '15', borderColor: photoBanner.color }]}
@@ -445,8 +437,7 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
             )}
 
-            {/* 🔥 BANNER DE CHECK-IN PENDENTE (TODOS OS PLANOS) */}
-            {isCheckinPending && !needsInitialPhoto && (
+            {isCheckinPending && !needsInitialPhoto && !pendingFeedback && (
                 <TouchableOpacity 
                     style={[styles.photoBanner, { backgroundColor: isCheckinLate ? '#FF3B3015' : '#FF950015', borderColor: isCheckinLate ? '#FF3B30' : '#FF9500' }]}
                     onPress={() => navigation.navigate('CheckIn')}
@@ -460,19 +451,31 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
             )}
 
-            {/* 🔥 BANNER DE CHECK-IN AGENDADO */}
-            {scheduledCheckInDate && showScheduledBanner && !isCheckinPending && !needsInitialPhoto && (
-                <View style={[styles.photoBanner, { backgroundColor: theme.accent + '10', borderColor: theme.accent + '40' }]}>
-                    <MaterialCommunityIcons name="calendar-clock" size={18} color={theme.accent} />
-                    <Text style={[styles.photoBannerText, { color: theme.accent }]}>Próximo check-in: {scheduledCheckInDate}</Text>
-                    <TouchableOpacity onPress={() => setShowScheduledBanner(false)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                        <MaterialCommunityIcons name="close" size={16} color={theme.accent} />
-                    </TouchableOpacity>
-                </View>
+            {/* 🔥 MODO SEMÁFORO (STATUS DO ALUNO) 🔥 */}
+            {scheduledCheckInDate && !isCheckinPending && !needsInitialPhoto && !pendingFeedback && (
+                (() => {
+                    const parts = scheduledCheckInDate.split('/');
+                    const tDate = new Date(new Date().getFullYear(), parts[1] - 1, parts[0]);
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const diff = Math.ceil((tDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                    
+                    let bg = 'rgba(50, 173, 230, 0.15)', border = '#32ADE6', icon = 'shield-check', text = `Avaliação em ${diff} dias`;
+                    if (diff <= 3) { bg = 'rgba(255, 59, 48, 0.15)'; border = '#FF3B30'; icon = 'timer-sand'; text = `Atenção: Faltam apenas ${diff} dias!`; }
+                    else if (diff <= 7) { bg = 'rgba(255, 149, 0, 0.15)'; border = '#FF9500'; icon = 'calendar-clock'; text = `Faltam ${diff} dias para o envio`; }
+
+                    return (
+                        <View style={[styles.photoBanner, { backgroundColor: bg, borderColor: border, padding: 16 }]}>
+                            <MaterialCommunityIcons name={icon} size={22} color={border} />
+                            <View style={{flex: 1, marginLeft: 5}}>
+                                <Text style={{color: border, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS DO PLANO:</Text>
+                                <Text style={{color: border, fontSize: 13, fontWeight: 'bold'}}>{text}</Text>
+                            </View>
+                        </View>
+                    );
+                })()
             )}
 
-            {/* 🔥 BANNER DE CONTAGEM REGRESSIVA PARA CHECK-IN FINAL (Fichas/Desafio) */}
-            {daysToFinalCheckin && daysToFinalCheckin <= 5 && (
+            {daysToFinalCheckin && daysToFinalCheckin <= 5 && !pendingFeedback && (
                 <View style={[styles.photoBanner, { backgroundColor: '#BF5AF215', borderColor: '#BF5AF2' }]}>
                     <MaterialCommunityIcons name="timer-sand" size={18} color="#BF5AF2" />
                     <Text style={[styles.photoBannerText, { color: '#BF5AF2' }]}>
@@ -517,44 +520,61 @@ export default function HomeScreen({ navigation }) {
                 </View>
             )}
 
-            {/* 🔥 BOTÃO DE AÇÃO PRINCIPAL */}
-            <TouchableOpacity 
-                style={[
-                    styles.mainActionBtn, 
-                    { 
-                        backgroundColor: (isFichaExpired || isWaitingStart) ? theme.surface : (needsInitialPhoto ? theme.surface : theme.accent), 
-                        shadowColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? '#000' : theme.accent,
-                        borderWidth: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? 1 : 0,
-                        borderColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.border : 'transparent'
-                    }
-                ]} 
-                onPress={() => { 
-                    if (isFichaExpired) setFichaExpiredModalVisible(true);
-                    else if (isWaitingStart) Alert.alert("Aguarde", `Seu treino será liberado em ${daysToStart} dias.`);
-                    else if (needsInitialPhoto) setInitialPhotosModalVisible(true);
-                    else navigation.navigate('Treinos'); 
-                }} 
-                activeOpacity={0.9}
-            >
-                <View>
-                    <Text style={[styles.actionLabel, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                        {isFichaExpired ? 'CICLO ENCERRADO' : (isWaitingStart ? 'STATUS ATUAL' : (needsInitialPhoto ? 'LEMBRETE IMPORTANTE' : 'SEU OBJETIVO DE HOJE'))}
-                    </Text>
-                    <Text style={[styles.actionTitle, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
-                        {isFichaExpired ? 'PRÓXIMOS PASSOS' : (isWaitingStart ? 'AGUARDANDO DATA' : (needsInitialPhoto ? 'FOTOS PENDENTES' : 'INICIAR TREINO'))}
-                    </Text>
-                </View>
-                <View style={[styles.iconCircle, (isFichaExpired || isWaitingStart || needsInitialPhoto) && {backgroundColor: theme.bg}]}>
-                    <MaterialCommunityIcons 
-                        name={isWaitingStart ? "clock-outline" : (isFichaExpired ? "whatsapp" : (needsInitialPhoto ? "camera-timer" : "dumbbell"))} 
-                        size={28} 
-                        color={(isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.accent : (theme.isDark ? '#000' : '#FFF')} 
-                    />
-                </View>
-            </TouchableOpacity>
+            {pendingFeedback ? (
+                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                    <TouchableOpacity 
+                        style={[styles.mainActionBtn, { backgroundColor: '#FFD700', shadowColor: '#FFD700', borderWidth: 0 }]} 
+                        onPress={() => setFeedbackModalVisible(true)} 
+                        activeOpacity={0.9}
+                    >
+                        <View style={{flex: 1}}>
+                            <Text style={[styles.actionLabel, { color: '#000' }]}>O COACH ANALISOU SUAS FOTOS</Text>
+                            <Text style={[styles.actionTitle, { color: '#000', fontSize: 20 }]}>FEEDBACK DISPONÍVEL</Text>
+                        </View>
+                        <View style={[styles.iconCircle, {backgroundColor: 'rgba(0,0,0,0.15)'}]}>
+                            <MaterialCommunityIcons name="email-open" size={28} color="#000" />
+                        </View>
+                    </TouchableOpacity>
+                </Animated.View>
+            ) : (
+                <TouchableOpacity 
+                    style={[
+                        styles.mainActionBtn, 
+                        { 
+                            backgroundColor: (isFichaExpired || isWaitingStart) ? theme.surface : (needsInitialPhoto ? theme.surface : theme.accent), 
+                            shadowColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? '#000' : theme.accent,
+                            borderWidth: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? 1 : 0,
+                            borderColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.border : 'transparent'
+                        }
+                    ]} 
+                    onPress={() => { 
+                        if (isFichaExpired) setFichaExpiredModalVisible(true);
+                        else if (isWaitingStart) Alert.alert("Aguarde", `Seu treino será liberado em ${daysToStart} dias.`);
+                        else if (needsInitialPhoto) setInitialPhotosModalVisible(true);
+                        else navigation.navigate('Treinos'); 
+                    }} 
+                    activeOpacity={0.9}
+                >
+                    <View>
+                        <Text style={[styles.actionLabel, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
+                            {isFichaExpired ? 'CICLO ENCERRADO' : (isWaitingStart ? 'STATUS ATUAL' : (needsInitialPhoto ? 'LEMBRETE IMPORTANTE' : 'SEU OBJETIVO DE HOJE'))}
+                        </Text>
+                        <Text style={[styles.actionTitle, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
+                            {isFichaExpired ? 'PRÓXIMOS PASSOS' : (isWaitingStart ? 'AGUARDANDO DATA' : (needsInitialPhoto ? 'FOTOS PENDENTES' : 'INICIAR TREINO'))}
+                        </Text>
+                    </View>
+                    <View style={[styles.iconCircle, (isFichaExpired || isWaitingStart || needsInitialPhoto) && {backgroundColor: theme.bg}]}>
+                        <MaterialCommunityIcons 
+                            name={isWaitingStart ? "clock-outline" : (isFichaExpired ? "whatsapp" : (needsInitialPhoto ? "camera-timer" : "dumbbell"))} 
+                            size={28} 
+                            color={(isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.accent : (theme.isDark ? '#000' : '#FFF')} 
+                        />
+                    </View>
+                </TouchableOpacity>
+            )}
 
             <View style={styles.gridContainer}>
-                <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '48%', marginBottom: 15 }}>
+                <Animated.View style={{ transform: [{ scale: pendingFeedback ? 1 : pulseAnim }], width: '48%', marginBottom: 15 }}>
                     <TouchableOpacity style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: isCheckinPending ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} onPress={() => navigation.navigate('CheckIn')}>
                         {isCheckinPending && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
                         <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}>
@@ -595,42 +615,69 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 MODAL DE FOTOS PENDENTES (CONTEÚDO DINÂMICO POR PLANO) */}
+      <Modal visible={feedbackModalVisible} transparent animationType="fade">
+          <View style={styles.chatModalOverlay}>
+              <View style={[styles.feedbackModalContent, { backgroundColor: theme.bg }]}>
+                  <View style={styles.feedbackHeader}>
+                      <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 0, width: 40, height: 40 }]}>
+                          <MaterialCommunityIcons name="bullseye-arrow" size={24} color={theme.accent} />
+                      </View>
+                      <Text style={[styles.feedbackTitle, { color: theme.text }]}>ANÁLISE DO COACH</Text>
+                  </View>
+
+                  <ScrollView style={{flex: 1, padding: 20}} showsVerticalScrollIndicator={false}>
+                      
+                      {pendingFeedback?.photoFront && (
+                          <View style={styles.feedbackPhotosRow}>
+                              <View style={styles.feedbackPhotoBox}>
+                                  <Image source={{uri: pendingFeedback.photoFront}} style={[styles.feedbackPhotoImg, {borderColor: theme.border}]} />
+                                  <Text style={[styles.feedbackPhotoLabel, {color: theme.textSecondary}]}>SUA FOTO ATUAL</Text>
+                              </View>
+                          </View>
+                      )}
+
+                      <View style={[styles.feedbackTextBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                          <MaterialCommunityIcons name="format-quote-open" size={24} color={theme.accent} style={{marginBottom: 10}} />
+                          <Text style={[styles.feedbackText, { color: theme.text }]}>{pendingFeedback?.coachFeedback}</Text>
+                      </View>
+
+                      <TouchableOpacity 
+                          style={[styles.upsellBtn, {backgroundColor: theme.accent, marginTop: 25, elevation: 5}]} 
+                          onPress={markFeedbackAsRead}
+                          disabled={isMarkingAsRead}
+                      >
+                          {isMarkingAsRead ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
+                              <>
+                                  <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>COMPREENDIDO, COACH! 👊</Text>
+                              </>
+                          )}
+                      </TouchableOpacity>
+                      <View style={{height: 40}} />
+                  </ScrollView>
+              </View>
+          </View>
+      </Modal>
+
       <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent }]}>
-                  <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}>
-                      <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                  </TouchableOpacity>
-                  <View style={[styles.levelIconBox, { backgroundColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF950022' : theme.accent + '22', marginBottom: 20 }]}>
-                      <MaterialCommunityIcons name="camera-timer" size={36} color={(userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent} />
-                  </View>
+                  <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
+                  <View style={[styles.levelIconBox, { backgroundColor: (userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF950022' : theme.accent + '22', marginBottom: 20 }]}><MaterialCommunityIcons name="camera-timer" size={36} color={(userPlan === 'CHALLENGE_21' || userPlan === 'FICHA_8S') ? '#FF9500' : theme.accent} /></View>
                   <Text style={[styles.upsellTitle, { color: theme.text }]}>{photoModal.title}</Text>
                   <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>{photoModal.desc}</Text>
-                  
-                  <TouchableOpacity 
-                      style={[styles.upsellBtn, {backgroundColor: theme.accent, marginBottom: 10}]} 
-                      onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
-                  >
+                  <TouchableOpacity style={[styles.upsellBtn, {backgroundColor: theme.accent, marginBottom: 10}]} onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}>
                       <MaterialCommunityIcons name="camera" size={20} color={theme.isDark ? '#000' : '#FFF'} style={{marginRight: 8}}/>
                       <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>{photoModal.btnText}</Text>
                   </TouchableOpacity>
-
                   {photoModal.showEscape && (
-                      <TouchableOpacity 
-                          style={{padding: 15, alignItems: 'center'}} 
-                          onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('Treinos'); }}
-                      >
-                          <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>
-                              {photoModal.escapeText}
-                          </Text>
+                      <TouchableOpacity style={{padding: 15, alignItems: 'center'}} onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('Treinos'); }}>
+                          <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>{photoModal.escapeText}</Text>
                       </TouchableOpacity>
                   )}
               </View>
           </View>
       </Modal>
 
-      {/* Modal de Sugestão Alimentar (21D) */}
       <Modal visible={dietModalVisible} animationType="slide" transparent>
           <View style={styles.chatModalOverlay}>
               <View style={[styles.dietCard, { backgroundColor: theme.bg }]}>
@@ -642,29 +689,16 @@ export default function HomeScreen({ navigation }) {
                       <View style={[styles.instructionBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
                           <Text style={[styles.dietSectionTitle, { color: theme.accent, marginBottom: 10 }]}>REGRAS DO COACH 👊</Text>
                           {DIET_21D.instructions.map((text, i) => (
-                              <View key={i} style={{flexDirection: 'row', marginBottom: 6, gap: 8}}>
-                                  <MaterialCommunityIcons name="check-circle-outline" size={16} color={theme.accent} />
-                                  <Text style={{color: theme.text, fontSize: 13, flex: 1, fontWeight: '600'}}>{text}</Text>
-                              </View>
+                              <View key={i} style={{flexDirection: 'row', marginBottom: 6, gap: 8}}><MaterialCommunityIcons name="check-circle-outline" size={16} color={theme.accent} /><Text style={{color: theme.text, fontSize: 13, flex: 1, fontWeight: '600'}}>{text}</Text></View>
                           ))}
                       </View>
-
                       <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 20}]}>DIAS DE MUSCULAÇÃO 💪</Text>
                       {DIET_21D.trainingDays.map((meal, i) => (
-                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                              <Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text>
-                              <Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text>
-                              <Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text>
-                          </View>
+                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}><Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text><Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text><Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text></View>
                       ))}
-
                       <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 25}]}>DIAS DE CARDIO (SEM MUSCULAÇÃO) 🏃‍♂️</Text>
                       {DIET_21D.cardioDays.map((meal, i) => (
-                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                              <Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text>
-                              <Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text>
-                              <Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text>
-                          </View>
+                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}><Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text><Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text><Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text></View>
                       ))}
                       <View style={{height: 100}} />
                   </ScrollView>
@@ -676,7 +710,6 @@ export default function HomeScreen({ navigation }) {
       <HomeNoticeModal visible={noticeModalVisible} onClose={handleReadNotice} theme={theme} activeNotice={activeNotice} />
       <ChatAIAssistantModal visible={chatVisible} onClose={() => setChatVisible(false)} theme={theme} isWeb={isWeb} messages={messages} flatListRef={flatListRef} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isTyping={isTyping} QUICK_QUESTIONS={QUICK_QUESTIONS} />
 
-      {/* Modal Ciclo Encerrado */}
       <Modal visible={fichaExpiredModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
@@ -684,24 +717,12 @@ export default function HomeScreen({ navigation }) {
                   <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}><MaterialCommunityIcons name="trophy-variant" size={36} color="#FF3B30" /></View>
                   <Text style={[styles.upsellTitle, { color: theme.text }]}>MISSÃO CUMPRIDA! 🎉</Text>
                   <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>Você finalizou seu projeto atual. Para resgatar sua avaliação final do Coach e os seus bônus, envie suas fotos de resultado (Hoje).</Text>
-                  
-                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#FF3B30', marginBottom: 10 }]} onPress={() => { setFichaExpiredModalVisible(false); navigation.navigate('CheckIn'); }}>
-                      <MaterialCommunityIcons name="camera" size={20} color="#FFF" style={{marginRight: 8}}/>
-                      <Text style={[styles.upsellBtnText, {color: '#FFF'}]}>ENVIAR FOTO FINAL</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                      style={[styles.upsellBtn, { backgroundColor: '#25D366' }]} 
-                      onPress={() => { setFichaExpiredModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, finalizei meu plano! Quero saber os próximos passos."); }}
-                  >
-                      <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginRight: 8}}/>
-                      <Text style={[styles.upsellBtnText, {color: '#FFF'}]}>FALAR COM O COACH</Text>
-                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#FF3B30', marginBottom: 10 }]} onPress={() => { setFichaExpiredModalVisible(false); navigation.navigate('CheckIn'); }}><MaterialCommunityIcons name="camera" size={20} color="#FFF" style={{marginRight: 8}}/><Text style={[styles.upsellBtnText, {color: '#FFF'}]}>ENVIAR FOTO FINAL</Text></TouchableOpacity>
+                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#25D366' }]} onPress={() => { setFichaExpiredModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, finalizei meu plano! Quero saber os próximos passos."); }}><MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginRight: 8}}/><Text style={[styles.upsellBtnText, {color: '#FFF'}]}>FALAR COM O COACH</Text></TouchableOpacity>
               </View>
           </View>
       </Modal>
 
-      {/* Modal Upsell */}
       <Modal visible={upsellModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
@@ -709,15 +730,8 @@ export default function HomeScreen({ navigation }) {
                   <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}><MaterialCommunityIcons name="crown" size={36} color={theme.accent} /></View>
                   <Text style={[styles.upsellTitle, { color: theme.text }]}>FUNCIONALIDADE ELITE</Text>
                   <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>O recurso de <Text style={{color: theme.accent, fontWeight: 'bold'}}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Elite.</Text>
-                  <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                      <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text></View>
-                      <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text></View>
-                      <View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text></View>
-                  </View>
-                  <TouchableOpacity style={styles.upsellBtn} onPress={() => { setUpsellModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, quero ser Elite!"); }}>
-                      <Text style={styles.upsellBtnText}>SER ELITE AGORA</Text>
-                      <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
-                  </TouchableOpacity>
+                  <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text></View></View>
+                  <TouchableOpacity style={styles.upsellBtn} onPress={() => { setUpsellModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, quero ser Elite!"); }}><Text style={styles.upsellBtnText}>SER ELITE AGORA</Text><MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/></TouchableOpacity>
               </View>
           </View>
       </Modal>
@@ -734,11 +748,8 @@ const styles = StyleSheet.create({
   name: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
-  
-  // 🔥 Banners
   photoBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
   photoBannerText: { flex: 1, fontSize: 12, fontWeight: '700' },
-
   xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
   levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   xpText: { fontSize: 11, fontWeight: 'bold' },
@@ -758,7 +769,7 @@ const styles = StyleSheet.create({
   footerSubText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginTop: 4 },
   fabChat: { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 10 },
   fabGradient: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center' },
+  chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
   levelIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   upsellCard: { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
   upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
@@ -767,9 +778,17 @@ const styles = StyleSheet.create({
   upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
   upsellBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
-  upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  
+  feedbackModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', marginTop: 40 },
+  feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 25, borderBottomWidth: 1, borderColor: 'rgba(128,128,128,0.2)' },
+  feedbackTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
+  feedbackPhotosRow: { flexDirection: 'row', gap: 15, marginBottom: 20 },
+  feedbackPhotoBox: { flex: 1, alignItems: 'center' },
+  feedbackPhotoImg: { width: '100%', height: 250, borderRadius: 20, borderWidth: 2, backgroundColor: '#000' },
+  feedbackPhotoLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, letterSpacing: 1 },
+  feedbackTextBox: { padding: 20, borderRadius: 20, borderWidth: 1 },
+  feedbackText: { fontSize: 16, lineHeight: 26, fontWeight: '500' },
   dietCard: { flex: 1, marginTop: 60, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
   dietHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, borderColor: '#333' },
   dietTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
