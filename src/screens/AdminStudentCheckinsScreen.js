@@ -8,10 +8,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminStudentCheckinsScreen({ route, navigation }) {
-  // 🔥 BLINDAGEM: Lê o objeto 'aluno' com cuidado. Se a tela chamadora não tiver mandado os dados certos, previne o crash imediato.
-  const aluno = route.params?.aluno || { id: '', name: 'ALUNO' };
-  
   const { theme } = useTheme();
+
+  // 🔥 BLINDAGEM MÁXIMA: Lê os parâmetros soltos da URL para evitar [object Object]
+  const rawId = route.params?.alunoId || route.params?.aluno?.id || '';
+  const rawName = route.params?.alunoName || route.params?.aluno?.name || 'ALUNO';
+  const aluno = { id: rawId, name: rawName };
 
   const [loading, setLoading] = useState(true);
   const [checkins, setCheckins] = useState([]);
@@ -41,7 +43,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const fetchCheckins = async () => {
       setLoading(true);
       try {
-          // 🔥 MARRETA ANTICACHE no Admin para garantir fotos novas
           const res = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}&t=${Date.now()}`);
           if (res.ok) {
               const data = await res.json();
@@ -454,6 +455,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             onChangeText={setFeedbackText}
                         />
 
+                        {/* 🔥 O BOTÃO INTELIGENTE: Muda texto se já tiver avaliação */}
                         <TouchableOpacity 
                             style={[styles.submitEvalBtn, {backgroundColor: currentCheckinForEval?.coachFeedback ? theme.surface : theme.accent, borderColor: currentCheckinForEval?.coachFeedback ? theme.border : theme.accent, borderWidth: 1}]}
                             onPress={submitEvaluation}
