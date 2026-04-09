@@ -258,6 +258,9 @@ const linking = {
           },
           initialRouteName: 'Install',
       },
+      AdminStudentCheckins: { path: 'admin-checkins' },
+AdminEvolution: { path: 'admin-evolution' },
+AdminAlunoOptions: { path: 'admin-aluno' },
     }
   }
 };
