@@ -17,7 +17,6 @@ export default function AdminUserSystem({
     const planLabel = PLAN_LABELS[userPlan] || 'Personalizado';
     const isCyclePlan = ['FICHA_8S', 'FICHAS', 'CHALLENGE_21'].includes(userPlan);
 
-    // 🔥 ESTADOS DO SEMÁFORO INTELIGENTE
     const [semaforoConfig, setSemaforoConfig] = useState({ color: theme.border, icon: 'clock-outline', text: 'Calculando status...', bg: theme.bg });
 
     useEffect(() => {
@@ -51,12 +50,30 @@ export default function AdminUserSystem({
         }
     }, [nextCheckInDate, disableCheckIn]);
 
+    const goToCheckins = () => {
+        navigation.navigate('AdminStudentCheckins', {
+            alunoId: String(aluno.id),
+            alunoName: String(aluno.name)
+        });
+    };
+
+    const goToEvolution = () => {
+        navigation.navigate('AdminEvolution', {
+            alunoId: String(aluno.id),
+            alunoName: String(aluno.name),
+            alunoBirthDate: String(aluno.birthDate || ''),
+            alunoGender: String(aluno.gender || '')
+        });
+    };
+
     return (
         <View>
             <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
             
-            {/* 🔥 BLINDAGEM MÁXIMA PARA O SAFARI: Enviando os dados soltos (ID e Nome) para não bugar a URL */}
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name) })}>
+            <TouchableOpacity
+                style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={goToCheckins}
+            >
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
                     <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
                 </View>
@@ -64,7 +81,10 @@ export default function AdminUserSystem({
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { aluno })}>
+            <TouchableOpacity
+                style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                onPress={goToEvolution}
+            >
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
                     <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
                 </View>
