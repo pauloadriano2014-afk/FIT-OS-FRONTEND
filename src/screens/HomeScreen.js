@@ -75,7 +75,6 @@ export default function HomeScreen({ navigation }) {
   const [isCheckinPending, setIsCheckinPending] = useState(false);
   const [isCheckinLate, setIsCheckinLate] = useState(false);
   const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
-  const [showScheduledBanner, setShowScheduledBanner] = useState(true);
   const [daysToFinalCheckin, setDaysToFinalCheckin] = useState(null); 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -147,14 +146,14 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
-                        // 🔥 MARRETA NO CACHE: O &t=Date.now() obriga o celular a baixar do servidor na hora!
+            // 🔥 MARRETA ANTICACHE: Obriga o app a baixar a avaliação na hora!
+            const headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
             const [homeRes, historyRes, checkinRes, noticeRes] = await Promise.all([
-                fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
-                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}&t=${Date.now()}`),
-                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`),
-                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${Date.now()}`)
+                fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`, { headers }),
+                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}&t=${Date.now()}`, { headers }),
+                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`, { headers }),
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${Date.now()}`, { headers })
             ]);
-
 
             let fetchedUser = { ...user };
             let hasPhotosInDb = false;
@@ -164,8 +163,8 @@ export default function HomeScreen({ navigation }) {
                 checkinsData = await checkinRes.json();
                 if (Array.isArray(checkinsData) && checkinsData.length > 0) {
                     hasPhotosInDb = true;
-                    // 🔥 BUSCA SE TEM FEEDBACK NÃO LIDO 🔥
-                    const unreadFeedback = checkinsData.find(c => c.coachFeedback && !c.hasReadFeedback);
+                    // 🔥 GARANTIA DE FEEDBACK: Lê a avaliação mesmo se o status vier quebrado do banco
+                    const unreadFeedback = checkinsData.find(c => c.coachFeedback && c.hasReadFeedback !== true);
                     if (unreadFeedback) {
                         setPendingFeedback(unreadFeedback);
                         setFeedbackModalVisible(true);
@@ -299,8 +298,8 @@ export default function HomeScreen({ navigation }) {
       setNoticeModalVisible(false);
   };
 
-  // 🔥 FUNÇÃO PARA MARCAR FEEDBACK COMO LIDO
-    const markFeedbackAsRead = async () => {
+  // 🔥 FUNÇÃO PARA MARCAR FEEDBACK COMO LIDO COM RELOAD
+  const markFeedbackAsRead = async () => {
       if (!pendingFeedback) return;
       setIsMarkingAsRead(true);
       try {
@@ -312,11 +311,9 @@ export default function HomeScreen({ navigation }) {
           if (res.ok) {
               setFeedbackModalVisible(false);
               setPendingFeedback(null);
-              // 🔥 A MARRETA AQUI: Força o reload da tela no fundo para limpar a notificação fantasma
               loadHomeData(); 
           }
       } catch (error) {
-
           console.error("Erro ao marcar feedback como lido:", error);
           setFeedbackModalVisible(false); 
       } finally {
@@ -491,14 +488,28 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
             )}
 
-            {scheduledCheckInDate && showScheduledBanner && !isCheckinPending && !needsInitialPhoto && !pendingFeedback && (
-                <View style={[styles.photoBanner, { backgroundColor: theme.accent + '10', borderColor: theme.accent + '40' }]}>
-                    <MaterialCommunityIcons name="calendar-clock" size={18} color={theme.accent} />
-                    <Text style={[styles.photoBannerText, { color: theme.accent }]}>Próximo check-in: {scheduledCheckInDate}</Text>
-                    <TouchableOpacity onPress={() => setShowScheduledBanner(false)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
-                        <MaterialCommunityIcons name="close" size={16} color={theme.accent} />
-                    </TouchableOpacity>
-                </View>
+            {/* 🔥 MODO SEMÁFORO (STATUS DO ALUNO) 🔥 */}
+            {scheduledCheckInDate && !isCheckinPending && !needsInitialPhoto && !pendingFeedback && (
+                (() => {
+                    const parts = scheduledCheckInDate.split('/');
+                    const tDate = new Date(new Date().getFullYear(), parts[1] - 1, parts[0]);
+                    const today = new Date(); today.setHours(0,0,0,0);
+                    const diff = Math.ceil((tDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
+                    
+                    let bg = 'rgba(50, 173, 230, 0.15)', border = '#32ADE6', icon = 'shield-check', text = `Avaliação em ${diff} dias`;
+                    if (diff <= 3) { bg = 'rgba(255, 59, 48, 0.15)'; border = '#FF3B30'; icon = 'timer-sand'; text = `Atenção: Faltam apenas ${diff} dias!`; }
+                    else if (diff <= 7) { bg = 'rgba(255, 149, 0, 0.15)'; border = '#FF9500'; icon = 'calendar-clock'; text = `Faltam ${diff} dias para o envio`; }
+
+                    return (
+                        <View style={[styles.photoBanner, { backgroundColor: bg, borderColor: border, padding: 16 }]}>
+                            <MaterialCommunityIcons name={icon} size={22} color={border} />
+                            <View style={{flex: 1, marginLeft: 5}}>
+                                <Text style={{color: border, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS DO PLANO:</Text>
+                                <Text style={{color: border, fontSize: 13, fontWeight: 'bold'}}>{text}</Text>
+                            </View>
+                        </View>
+                    );
+                })()
             )}
 
             {daysToFinalCheckin && daysToFinalCheckin <= 5 && !pendingFeedback && (
