@@ -142,13 +142,14 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
-            const headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
-            const [homeRes, checkinRes, noticeRes, resUserDirect] = await Promise.all([
-                fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`, { headers }),
-                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`, { headers }),
-                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${Date.now()}`, { headers }),
-                fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${Date.now()}`, { headers }) 
-            ]);
+            // Remova a linha "const headers = ..." inteira.
+const t = Date.now(); // Usamos o tempo na URL para evitar cache sem quebrar o CORS
+const [homeRes, checkinRes, noticeRes, resUserDirect] = await Promise.all([
+    fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
+    fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
+    fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
+    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`)
+]);
 
             let fetchedUser = { ...user };
             let hasPhotosInDb = false;

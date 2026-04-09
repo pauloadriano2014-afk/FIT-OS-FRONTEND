@@ -306,7 +306,7 @@ export default function TrainingScreen({ navigation }) {
             ) : (
                 <View style={styles.sectionContainerMod}>
                     <View style={[styles.emptyCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <MaterialCommunityIcons name="dumbbell-off" size={48} color={theme.border} />
+                        <MaterialCommunityIcons name="dumbbell" size={48} color={theme.border} />
                         <Text style={[styles.emptyCardTextMod, {color: theme.textSecondary}]}>Aguardando seu próximo programa.</Text>
                         <Text style={{color: theme.textSecondary, fontSize: 12}}>Entre em contato com o Coach Paulo.</Text>
                     </View>

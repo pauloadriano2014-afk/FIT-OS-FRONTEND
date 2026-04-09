@@ -105,8 +105,8 @@ export default function EvolutionScreen({ navigation }) {
           }
 
           // 🔥 NOVO: Busca todos os check-ins do aluno para montar a galeria de Feedbacks
-          const headers = { 'Cache-Control': 'no-cache, no-store, must-revalidate', 'Pragma': 'no-cache' };
-          const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`, { headers });
+          // 🔥 NOVO: Busca todos os check-ins do aluno para montar a galeria de Feedbacks
+const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`);
           if (resCheckins.ok) {
               const allCheckins = await resCheckins.json();
               if (Array.isArray(allCheckins)) {

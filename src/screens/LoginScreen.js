@@ -134,10 +134,11 @@ export default function LoginScreen({ navigation }) {
         ['role', role]
       ]);
 
+      // CÓDIGO A SUBSTITUIR: navigation.replace('Main', { userData: data.user });
       if (isAdmin) {
         navigation.replace('AdminDashboard');
       } else {
-        navigation.replace('Main', { userData: data.user });
+        navigation.replace('Main'); // 🔥 REMOVEMOS O PARAMETRO. A HOME LÊ DO ASYNCSTORAGE
       }
 
     } catch (e) {
