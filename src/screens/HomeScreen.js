@@ -300,7 +300,7 @@ export default function HomeScreen({ navigation }) {
   };
 
   // 🔥 FUNÇÃO PARA MARCAR FEEDBACK COMO LIDO
-  const markFeedbackAsRead = async () => {
+    const markFeedbackAsRead = async () => {
       if (!pendingFeedback) return;
       setIsMarkingAsRead(true);
       try {
@@ -312,8 +312,11 @@ export default function HomeScreen({ navigation }) {
           if (res.ok) {
               setFeedbackModalVisible(false);
               setPendingFeedback(null);
+              // 🔥 A MARRETA AQUI: Força o reload da tela no fundo para limpar a notificação fantasma
+              loadHomeData(); 
           }
       } catch (error) {
+
           console.error("Erro ao marcar feedback como lido:", error);
           setFeedbackModalVisible(false); 
       } finally {
