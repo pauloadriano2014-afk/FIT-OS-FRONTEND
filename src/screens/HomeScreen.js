@@ -147,12 +147,14 @@ export default function HomeScreen({ navigation }) {
         if (user.currentXP) setXp(user.currentXP);
 
         try {
+                        // 🔥 MARRETA NO CACHE: O &t=Date.now() obriga o celular a baixar do servidor na hora!
             const [homeRes, historyRes, checkinRes, noticeRes] = await Promise.all([
                 fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${Date.now()}`),
-                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`),
-                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}`)
+                fetch(`https://fitos-final.onrender.com/api/workout/history?userId=${user.id}&t=${Date.now()}`),
+                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`),
+                fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${Date.now()}`)
             ]);
+
 
             let fetchedUser = { ...user };
             let hasPhotosInDb = false;
