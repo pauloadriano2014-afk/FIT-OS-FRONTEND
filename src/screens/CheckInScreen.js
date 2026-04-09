@@ -25,6 +25,7 @@ export default function CheckInScreen({ navigation }) {
   // 🔥 ESTADOS DA TRAVA DE CHECK-IN
   const [checkingLock, setCheckingLock] = useState(true); // carregando status
   const [isLocked, setIsLocked] = useState(false);
+  const [lockTitle, setLockTitle] = useState(''); // 🔥 NOVO: Título do modal
   const [lockMessage, setLockMessage] = useState('');
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [isDisabled, setIsDisabled] = useState(false); // disableCheckIn do admin
@@ -51,14 +52,16 @@ export default function CheckInScreen({ navigation }) {
                   if (data.disableCheckIn) {
                       setIsDisabled(true);
                       setIsLocked(true);
-                      setLockMessage('Seu check-in está desativado no momento. Entre em contato com seu Coach.');
+                      setLockTitle('AVALIAÇÃO DESATIVADA 🔒');
+                      setLockMessage('Seu check-in não está ativo no momento. Entre em contato com seu Coach para dúvidas.');
                       return;
                   }
 
                   // Se não tem nextCheckInDate, está travado (coach ainda não liberou)
                   if (!data.nextCheckInDate) {
                       setIsLocked(true);
-                      setLockMessage('Seu Coach ainda não liberou o check-in. Aguarde a liberação!');
+                      setLockTitle('CHECK-IN PROGRAMADO 🔒');
+                      setLockMessage('Foque 100% no processo agora. Seu Coach liberará o envio em breve.');
                       return;
                   }
 
@@ -74,7 +77,8 @@ export default function CheckInScreen({ navigation }) {
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                       setDaysRemaining(diffDays);
                       setIsLocked(true);
-                      setLockMessage(`Seu próximo check-in será liberado em ${diffDays} ${diffDays === 1 ? 'dia' : 'dias'}.`);
+                      setLockTitle('TEMPO DE EVOLUÇÃO ⏳');
+                      setLockMessage('O seu corpo precisa de tempo para responder aos estímulos da rotina.');
                   } else {
                       // Data chegou ou já passou — liberado!
                       setIsLocked(false);
@@ -83,7 +87,8 @@ export default function CheckInScreen({ navigation }) {
                   // Verifica se o ciclo acabou (Fichas/Desafio)
                   if (data.cycleCompleted) {
                       setIsLocked(true);
-                      setLockMessage('Você completou todos os check-ins do seu plano! 🏆 Parabéns pela disciplina. Entre em contato com seu Coach para os próximos passos.');
+                      setLockTitle('PROJETO CONCLUÍDO 🏆');
+                      setLockMessage('Você finalizou todos os registros do seu plano atual. Excelente constância! Fale com o Coach.');
                   }
 
               }
@@ -101,6 +106,7 @@ export default function CheckInScreen({ navigation }) {
   const isPremium = userPlan === 'PREMIUM';
 
   const handleSelectPhoto = (position, isExtra = false) => {
+    if (isLocked) return; // Bloqueia clique se estiver travado
     if (Platform.OS === 'web') {
         window.alert("Escolha a origem da imagem:\n1. Tirar Foto\n2. Escolher da Galeria");
         openGallery(position, isExtra); 
@@ -164,10 +170,12 @@ export default function CheckInScreen({ navigation }) {
   };
 
   const removeExtraPhoto = (index) => {
+      if (isLocked) return;
       setExtraPhotos(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSend = async () => {
+    if (isLocked) return;
     if (!weight) {
         if (Platform.OS === 'web') window.alert("Atenção: O campo de peso é obrigatório.");
         else Alert.alert("Atenção", "O campo de peso é obrigatório.");
@@ -222,7 +230,7 @@ export default function CheckInScreen({ navigation }) {
   };
 
   const renderPhotoBox = (label, position, icon) => (
-    <TouchableOpacity style={[styles.photoBox, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleSelectPhoto(position)}>
+    <TouchableOpacity style={[styles.photoBox, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleSelectPhoto(position)} activeOpacity={isLocked ? 1 : 0.7}>
         {photos[position] ? (
             <Image source={{ uri: photos[position] }} style={styles.photoPreview} />
         ) : (
@@ -256,75 +264,14 @@ export default function CheckInScreen({ navigation }) {
     );
   }
 
-  // 🔥 TELA TRAVADA
-  if (isLocked) {
-    return (
-      <RootComponent style={rootStyle}>
-        <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
-        <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
-          
-          <View style={[styles.header, { borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
-                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
-            </TouchableOpacity>
-            <Text style={[styles.headerTitle, { color: theme.text }]}>CHECK-IN</Text>
-            <View style={{width: 40}}/> 
-          </View>
-
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 40 }}>
-            <View style={{
-              width: 80, height: 80, borderRadius: 40, 
-              backgroundColor: isDisabled ? 'rgba(255,59,48,0.1)' : theme.accent + '15',
-              justifyContent: 'center', alignItems: 'center', marginBottom: 25
-            }}>
-              <MaterialCommunityIcons 
-                name={isDisabled ? "lock" : "calendar-clock"} 
-                size={36} 
-                color={isDisabled ? '#FF3B30' : theme.accent} 
-              />
-            </View>
-
-            <Text style={{ color: theme.text, fontWeight: '900', fontSize: 18, textAlign: 'center', marginBottom: 12 }}>
-              {isDisabled ? 'Check-in Desativado' : daysRemaining > 0 ? 'Ainda não é a hora!' : 'Aguarde a Liberação'}
-            </Text>
-            
-            <Text style={{ color: theme.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22, maxWidth: 300 }}>
-              {lockMessage}
-            </Text>
-
-            {daysRemaining > 0 && !isDisabled && (
-              <View style={{
-                flexDirection: 'row', alignItems: 'center', gap: 8,
-                marginTop: 25, paddingHorizontal: 20, paddingVertical: 12,
-                borderRadius: 12, backgroundColor: theme.accent + '15',
-                borderWidth: 1, borderColor: theme.accent + '30'
-              }}>
-                <MaterialCommunityIcons name="timer-sand" size={20} color={theme.accent} />
-                <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 24 }}>{daysRemaining}</Text>
-                <Text style={{ color: theme.accent, fontWeight: 'bold', fontSize: 12 }}>{daysRemaining === 1 ? 'dia restante' : 'dias restantes'}</Text>
-              </View>
-            )}
-
-            <TouchableOpacity 
-              style={{ marginTop: 40, padding: 15, borderRadius: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
-              onPress={() => navigation.goBack()}
-            >
-              <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 13 }}>← Voltar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </RootComponent>
-    );
-  }
-
-  // 🔥 TELA NORMAL (LIBERADO)
+  // 🔥 TELA PRINCIPAL (LIBERADA OU BLOQUEADA COM OVERLAY)
   return (
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, position: 'relative', ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           
-          <View style={[styles.header, { borderBottomColor: theme.border }]}>
+          <View style={[styles.header, { borderBottomColor: theme.border, zIndex: 10 }]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
             </TouchableOpacity>
@@ -338,6 +285,7 @@ export default function CheckInScreen({ navigation }) {
             contentContainerStyle={{ padding: 20, paddingBottom: 150 }} 
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            scrollEnabled={!isLocked} // Trava o scroll se estiver bloqueado
           >
             <View style={[styles.trustBox, { backgroundColor: theme.isDark ? '#1a221f' : '#f0fdf4', borderColor: theme.accent }]}>
                 <MaterialCommunityIcons name="shield-check" size={20} color={theme.accent} style={{marginTop: 2}} />
@@ -351,7 +299,8 @@ export default function CheckInScreen({ navigation }) {
 
             <TouchableOpacity 
                 style={[styles.guideBox, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                onPress={() => setShowGuide(!showGuide)}
+                onPress={() => { if(!isLocked) setShowGuide(!showGuide) }}
+                activeOpacity={isLocked ? 1 : 0.7}
             >
                 <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}}>
                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
@@ -361,7 +310,7 @@ export default function CheckInScreen({ navigation }) {
                     <MaterialCommunityIcons name={showGuide ? "chevron-up" : "chevron-down"} size={24} color={theme.textSecondary} />
                 </View>
                 
-                {showGuide && (
+                {showGuide && !isLocked && (
                     <View style={{marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: theme.border}}>
                         <View style={styles.guideRow}>
                             <MaterialCommunityIcons name="white-balance-sunny" size={16} color={theme.accent} />
@@ -399,6 +348,7 @@ export default function CheckInScreen({ navigation }) {
                 placeholderTextColor={theme.textSecondary}
                 value={weight}
                 onChangeText={setWeight}
+                editable={!isLocked}
             />
 
             <Text style={[styles.label, { color: theme.text }]}>FOTOS OBRIGATÓRIAS</Text>
@@ -426,6 +376,7 @@ export default function CheckInScreen({ navigation }) {
                         <TouchableOpacity 
                             style={[styles.photoBox, { width: 80, height: 100, backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} 
                             onPress={() => handleSelectPhoto(null, true)}
+                            activeOpacity={isLocked ? 1 : 0.7}
                         >
                             <View style={styles.photoPlaceholder}>
                                 <MaterialCommunityIcons name="plus" size={24} color={theme.textSecondary} />
@@ -442,14 +393,15 @@ export default function CheckInScreen({ navigation }) {
                         placeholderTextColor={theme.textSecondary}
                         value={feedback}
                         onChangeText={setFeedback}
+                        editable={!isLocked}
                     />
                 </>
             )}
 
             <TouchableOpacity 
                 style={styles.marketingContainer} 
-                onPress={() => setAllowMarketing(!allowMarketing)}
-                activeOpacity={0.8}
+                onPress={() => { if(!isLocked) setAllowMarketing(!allowMarketing) }}
+                activeOpacity={isLocked ? 1 : 0.8}
             >
                 <View style={[styles.checkbox, allowMarketing ? { borderColor: theme.accent, backgroundColor: theme.accent } : { borderColor: theme.border, backgroundColor: theme.surface }]}>
                     {allowMarketing && <MaterialCommunityIcons name="check" size={16} color={theme.isDark ? '#000' : '#FFF'} />}
@@ -459,10 +411,38 @@ export default function CheckInScreen({ navigation }) {
                 </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.accent }]} onPress={handleSend} disabled={sending}>
-                {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{isPremium ? "ENVIAR PARA O COACH" : "ENVIAR FOTOS DE EVOLUÇÃO"}</Text>}
-            </TouchableOpacity>
+            {!isLocked && (
+                <TouchableOpacity style={[styles.sendBtn, { backgroundColor: theme.accent }]} onPress={handleSend} disabled={sending}>
+                    {sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.sendBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{isPremium ? "ENVIAR PARA O COACH" : "ENVIAR FOTOS DE EVOLUÇÃO"}</Text>}
+                </TouchableOpacity>
+            )}
           </ScrollView>
+
+          {/* 🔥 O VIDRO FOSCO E O MODAL CENTRAL (SE ESTIVER TRAVADO) 🔥 */}
+          {isLocked && !checkingLock && (
+              <View style={[StyleSheet.absoluteFillObject, { zIndex: 20, justifyContent: 'center', alignItems: 'center' }]}>
+                  {/* Overlay Escuro com leve desfoque */}
+                  <View style={[StyleSheet.absoluteFillObject, { backgroundColor: theme.isDark ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.85)' }]} />
+                  
+                  {/* Modal Elegante */}
+                  <View style={[styles.lockedModal, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      <View style={[styles.lockedIconBox, { backgroundColor: isDisabled ? 'rgba(255,59,48,0.15)' : theme.accent + '15' }]}>
+                          <MaterialCommunityIcons name={isDisabled ? "lock" : "calendar-clock"} size={36} color={isDisabled ? '#FF3B30' : theme.accent} />
+                      </View>
+                      
+                      <Text style={[styles.lockedTitle, { color: theme.text }]}>{lockTitle}</Text>
+                      <Text style={[styles.lockedMessage, { color: theme.textSecondary }]}>{lockMessage}</Text>
+                      
+                      {daysRemaining > 0 && !isDisabled && (
+                          <View style={[styles.daysBox, { borderColor: theme.border }]}>
+                              <Text style={[styles.daysNumber, { color: theme.text }]}>{daysRemaining}</Text>
+                              <Text style={[styles.daysLabel, { color: theme.textSecondary }]}>{daysRemaining === 1 ? 'DIA' : 'DIAS'}</Text>
+                          </View>
+                      )}
+                  </View>
+              </View>
+          )}
+          
           </View>
 
       </View>
@@ -471,7 +451,7 @@ export default function CheckInScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1, flexShrink: 0 },
+  header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 15, flexDirection:'row', justifyContent:'space-between', alignItems:'center', borderBottomWidth: 1, flexShrink: 0 },
   backButton: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
   
@@ -498,5 +478,14 @@ const styles = StyleSheet.create({
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, marginRight: 12, justifyContent: 'center', alignItems: 'center' },
 
   sendBtn: { padding: 18, borderRadius: 15, alignItems: 'center', marginTop: 40 },
-  sendBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
+  sendBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+
+  // 🔥 ESTILOS DO MODAL DE BLOQUEIO 🔥
+  lockedModal: { width: '85%', maxWidth: 350, padding: 30, borderRadius: 24, borderWidth: 1, alignItems: 'center', elevation: 10, shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.1, shadowRadius: 20 },
+  lockedIconBox: { width: 72, height: 72, borderRadius: 36, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  lockedTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },
+  lockedMessage: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginBottom: 20 },
+  daysBox: { flexDirection: 'row', alignItems: 'flex-end', gap: 6, paddingHorizontal: 25, paddingVertical: 15, borderRadius: 16, borderWidth: 1 },
+  daysNumber: { fontSize: 32, fontWeight: '900', lineHeight: 36 },
+  daysLabel: { fontSize: 12, fontWeight: 'bold', marginBottom: 5, letterSpacing: 1 }
 });
