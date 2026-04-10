@@ -9,6 +9,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import PropostaScreen from './src/screens/PropostaScreen'; // (Ajuste o caminho se necessário)
 
 /* ================= IMPORTAÇÃO DO TEMA ================= */
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
@@ -220,6 +221,7 @@ function RootNavigator() {
       <Stack.Screen name="Anamnese" component={AnamneseScreen} />
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
+      <Stack.Screen name="Proposta" component={PropostaScreen} />
 
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />

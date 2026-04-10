@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import SendNoticeModal from '../components/SendNoticeModal';
+import AdminInviteModal from '../components/AdminInviteModal'; // 🔥 IMPORT NOVO AQUI
 
 const getExpirationStatus = (workout) => {
     if (!workout) return null;
@@ -64,7 +65,6 @@ export default function AdminDashboard({ navigation }) {
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState('verde');
 
-  // 🔥 ESTADO DO NOVO MENU DE CONVITE
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
   const filterOptions = [
@@ -205,38 +205,6 @@ export default function AdminDashboard({ navigation }) {
           { text: "Cancelar" },
           { text: "Sim", style: 'destructive', onPress: () => setFeed(current => current.filter(item => item.id !== logId)) }
       ]);
-  };
-
-  // 🔥 O NOVO GERADOR DE LINKS DE CONVITE
-  const generateInviteLink = (planType) => {
-      // 1. Define o código do treinador (Adriana ou Paulo)
-      let coachCode = 'PATEAM'; 
-      let teamName = "à nossa equipe";
-      
-      // Checa se o e-mail logado é o da Adri
-      if (adminEmail && adminEmail.toLowerCase().includes('adri.personal@hotmail.com')) {
-          coachCode = 'CURVAS';
-          teamName = "ao projeto Costas & Curvas";
-      }
-
-      // 2. Monta a URL mágica que o app vai ler depois que instalar
-      const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${coachCode}&plan=${planType}`; 
-      
-      // 3. Monta a mensagem que vai pro WhatsApp
-      const planNameStr = planType === 'PREMIUM' ? 'Consultoria Premium' : (planType === 'LOW_COST' ? 'Plano de Fichas' : 'Desafio');
-      const message = `Opa! Tudo pronto para começarmos o seu ${planNameStr}.\n\nPara darmos o start, acesse o link abaixo, instale o aplicativo oficial e faça seu cadastro:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
-      
-      const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
-      
-      // 4. Executa
-      setInviteModalVisible(false);
-      Linking.canOpenURL(whatsappUrl).then(supported => {
-          if (supported) Linking.openURL(whatsappUrl);
-          else {
-              if (Platform.OS === 'web') window.open(whatsappUrl, '_blank');
-              else Alert.alert("Aviso", "Não foi possível abrir o WhatsApp.");
-          }
-      }).catch(err => console.error('An error occurred', err));
   };
 
   const toggleDarkMode = (newValue) => {
@@ -390,10 +358,10 @@ export default function AdminDashboard({ navigation }) {
           <View style={{ flex: 1 }}>
             {activeTab === 'ALUNOS' && (
                 <>
-                    {/* 🔥 BOTÃO DE CONVIDAR ATUALIZADO */}
-                    <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: '#FFCC00' }]} onPress={() => setInviteModalVisible(true)}>
-                        <MaterialCommunityIcons name="link-variant" size={22} color="#000" />
-                        <Text style={styles.inviteBtnText}>GERAR LINK DE CADASTRO</Text>
+                    {/* 🔥 BOTÃO DE CONVIDAR ATUALIZADO 🔥 */}
+                    <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: theme.accent }]} onPress={() => setInviteModalVisible(true)}>
+                        <MaterialCommunityIcons name="star-shooting" size={22} color={theme.isDark ? '#000' : '#FFF'} />
+                        <Text style={[styles.inviteBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR LINK (CADASTRO E PROPOSTA)</Text>
                     </TouchableOpacity>
 
                     <TextInput 
@@ -555,56 +523,6 @@ export default function AdminDashboard({ navigation }) {
           </TouchableOpacity>
       </Modal>
 
-      {/* 🔥 MODAL DE CONVITE (ESTEIRA DE PRODUTOS) 🔥 */}
-      <Modal visible={inviteModalVisible} transparent animationType="slide" onRequestClose={() => setInviteModalVisible(false)}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setInviteModalVisible(false)}>
-              <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }]}>
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20}}>
-                      <Text style={[styles.modalTitle, { color: theme.text }]}>GERAR LINK PARA:</Text>
-                      <TouchableOpacity onPress={() => setInviteModalVisible(false)}>
-                          <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                      </TouchableOpacity>
-                  </View>
-                  
-                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                      
-                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#FFCC00', backgroundColor: '#FFCC0011'}]} onPress={() => generateInviteLink('PREMIUM')}>
-                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                              <MaterialCommunityIcons name="crown" size={24} color="#FFCC00" />
-                              <Text style={[styles.catOptionText, { color: '#FFCC00', fontWeight: '900' }]}>CONSULTORIA PREMIUM</Text>
-                          </View>
-                          <MaterialCommunityIcons name="whatsapp" size={20} color="#FFCC00" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#32ADE6', backgroundColor: '#32ADE611'}]} onPress={() => generateInviteLink('LOW_COST')}>
-                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                              <MaterialCommunityIcons name="rocket-launch" size={24} color="#32ADE6" />
-                              <Text style={[styles.catOptionText, { color: '#32ADE6', fontWeight: '900' }]}>PLANO LOW COST</Text>
-                          </View>
-                          <MaterialCommunityIcons name="whatsapp" size={20} color="#32ADE6" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#AF52DE', backgroundColor: '#AF52DE11'}]} onPress={() => generateInviteLink('FICHA_8S')}>
-                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                              <MaterialCommunityIcons name="lightning-bolt" size={24} color="#AF52DE" />
-                              <Text style={[styles.catOptionText, { color: '#AF52DE', fontWeight: '900' }]}>FICHA 8 SEMANAS</Text>
-                          </View>
-                          <MaterialCommunityIcons name="whatsapp" size={20} color="#AF52DE" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity style={[styles.catOption, {borderWidth: 1, borderColor: '#FF9500', backgroundColor: '#FF950011'}]} onPress={() => generateInviteLink('CHALLENGE_21')}>
-                          <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                              <MaterialCommunityIcons name="fire" size={24} color="#FF9500" />
-                              <Text style={[styles.catOptionText, { color: '#FF9500', fontWeight: '900' }]}>DESAFIO 21 DIAS</Text>
-                          </View>
-                          <MaterialCommunityIcons name="whatsapp" size={20} color="#FF9500" />
-                      </TouchableOpacity>
-
-                  </ScrollView>
-              </View>
-          </TouchableOpacity>
-      </Modal>
-
       <Modal visible={checkinModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -658,6 +576,14 @@ export default function AdminDashboard({ navigation }) {
         </View>
       </Modal>
 
+      {/* 🔥 COMPONENTE DO MODAL DE CONVITE SEPARADO 🔥 */}
+      <AdminInviteModal 
+          visible={inviteModalVisible} 
+          onClose={() => setInviteModalVisible(false)} 
+          adminEmail={adminEmail} 
+          theme={theme} 
+      />
+
       <SendNoticeModal 
           visible={isNoticeModalOpen}
           onClose={() => setIsNoticeModalOpen(false)}
@@ -682,7 +608,7 @@ const styles = StyleSheet.create({
   badgeText: { color:'#FFF', fontSize:9, fontWeight:'bold' },
   
   inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginBottom: 15, padding: 15, borderRadius: 12, gap: 8 },
-  inviteBtnText: { color: '#000', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  inviteBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
   searchBar: { padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
   
