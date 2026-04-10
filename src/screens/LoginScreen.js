@@ -292,7 +292,7 @@ export default function LoginScreen({ navigation }) {
             <TouchableOpacity onPress={() => navigation.navigate('Register')} style={{ marginTop: 25 }}>
               <Text style={[styles.linkText, { color: theme.textSecondary }]}>
                 Ainda não tem conta?{' '}
-                <Text style={{ color: theme.accent, fontWeight: '900' }}>Registe-se</Text>
+                <Text style={{ color: theme.accent, fontWeight: '900' }}>Registre-se</Text>
               </Text>
             </TouchableOpacity>
           </View>
