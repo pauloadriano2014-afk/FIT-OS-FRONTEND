@@ -251,18 +251,20 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
           ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
         }}>
             
+                        {/* 🔥 HEADER REFEITO: Nome longo não esmaga mais os botões 🔥 */}
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexShrink: 0 }}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
                 </TouchableOpacity>
-                <View style={{ alignItems: 'center' }}>
-                    <Text style={[styles.headerTitle, { color: theme.text }]}>CHECK-INS DE</Text>
-                    <Text style={{ color: theme.accent, fontSize: 12, fontWeight: 'bold' }}>{aluno.name.toUpperCase()}</Text>
+                <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 15 }}>
+                    <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>CHECK-INS DE</Text>
+                    <Text style={{ color: theme.accent, fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>{aluno.name.toUpperCase()}</Text>
                 </View>
-                <TouchableOpacity onPress={fetchCheckins} style={{ padding: 8 }}>
+                <TouchableOpacity onPress={fetchCheckins} style={{ padding: 8, flexShrink: 0 }}>
                     <MaterialCommunityIcons name="refresh" size={24} color={theme.accent}/>
                 </TouchableOpacity>
             </View>
+
 
             <View style={{ flex: 1, position: 'relative' }}>
             <ScrollView 
