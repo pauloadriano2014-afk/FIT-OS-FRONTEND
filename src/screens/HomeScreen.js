@@ -15,6 +15,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import LevelUpModal from '../components/LevelUpModal';
 import HomeNoticeModal from '../components/HomeNoticeModal';
 import ChatAIAssistantModal from '../components/ChatAIAssistantModal';
+import DietGuideModal from '../components/DietGuideModal'; 
 
 const QUICK_QUESTIONS = [
   "🤖 Como funciona a IA de Vídeo?",
@@ -23,29 +24,6 @@ const QUICK_QUESTIONS = [
   "📸 Como fazer o Check-in?",
   "🚨 Estou com dor na articulação!"
 ];
-
-const DIET_21D = {
-    instructions: [
-        "A constância é o que separa o resultado da frustração. Siga o plano 100%.",
-        "A ingestão proteica é sagrada para manter sua massa magra enquanto secamos.",
-        "Beba no mínimo 3L a 4L de água por dia. Metabolismo hidratado queima mais.",
-        "Use as opções de troca apenas se necessário para não enjoar do plano.",
-        "O foco aqui é o déficit calórico estratégico para perda de 3 a 5kg."
-    ],
-    trainingDays: [
-        { time: "05:00 - PRÉ-TREINO (ENERGIA)", base: "70g Banana + 30g Whey Protein + 50g Iogurte Grego + 20g Aveia.", subs: "Trocas: Mamão (146g), Morango (201g) ou Abacaxi (124g)." },
-        { time: "08:00 - PÓS-TREINO (RECUPERAÇÃO)", base: "2 Ovos Inteiros + 2 Fatias de Pão Integral.", subs: "Trocas: Carne Moída/Patinho (45g) ou Frango Desfiado (40g)." },
-        { time: "12:00 - ALMOÇO (SACIEDADE)", base: "70g Arroz Branco + 50g Feijão + 120g Frango Grelhado + 150g Abobrinha.", subs: "Trocas: Macarrão (65g), Batata Inglesa (200g) ou Patinho (133g)." },
-        { time: "17:00 - LANCHE DA TARDE", base: "Crepioca (40g Tapioca + 1 Ovo) + 80g Frango Desfiado.", subs: "Trocas: Patinho (89g) ou Omelete (2 ovos)." },
-        { time: "21:00 - JANTAR (LIMPO)", base: "70g Arroz Branco + 120g Frango Grelhado + 150g Abobrinha.", subs: "Trocas: Vegetais Verdes (Brócolis/Couve) à vontade." }
-    ],
-    cardioDays: [
-        { time: "08:00 - CAFÉ DA MANHÃ", base: "1 Pão Francês + 3 Ovos Inteiros + 1 Colher de Requeijão Light.", subs: "Trocas: Pão Integral (2 fatias) ou Cream Cheese Light (23g)." },
-        { time: "12:00 - ALMOÇO", base: "100g Macarrão Cozido + 120g Carne Moída (Patinho) + 100g Brócolis.", subs: "Trocas: Mandioca (70g) ou Frango Grelhado (108g)." },
-        { time: "16:00 - LANCHE DA TARDE", base: "60g Tapioca + 70g Frango Desfiado.", subs: "Trocas: Ovos Cozidos (3 unidades)." },
-        { time: "20:00 - JANTAR", base: "100g Arroz Integral + 50g Feijão + 100g Carne Moída + 100g Abobrinha.", subs: "Trocas: Beterraba ou Couve-Flor (100g)." }
-    ]
-};
 
 export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -374,8 +352,7 @@ export default function HomeScreen({ navigation }) {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor={theme.accent}/>}
             showsVerticalScrollIndicator={false}
           >
-                        <View style={styles.header}>
-              {/* flex: 1 para respeitar o limite e numberOfLines para não quebrar a linha */}
+            <View style={styles.header}>
               <View style={{ flex: 1, paddingRight: 10 }}>
                 <Text style={[styles.greeting, { color: theme.textSecondary }]} numberOfLines={1}>
                     BEM-VINDO AO {userPlan === 'LOW_COST' ? 'PLANO BÁSICO' : (userPlan === 'FICHA_8S' ? 'PROJETO DE FICHAS' : (userPlan === 'CHALLENGE_21' ? 'DESAFIO 21 DIAS' : 'ELITE'))},
@@ -385,7 +362,6 @@ export default function HomeScreen({ navigation }) {
                 </Text>
               </View>
               
-              {/* flexShrink: 0 blinda o botão para ele nunca ser espremido */}
               <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border, flexShrink: 0 }]} onPress={() => setLevelModalVisible(true)}>
                 <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
               </TouchableOpacity>
@@ -474,18 +450,10 @@ export default function HomeScreen({ navigation }) {
                         </Text>
                     </View>
                     <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                        <View style={[styles.xpBarFill, { width: `${Math.min(100, (fichaDaysElapsed / limitDays) * 100)}%`, backgroundColor: theme.accent }]} />
+                        {fichaDaysElapsed > 0 && (
+                            <View style={[styles.xpBarFill, { width: `${Math.min(100, (fichaDaysElapsed / limitDays) * 100)}%`, backgroundColor: theme.accent }]} />
+                        )}
                     </View>
-                    
-                    {userPlan === 'CHALLENGE_21' && (
-                        <TouchableOpacity 
-                            style={{marginTop: 15, padding: 15, backgroundColor: theme.accent, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10}}
-                            onPress={() => setDietModalVisible(true)}
-                        >
-                            <MaterialCommunityIcons name="food-apple" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                            <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13}}>GUIA DE SUGESTÃO ALIMENTAR 🍏</Text>
-                        </TouchableOpacity>
-                    )}
                 </View>
             )}
 
@@ -496,7 +464,9 @@ export default function HomeScreen({ navigation }) {
                         <Text style={[styles.xpText, { color: theme.textSecondary }]}>{currentLevelProgress} / {nextLevelXP} XP</Text>
                     </View>
                     <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                        <View style={[styles.xpBarFill, { width: `${(currentLevelProgress/nextLevelXP)*100}%`, backgroundColor: theme.accent }]} />
+                        {currentLevelProgress > 0 && (
+                            <View style={[styles.xpBarFill, { width: `${(currentLevelProgress/nextLevelXP)*100}%`, backgroundColor: theme.accent }]} />
+                        )}
                     </View>
                 </View>
             )}
@@ -550,6 +520,23 @@ export default function HomeScreen({ navigation }) {
                             size={28} 
                             color={(isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.accent : (theme.isDark ? '#000' : '#FFF')} 
                         />
+                    </View>
+                </TouchableOpacity>
+            )}
+
+            {/* 🔥 BOTÃO DA DIETA: SEMPRE VISÍVEL NO 21D OU SE LIBERADO NO ADMIN 🔥 */}
+            {(userPlan === 'CHALLENGE_21' || (userData?.dietGoal && userData.dietGoal !== 'NONE')) && (
+                <TouchableOpacity 
+                    style={[styles.mainActionBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, padding: 20, marginBottom: 15, elevation: 0 }]} 
+                    onPress={() => setDietModalVisible(true)}
+                    activeOpacity={0.9}
+                >
+                    <View style={{flex: 1}}>
+                        <Text style={[styles.actionLabel, { color: theme.accent }]}>ESTRATÉGIA DO COACH</Text>
+                        <Text style={[styles.actionTitle, { color: theme.text, fontSize: 18 }]}>SUGESTÃO ALIMENTAR 🥗</Text>
+                    </View>
+                    <View style={[styles.iconCircle, {backgroundColor: theme.accent + '22'}]}>
+                        <MaterialCommunityIcons name="food-apple" size={28} color={theme.accent} />
                     </View>
                 </TouchableOpacity>
             )}
@@ -621,7 +608,6 @@ export default function HomeScreen({ navigation }) {
 
                   <ScrollView style={{flex: 1, padding: 20}} showsVerticalScrollIndicator={false}>
                       
-                      {/* 🔥 GALERIA DE FOTOS NO FEEDBACK (SEM CORTES) 🔥 */}
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
                           <View style={{ flexDirection: 'row', gap: 15 }}>
                               {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
@@ -685,51 +671,6 @@ export default function HomeScreen({ navigation }) {
           </View>
       </Modal>
 
-      <Modal visible={dietModalVisible} animationType="slide" transparent>
-          <View style={styles.chatModalOverlay}>
-              <View style={[styles.dietCard, { backgroundColor: theme.bg }]}>
-                  <View style={styles.dietHeader}>
-                      <Text style={[styles.dietTitle, { color: theme.text }]}>SUGESTÃO ALIMENTAR 21D 🥗</Text>
-                      <TouchableOpacity onPress={() => setDietModalVisible(false)}><MaterialCommunityIcons name="close" size={28} color={theme.text} /></TouchableOpacity>
-                  </View>
-                  <ScrollView style={{padding: 20}} showsVerticalScrollIndicator={false}>
-                      <View style={[styles.instructionBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
-                          <Text style={[styles.dietSectionTitle, { color: theme.accent, marginBottom: 10 }]}>REGRAS DO COACH 👊</Text>
-                          {DIET_21D.instructions.map((text, i) => (
-                              <View key={i} style={{flexDirection: 'row', marginBottom: 6, gap: 8}}><MaterialCommunityIcons name="check-circle-outline" size={16} color={theme.accent} /><Text style={{color: theme.text, fontSize: 13, flex: 1, fontWeight: '600'}}>{text}</Text></View>
-                          ))}
-                      </View>
-                      <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 20}]}>DIAS DE MUSCULAÇÃO 💪</Text>
-                      {DIET_21D.trainingDays.map((meal, i) => (
-                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}><Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text><Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text><Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text></View>
-                      ))}
-                      <Text style={[styles.dietSectionTitle, {color: theme.text, marginTop: 25}]}>DIAS DE CARDIO (SEM MUSCULAÇÃO) 🏃‍♂️</Text>
-                      {DIET_21D.cardioDays.map((meal, i) => (
-                          <View key={i} style={[styles.mealCard, {backgroundColor: theme.surface, borderColor: theme.border}]}><Text style={[styles.mealTime, {color: theme.accent}]}>{meal.time}</Text><Text style={[styles.mealDesc, {color: theme.text}]}>{meal.base}</Text><Text style={[styles.mealSubs, {color: theme.textSecondary}]}>{meal.subs}</Text></View>
-                      ))}
-                      <View style={{height: 100}} />
-                  </ScrollView>
-              </View>
-          </View>
-      </Modal>
-
-      <LevelUpModal visible={levelModalVisible} onClose={() => setLevelModalVisible(false)} theme={theme} levelData={levelData} currentLevel={currentLevel} currentLevelProgress={currentLevelProgress} nextLevelXP={nextLevelXP} />
-      <HomeNoticeModal visible={noticeModalVisible} onClose={handleReadNotice} theme={theme} activeNotice={activeNotice} />
-      <ChatAIAssistantModal visible={chatVisible} onClose={() => setChatVisible(false)} theme={theme} isWeb={isWeb} messages={messages} flatListRef={flatListRef} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isTyping={isTyping} QUICK_QUESTIONS={QUICK_QUESTIONS} />
-
-      <Modal visible={fichaExpiredModalVisible} transparent animationType="fade">
-          <View style={styles.chatModalOverlay}>
-              <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
-                  <TouchableOpacity style={styles.upsellClose} onPress={() => setFichaExpiredModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
-                  <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}><MaterialCommunityIcons name="trophy-variant" size={36} color="#FF3B30" /></View>
-                  <Text style={[styles.upsellTitle, { color: theme.text }]}>MISSÃO CUMPRIDA! 🎉</Text>
-                  <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>Você finalizou seu projeto atual. Para resgatar sua avaliação final do Coach e os seus bônus, envie suas fotos de resultado (Hoje).</Text>
-                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#FF3B30', marginBottom: 10 }]} onPress={() => { setFichaExpiredModalVisible(false); navigation.navigate('CheckIn'); }}><MaterialCommunityIcons name="camera" size={20} color="#FFF" style={{marginRight: 8}}/><Text style={[styles.upsellBtnText, {color: '#FFF'}]}>ENVIAR FOTO FINAL</Text></TouchableOpacity>
-                  <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#25D366' }]} onPress={() => { setFichaExpiredModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, finalizei meu plano! Quero saber os próximos passos."); }}><MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginRight: 8}}/><Text style={[styles.upsellBtnText, {color: '#FFF'}]}>FALAR COM O COACH</Text></TouchableOpacity>
-              </View>
-          </View>
-      </Modal>
-
       <Modal visible={upsellModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
@@ -743,6 +684,17 @@ export default function HomeScreen({ navigation }) {
           </View>
       </Modal>
 
+      {/* 🔥 INJEÇÃO DA DIETA ISOLADA PASSANDO O OBJETIVO DO ALUNO 🔥 */}
+      <DietGuideModal 
+          visible={dietModalVisible} 
+          onClose={() => setDietModalVisible(false)} 
+          theme={theme} 
+          dietGoal={userPlan === 'CHALLENGE_21' ? 'WEIGHT_LOSS' : userData?.dietGoal} 
+      />
+
+      <LevelUpModal visible={levelModalVisible} onClose={() => setLevelModalVisible(false)} theme={theme} levelData={levelData} currentLevel={currentLevel} currentLevelProgress={currentLevelProgress} nextLevelXP={nextLevelXP} />
+      <HomeNoticeModal visible={noticeModalVisible} onClose={handleReadNotice} theme={theme} activeNotice={activeNotice} />
+      <ChatAIAssistantModal visible={chatVisible} onClose={() => setChatVisible(false)} theme={theme} isWeb={isWeb} messages={messages} flatListRef={flatListRef} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isTyping={isTyping} QUICK_QUESTIONS={QUICK_QUESTIONS} />
     </RootComponent>
   );
 }
@@ -796,13 +748,4 @@ const styles = StyleSheet.create({
   feedbackPhotoLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, letterSpacing: 1 },
   feedbackTextBox: { padding: 20, borderRadius: 20, borderWidth: 1 },
   feedbackText: { fontSize: 16, lineHeight: 26, fontWeight: '500' },
-  dietCard: { flex: 1, marginTop: 60, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
-  dietHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, borderColor: '#333' },
-  dietTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
-  dietSectionTitle: { fontSize: 16, fontWeight: '900', marginBottom: 15, letterSpacing: 1, textDecorationLine: 'underline' },
-  instructionBox: { padding: 15, borderRadius: 16, marginBottom: 10, borderWidth: 1, borderStyle: 'dashed' },
-  mealCard: { padding: 18, borderRadius: 20, marginBottom: 15, borderWidth: 1 },
-  mealTime: { fontSize: 13, fontWeight: '900', marginBottom: 8, letterSpacing: 0.5 },
-  mealDesc: { fontSize: 15, lineHeight: 22, fontWeight: '600' },
-  mealSubs: { fontSize: 12, fontStyle: 'italic', marginTop: 10, opacity: 0.8 }
 });

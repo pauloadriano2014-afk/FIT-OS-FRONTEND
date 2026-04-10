@@ -1,3 +1,4 @@
+// src/components/AdminUserSystem.js
 import React, { createElement, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, TextInput, Linking, Platform, Alert, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -67,12 +68,9 @@ export default function AdminUserSystem({
 
     return (
         <View>
-            <Text style={[styles.sectionLabel, {marginTop: 40}]}>DADOS E SISTEMA</Text>
+            <Text style={[styles.sectionLabel, {marginTop: 20}]}>FERRAMENTAS DO ALUNO</Text>
             
-            <TouchableOpacity
-                style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                onPress={goToCheckins}
-            >
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={goToCheckins}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}>
                     <MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" />
                 </View>
@@ -80,10 +78,7 @@ export default function AdminUserSystem({
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            <TouchableOpacity
-                style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                onPress={goToEvolution}
-            >
+            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={goToEvolution}>
                 <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}>
                     <MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" />
                 </View>
@@ -91,26 +86,15 @@ export default function AdminUserSystem({
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={handleToggleStatus}>
-                <View style={[styles.iconBox, {backgroundColor: isActiveUser ? theme.accent + '22' : 'rgba(255,59,48,0.15)'}]}>
-                    <MaterialCommunityIcons name={isActiveUser ? "lock-open" : "lock"} size={20} color={isActiveUser ? theme.accent : "#FF3B30"} />
-                </View>
-                <Text style={[styles.actionText, {color: isActiveUser ? theme.text : '#FF3B30'}]}>
-                    {isActiveUser ? "Aluno Ativo (Toque para Bloquear)" : "Aluno Bloqueado (Toque para Ativar)"}
-                </Text>
-            </TouchableOpacity>
-
-            <Text style={[styles.sectionLabel, {marginTop: 40, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
+            <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE AVALIAÇÃO</Text>
             
-            {/* 🔥 CARD DE CONFIGURAÇÃO PREMIUM 🔥 */}
             <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                
                 <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
                     <View style={[styles.iconBox, {backgroundColor: theme.accent + '22'}]}>
                         <MaterialCommunityIcons name="calendar-sync" size={20} color={theme.accent} />
                     </View>
                     <View style={{flex: 1}}>
-                        <Text style={[styles.cardTitle, {color: theme.text}]}>Regra Atual do Plano</Text>
+                        <Text style={[styles.cardTitle, {color: theme.text}]}>Regra de Cobrança Atual</Text>
                         <Text style={{color: theme.accent, fontSize: 11, fontWeight: 'bold'}}>{planLabel}</Text>
                     </View>
                 </View>
@@ -118,7 +102,7 @@ export default function AdminUserSystem({
                 <View style={[styles.switchRow, { borderBottomColor: theme.border }]}>
                     <View style={{flex: 1, paddingRight: 15}}>
                         <Text style={{color: theme.text, fontWeight: '900', fontSize: 13, marginBottom: 4}}>Bloquear Cobrança de Fotos</Text>
-                        <Text style={{color: theme.textSecondary, fontSize: 11, lineHeight: 16}}>Oculta os avisos no app do aluno e desativa a pulsação do botão na tela inicial dele.</Text>
+                        <Text style={{color: theme.textSecondary, fontSize: 11, lineHeight: 16}}>Oculta os avisos no app do aluno e desativa a pulsação do botão.</Text>
                     </View>
                     <Switch 
                         value={disableCheckIn}
@@ -239,10 +223,40 @@ export default function AdminUserSystem({
                 ) : null}
             </View>
 
-            <TouchableOpacity style={styles.deleteUserRow} onPress={handleDeleteUser}>
-                <MaterialCommunityIcons name="account-remove" size={20} color="#FFF" />
-                <Text style={styles.deleteUserText}>EXCLUIR ALUNO PERMANENTEMENTE</Text>
-            </TouchableOpacity>
+            <Text style={[styles.sectionLabel, {marginTop: 30, color: '#FF3B30'}]}>ZONA DE RISCO</Text>
+            
+            <View style={[styles.riskCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
+                <View style={[styles.switchRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
+                    <View style={{flex: 1, paddingRight: 15}}>
+                        <Text style={{color: isActiveUser ? theme.text : '#FF3B30', fontWeight: '900', fontSize: 13, marginBottom: 4}}>
+                            Status de Acesso: {isActiveUser ? "ATIVO" : "BLOQUEADO"}
+                        </Text>
+                        <Text style={{color: theme.textSecondary, fontSize: 11, lineHeight: 16}}>
+                            {isActiveUser 
+                                ? "O aluno consegue logar e usar o app normalmente."
+                                : "O aluno será deslogado e impedido de acessar o app."
+                            }
+                        </Text>
+                    </View>
+                    <Switch 
+                        value={isActiveUser}
+                        onValueChange={handleToggleStatus}
+                        trackColor={{ false: theme.border, true: '#34C759' }} 
+                        thumbColor={Platform.OS === 'ios' ? '#FFF' : (isActiveUser ? '#FFF' : '#888')}
+                    />
+                </View>
+
+                <View style={{ padding: 20 }}>
+                    <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 15, fontWeight: '600', textAlign: 'center'}}>
+                        ⚠️ ATENÇÃO: A exclusão é irreversível e apaga todos os treinos, fotos, histórico e dados do aluno permanentemente.
+                    </Text>
+                    
+                    <TouchableOpacity style={styles.deleteUserBtn} onPress={handleDeleteUser}>
+                        <MaterialCommunityIcons name="account-remove" size={18} color="#FFF" />
+                        <Text style={styles.deleteUserBtnText}>EXCLUIR ALUNO PERMANENTEMENTE</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
         </View>
     );
 }
@@ -268,6 +282,7 @@ const styles = StyleSheet.create({
     inputPdf: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
     saveBtn: { padding: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center', height: 50, width: 50 },
     
-    deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 18, borderRadius: 16, marginTop: 30, marginBottom: 30, gap: 10, elevation: 4 },
-    deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
+    riskCard: { borderRadius: 24, marginBottom: 30, borderWidth: 2, overflow: 'hidden', elevation: 6, shadowOffset: {width: 0, height: 6}, shadowOpacity: 0.15, shadowRadius: 10 },
+    deleteUserBtn: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 16, borderRadius: 12, gap: 10, elevation: 3 },
+    deleteUserBtnText: { color: '#FFF', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
 });

@@ -18,6 +18,13 @@ const formatToBRDate = (isoString) => {
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 };
 
+const DIET_OPTIONS = [
+    { id: 'NONE', label: '🚫 Ocultar Botão', desc: 'Aluno não verá a sugestão alimentar.' },
+    { id: 'WEIGHT_LOSS', label: '📉 Definição / Emagrecimento', desc: 'Foco em secar (1200 a 1500 kcal)' },
+    { id: 'HYPERTROPHY_M', label: '💪 Volume Muscular (Homem)', desc: 'Foco em crescer (2000 a 2500 kcal)' },
+    { id: 'HYPERTROPHY_F', label: '🍑 Volume Muscular (Mulher)', desc: 'Foco em perna/glúteo (1500 a 2000 kcal)' }
+];
+
 export default function AdminUserOptions({ route, navigation }) {
   const { aluno } = route.params;
   const { theme } = useTheme(); 
@@ -27,9 +34,8 @@ export default function AdminUserOptions({ route, navigation }) {
   const [activeWorkouts, setActiveWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
   
-  // 🔥 ESTADOS DAS SUPER-ABAS
-  const [superTab, setSuperTab] = useState('treinos'); // 'treinos', 'acessos', 'sistema'
-  const [workoutTab, setWorkoutTab] = useState('active'); // Sub-aba de treinos: 'active', 'archived'
+  const [superTab, setSuperTab] = useState('treinos'); 
+  const [workoutTab, setWorkoutTab] = useState('active'); 
   
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
   const [userPlan, setUserPlan] = useState('PREMIUM');
@@ -43,6 +49,10 @@ export default function AdminUserOptions({ route, navigation }) {
 
   const [nextCheckInDate, setNextCheckInDate] = useState(''); 
   const [disableCheckIn, setDisableCheckIn] = useState(aluno.disableCheckIn || false);
+
+  // 🔥 ESTADOS DA DIETA
+  const [dietGoal, setDietGoal] = useState(aluno.dietGoal || 'NONE');
+  const [savingDiet, setSavingDiet] = useState(false);
 
   const [vipContents, setVipContents] = useState([]);
   const [userAccess, setUserAccess] = useState([]);
@@ -61,6 +71,7 @@ export default function AdminUserOptions({ route, navigation }) {
               if (freshness.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshness.nextCheckInDate));
               setDisableCheckIn(!!freshness.disableCheckIn);
               setPhotoUrl(freshness.photoUrl);
+              setDietGoal(freshness.dietGoal || 'NONE'); 
               
               const dbPlan = freshness.plan || 'PREMIUM';
               setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM');
@@ -76,6 +87,12 @@ export default function AdminUserOptions({ route, navigation }) {
   }, [navigation]);
 
   const fetchAllData = async () => {
+    // 🔥 BLINDAGEM: Se o aluno não tiver ID, a função para e não faz o fetch, evitando o erro "undefined"
+    if (!aluno || !aluno.id) {
+        setLoading(false);
+        return; 
+    }
+
     const t = Date.now();
     try {
         const [resWorkouts, resUser, resPaflix, resAccess] = await Promise.all([
@@ -106,6 +123,7 @@ export default function AdminUserOptions({ route, navigation }) {
             setDisableCheckIn(!!fresh.disableCheckIn);
             setPhotoUrl(fresh.photoUrl);
             setIsActiveUser(fresh.active);
+            setDietGoal(fresh.dietGoal || 'NONE');
             
             const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
             setUserPlan(finalPlan);
@@ -354,6 +372,29 @@ export default function AdminUserOptions({ route, navigation }) {
       } catch(e) {}
   };
 
+  // 🔥 SALVAR A DIETA NO BANCO 🔥
+  const handleSaveDietGoal = async () => {
+      setSavingDiet(true);
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ dietGoal })
+          });
+          if (res.ok) {
+              if (Platform.OS === 'web') window.alert("Estratégia Alimentar salva e liberada no App do aluno!");
+              else Alert.alert("Sucesso", "Sugestão Alimentar atualizada e liberada!");
+          } else {
+              throw new Error("Erro ao salvar dieta");
+          }
+      } catch (e) {
+          if (Platform.OS === 'web') window.alert("Erro ao atualizar dieta.");
+          else Alert.alert("Erro", "Falha de conexão ao salvar dieta.");
+      } finally {
+          setSavingDiet(false);
+      }
+  };
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -387,18 +428,19 @@ export default function AdminUserOptions({ route, navigation }) {
                             <Image source={{uri: photoUrl}} style={[styles.avatarImage, { borderColor: theme.border }]} />
                         ) : (
                             <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                <Text style={[styles.avatarText, { color: theme.accent }]}>{aluno.name.charAt(0).toUpperCase()}</Text>
+                                {/* 🔥 BLINDAGEM DO AVATAR 🔥 */}
+                                <Text style={[styles.avatarText, { color: theme.accent }]}>{(aluno?.name || 'A').charAt(0).toUpperCase()}</Text>
                             </View>
                         )}
                         <View style={[styles.editBadge, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="camera-plus" size={14} color="#000" /></View>
                     </TouchableOpacity>
                     <View style={styles.profileInfo}>
-                        <Text style={[styles.profileName, { color: theme.text }]}>{aluno.name}</Text>
-                        <Text style={styles.profileEmail}>{aluno.email}</Text>
+                        <Text style={[styles.profileName, { color: theme.text }]}>{aluno?.name || 'Aluno'}</Text>
+                        <Text style={styles.profileEmail}>{aluno?.email || ''}</Text>
                     </View>
                 </View>
 
-                {/* 🔥 O NOVO CONTROLE DE SUPER-ABAS 🔥 */}
+                {/* CONTROLE DE SUPER-ABAS */}
                 <View style={[styles.superTabsContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <TouchableOpacity 
                         style={[styles.superTabBtn, superTab === 'treinos' && { backgroundColor: theme.accent }]}
@@ -449,7 +491,7 @@ export default function AdminUserOptions({ route, navigation }) {
                 )}
 
                 {/* =========================================
-                    TAB 2: ESTEIRA & ACESSOS 
+                    TAB 2: ESTEIRA & ACESSOS & DIETA
                 ========================================= */}
                 {superTab === 'acessos' && (
                     <View style={styles.tabContent}>
@@ -488,6 +530,53 @@ export default function AdminUserOptions({ route, navigation }) {
                                 </View>
                                 {userPlan === 'CHALLENGE_21' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                             </TouchableOpacity>
+                        </View>
+
+                        {/* 🔥 BLOCO DA ESTRATÉGIA ALIMENTAR (Liberar o botão na Home) 🔥 */}
+                        <Text style={[styles.sectionLabel, {marginTop: 20, color: theme.accent}]}>SUGESTÃO ALIMENTAR (APP DO ALUNO)</Text>
+                        <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
+                                <View style={[styles.iconBox, {backgroundColor: theme.accent + '22', width: 36, height: 36, borderRadius: 18}]}>
+                                    <MaterialCommunityIcons name="food-apple" size={18} color={theme.accent} />
+                                </View>
+                                <View style={{flex: 1}}>
+                                    <Text style={[styles.cardTitle, {color: theme.text}]}>Estratégia Atual</Text>
+                                    <Text style={{color: theme.textSecondary, fontSize: 11}}>Selecione a base alimentar para liberar o botão na Home do Aluno.</Text>
+                                    {userPlan === 'CHALLENGE_21' && (
+                                        <Text style={{color: '#FF9500', fontSize: 11, fontWeight: 'bold', marginTop: 4}}>⚠️ Alunos do Desafio 21 Dias já possuem a dieta de Emagrecimento liberada automaticamente por padrão.</Text>
+                                    )}
+                                </View>
+                            </View>
+                            <View style={{ padding: 20 }}>
+                                {DIET_OPTIONS.map(opt => (
+                                    <TouchableOpacity 
+                                        key={opt.id}
+                                        style={{flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: dietGoal === opt.id ? theme.accent : theme.border, backgroundColor: dietGoal === opt.id ? theme.accent + '15' : theme.bg, marginBottom: 10}}
+                                        onPress={() => setDietGoal(opt.id)}
+                                        disabled={userPlan === 'CHALLENGE_21'} 
+                                    >
+                                        <MaterialCommunityIcons name={dietGoal === opt.id ? "radiobox-marked" : "radiobox-blank"} size={20} color={dietGoal === opt.id ? theme.accent : theme.textSecondary} />
+                                        <View style={{flex: 1, marginLeft: 10}}>
+                                            <Text style={{color: dietGoal === opt.id ? theme.accent : theme.text, fontWeight: 'bold', fontSize: 13}}>{opt.label}</Text>
+                                            <Text style={{color: theme.textSecondary, fontSize: 11, marginTop: 2}}>{opt.desc}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                                {userPlan !== 'CHALLENGE_21' && (
+                                    <TouchableOpacity 
+                                        style={[styles.saveBtnLg, { backgroundColor: theme.accent, width: '100%', marginTop: 10, flexDirection: 'row', gap: 8, height: 48 }]} 
+                                        onPress={handleSaveDietGoal}
+                                        disabled={savingDiet}
+                                    >
+                                        {savingDiet ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
+                                            <>
+                                                <MaterialCommunityIcons name="content-save" size={18} color={theme.isDark ? '#000' : '#FFF'} />
+                                                <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 12, letterSpacing: 0.5}}>SALVAR ESTRATÉGIA</Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                            </View>
                         </View>
 
                         <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -565,18 +654,15 @@ const styles = StyleSheet.create({
   profileName: { fontSize: 20, fontWeight: '900' },
   profileEmail: { color: '#888', fontSize: 12, marginTop: 2 },
 
-  // 🔥 ESTILOS DAS SUPER-ABAS
   superTabsContainer: { flexDirection: 'row', borderRadius: 12, padding: 5, marginBottom: 25, borderWidth: 1 },
   superTabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   superTabText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
   tabContent: { flex: 1, animationDuration: '0.3s' },
 
-  // ESTILOS DA ABA TREINOS
   subTabsRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   subTabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderBottomWidth: 2 },
   subTabText: { fontWeight: 'bold', fontSize: 11 },
 
-  // ESTILOS DA ABA ACESSOS
   plansContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
   planCard: { width: '48%', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   planTitle: { fontWeight: '900', fontSize: 10, letterSpacing: 0.5, flexShrink: 1 },
@@ -584,6 +670,11 @@ const styles = StyleSheet.create({
   accessIconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center' },
   accessTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
   accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' },
+
+  premiumCard: { borderRadius: 20, marginBottom: 20, borderWidth: 1, overflow: 'hidden', elevation: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 15, borderBottomWidth: 1 },
+  cardTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
+  saveBtnLg: { borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
 
   divider: { height:1, marginVertical:20 },
   sectionLabel: { color:'#888', fontWeight:'900', marginBottom:5, fontSize:12, letterSpacing:1 },
