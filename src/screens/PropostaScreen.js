@@ -48,7 +48,7 @@ export default function PropostaScreen({ route }) {
 
     if (timeLeft === 0) {
         return (
-            <RootComponent style={[styles.container, isWeb && { height: '100vh' }]}>
+            <RootComponent style={styles.container}>
                 <View style={styles.expiredBox}>
                     <MaterialCommunityIcons name="clock-alert-outline" size={64} color="#FF3B30" />
                     <Text style={styles.expiredTitle}>OFERTA EXPIRADA</Text>
@@ -62,10 +62,10 @@ export default function PropostaScreen({ route }) {
     }
 
     return (
-        <RootComponent style={[styles.container, isWeb && { height: '100vh' }]}>
+        <RootComponent style={styles.container}>
             <View style={styles.webWrapper}>
                 <ScrollView 
-                    style={{ flex: 1, width: '100%' }} // 🔥 ISSO DESTRAVA O SCROLL NA WEB 🔥
+                    style={{ flex: 1, width: '100%' }}
                     contentContainerStyle={styles.scrollContent} 
                     showsVerticalScrollIndicator={false}
                 >
@@ -192,9 +192,28 @@ export default function PropostaScreen({ route }) {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0a0a0a' },
-    webWrapper: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center', backgroundColor: '#111', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#222' },
-    scrollContent: { padding: 25, paddingBottom: 80 }, // Dei um respiro a mais no rodapé pra não cortar nada
+    // 🔥 A BLINDAGEM NUCLEAR PARA SCROLL NA WEB ESTÁ AQUI 🔥
+    container: { 
+        flex: 1, 
+        backgroundColor: '#0a0a0a',
+        ...(isWeb && { height: '100vh', overflow: 'hidden' }) 
+    },
+    webWrapper: { 
+        flex: 1, 
+        width: '100%', 
+        maxWidth: 600, 
+        alignSelf: 'center', 
+        backgroundColor: '#111', 
+        borderLeftWidth: 1, 
+        borderRightWidth: 1, 
+        borderColor: '#222',
+        ...(isWeb && { overflow: 'hidden' })
+    },
+    scrollContent: { 
+        flexGrow: 1, 
+        padding: 25, 
+        paddingBottom: 100 
+    },
     
     // HERO
     heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
