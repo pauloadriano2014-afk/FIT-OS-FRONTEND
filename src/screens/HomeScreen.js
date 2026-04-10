@@ -374,17 +374,23 @@ export default function HomeScreen({ navigation }) {
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor={theme.accent}/>}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.header}>
-              <View>
-                <Text style={[styles.greeting, { color: theme.textSecondary }]}>
+                        <View style={styles.header}>
+              {/* flex: 1 para respeitar o limite e numberOfLines para não quebrar a linha */}
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={[styles.greeting, { color: theme.textSecondary }]} numberOfLines={1}>
                     BEM-VINDO AO {userPlan === 'LOW_COST' ? 'PLANO BÁSICO' : (userPlan === 'FICHA_8S' ? 'PROJETO DE FICHAS' : (userPlan === 'CHALLENGE_21' ? 'DESAFIO 21 DIAS' : 'ELITE'))},
                 </Text>
-                <Text style={[styles.name, { color: theme.text }]}>{userName.toUpperCase()} ⚡</Text>
+                <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+                    {userName.toUpperCase()} ⚡
+                </Text>
               </View>
-              <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLevelModalVisible(true)}>
+              
+              {/* flexShrink: 0 blinda o botão para ele nunca ser espremido */}
+              <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border, flexShrink: 0 }]} onPress={() => setLevelModalVisible(true)}>
                 <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
               </TouchableOpacity>
             </View>
+
 
             {needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
                 <TouchableOpacity 
