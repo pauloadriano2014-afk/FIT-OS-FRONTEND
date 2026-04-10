@@ -2,20 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
-    Linking, Platform, SafeAreaView, Dimensions, Animated
+    Linking, Platform, SafeAreaView, Animated
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const { width } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
+const RootComponent = isWeb ? View : SafeAreaView;
 
 export default function PropostaScreen({ route }) {
-    // Parâmetros que podem vir pela URL (ex: seusite.com/proposta?nome=João)
     const leadName = route?.params?.nome || 'Atleta';
     
     // Timer de Urgência (Fixo em 24h para simulação visual)
-    const [timeLeft, setTimeLeft] = useState(24 * 60 * 60);
+    const [timeLeft, setTimeLeft] = useState(24 * 60 * 60 - 1);
 
     useEffect(() => {
         const interval = setInterval(() => {
@@ -49,7 +48,7 @@ export default function PropostaScreen({ route }) {
 
     if (timeLeft === 0) {
         return (
-            <SafeAreaView style={styles.container}>
+            <RootComponent style={[styles.container, isWeb && { height: '100vh' }]}>
                 <View style={styles.expiredBox}>
                     <MaterialCommunityIcons name="clock-alert-outline" size={64} color="#FF3B30" />
                     <Text style={styles.expiredTitle}>OFERTA EXPIRADA</Text>
@@ -58,14 +57,18 @@ export default function PropostaScreen({ route }) {
                         <Text style={styles.expiredBtnText}>FALAR COM O COACH</Text>
                     </TouchableOpacity>
                 </View>
-            </SafeAreaView>
+            </RootComponent>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
+        <RootComponent style={[styles.container, isWeb && { height: '100vh' }]}>
             <View style={styles.webWrapper}>
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                <ScrollView 
+                    style={{ flex: 1, width: '100%' }} // 🔥 ISSO DESTRAVA O SCROLL NA WEB 🔥
+                    contentContainerStyle={styles.scrollContent} 
+                    showsVerticalScrollIndicator={false}
+                >
                     
                     {/* 🔥 HERO SECTION 🔥 */}
                     <View style={styles.heroSection}>
@@ -184,14 +187,14 @@ export default function PropostaScreen({ route }) {
 
                 </ScrollView>
             </View>
-        </SafeAreaView>
+        </RootComponent>
     );
 }
 
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#0a0a0a' },
     webWrapper: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center', backgroundColor: '#111', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#222' },
-    scrollContent: { padding: 25, paddingBottom: 60 },
+    scrollContent: { padding: 25, paddingBottom: 80 }, // Dei um respiro a mais no rodapé pra não cortar nada
     
     // HERO
     heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },

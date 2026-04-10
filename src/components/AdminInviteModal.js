@@ -35,10 +35,19 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         }).catch(err => console.error('Erro ao abrir WhatsApp', err));
     };
 
+    // 🔥 URL DINÂMICA: Detecta se está no Localhost ou em Produção 🔥
+    const getBaseUrl = () => {
+        if (Platform.OS === 'web') {
+            return window.location.origin; // Retorna http://localhost:8081 ou https://pauloadrianoteam.com.br automaticamente
+        }
+        return 'https://www.pauloadrianoteam.com.br'; // Fallback caso esteja usando o App nativo no celular
+    };
+
     const generatePropostaLink = () => {
         const { teamName } = getCoachInfo();
         const finalName = leadName.trim() || 'Novo Aluno';
-        const inviteLink = `https://www.pauloadrianoteam.com.br/Proposta?nome=${encodeURIComponent(finalName)}`; 
+        const baseUrl = getBaseUrl();
+        const inviteLink = `${baseUrl}/Proposta?nome=${encodeURIComponent(finalName)}`; 
         
         const message = `Fala, ${finalName}! Tudo pronto para começarmos o seu processo.\n\nPara darmos o start, acesse o seu convite VIP abaixo, conheça a plataforma exclusiva e destrave o seu acesso:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
         openWhatsApp(message);
@@ -46,7 +55,8 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
     const generateCadastroLink = (planType) => {
         const { coachCode, teamName } = getCoachInfo();
-        const inviteLink = `https://www.pauloadrianoteam.com.br/registro?coach=${coachCode}&plan=${planType}`; 
+        const baseUrl = getBaseUrl();
+        const inviteLink = `${baseUrl}/registro?coach=${coachCode}&plan=${planType}`; 
         
         const planNameStr = planType === 'PREMIUM' ? 'Consultoria Premium' : (planType === 'LOW_COST' ? 'Plano de Fichas' : 'Desafio');
         const message = `Opa! Tudo pronto para começarmos o seu ${planNameStr}.\n\nPara darmos o start, acesse o link abaixo, instale o aplicativo oficial e faça seu cadastro:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
