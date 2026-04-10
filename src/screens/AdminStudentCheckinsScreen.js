@@ -578,11 +578,11 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   
-  evalModalContent: { 
+    evalModalContent: { 
       width: '100%', 
-      maxWidth: 500, 
+      maxWidth: 550, 
       height: Dimensions.get('window').height * 0.85,
-      borderRadius: 24, 
+      borderRadius: 30, 
       borderWidth: 1,
       display: 'flex',
       flexDirection: 'column',
@@ -595,24 +595,26 @@ const styles = StyleSheet.create({
       ...(Platform.OS === 'web' ? { overflowY: 'auto' } : {}),
   },
   
-  evalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, flexShrink: 0 },
-  evalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+  evalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, flexShrink: 0 },
+  evalTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   
-  tabBtn: { flex: 1, padding: 10, borderRadius: 8, alignItems: 'center' },
+  tabBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
   tabBtnText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
 
   dateDropdown: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1 },
   dateList: { borderWidth: 1, borderRadius: 12, marginTop: 5, maxHeight: 150, overflow: 'hidden' },
   dateListItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 15, borderBottomWidth: 1 },
   
-  comparePhotosContainer: { flexDirection: 'row', gap: 15, marginBottom: 20 },
+  comparePhotosContainer: { flexDirection: 'row', gap: 15, marginBottom: 25 },
   comparePhotoCol: { flex: 1, alignItems: 'center' },
-  compareLabel: { fontSize: 11, fontWeight: 'bold', marginBottom: 8 },
-  comparePhotoImg: { width: '100%', height: 200, borderRadius: 16, borderWidth: 2, backgroundColor: '#000' },
+  compareBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, marginBottom: 10, alignSelf: 'center' },
+  compareLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+  comparePhotoImg: { width: '100%', height: 250, borderRadius: 16, borderWidth: 2, backgroundColor: '#000' },
   
-  generateAIBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' },
-  evalInput: { height: 150, padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, textAlignVertical: 'top', outlineStyle: 'none' },
-  submitEvalBtn: { padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 20, elevation: 3 },
+  generateAIBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
+  evalInputContainer: { padding: 20, borderRadius: 20, borderWidth: 1 },
+  evalInput: { minHeight: 120, fontSize: 15, lineHeight: 24, textAlignVertical: 'top', outlineStyle: 'none' },
+  submitEvalBtn: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 30, elevation: 4 },
 
   modalClose: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 10, padding: 10 },
   fullImage: { width: '100%', height: '80%' }
