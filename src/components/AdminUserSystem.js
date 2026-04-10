@@ -1,4 +1,3 @@
-// src/components/AdminUserSystem.js
 import React, { createElement, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, TextInput, Linking, Platform, Alert, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -101,90 +100,100 @@ export default function AdminUserSystem({
                 </Text>
             </TouchableOpacity>
 
-            <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
-            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
+            <Text style={[styles.sectionLabel, {marginTop: 40, color: theme.accent}]}>CONFIGURAÇÃO DE CHECK-IN</Text>
+            
+            {/* 🔥 CARD DE CONFIGURAÇÃO PREMIUM 🔥 */}
+            <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: theme.border}}>
-                    <MaterialCommunityIcons name="information-outline" size={16} color={theme.accent} />
-                    <Text style={{color: theme.accent, fontSize: 11, fontWeight: 'bold', flex: 1}}>{planLabel}</Text>
+                <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
+                    <View style={[styles.iconBox, {backgroundColor: theme.accent + '22'}]}>
+                        <MaterialCommunityIcons name="calendar-sync" size={20} color={theme.accent} />
+                    </View>
+                    <View style={{flex: 1}}>
+                        <Text style={[styles.cardTitle, {color: theme.text}]}>Regra Atual do Plano</Text>
+                        <Text style={{color: theme.accent, fontSize: 11, fontWeight: 'bold'}}>{planLabel}</Text>
+                    </View>
                 </View>
 
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: theme.border}}>
-                    <View style={{flex: 1, paddingRight: 10}}>
-                        <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 13}}>Desativar Cobrança</Text>
-                        <Text style={{color: theme.textSecondary, fontSize: 11}}>Oculta os avisos e bloqueia a pulsação do botão para este aluno.</Text>
+                <View style={[styles.switchRow, { borderBottomColor: theme.border }]}>
+                    <View style={{flex: 1, paddingRight: 15}}>
+                        <Text style={{color: theme.text, fontWeight: '900', fontSize: 13, marginBottom: 4}}>Bloquear Cobrança de Fotos</Text>
+                        <Text style={{color: theme.textSecondary, fontSize: 11, lineHeight: 16}}>Oculta os avisos no app do aluno e desativa a pulsação do botão na tela inicial dele.</Text>
                     </View>
                     <Switch 
                         value={disableCheckIn}
                         onValueChange={handleToggleDisableCheckIn}
-                        trackColor={{ false: '#333', true: '#FF3B30' }}
-                        thumbColor={Platform.OS === 'ios' ? '#FFF' : (disableCheckIn ? '#000' : '#888')}
+                        trackColor={{ false: theme.border, true: '#FF3B30' }}
+                        thumbColor={Platform.OS === 'ios' ? '#FFF' : (disableCheckIn ? '#FFF' : '#888')}
                     />
                 </View>
 
-                <Text style={[styles.sectionSubDesc, { marginBottom: 5 }]}>
-                    {isCyclePlan 
-                        ? `Defina a data para liberar o check-in. Após o envio, o sistema calcula automaticamente o próximo para o dia ${autoDays}.`
-                        : `Defina uma data fixa ou deixe em branco para Piloto Automático (${autoDays} dias após cada envio).`
-                    }
-                </Text>
+                <View style={{ padding: 20 }}>
+                    <Text style={{color: theme.textSecondary, fontSize: 11, marginBottom: 15, fontWeight: '600'}}>
+                        {isCyclePlan 
+                            ? `Defina a data para liberar o check-in. Após o envio, o sistema calcula o próximo para o dia ${autoDays}.`
+                            : `Defina uma data fixa ou deixe em branco para Piloto Automático (${autoDays} dias após cada envio).`
+                        }
+                    </Text>
 
-                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, backgroundColor: semaforoConfig.bg, borderWidth: 1, borderColor: semaforoConfig.color, marginBottom: 15}}>
-                    <MaterialCommunityIcons name={semaforoConfig.icon} size={20} color={semaforoConfig.color} />
-                    <View style={{flex: 1}}>
-                        <Text style={{color: semaforoConfig.color, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS ATUAL:</Text>
-                        <Text style={{color: semaforoConfig.color, fontSize: 13, fontWeight: 'bold', marginTop: 2}}>{semaforoConfig.text}</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: semaforoConfig.bg, borderColor: semaforoConfig.color }]}>
+                        <MaterialCommunityIcons name={semaforoConfig.icon} size={24} color={semaforoConfig.color} />
+                        <View style={{flex: 1, marginLeft: 12}}>
+                            <Text style={{color: semaforoConfig.color, fontSize: 9, fontWeight: '900', letterSpacing: 1}}>STATUS DO SISTEMA</Text>
+                            <Text style={{color: semaforoConfig.color, fontSize: 14, fontWeight: 'bold', marginTop: 2}}>{semaforoConfig.text}</Text>
+                        </View>
                     </View>
-                </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    {Platform.OS === 'web' ? createElement('input', {
-                        type: 'date',
-                        value: nextCheckInDate && nextCheckInDate.length === 10 ? nextCheckInDate.split('/').reverse().join('-') : '',
-                        onChange: (e) => {
-                            const val = e.target.value;
-                            if(val) {
-                                const [y, m, d] = val.split('-');
-                                handleCheckInDateChange(`${d}/${m}/${y}`);
-                            } else {
-                                handleCheckInDateChange('');
-                            }
-                        },
-                        style: { flex: 1, padding: '12px', borderRadius: '10px', border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, outline: 'none', fontSize: '13px', fontFamily: 'inherit', fontWeight: 'bold' }
-                    }) : (
-                        <TextInput 
-                            style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1, fontWeight: 'bold' }]} 
-                            placeholder="DD/MM/AAAA" 
-                            placeholderTextColor={theme.textSecondary}
-                            value={nextCheckInDate}
-                            onChangeText={handleCheckInDateChange}
-                            keyboardType="numeric"
-                            maxLength={10}
-                            autoCapitalize="none"
-                        />
-                    )}
-                    <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSaveCheckInDate}>
-                        <MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                    <Text style={{color: theme.text, fontSize: 11, fontWeight: '900', marginBottom: 8, marginTop: 20}}>NOVA DATA DE COBRANÇA:</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        {Platform.OS === 'web' ? createElement('input', {
+                            type: 'date',
+                            value: nextCheckInDate && nextCheckInDate.length === 10 ? nextCheckInDate.split('/').reverse().join('-') : '',
+                            onChange: (e) => {
+                                const val = e.target.value;
+                                if(val) {
+                                    const [y, m, d] = val.split('-');
+                                    handleCheckInDateChange(`${d}/${m}/${y}`);
+                                } else {
+                                    handleCheckInDateChange('');
+                                }
+                            },
+                            style: { flex: 1, padding: '14px', borderRadius: '12px', border: `1px solid ${theme.border}`, backgroundColor: theme.bg, color: theme.text, outline: 'none', fontSize: '14px', fontFamily: 'inherit', fontWeight: 'bold' }
+                        }) : (
+                            <TextInput 
+                                style={[styles.inputLarge, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
+                                placeholder="DD/MM/AAAA" 
+                                placeholderTextColor={theme.textSecondary}
+                                value={nextCheckInDate}
+                                onChangeText={handleCheckInDateChange}
+                                keyboardType="numeric"
+                                maxLength={10}
+                                autoCapitalize="none"
+                            />
+                        )}
+                        <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: theme.accent }]} onPress={handleSaveCheckInDate}>
+                            <MaterialCommunityIcons name="check-bold" size={24} color={theme.isDark ? '#000' : '#FFF'} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity 
+                        style={[styles.quickReleaseBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                        onPress={() => {
+                            const today = new Date();
+                            const dd = String(today.getDate()).padStart(2, '0');
+                            const mm = String(today.getMonth() + 1).padStart(2, '0');
+                            const yyyy = today.getFullYear();
+                            handleCheckInDateChange(`${dd}/${mm}/${yyyy}`);
+                            
+                            const msg = "Data definida para HOJE. Clique no botão Verde (✔) para salvar e confirmar no banco.";
+                            if (Platform.OS === 'web') window.alert(msg);
+                            else Alert.alert("Atenção", msg);
+                        }}
+                    >
+                        <MaterialCommunityIcons name="flash" size={18} color={theme.accent} />
+                        <Text style={{color: theme.text, fontWeight: '900', fontSize: 11, letterSpacing: 0.5}}>PREENCHER DATA COM HOJE (AGORA)</Text>
                     </TouchableOpacity>
                 </View>
-
-                <TouchableOpacity 
-                    style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, padding: 12, borderRadius: 10, backgroundColor: theme.accent + '15', borderWidth: 1, borderColor: theme.accent, borderStyle: 'dashed'}}
-                    onPress={() => {
-                        const today = new Date();
-                        const dd = String(today.getDate()).padStart(2, '0');
-                        const mm = String(today.getMonth() + 1).padStart(2, '0');
-                        const yyyy = today.getFullYear();
-                        handleCheckInDateChange(`${dd}/${mm}/${yyyy}`);
-                        
-                        const msg = "Data definida para HOJE. Clique em Salvar para confirmar.";
-                        if (Platform.OS === 'web') window.alert(msg);
-                        else Alert.alert("Liberado!", msg);
-                    }}
-                >
-                    <MaterialCommunityIcons name="lock-open-variant" size={16} color={theme.accent} />
-                    <Text style={{color: theme.accent, fontWeight: '900', fontSize: 11, letterSpacing: 0.5}}>LIBERAR CHECK-IN AGORA</Text>
-                </TouchableOpacity>
             </View>
 
             <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
@@ -239,14 +248,26 @@ export default function AdminUserSystem({
 }
 
 const styles = StyleSheet.create({
-    sectionLabel: { color:'#888', fontWeight:'900', marginBottom:5, fontSize:12, letterSpacing:1 },
-    sectionSubDesc: { color: '#888', fontSize: 11, marginBottom: 15 },
-    actionRow: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, marginBottom: 10, gap: 15, borderWidth:1 },
-    iconBox: { width: 36, height: 36, borderRadius: 18, justifyContent:'center', alignItems:'center' },
-    actionText: { fontWeight: 'bold', fontSize: 13, flex:1 },
-    card: { borderRadius: 12, padding: 15, marginBottom: 15, borderWidth: 1 },
-    inputPdf: { padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 13, outlineStyle: 'none' },
-    saveBtn: { padding: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', height: 45, width: 45 },
-    deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 15, borderRadius: 12, marginTop: 20, gap: 10 },
-    deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 12 },
+    sectionLabel: { color:'#888', fontWeight:'900', marginBottom:15, fontSize:12, letterSpacing:1 },
+    actionRow: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, marginBottom: 12, gap: 15, borderWidth:1, elevation: 2, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4 },
+    iconBox: { width: 44, height: 44, borderRadius: 22, justifyContent:'center', alignItems:'center' },
+    actionText: { fontWeight: '900', fontSize: 14, flex:1, letterSpacing: 0.5 },
+    
+    premiumCard: { borderRadius: 24, marginBottom: 20, borderWidth: 1, overflow: 'hidden', elevation: 4, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 8 },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 20, borderBottomWidth: 1 },
+    cardTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
+    switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
+    statusBadge: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, borderWidth: 1 },
+    
+    inputLarge: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, fontSize: 15, fontWeight: 'bold' },
+    saveBtnLg: { width: 54, height: 54, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+    quickReleaseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 15, padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' },
+    
+    card: { borderRadius: 16, padding: 20, marginBottom: 15, borderWidth: 1 },
+    sectionSubDesc: { color: '#888', fontSize: 12, marginBottom: 15, lineHeight: 18 },
+    inputPdf: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
+    saveBtn: { padding: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center', height: 50, width: 50 },
+    
+    deleteUserRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 18, borderRadius: 16, marginTop: 30, marginBottom: 30, gap: 10, elevation: 4 },
+    deleteUserText: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
 });
