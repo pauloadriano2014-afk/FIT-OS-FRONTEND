@@ -172,7 +172,6 @@ function RootNavigator() {
                     if (targetRoute === 'AdminDashboard') {
                         navigationRef.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
                     } else {
-                        // 🔥 FIM DO LOOP INFINITO: Joga o aluno direto pra Home! 
                         navigationRef.reset({ index: 0, routes: [{ name: 'Main', params: { userData: user } }] });
                     }
                 }
@@ -248,8 +247,14 @@ function RootNavigator() {
   );
 }
 
+// 🔥 MAPEAMENTO DOS LINKS PARA O NAVEGADOR ENTENDER 🔥
 const linking = {
-  prefixes: ['https://www.pauloadrianoteam.com.br', 'https://pauloadrianoteam.com.br'],
+  prefixes: [
+      'https://www.pauloadrianoteam.com.br', 
+      'https://pauloadrianoteam.com.br', 
+      'http://localhost:8081', // Facilita pra testar no seu pc
+      'http://localhost:8082'
+  ],
   config: {
     screens: {
       Install: {
@@ -260,9 +265,16 @@ const linking = {
           },
           initialRouteName: 'Install',
       },
+      // 👇 AGORA O REACT NATIVE SABE O QUE É A "/Proposta" 👇
+      Proposta: {
+          path: 'Proposta',
+          parse: {
+              nome: (nome) => nome
+          }
+      },
       AdminStudentCheckins: { path: 'admin-checkins' },
-AdminEvolution: { path: 'admin-evolution' },
-AdminAlunoOptions: { path: 'admin-aluno' },
+      AdminEvolution: { path: 'admin-evolution' },
+      AdminAlunoOptions: { path: 'admin-aluno' },
     }
   }
 };
