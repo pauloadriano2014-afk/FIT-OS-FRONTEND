@@ -386,13 +386,16 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             </View>
         </View>
 
-        {/* Modal de Avaliação */}
+                {/* 🔥 MODAL DE AVALIAÇÃO REFINADO (VISUAL ELITE) 🔥 */}
         {evaluationModalVisible && (
             <View style={styles.modalBgAbsolute}>
-                <View style={[styles.evalModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.evalModalContent, { backgroundColor: theme.bg }]}>
                     
                     <View style={[styles.evalHeader, { borderBottomColor: 'rgba(128,128,128,0.2)' }]}>
-                        <Text style={[styles.evalTitle, { color: theme.text }]}>NOVA AVALIAÇÃO</Text>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                            <MaterialCommunityIcons name="bullseye-arrow" size={24} color={theme.accent} />
+                            <Text style={[styles.evalTitle, { color: theme.text }]}>PAINEL DE ANÁLISE</Text>
+                        </View>
                         <TouchableOpacity onPress={() => setEvaluationModalVisible(false)} style={{padding: 5}}>
                             <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
                         </TouchableOpacity>
@@ -400,16 +403,16 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
                     <ScrollView 
                         style={styles.evalScrollView}
-                        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
-                        showsVerticalScrollIndicator={true}
+                        contentContainerStyle={{ padding: 25, paddingBottom: 80 }}
+                        showsVerticalScrollIndicator={false}
                         nestedScrollEnabled={true}
                     >
-                        <View style={{flexDirection: 'row', backgroundColor: theme.bg, borderRadius: 10, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: theme.border}}>
+                        <View style={{flexDirection: 'row', backgroundColor: theme.surface, borderRadius: 12, padding: 4, marginBottom: 25, borderWidth: 1, borderColor: theme.border}}>
                             <TouchableOpacity 
                                 style={[styles.tabBtn, { backgroundColor: evaluationType === 'initial' ? theme.accent : 'transparent' }]}
                                 onPress={() => handleTabChange('initial')}
                             >
-                                <Text style={[styles.tabBtnText, { color: evaluationType === 'initial' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>AVALIAÇÃO INICIAL</Text>
+                                <Text style={[styles.tabBtnText, { color: evaluationType === 'initial' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>ANÁLISE ÚNICA</Text>
                             </TouchableOpacity>
                             <TouchableOpacity 
                                 style={[styles.tabBtn, { backgroundColor: evaluationType === 'comparison' ? theme.accent : 'transparent' }]}
@@ -420,32 +423,32 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         </View>
                         
                         {evaluationType === 'comparison' && (
-                            <View style={{marginBottom: 20}}>
-                                <Text style={{fontSize: 10, fontWeight: 'bold', color: theme.textSecondary, marginBottom: 8}}>SELECIONE A DATA ANTERIOR PARA COMPARAR (O "ANTES"):</Text>
+                            <View style={{marginBottom: 25, padding: 15, backgroundColor: theme.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.border}}>
+                                <Text style={{fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5}}>SELECIONE A FOTO BASE ("ANTES")</Text>
                                 
                                 <TouchableOpacity 
                                     style={[styles.dateDropdown, {backgroundColor: theme.bg, borderColor: theme.border}]} 
                                     onPress={() => setShowDatePicker(!showDatePicker)}
                                 >
-                                    <MaterialCommunityIcons name="calendar" size={16} color={theme.accent} />
-                                    <Text style={{flex: 1, color: theme.text, fontWeight: 'bold', fontSize: 13, marginLeft: 8}}>
-                                        {getOldCheckin() ? safeDate(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : 'Selecione uma data...'}
+                                    <MaterialCommunityIcons name="calendar-clock" size={18} color={theme.textSecondary} />
+                                    <Text style={{flex: 1, color: theme.text, fontWeight: 'bold', fontSize: 13, marginLeft: 10}}>
+                                        {getOldCheckin() ? safeDate(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : 'Escolha uma data...'}
                                     </Text>
-                                    <MaterialCommunityIcons name={showDatePicker ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
+                                    <MaterialCommunityIcons name={showDatePicker ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                                 </TouchableOpacity>
 
                                 {showDatePicker && (
                                     <View style={[styles.dateList, {backgroundColor: theme.bg, borderColor: theme.border}]}>
-                                        {checkins.filter(c => c.id !== currentCheckinForEval?.id).map((c, idx, arr) => (
+                                        {checkins.filter(c => c.id !== currentCheckinForEval?.id).map((c) => (
                                             <TouchableOpacity 
                                                 key={c.id} 
                                                 style={[styles.dateListItem, {borderBottomColor: theme.border}]}
                                                 onPress={() => { setSelectedOldCheckinId(c.id); setShowDatePicker(false); }}
                                             >
-                                                <Text style={{color: theme.text, fontSize: 13}}>
+                                                <Text style={{color: theme.text, fontSize: 13, fontWeight: '600'}}>
                                                     {safeDate(c.date || c.createdAt).toLocaleDateString('pt-BR')} 
                                                 </Text>
-                                                {selectedOldCheckinId === c.id && <MaterialCommunityIcons name="check" size={16} color={theme.accent} />}
+                                                {selectedOldCheckinId === c.id && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />}
                                             </TouchableOpacity>
                                         ))}
                                     </View>
@@ -456,39 +459,48 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         <View style={styles.comparePhotosContainer}>
                             {evaluationType === 'comparison' && getOldCheckin() && (
                                 <View style={styles.comparePhotoCol}>
-                                    <Text style={[styles.compareLabel, {color: theme.textSecondary}]}>ANTES ({getOldCheckin().weight || '--'} kg)</Text>
-                                    <Image source={{uri: getOldCheckin().photoFront}} style={[styles.comparePhotoImg, {borderColor: theme.border}]} resizeMode="cover" />
+                                    <View style={[styles.compareBadge, {backgroundColor: theme.surface, borderColor: theme.border}]}>
+                                        <Text style={[styles.compareLabel, {color: theme.textSecondary}]}>ANTES: {getOldCheckin().weight || '--'}kg</Text>
+                                    </View>
+                                    <Image source={{uri: getOldCheckin().photoFront}} style={[styles.comparePhotoImg, {borderColor: theme.border}]} resizeMode="contain" />
                                 </View>
                             )}
                             
                             <View style={styles.comparePhotoCol}>
-                                <Text style={[styles.compareLabel, {color: theme.accent}]}>ATUAL ({currentCheckinForEval?.weight || '--'} kg)</Text>
-                                <Image source={{uri: currentCheckinForEval?.photoFront}} style={[styles.comparePhotoImg, {borderColor: theme.accent}]} resizeMode="cover" />
+                                <View style={[styles.compareBadge, {backgroundColor: theme.accent + '15', borderColor: theme.accent}]}>
+                                    <Text style={[styles.compareLabel, {color: theme.accent}]}>ATUAL: {currentCheckinForEval?.weight || '--'}kg</Text>
+                                </View>
+                                <Image source={{uri: currentCheckinForEval?.photoFront}} style={[styles.comparePhotoImg, {borderColor: theme.accent}]} resizeMode="contain" />
                             </View>
                         </View>
 
                         <TouchableOpacity 
-                            style={[styles.generateAIBtn, {backgroundColor: theme.accent + '22', borderColor: theme.accent}]}
+                            style={[styles.generateAIBtn, {backgroundColor: theme.accent + '15', borderColor: theme.accent}]}
                             onPress={generateAIFeedback}
                             disabled={isGeneratingAI}
                         >
                             {isGeneratingAI ? <ActivityIndicator color={theme.accent} size="small" /> : (
                                 <>
-                                    <MaterialCommunityIcons name="robot-outline" size={20} color={theme.accent} />
-                                    <Text style={{color: theme.accent, fontWeight: '900', fontSize: 12, marginLeft: 8}}>GERAR FEEDBACK COM IA</Text>
+                                    <MaterialCommunityIcons name="robot-outline" size={22} color={theme.accent} />
+                                    <Text style={{color: theme.accent, fontWeight: '900', fontSize: 13, marginLeft: 10, letterSpacing: 0.5}}>GERAR FEEDBACK COM IA</Text>
                                 </>
                             )}
                         </TouchableOpacity>
 
-                        <Text style={{fontSize: 10, fontWeight: 'bold', color: theme.textSecondary, marginBottom: 8, marginTop: 25}}>TEXTO DA AVALIAÇÃO (Enviado ao Aluno):</Text>
-                        <TextInput 
-                            style={[styles.evalInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
-                            multiline 
-                            placeholder="Digite ou gere o feedback..." 
-                            placeholderTextColor={theme.textSecondary}
-                            value={feedbackText}
-                            onChangeText={setFeedbackText}
-                        />
+                        <Text style={{fontSize: 11, fontWeight: '900', color: theme.textSecondary, marginBottom: 10, marginTop: 30, letterSpacing: 0.5}}>
+                            TEXTO DA AVALIAÇÃO (Enviado ao Aluno)
+                        </Text>
+                        <View style={[styles.evalInputContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <MaterialCommunityIcons name="format-quote-open" size={20} color={theme.accent} style={{marginBottom: 8}} />
+                            <TextInput 
+                                style={[styles.evalInput, { color: theme.text }]} 
+                                multiline 
+                                placeholder="Digite a avaliação ou deixe a IA fazer o trabalho pesado..." 
+                                placeholderTextColor={theme.textSecondary}
+                                value={feedbackText}
+                                onChangeText={setFeedbackText}
+                            />
+                        </View>
 
                         <TouchableOpacity 
                             style={[styles.submitEvalBtn, {backgroundColor: currentCheckinForEval?.coachFeedback ? theme.surface : theme.accent, borderColor: currentCheckinForEval?.coachFeedback ? theme.border : theme.accent, borderWidth: 1}]}
@@ -505,6 +517,8 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                     </ScrollView>
                 </View>
             </View>
+        )}
+
         )}
 
         {/* Modal de Foto Grande */}
