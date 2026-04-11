@@ -519,8 +519,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             </View>
         )}
 
-        )}
-
         {/* Modal de Foto Grande */}
         {modalVisible && (
             <View style={styles.modalBgAbsolute}>

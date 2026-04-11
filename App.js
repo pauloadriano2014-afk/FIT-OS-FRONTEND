@@ -25,7 +25,7 @@ import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
 
 // VENDAS (PROPOSTAS) 🔥
 import PropostaScreen from './src/screens/PropostaScreen'; 
-import PropostaStartScreen from './src/screens/PropostaStartScreen'; // 🔥 IMPORT DA NOVA TELA
+import PropostaStartScreen from './src/screens/PropostaStartScreen'; 
 
 // ALUNO
 import HomeScreen from './src/screens/HomeScreen';
@@ -54,6 +54,7 @@ import AdminUserOptions from './src/screens/AdminUserOptions';
 import AdminEvolutionScreen from './src/screens/AdminEvolutionScreen';
 import AdminAddContent from './src/screens/AdminAddContent';
 import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen';
+import AdminIALabScreen from './src/screens/AdminIALabScreen'; // 🔥 IMPORT DO LAB IA
 
 // GLOBAL
 import AIScannerModal from './src/components/AIScannerModal';
@@ -224,7 +225,6 @@ function RootNavigator() {
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
       
-      {/* 🔥 REGISTRO DAS TELAS DE PROPOSTA 🔥 */}
       <Stack.Screen name="Proposta" component={PropostaScreen} />
       <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
 
@@ -249,6 +249,7 @@ function RootNavigator() {
       <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
       <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
       <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
+      <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} /> 
     </Stack.Navigator>
   );
 }
@@ -277,7 +278,6 @@ const linking = {
               nome: (nome) => nome
           }
       },
-      // 👇 REGISTRO DA ROTA START 👇
       PropostaStart: {
           path: 'PropostaStart',
           parse: {

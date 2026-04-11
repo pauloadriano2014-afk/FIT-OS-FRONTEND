@@ -11,7 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import SendNoticeModal from '../components/SendNoticeModal';
-import AdminInviteModal from '../components/AdminInviteModal'; // 🔥 IMPORT NOVO AQUI
+import AdminInviteModal from '../components/AdminInviteModal'; 
 
 const getExpirationStatus = (workout) => {
     if (!workout) return null;
@@ -358,7 +358,6 @@ export default function AdminDashboard({ navigation }) {
           <View style={{ flex: 1 }}>
             {activeTab === 'ALUNOS' && (
                 <>
-                    {/* 🔥 BOTÃO DE CONVIDAR ATUALIZADO 🔥 */}
                     <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: theme.accent }]} onPress={() => setInviteModalVisible(true)}>
                         <MaterialCommunityIcons name="star-shooting" size={22} color={theme.isDark ? '#000' : '#FFF'} />
                         <Text style={[styles.inviteBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR LINK (CADASTRO E PROPOSTA)</Text>
@@ -436,6 +435,19 @@ export default function AdminDashboard({ navigation }) {
             {activeTab === 'GESTAO' && (
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
                     <View style={styles.gridGestao}>
+                        
+                        {/* 🔥 NOVO: BOTÃO LABORATÓRIO IA 🔥 */}
+                        <TouchableOpacity 
+                            style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} 
+                            onPress={() => navigation.navigate('AdminIALabScreen')}
+                        >
+                            <View style={[styles.iconCircle, {backgroundColor: '#4DE38F22'}]}>
+                                <MaterialCommunityIcons name="brain" size={32} color="#4DE38F" />
+                            </View>
+                            <Text style={[styles.bigCardTitle, { color: '#4DE38F' }]}>LABORATÓRIO IA</Text>
+                            <Text style={styles.bigCardDesc}>Análise avulsa de fotos e shape.</Text>
+                        </TouchableOpacity>
+
                         <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
                             <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 15, width: '100%' }}>
@@ -458,21 +470,25 @@ export default function AdminDashboard({ navigation }) {
                                 </View>
                             )}
                         </View>
+
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('GerenciarTemplates')}>
                             <View style={[styles.iconCircle, {backgroundColor: theme.accent}]}><MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} /></View>
                             <Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text>
                             <Text style={styles.bigCardDesc}>Crie fichas padrão.</Text>
                         </TouchableOpacity>
+
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
                             <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} /></View>
                             <Text style={[styles.bigCardTitle, { color: theme.text }]}>EXERCÍCIOS</Text>
                             <Text style={styles.bigCardDesc}>Gerencie a biblioteca.</Text>
                         </TouchableOpacity>
+
                         <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>
                             <View style={[styles.iconCircle, {backgroundColor: '#BF5AF2'}]}><MaterialCommunityIcons name="video-plus" size={32} color="#FFF" /></View>
                             <Text style={[styles.bigCardTitle, {color: '#BF5AF2'}]}>PA FLIX ADMIN</Text>
                             <Text style={styles.bigCardDesc}>Adicionar novos vídeos.</Text>
                         </TouchableOpacity>
+
                         <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                             <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:15}}>
                                 <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
@@ -576,7 +592,6 @@ export default function AdminDashboard({ navigation }) {
         </View>
       </Modal>
 
-      {/* 🔥 COMPONENTE DO MODAL DE CONVITE SEPARADO 🔥 */}
       <AdminInviteModal 
           visible={inviteModalVisible} 
           onClose={() => setInviteModalVisible(false)} 
