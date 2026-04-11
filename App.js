@@ -9,7 +9,6 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import PropostaScreen from './src/screens/PropostaScreen'; // (Ajuste o caminho se necessário)
 
 /* ================= IMPORTAÇÃO DO TEMA ================= */
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
@@ -23,6 +22,10 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
 import SetupTreinoScreen from './src/screens/SetupTreinoScreen'; 
+
+// VENDAS (PROPOSTAS) 🔥
+import PropostaScreen from './src/screens/PropostaScreen'; 
+import PropostaStartScreen from './src/screens/PropostaStartScreen'; // 🔥 IMPORT DA NOVA TELA
 
 // ALUNO
 import HomeScreen from './src/screens/HomeScreen';
@@ -220,7 +223,10 @@ function RootNavigator() {
       <Stack.Screen name="Anamnese" component={AnamneseScreen} />
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
+      
+      {/* 🔥 REGISTRO DAS TELAS DE PROPOSTA 🔥 */}
       <Stack.Screen name="Proposta" component={PropostaScreen} />
+      <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
 
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
@@ -252,7 +258,7 @@ const linking = {
   prefixes: [
       'https://www.pauloadrianoteam.com.br', 
       'https://pauloadrianoteam.com.br', 
-      'http://localhost:8081', // Facilita pra testar no seu pc
+      'http://localhost:8081', 
       'http://localhost:8082'
   ],
   config: {
@@ -265,9 +271,15 @@ const linking = {
           },
           initialRouteName: 'Install',
       },
-      // 👇 AGORA O REACT NATIVE SABE O QUE É A "/Proposta" 👇
       Proposta: {
           path: 'Proposta',
+          parse: {
+              nome: (nome) => nome
+          }
+      },
+      // 👇 REGISTRO DA ROTA START 👇
+      PropostaStart: {
+          path: 'PropostaStart',
           parse: {
               nome: (nome) => nome
           }
