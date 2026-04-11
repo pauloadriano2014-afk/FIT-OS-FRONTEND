@@ -2,18 +2,15 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 
-export default function ModernResultCard({ goal, weight, antesUri, depoisUri, badgeAntes = 'ANTES', badgeDepois = 'DEPOIS' }) {
+// Recebe agora apenas 'montageUri' em vez de antes/depois separados
+export default function ModernResultCard({ goal, weight, montageUri }) {
+    if (!montageUri) return null; // Proteção se não houver link
+
     return (
         <View style={styles.modernResultCard}>
-            <View style={styles.modernImagesRow}>
-                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                    <Image source={{ uri: antesUri }} style={styles.resultImage} />
-                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>{badgeAntes}</Text></View>
-                </View>
-                <View style={styles.modernImageContainer}>
-                    <Image source={{ uri: depoisUri }} style={styles.resultImage} />
-                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>{badgeDepois}</Text></View>
-                </View>
+            <View style={styles.modernImageContainer}>
+                {/* 🔥 IMAGEM ÚNICA DO CANVA COM RESIZE CONTAIN = FIM DOS CORTES 🔥 */}
+                <Image source={{ uri: montageUri }} style={styles.resultImage} />
             </View>
             <View style={styles.modernResultFooter}>
                 <Text style={styles.modernResultGoal}>{goal}</Text>
@@ -24,13 +21,50 @@ export default function ModernResultCard({ goal, weight, antesUri, depoisUri, ba
 }
 
 const styles = StyleSheet.create({
-    modernResultCard: { width: 340, backgroundColor: '#111', borderRadius: 24, padding: 28, borderWidth: 1, borderColor: '#333', marginRight: 15 },
-    modernImagesRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, height: 300 }, // 🔥 Altura fixa ideal para fotos verticais
-    modernImageContainer: { flex: 1, backgroundColor: '#111', borderRadius: 14, overflow: 'hidden', position: 'relative' }, // 🔥 Fundo da cor do card, sem aspect ratio forçado
-    floatingBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, zIndex: 10 },
-    floatingBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-    resultImage: { width: '100%', height: '100%', resizeMode: 'contain', borderRadius: 14 }, // 🔥 CONTAIN = NUNCA MAIS CORTA
-    modernResultFooter: { marginTop: 15, alignItems: 'center' },
-    modernResultGoal: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5, marginBottom: 4, textAlign: 'center' },
-    modernResultWeight: { color: '#4DE38F', fontWeight: 'bold', fontSize: 12, textAlign: 'center' },
+    modernResultCard: { 
+        width: 320, // Largura ideal para carrossel no celular
+        backgroundColor: '#111', 
+        borderRadius: 24, 
+        padding: 15, // Padding menor para dar palco à imagem
+        borderWidth: 1, 
+        borderColor: '#333', 
+        marginRight: 18, // Espaçamento entre cards no scroll
+        alignItems: 'center'
+    },
+    modernImageContainer: { 
+        width: '100%', 
+        height: 400, // Altura fixa generosa para o design vertical do Canva
+        backgroundColor: '#0a0a0a', // Fundo preto puro para as bordas invisíveis
+        borderRadius: 16, 
+        overflow: 'hidden', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#222'
+    },
+    resultImage: { 
+        width: '100%', 
+        height: '100%', 
+        resizeMode: 'contain', // 🔥 GARANTE QUE O DESIGN DO CANVA APAREÇA INTEIRO 🔥
+        borderRadius: 16
+    }, 
+    modernResultFooter: { 
+        marginTop: 15, 
+        alignItems: 'center',
+        width: '100%'
+    },
+    modernResultGoal: { 
+        color: '#FFF', 
+        fontWeight: '900', 
+        fontSize: 13, 
+        letterSpacing: 0.5, 
+        marginBottom: 4, 
+        textAlign: 'center' 
+    },
+    modernResultWeight: { 
+        color: '#4DE38F', 
+        fontWeight: 'bold', 
+        fontSize: 12, 
+        textAlign: 'center' 
+    },
 });
