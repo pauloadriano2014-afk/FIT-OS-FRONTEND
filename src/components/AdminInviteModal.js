@@ -7,8 +7,11 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function AdminInviteModal({ visible, onClose, adminEmail, theme }) {
-    const [activeTab, setActiveTab] = useState('PROPOSTA'); // 'PROPOSTA' ou 'CADASTRO'
+    const [activeTab, setActiveTab] = useState('PROPOSTA'); 
     const [leadName, setLeadName] = useState('');
+    
+    // 🔥 NOVO ESTADO: Controla qual tipo de proposta será gerada 🔥
+    const [propostaType, setPropostaType] = useState('VIP'); // 'VIP' ou 'START'
 
     const getCoachInfo = () => {
         let coachCode = 'PATEAM'; 
@@ -23,8 +26,8 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
     const openWhatsApp = (message) => {
         const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
-        onClose(); // Fecha o modal
-        setLeadName(''); // Limpa o input
+        onClose(); 
+        setLeadName(''); 
         
         Linking.canOpenURL(whatsappUrl).then(supported => {
             if (supported) Linking.openURL(whatsappUrl);
@@ -35,21 +38,23 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         }).catch(err => console.error('Erro ao abrir WhatsApp', err));
     };
 
-    // 🔥 URL DINÂMICA: Detecta se está no Localhost ou em Produção 🔥
     const getBaseUrl = () => {
         if (Platform.OS === 'web') {
-            return window.location.origin; // Retorna http://localhost:8081 ou https://pauloadrianoteam.com.br automaticamente
+            return window.location.origin; 
         }
-        return 'https://www.pauloadrianoteam.com.br'; // Fallback caso esteja usando o App nativo no celular
+        return 'https://www.pauloadrianoteam.com.br'; 
     };
 
     const generatePropostaLink = () => {
         const { teamName } = getCoachInfo();
         const finalName = leadName.trim() || 'Novo Aluno';
         const baseUrl = getBaseUrl();
-        const inviteLink = `${baseUrl}/Proposta?nome=${encodeURIComponent(finalName)}`; 
         
-        const message = `Fala, ${finalName}! Tudo pronto para começarmos o seu processo.\n\nPara darmos o start, acesse o seu convite VIP abaixo, conheça a plataforma exclusiva e destrave o seu acesso:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
+        // 🔥 LÓGICA DE ROTEAMENTO: Define a URL baseada na escolha do Admin 🔥
+        const routeName = propostaType === 'VIP' ? 'Proposta' : 'PropostaStart';
+        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}`; 
+        
+        const message = `Fala, ${finalName}! Tudo pronto para começarmos o seu processo.\n\nPara darmos o start, acesse o seu convite exclusivo abaixo, conheça a plataforma e destrave o seu acesso:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
         openWhatsApp(message);
     };
 
@@ -93,10 +98,10 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                         
-                        {/* CONTEÚDO: PROPOSTA VIP */}
+                        {/* CONTEÚDO: PROPOSTA */}
                         {activeTab === 'PROPOSTA' && (
                             <View style={styles.tabSection}>
-                                <Text style={[styles.sectionDesc, { color: theme.textSecondary }]}>Gera um link para a sua página de proposta expirável focada no plano High-Ticket.</Text>
+                                <Text style={[styles.sectionDesc, { color: theme.textSecondary }]}>Gera um link para a página de vendas expirável. O cronômetro inicia no primeiro clique do aluno.</Text>
                                 
                                 <Text style={[styles.inputLabel, { color: theme.text }]}>NOME DO LEAD (Opcional):</Text>
                                 <TextInput 
@@ -107,17 +112,44 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     onChangeText={setLeadName}
                                 />
 
-                                <TouchableOpacity style={[styles.optionCard, {borderColor: theme.accent, backgroundColor: theme.accent + '11', marginTop: 15}]} onPress={generatePropostaLink}>
+                                {/* 🔥 NOVO: SELETOR DE TIPO DE PROPOSTA 🔥 */}
+                                <Text style={[styles.inputLabel, { color: theme.text, marginTop: 20 }]}>TIPO DE OFERTA:</Text>
+                                <View style={[styles.tabsContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
+                                    <TouchableOpacity 
+                                        style={[styles.tabBtn, propostaType === 'VIP' && { backgroundColor: '#FFCC00' }]}
+                                        onPress={() => setPropostaType('VIP')}
+                                    >
+                                        <Text style={[styles.tabText, { color: propostaType === 'VIP' ? '#000' : theme.textSecondary }]}>ELITE (HIGH-TICKET)</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.tabBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
+                                        onPress={() => setPropostaType('START')}
+                                    >
+                                        <Text style={[styles.tabText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>START (DOWNSELL)</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* BOTÃO DE GERAR PROPOSTA (Muda de cor de acordo com a escolha) */}
+                                <TouchableOpacity 
+                                    style={[styles.optionCard, {
+                                        borderColor: propostaType === 'VIP' ? '#FFCC00' : '#32ADE6', 
+                                        backgroundColor: propostaType === 'VIP' ? '#FFCC0011' : '#32ADE611', 
+                                        marginTop: 15
+                                    }]} 
+                                    onPress={generatePropostaLink}
+                                >
                                     <View style={styles.optionLeft}>
-                                        <MaterialCommunityIcons name="star-shooting" size={24} color={theme.accent} />
-                                        <Text style={[styles.optionText, { color: theme.accent, fontWeight: '900' }]}>ENVIAR PROPOSTA VIP</Text>
+                                        <MaterialCommunityIcons name={propostaType === 'VIP' ? "star-shooting" : "rocket-launch"} size={24} color={propostaType === 'VIP' ? '#FFCC00' : '#32ADE6'} />
+                                        <Text style={[styles.optionText, { color: propostaType === 'VIP' ? '#FFCC00' : '#32ADE6', fontWeight: '900' }]}>
+                                            ENVIAR PROPOSTA {propostaType === 'VIP' ? 'VIP' : 'START'}
+                                        </Text>
                                     </View>
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color={theme.accent} />
+                                    <MaterialCommunityIcons name="whatsapp" size={20} color={propostaType === 'VIP' ? '#FFCC00' : '#32ADE6'} />
                                 </TouchableOpacity>
                             </View>
                         )}
 
-                        {/* CONTEÚDO: CADASTRO DIRETO */}
+                        {/* CONTEÚDO: CADASTRO DIRETO (Intocado) */}
                         {activeTab === 'CADASTRO' && (
                             <View style={styles.tabSection}>
                                 <Text style={[styles.sectionDesc, { color: theme.textSecondary, marginBottom: 15 }]}>Gera o link direto de cadastro no app. O aluno já entra com o plano selecionado.</Text>
