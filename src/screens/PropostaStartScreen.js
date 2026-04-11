@@ -19,10 +19,10 @@ const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 const { width } = Dimensions.get('window');
 
-// FAQ adaptado para o Downsell
+// FAQ adaptado para o Downsell com Fila Standard
 const faqList = [
     { q: "Para quem são os planos Start e Fichas?", a: "Para quem tem disciplina para treinar sozinho, mas cansou de seguir treinos genéricos entregues em papéis de academia. No nosso app, você tem a direção exata com a metodologia de um Campeão Natural." },
-    { q: "Eu vou ter acompanhamento diário no WhatsApp?", a: "O contato direto via WhatsApp com o Coach é um recurso exclusivo dos planos Elite VIP. Nestes planos de entrada (Start e Fichas), você tem total independência para treinar com nossos vídeos e app, recebendo avaliações pontuais (mensais ou ao fim do ciclo)." },
+    { q: "Eu vou ter acompanhamento no WhatsApp?", a: "Sim! Você terá acesso ao nosso PA Coach AI 24h direto no app para tirar dúvidas sobre a metodologia instantaneamente. Além disso, o nosso suporte via WhatsApp fica disponível no formato 'Fila Standard' (onde a prioridade de resposta imediata é exclusiva dos alunos Elite VIP)." },
     { q: "Em quanto tempo eu vejo resultados no meu corpo?", a: "A ciência não falha. Seguindo a metodologia e os treinos em vídeo do aplicativo, nossos alunos relatam mudanças visíveis logo nas primeiras semanas de execução." },
     { q: "Como funciona a Ficha de 8 Semanas?", a: "É um protocolo de 56 dias focado num objetivo específico (como pernas, hipertrofia ou emagrecimento). Você faz uma avaliação no dia 1 e outra no dia 56 para medirmos sua evolução." }
 ];
@@ -130,7 +130,7 @@ export default function PropostaStartScreen({ route }) {
             <View style={styles.webWrapper}>
                 <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     
-                    {/* HERO (Adaptado para Downsell) */}
+                    {/* HERO */}
                     <View style={styles.heroSection}>
                         <View style={styles.timerBadge}>
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
@@ -184,7 +184,7 @@ export default function PropostaStartScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* ARSENAL ENXUTO (Sem IA e Sem Chat) */}
+                    {/* ARSENAL ENXUTO (Com PA Coach AI liberado) */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A TECNOLOGIA A SEU FAVOR</Text>
                     <Text style={styles.sectionSub}>Conheça o seu aplicativo exclusivo.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
@@ -197,6 +197,12 @@ export default function PropostaStartScreen({ route }) {
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="camera-front-variant" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>Avaliações no App</Text>
                             <Text style={styles.arsenalDesc}>Envie suas fotos e medidas pelo sistema para registrarmos o seu ponto de partida e a sua evolução.</Text>
+                        </View>
+                        {/* 🔥 PA COACH AI DE VOLTA AO ARSENAL 🔥 */}
+                        <View style={styles.arsenalCard}>
+                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="chat-processing-outline" size={32} color="#4DE38F" /></View>
+                            <Text style={styles.arsenalTitle}>PA Coach AI 24h</Text>
+                            <Text style={styles.arsenalDesc}>Tire dúvidas rápidas sobre a metodologia com o nosso assistente virtual treinado por mim, direto no app.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="chart-areaspline" size={32} color="#4DE38F" /></View>
@@ -227,7 +233,7 @@ export default function PropostaStartScreen({ route }) {
                         <FeedbackCard uri={linksAlunos.feedback_thiago} legend="🎯 DISCIPLINA QUE GERA RESULTADO (Thiago)" />
                     </ScrollView>
 
-                    {/* BÔNUS INCLUSO (APENAS 1) */}
+                    {/* BÔNUS INCLUSO */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>BÔNUS INCLUSO</Text>
                     <Text style={styles.sectionSub}>Você ganha acesso gratuito a este material complementar.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
@@ -235,7 +241,7 @@ export default function PropostaStartScreen({ route }) {
                     </ScrollView>
                     <Text style={styles.bonusLockedText}>🔒 Os e-books de Receitas, Guias de Hipertrofia e Audiobooks são exclusivos para assinantes dos planos Elite VIP e Performance.</Text>
 
-                    {/* ESCOLHA SEU PLANO (COM GATILHO DE INDEPENDÊNCIA E TRAVAS) */}
+                    {/* ESCOLHA SEU PLANO (COM FILA STANDARD E IA) */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>ESCOLHA SEU PLANO</Text>
                     <View style={styles.plansContainer}>
                         
@@ -246,12 +252,15 @@ export default function PropostaStartScreen({ route }) {
                             
                             <View style={styles.planItems}>
                                 <Text style={styles.planItem}>✓ Treinos no App com Vídeos e Técnicas</Text>
+                                <Text style={styles.planItem}>✓ PA Coach AI 24h (Tira-Dúvidas)</Text>
+                                <Text style={styles.planItem}>✓ Suporte Whats (Fila Standard)</Text>
                                 <Text style={styles.planItem}>✓ 1 Avaliação Inicial e 1 Final (Dia 56)</Text>
                                 <Text style={styles.planItem}>✓ Acesso ao E-book 5 Dicas</Text>
+                                
                                 <Text style={[styles.planItem, { color: '#FF3B30', marginTop: 10 }]}>🔒 Recursos Premium Bloqueados:</Text>
-                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Análise de Vídeo por IA</Text>
-                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Calculadora de RM/Cargas</Text>
-                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Suporte de Whats com o Coach</Text>
+                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Análise Biomecânica de Vídeo</Text>
+                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Calculadora de Cargas (1RM)</Text>
+                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Catálogo de Audiobooks/Bônus</Text>
                             </View>
 
                             <View style={styles.pricingGrid}>
@@ -270,12 +279,15 @@ export default function PropostaStartScreen({ route }) {
                             
                             <View style={styles.planItems}>
                                 <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Treinos no App com Vídeos e Técnicas</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ PA Coach AI 24h (Tira-Dúvidas)</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Suporte Whats (Fila Standard)</Text>
                                 <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Avaliação Inicial + 1 a cada 30 dias</Text>
                                 <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Acesso ao E-book 5 Dicas</Text>
+                                
                                 <Text style={[styles.planItem, { color: '#FF3B30', marginTop: 10 }]}>🔒 Recursos Premium Bloqueados:</Text>
-                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Análise de Vídeo por IA</Text>
-                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Calculadora de RM/Cargas</Text>
-                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Suporte de Whats com o Coach</Text>
+                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Análise Biomecânica de Vídeo</Text>
+                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Calculadora de Cargas (1RM)</Text>
+                                <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Catálogo de Audiobooks/Bônus</Text>
                             </View>
 
                             <View style={styles.pricingGrid}>
