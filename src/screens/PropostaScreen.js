@@ -7,48 +7,14 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
+// 🔥 NOSSOS COMPONENTES MODULARIZADOS 🔥
+import { linksAlunos } from '../utils/linksAlunos';
+import ModernResultCard from '../components/ModernResultCard';
+import AthleteCard from '../components/AthleteCard';
+
 const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 const { width } = Dimensions.get('window');
-
-// =========================================================================
-// 🔥 CENTRAL DE LINKS DO COACH 🔥
-// =========================================================================
-const linksAlunos = {
-    background: 'https://i.imgur.com/vHq0L5K.jpg', 
-
-    // Mentor
-    paulo_antes: 'https://i.imgur.com/lDEL5tU.jpeg',
-    paulo_depois: 'https://i.imgur.com/xbkfQ1x.png',
-
-    // Prova Social
-    pedro_antes: 'https://i.imgur.com/mYfONm5.png',
-    pedro_depois: 'https://i.imgur.com/ykG2kEj.jpeg',
-    bernard_antes: 'https://i.imgur.com/Ot3Kjug.png',
-    bernard_depois: 'https://i.imgur.com/bZrUwPo.jpeg',
-    ana_antes: 'https://i.imgur.com/xDJxQ1X.jpeg',
-    ana_depois: 'https://i.imgur.com/798EhiW.jpeg',
-    allan_antes: 'https://i.imgur.com/EjKQnQd.jpeg',
-    allan_depois: 'https://i.imgur.com/DxJWWTp.jpeg',
-    evelyn_antes: 'https://i.imgur.com/WhdS7tT.png',
-    evelyn_depois: 'https://i.imgur.com/ls3A63Z.png',
-    yasmin_antes: 'https://i.imgur.com/xE1CqaN.png',
-    yasmin_depois: 'https://i.imgur.com/QD9YN6l.png',
-    jean_antes: 'https://i.imgur.com/5TirPox.png',
-    jean_depois: 'https://i.imgur.com/7EkbNmQ.png',
-    vane_antes: 'https://i.imgur.com/BCAuUwE.jpeg',
-    vane_depois: 'https://i.imgur.com/6kKnthc.jpeg',
-    bruno_antes: 'https://i.imgur.com/BsHU25K.jpeg',
-    bruno_depois: 'https://i.imgur.com/PMbz7ox.jpeg',
-
-    // Padrão Elite
-    equipe_adri: 'https://i.imgur.com/Yz5Nnvc.jpeg',
-    aluna_medalha: 'https://i.imgur.com/k2IKLUv.png',
-    felipe_podio: 'https://i.imgur.com/KVzvCp7.png',
-    atleta_fem: 'https://i.imgur.com/U1IHoQZ.jpeg',
-    trio_fem: 'https://i.imgur.com/yXl6vd7.jpeg'
-};
-// =========================================================================
 
 export default function PropostaScreen({ route }) {
     const leadName = route?.params?.nome || 'Atleta';
@@ -155,11 +121,11 @@ export default function PropostaScreen({ route }) {
                             
                             <View style={styles.imagesRowMentor}>
                                 <View style={[styles.imagePlaceholderMentor, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.paulo_antes }} style={styles.resultImage} />
+                                    <Image source={{ uri: linksAlunos.paulo_antes }} style={styles.resultImageMentor} />
                                     <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>O DESAFIO</Text></View>
                                 </View>
                                 <View style={styles.imagePlaceholderMentor}>
-                                    <Image source={{ uri: linksAlunos.paulo_depois }} style={styles.resultImage} />
+                                    <Image source={{ uri: linksAlunos.paulo_depois }} style={styles.resultImageMentor} />
                                     <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>A VITÓRIA</Text></View>
                                 </View>
                             </View>
@@ -202,170 +168,21 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </ScrollView>
 
-                    {/* 🔥 RESULTADOS MODERNOS (NOVO LAYOUT) 🔥 */}
+                    {/* 🔥 PROVA SOCIAL MODULARIZADA 🔥 */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>RESULTADOS DOS ALUNOS</Text>
                     <Text style={styles.sectionSub}>Deslize para ver o que a disciplina somada à ciência pode fazer.</Text>
 
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         
-                        {/* PEDRO */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.pedro_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.pedro_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>DEPOIS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 EMAGRECIMENTO (Pedro)</Text>
-                                <Text style={styles.modernResultWeight}>112kg ➝ 97kg</Text>
-                            </View>
-                        </View>
-
-                        {/* BERNARD */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.bernard_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.bernard_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>DEPOIS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 DEFINIÇÃO (Bernard)</Text>
-                                <Text style={styles.modernResultWeight}>87kg ➝ 70kg</Text>
-                            </View>
-                        </View>
-
-                        {/* ANA */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.ana_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.ana_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>COMPETIÇÃO</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🏆 DA INSATISFAÇÃO AO PALCO (Ana)</Text>
-                            </View>
-                        </View>
-
-                        {/* ALLAN */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.allan_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.allan_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>DEPOIS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 SAÚDE E ESTÉTICA (Allan)</Text>
-                                <Text style={styles.modernResultWeight}>Diabetes superada! 87kg ➝ 73kg</Text>
-                            </View>
-                        </View>
-
-                        {/* EVELYN */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.evelyn_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.evelyn_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>DEPOIS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 COSTAS, CINTURA E GLÚTEOS (Evelyn)</Text>
-                            </View>
-                        </View>
-
-                        {/* YASMIN */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.yasmin_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.yasmin_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>11 DIAS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 CHOQUE DE REALIDADE (Yasmin)</Text>
-                                <Text style={styles.modernResultWeight}>Apenas 11 Dias</Text>
-                            </View>
-                        </View>
-
-                        {/* JEAN */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.jean_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.jean_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>DEPOIS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 MASSA E DEFINIÇÃO (Jean)</Text>
-                            </View>
-                        </View>
-
-                        {/* VANE */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.vane_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.vane_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>DEPOIS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 EMAGRECIMENTO (Vane)</Text>
-                                <Text style={styles.modernResultWeight}>96kg ➝ 84kg</Text>
-                            </View>
-                        </View>
-
-                        {/* BRUNO */}
-                        <View style={styles.modernResultCard}>
-                            <View style={styles.modernImagesRow}>
-                                <View style={[styles.modernImageContainer, { filter: 'grayscale(100%)' }]}>
-                                    <Image source={{ uri: linksAlunos.bruno_antes }} style={styles.resultImage} />
-                                    <View style={styles.floatingBadge}><Text style={styles.floatingBadgeText}>ANTES</Text></View>
-                                </View>
-                                <View style={styles.modernImageContainer}>
-                                    <Image source={{ uri: linksAlunos.bruno_depois }} style={styles.resultImage} />
-                                    <View style={[styles.floatingBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.floatingBadgeText, { color: '#000' }]}>DEPOIS</Text></View>
-                                </View>
-                            </View>
-                            <View style={styles.modernResultFooter}>
-                                <Text style={styles.modernResultGoal}>🔥 EMAGRECIMENTO (Bruno)</Text>
-                                <Text style={styles.modernResultWeight}>101kg ➝ 82kg</Text>
-                            </View>
-                        </View>
+                        <ModernResultCard goal="🔥 EMAGRECIMENTO (Pedro)" weight="112kg ➝ 97kg" antesUri={linksAlunos.pedro_antes} depoisUri={linksAlunos.pedro_depois} />
+                        <ModernResultCard goal="🔥 DEFINIÇÃO (Bernard)" weight="87kg ➝ 70kg" antesUri={linksAlunos.bernard_antes} depoisUri={linksAlunos.bernard_depois} />
+                        <ModernResultCard goal="🏆 DA INSATISFAÇÃO AO PALCO (Ana)" antesUri={linksAlunos.ana_antes} depoisUri={linksAlunos.ana_depois} badgeDepois="COMPETIÇÃO" />
+                        <ModernResultCard goal="🔥 SAÚDE E ESTÉTICA (Allan)" weight="Diabetes superada! 87kg ➝ 73kg" antesUri={linksAlunos.allan_antes} depoisUri={linksAlunos.allan_depois} />
+                        <ModernResultCard goal="🔥 COSTAS, CINTURA E GLÚTEOS (Evelyn)" antesUri={linksAlunos.evelyn_antes} depoisUri={linksAlunos.evelyn_depois} />
+                        <ModernResultCard goal="🔥 CHOQUE DE REALIDADE (Yasmin)" weight="Apenas 11 Dias" antesUri={linksAlunos.yasmin_antes} depoisUri={linksAlunos.yasmin_depois} badgeDepois="11 DIAS" />
+                        <ModernResultCard goal="🔥 MASSA E DEFINIÇÃO (Jean)" antesUri={linksAlunos.jean_antes} depoisUri={linksAlunos.jean_depois} />
+                        <ModernResultCard goal="🔥 EMAGRECIMENTO (Vane)" weight="96kg ➝ 84kg" antesUri={linksAlunos.vane_antes} depoisUri={linksAlunos.vane_depois} />
+                        <ModernResultCard goal="🔥 EMAGRECIMENTO (Bruno)" weight="101kg ➝ 82kg" antesUri={linksAlunos.bruno_antes} depoisUri={linksAlunos.bruno_depois} />
 
                         {/* FINAL CTA DOS ALUNOS */}
                         <View style={[styles.modernResultCard, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'transparent', borderWidth: 0 }]}>
@@ -376,50 +193,16 @@ export default function PropostaScreen({ route }) {
 
                     </ScrollView>
 
-                    {/* PADRÃO ELITE */}
+                    {/* 🔥 PADRÃO ELITE MODULARIZADO 🔥 */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>PADRÃO ELITE</Text>
                     <Text style={styles.sectionSub}>Vivendo a alta performance e guiando o time aos pódios.</Text>
 
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <View style={styles.athleteCard}>
-                            <View style={styles.athleteImageContainer}>
-                                <Image source={{ uri: linksAlunos.equipe_adri }} style={styles.athleteImage} />
-                            </View>
-                            <Text style={styles.athleteTitle}>LIDERANDO PELO EXEMPLO</Text>
-                            <Text style={styles.athleteDesc}>Eu e minha esposa Adri dividindo os palcos. Ela garante suporte e motivação constante para que ninguém fique para trás no processo.</Text>
-                        </View>
-
-                        <View style={styles.athleteCard}>
-                            <View style={styles.athleteImageContainer}>
-                                <Image source={{ uri: linksAlunos.aluna_medalha }} style={styles.athleteImage} />
-                            </View>
-                            <Text style={styles.athleteTitle}>O RESULTADO DO TRABALHO</Text>
-                            <Text style={styles.athleteDesc}>Aluna de 39 anos de idade, que conseguimos colocar um shape competitivo ao perder 32kgs.</Text>
-                        </View>
-
-                        <View style={styles.athleteCard}>
-                            <View style={styles.athleteImageContainer}>
-                                <Image source={{ uri: linksAlunos.felipe_podio }} style={styles.athleteImage} />
-                            </View>
-                            <Text style={styles.athleteTitle}>MÉTODO VALIDADO</Text>
-                            <Text style={styles.athleteDesc}>Nosso atleta Felipe comemorando sua vitória após um trabalho impecável de preparação. A ciência não falha.</Text>
-                        </View>
-
-                        <View style={styles.athleteCard}>
-                            <View style={styles.athleteImageContainer}>
-                                <Image source={{ uri: linksAlunos.atleta_fem }} style={styles.athleteImage} />
-                            </View>
-                            <Text style={styles.athleteTitle}>A VITÓRIA</Text>
-                            <Text style={styles.athleteDesc}>O sorriso de quem entregou tudo e buscou a medalha. O método funciona para quem faz o que tem que ser feito.</Text>
-                        </View>
-
-                        <View style={styles.athleteCard}>
-                            <View style={styles.athleteImageContainer}>
-                                <Image source={{ uri: linksAlunos.trio_fem }} style={styles.athleteImage} />
-                            </View>
-                            <Text style={styles.athleteTitle}>NOSSO TIME EM PESO</Text>
-                            <Text style={styles.athleteDesc}>Nossas atletas brilhando no campeonato. Estética, saúde e alta performance totalmente alinhadas.</Text>
-                        </View>
+                        <AthleteCard uri={linksAlunos.equipe_adri} title="LIDERANDO PELO EXEMPLO" desc="Eu e minha esposa Adri dividindo os palcos. Ela garante suporte e motivação constante para que ninguém fique para trás no processo." />
+                        <AthleteCard uri={linksAlunos.aluna_medalha} title="O RESULTADO DO TRABALHO" desc="Aluna de 39 anos de idade, que conseguimos colocar um shape competitivo ao perder 32kgs." />
+                        <AthleteCard uri={linksAlunos.felipe_podio} title="MÉTODO VALIDADO" desc="Nosso atleta Felipe comemorando sua vitória após um trabalho impecável de preparação. A ciência não falha." />
+                        <AthleteCard uri={linksAlunos.atleta_fem} title="A VITÓRIA" desc="O sorriso de quem entregou tudo e buscou a medalha. O método funciona para quem faz o que tem que ser feito." />
+                        <AthleteCard uri={linksAlunos.trio_fem} title="NOSSO TIME EM PESO" desc="Nossas atletas brilhando no campeonato. Estética, saúde e alta performance totalmente alinhadas." />
                     </ScrollView>
 
                     {/* ESCOLHA SEU PLANO */}
@@ -542,7 +325,10 @@ const styles = StyleSheet.create({
     mentorDesc: { color: '#BBB', fontSize: 14, lineHeight: 22, fontStyle: 'italic', marginBottom: 25 }, 
     imagesRowMentor: { flexDirection: 'row', justifyContent: 'space-between', gap: 10, marginTop: 10 }, 
     imageCol: { flex: 1, alignItems: 'center' },
-    imagePlaceholderMentor: { width: '100%', aspectRatio: 1, borderRadius: 14, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' },
+    imagePlaceholderMentor: { width: '100%', height: 300, borderRadius: 14, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: 'transparent' }, // 🔥 Sem aspect ratio fixo
+    resultImageMentor: { width: '100%', height: '100%', resizeMode: 'contain', borderRadius: 14 }, // 🔥 CONTAIN: a sua foto agora fica inteira
+    floatingBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, zIndex: 10 },
+    floatingBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
 
     // ARSENAL CARROSSEL
     sectionTitle: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, marginBottom: 5 },
@@ -552,30 +338,9 @@ const styles = StyleSheet.create({
     arsenalTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
     arsenalDesc: { color: '#888', fontSize: 13, lineHeight: 20 },
 
-    // 🔥 NOVO: CARROSSEL RESULTADOS MODERNIZADO (QUADRADO 1:1, TEXTO ABAIXO) 🔥
     carouselContainer: { paddingBottom: 20 },
     modernResultCard: { width: 340, backgroundColor: '#111', borderRadius: 24, padding: 28, borderWidth: 1, borderColor: '#333', marginRight: 15 },
-    modernImagesRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 }, 
-    modernImageContainer: { flex: 1, backgroundColor: '#1A1A1A', borderRadius: 14, overflow: 'hidden', position: 'relative', aspectRatio: 1 },
-    
-    // Badges no Bottom-Right
-    floatingBadge: { position: 'absolute', bottom: 8, right: 8, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, zIndex: 10 },
-    floatingBadgeText: { color: '#FFF', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-    
-    // Foto 1:1 com Cover e Arredondamento
-    resultImage: { width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 14 }, 
-
-    // Texto de Status Embaixo
-    modernResultFooter: { marginTop: 15, alignItems: 'center' },
     modernResultGoal: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5, marginBottom: 4, textAlign: 'center' },
-    modernResultWeight: { color: '#4DE38F', fontWeight: 'bold', fontSize: 12, textAlign: 'center' },
-
-    // ATLETAS
-    athleteCard: { width: 280, backgroundColor: '#161616', borderRadius: 24, padding: 15, borderWidth: 1, borderColor: '#333', marginRight: 15 },
-    athleteImageContainer: { width: '100%', aspectRatio: 3 / 4, backgroundColor: '#1A1A1A', borderRadius: 14, overflow: 'hidden', marginBottom: 15, justifyContent: 'center' },
-    athleteImage: { width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 14 }, 
-    athleteTitle: { color: '#4DE38F', fontWeight: '900', fontSize: 14, letterSpacing: 0.5, marginBottom: 5 },
-    athleteDesc: { color: '#888', fontSize: 12, lineHeight: 18 },
 
     // PLANS
     plansContainer: { gap: 25, marginTop: 10 },
