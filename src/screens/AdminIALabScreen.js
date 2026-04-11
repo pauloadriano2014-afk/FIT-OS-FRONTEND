@@ -20,7 +20,6 @@ export default function AdminIALabScreen({ navigation }) {
     const [resultText, setResultText] = useState('');
 
     const pickImage = async () => {
-        // Solicita permissão de galeria
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.granted === false) {
             Alert.alert("Permissão necessária", "Precisamos de acesso à galeria para upar as fotos.");
@@ -31,7 +30,7 @@ export default function AdminIALabScreen({ navigation }) {
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true,
             quality: 0.7,
-            base64: true, // Crucial para enviar para a API
+            base64: true, 
         });
 
         if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -54,7 +53,6 @@ export default function AdminIALabScreen({ navigation }) {
         setResultText('');
 
         try {
-            // Formata as imagens para a API
             const payloadImages = images.map(img => ({
                 data: img.base64,
                 mimeType: "image/jpeg"
@@ -80,7 +78,9 @@ export default function AdminIALabScreen({ navigation }) {
 
         } catch (error) {
             console.error("Erro Lab IA:", error);
-            Alert.alert("Erro no Motor IA", "Falha ao gerar o laudo. Verifique sua conexão e o console.");
+            const msgErro = "Falha ao gerar o laudo. Verifique sua conexão e o console.";
+            if (Platform.OS === 'web') window.alert(msgErro);
+            else Alert.alert("Erro no Motor IA", msgErro);
         } finally {
             setIsGenerating(false);
         }
@@ -89,7 +89,8 @@ export default function AdminIALabScreen({ navigation }) {
     const handleCopy = async () => {
         if (!resultText) return;
         await Clipboard.setStringAsync(resultText);
-        Alert.alert("Copiado!", "Laudo copiado para a área de transferência.");
+        if (Platform.OS === 'web') window.alert("Laudo copiado!");
+        else Alert.alert("Copiado!", "Laudo copiado para a área de transferência.");
     };
 
     const handleWhatsApp = () => {
@@ -136,98 +137,105 @@ export default function AdminIALabScreen({ navigation }) {
                     <View style={{ width: 42 }} /> 
                 </View>
 
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
-                    
-                    {/* SELETOR DE TIPO DE ANÁLISE */}
-                    <View style={{flexDirection: 'row', backgroundColor: theme.surface, borderRadius: 12, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: theme.border}}>
-                        <TouchableOpacity 
-                            style={[styles.tabBtn, { backgroundColor: analysisType === 'initial' ? '#4DE38F' : 'transparent' }]}
-                            onPress={() => setAnalysisType('initial')}
-                        >
-                            <Text style={[styles.tabBtnText, { color: analysisType === 'initial' ? '#000' : theme.textSecondary }]}>ANÁLISE ÚNICA</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity 
-                            style={[styles.tabBtn, { backgroundColor: analysisType === 'comparison' ? '#4DE38F' : 'transparent' }]}
-                            onPress={() => setAnalysisType('comparison')}
-                        >
-                            <Text style={[styles.tabBtnText, { color: analysisType === 'comparison' ? '#000' : theme.textSecondary }]}>COMPARATIVO</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* UPLOAD DE FOTOS */}
-                    <Text style={[styles.sectionLabel, { color: theme.text }]}>FOTOS DO SHAPE</Text>
-                    <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 15 }}>
-                        {analysisType === 'initial' ? "Adicione fotos de Frente, Lado e Costas." : "Adicione as fotos do ANTES e do DEPOIS juntas."}
-                    </Text>
-                    
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, paddingBottom: 10, marginBottom: 20 }}>
-                        {images.map((img, index) => (
-                            <View key={index} style={styles.photoWrapper}>
-                                <Image source={{ uri: img.uri }} style={[styles.photoImg, { borderColor: theme.border }]} />
-                                <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeImage(index)}>
-                                    <MaterialCommunityIcons name="close-circle" size={24} color="#FF3B30" />
-                                </TouchableOpacity>
-                            </View>
-                        ))}
-                        
-                        <TouchableOpacity style={[styles.addPhotoBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={pickImage}>
-                            <MaterialCommunityIcons name="camera-plus" size={32} color="#4DE38F" />
-                            <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: 'bold', marginTop: 8 }}>ADICIONAR</Text>
-                        </TouchableOpacity>
-                    </ScrollView>
-
-                    {/* CONTEXTO */}
-                    <Text style={[styles.sectionLabel, { color: theme.text }]}>DIRECIONAMENTO (OPCIONAL)</Text>
-                    <TextInput 
-                        style={[styles.inputContext, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
-                        placeholder="Ex: Aluno sente dor no ombro; avaliar assimetria nas costas..."
-                        placeholderTextColor={theme.textSecondary}
-                        multiline
-                        value={contextText}
-                        onChangeText={setContextText}
-                    />
-
-                    {/* BOTÃO GERAR */}
-                    <TouchableOpacity 
-                        style={[styles.generateBtn, { backgroundColor: '#4DE38F15', borderColor: '#4DE38F' }]}
-                        onPress={handleGenerate}
-                        disabled={isGenerating}
+                {/* 🔥 SCROLL BLINDADO DA WEB (Técnica do absolute) 🔥 */}
+                <View style={{ flex: 1, position: 'relative' }}>
+                    <ScrollView 
+                        style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} 
+                        contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                        showsVerticalScrollIndicator={false}
                     >
-                        {isGenerating ? <ActivityIndicator color="#4DE38F" /> : (
-                            <>
-                                <MaterialCommunityIcons name="brain" size={24} color="#4DE38F" />
-                                <Text style={styles.generateBtnText}>GERAR LAUDO COM IA</Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-
-                    {/* RESULTADO */}
-                    {resultText ? (
-                        <View style={[styles.resultContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                            <Text style={[styles.sectionLabel, { color: '#4DE38F', marginBottom: 15 }]}>LAUDO TÉCNICO GERADO:</Text>
-                            <TextInput 
-                                style={[styles.resultInput, { color: theme.text }]}
-                                multiline
-                                editable={true}
-                                value={resultText}
-                                onChangeText={setResultText}
-                            />
-                            
-                            <View style={styles.actionRow}>
-                                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={handleCopy}>
-                                    <MaterialCommunityIcons name="content-copy" size={20} color={theme.text} />
-                                    <Text style={[styles.actionBtnText, { color: theme.text }]}>COPIAR</Text>
-                                </TouchableOpacity>
-                                
-                                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#25D366' }]} onPress={handleWhatsApp}>
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
-                                    <Text style={[styles.actionBtnText, { color: '#FFF' }]}>WHATSAPP</Text>
-                                </TouchableOpacity>
-                            </View>
+                        
+                        {/* SELETOR DE TIPO DE ANÁLISE */}
+                        <View style={{flexDirection: 'row', backgroundColor: theme.surface, borderRadius: 12, padding: 4, marginBottom: 20, borderWidth: 1, borderColor: theme.border}}>
+                            <TouchableOpacity 
+                                style={[styles.tabBtn, { backgroundColor: analysisType === 'initial' ? '#4DE38F' : 'transparent' }]}
+                                onPress={() => setAnalysisType('initial')}
+                            >
+                                <Text style={[styles.tabBtnText, { color: analysisType === 'initial' ? '#000' : theme.textSecondary }]}>ANÁLISE ÚNICA</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity 
+                                style={[styles.tabBtn, { backgroundColor: analysisType === 'comparison' ? '#4DE38F' : 'transparent' }]}
+                                onPress={() => setAnalysisType('comparison')}
+                            >
+                                <Text style={[styles.tabBtnText, { color: analysisType === 'comparison' ? '#000' : theme.textSecondary }]}>COMPARATIVO</Text>
+                            </TouchableOpacity>
                         </View>
-                    ) : null}
 
-                </ScrollView>
+                        {/* UPLOAD DE FOTOS */}
+                        <Text style={[styles.sectionLabel, { color: theme.text }]}>FOTOS DO SHAPE</Text>
+                        <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 15 }}>
+                            {analysisType === 'initial' ? "Adicione fotos de Frente, Lado e Costas." : "Adicione as fotos do ANTES e do DEPOIS juntas."}
+                        </Text>
+                        
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, paddingBottom: 10, marginBottom: 20 }}>
+                            {images.map((img, index) => (
+                                <View key={index} style={styles.photoWrapper}>
+                                    <Image source={{ uri: img.uri }} style={[styles.photoImg, { borderColor: theme.border }]} />
+                                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeImage(index)}>
+                                        <MaterialCommunityIcons name="close-circle" size={24} color="#FF3B30" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                            
+                            <TouchableOpacity style={[styles.addPhotoBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={pickImage}>
+                                <MaterialCommunityIcons name="camera-plus" size={32} color="#4DE38F" />
+                                <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: 'bold', marginTop: 8 }}>ADICIONAR</Text>
+                            </TouchableOpacity>
+                        </ScrollView>
+
+                        {/* CONTEXTO */}
+                        <Text style={[styles.sectionLabel, { color: theme.text }]}>DIRECIONAMENTO (OPCIONAL)</Text>
+                        <TextInput 
+                            style={[styles.inputContext, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                            placeholder="Ex: Aluno sente dor no ombro; avaliar assimetria nas costas..."
+                            placeholderTextColor={theme.textSecondary}
+                            multiline
+                            value={contextText}
+                            onChangeText={setContextText}
+                        />
+
+                        {/* BOTÃO GERAR */}
+                        <TouchableOpacity 
+                            style={[styles.generateBtn, { backgroundColor: '#4DE38F15', borderColor: '#4DE38F' }]}
+                            onPress={handleGenerate}
+                            disabled={isGenerating}
+                        >
+                            {isGenerating ? <ActivityIndicator color="#4DE38F" /> : (
+                                <>
+                                    <MaterialCommunityIcons name="brain" size={24} color="#4DE38F" />
+                                    <Text style={styles.generateBtnText}>GERAR LAUDO COM IA</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+
+                        {/* RESULTADO */}
+                        {resultText ? (
+                            <View style={[styles.resultContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                <Text style={[styles.sectionLabel, { color: '#4DE38F', marginBottom: 15 }]}>LAUDO TÉCNICO GERADO:</Text>
+                                <TextInput 
+                                    style={[styles.resultInput, { color: theme.text }]}
+                                    multiline
+                                    editable={true}
+                                    value={resultText}
+                                    onChangeText={setResultText}
+                                />
+                                
+                                <View style={styles.actionRow}>
+                                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={handleCopy}>
+                                        <MaterialCommunityIcons name="content-copy" size={20} color={theme.text} />
+                                        <Text style={[styles.actionBtnText, { color: theme.text }]}>COPIAR</Text>
+                                    </TouchableOpacity>
+                                    
+                                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#25D366' }]} onPress={handleWhatsApp}>
+                                        <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
+                                        <Text style={[styles.actionBtnText, { color: '#FFF' }]}>WHATSAPP</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : null}
+
+                    </ScrollView>
+                </View>
             </View>
         </RootComponent>
     );
