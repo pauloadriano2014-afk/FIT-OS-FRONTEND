@@ -13,16 +13,16 @@ import { useTheme } from '../contexts/ThemeContext';
 export default function AdminIALabScreen({ navigation }) {
     const { theme } = useTheme();
 
-    const [analysisType, setAnalysisType] = useState('initial'); // 'initial' ou 'comparison'
-    const [images, setImages] = useState([]); // Array de { uri, base64 }
+    const [analysisType, setAnalysisType] = useState('initial'); 
+    const [images, setImages] = useState([]); 
     const [contextText, setContextText] = useState('');
     
     const [isGenerating, setIsGenerating] = useState(false);
     const [resultText, setResultText] = useState('');
 
-    // 🔥 NOVO: SELEÇÃO DE ALUNOS 🔥
+    // 🔥 SELEÇÃO DE ALUNOS 🔥
     const [alunos, setAlunos] = useState([]);
-    const [selectedAluno, setSelectedAluno] = useState(null); // null = Teste avulso
+    const [selectedAluno, setSelectedAluno] = useState(null); 
     const [isSendingToAluno, setIsSendingToAluno] = useState(false);
     const [dropdownVisible, setDropdownVisible] = useState(false);
 
@@ -34,12 +34,16 @@ export default function AdminIALabScreen({ navigation }) {
         try {
             const t = Date.now();
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?t=${t}`);
-            const data = await res.json();
-            const rawAtivos = data.activeUsers || data.users || [];
-            const rawInativos = data.inactiveUsers || [];
-            const todos = [...rawAtivos, ...rawInativos].sort((a,b) => a.name?.localeCompare(b.name));
-            setAlunos(todos);
-        } catch (e) { console.log("Erro ao buscar alunos no Lab:", e); }
+            if (res.ok) {
+                const data = await res.json();
+                const rawAtivos = data.activeUsers || data.users || [];
+                const rawInativos = data.inactiveUsers || [];
+                const todos = [...rawAtivos, ...rawInativos].sort((a,b) => a.name?.localeCompare(b.name));
+                setAlunos(todos);
+            }
+        } catch (e) { 
+            console.log("Erro ao buscar alunos no Lab:", e); 
+        }
     };
 
     const optimizeImage = async (uri) => {
@@ -125,7 +129,6 @@ export default function AdminIALabScreen({ navigation }) {
         }
     };
 
-    // 🔥 NOVO: SALVAR LAUDO E NOTIFICAR ALUNO 🔥
     const handleSendToAluno = async () => {
         if (!selectedAluno) {
             const msg = "Selecione um aluno na lista acima para enviar o laudo.";
@@ -146,7 +149,7 @@ export default function AdminIALabScreen({ navigation }) {
         const confirmSend = async () => {
             setIsSendingToAluno(true);
             try {
-                const payloadImages = images.map(img => img.base64); // Só as strings base64
+                const payloadImages = images.map(img => img.base64);
 
                 const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
                     method: 'POST',
@@ -164,7 +167,6 @@ export default function AdminIALabScreen({ navigation }) {
                     const okMsg = `Laudo enviado para ${selectedAluno.name} e salvo na evolução com sucesso!`;
                     if (Platform.OS === 'web') window.alert(okMsg); else Alert.alert("Sucesso!", okMsg);
                     
-                    // Limpa a tela
                     setImages([]);
                     setResultText('');
                     setContextText('');
@@ -230,19 +232,19 @@ export default function AdminIALabScreen({ navigation }) {
                 ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
             }}>
                 
-                {/* HEADER */}
+                {/* HEADER COM V2 PARA FORÇAR ATUALIZAÇÃO VISUAL */}
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
                     </TouchableOpacity>
                     <View style={{ flex: 1, alignItems: 'center' }}>
-                        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>LABORATÓRIO</Text>
+                        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>LABORATÓRIO V2</Text>
                         <Text style={{ color: '#4DE38F', fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>INTELIGÊNCIA ARTIFICIAL</Text>
                     </View>
                     <View style={{ width: 42 }} /> 
                 </View>
 
-                {/* SCROLL BLINDADO DA WEB */}
+                {/* SCROLL BLINDADO */}
                 <View style={{ flex: 1, position: 'relative' }}>
                     <ScrollView 
                         style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} 
@@ -250,8 +252,8 @@ export default function AdminIALabScreen({ navigation }) {
                         showsVerticalScrollIndicator={false}
                     >
                         
-                        {/* 🔥 NOVO: SELETOR DE ALUNO ALVO 🔥 */}
-                        <Text style={[styles.sectionLabel, { color: theme.text }]}>ALUNO ALVO DA ANÁLISE</Text>
+                        {/* SELETOR DE ALUNO ALVO */}
+                        <Text style={[styles.sectionLabel, { color: theme.text, marginTop: 10 }]}>ALUNO ALVO DA ANÁLISE</Text>
                         <TouchableOpacity 
                             style={[styles.dropdownHeader, { backgroundColor: theme.surface, borderColor: selectedAluno ? '#34C759' : theme.border }]} 
                             onPress={() => setDropdownVisible(!dropdownVisible)}
@@ -285,7 +287,7 @@ export default function AdminIALabScreen({ navigation }) {
 
 
                         {/* SELETOR DE TIPO DE ANÁLISE */}
-                        <View style={{flexDirection: 'row', backgroundColor: theme.surface, borderRadius: 12, padding: 4, marginBottom: 20, marginTop: 10, borderWidth: 1, borderColor: theme.border}}>
+                        <View style={{flexDirection: 'row', backgroundColor: theme.surface, borderRadius: 12, padding: 4, marginBottom: 20, marginTop: 15, borderWidth: 1, borderColor: theme.border}}>
                             <TouchableOpacity 
                                 style={[styles.tabBtn, { backgroundColor: analysisType === 'initial' ? '#4DE38F' : 'transparent' }]}
                                 onPress={() => setAnalysisType('initial')}
