@@ -601,20 +601,26 @@ export default function HomeScreen({ navigation }) {
           <View style={styles.chatModalOverlay}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
                   
-                  <View style={styles.reportHeader}>
-                      <View>
-                          <Text style={[styles.reportTitle, { color: theme.text }]}>RELATÓRIO TÉCNICO</Text>
-                          <Text style={[styles.reportSubtitle, { color: theme.accent }]}>ALUNO: {userName.toUpperCase()}</Text>
+                  {/* CABEÇALHO CORRIGIDO: VERTICALIZADO PARA NÃO AMONTOAR */}
+                  <View style={[styles.reportHeader, { flexDirection: 'column', alignItems: 'center', paddingBottom: 25, position: 'relative' }]}>
+                      <TouchableOpacity style={{position: 'absolute', right: 20, top: 20, zIndex: 10}} onPress={() => setFeedbackModalVisible(false)}>
+                          <MaterialCommunityIcons name="close" size={28} color={theme.textSecondary} />
+                      </TouchableOpacity>
+
+                      <View style={{ alignItems: 'center', marginTop: 10 }}>
+                          <Text style={[styles.reportTitle, { color: theme.text, fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
+                          <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {userName.toUpperCase()}</Text>
                       </View>
-                      <View style={{ alignItems: 'flex-end' }}>
-                          <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>DATA DA AVALIAÇÃO</Text>
-                          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>
-                              {pendingFeedback?.date ? new Date(pendingFeedback.date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
+
+                      <View style={{ marginTop: 15, backgroundColor: '#4DE38F22', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 10 }}>
+                          <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: '900' }}>
+                              DATA: {pendingFeedback?.date ? new Date(pendingFeedback.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}
                           </Text>
                       </View>
                   </View>
 
-                  <ScrollView style={{flex: 1, padding: 25}} showsVerticalScrollIndicator={false}>
+                  {/* SCROLLVIEW BLINDADO: PADDING BOTTOM PARA NÃO CORTAR O RODAPÉ NA WEB E MARGEM EXTRA PRO BOTÃO */}
+                  <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
                       
                       {/* FOTOS DA AVALIAÇÃO (Arredondadas igual PDF) */}
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
@@ -640,7 +646,7 @@ export default function HomeScreen({ navigation }) {
 
                       {/* TEXTO DA AVALIAÇÃO */}
                       <Text style={[styles.reportSectionTitle, { color: theme.accent }]}>ANÁLISE DETALHADA</Text>
-                      <View style={{ marginTop: 10, marginBottom: 40 }}>
+                      <View style={{ marginTop: 10, marginBottom: 10 }}>
                           {pendingFeedback?.coachFeedback?.split('\n').map((paragraph, index) => {
                               // Pequeno parser para renderizar o texto com *negrito* que a IA manda
                               const parts = paragraph.split(/(\*[^*]+\*)/g);
@@ -657,20 +663,30 @@ export default function HomeScreen({ navigation }) {
                           })}
                       </View>
 
-                      {/* ASSINATURA DO COACH (Rodapé) */}
-                      <View style={[styles.reportFooter, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                          <View style={[styles.coachAvatar, { backgroundColor: theme.accent + '22' }]}>
-                              <MaterialCommunityIcons name="account-tie" size={32} color={theme.accent} />
-                          </View>
+                      {/* ASSINATURA DO COACH - AGORA DENTRO DO FLUXO PRINCIPAL E COM SUA FOTO CORTADA */}
+                      <View style={[styles.reportFooter, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                          
+                          {/* SUA FOTO REAL PUXANDO DA PASTA ASSETS */}
+                          <Image 
+                              source={require('../../assets/paulo-foto-perfil.png')} 
+                              style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} 
+                          />
+                          
                           <View style={{ flex: 1 }}>
-                              <Text style={[styles.coachName, { color: theme.text }]}>PAULO ADRIANO</Text>
-                              <Text style={[styles.coachTitle, { color: theme.textSecondary }]}>COACH & TREINADOR ELITE</Text>
+                              <Text style={[styles.coachName, { color: theme.text, fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
+                              <Text style={[styles.coachTitle, { color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
                           </View>
-                          <MaterialCommunityIcons name="shield-check" size={32} color={theme.accent} />
+
+                          {/* SUA LOGO REAL PUXANDO DA PASTA ASSETS */}
+                          <Image 
+                              source={require('../../assets/logo-pa.png')} 
+                              style={{ width: 45, height: 45 }} 
+                              resizeMode="contain"
+                          />
                       </View>
 
                       <TouchableOpacity 
-                          style={[styles.upsellBtn, {backgroundColor: theme.accent, marginTop: 30, marginBottom: 50}]} 
+                          style={[styles.upsellBtn, {backgroundColor: theme.accent, marginTop: 30, marginBottom: 20}]} 
                           onPress={markFeedbackAsRead}
                           disabled={isMarkingAsRead}
                       >
