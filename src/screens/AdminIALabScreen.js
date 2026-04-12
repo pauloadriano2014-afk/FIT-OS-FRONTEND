@@ -26,7 +26,7 @@ export default function AdminIALabScreen({ navigation }) {
     const [selectedAluno, setSelectedAluno] = useState(null); 
     const [isSendingToAluno, setIsSendingToAluno] = useState(false);
     const [dropdownVisible, setDropdownVisible] = useState(false);
-    const [searchQuery, setSearchQuery] = useState(''); // Estado para a barra de pesquisa
+    const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
         fetchAlunos();
@@ -220,7 +220,6 @@ export default function AdminIALabScreen({ navigation }) {
         });
     };
 
-    // 🔥 FILTRAGEM DOS ALUNOS PELO NOME 🔥
     const filteredAlunos = alunos.filter(a => 
         a.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -271,7 +270,7 @@ export default function AdminIALabScreen({ navigation }) {
                             style={[styles.dropdownHeader, { backgroundColor: theme.surface, borderColor: selectedAluno ? '#34C759' : theme.border }]} 
                             onPress={() => {
                                 setDropdownVisible(!dropdownVisible);
-                                setSearchQuery(''); // Reseta a busca ao abrir/fechar
+                                setSearchQuery(''); 
                             }}
                         >
                             <MaterialCommunityIcons name="account-search" size={20} color={selectedAluno ? '#34C759' : theme.textSecondary} />
@@ -281,10 +280,9 @@ export default function AdminIALabScreen({ navigation }) {
                             <MaterialCommunityIcons name={dropdownVisible ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                         </TouchableOpacity>
 
-                        {/* 🔥 LISTA DE ALUNOS COM BARRA DE PESQUISA 🔥 */}
+                        {/* LISTA DE ALUNOS COM BARRA DE PESQUISA */}
                         {dropdownVisible && (
                             <View style={[styles.dropdownContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                {/* Campo de Pesquisa */}
                                 <View style={[styles.searchBox, { borderBottomColor: theme.border }]}>
                                     <MaterialCommunityIcons name="magnify" size={20} color={theme.textSecondary} />
                                     <TextInput
@@ -297,7 +295,6 @@ export default function AdminIALabScreen({ navigation }) {
                                     />
                                 </View>
 
-                                {/* Lista Rolável de Resultados */}
                                 <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
                                     <TouchableOpacity 
                                         style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
@@ -413,7 +410,7 @@ export default function AdminIALabScreen({ navigation }) {
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* 🔥 BOTÃO DE SALVAR NO BANCO SE ALUNO TIVER SELECIONADO 🔥 */}
+                                {/* BOTÃO DE SALVAR NO BANCO SE ALUNO TIVER SELECIONADO */}
                                 {selectedAluno && (
                                     <TouchableOpacity 
                                         style={[styles.saveAlunoBtn, { backgroundColor: '#34C759' }]}
@@ -447,7 +444,7 @@ const styles = StyleSheet.create({
     dropdownHeader: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
     dropdownContainer: { borderWidth: 1, borderRadius: 12, marginBottom: 20, overflow: 'hidden' },
     searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 10, borderBottomWidth: 1 },
-    searchInput: { flex: 1, marginLeft: 10, fontSize: 13, padding: 0, outlineStyle: 'none' },
+    searchInput: { flex: 1, marginLeft: 10, fontSize: 16, padding: 0, outlineStyle: 'none' }, // 🔥 AQUI A FONTE FOI PARA 16PX 🔥
     dropdownItem: { padding: 15, borderBottomWidth: 1 },
 
     tabBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
