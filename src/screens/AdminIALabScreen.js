@@ -21,11 +21,12 @@ export default function AdminIALabScreen({ navigation }) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [resultText, setResultText] = useState('');
 
-    // 🔥 SELEÇÃO DE ALUNOS 🔥
+    // 🔥 SELEÇÃO E BUSCA DE ALUNOS 🔥
     const [alunos, setAlunos] = useState([]);
     const [selectedAluno, setSelectedAluno] = useState(null); 
     const [isSendingToAluno, setIsSendingToAluno] = useState(false);
     const [dropdownVisible, setDropdownVisible] = useState(false);
+    const [searchQuery, setSearchQuery] = useState(''); // Estado para a barra de pesquisa
 
     useEffect(() => {
         fetchAlunos();
@@ -219,6 +220,11 @@ export default function AdminIALabScreen({ navigation }) {
         });
     };
 
+    // 🔥 FILTRAGEM DOS ALUNOS PELO NOME 🔥
+    const filteredAlunos = alunos.filter(a => 
+        a.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
     const isWeb = Platform.OS === 'web';
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
     const RootComponent = isWeb ? View : SafeAreaView;
@@ -263,7 +269,10 @@ export default function AdminIALabScreen({ navigation }) {
                         <Text style={[styles.sectionLabel, { color: theme.text, marginTop: 10 }]}>ALUNO ALVO DA ANÁLISE</Text>
                         <TouchableOpacity 
                             style={[styles.dropdownHeader, { backgroundColor: theme.surface, borderColor: selectedAluno ? '#34C759' : theme.border }]} 
-                            onPress={() => setDropdownVisible(!dropdownVisible)}
+                            onPress={() => {
+                                setDropdownVisible(!dropdownVisible);
+                                setSearchQuery(''); // Reseta a busca ao abrir/fechar
+                            }}
                         >
                             <MaterialCommunityIcons name="account-search" size={20} color={selectedAluno ? '#34C759' : theme.textSecondary} />
                             <Text style={{ flex: 1, marginLeft: 10, color: selectedAluno ? '#34C759' : theme.text, fontWeight: 'bold', fontSize: 13 }}>
@@ -272,28 +281,48 @@ export default function AdminIALabScreen({ navigation }) {
                             <MaterialCommunityIcons name={dropdownVisible ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                         </TouchableOpacity>
 
-                        {/* 🔥 CORREÇÃO: SCROLLVIEW NESTED PARA A LISTA DE ALUNOS 🔥 */}
+                        {/* 🔥 LISTA DE ALUNOS COM BARRA DE PESQUISA 🔥 */}
                         {dropdownVisible && (
-                            <ScrollView 
-                                style={[styles.dropdownList, { backgroundColor: theme.bg, borderColor: theme.border }]}
-                                nestedScrollEnabled={true}
-                            >
-                                <TouchableOpacity 
-                                    style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
-                                    onPress={() => { setSelectedAluno(null); setDropdownVisible(false); }}
-                                >
-                                    <Text style={{ color: theme.textSecondary, fontWeight: 'bold' }}>Nenhum (Apenas Teste Avulso)</Text>
-                                </TouchableOpacity>
-                                {alunos.map(a => (
+                            <View style={[styles.dropdownContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                {/* Campo de Pesquisa */}
+                                <View style={[styles.searchBox, { borderBottomColor: theme.border }]}>
+                                    <MaterialCommunityIcons name="magnify" size={20} color={theme.textSecondary} />
+                                    <TextInput
+                                        style={[styles.searchInput, { color: theme.text }]}
+                                        placeholder="Buscar pelo nome..."
+                                        placeholderTextColor={theme.textSecondary}
+                                        value={searchQuery}
+                                        onChangeText={setSearchQuery}
+                                        autoFocus={Platform.OS !== 'web'}
+                                    />
+                                </View>
+
+                                {/* Lista Rolável de Resultados */}
+                                <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled={true}>
                                     <TouchableOpacity 
-                                        key={a.id} 
                                         style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
-                                        onPress={() => { setSelectedAluno(a); setDropdownVisible(false); }}
+                                        onPress={() => { setSelectedAluno(null); setDropdownVisible(false); setSearchQuery(''); }}
                                     >
-                                        <Text style={{ color: theme.text, fontWeight: 'bold' }}>{a.name}</Text>
+                                        <Text style={{ color: theme.textSecondary, fontWeight: 'bold' }}>Nenhum (Apenas Teste Avulso)</Text>
                                     </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                                    
+                                    {filteredAlunos.length > 0 ? (
+                                        filteredAlunos.map(a => (
+                                            <TouchableOpacity 
+                                                key={a.id} 
+                                                style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
+                                                onPress={() => { setSelectedAluno(a); setDropdownVisible(false); setSearchQuery(''); }}
+                                            >
+                                                <Text style={{ color: theme.text, fontWeight: 'bold' }}>{a.name}</Text>
+                                            </TouchableOpacity>
+                                        ))
+                                    ) : (
+                                        <View style={{ padding: 15, alignItems: 'center' }}>
+                                            <Text style={{ color: theme.textSecondary, fontStyle: 'italic' }}>Nenhum aluno encontrado.</Text>
+                                        </View>
+                                    )}
+                                </ScrollView>
+                            </View>
                         )}
 
 
@@ -416,7 +445,9 @@ const styles = StyleSheet.create({
     headerTitle: { fontWeight:'900', fontSize:16, letterSpacing: 1 },
     
     dropdownHeader: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
-    dropdownList: { borderWidth: 1, borderRadius: 12, marginBottom: 20, maxHeight: 180, overflow: 'hidden' },
+    dropdownContainer: { borderWidth: 1, borderRadius: 12, marginBottom: 20, overflow: 'hidden' },
+    searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 10, borderBottomWidth: 1 },
+    searchInput: { flex: 1, marginLeft: 10, fontSize: 13, padding: 0, outlineStyle: 'none' },
     dropdownItem: { padding: 15, borderBottomWidth: 1 },
 
     tabBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
