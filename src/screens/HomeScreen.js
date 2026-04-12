@@ -474,16 +474,16 @@ export default function HomeScreen({ navigation }) {
             {pendingFeedback ? (
                 <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
                     <TouchableOpacity 
-                        style={[styles.mainActionBtn, { backgroundColor: '#FFD700', shadowColor: '#FFD700', borderWidth: 0 }]} 
+                        style={[styles.mainActionBtn, { backgroundColor: theme.accent, shadowColor: theme.accent, borderWidth: 0 }]} 
                         onPress={() => setFeedbackModalVisible(true)} 
                         activeOpacity={0.9}
                     >
                         <View style={{flex: 1}}>
                             <Text style={[styles.actionLabel, { color: '#000' }]}>O COACH ANALISOU SUAS FOTOS</Text>
-                            <Text style={[styles.actionTitle, { color: '#000', fontSize: 20 }]}>FEEDBACK DISPONÍVEL</Text>
+                            <Text style={[styles.actionTitle, { color: '#000', fontSize: 20 }]}>VER RELATÓRIO TÉCNICO</Text>
                         </View>
                         <View style={[styles.iconCircle, {backgroundColor: 'rgba(0,0,0,0.15)'}]}>
-                            <MaterialCommunityIcons name="email-open" size={28} color="#000" />
+                            <MaterialCommunityIcons name="clipboard-text-search" size={28} color="#000" />
                         </View>
                     </TouchableOpacity>
                 </Animated.View>
@@ -596,54 +596,88 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      <Modal visible={feedbackModalVisible} transparent animationType="fade">
+      {/* 🔥 NOVO MODAL DE RELATÓRIO TÉCNICO (NÍVEL ELITE/PDF) 🔥 */}
+      <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.chatModalOverlay}>
-              <View style={[styles.feedbackModalContent, { backgroundColor: theme.bg }]}>
-                  <View style={styles.feedbackHeader}>
-                      <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 0, width: 40, height: 40 }]}>
-                          <MaterialCommunityIcons name="bullseye-arrow" size={24} color={theme.accent} />
+              <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
+                  
+                  <View style={styles.reportHeader}>
+                      <View>
+                          <Text style={[styles.reportTitle, { color: theme.text }]}>RELATÓRIO TÉCNICO</Text>
+                          <Text style={[styles.reportSubtitle, { color: theme.accent }]}>ALUNO: {userName.toUpperCase()}</Text>
                       </View>
-                      <Text style={[styles.feedbackTitle, { color: theme.text }]}>ANÁLISE DO COACH</Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                          <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>DATA DA AVALIAÇÃO</Text>
+                          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>
+                              {pendingFeedback?.date ? new Date(pendingFeedback.date).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR')}
+                          </Text>
+                      </View>
                   </View>
 
-                  <ScrollView style={{flex: 1, padding: 20}} showsVerticalScrollIndicator={false}>
+                  <ScrollView style={{flex: 1, padding: 25}} showsVerticalScrollIndicator={false}>
                       
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-                          <View style={{ flexDirection: 'row', gap: 15 }}>
-                              {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
-                                  pendingFeedback?.[key] && (
-                                      <View key={i} style={{ width: 220, alignItems: 'center' }}>
-                                          <Image 
-                                              source={{ uri: pendingFeedback[key] }} 
-                                              style={[styles.feedbackPhotoImg, { borderColor: theme.border }]} 
-                                              resizeMode="contain" 
-                                          />
-                                          <Text style={[styles.feedbackPhotoLabel, { color: theme.textSecondary }]}>
-                                              {key === 'photoFront' ? 'FRENTE' : key === 'photoSide' ? 'LADO' : 'COSTAS'}
+                      {/* FOTOS DA AVALIAÇÃO (Arredondadas igual PDF) */}
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
+                          {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
+                              pendingFeedback?.[key] && (
+                                  <View key={i} style={styles.reportPhotoContainer}>
+                                      <Image 
+                                          source={{ uri: pendingFeedback[key] }} 
+                                          style={styles.reportPhotoImg} 
+                                          resizeMode="cover" 
+                                      />
+                                      <View style={[styles.reportPhotoBadge, { backgroundColor: theme.accent }]}>
+                                          <Text style={styles.reportPhotoBadgeText}>
+                                              {key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}
                                           </Text>
                                       </View>
-                                  )
-                              ))}
-                          </View>
+                                  </View>
+                              )
+                          ))}
                       </ScrollView>
 
-                      <View style={[styles.feedbackTextBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                          <MaterialCommunityIcons name="format-quote-open" size={24} color={theme.accent} style={{marginBottom: 10}} />
-                          <Text style={[styles.feedbackText, { color: theme.text }]}>{pendingFeedback?.coachFeedback}</Text>
+                      <View style={styles.reportDivider} />
+
+                      {/* TEXTO DA AVALIAÇÃO */}
+                      <Text style={[styles.reportSectionTitle, { color: theme.accent }]}>ANÁLISE DETALHADA</Text>
+                      <View style={{ marginTop: 10, marginBottom: 40 }}>
+                          {pendingFeedback?.coachFeedback?.split('\n').map((paragraph, index) => {
+                              // Pequeno parser para renderizar o texto com *negrito* que a IA manda
+                              const parts = paragraph.split(/(\*[^*]+\*)/g);
+                              return (
+                                  <Text key={index} style={[styles.reportText, { color: theme.text }]}>
+                                      {parts.map((part, i) => {
+                                          if (part.startsWith('*') && part.endsWith('*')) {
+                                              return <Text key={i} style={{ fontWeight: '900', color: theme.text }}>{part.slice(1, -1)}</Text>;
+                                          }
+                                          return part;
+                                      })}
+                                  </Text>
+                              );
+                          })}
+                      </View>
+
+                      {/* ASSINATURA DO COACH (Rodapé) */}
+                      <View style={[styles.reportFooter, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                          <View style={[styles.coachAvatar, { backgroundColor: theme.accent + '22' }]}>
+                              <MaterialCommunityIcons name="account-tie" size={32} color={theme.accent} />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                              <Text style={[styles.coachName, { color: theme.text }]}>PAULO ADRIANO</Text>
+                              <Text style={[styles.coachTitle, { color: theme.textSecondary }]}>COACH & TREINADOR ELITE</Text>
+                          </View>
+                          <MaterialCommunityIcons name="shield-check" size={32} color={theme.accent} />
                       </View>
 
                       <TouchableOpacity 
-                          style={[styles.upsellBtn, {backgroundColor: theme.accent, marginTop: 25, elevation: 5}]} 
+                          style={[styles.upsellBtn, {backgroundColor: theme.accent, marginTop: 30, marginBottom: 50}]} 
                           onPress={markFeedbackAsRead}
                           disabled={isMarkingAsRead}
                       >
                           {isMarkingAsRead ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
-                              <>
-                                  <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>COMPREENDIDO, COACH! 👊</Text>
-                              </>
+                              <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>COMPREENDIDO, COACH! 👊</Text>
                           )}
                       </TouchableOpacity>
-                      <View style={{height: 40}} />
                   </ScrollView>
               </View>
           </View>
@@ -684,14 +718,7 @@ export default function HomeScreen({ navigation }) {
           </View>
       </Modal>
 
-      {/* 🔥 INJEÇÃO DA DIETA ISOLADA PASSANDO O OBJETIVO DO ALUNO 🔥 */}
-      <DietGuideModal 
-          visible={dietModalVisible} 
-          onClose={() => setDietModalVisible(false)} 
-          theme={theme} 
-          dietGoal={userPlan === 'CHALLENGE_21' ? 'WEIGHT_LOSS' : userData?.dietGoal} 
-      />
-
+      <DietGuideModal visible={dietModalVisible} onClose={() => setDietModalVisible(false)} theme={theme} dietGoal={userPlan === 'CHALLENGE_21' ? 'WEIGHT_LOSS' : userData?.dietGoal} />
       <LevelUpModal visible={levelModalVisible} onClose={() => setLevelModalVisible(false)} theme={theme} levelData={levelData} currentLevel={currentLevel} currentLevelProgress={currentLevelProgress} nextLevelXP={nextLevelXP} />
       <HomeNoticeModal visible={noticeModalVisible} onClose={handleReadNotice} theme={theme} activeNotice={activeNotice} />
       <ChatAIAssistantModal visible={chatVisible} onClose={() => setChatVisible(false)} theme={theme} isWeb={isWeb} messages={messages} flatListRef={flatListRef} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isTyping={isTyping} QUICK_QUESTIONS={QUICK_QUESTIONS} />
@@ -739,13 +766,21 @@ const styles = StyleSheet.create({
   upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
   upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
-  feedbackModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', marginTop: 40 },
-  feedbackHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 25, borderBottomWidth: 1, borderColor: 'rgba(128,128,128,0.2)' },
-  feedbackTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
-  feedbackPhotosRow: { flexDirection: 'row', gap: 15, marginBottom: 20 },
-  feedbackPhotoBox: { flex: 1, alignItems: 'center' },
-  feedbackPhotoImg: { width: '100%', height: 250, borderRadius: 20, borderWidth: 2, backgroundColor: '#000' },
-  feedbackPhotoLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, letterSpacing: 1 },
-  feedbackTextBox: { padding: 20, borderRadius: 20, borderWidth: 1 },
-  feedbackText: { fontSize: 16, lineHeight: 26, fontWeight: '500' },
+
+  // 🔥 ESTILOS DO NOVO RELATÓRIO TÉCNICO (PADRÃO PDF) 🔥
+  reportModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', overflow: 'hidden' },
+  reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 40, borderBottomWidth: 1, borderColor: '#222' },
+  reportTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
+  reportSubtitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1, marginTop: 4 },
+  reportPhotoContainer: { width: 220, height: 320, borderRadius: 20, overflow: 'hidden', backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#333', position: 'relative' },
+  reportPhotoImg: { width: '100%', height: '100%' },
+  reportPhotoBadge: { position: 'absolute', bottom: 15, alignSelf: 'center', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20 },
+  reportPhotoBadgeText: { color: '#000', fontWeight: '900', fontSize: 10, letterSpacing: 1 },
+  reportDivider: { height: 1, backgroundColor: '#333', width: '100%', marginBottom: 30 },
+  reportSectionTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+  reportText: { fontSize: 16, lineHeight: 28, marginBottom: 15, opacity: 0.9 },
+  reportFooter: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginTop: 10 },
+  coachAvatar: { width: 54, height: 54, borderRadius: 27, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  coachName: { fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
+  coachTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 2 },
 });
