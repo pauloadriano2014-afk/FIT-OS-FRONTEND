@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as ImageManipulator from 'expo-image-manipulator';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 IMPORT ADICIONADO AQUI 🔥
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminIALabScreen({ navigation }) {
@@ -30,10 +31,17 @@ export default function AdminIALabScreen({ navigation }) {
         fetchAlunos();
     }, []);
 
+    // 🔥 CORREÇÃO: BUSCANDO COM O SEU ID DE ADMIN 🔥
     const fetchAlunos = async () => {
         try {
+            const userString = await AsyncStorage.getItem('user');
+            if (!userString) return;
+            const userObj = JSON.parse(userString);
+            const adminId = userObj.id;
+
             const t = Date.now();
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?t=${t}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`);
+            
             if (res.ok) {
                 const data = await res.json();
                 const rawAtivos = data.activeUsers || data.users || [];
@@ -232,13 +240,13 @@ export default function AdminIALabScreen({ navigation }) {
                 ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
             }}>
                 
-                {/* HEADER COM V2 PARA FORÇAR ATUALIZAÇÃO VISUAL */}
+                {/* HEADER COM V3 */}
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
                     </TouchableOpacity>
                     <View style={{ flex: 1, alignItems: 'center' }}>
-                        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>LABORATÓRIO V2</Text>
+                        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>LABORATÓRIO V3</Text>
                         <Text style={{ color: '#4DE38F', fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>INTELIGÊNCIA ARTIFICIAL</Text>
                     </View>
                     <View style={{ width: 42 }} /> 
