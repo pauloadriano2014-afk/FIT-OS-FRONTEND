@@ -8,7 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import * as ImageManipulator from 'expo-image-manipulator';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 IMPORT ADICIONADO AQUI 🔥
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminIALabScreen({ navigation }) {
@@ -31,7 +31,6 @@ export default function AdminIALabScreen({ navigation }) {
         fetchAlunos();
     }, []);
 
-    // 🔥 CORREÇÃO: BUSCANDO COM O SEU ID DE ADMIN 🔥
     const fetchAlunos = async () => {
         try {
             const userString = await AsyncStorage.getItem('user');
@@ -240,7 +239,7 @@ export default function AdminIALabScreen({ navigation }) {
                 ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
             }}>
                 
-                {/* HEADER COM V3 */}
+                {/* HEADER */}
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
@@ -273,8 +272,12 @@ export default function AdminIALabScreen({ navigation }) {
                             <MaterialCommunityIcons name={dropdownVisible ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                         </TouchableOpacity>
 
+                        {/* 🔥 CORREÇÃO: SCROLLVIEW NESTED PARA A LISTA DE ALUNOS 🔥 */}
                         {dropdownVisible && (
-                            <View style={[styles.dropdownList, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                            <ScrollView 
+                                style={[styles.dropdownList, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                nestedScrollEnabled={true}
+                            >
                                 <TouchableOpacity 
                                     style={[styles.dropdownItem, { borderBottomColor: theme.border }]}
                                     onPress={() => { setSelectedAluno(null); setDropdownVisible(false); }}
@@ -290,7 +293,7 @@ export default function AdminIALabScreen({ navigation }) {
                                         <Text style={{ color: theme.text, fontWeight: 'bold' }}>{a.name}</Text>
                                     </TouchableOpacity>
                                 ))}
-                            </View>
+                            </ScrollView>
                         )}
 
 
