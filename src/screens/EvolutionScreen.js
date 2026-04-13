@@ -11,7 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-/* 🔥 IMPORTAÇÃO DO TEMA E DOS NOVOS MÓDULOS */
+/* 🔥 IMPORTAÇÕES */
 import { useTheme } from '../contexts/ThemeContext';
 import { calculateBodyFat, getAgeFromDate, getGoogleDriveDirectDownloadUrl } from '../utils/EvolutionCalculators';
 import AssessmentFormModal from '../components/AssessmentFormModal';
@@ -39,7 +39,6 @@ export default function EvolutionScreen({ navigation }) {
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const [compareModalVisible, setCompareModalVisible] = useState(false);
 
-  // 🔥 ESTADOS DO MODAL DE FEEDBACK 🔥
   const [selectedFeedback, setSelectedFeedback] = useState(null);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
 
@@ -136,7 +135,6 @@ export default function EvolutionScreen({ navigation }) {
       setEditingId(item.id);
       setMethod(item.method || 'BASICO');
       setWeight(String(item.weight));
-      
       const d = new Date(item.date);
       setCustomDate(`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`);
 
@@ -151,10 +149,7 @@ export default function EvolutionScreen({ navigation }) {
               foldThigh: item.foldThigh ? String(item.foldThigh) : ''
           });
       } else {
-          setMeasures({
-              waist: item.waist ? String(item.waist) : '',
-              abdomen: item.abdomen ? String(item.abdomen) : ''
-          });
+          setMeasures({ waist: item.waist ? String(item.waist) : '', abdomen: item.abdomen ? String(item.abdomen) : '' });
       }
       setModalVisible(true);
   };
@@ -293,10 +288,7 @@ export default function EvolutionScreen({ navigation }) {
       }
   };
 
-  const openFeedbackModal = (checkin) => {
-      setSelectedFeedback(checkin);
-      setFeedbackModalVisible(true);
-  };
+  const openFeedbackModal = (checkin) => { setSelectedFeedback(checkin); setFeedbackModalVisible(true); };
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
@@ -399,10 +391,7 @@ export default function EvolutionScreen({ navigation }) {
           ) : (
               <>
                   {userData?.evaluationUrl ? (
-                      <TouchableOpacity 
-                          style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} 
-                          onPress={() => Linking.openURL(getGoogleDriveDirectDownloadUrl(userData.evaluationUrl))}
-                      >
+                      <TouchableOpacity style={[styles.pdfAssessmentBtn, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1 }]} onPress={() => Linking.openURL(getGoogleDriveDirectDownloadUrl(userData.evaluationUrl))}>
                           <MaterialCommunityIcons name="file-pdf-box" size={32} color={theme.accent} />
                           <View style={{flex: 1, marginLeft: 15}}><Text style={[styles.pdfAssessmentTitle, { color: theme.text }]}>MINHA AVALIAÇÃO FÍSICA</Text><Text style={[styles.pdfAssessmentSub, { color: theme.textSecondary }]}>Toque para visualizar ou baixar (PDF)</Text></View>
                           <MaterialCommunityIcons name="download" size={24} color={theme.textSecondary} />
@@ -412,8 +401,7 @@ export default function EvolutionScreen({ navigation }) {
                   {checkinHistory.length > 0 && (
                       <View style={{ marginBottom: 25 }}>
                           <Text style={[styles.sectionTitle, {color: theme.accent, marginBottom: 10, marginTop: 0}]}>AVALIAÇÕES DO COACH</Text>
-                          {checkinHistory.map((checkin) => {
-                              return (
+                          {checkinHistory.map((checkin) => (
                                   <TouchableOpacity 
                                       key={checkin.id} 
                                       style={[styles.feedbackListCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
@@ -422,17 +410,14 @@ export default function EvolutionScreen({ navigation }) {
                                           openFeedbackModal(checkin);
                                       }}
                                   >
-                                      <View style={[styles.feedbackListIcon, { backgroundColor: theme.accent + '22' }]}>
-                                          <MaterialCommunityIcons name="clipboard-text-search" size={20} color={theme.accent} />
-                                      </View>
+                                      <View style={[styles.feedbackListIcon, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="clipboard-text-search" size={20} color={theme.accent} /></View>
                                       <View style={{ flex: 1 }}>
                                           <Text style={[styles.feedbackListTitle, { color: theme.text }]}>Relatório Técnico</Text>
                                           <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Enviado em {new Date(checkin.date || checkin.createdAt).toLocaleDateString('pt-BR')}</Text>
                                       </View>
                                       <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} style={{marginLeft: 10}} />
                                   </TouchableOpacity>
-                              )
-                          })}
+                          ))}
                       </View>
                   )}
 
@@ -470,8 +455,7 @@ export default function EvolutionScreen({ navigation }) {
                       <Text style={[styles.sectionTitle, {color:'#32ADE6', marginTop: 0, marginBottom: 0}]}>HISTÓRICO</Text>
                       {!compareMode ? (
                           <TouchableOpacity onPress={() => {setCompareMode(true); setSelectedForCompare([]);}} style={{flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#32ADE622', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8}}>
-                              <MaterialCommunityIcons name="scale-balance" size={16} color="#32ADE6" />
-                              <Text style={{color: '#32ADE6', fontSize: 11, fontWeight: 'bold'}}>COMPARAR</Text>
+                              <MaterialCommunityIcons name="scale-balance" size={16} color="#32ADE6" /><Text style={{color: '#32ADE6', fontSize: 11, fontWeight: 'bold'}}>COMPARAR</Text>
                           </TouchableOpacity>
                       ) : (
                           <View style={{flexDirection: 'row', gap: 10}}>
@@ -506,43 +490,22 @@ export default function EvolutionScreen({ navigation }) {
         </ScrollView>
       </View>
 
-      <AssessmentFormModal
-          visible={modalVisible} onClose={() => { setModalVisible(false); resetForm(); }}
-          editingId={editingId} customDate={customDate} handleDateChange={handleDateChange}
-          method={method} setMethod={setMethod} weight={weight} setWeight={setWeight}
-          currentAge={currentAge} setCurrentAge={setCurrentAge} currentGender={currentGender} setCurrentGender={setCurrentGender}
-          folds={folds} setFolds={setFolds} measures={measures} setMeasures={setMeasures}
-          onSave={handleSaveAssessment} theme={theme} isWeb={isWeb} webOuterBg={webOuterBg}
-      />
+      <AssessmentFormModal visible={modalVisible} onClose={() => { setModalVisible(false); resetForm(); }} editingId={editingId} customDate={customDate} handleDateChange={handleDateChange} method={method} setMethod={setMethod} weight={weight} setWeight={setWeight} currentAge={currentAge} setCurrentAge={setCurrentAge} currentGender={currentGender} setCurrentGender={setCurrentGender} folds={folds} setFolds={setFolds} measures={measures} setMeasures={setMeasures} onSave={handleSaveAssessment} theme={theme} isWeb={isWeb} webOuterBg={webOuterBg} />
+      <AssessmentDetailsModal visible={detailsVisible} assessment={selectedAssessment} onClose={() => setDetailsVisible(false)} onGeneratePDF={() => generateSinglePDF(selectedAssessment)} onEdit={() => handleEdit(selectedAssessment)} onDelete={() => handleDelete(selectedAssessment?.id)} theme={theme} />
+      <CompareReportModal visible={compareModalVisible} onClose={() => setCompareModalVisible(false)} selectedData={assessmentHistory.filter(a => selectedForCompare.includes(a.id))} onGeneratePDF={generateComparePDF} theme={theme} />
 
-      <AssessmentDetailsModal
-          visible={detailsVisible} assessment={selectedAssessment}
-          onClose={() => setDetailsVisible(false)} onGeneratePDF={() => generateSinglePDF(selectedAssessment)}
-          onEdit={() => handleEdit(selectedAssessment)} onDelete={() => handleDelete(selectedAssessment?.id)} theme={theme}
-      />
-
-      <CompareReportModal
-          visible={compareModalVisible} onClose={() => setCompareModalVisible(false)}
-          selectedData={assessmentHistory.filter(a => selectedForCompare.includes(a.id))}
-          onGeneratePDF={generateComparePDF} theme={theme}
-      />
-
-      {/* 🔥 NOVO MODAL DE RELATÓRIO TÉCNICO (NÍVEL ELITE/PDF) 🔥 */}
+      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO (BLINDADO CONTRA LIGHT MODE) 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.modalOverlayFull}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
-                  
-                  {/* CABEÇALHO CORRIGIDO: VERTICALIZADO PARA NÃO AMONTOAR */}
-                  <View style={[styles.reportHeader, { flexDirection: 'column', alignItems: 'center', paddingBottom: 25, position: 'relative' }]}>
+                  <View style={[styles.reportHeader, { flexDirection: 'column', alignItems: 'center', paddingBottom: 25, position: 'relative', borderBottomColor: '#333' }]}>
                       <TouchableOpacity style={{position: 'absolute', right: 20, top: 20, zIndex: 10}} onPress={() => setFeedbackModalVisible(false)}>
-                          <MaterialCommunityIcons name="close" size={28} color={theme.textSecondary} />
+                          <MaterialCommunityIcons name="close" size={28} color="#AAA" />
                       </TouchableOpacity>
-
                       <View style={{ alignItems: 'center', marginTop: 10 }}>
-                          <Text style={[styles.reportTitle, { color: theme.text, fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
+                          <Text style={[styles.reportTitle, { color: '#FFF', fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
                           <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {(userData?.name || 'Aluno').toUpperCase()}</Text>
                       </View>
-
                       <View style={{ marginTop: 15, backgroundColor: '#4DE38F22', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 10 }}>
                           <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: '900' }}>
                               DATA: {selectedFeedback?.date ? new Date(selectedFeedback.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}
@@ -550,76 +513,44 @@ export default function EvolutionScreen({ navigation }) {
                       </View>
                   </View>
 
-                  {/* SCROLLVIEW BLINDADO: PADDING BOTTOM PARA NÃO CORTAR O RODAPÉ NA WEB */}
-                  <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
-                      
-                      {/* FOTOS DA AVALIAÇÃO */}
+                  <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
                           {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
                               selectedFeedback?.[key] && (
                                   <View key={i} style={styles.reportPhotoContainer}>
-                                      <Image 
-                                          source={{ uri: selectedFeedback[key] }} 
-                                          style={styles.reportPhotoImg} 
-                                          resizeMode="cover" 
-                                      />
-                                      <View style={[styles.reportPhotoBadge, { backgroundColor: theme.accent }]}>
-                                          <Text style={styles.reportPhotoBadgeText}>
-                                              {key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}
-                                          </Text>
-                                      </View>
+                                      <Image source={{ uri: selectedFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
+                                      <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color:'#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
                                   </View>
                               )
                           ))}
                       </ScrollView>
-
                       <View style={styles.reportDivider} />
-
-                      {/* TEXTO DA AVALIAÇÃO COM PARSER DE NEGRITO */}
-                      <Text style={[styles.reportSectionTitle, { color: theme.accent }]}>ANÁLISE DETALHADA</Text>
+                      <Text style={[styles.reportSectionTitle, { color: '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
                       <View style={{ marginTop: 10, marginBottom: 10 }}>
                           {selectedFeedback?.coachFeedback?.split('\n').map((paragraph, index) => {
                               const parts = paragraph.split(/(\*[^*]+\*)/g);
                               return (
-                                  <Text key={index} style={[styles.reportText, { color: theme.text }]}>
-                                      {parts.map((part, i) => {
-                                          if (part.startsWith('*') && part.endsWith('*')) {
-                                              return <Text key={i} style={{ fontWeight: '900', color: theme.text }}>{part.slice(1, -1)}</Text>;
-                                          }
+                                  <Text key={index} style={[styles.reportText, { color: '#DDD' }]}>{parts.map((part, i) => {
+                                          if (part.startsWith('*') && part.endsWith('*')) return <Text key={i} style={{ fontWeight: '900', color: '#FFF' }}>{part.slice(1, -1)}</Text>;
                                           return part;
                                       })}
                                   </Text>
                               );
                           })}
                       </View>
-
-                      {/* ASSINATURA DO COACH - AGORA DENTRO DO FLUXO PRINCIPAL E COM SUA FOTO CORTADA */}
-                      <View style={[styles.reportFooter, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                          
-                          {/* SUA FOTO REAL PUXANDO DA PASTA ASSETS */}
-                          <Image 
-                              source={require('../../assets/paulo-foto-perfil.png')} 
-                              style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} 
-                          />
-                          
+                      
+                      <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                          <Image source={require('../../assets/paulo-foto-perfil.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
                           <View style={{ flex: 1 }}>
-                              <Text style={[styles.coachName, { color: theme.text, fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
-                              <Text style={[styles.coachTitle, { color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
+                              <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
+                              <Text style={[styles.coachTitle, { color: '#AAA', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
                           </View>
-
-                          {/* SUA LOGO REAL PUXANDO DA PASTA ASSETS */}
-                          <Image 
-                              source={require('../../assets/logo-pa.png')} 
-                              style={{ width: 45, height: 45 }} 
-                              resizeMode="contain"
-                          />
+                          <Image source={require('../../assets/logo-pa.png')} style={{ width: 45, height: 45 }} resizeMode="contain" />
                       </View>
-
                   </ScrollView>
               </View>
           </View>
       </Modal>
-
     </RootComponent>
   );
 }
@@ -634,15 +565,12 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10 },
   tabText: { fontWeight: '900', fontSize: 12 },
   scrollContent: { padding: 20 },
-  
   pdfAssessmentBtn: { flexDirection: 'row', padding: 20, borderRadius: 20, alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, elevation: 4 },
   pdfAssessmentTitle: { fontWeight: '900', fontSize: 15 },
   pdfAssessmentSub: { fontSize: 11, marginTop: 2 },
-  
   feedbackListCard: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, borderWidth: 1, marginBottom: 10 },
   feedbackListIcon: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   feedbackListTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
-
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25 },
   statCard: { width: '48%', padding: 20, borderRadius: 24, borderWidth: 1, alignItems: 'center' },
   statValue: { fontSize: 24, fontWeight: '900', marginVertical: 5 },
@@ -660,23 +588,19 @@ const styles = StyleSheet.create({
   historyTonnage: { fontSize: 13, fontWeight: '900', marginTop: 4 },
   newAssessmentBtn: { flexDirection: 'row', padding: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 10, marginBottom: 25 },
   newAssessmentText: { fontWeight: '900', fontSize: 14 },
-
   modalOverlayFull: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-  
-  // 🔥 ESTILOS DO NOVO RELATÓRIO TÉCNICO (PADRÃO PDF) 🔥
   reportModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', overflow: 'hidden', marginTop: Platform.OS === 'android' ? 0 : 40, borderTopLeftRadius: Platform.OS === 'android' ? 0 : 30, borderTopRightRadius: Platform.OS === 'android' ? 0 : 30 },
-  reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 40, borderBottomWidth: 1, borderColor: '#222' },
+  reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1 },
   reportTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
   reportSubtitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1, marginTop: 4 },
   reportPhotoContainer: { width: 220, height: 320, borderRadius: 20, overflow: 'hidden', backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#333', position: 'relative' },
   reportPhotoImg: { width: '100%', height: '100%' },
   reportPhotoBadge: { position: 'absolute', bottom: 15, alignSelf: 'center', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20 },
-  reportPhotoBadgeText: { color: '#000', fontWeight: '900', fontSize: 10, letterSpacing: 1 },
+  reportPhotoBadgeText: { fontWeight: '900', fontSize: 10, letterSpacing: 1 },
   reportDivider: { height: 1, backgroundColor: '#333', width: '100%', marginBottom: 30 },
   reportSectionTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   reportText: { fontSize: 16, lineHeight: 28, marginBottom: 15, opacity: 0.9 },
   reportFooter: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginTop: 10 },
-  coachAvatar: { width: 54, height: 54, borderRadius: 27, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   coachName: { fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
   coachTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 2 },
 });

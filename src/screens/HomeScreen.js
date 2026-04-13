@@ -524,7 +524,7 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
             )}
 
-            {/* 🔥 BOTÃO DA DIETA: SEMPRE VISÍVEL NO 21D OU SE LIBERADO NO ADMIN 🔥 */}
+            {/* 🔥 BOTÃO DA DIETA 🔥 */}
             {(userPlan === 'CHALLENGE_21' || (userData?.dietGoal && userData.dietGoal !== 'NONE')) && (
                 <TouchableOpacity 
                     style={[styles.mainActionBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, padding: 20, marginBottom: 15, elevation: 0 }]} 
@@ -596,19 +596,19 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 NOVO MODAL DE RELATÓRIO TÉCNICO (NÍVEL ELITE/PDF) 🔥 */}
+      {/* 🔥 NOVO MODAL DE RELATÓRIO TÉCNICO (BLINDADO CONTRA LIGHT MODE) 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
                   
-                  {/* CABEÇALHO CORRIGIDO: VERTICALIZADO PARA NÃO AMONTOAR */}
-                  <View style={[styles.reportHeader, { flexDirection: 'column', alignItems: 'center', paddingBottom: 25, position: 'relative' }]}>
+                  {/* CABEÇALHO */}
+                  <View style={[styles.reportHeader, { flexDirection: 'column', alignItems: 'center', paddingBottom: 25, position: 'relative', borderBottomColor: '#333' }]}>
                       <TouchableOpacity style={{position: 'absolute', right: 20, top: 20, zIndex: 10}} onPress={() => setFeedbackModalVisible(false)}>
-                          <MaterialCommunityIcons name="close" size={28} color={theme.textSecondary} />
+                          <MaterialCommunityIcons name="close" size={28} color="#AAA" />
                       </TouchableOpacity>
 
                       <View style={{ alignItems: 'center', marginTop: 10 }}>
-                          <Text style={[styles.reportTitle, { color: theme.text, fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
+                          <Text style={[styles.reportTitle, { color: '#FFF', fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
                           <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {userName.toUpperCase()}</Text>
                       </View>
 
@@ -619,21 +619,15 @@ export default function HomeScreen({ navigation }) {
                       </View>
                   </View>
 
-                  {/* SCROLLVIEW BLINDADO: PADDING BOTTOM PARA NÃO CORTAR O RODAPÉ NA WEB E MARGEM EXTRA PRO BOTÃO */}
                   <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
                       
-                      {/* FOTOS DA AVALIAÇÃO (Arredondadas igual PDF) */}
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
                           {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
                               pendingFeedback?.[key] && (
                                   <View key={i} style={styles.reportPhotoContainer}>
-                                      <Image 
-                                          source={{ uri: pendingFeedback[key] }} 
-                                          style={styles.reportPhotoImg} 
-                                          resizeMode="cover" 
-                                      />
-                                      <View style={[styles.reportPhotoBadge, { backgroundColor: theme.accent }]}>
-                                          <Text style={styles.reportPhotoBadgeText}>
+                                      <Image source={{ uri: pendingFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
+                                      <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}>
+                                          <Text style={[styles.reportPhotoBadgeText, {color: '#000'}]}>
                                               {key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}
                                           </Text>
                                       </View>
@@ -644,17 +638,15 @@ export default function HomeScreen({ navigation }) {
 
                       <View style={styles.reportDivider} />
 
-                      {/* TEXTO DA AVALIAÇÃO */}
-                      <Text style={[styles.reportSectionTitle, { color: theme.accent }]}>ANÁLISE DETALHADA</Text>
+                      <Text style={[styles.reportSectionTitle, { color: '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
                       <View style={{ marginTop: 10, marginBottom: 10 }}>
                           {pendingFeedback?.coachFeedback?.split('\n').map((paragraph, index) => {
-                              // Pequeno parser para renderizar o texto com *negrito* que a IA manda
                               const parts = paragraph.split(/(\*[^*]+\*)/g);
                               return (
-                                  <Text key={index} style={[styles.reportText, { color: theme.text }]}>
+                                  <Text key={index} style={[styles.reportText, { color: '#DDD' }]}>
                                       {parts.map((part, i) => {
                                           if (part.startsWith('*') && part.endsWith('*')) {
-                                              return <Text key={i} style={{ fontWeight: '900', color: theme.text }}>{part.slice(1, -1)}</Text>;
+                                              return <Text key={i} style={{ fontWeight: '900', color: '#FFF' }}>{part.slice(1, -1)}</Text>;
                                           }
                                           return part;
                                       })}
@@ -663,36 +655,18 @@ export default function HomeScreen({ navigation }) {
                           })}
                       </View>
 
-                      {/* ASSINATURA DO COACH - AGORA DENTRO DO FLUXO PRINCIPAL E COM SUA FOTO CORTADA */}
-                      <View style={[styles.reportFooter, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                          
-                          {/* SUA FOTO REAL PUXANDO DA PASTA ASSETS */}
-                          <Image 
-                              source={require('../../assets/paulo-foto-perfil.png')} 
-                              style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} 
-                          />
-                          
+                      {/* ASSINATURA BLINDADA */}
+                      <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                          <Image source={require('../../assets/paulo-foto.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
                           <View style={{ flex: 1 }}>
-                              <Text style={[styles.coachName, { color: theme.text, fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
-                              <Text style={[styles.coachTitle, { color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
+                              <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
+                              <Text style={[styles.coachTitle, { color: '#AAA', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
                           </View>
-
-                          {/* SUA LOGO REAL PUXANDO DA PASTA ASSETS */}
-                          <Image 
-                              source={require('../../assets/logo-pa.png')} 
-                              style={{ width: 45, height: 45 }} 
-                              resizeMode="contain"
-                          />
+                          <Image source={require('../../assets/logo-pa.png')} style={{ width: 45, height: 45 }} resizeMode="contain" />
                       </View>
 
-                      <TouchableOpacity 
-                          style={[styles.upsellBtn, {backgroundColor: theme.accent, marginTop: 30, marginBottom: 20}]} 
-                          onPress={markFeedbackAsRead}
-                          disabled={isMarkingAsRead}
-                      >
-                          {isMarkingAsRead ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
-                              <Text style={[styles.upsellBtnText, {color: theme.isDark ? '#000' : '#FFF'}]}>COMPREENDIDO, COACH! 👊</Text>
-                          )}
+                      <TouchableOpacity style={[styles.upsellBtn, {backgroundColor: '#4DE38F', marginTop: 30, marginBottom: 20}]} onPress={markFeedbackAsRead} disabled={isMarkingAsRead}>
+                          {isMarkingAsRead ? <ActivityIndicator color="#000" /> : <Text style={[styles.upsellBtnText, {color: '#000'}]}>COMPREENDIDO, COACH! 👊</Text>}
                       </TouchableOpacity>
                   </ScrollView>
               </View>
@@ -751,7 +725,6 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   photoBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
-  photoBannerText: { flex: 1, fontSize: 12, fontWeight: '700' },
   xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
   levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   xpText: { fontSize: 11, fontWeight: 'bold' },
@@ -783,20 +756,19 @@ const styles = StyleSheet.create({
   upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
-  // 🔥 ESTILOS DO NOVO RELATÓRIO TÉCNICO (PADRÃO PDF) 🔥
+  // 🔥 ESTILOS DO RELATÓRIO 🔥
   reportModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', overflow: 'hidden' },
-  reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 40, borderBottomWidth: 1, borderColor: '#222' },
+  reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 40, borderBottomWidth: 1 },
   reportTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
   reportSubtitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1, marginTop: 4 },
   reportPhotoContainer: { width: 220, height: 320, borderRadius: 20, overflow: 'hidden', backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#333', position: 'relative' },
   reportPhotoImg: { width: '100%', height: '100%' },
   reportPhotoBadge: { position: 'absolute', bottom: 15, alignSelf: 'center', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20 },
-  reportPhotoBadgeText: { color: '#000', fontWeight: '900', fontSize: 10, letterSpacing: 1 },
+  reportPhotoBadgeText: { fontWeight: '900', fontSize: 10, letterSpacing: 1 },
   reportDivider: { height: 1, backgroundColor: '#333', width: '100%', marginBottom: 30 },
   reportSectionTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
   reportText: { fontSize: 16, lineHeight: 28, marginBottom: 15, opacity: 0.9 },
   reportFooter: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginTop: 10 },
-  coachAvatar: { width: 54, height: 54, borderRadius: 27, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   coachName: { fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
   coachTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 2 },
 });
