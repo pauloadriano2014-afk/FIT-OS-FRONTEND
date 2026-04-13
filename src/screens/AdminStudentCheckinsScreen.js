@@ -7,7 +7,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 O COMPONENTE INTELIGENTE: Carrega a miniatura (se tiver) e fallback pra original se falhar
 const ThumbnailImage = ({ originalUri, onPress, theme }) => {
     const thumbUri = originalUri && originalUri.includes('.jpg') 
         ? originalUri.replace('.jpg', '-thumb.jpg') 
@@ -21,7 +20,6 @@ const ThumbnailImage = ({ originalUri, onPress, theme }) => {
                 source={{ uri: imageUri }} 
                 style={[styles.photo, { borderColor: theme.border }]} 
                 onError={() => {
-                    // Se a miniatura der erro 404 (fotos velhas), ele carrega a grandona no lugar
                     if (imageUri !== originalUri) setImageUri(originalUri);
                 }}
             />
@@ -50,9 +48,10 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [currentCheckinForEval, setCurrentCheckinForEval] = useState(null);
   
   const [selectedOldCheckinId, setSelectedOldCheckinId] = useState(null);
+  const [savedCompareUrls, setSavedCompareUrls] = useState(null); // 🔥 Salva as fotos antigas pra edição
   const [feedbackText, setFeedbackText] = useState('');
   const [sendingEvaluation, setSendingEvaluation] = useState(false);
-  const [isResolving, setIsResolving] = useState(false); // 🔥 Controle de loading da baixa manual
+  const [isResolving, setIsResolving] = useState(false); 
   
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -120,18 +119,36 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   };
 
   const openEvaluationPanel = (checkin, initialTypeSugestion) => {
+      let rawFb = checkin.coachFeedback || '';
+      let extractedOldUrls = null;
+
+      // 🔥 LÊ E REMOVE A TAG OCULTA PRA NÃO MOSTRAR PRO COACH
+      if (rawFb.includes('[COMPARE:')) {
+          const match = rawFb.match(/\[COMPARE:(.*?)\]/);
+          if (match) {
+              extractedOldUrls = match[1];
+              rawFb = rawFb.replace(match[0], '').trim();
+              initialTypeSugestion = 'comparison';
+          }
+      }
+
       setCurrentCheckinForEval(checkin);
       setEvaluationType(initialTypeSugestion);
-      setFeedbackText(checkin.coachFeedback || ''); 
+      setFeedbackText(rawFb); 
 
       if (initialTypeSugestion === 'comparison') {
-          const currentIdx = checkins.findIndex(c => c.id === checkin.id);
-          const olderCheckins = checkins.slice(currentIdx + 1);
-          if (olderCheckins.length > 0) {
-              setSelectedOldCheckinId(olderCheckins[olderCheckins.length - 1].id);
+          if (extractedOldUrls) {
+              setSavedCompareUrls(extractedOldUrls);
+          } else {
+              const currentIdx = checkins.findIndex(c => c.id === checkin.id);
+              const olderCheckins = checkins.slice(currentIdx + 1);
+              if (olderCheckins.length > 0) {
+                  setSelectedOldCheckinId(olderCheckins[olderCheckins.length - 1].id);
+              }
           }
       } else {
           setSelectedOldCheckinId(null);
+          setSavedCompareUrls(null);
       }
       
       setEvaluationModalVisible(true);
@@ -139,7 +156,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
   const handleTabChange = (type) => {
       setEvaluationType(type);
-      if (type === 'comparison' && !selectedOldCheckinId) {
+      if (type === 'comparison' && !selectedOldCheckinId && !savedCompareUrls) {
           const currentIdx = checkins.findIndex(c => c.id === currentCheckinForEval.id);
           const olderCheckins = checkins.slice(currentIdx + 1);
           if (olderCheckins.length > 0) {
@@ -187,13 +204,26 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       }
   };
 
-  // 🔥 ENVIO COMPLETO: Manda Push pro Aluno
   const submitEvaluation = async () => {
       if (!feedbackText.trim()) {
           const msg = "O texto da avaliação não pode estar vazio.";
           if (Platform.OS === 'web') window.alert(msg);
           else Alert.alert("Atenção", msg);
           return;
+      }
+
+      // 🔥 INJETA A TAG OCULTA DE VOLTA PRA SALVAR NO BANCO
+      let finalFeedback = feedbackText;
+      if (evaluationType === 'comparison') {
+          if (selectedOldCheckinId) {
+              const oldCheckin = getOldCheckin();
+              if (oldCheckin) {
+                  const oldUrls = [oldCheckin.photoFront || '', oldCheckin.photoSide || '', oldCheckin.photoBack || ''].join('|');
+                  finalFeedback = `[COMPARE:${oldUrls}]\n` + finalFeedback;
+              }
+          } else if (savedCompareUrls) {
+              finalFeedback = `[COMPARE:${savedCompareUrls}]\n` + finalFeedback;
+          }
       }
 
       setSendingEvaluation(true);
@@ -203,13 +233,13 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   checkinId: currentCheckinForEval.id,
-                  coachFeedback: feedbackText
+                  coachFeedback: finalFeedback
               })
           });
 
           if (res.ok) {
               setCheckins(prev => prev.map(c => 
-                  c.id === currentCheckinForEval.id ? { ...c, coachFeedback: feedbackText } : c
+                  c.id === currentCheckinForEval.id ? { ...c, coachFeedback: finalFeedback } : c
               ));
               
               if (Platform.OS === 'web') window.alert(currentCheckinForEval.coachFeedback ? "Avaliação editada e salva com sucesso!" : "Avaliação enviada com sucesso! O aluno foi notificado.");
@@ -228,13 +258,10 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       }
   };
 
-  // 🔥 BAIXA SILENCIOSA: Sem notificar o Aluno (Ex: Material no Canva) 🔥
   const handleResolveSilently = (checkinId) => {
       const confirmAction = async () => {
           setIsResolving(true);
           try {
-              // Mandamos um parâmetro 'silent: true' para garantir que o backend não atire push (caso esteja configurado) 
-              // e a mensagem avisa que o material está na Evolução.
               const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -280,27 +307,11 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const RootComponent = isWeb ? View : SafeAreaView;
 
   return (
-    <RootComponent style={[
-      styles.container, 
-      { 
-        backgroundColor: isWeb ? webOuterBg : theme.bg,
-        ...(isWeb ? { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {}) 
-      }
-    ]}>
+    <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg, ...(isWeb ? { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {}) }]}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        <View style={{ 
-          flex: 1, 
-          minHeight: 0,
-          width: '100%', 
-          maxWidth: isWeb ? 480 : '100%', 
-          alignSelf: 'center', 
-          backgroundColor: theme.bg, 
-          overflow: 'hidden',
-          ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
-        }}>
+        <View style={{ flex: 1, minHeight: 0, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, overflow: 'hidden', ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
             
-            {/* HEADER */}
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexShrink: 0 }}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
@@ -314,12 +325,8 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 </TouchableOpacity>
             </View>
 
-
             <View style={{ flex: 1, position: 'relative' }}>
-            <ScrollView 
-              style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} 
-              contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
-            >
+            <ScrollView style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
                 {loading ? <ActivityIndicator color={theme.accent} size="large" style={{marginTop: 50}} /> : (
                     checkins.length === 0 ? (
                         <View style={[styles.emptyBox, { borderColor: theme.border }]}>
@@ -387,7 +394,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
                                         <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 10, marginBottom: 10 }]}>Fotos Base:</Text>
                                         
-                                        {/* COMPONENTE INTELIGENTE: Carrega Thumbnails primeiro para não travar a memória */}
                                         <View style={styles.photoGrid}>
                                             {item.photoFront ? (
                                                 <View style={styles.photoThumb}>
@@ -411,7 +417,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                             ) : null}
                                         </View>
 
-                                        {/* BOTÕES DE AÇÃO */}
                                         <View style={{marginTop: 15}}>
                                             <TouchableOpacity 
                                                 style={[styles.aiButton, { backgroundColor: isEvaluated ? theme.surface : theme.accent, borderColor: isEvaluated ? theme.border : theme.accent, width: '100%' }]} 
@@ -459,7 +464,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             </View>
         </View>
 
-        {/* 🔥 MODAL DE AVALIAÇÃO REFINADO (VISUAL ELITE) 🔥 */}
         {evaluationModalVisible && (
             <View style={styles.modalBgAbsolute}>
                 <View style={[styles.evalModalContent, { backgroundColor: theme.bg }]}>
@@ -505,7 +509,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                 >
                                     <MaterialCommunityIcons name="calendar-clock" size={18} color={theme.textSecondary} />
                                     <Text style={{flex: 1, color: theme.text, fontWeight: 'bold', fontSize: 13, marginLeft: 10}}>
-                                        {getOldCheckin() ? safeDate(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : 'Escolha uma data...'}
+                                        {getOldCheckin() ? safeDate(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : (savedCompareUrls ? 'Fotos da base anterior' : 'Escolha uma data...')}
                                     </Text>
                                     <MaterialCommunityIcons name={showDatePicker ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                                 </TouchableOpacity>
@@ -516,7 +520,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                             <TouchableOpacity 
                                                 key={c.id} 
                                                 style={[styles.dateListItem, {borderBottomColor: theme.border}]}
-                                                onPress={() => { setSelectedOldCheckinId(c.id); setShowDatePicker(false); }}
+                                                onPress={() => { setSelectedOldCheckinId(c.id); setSavedCompareUrls(null); setShowDatePicker(false); }}
                                             >
                                                 <Text style={{color: theme.text, fontSize: 13, fontWeight: '600'}}>
                                                     {safeDate(c.date || c.createdAt).toLocaleDateString('pt-BR')} 
@@ -530,12 +534,12 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         )}
 
                         <View style={styles.comparePhotosContainer}>
-                            {evaluationType === 'comparison' && getOldCheckin() && (
+                            {evaluationType === 'comparison' && (getOldCheckin() || savedCompareUrls) && (
                                 <View style={styles.comparePhotoCol}>
                                     <View style={[styles.compareBadge, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                                        <Text style={[styles.compareLabel, {color: theme.textSecondary}]}>ANTES: {getOldCheckin().weight || '--'}kg</Text>
+                                        <Text style={[styles.compareLabel, {color: theme.textSecondary}]}>ANTES: {getOldCheckin()?.weight ? `${getOldCheckin().weight}kg` : '--'}</Text>
                                     </View>
-                                    <Image source={{uri: getOldCheckin().photoFront}} style={[styles.comparePhotoImg, {borderColor: theme.border}]} resizeMode="contain" />
+                                    <Image source={{uri: getOldCheckin()?.photoFront || (savedCompareUrls ? savedCompareUrls.split('|')[0] : null)}} style={[styles.comparePhotoImg, {borderColor: theme.border}]} resizeMode="contain" />
                                 </View>
                             )}
                             
@@ -592,7 +596,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             </View>
         )}
 
-        {/* Modal de Foto Grande */}
         {modalVisible && (
             <View style={styles.modalBgAbsolute}>
                 <TouchableOpacity style={styles.modalClose} onPress={() => setModalVisible(false)}>
@@ -617,7 +620,7 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems:'center', padding: 40, borderStyle:'dashed', borderWidth:1, borderRadius:16, marginVertical: 20 },
   emptyText: { textAlign: 'center', marginTop: 15, fontWeight: 'bold', lineHeight: 22 },
 
-  card: { padding: 20, borderRadius: 16, marginBottom: 15, elevation: 2 },
+  card: { padding: 20, borderRadius: 16, marginBottom: 15, borderWidth: 1, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(128,128,128,0.2)', paddingBottom: 10 },
   dateText: { fontWeight: 'bold', fontSize: 13 },
   
@@ -633,7 +636,7 @@ const styles = StyleSheet.create({
   photo: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, backgroundColor: '#000' },
   photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
 
-  aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
+  aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
   aiButtonText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   
   silentResolveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 8, marginTop: 10 },
