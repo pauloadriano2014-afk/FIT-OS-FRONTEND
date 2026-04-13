@@ -1,5 +1,5 @@
 // src/screens/AdminDashboard.js
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
   TextInput, StatusBar, RefreshControl, Modal, ScrollView, Image, Alert, 
@@ -8,6 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native'; // 🔥 IMPORTAÇÃO NOVA AQUI
 
 import { useTheme } from '../contexts/ThemeContext';
 import SendNoticeModal from '../components/SendNoticeModal';
@@ -82,9 +83,12 @@ export default function AdminDashboard({ navigation }) {
     { id: 'PLAN_CHALLENGE_21', label: 'SÓ DESAFIO 21D', icon: 'fire', color: '#FF9500' }
   ];
 
-  useEffect(() => {
-    fetchData(false);
-  }, []);
+  // 🔥 GATILHO INTELIGENTE: Atualiza os dados toda vez que a tela volta para o foco 🔥
+  useFocusEffect(
+    useCallback(() => {
+      fetchData(false);
+    }, [])
+  );
 
   useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
 
@@ -421,9 +425,16 @@ export default function AdminDashboard({ navigation }) {
                 <Text style={[styles.title, { color: theme.text }]}>FIT OS <Text style={{color: theme.accent}}>COMMAND</Text></Text>
                 <Text style={styles.subtitle}>PAINEL ADMINISTRATIVO</Text>
             </View>
-            <TouchableOpacity onPress={handleLogout} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
-                <MaterialCommunityIcons name="logout" size={20} color="#FF4444" />
-            </TouchableOpacity>
+            
+            {/* 🔥 BOTÕES DE REFRESH E LOGOUT ADICIONADOS AQUI 🔥 */}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+                <TouchableOpacity onPress={() => fetchData(true)} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                    <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleLogout} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                    <MaterialCommunityIcons name="logout" size={20} color="#FF4444" />
+                </TouchableOpacity>
+            </View>
           </View>
 
           <View style={styles.tabs}>
