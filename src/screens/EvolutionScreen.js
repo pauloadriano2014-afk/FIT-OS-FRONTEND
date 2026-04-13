@@ -106,7 +106,6 @@ export default function EvolutionScreen({ navigation }) {
           if (resCheckins.ok) {
               const allCheckins = await resCheckins.json();
               if (Array.isArray(allCheckins)) {
-                  // Filtra para remover os 'silenciosos' caso o aluno não tenha visto, mas como o texto agora é renderizado, ele pode ver.
                   const evaluated = allCheckins.filter(c => c.coachFeedback);
                   setCheckinHistory(evaluated);
               }
@@ -290,7 +289,7 @@ export default function EvolutionScreen({ navigation }) {
 
   const openFeedbackModal = (checkin) => { setSelectedFeedback(checkin); setFeedbackModalVisible(true); };
 
-  // 🔥 DECODIFICADOR DO CÓDIGO OCULTO DE COMPARAÇÃO 🔥
+  // 🔥 O DECODIFICADOR DO ALUNO: Transforma o texto sujo na tela dividida 🔥
   let rawFeedbackText = selectedFeedback?.coachFeedback || '';
   let displayFeedbackText = rawFeedbackText;
   let compareOldPhotos = [];
@@ -298,6 +297,7 @@ export default function EvolutionScreen({ navigation }) {
   if (rawFeedbackText.includes('[COMPARE:')) {
       const match = rawFeedbackText.match(/\[COMPARE:(.*?)\]/);
       if (match) {
+          // Extrai os links do R2 e remove a tag pra não sujar a tela do aluno
           compareOldPhotos = match[1].split('|');
           displayFeedbackText = rawFeedbackText.replace(match[0], '').trim();
       }
@@ -508,7 +508,7 @@ export default function EvolutionScreen({ navigation }) {
       <AssessmentDetailsModal visible={detailsVisible} assessment={selectedAssessment} onClose={() => setDetailsVisible(false)} onGeneratePDF={() => generateSinglePDF(selectedAssessment)} onEdit={() => handleEdit(selectedAssessment)} onDelete={() => handleDelete(selectedAssessment?.id)} theme={theme} />
       <CompareReportModal visible={compareModalVisible} onClose={() => setCompareModalVisible(false)} selectedData={assessmentHistory.filter(a => selectedForCompare.includes(a.id))} onGeneratePDF={generateComparePDF} theme={theme} />
 
-      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO (RENDERIZADOR INTELIGENTE: ANTES E DEPOIS) 🔥 */}
+      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO DO ALUNO 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.modalOverlayFull}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
@@ -529,7 +529,7 @@ export default function EvolutionScreen({ navigation }) {
 
                   <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
                       
-                      {/* 🔥 SISTEMA DE RENDERIZAÇÃO DE FOTOS 🔥 */}
+                      {/* 🔥 O ALUNO AGORA ENXERGA O COMPARATIVO MESMO SE VEIO DA GALERIA 🔥 */}
                       {compareOldPhotos.length > 0 ? (
                           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20, marginBottom: 30 }}>
                               {currentPhotosKeys.map((key, i) => {
@@ -601,7 +601,6 @@ export default function EvolutionScreen({ navigation }) {
               </View>
           </View>
       </Modal>
-
     </RootComponent>
   );
 }

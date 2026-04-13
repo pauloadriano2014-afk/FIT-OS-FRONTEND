@@ -15,18 +15,25 @@ export default function AdminIALabScreen({ navigation }) {
     const { theme } = useTheme();
 
     const [analysisType, setAnalysisType] = useState('initial'); 
-    const [images, setImages] = useState([]); 
     const [contextText, setContextText] = useState('');
     
     const [isGenerating, setIsGenerating] = useState(false);
     const [resultText, setResultText] = useState('');
 
-    // 🔥 SELEÇÃO E BUSCA DE ALUNOS 🔥
     const [alunos, setAlunos] = useState([]);
     const [selectedAluno, setSelectedAluno] = useState(null); 
     const [isSendingToAluno, setIsSendingToAluno] = useState(false);
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // 🔥 SLOTS ESPECÍFICOS DE FOTO (LAYOUT ELITE) 🔥
+    const [currentFront, setCurrentFront] = useState(null);
+    const [currentSide, setCurrentSide] = useState(null);
+    const [currentBack, setCurrentBack] = useState(null);
+
+    const [oldFront, setOldFront] = useState(null);
+    const [oldSide, setOldSide] = useState(null);
+    const [oldBack, setOldBack] = useState(null);
 
     useEffect(() => {
         fetchAlunos();
@@ -68,7 +75,7 @@ export default function AdminIALabScreen({ navigation }) {
         }
     };
 
-    const pickImage = async () => {
+    const pickImage = async (type, slot) => {
         const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (permissionResult.granted === false) {
             Alert.alert("Permissão necessária", "Precisamos de acesso à galeria para upar as fotos.");
@@ -85,18 +92,38 @@ export default function AdminIALabScreen({ navigation }) {
             const asset = result.assets[0];
             const optimized = await optimizeImage(asset.uri);
             if (optimized) {
-                setImages(prev => [...prev, optimized]);
+                if (type === 'current') {
+                    if (slot === 'front') setCurrentFront(optimized);
+                    if (slot === 'side') setCurrentSide(optimized);
+                    if (slot === 'back') setCurrentBack(optimized);
+                } else if (type === 'old') {
+                    if (slot === 'front') setOldFront(optimized);
+                    if (slot === 'side') setOldSide(optimized);
+                    if (slot === 'back') setOldBack(optimized);
+                }
             }
         }
     };
 
-    const removeImage = (indexToRemove) => {
-        setImages(prev => prev.filter((_, index) => index !== indexToRemove));
+    const removeImage = (type, slot) => {
+        if (type === 'current') {
+            if (slot === 'front') setCurrentFront(null);
+            if (slot === 'side') setCurrentSide(null);
+            if (slot === 'back') setCurrentBack(null);
+        } else if (type === 'old') {
+            if (slot === 'front') setOldFront(null);
+            if (slot === 'side') setOldSide(null);
+            if (slot === 'back') setOldBack(null);
+        }
     };
 
     const handleGenerate = async () => {
-        if (images.length === 0) {
-            Alert.alert("Atenção", "Adicione pelo menos uma foto para a IA analisar.");
+        if (!currentFront && !currentSide && !currentBack) {
+            Alert.alert("Atenção", "Adicione pelo menos uma foto ATUAL para a IA analisar.");
+            return;
+        }
+        if (analysisType === 'comparison' && (!oldFront && !oldSide && !oldBack)) {
+            Alert.alert("Atenção", "Adicione pelo menos uma foto do ANTES para a IA comparar.");
             return;
         }
 
@@ -104,18 +131,32 @@ export default function AdminIALabScreen({ navigation }) {
         setResultText('');
 
         try {
-            const payloadImages = images.map(img => ({
-                data: img.base64,
-                mimeType: "image/jpeg"
-            }));
+            // Mantém a ordem cravada pro prompt mapear certinho
+            const customCurrentPhotos = [
+                currentFront ? `data:image/jpeg;base64,${currentFront.base64}` : '',
+                currentSide ? `data:image/jpeg;base64,${currentSide.base64}` : '',
+                currentBack ? `data:image/jpeg;base64,${currentBack.base64}` : ''
+            ];
 
-            const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-lab', {
+            const customOldPhotos = analysisType === 'comparison' ? [
+                oldFront ? `data:image/jpeg;base64,${oldFront.base64}` : '',
+                oldSide ? `data:image/jpeg;base64,${oldSide.base64}` : '',
+                oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
+            ] : [];
+
+            let headers = { 'Content-Type': 'application/json' };
+            if (selectedAluno) {
+                headers['userId'] = selectedAluno.id;
+            }
+
+            const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-checkin', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: headers,
                 body: JSON.stringify({
-                    images: payloadImages,
-                    contextText: contextText,
-                    analysisType: analysisType
+                    isFromLab: true, 
+                    customCurrentPhotos: customCurrentPhotos,
+                    customOldPhotos: customOldPhotos,
+                    contextText: contextText
                 })
             });
 
@@ -148,16 +189,16 @@ export default function AdminIALabScreen({ navigation }) {
             if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Atenção", msg);
             return;
         }
-        if (images.length === 0) {
-            const msg = "Faltam as fotos! Envie pelo menos 1 foto para salvar na Evolução do aluno.";
-            if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Atenção", msg);
-            return;
-        }
 
         const confirmSend = async () => {
             setIsSendingToAluno(true);
             try {
-                const payloadImages = images.map(img => img.base64);
+                // Aqui o backend salva só o 'Depois' no banco pra evolução
+                const payloadImages = [
+                    currentFront?.base64 || '',
+                    currentSide?.base64 || '',
+                    currentBack?.base64 || ''
+                ];
 
                 const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
                     method: 'POST',
@@ -165,7 +206,8 @@ export default function AdminIALabScreen({ navigation }) {
                     body: JSON.stringify({
                         userId: selectedAluno.id,
                         coachFeedback: resultText,
-                        images: payloadImages
+                        images: payloadImages,
+                        isLabSave: true
                     })
                 });
 
@@ -175,7 +217,8 @@ export default function AdminIALabScreen({ navigation }) {
                     const okMsg = `Laudo enviado para ${selectedAluno.name} e salvo na evolução com sucesso!`;
                     if (Platform.OS === 'web') window.alert(okMsg); else Alert.alert("Sucesso!", okMsg);
                     
-                    setImages([]);
+                    setCurrentFront(null); setCurrentSide(null); setCurrentBack(null);
+                    setOldFront(null); setOldSide(null); setOldBack(null);
                     setResultText('');
                     setContextText('');
                     setSelectedAluno(null);
@@ -339,27 +382,69 @@ export default function AdminIALabScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* UPLOAD DE FOTOS */}
-                        <Text style={[styles.sectionLabel, { color: theme.text }]}>FOTOS DO SHAPE</Text>
-                        <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 15 }}>
-                            {analysisType === 'initial' ? "Adicione fotos de Frente, Lado e Costas." : "Adicione as fotos do ANTES e do DEPOIS juntas."}
-                        </Text>
-                        
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, paddingBottom: 10, marginBottom: 20 }}>
-                            {images.map((img, index) => (
-                                <View key={index} style={styles.photoWrapper}>
-                                    <Image source={{ uri: img.uri }} style={[styles.photoImg, { borderColor: theme.border }]} />
-                                    <TouchableOpacity style={styles.removePhotoBtn} onPress={() => removeImage(index)}>
-                                        <MaterialCommunityIcons name="close-circle" size={24} color="#FF3B30" />
+                        {/* 🔥 FOTOS BASE (ANTES) - APENAS SE FOR COMPARATIVO 🔥 */}
+                        {analysisType === 'comparison' && (
+                            <View style={{ marginBottom: 20 }}>
+                                <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FOTOS BASE (ANTES)</Text>
+                                <View style={styles.specificSlotsContainer}>
+                                    <TouchableOpacity style={styles.slotBox} onPress={() => pickImage('old', 'front')}>
+                                        {oldFront ? (
+                                            <><Image source={{ uri: oldFront.uri }} style={styles.slotImg} /><TouchableOpacity style={styles.slotRemove} onPress={() => removeImage('old', 'front')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity></>
+                                        ) : (
+                                            <View style={styles.slotEmpty}><MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} /><Text style={[styles.slotText, { color: theme.textSecondary }]}>FRENTE</Text></View>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={styles.slotBox} onPress={() => pickImage('old', 'side')}>
+                                        {oldSide ? (
+                                            <><Image source={{ uri: oldSide.uri }} style={styles.slotImg} /><TouchableOpacity style={styles.slotRemove} onPress={() => removeImage('old', 'side')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity></>
+                                        ) : (
+                                            <View style={styles.slotEmpty}><MaterialCommunityIcons name="human-male-height" size={24} color={theme.textSecondary} /><Text style={[styles.slotText, { color: theme.textSecondary }]}>LADO</Text></View>
+                                        )}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={styles.slotBox} onPress={() => pickImage('old', 'back')}>
+                                        {oldBack ? (
+                                            <><Image source={{ uri: oldBack.uri }} style={styles.slotImg} /><TouchableOpacity style={styles.slotRemove} onPress={() => removeImage('old', 'back')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity></>
+                                        ) : (
+                                            <View style={styles.slotEmpty}><MaterialCommunityIcons name="account-arrow-left" size={24} color={theme.textSecondary} /><Text style={[styles.slotText, { color: theme.textSecondary }]}>COSTAS</Text></View>
+                                        )}
                                     </TouchableOpacity>
                                 </View>
-                            ))}
-                            
-                            <TouchableOpacity style={[styles.addPhotoBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={pickImage}>
-                                <MaterialCommunityIcons name="camera-plus" size={32} color="#4DE38F" />
-                                <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: 'bold', marginTop: 8 }}>ADICIONAR</Text>
-                            </TouchableOpacity>
-                        </ScrollView>
+                            </View>
+                        )}
+
+                        {/* 🔥 FOTOS ATUAIS (DEPOIS) 🔥 */}
+                        <View style={{ marginBottom: 20 }}>
+                            <Text style={[styles.sectionLabel, { color: theme.text }]}>
+                                {analysisType === 'comparison' ? 'FOTOS ATUAIS (DEPOIS)' : 'FOTOS DO SHAPE'}
+                            </Text>
+                            <View style={styles.specificSlotsContainer}>
+                                <TouchableOpacity style={[styles.slotBox, { borderColor: theme.border }]} onPress={() => pickImage('current', 'front')}>
+                                    {currentFront ? (
+                                        <><Image source={{ uri: currentFront.uri }} style={styles.slotImg} /><TouchableOpacity style={styles.slotRemove} onPress={() => removeImage('current', 'front')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity></>
+                                    ) : (
+                                        <View style={styles.slotEmpty}><MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} /><Text style={[styles.slotText, { color: theme.textSecondary }]}>FRENTE</Text></View>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={[styles.slotBox, { borderColor: theme.border }]} onPress={() => pickImage('current', 'side')}>
+                                    {currentSide ? (
+                                        <><Image source={{ uri: currentSide.uri }} style={styles.slotImg} /><TouchableOpacity style={styles.slotRemove} onPress={() => removeImage('current', 'side')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity></>
+                                    ) : (
+                                        <View style={styles.slotEmpty}><MaterialCommunityIcons name="human-male-height" size={24} color={theme.textSecondary} /><Text style={[styles.slotText, { color: theme.textSecondary }]}>LADO</Text></View>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={[styles.slotBox, { borderColor: theme.border }]} onPress={() => pickImage('current', 'back')}>
+                                    {currentBack ? (
+                                        <><Image source={{ uri: currentBack.uri }} style={styles.slotImg} /><TouchableOpacity style={styles.slotRemove} onPress={() => removeImage('current', 'back')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity></>
+                                    ) : (
+                                        <View style={styles.slotEmpty}><MaterialCommunityIcons name="account-arrow-left" size={24} color={theme.textSecondary} /><Text style={[styles.slotText, { color: theme.textSecondary }]}>COSTAS</Text></View>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
 
                         {/* CONTEXTO */}
                         <Text style={[styles.sectionLabel, { color: theme.text }]}>DIRECIONAMENTO (OPCIONAL)</Text>
@@ -410,8 +495,8 @@ export default function AdminIALabScreen({ navigation }) {
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* BOTÃO DE SALVAR NO BANCO SE ALUNO TIVER SELECIONADO */}
-                                {selectedAluno && (
+                                {/* BOTÃO DE SALVAR NO BANCO SE ALUNO TIVER SELECIONADO E FOR SINGLE ANALYSIS */}
+                                {selectedAluno && analysisType === 'initial' && (
                                     <TouchableOpacity 
                                         style={[styles.saveAlunoBtn, { backgroundColor: '#34C759' }]}
                                         onPress={handleSendToAluno}
@@ -444,7 +529,7 @@ const styles = StyleSheet.create({
     dropdownHeader: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 10 },
     dropdownContainer: { borderWidth: 1, borderRadius: 12, marginBottom: 20, overflow: 'hidden' },
     searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 10, borderBottomWidth: 1 },
-    searchInput: { flex: 1, marginLeft: 10, fontSize: 16, padding: 0, outlineStyle: 'none' }, // 🔥 AQUI A FONTE FOI PARA 16PX 🔥
+    searchInput: { flex: 1, marginLeft: 10, fontSize: 16, padding: 0, outlineStyle: 'none' },
     dropdownItem: { padding: 15, borderBottomWidth: 1 },
 
     tabBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
@@ -452,12 +537,14 @@ const styles = StyleSheet.create({
     
     sectionLabel: { fontSize: 12, fontWeight: '900', letterSpacing: 1, marginBottom: 8 },
     
-    photoWrapper: { position: 'relative', width: 100, height: 140 },
-    photoImg: { width: '100%', height: '100%', borderRadius: 12, borderWidth: 1, resizeMode: 'cover' },
-    removePhotoBtn: { position: 'absolute', top: -8, right: -8, backgroundColor: '#FFF', borderRadius: 12 },
-    
-    addPhotoBtn: { width: 100, height: 140, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
-    
+    // 🔥 NOVOS ESTILOS DOS SLOTS ELITE 🔥
+    specificSlotsContainer: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
+    slotBox: { flex: 1, height: 130, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: '#333', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' },
+    slotEmpty: { alignItems: 'center', justifyContent: 'center' },
+    slotText: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
+    slotImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+    slotRemove: { position: 'absolute', top: 5, right: 5, backgroundColor: '#FFF', borderRadius: 10 },
+
     inputContext: { padding: 15, borderRadius: 12, borderWidth: 1, minHeight: 80, textAlignVertical: 'top', outlineStyle: 'none', marginBottom: 25, fontSize: 14 },
     
     generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, borderWidth: 1, gap: 10, marginBottom: 30 },

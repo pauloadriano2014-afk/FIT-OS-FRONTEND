@@ -5,6 +5,8 @@ import {
   ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking, TextInput, Dimensions 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { useTheme } from '../contexts/ThemeContext';
 
 const ThumbnailImage = ({ originalUri, onPress, theme }) => {
@@ -48,12 +50,20 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [currentCheckinForEval, setCurrentCheckinForEval] = useState(null);
   
   const [selectedOldCheckinId, setSelectedOldCheckinId] = useState(null);
-  const [savedCompareUrls, setSavedCompareUrls] = useState(null); // 🔥 Salva as fotos antigas pra edição
+  const [savedCompareUrls, setSavedCompareUrls] = useState(null); 
   const [feedbackText, setFeedbackText] = useState('');
   const [sendingEvaluation, setSendingEvaluation] = useState(false);
   const [isResolving, setIsResolving] = useState(false); 
   
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // 🔥 ESTADOS PARA UPLOAD DE FOTO ANTIGA (GALERIA) COM SLOTS ESPECÍFICOS 🔥
+  const [compareSource, setCompareSource] = useState('system'); 
+  const [oldFront, setOldFront] = useState(null);
+  const [oldSide, setOldSide] = useState(null);
+  const [oldBack, setOldBack] = useState(null);
+  const [customOldWeight, setCustomOldWeight] = useState('');
+  const [customOldDate, setCustomOldDate] = useState('');
 
   useEffect(() => {
       if (aluno.id) {
@@ -118,11 +128,54 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       setModalVisible(true);
   };
 
+  const optimizeImage = async (uri) => {
+      try {
+          const result = await ImageManipulator.manipulateAsync(
+              uri,
+              [{ resize: { width: 1080 } }], 
+              { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+          );
+          return { uri: result.uri, base64: result.base64 };
+      } catch (error) {
+          console.error("Erro ao otimizar imagem:", error);
+          return null;
+      }
+  };
+
+  const pickCustomOldImage = async (slot) => {
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permissionResult.granted === false) {
+          Alert.alert("Permissão necessária", "Precisamos de acesso à galeria.");
+          return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          quality: 1, 
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+          const asset = result.assets[0];
+          const optimized = await optimizeImage(asset.uri);
+          if (optimized) {
+              if (slot === 'front') setOldFront(optimized);
+              if (slot === 'side') setOldSide(optimized);
+              if (slot === 'back') setOldBack(optimized);
+          }
+      }
+  };
+
+  const removeCustomOldImage = (slot) => {
+      if (slot === 'front') setOldFront(null);
+      if (slot === 'side') setOldSide(null);
+      if (slot === 'back') setOldBack(null);
+  };
+
   const openEvaluationPanel = (checkin, initialTypeSugestion) => {
       let rawFb = checkin.coachFeedback || '';
       let extractedOldUrls = null;
 
-      // 🔥 LÊ E REMOVE A TAG OCULTA PRA NÃO MOSTRAR PRO COACH
       if (rawFb.includes('[COMPARE:')) {
           const match = rawFb.match(/\[COMPARE:(.*?)\]/);
           if (match) {
@@ -135,6 +188,14 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       setCurrentCheckinForEval(checkin);
       setEvaluationType(initialTypeSugestion);
       setFeedbackText(rawFb); 
+      setCompareSource('system');
+      
+      // Reseta a galeria manual
+      setOldFront(null);
+      setOldSide(null);
+      setOldBack(null);
+      setCustomOldWeight('');
+      setCustomOldDate('');
 
       if (initialTypeSugestion === 'comparison') {
           if (extractedOldUrls) {
@@ -156,7 +217,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
   const handleTabChange = (type) => {
       setEvaluationType(type);
-      if (type === 'comparison' && !selectedOldCheckinId && !savedCompareUrls) {
+      if (type === 'comparison' && compareSource === 'system' && !selectedOldCheckinId && !savedCompareUrls) {
           const currentIdx = checkins.findIndex(c => c.id === currentCheckinForEval.id);
           const olderCheckins = checkins.slice(currentIdx + 1);
           if (olderCheckins.length > 0) {
@@ -171,11 +232,25 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   };
 
   const generateAIFeedback = async () => {
+      if (evaluationType === 'comparison' && compareSource === 'gallery' && (!oldFront && !oldSide && !oldBack)) {
+          Alert.alert("Atenção", "Adicione pelo menos uma foto antiga da galeria para comparar.");
+          return;
+      }
+
       setIsGeneratingAI(true);
       try {
+          // Garante a ordem exata das posições (mesmo que alguma seja null)
+          const customPhotosArray = compareSource === 'gallery' ? [
+              oldFront ? `data:image/jpeg;base64,${oldFront.base64}` : '',
+              oldSide ? `data:image/jpeg;base64,${oldSide.base64}` : '',
+              oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
+          ] : [];
+
           const payload = { 
               checkInId: currentCheckinForEval.id,
-              oldCheckInId: evaluationType === 'comparison' ? selectedOldCheckinId : null 
+              oldCheckInId: (evaluationType === 'comparison' && compareSource === 'system') ? selectedOldCheckinId : null,
+              customOldPhotos: customPhotosArray,
+              customOldWeight: (evaluationType === 'comparison' && compareSource === 'gallery') ? customOldWeight : null
           };
 
           const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-checkin', {
@@ -212,17 +287,31 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
           return;
       }
 
-      // 🔥 INJETA A TAG OCULTA DE VOLTA PRA SALVAR NO BANCO
       let finalFeedback = feedbackText;
+      let payloadPhotosBase64 = []; 
+
       if (evaluationType === 'comparison') {
-          if (selectedOldCheckinId) {
-              const oldCheckin = getOldCheckin();
-              if (oldCheckin) {
-                  const oldUrls = [oldCheckin.photoFront || '', oldCheckin.photoSide || '', oldCheckin.photoBack || ''].join('|');
-                  finalFeedback = `[COMPARE:${oldUrls}]\n` + finalFeedback;
+          if (compareSource === 'system') {
+              if (selectedOldCheckinId) {
+                  const oldCheckin = getOldCheckin();
+                  if (oldCheckin) {
+                      const oldUrls = [oldCheckin.photoFront || '', oldCheckin.photoSide || '', oldCheckin.photoBack || ''].join('|');
+                      finalFeedback = `[COMPARE:${oldUrls}]\n` + finalFeedback;
+                  }
+              } else if (savedCompareUrls) {
+                  finalFeedback = `[COMPARE:${savedCompareUrls}]\n` + finalFeedback;
               }
-          } else if (savedCompareUrls) {
-              finalFeedback = `[COMPARE:${savedCompareUrls}]\n` + finalFeedback;
+          } else if (compareSource === 'gallery') {
+              // Mantém a ordem exata para a tela dividida funcionar!
+              payloadPhotosBase64 = [
+                  oldFront ? `data:image/jpeg;base64,${oldFront.base64}` : '',
+                  oldSide ? `data:image/jpeg;base64,${oldSide.base64}` : '',
+                  oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
+              ];
+              // Adiciona as infos no topo do texto
+              if (customOldDate || customOldWeight) {
+                  finalFeedback = `*(Base da Comparação: ${customOldDate ? customOldDate : 'Galeria'} | ${customOldWeight ? customOldWeight+'kg' : ''})*\n\n` + finalFeedback;
+              }
           }
       }
 
@@ -233,13 +322,17 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                   checkinId: currentCheckinForEval.id,
-                  coachFeedback: finalFeedback
+                  coachFeedback: finalFeedback,
+                  customOldPhotos: payloadPhotosBase64 
               })
           });
 
           if (res.ok) {
+              const data = await res.json();
+              const feedbackSalvo = data.updatedFeedback || finalFeedback;
+
               setCheckins(prev => prev.map(c => 
-                  c.id === currentCheckinForEval.id ? { ...c, coachFeedback: finalFeedback } : c
+                  c.id === currentCheckinForEval.id ? { ...c, coachFeedback: feedbackSalvo } : c
               ));
               
               if (Platform.OS === 'web') window.alert(currentCheckinForEval.coachFeedback ? "Avaliação editada e salva com sucesso!" : "Avaliação enviada com sucesso! O aluno foi notificado.");
@@ -501,40 +594,132 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                         
                         {evaluationType === 'comparison' && (
                             <View style={{marginBottom: 25, padding: 15, backgroundColor: theme.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.border}}>
-                                <Text style={{fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5}}>SELECIONE A FOTO BASE ("ANTES")</Text>
                                 
-                                <TouchableOpacity 
-                                    style={[styles.dateDropdown, {backgroundColor: theme.bg, borderColor: theme.border}]} 
-                                    onPress={() => setShowDatePicker(!showDatePicker)}
-                                >
-                                    <MaterialCommunityIcons name="calendar-clock" size={18} color={theme.textSecondary} />
-                                    <Text style={{flex: 1, color: theme.text, fontWeight: 'bold', fontSize: 13, marginLeft: 10}}>
-                                        {getOldCheckin() ? safeDate(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : (savedCompareUrls ? 'Fotos da base anterior' : 'Escolha uma data...')}
-                                    </Text>
-                                    <MaterialCommunityIcons name={showDatePicker ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
-                                </TouchableOpacity>
+                                <View style={{flexDirection: 'row', backgroundColor: theme.bg, borderRadius: 8, padding: 4, marginBottom: 15, borderWidth: 1, borderColor: theme.border}}>
+                                    <TouchableOpacity 
+                                        style={[styles.sourceBtn, { backgroundColor: compareSource === 'system' ? theme.accent + '22' : 'transparent' }]}
+                                        onPress={() => setCompareSource('system')}
+                                    >
+                                        <Text style={[styles.sourceBtnText, { color: compareSource === 'system' ? theme.accent : theme.textSecondary }]}>SISTEMA</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.sourceBtn, { backgroundColor: compareSource === 'gallery' ? theme.accent + '22' : 'transparent' }]}
+                                        onPress={() => setCompareSource('gallery')}
+                                    >
+                                        <Text style={[styles.sourceBtnText, { color: compareSource === 'gallery' ? theme.accent : theme.textSecondary }]}>GALERIA</Text>
+                                    </TouchableOpacity>
+                                </View>
 
-                                {showDatePicker && (
-                                    <View style={[styles.dateList, {backgroundColor: theme.bg, borderColor: theme.border}]}>
-                                        {checkins.filter(c => c.id !== currentCheckinForEval?.id).map((c) => (
-                                            <TouchableOpacity 
-                                                key={c.id} 
-                                                style={[styles.dateListItem, {borderBottomColor: theme.border}]}
-                                                onPress={() => { setSelectedOldCheckinId(c.id); setSavedCompareUrls(null); setShowDatePicker(false); }}
-                                            >
-                                                <Text style={{color: theme.text, fontSize: 13, fontWeight: '600'}}>
-                                                    {safeDate(c.date || c.createdAt).toLocaleDateString('pt-BR')} 
-                                                </Text>
-                                                {selectedOldCheckinId === c.id && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />}
+                                {compareSource === 'system' ? (
+                                    <>
+                                        <Text style={{fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5}}>SELECIONE A FOTO BASE DO APLICATIVO</Text>
+                                        <TouchableOpacity 
+                                            style={[styles.dateDropdown, {backgroundColor: theme.bg, borderColor: theme.border}]} 
+                                            onPress={() => setShowDatePicker(!showDatePicker)}
+                                        >
+                                            <MaterialCommunityIcons name="calendar-clock" size={18} color={theme.textSecondary} />
+                                            <Text style={{flex: 1, color: theme.text, fontWeight: 'bold', fontSize: 13, marginLeft: 10}}>
+                                                {getOldCheckin() ? safeDate(getOldCheckin().date || getOldCheckin().createdAt).toLocaleDateString('pt-BR') : (savedCompareUrls ? 'Fotos da base anterior' : 'Escolha uma data...')}
+                                            </Text>
+                                            <MaterialCommunityIcons name={showDatePicker ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+
+                                        {showDatePicker && (
+                                            <View style={[styles.dateList, {backgroundColor: theme.bg, borderColor: theme.border}]}>
+                                                {checkins.filter(c => c.id !== currentCheckinForEval?.id).map((c) => (
+                                                    <TouchableOpacity 
+                                                        key={c.id} 
+                                                        style={[styles.dateListItem, {borderBottomColor: theme.border}]}
+                                                        onPress={() => { setSelectedOldCheckinId(c.id); setSavedCompareUrls(null); setShowDatePicker(false); }}
+                                                    >
+                                                        <Text style={{color: theme.text, fontSize: 13, fontWeight: '600'}}>
+                                                            {safeDate(c.date || c.createdAt).toLocaleDateString('pt-BR')} 
+                                                        </Text>
+                                                        {selectedOldCheckinId === c.id && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />}
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        )}
+                                    </>
+                                ) : (
+                                    <>
+                                        {/* 🔥 NOVO: UPLOAD DE FOTOS DA GALERIA COM SLOTS ESPECÍFICOS 🔥 */}
+                                        <Text style={{fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5}}>SELECIONE FOTOS EXTERNAS</Text>
+                                        
+                                        <View style={styles.specificSlotsContainer}>
+                                            <TouchableOpacity style={styles.slotBox} onPress={() => pickCustomOldImage('front')}>
+                                                {oldFront ? (
+                                                    <>
+                                                        <Image source={{ uri: oldFront.uri }} style={styles.slotImg} />
+                                                        <TouchableOpacity style={styles.slotRemove} onPress={() => removeCustomOldImage('front')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity>
+                                                    </>
+                                                ) : (
+                                                    <View style={styles.slotEmpty}>
+                                                        <MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} />
+                                                        <Text style={[styles.slotText, { color: theme.textSecondary }]}>FRENTE</Text>
+                                                    </View>
+                                                )}
                                             </TouchableOpacity>
-                                        ))}
-                                    </View>
+
+                                            <TouchableOpacity style={styles.slotBox} onPress={() => pickCustomOldImage('side')}>
+                                                {oldSide ? (
+                                                    <>
+                                                        <Image source={{ uri: oldSide.uri }} style={styles.slotImg} />
+                                                        <TouchableOpacity style={styles.slotRemove} onPress={() => removeCustomOldImage('side')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity>
+                                                    </>
+                                                ) : (
+                                                    <View style={styles.slotEmpty}>
+                                                        <MaterialCommunityIcons name="human-male-height" size={24} color={theme.textSecondary} />
+                                                        <Text style={[styles.slotText, { color: theme.textSecondary }]}>LADO</Text>
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity style={styles.slotBox} onPress={() => pickCustomOldImage('back')}>
+                                                {oldBack ? (
+                                                    <>
+                                                        <Image source={{ uri: oldBack.uri }} style={styles.slotImg} />
+                                                        <TouchableOpacity style={styles.slotRemove} onPress={() => removeCustomOldImage('back')}><MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" /></TouchableOpacity>
+                                                    </>
+                                                ) : (
+                                                    <View style={styles.slotEmpty}>
+                                                        <MaterialCommunityIcons name="account-arrow-left" size={24} color={theme.textSecondary} />
+                                                        <Text style={[styles.slotText, { color: theme.textSecondary }]}>COSTAS</Text>
+                                                    </View>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <View style={{ flexDirection: 'row', gap: 15, marginTop: 10 }}>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{fontSize: 10, fontWeight: '900', color: theme.textSecondary, marginBottom: 5, letterSpacing: 0.5}}>DATA (OPCIONAL)</Text>
+                                                <TextInput 
+                                                    style={[styles.customWeightInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                                    placeholder="Ex: 10/01/26"
+                                                    placeholderTextColor={theme.textSecondary}
+                                                    value={customOldDate}
+                                                    onChangeText={setCustomOldDate}
+                                                />
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={{fontSize: 10, fontWeight: '900', color: theme.textSecondary, marginBottom: 5, letterSpacing: 0.5}}>PESO (OPCIONAL)</Text>
+                                                <TextInput 
+                                                    style={[styles.customWeightInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                                    placeholder="Ex: 85.5"
+                                                    placeholderTextColor={theme.textSecondary}
+                                                    keyboardType="numeric"
+                                                    value={customOldWeight}
+                                                    onChangeText={setCustomOldWeight}
+                                                />
+                                            </View>
+                                        </View>
+                                    </>
                                 )}
                             </View>
                         )}
 
                         <View style={styles.comparePhotosContainer}>
-                            {evaluationType === 'comparison' && (getOldCheckin() || savedCompareUrls) && (
+                            {evaluationType === 'comparison' && compareSource === 'system' && (getOldCheckin() || savedCompareUrls) && (
                                 <View style={styles.comparePhotoCol}>
                                     <View style={[styles.compareBadge, {backgroundColor: theme.surface, borderColor: theme.border}]}>
                                         <Text style={[styles.compareLabel, {color: theme.textSecondary}]}>ANTES: {getOldCheckin()?.weight ? `${getOldCheckin().weight}kg` : '--'}</Text>
@@ -636,7 +821,7 @@ const styles = StyleSheet.create({
   photo: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, backgroundColor: '#000' },
   photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
 
-  aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
+  aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
   aiButtonText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
   
   silentResolveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 8, marginTop: 10 },
@@ -677,6 +862,19 @@ const styles = StyleSheet.create({
   
   tabBtn: { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
   tabBtnText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+
+  sourceBtn: { flex: 1, padding: 8, borderRadius: 6, alignItems: 'center' },
+  sourceBtnText: { fontWeight: 'bold', fontSize: 10, letterSpacing: 0.5 },
+
+  // 🔥 NOVOS ESTILOS PARA OS SLOTS ESPECÍFICOS DE FOTO 🔥
+  specificSlotsContainer: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
+  slotBox: { flex: 1, height: 120, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: '#333', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' },
+  slotEmpty: { alignItems: 'center', justifyContent: 'center' },
+  slotText: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
+  slotImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+  slotRemove: { position: 'absolute', top: 5, right: 5, backgroundColor: '#FFF', borderRadius: 10 },
+  
+  customWeightInput: { padding: 10, borderRadius: 8, borderWidth: 1, outlineStyle: 'none', fontSize: 13 },
 
   dateDropdown: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1 },
   dateList: { borderWidth: 1, borderRadius: 12, marginTop: 5, maxHeight: 150, overflow: 'hidden' },
