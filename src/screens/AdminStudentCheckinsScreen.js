@@ -52,6 +52,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [selectedOldCheckinId, setSelectedOldCheckinId] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
   const [sendingEvaluation, setSendingEvaluation] = useState(false);
+  const [isResolving, setIsResolving] = useState(false); // 🔥 Controle de loading da baixa manual
   
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -186,6 +187,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       }
   };
 
+  // 🔥 ENVIO COMPLETO: Manda Push pro Aluno
   const submitEvaluation = async () => {
       if (!feedbackText.trim()) {
           const msg = "O texto da avaliação não pode estar vazio.";
@@ -226,6 +228,53 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       }
   };
 
+  // 🔥 BAIXA SILENCIOSA: Sem notificar o Aluno (Ex: Material no Canva) 🔥
+  const handleResolveSilently = (checkinId) => {
+      const confirmAction = async () => {
+          setIsResolving(true);
+          try {
+              // Mandamos um parâmetro 'silent: true' para garantir que o backend não atire push (caso esteja configurado) 
+              // e a mensagem avisa que o material está na Evolução.
+              const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      checkinId: checkinId,
+                      silent: true, 
+                      coachFeedback: "*Avaliação Finalizada!* 🎯\n\nSeu laudo completo foi gerado com sucesso. Vá até a sua tela de **Evolução** no aplicativo para conferir a análise e o seu planejamento."
+                  })
+              });
+              if (res.ok) {
+                  setCheckins(prev => prev.map(c => 
+                      c.id === checkinId ? { ...c, coachFeedback: "Avaliação Silenciosa" } : c
+                  ));
+                  if (Platform.OS === 'web') window.alert("Baixa realizada e alerta removido!");
+              } else {
+                  if (Platform.OS === 'web') window.alert("Erro ao dar baixa."); else Alert.alert("Erro", "Não foi possível atualizar o check-in.");
+              }
+          } catch (e) {
+              if (Platform.OS === 'web') window.alert("Erro de conexão."); else Alert.alert("Erro", "Erro de conexão.");
+          } finally {
+              setIsResolving(false);
+          }
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm("Marcar como 'Avaliado' para remover o aviso vermelho (O aluno não será notificado)?")) {
+              confirmAction();
+          }
+      } else {
+          Alert.alert(
+              "Baixa Silenciosa",
+              "Marcar este check-in como avaliado para remover o alerta (sem enviar Push para o aluno)?",
+              [
+                  { text: "Cancelar", style: "cancel" },
+                  { text: "Sim, remover alerta", onPress: confirmAction }
+              ]
+          );
+      }
+  };
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -251,7 +300,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
           ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
         }}>
             
-                        {/* 🔥 HEADER REFEITO: Nome longo não esmaga mais os botões 🔥 */}
+            {/* HEADER */}
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexShrink: 0 }}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
@@ -286,7 +335,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                 const itemDate = safeDate(item.date || item.createdAt);
 
                                 return (
-                                    <View key={item.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                    <View key={item.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: isEvaluated ? theme.border : '#FF3B30', borderWidth: isEvaluated ? 1 : 2 }]}>
                                         
                                         <View style={styles.cardHeader}>
                                             <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
@@ -300,17 +349,23 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                             </TouchableOpacity>
                                         </View>
 
-                                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15}}>
-                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15, flexWrap: 'wrap', gap: 10}}>
+                                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap'}}>
                                                 <View style={[styles.badge, { backgroundColor: isOldest ? '#FF950022' : theme.accent + '22', borderColor: isOldest ? '#FF9500' : theme.accent }]}>
                                                     <Text style={[styles.badgeText, { color: isOldest ? '#FF9500' : theme.accent }]}>
                                                         {isOldest ? 'PONTO DE PARTIDA' : 'CHECK-IN'}
                                                     </Text>
                                                 </View>
-                                                {isEvaluated && (
+                                                
+                                                {isEvaluated ? (
                                                     <View style={[styles.badge, { backgroundColor: '#34C75922', borderColor: '#34C759' }]}>
                                                         <MaterialCommunityIcons name="check" size={10} color="#34C759" style={{marginRight: 2}} />
                                                         <Text style={[styles.badgeText, { color: '#34C759' }]}>AVALIADO</Text>
+                                                    </View>
+                                                ) : (
+                                                    <View style={[styles.badge, { backgroundColor: '#FF3B3022', borderColor: '#FF3B30' }]}>
+                                                        <MaterialCommunityIcons name="alert-circle" size={10} color="#FF3B30" style={{marginRight: 2}} />
+                                                        <Text style={[styles.badgeText, { color: '#FF3B30' }]}>AGUARDANDO AVALIAÇÃO</Text>
                                                     </View>
                                                 )}
                                             </View>
@@ -332,7 +387,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
                                         <Text style={[styles.dataLabel, { color: theme.textSecondary, marginTop: 10, marginBottom: 10 }]}>Fotos Base:</Text>
                                         
-                                        {/* 🔥 BLINDAGEM DE MEMÓRIA DO SAFARI 2.0: Componente Inteligente de Miniatura 🔥 */}
+                                        {/* COMPONENTE INTELIGENTE: Carrega Thumbnails primeiro para não travar a memória */}
                                         <View style={styles.photoGrid}>
                                             {item.photoFront ? (
                                                 <View style={styles.photoThumb}>
@@ -356,15 +411,33 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                             ) : null}
                                         </View>
 
-                                        <TouchableOpacity 
-                                            style={[styles.aiButton, { backgroundColor: isEvaluated ? theme.surface : theme.accent, borderColor: isEvaluated ? theme.border : theme.accent }]} 
-                                            onPress={() => openEvaluationPanel(item, isOldest ? 'initial' : 'comparison')}
-                                        >
-                                            <MaterialCommunityIcons name={isEvaluated ? "pencil" : "robot-outline"} size={18} color={isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF')} />
-                                            <Text style={[styles.aiButtonText, { color: isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
-                                                {isEvaluated ? "EDITAR AVALIAÇÃO" : "FAZER AVALIAÇÃO"}
-                                            </Text>
-                                        </TouchableOpacity>
+                                        {/* BOTÕES DE AÇÃO */}
+                                        <View style={{marginTop: 15}}>
+                                            <TouchableOpacity 
+                                                style={[styles.aiButton, { backgroundColor: isEvaluated ? theme.surface : theme.accent, borderColor: isEvaluated ? theme.border : theme.accent, width: '100%' }]} 
+                                                onPress={() => openEvaluationPanel(item, isOldest ? 'initial' : 'comparison')}
+                                            >
+                                                <MaterialCommunityIcons name={isEvaluated ? "pencil" : "robot-outline"} size={18} color={isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF')} />
+                                                <Text style={[styles.aiButtonText, { color: isEvaluated ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
+                                                    {isEvaluated ? "EDITAR AVALIAÇÃO COM IA" : "AVALIAR COM LABORATÓRIO IA"}
+                                                </Text>
+                                            </TouchableOpacity>
+
+                                            {!isEvaluated && (
+                                                <TouchableOpacity 
+                                                    style={[styles.silentResolveBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}
+                                                    onPress={() => handleResolveSilently(item.id)}
+                                                    disabled={isResolving}
+                                                >
+                                                    {isResolving ? <ActivityIndicator size="small" color={theme.text} /> : (
+                                                        <>
+                                                            <MaterialCommunityIcons name="check-all" size={18} color={theme.text} />
+                                                            <Text style={[styles.silentResolveText, { color: theme.text }]}>MARCAR COMO AVALIADO (REMOVER ALERTA)</Text>
+                                                        </>
+                                                    )}
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
 
                                     </View>
                                 )
@@ -386,7 +459,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             </View>
         </View>
 
-                {/* 🔥 MODAL DE AVALIAÇÃO REFINADO (VISUAL ELITE) 🔥 */}
+        {/* 🔥 MODAL DE AVALIAÇÃO REFINADO (VISUAL ELITE) 🔥 */}
         {evaluationModalVisible && (
             <View style={styles.modalBgAbsolute}>
                 <View style={[styles.evalModalContent, { backgroundColor: theme.bg }]}>
@@ -544,7 +617,7 @@ const styles = StyleSheet.create({
   emptyBox: { alignItems:'center', padding: 40, borderStyle:'dashed', borderWidth:1, borderRadius:16, marginVertical: 20 },
   emptyText: { textAlign: 'center', marginTop: 15, fontWeight: 'bold', lineHeight: 22 },
 
-  card: { padding: 20, borderRadius: 16, marginBottom: 15, borderWidth: 1, elevation: 2 },
+  card: { padding: 20, borderRadius: 16, marginBottom: 15, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(128,128,128,0.2)', paddingBottom: 10 },
   dateText: { fontWeight: 'bold', fontSize: 13 },
   
@@ -560,8 +633,11 @@ const styles = StyleSheet.create({
   photo: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, backgroundColor: '#000' },
   photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
 
-  aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 25, paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
+  aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
   aiButtonText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+  
+  silentResolveBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12, gap: 8, marginTop: 10 },
+  silentResolveText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
 
   loadMoreBtn: { flexDirection: 'row', padding: 15, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 10, marginBottom: 20 },
   loadMoreText: { fontWeight: 'bold', fontSize: 13 },
@@ -576,7 +652,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   
-    evalModalContent: { 
+  evalModalContent: { 
       width: '100%', 
       maxWidth: 550, 
       height: Dimensions.get('window').height * 0.85,
