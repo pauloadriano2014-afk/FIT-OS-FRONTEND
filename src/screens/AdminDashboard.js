@@ -290,8 +290,24 @@ export default function AdminDashboard({ navigation }) {
       const dbPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(item.plan) ? item.plan : 'PREMIUM';
       const badge = getPlanBadge(dbPlan);
 
+      // 🔥 PUXA A CONTAGEM DE AVALIAÇÕES PENDENTES DO BACKEND 🔥
+      const pendingCount = item._count?.checkIns || 0;
+
       return (
-        <TouchableOpacity style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 16, alignItems: 'center' }]} onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}> 
+        <TouchableOpacity 
+            style={[
+                styles.card, 
+                { 
+                    backgroundColor: theme.surface, 
+                    // SE TIVER PENDÊNCIA A BORDA FICA VERMELHA E MAIS GROSSA PRA CHAMAR ATENÇÃO
+                    borderColor: pendingCount > 0 ? '#FF3B30' : theme.border, 
+                    borderWidth: pendingCount > 0 ? 2 : 1,
+                    padding: 16, 
+                    alignItems: 'center' 
+                }
+            ]} 
+            onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}
+        > 
           {item.photoUrl ? (
               <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
           ) : (
@@ -305,11 +321,22 @@ export default function AdminDashboard({ navigation }) {
                 <Text style={[styles.alunoName, { color: theme.text, fontSize: 16 }]} numberOfLines={1}>{item.name || 'Aluno Sem Nome'}</Text>
             </View>
             
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2}}>
+            {/* FLEX WRAP ADICIONADO PARA NÃO QUEBRAR O LAYOUT COM O NOVO BADGE */}
+            <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap'}}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: badge.color + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                     <MaterialCommunityIcons name={badge.icon} size={10} color={badge.color} />
                     <Text style={{ fontSize: 9, fontWeight: '900', color: badge.color }}>{badge.text}</Text>
                 </View>
+
+                {/* 🔥 A TAG DE AVALIAÇÃO PENDENTE NASCE AQUI 🔥 */}
+                {pendingCount > 0 && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3022', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <MaterialCommunityIcons name="alert-circle" size={10} color="#FF3B30" />
+                        <Text style={{ fontSize: 9, fontWeight: '900', color: '#FF3B30' }}>
+                            {pendingCount} AVALIAÇ{pendingCount > 1 ? 'ÕES' : 'ÃO'} PENDENTE{pendingCount > 1 ? 'S' : ''}
+                        </Text>
+                    </View>
+                )}
             </View>
           </View>
 
@@ -436,7 +463,6 @@ export default function AdminDashboard({ navigation }) {
                 <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
                     <View style={styles.gridGestao}>
                         
-                        {/* 🔥 NOVO: BOTÃO LABORATÓRIO IA 🔥 */}
                         <TouchableOpacity 
                             style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} 
                             onPress={() => navigation.navigate('AdminIALabScreen')}
