@@ -327,6 +327,20 @@ export default function HomeScreen({ navigation }) {
       }
   };
 
+  // 🔥 DECODIFICADOR DO CÓDIGO OCULTO DE COMPARAÇÃO 🔥
+  let rawFeedbackText = pendingFeedback?.coachFeedback || '';
+  let displayFeedbackText = rawFeedbackText;
+  let compareOldPhotos = [];
+  
+  if (rawFeedbackText.includes('[COMPARE:')) {
+      const match = rawFeedbackText.match(/\[COMPARE:(.*?)\]/);
+      if (match) {
+          compareOldPhotos = match[1].split('|');
+          displayFeedbackText = rawFeedbackText.replace(match[0], '').trim();
+      }
+  }
+  const currentPhotosKeys = ['photoFront', 'photoSide', 'photoBack'];
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -523,7 +537,6 @@ export default function HomeScreen({ navigation }) {
                 </TouchableOpacity>
             )}
 
-            {/* 🔥 BOTÃO DA DIETA 🔥 */}
             {(userPlan === 'CHALLENGE_21' || (userData?.dietGoal && userData.dietGoal !== 'NONE')) && (
                 <TouchableOpacity 
                     style={[styles.mainActionBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, padding: 20, marginBottom: 15, elevation: 0 }]} 
@@ -595,7 +608,7 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO (BLINDADO CONTRA LIGHT MODE) - ÚNICO 🔥 */}
+      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO (RENDERIZADOR INTELIGENTE: ANTES E DEPOIS) 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
@@ -605,7 +618,7 @@ export default function HomeScreen({ navigation }) {
                       </TouchableOpacity>
                       <View style={{ alignItems: 'center', marginTop: 10 }}>
                           <Text style={[styles.reportTitle, { color: '#FFF', fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
-                          <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {(userData?.name || 'Aluno').toUpperCase()}</Text>
+                          <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {userName.toUpperCase()}</Text>
                       </View>
                       <View style={{ marginTop: 15, backgroundColor: '#4DE38F22', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 10 }}>
                           <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: '900' }}>
@@ -615,20 +628,56 @@ export default function HomeScreen({ navigation }) {
                   </View>
 
                   <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
-                          {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
-                              pendingFeedback?.[key] && (
-                                  <View key={i} style={styles.reportPhotoContainer}>
-                                      <Image source={{ uri: pendingFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
-                                      <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color:'#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
-                                  </View>
-                              )
-                          ))}
-                      </ScrollView>
+                      
+                      {/* 🔥 SISTEMA DE RENDERIZAÇÃO DE FOTOS 🔥 */}
+                      {compareOldPhotos.length > 0 ? (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20, marginBottom: 30 }}>
+                              {currentPhotosKeys.map((key, i) => {
+                                  const currentPic = pendingFeedback?.[key];
+                                  const oldPic = compareOldPhotos[i];
+                                  if (!currentPic && (!oldPic || oldPic === 'null' || oldPic === '')) return null;
+
+                                  const label = i === 0 ? 'FRONTAL' : (i === 1 ? 'LATERAL' : 'POSTERIOR');
+
+                                  return (
+                                      <View key={i} style={{ flexDirection: 'row', gap: 2, backgroundColor: '#1A1A1A', padding: 8, borderRadius: 16, borderWidth: 1, borderColor: '#333' }}>
+                                          {oldPic && oldPic !== 'null' && oldPic !== '' && (
+                                              <View style={{ width: 130, height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                                                  <Image source={{ uri: oldPic }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                                  <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: '#333', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                                                      <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900' }}>ANTES ({label})</Text>
+                                                  </View>
+                                              </View>
+                                          )}
+                                          {currentPic && (
+                                              <View style={{ width: 130, height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                                                  <Image source={{ uri: currentPic }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                                  <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: '#4DE38F', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                                                      <Text style={{ color: '#000', fontSize: 8, fontWeight: '900' }}>DEPOIS ({label})</Text>
+                                                  </View>
+                                              </View>
+                                          )}
+                                      </View>
+                                  );
+                              })}
+                          </ScrollView>
+                      ) : (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
+                              {currentPhotosKeys.map((key, i) => (
+                                  pendingFeedback?.[key] && (
+                                      <View key={i} style={styles.reportPhotoContainer}>
+                                          <Image source={{ uri: pendingFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
+                                          <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color:'#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
+                                      </View>
+                                  )
+                              ))}
+                          </ScrollView>
+                      )}
+
                       <View style={styles.reportDivider} />
                       <Text style={[styles.reportSectionTitle, { color: '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
                       <View style={{ marginTop: 10, marginBottom: 10 }}>
-                          {pendingFeedback?.coachFeedback?.split('\n').map((paragraph, index) => {
+                          {displayFeedbackText.split('\n').map((paragraph, index) => {
                               const parts = paragraph.split(/(\*[^*]+\*)/g);
                               return (
                                   <Text key={index} style={[styles.reportText, { color: '#DDD' }]}>{parts.map((part, i) => {
@@ -740,7 +789,6 @@ const styles = StyleSheet.create({
   upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
-  // 🔥 ESTILOS DO RELATÓRIO 🔥
   reportModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', overflow: 'hidden' },
   reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 40, borderBottomWidth: 1 },
   reportTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
