@@ -26,7 +26,6 @@ export default function AdminIALabScreen({ navigation }) {
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
-    // 🔥 SLOTS ESPECÍFICOS DE FOTO (LAYOUT ELITE) 🔥
     const [currentFront, setCurrentFront] = useState(null);
     const [currentSide, setCurrentSide] = useState(null);
     const [currentBack, setCurrentBack] = useState(null);
@@ -131,7 +130,6 @@ export default function AdminIALabScreen({ navigation }) {
         setResultText('');
 
         try {
-            // Mantém a ordem cravada pro prompt mapear certinho
             const customCurrentPhotos = [
                 currentFront ? `data:image/jpeg;base64,${currentFront.base64}` : '',
                 currentSide ? `data:image/jpeg;base64,${currentSide.base64}` : '',
@@ -144,16 +142,14 @@ export default function AdminIALabScreen({ navigation }) {
                 oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
             ] : [];
 
-            let headers = { 'Content-Type': 'application/json' };
-            if (selectedAluno) {
-                headers['userId'] = selectedAluno.id;
-            }
-
+            // 🔥 A MÁGICA SALVADORA 2.0: Removi o maldito headers['userId'] daqui! 🔥
+            // Agora o labUserId viaja SÓ dentro do body (onde o CORS não apita).
             const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-checkin', {
                 method: 'POST',
-                headers: headers,
+                headers: { 'Content-Type': 'application/json' }, // Limpo e seguro
                 body: JSON.stringify({
                     isFromLab: true, 
+                    labUserId: selectedAluno ? selectedAluno.id : null,
                     customCurrentPhotos: customCurrentPhotos,
                     customOldPhotos: customOldPhotos,
                     contextText: contextText
@@ -193,7 +189,7 @@ export default function AdminIALabScreen({ navigation }) {
         const confirmSend = async () => {
             setIsSendingToAluno(true);
             try {
-                // Aqui o backend salva só o 'Depois' no banco pra evolução
+                // Aqui o backend salva só o 'Depois' no banco pra evolução (Lab Evaluation)
                 const payloadImages = [
                     currentFront?.base64 || '',
                     currentSide?.base64 || '',
@@ -287,7 +283,6 @@ export default function AdminIALabScreen({ navigation }) {
                 ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
             }}>
                 
-                {/* HEADER */}
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
@@ -299,7 +294,6 @@ export default function AdminIALabScreen({ navigation }) {
                     <View style={{ width: 42 }} /> 
                 </View>
 
-                {/* SCROLL BLINDADO */}
                 <View style={{ flex: 1, position: 'relative' }}>
                     <ScrollView 
                         style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} 
@@ -307,7 +301,6 @@ export default function AdminIALabScreen({ navigation }) {
                         showsVerticalScrollIndicator={false}
                     >
                         
-                        {/* SELETOR DE ALUNO ALVO */}
                         <Text style={[styles.sectionLabel, { color: theme.text, marginTop: 10 }]}>ALUNO ALVO DA ANÁLISE</Text>
                         <TouchableOpacity 
                             style={[styles.dropdownHeader, { backgroundColor: theme.surface, borderColor: selectedAluno ? '#34C759' : theme.border }]} 
@@ -323,7 +316,6 @@ export default function AdminIALabScreen({ navigation }) {
                             <MaterialCommunityIcons name={dropdownVisible ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                         </TouchableOpacity>
 
-                        {/* LISTA DE ALUNOS COM BARRA DE PESQUISA */}
                         {dropdownVisible && (
                             <View style={[styles.dropdownContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                 <View style={[styles.searchBox, { borderBottomColor: theme.border }]}>
@@ -366,7 +358,6 @@ export default function AdminIALabScreen({ navigation }) {
                         )}
 
 
-                        {/* SELETOR DE TIPO DE ANÁLISE */}
                         <View style={{flexDirection: 'row', backgroundColor: theme.surface, borderRadius: 12, padding: 4, marginBottom: 20, marginTop: 15, borderWidth: 1, borderColor: theme.border}}>
                             <TouchableOpacity 
                                 style={[styles.tabBtn, { backgroundColor: analysisType === 'initial' ? '#4DE38F' : 'transparent' }]}
@@ -382,7 +373,6 @@ export default function AdminIALabScreen({ navigation }) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* 🔥 FOTOS BASE (ANTES) - APENAS SE FOR COMPARATIVO 🔥 */}
                         {analysisType === 'comparison' && (
                             <View style={{ marginBottom: 20 }}>
                                 <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FOTOS BASE (ANTES)</Text>
@@ -414,7 +404,6 @@ export default function AdminIALabScreen({ navigation }) {
                             </View>
                         )}
 
-                        {/* 🔥 FOTOS ATUAIS (DEPOIS) 🔥 */}
                         <View style={{ marginBottom: 20 }}>
                             <Text style={[styles.sectionLabel, { color: theme.text }]}>
                                 {analysisType === 'comparison' ? 'FOTOS ATUAIS (DEPOIS)' : 'FOTOS DO SHAPE'}
@@ -446,7 +435,6 @@ export default function AdminIALabScreen({ navigation }) {
                             </View>
                         </View>
 
-                        {/* CONTEXTO */}
                         <Text style={[styles.sectionLabel, { color: theme.text }]}>DIRECIONAMENTO (OPCIONAL)</Text>
                         <TextInput 
                             style={[styles.inputContext, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
@@ -457,7 +445,6 @@ export default function AdminIALabScreen({ navigation }) {
                             onChangeText={setContextText}
                         />
 
-                        {/* BOTÃO GERAR */}
                         <TouchableOpacity 
                             style={[styles.generateBtn, { backgroundColor: '#4DE38F15', borderColor: '#4DE38F' }]}
                             onPress={handleGenerate}
@@ -471,7 +458,6 @@ export default function AdminIALabScreen({ navigation }) {
                             )}
                         </TouchableOpacity>
 
-                        {/* RESULTADO E BOTÕES FINAIS */}
                         {resultText ? (
                             <View style={[styles.resultContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                 <Text style={[styles.sectionLabel, { color: '#4DE38F', marginBottom: 15 }]}>LAUDO TÉCNICO GERADO:</Text>
@@ -495,8 +481,7 @@ export default function AdminIALabScreen({ navigation }) {
                                     </TouchableOpacity>
                                 </View>
 
-                                {/* BOTÃO DE SALVAR NO BANCO SE ALUNO TIVER SELECIONADO E FOR SINGLE ANALYSIS */}
-                                {selectedAluno && analysisType === 'initial' && (
+                                {selectedAluno && (
                                     <TouchableOpacity 
                                         style={[styles.saveAlunoBtn, { backgroundColor: '#34C759' }]}
                                         onPress={handleSendToAluno}
@@ -537,7 +522,6 @@ const styles = StyleSheet.create({
     
     sectionLabel: { fontSize: 12, fontWeight: '900', letterSpacing: 1, marginBottom: 8 },
     
-    // 🔥 NOVOS ESTILOS DOS SLOTS ELITE 🔥
     specificSlotsContainer: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
     slotBox: { flex: 1, height: 130, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: '#333', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' },
     slotEmpty: { alignItems: 'center', justifyContent: 'center' },
