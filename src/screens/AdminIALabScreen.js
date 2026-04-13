@@ -142,11 +142,9 @@ export default function AdminIALabScreen({ navigation }) {
                 oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
             ] : [];
 
-            // 🔥 A MÁGICA SALVADORA 2.0: Removi o maldito headers['userId'] daqui! 🔥
-            // Agora o labUserId viaja SÓ dentro do body (onde o CORS não apita).
             const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-checkin', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }, // Limpo e seguro
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     isFromLab: true, 
                     labUserId: selectedAluno ? selectedAluno.id : null,
@@ -189,12 +187,19 @@ export default function AdminIALabScreen({ navigation }) {
         const confirmSend = async () => {
             setIsSendingToAluno(true);
             try {
-                // Aqui o backend salva só o 'Depois' no banco pra evolução (Lab Evaluation)
+                // Fotos Atuais (Depois)
                 const payloadImages = [
                     currentFront?.base64 || '',
                     currentSide?.base64 || '',
                     currentBack?.base64 || ''
                 ];
+
+                // 🔥 A MÁGICA SALVADORA: Enviando as fotos antigas pro R2 fazer o upload e gerar os links! 🔥
+                const customOldPhotos = analysisType === 'comparison' ? [
+                    oldFront ? `data:image/jpeg;base64,${oldFront.base64}` : '',
+                    oldSide ? `data:image/jpeg;base64,${oldSide.base64}` : '',
+                    oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
+                ] : [];
 
                 const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
                     method: 'POST',
@@ -203,6 +208,7 @@ export default function AdminIALabScreen({ navigation }) {
                         userId: selectedAluno.id,
                         coachFeedback: resultText,
                         images: payloadImages,
+                        customOldPhotos: customOldPhotos, // Agora o backend vai ver isso e criar o [COMPARE:urls]
                         isLabSave: true
                     })
                 });
