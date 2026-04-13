@@ -367,7 +367,6 @@ export default function HomeScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-
             {needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
                 <TouchableOpacity 
                     style={[styles.photoBanner, { backgroundColor: '#FF3B3015', borderColor: '#FF3B30', padding: 16 }]}
@@ -596,22 +595,18 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 NOVO MODAL DE RELATÓRIO TÉCNICO (BLINDADO CONTRA LIGHT MODE) 🔥 */}
+      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO (BLINDADO CONTRA LIGHT MODE) - ÚNICO 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
-                  
-                  {/* CABEÇALHO */}
                   <View style={[styles.reportHeader, { flexDirection: 'column', alignItems: 'center', paddingBottom: 25, position: 'relative', borderBottomColor: '#333' }]}>
                       <TouchableOpacity style={{position: 'absolute', right: 20, top: 20, zIndex: 10}} onPress={() => setFeedbackModalVisible(false)}>
                           <MaterialCommunityIcons name="close" size={28} color="#AAA" />
                       </TouchableOpacity>
-
                       <View style={{ alignItems: 'center', marginTop: 10 }}>
                           <Text style={[styles.reportTitle, { color: '#FFF', fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
-                          <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {userName.toUpperCase()}</Text>
+                          <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {(userData?.name || 'Aluno').toUpperCase()}</Text>
                       </View>
-
                       <View style={{ marginTop: 15, backgroundColor: '#4DE38F22', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 10 }}>
                           <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: '900' }}>
                               DATA: {pendingFeedback?.date ? new Date(pendingFeedback.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}
@@ -620,44 +615,33 @@ export default function HomeScreen({ navigation }) {
                   </View>
 
                   <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
-                      
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
                           {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
                               pendingFeedback?.[key] && (
                                   <View key={i} style={styles.reportPhotoContainer}>
                                       <Image source={{ uri: pendingFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
-                                      <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}>
-                                          <Text style={[styles.reportPhotoBadgeText, {color: '#000'}]}>
-                                              {key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}
-                                          </Text>
-                                      </View>
+                                      <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color:'#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
                                   </View>
                               )
                           ))}
                       </ScrollView>
-
                       <View style={styles.reportDivider} />
-
                       <Text style={[styles.reportSectionTitle, { color: '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
                       <View style={{ marginTop: 10, marginBottom: 10 }}>
                           {pendingFeedback?.coachFeedback?.split('\n').map((paragraph, index) => {
                               const parts = paragraph.split(/(\*[^*]+\*)/g);
                               return (
-                                  <Text key={index} style={[styles.reportText, { color: '#DDD' }]}>
-                                      {parts.map((part, i) => {
-                                          if (part.startsWith('*') && part.endsWith('*')) {
-                                              return <Text key={i} style={{ fontWeight: '900', color: '#FFF' }}>{part.slice(1, -1)}</Text>;
-                                          }
+                                  <Text key={index} style={[styles.reportText, { color: '#DDD' }]}>{parts.map((part, i) => {
+                                          if (part.startsWith('*') && part.endsWith('*')) return <Text key={i} style={{ fontWeight: '900', color: '#FFF' }}>{part.slice(1, -1)}</Text>;
                                           return part;
                                       })}
                                   </Text>
                               );
                           })}
                       </View>
-
-                      {/* ASSINATURA BLINDADA */}
+                      
                       <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                          <Image source={require('../../assets/paulo-foto.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
+                          <Image source={require('../../assets/paulo-foto-perfil.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
                           <View style={{ flex: 1 }}>
                               <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
                               <Text style={[styles.coachTitle, { color: '#AAA', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
