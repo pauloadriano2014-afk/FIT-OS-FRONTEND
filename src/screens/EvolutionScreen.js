@@ -11,7 +11,6 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
-/* 🔥 IMPORTAÇÕES */
 import { useTheme } from '../contexts/ThemeContext';
 import { calculateBodyFat, getAgeFromDate, getGoogleDriveDirectDownloadUrl } from '../utils/EvolutionCalculators';
 import AssessmentFormModal from '../components/AssessmentFormModal';
@@ -107,6 +106,7 @@ export default function EvolutionScreen({ navigation }) {
           if (resCheckins.ok) {
               const allCheckins = await resCheckins.json();
               if (Array.isArray(allCheckins)) {
+                  // Filtra para remover os 'silenciosos' caso o aluno não tenha visto, mas como o texto agora é renderizado, ele pode ver.
                   const evaluated = allCheckins.filter(c => c.coachFeedback);
                   setCheckinHistory(evaluated);
               }
@@ -289,6 +289,20 @@ export default function EvolutionScreen({ navigation }) {
   };
 
   const openFeedbackModal = (checkin) => { setSelectedFeedback(checkin); setFeedbackModalVisible(true); };
+
+  // 🔥 DECODIFICADOR DO CÓDIGO OCULTO DE COMPARAÇÃO 🔥
+  let rawFeedbackText = selectedFeedback?.coachFeedback || '';
+  let displayFeedbackText = rawFeedbackText;
+  let compareOldPhotos = [];
+  
+  if (rawFeedbackText.includes('[COMPARE:')) {
+      const match = rawFeedbackText.match(/\[COMPARE:(.*?)\]/);
+      if (match) {
+          compareOldPhotos = match[1].split('|');
+          displayFeedbackText = rawFeedbackText.replace(match[0], '').trim();
+      }
+  }
+  const currentPhotosKeys = ['photoFront', 'photoSide', 'photoBack'];
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
@@ -494,7 +508,7 @@ export default function EvolutionScreen({ navigation }) {
       <AssessmentDetailsModal visible={detailsVisible} assessment={selectedAssessment} onClose={() => setDetailsVisible(false)} onGeneratePDF={() => generateSinglePDF(selectedAssessment)} onEdit={() => handleEdit(selectedAssessment)} onDelete={() => handleDelete(selectedAssessment?.id)} theme={theme} />
       <CompareReportModal visible={compareModalVisible} onClose={() => setCompareModalVisible(false)} selectedData={assessmentHistory.filter(a => selectedForCompare.includes(a.id))} onGeneratePDF={generateComparePDF} theme={theme} />
 
-      {/* 🔥 MODAL ÚNICO E BLINDADO DO RELATÓRIO TÉCNICO 🔥 */}
+      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO (RENDERIZADOR INTELIGENTE: ANTES E DEPOIS) 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.modalOverlayFull}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
@@ -514,20 +528,56 @@ export default function EvolutionScreen({ navigation }) {
                   </View>
 
                   <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
-                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
-                          {['photoFront', 'photoSide', 'photoBack'].map((key, i) => (
-                              selectedFeedback?.[key] && (
-                                  <View key={i} style={styles.reportPhotoContainer}>
-                                      <Image source={{ uri: selectedFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
-                                      <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color:'#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
-                                  </View>
-                              )
-                          ))}
-                      </ScrollView>
+                      
+                      {/* 🔥 SISTEMA DE RENDERIZAÇÃO DE FOTOS 🔥 */}
+                      {compareOldPhotos.length > 0 ? (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20, marginBottom: 30 }}>
+                              {currentPhotosKeys.map((key, i) => {
+                                  const currentPic = selectedFeedback?.[key];
+                                  const oldPic = compareOldPhotos[i];
+                                  if (!currentPic && (!oldPic || oldPic === 'null' || oldPic === '')) return null;
+
+                                  const label = i === 0 ? 'FRONTAL' : (i === 1 ? 'LATERAL' : 'POSTERIOR');
+
+                                  return (
+                                      <View key={i} style={{ flexDirection: 'row', gap: 2, backgroundColor: '#1A1A1A', padding: 8, borderRadius: 16, borderWidth: 1, borderColor: '#333' }}>
+                                          {oldPic && oldPic !== 'null' && oldPic !== '' && (
+                                              <View style={{ width: 130, height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                                                  <Image source={{ uri: oldPic }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                                  <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: '#333', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                                                      <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900' }}>ANTES ({label})</Text>
+                                                  </View>
+                                              </View>
+                                          )}
+                                          {currentPic && (
+                                              <View style={{ width: 130, height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                                                  <Image source={{ uri: currentPic }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                                                  <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: '#4DE38F', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                                                      <Text style={{ color: '#000', fontSize: 8, fontWeight: '900' }}>DEPOIS ({label})</Text>
+                                                  </View>
+                                              </View>
+                                          )}
+                                      </View>
+                                  );
+                              })}
+                          </ScrollView>
+                      ) : (
+                          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
+                              {currentPhotosKeys.map((key, i) => (
+                                  selectedFeedback?.[key] && (
+                                      <View key={i} style={styles.reportPhotoContainer}>
+                                          <Image source={{ uri: selectedFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
+                                          <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color:'#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
+                                      </View>
+                                  )
+                              ))}
+                          </ScrollView>
+                      )}
+
                       <View style={styles.reportDivider} />
                       <Text style={[styles.reportSectionTitle, { color: '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
                       <View style={{ marginTop: 10, marginBottom: 10 }}>
-                          {selectedFeedback?.coachFeedback?.split('\n').map((paragraph, index) => {
+                          {displayFeedbackText.split('\n').map((paragraph, index) => {
                               const parts = paragraph.split(/(\*[^*]+\*)/g);
                               return (
                                   <Text key={index} style={[styles.reportText, { color: '#DDD' }]}>{parts.map((part, i) => {
@@ -551,6 +601,7 @@ export default function EvolutionScreen({ navigation }) {
               </View>
           </View>
       </Modal>
+
     </RootComponent>
   );
 }
