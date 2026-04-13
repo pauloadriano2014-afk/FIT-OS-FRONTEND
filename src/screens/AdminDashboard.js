@@ -62,6 +62,8 @@ export default function AdminDashboard({ navigation }) {
 
   const [selectedCheckin, setSelectedCheckin] = useState(null);
   const [checkinModalVisible, setCheckinModalVisible] = useState(false);
+  const [isResolving, setIsResolving] = useState(false); 
+
   const [isNoticeModalOpen, setIsNoticeModalOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState('verde');
 
@@ -69,6 +71,7 @@ export default function AdminDashboard({ navigation }) {
 
   const filterOptions = [
     { id: 'TODOS', label: 'TODOS OS ALUNOS', icon: 'account-group', color: theme.text },
+    { id: 'PENDENTES', label: 'AVALIAÇÃO PENDENTE', icon: 'alert-circle', color: '#FF3B30' },
     { id: 'ATRASADOS', label: 'TREINOS ATRASADOS', icon: 'alert-circle', color: '#FF3B30' },
     { id: 'ALERTA', label: 'ALERTA (VENCE EM 7D)', icon: 'clock-fast', color: '#FFCC00' },
     { id: 'OK', label: 'NO PRAZO', icon: 'check-circle', color: '#34C759' },
@@ -185,6 +188,11 @@ export default function AdminDashboard({ navigation }) {
                   return currentPlan === targetPlan;
               }
 
+              if (statusFilter === 'PENDENTES') {
+                  const pendingCount = a._count?.checkIns || 0;
+                  return pendingCount > 0;
+              }
+
               const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
               if (!activeWorkout) return statusFilter === 'SEM_TREINO';
               const status = getExpirationStatus(activeWorkout);
@@ -241,8 +249,51 @@ export default function AdminDashboard({ navigation }) {
       setVisibleCount(15);
   };
 
+  const handleResolveCheckin = () => {
+      const confirmAction = async () => {
+          setIsResolving(true);
+          try {
+              const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      checkinId: selectedCheckin.id,
+                      coachFeedback: "*Avaliação Finalizada!* 🎯\n\nSeu laudo completo foi gerado com sucesso. Vá até a sua tela de **Evolução** no aplicativo para conferir a análise e o seu planejamento.",
+                      silent: true
+                  })
+              });
+              if (res.ok) {
+                  setCheckinModalVisible(false);
+                  fetchData(true); 
+                  if (Platform.OS === 'web') window.alert("Baixa realizada com sucesso!");
+              } else {
+                  if (Platform.OS === 'web') window.alert("Erro ao dar baixa."); else Alert.alert("Erro", "Não foi possível atualizar o check-in.");
+              }
+          } catch (e) {
+              if (Platform.OS === 'web') window.alert("Erro de conexão."); else Alert.alert("Erro", "Erro de conexão.");
+          } finally {
+              setIsResolving(false);
+          }
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm("Marcar como 'Avaliado' para remover o aviso vermelho?")) {
+              confirmAction();
+          }
+      } else {
+          Alert.alert(
+              "Remover Alerta",
+              "Marcar este check-in como 'Avaliado' para remover o aviso vermelho do painel?",
+              [
+                  { text: "Cancelar", style: "cancel" },
+                  { text: "Sim, resolver", onPress: confirmAction }
+              ]
+          );
+      }
+  };
+
   const renderCheckinItem = ({ item }) => (
-      <TouchableOpacity style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
+      <TouchableOpacity style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.coachFeedback ? theme.border : '#FF3B30' }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
           <View style={[styles.iconBox, { backgroundColor: 'rgba(50, 173, 230, 0.15)' }]}><MaterialCommunityIcons name="camera-account" size={20} color="#32ADE6" /></View>
           <View style={{flex: 1}}>
               <View style={{flexDirection:'row', justifyContent:'space-between'}}>
@@ -251,6 +302,12 @@ export default function AdminDashboard({ navigation }) {
               </View>
               <Text style={styles.feedAction}>Check-in: <Text style={{color: theme.text, fontWeight:'bold'}}>{item.weight ? `${item.weight}kg` : 'Fotos'}</Text></Text>
               {item.feedback ? <Text numberOfLines={1} style={styles.checkinFeedback}>"{item.feedback}"</Text> : null}
+              
+              {!item.coachFeedback && (
+                  <View style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#FF3B3022', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}>
+                      <Text style={{ color: '#FF3B30', fontSize: 9, fontWeight: 'bold' }}>AGUARDANDO AVALIAÇÃO</Text>
+                  </View>
+              )}
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
       </TouchableOpacity>
@@ -290,7 +347,6 @@ export default function AdminDashboard({ navigation }) {
       const dbPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(item.plan) ? item.plan : 'PREMIUM';
       const badge = getPlanBadge(dbPlan);
 
-      // 🔥 PUXA A CONTAGEM DE AVALIAÇÕES PENDENTES DO BACKEND 🔥
       const pendingCount = item._count?.checkIns || 0;
 
       return (
@@ -299,7 +355,6 @@ export default function AdminDashboard({ navigation }) {
                 styles.card, 
                 { 
                     backgroundColor: theme.surface, 
-                    // SE TIVER PENDÊNCIA A BORDA FICA VERMELHA E MAIS GROSSA PRA CHAMAR ATENÇÃO
                     borderColor: pendingCount > 0 ? '#FF3B30' : theme.border, 
                     borderWidth: pendingCount > 0 ? 2 : 1,
                     padding: 16, 
@@ -321,14 +376,12 @@ export default function AdminDashboard({ navigation }) {
                 <Text style={[styles.alunoName, { color: theme.text, fontSize: 16 }]} numberOfLines={1}>{item.name || 'Aluno Sem Nome'}</Text>
             </View>
             
-            {/* FLEX WRAP ADICIONADO PARA NÃO QUEBRAR O LAYOUT COM O NOVO BADGE */}
             <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2, flexWrap: 'wrap'}}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: badge.color + '22', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                     <MaterialCommunityIcons name={badge.icon} size={10} color={badge.color} />
                     <Text style={{ fontSize: 9, fontWeight: '900', color: badge.color }}>{badge.text}</Text>
                 </View>
 
-                {/* 🔥 A TAG DE AVALIAÇÃO PENDENTE NASCE AQUI 🔥 */}
                 {pendingCount > 0 && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#FF3B3022', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
                         <MaterialCommunityIcons name="alert-circle" size={10} color="#FF3B30" />
@@ -579,7 +632,7 @@ export default function AdminDashboard({ navigation }) {
                     </View>
                     {selectedCheckin?.feedback && (
                         <View style={[styles.feedbackBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-                            <Text style={styles.infoLabel}>FEEDBACK</Text>
+                            <Text style={styles.infoLabel}>FEEDBACK DO ALUNO</Text>
                             <Text style={[styles.feedbackText, { color: theme.text }]}>"{selectedCheckin.feedback}"</Text>
                         </View>
                     )}
@@ -613,6 +666,22 @@ export default function AdminDashboard({ navigation }) {
                             </View>
                         )}
                     </ScrollView>
+
+                    {!selectedCheckin?.coachFeedback && (
+                        <TouchableOpacity 
+                            style={[styles.inviteBtn, { backgroundColor: '#34C759', marginTop: 30, marginHorizontal: 0 }]}
+                            onPress={handleResolveCheckin}
+                            disabled={isResolving}
+                        >
+                            {isResolving ? <ActivityIndicator color="#FFF" /> : (
+                                <>
+                                    <MaterialCommunityIcons name="check-all" size={22} color="#FFF" />
+                                    <Text style={[styles.inviteBtnText, { color: '#FFF', fontSize: 12 }]}>MARCAR COMO AVALIADO (REMOVER ALERTA)</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    )}
+
                 </ScrollView>
             </View>
         </View>
