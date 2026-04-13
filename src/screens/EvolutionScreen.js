@@ -494,7 +494,7 @@ export default function EvolutionScreen({ navigation }) {
       <AssessmentDetailsModal visible={detailsVisible} assessment={selectedAssessment} onClose={() => setDetailsVisible(false)} onGeneratePDF={() => generateSinglePDF(selectedAssessment)} onEdit={() => handleEdit(selectedAssessment)} onDelete={() => handleDelete(selectedAssessment?.id)} theme={theme} />
       <CompareReportModal visible={compareModalVisible} onClose={() => setCompareModalVisible(false)} selectedData={assessmentHistory.filter(a => selectedForCompare.includes(a.id))} onGeneratePDF={generateComparePDF} theme={theme} />
 
-      {/* 🔥 MODAL DE RELATÓRIO TÉCNICO (BLINDADO CONTRA LIGHT MODE) 🔥 */}
+      {/* 🔥 MODAL ÚNICO E BLINDADO DO RELATÓRIO TÉCNICO 🔥 */}
       <Modal visible={feedbackModalVisible} transparent animationType="slide">
           <View style={styles.modalOverlayFull}>
               <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
