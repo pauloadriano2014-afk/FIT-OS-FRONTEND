@@ -64,6 +64,9 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [oldBack, setOldBack] = useState(null);
   const [customOldWeight, setCustomOldWeight] = useState('');
   const [customOldDate, setCustomOldDate] = useState('');
+  
+  // 🔥 ESTADO DO DIRECIONAMENTO DA IA 🔥
+  const [contextText, setContextText] = useState('');
 
   useEffect(() => {
       if (aluno.id) {
@@ -190,12 +193,13 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       setFeedbackText(rawFb); 
       setCompareSource('system');
       
-      // Reseta a galeria manual
+      // Reseta os estados adicionais
       setOldFront(null);
       setOldSide(null);
       setOldBack(null);
       setCustomOldWeight('');
       setCustomOldDate('');
+      setContextText('');
 
       if (initialTypeSugestion === 'comparison') {
           if (extractedOldUrls) {
@@ -239,18 +243,19 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
       setIsGeneratingAI(true);
       try {
-          // Garante a ordem exata das posições (mesmo que alguma seja null)
           const customPhotosArray = compareSource === 'gallery' ? [
               oldFront ? `data:image/jpeg;base64,${oldFront.base64}` : '',
               oldSide ? `data:image/jpeg;base64,${oldSide.base64}` : '',
               oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
           ] : [];
 
+          // 🔥 ADICIONA O CONTEXT TEXT NO PAYLOAD 🔥
           const payload = { 
               checkInId: currentCheckinForEval.id,
               oldCheckInId: (evaluationType === 'comparison' && compareSource === 'system') ? selectedOldCheckinId : null,
               customOldPhotos: customPhotosArray,
-              customOldWeight: (evaluationType === 'comparison' && compareSource === 'gallery') ? customOldWeight : null
+              customOldWeight: (evaluationType === 'comparison' && compareSource === 'gallery') ? customOldWeight : null,
+              contextText: contextText 
           };
 
           const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-checkin', {
@@ -302,13 +307,11 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                   finalFeedback = `[COMPARE:${savedCompareUrls}]\n` + finalFeedback;
               }
           } else if (compareSource === 'gallery') {
-              // Mantém a ordem exata para a tela dividida funcionar!
               payloadPhotosBase64 = [
                   oldFront ? `data:image/jpeg;base64,${oldFront.base64}` : '',
                   oldSide ? `data:image/jpeg;base64,${oldSide.base64}` : '',
                   oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
               ];
-              // Adiciona as infos no topo do texto
               if (customOldDate || customOldWeight) {
                   finalFeedback = `*(Base da Comparação: ${customOldDate ? customOldDate : 'Galeria'} | ${customOldWeight ? customOldWeight+'kg' : ''})*\n\n` + finalFeedback;
               }
@@ -643,7 +646,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                     </>
                                 ) : (
                                     <>
-                                        {/* 🔥 NOVO: UPLOAD DE FOTOS DA GALERIA COM SLOTS ESPECÍFICOS 🔥 */}
                                         <Text style={{fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5}}>SELECIONE FOTOS EXTERNAS</Text>
                                         
                                         <View style={styles.specificSlotsContainer}>
@@ -735,6 +737,17 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                 <Image source={{uri: currentCheckinForEval?.photoFront}} style={[styles.comparePhotoImg, {borderColor: theme.accent}]} resizeMode="contain" />
                             </View>
                         </View>
+
+                        {/* 🔥 NOVO CAMPO: DIRECIONAMENTO (OPCIONAL) 🔥 */}
+                        <Text style={[styles.sectionLabel, { color: theme.text }]}>DIRECIONAMENTO (OPCIONAL)</Text>
+                        <TextInput 
+                            style={[styles.inputContext, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                            placeholder="Ex: Aluno relatou dor no ombro; foque nisso e evite falar do abdômen..."
+                            placeholderTextColor={theme.textSecondary}
+                            multiline
+                            value={contextText}
+                            onChangeText={setContextText}
+                        />
 
                         <TouchableOpacity 
                             style={[styles.generateAIBtn, {backgroundColor: theme.accent + '15', borderColor: theme.accent}]}
@@ -866,7 +879,6 @@ const styles = StyleSheet.create({
   sourceBtn: { flex: 1, padding: 8, borderRadius: 6, alignItems: 'center' },
   sourceBtnText: { fontWeight: 'bold', fontSize: 10, letterSpacing: 0.5 },
 
-  // 🔥 NOVOS ESTILOS PARA OS SLOTS ESPECÍFICOS DE FOTO 🔥
   specificSlotsContainer: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
   slotBox: { flex: 1, height: 120, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: '#333', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' },
   slotEmpty: { alignItems: 'center', justifyContent: 'center' },
@@ -885,6 +897,8 @@ const styles = StyleSheet.create({
   compareBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, marginBottom: 10, alignSelf: 'center' },
   compareLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   comparePhotoImg: { width: '100%', height: 250, borderRadius: 16, borderWidth: 2, backgroundColor: '#000' },
+  
+  inputContext: { padding: 15, borderRadius: 12, borderWidth: 1, minHeight: 80, textAlignVertical: 'top', outlineStyle: 'none', marginBottom: 25, fontSize: 14 },
   
   generateAIBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
   evalInputContainer: { padding: 20, borderRadius: 20, borderWidth: 1 },
