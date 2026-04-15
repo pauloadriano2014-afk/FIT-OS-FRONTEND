@@ -59,6 +59,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const [showRaioX, setShowRaioX] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingDiet, setIsLoadingDiet] = useState(true);
+    const [isGenerating, setIsGenerating] = useState(false); 
 
     const [searchModalVisible, setSearchModalVisible] = useState(false);
     const [timeModalVisible, setTimeModalVisible] = useState(false);
@@ -77,6 +78,53 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const [dietConfig, setDietConfig] = useState({ goal: 'Indefinido', water: '3 Litros', notes: 'Siga os horários descritos.' });
     const [meals, setMeals] = useState([]);
+
+    // 🔥 FUNÇÃO TRADUTORA BLINDADA (CAÇA AS CALORIAS NO INFERNO SE PRECISAR) 🔥
+    const enrichMealsWithDatabase = (mealsArray) => {
+        return mealsArray.map(meal => ({
+            ...meal,
+            items: meal.items.map(item => {
+                let query = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                // Tira o plural básico para facilitar o match (Ovos -> Ovo)
+                if (query.endsWith('s')) query = query.slice(0, -1);
+
+                let dbFood = FOOD_DATABASE.find(f => {
+                    const dbName = f.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                    return dbName === query || dbName.includes(query) || query.includes(dbName);
+                });
+
+                // Se não achar de primeira, tenta pela primeira palavra forte (ex: "Frango")
+                if (!dbFood) {
+                    const firstWord = query.split(' ')[0];
+                    if (firstWord.length > 2) {
+                        dbFood = FOOD_DATABASE.find(f => f.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(firstWord));
+                    }
+                }
+
+                let unitClean = (item.unit || 'g').toLowerCase().replace(/s$/, '');
+                if (unitClean.includes('unid')) unitClean = 'unid';
+                else if (unitClean.includes('fatia')) unitClean = 'fatia';
+                else if (unitClean.includes('colher')) unitClean = 'colher';
+                else if (unitClean.includes('xic') || unitClean.includes('xíc')) unitClean = 'xícara';
+
+                // Garante que pega de 'p' ou 'protein', 'calories' ou 'calories_per_100'
+                const kcal = dbFood ? (dbFood.calories_per_100 ?? dbFood.calories ?? 0) : 0;
+                const prot = dbFood ? (dbFood.p ?? dbFood.protein ?? 0) : 0;
+                const carb = dbFood ? (dbFood.c ?? dbFood.carbs ?? 0) : 0;
+                const fat = dbFood ? (dbFood.f ?? dbFood.fats ?? 0) : 0;
+
+                return {
+                    ...item,
+                    p: prot,
+                    c: carb,
+                    f: fat,
+                    calories_per_100: kcal,
+                    name: dbFood ? dbFood.name : item.name, 
+                    unit: unitClean
+                };
+            })
+        }));
+    };
 
     useEffect(() => {
         const fetchAllData = async () => {
@@ -292,13 +340,54 @@ export default function AdminDietScreen({ route, navigation }) {
             return { ...meal, items: meal.items.filter(item => item.uniqueId !== foodUniqueId) };
         }));
 
-    const handleGenerateAI = () => {
-        // 🔥 GATILHO DA IA AQUI (Em breve conectamos com a API)
-        Alert.alert('PA Coach AI', 'O módulo de geração inteligente será conectado na próxima etapa!');
+    const handleGenerateAI = async () => {
+        if (!anamnese) {
+            const msg = "O aluno precisa preencher a anamnese primeiro para a IA gerar o plano.";
+            return Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Atenção", msg);
+        }
+
+        setIsGenerating(true);
+        try {
+            const response = await fetch('https://fitos-final.onrender.com/api/admin/generate-diet', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ anamnese })
+            });
+
+            if (!response.ok) {
+                throw new Error("Falha ao comunicar com a IA.");
+            }
+
+            const data = await response.json();
+            
+            if (data.meals && data.meals.length > 0) {
+                // 🔥 ENRIQUECE OS DADOS ANTES DE SETAR NA TELA 🔥
+                const enrichedMeals = enrichMealsWithDatabase(data.meals);
+                setMeals(enrichedMeals);
+                
+                const succMsg = "O PA Coach AI estruturou a dieta na Mesa de Operações. Revise e salve!";
+                if (Platform.OS === 'web') window.alert("Estratégia Pronta!\n" + succMsg);
+                else Alert.alert("Estratégia Pronta!", succMsg);
+            } else {
+                const warnMsg = "A IA não conseguiu gerar a dieta neste momento.";
+                if (Platform.OS === 'web') window.alert("Aviso: " + warnMsg);
+                else Alert.alert("Aviso", warnMsg);
+            }
+
+        } catch (error) {
+            console.error("Erro ao gerar com IA:", error);
+            const errMsg = "Falha na comunicação com o Cérebro da IA.";
+            if (Platform.OS === 'web') window.alert("🚨 Erro Técnico:\n" + errMsg);
+            else Alert.alert("🚨 Erro Técnico", errMsg);
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
     const handleImportSuccess = (importedMeals) => {
-        setMeals(importedMeals);
+        // 🔥 ENRIQUECE OS DADOS DO PDF ANTES DE SETAR NA TELA 🔥
+        const enrichedMeals = enrichMealsWithDatabase(importedMeals);
+        setMeals(enrichedMeals);
         setImportModalVisible(false);
         if (Platform.OS === 'web') window.alert("Dieta importada com sucesso!");
         else Alert.alert("Sucesso", "Dieta importada com sucesso!");
@@ -311,7 +400,6 @@ export default function AdminDietScreen({ route, navigation }) {
             Alert.alert("Erro de Sincronização", "O ID do aluno se perdeu.");
             return;
         }
-        if (meals.length === 0) return Alert.alert("Atenção", "Adicione pelo menos uma refeição.");
 
         setIsSaving(true);
         try {
@@ -345,7 +433,8 @@ export default function AdminDietScreen({ route, navigation }) {
 
         } catch (error) {
             console.error("Erro ao salvar:", error);
-            Alert.alert("🚨 Erro Técnico no Banco", error.message);
+            if (Platform.OS === 'web') window.alert("🚨 Erro Técnico no Banco:\n" + error.message);
+            else Alert.alert("🚨 Erro Técnico no Banco", error.message);
         } finally {
             setIsSaving(false);
         }
@@ -471,11 +560,20 @@ export default function AdminDietScreen({ route, navigation }) {
                             </View>
                         )}
 
-                        {/* 🔥 NOVOS BOTÕES DE ASSISTENTES (IA E PDF) 🔥 */}
                         <View style={styles.assistantRow}>
-                            <TouchableOpacity style={[styles.assistantBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '40' }]} onPress={handleGenerateAI}>
-                                <MaterialCommunityIcons name="robot-outline" size={20} color={theme.accent} />
-                                <Text style={[styles.assistantBtnText, { color: theme.accent }]}>GERAR COM IA</Text>
+                            <TouchableOpacity 
+                                style={[styles.assistantBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '40' }]} 
+                                onPress={handleGenerateAI}
+                                disabled={isGenerating}
+                            >
+                                {isGenerating ? (
+                                    <ActivityIndicator size="small" color={theme.accent} />
+                                ) : (
+                                    <>
+                                        <MaterialCommunityIcons name="robot-outline" size={20} color={theme.accent} />
+                                        <Text style={[styles.assistantBtnText, { color: theme.accent }]}>GERAR COM IA</Text>
+                                    </>
+                                )}
                             </TouchableOpacity>
                             <TouchableOpacity style={[styles.assistantBtn, { backgroundColor: '#32ADE6' + '15', borderColor: '#32ADE6' + '40' }]} onPress={() => setImportModalVisible(true)}>
                                 <MaterialCommunityIcons name="file-pdf-box" size={20} color="#32ADE6" />
