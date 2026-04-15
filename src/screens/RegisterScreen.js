@@ -90,15 +90,30 @@ export default function RegisterScreen({ navigation, route }) {
         if(Platform.OS === 'web') window.alert("Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         else Alert.alert("Sucesso! 🦁", "Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         
+        // 🔥 LÓGICA DE ROTEAMENTO (Agora ciente da sua tela unificada) 🔥
         const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(initPlan);
+
+        // Se for plano "Self-Service", vai direto pro setup de treino e pula a Anamnese
         if (isAutoPlan) {
-            navigation.replace('SetupTreino', { userData: data.user });
+            navigation.navigate('SetupTreino', { userData: data.user });
         } else {
-            navigation.replace('Anamnese', { userData: data.user });
+            // 🔥 PERFORMANCE e ELITE caem na MESMA TELA.
+            // O que manda se aparecem ou não as perguntas de nutrição
+            // é o campo 'dietModule' ou se o initPlan for 'ELITE'
+            
+            // Força a injeção do dietModule no objeto userData se o plano for ELITE
+            const isElite = ['ELITE', 'VIP'].includes(initPlan);
+            if (isElite) {
+                data.user.dietModule = true; 
+            }
+
+            // Manda para a Anamnese comum, que agora sabe se deve exibir as 7 etapas
+            navigation.navigate('Anamnese', { userData: data.user });
         } 
       } else {
-        if(Platform.OS === 'web') window.alert(data.error || "Não foi possível realizar o cadastro.");
-        else Alert.alert("Atenção", data.error || "Não foi possível realizar o cadastro.");
+        const errorMsg = data.error || "Não foi possível realizar o cadastro.";
+        if(Platform.OS === 'web') window.alert(errorMsg);
+        else Alert.alert("Atenção", errorMsg);
       }
     } catch (error) {
       if(Platform.OS === 'web') window.alert("Erro de Conexão. Verifique sua internet.");

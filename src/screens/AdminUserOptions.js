@@ -1,8 +1,8 @@
 // src/screens/AdminUserOptions.js
 import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
-  ActivityIndicator, StatusBar, Alert, Platform, Image, Switch
+    View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
+    ActivityIndicator, StatusBar, Alert, Platform, Image, Switch
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
@@ -30,6 +30,7 @@ export default function AdminUserOptions({ route, navigation }) {
   const { theme } = useTheme(); 
 
   const [loading, setLoading] = useState(true);
+  const [freshAluno, setFreshAluno] = useState(aluno); 
   
   const [activeWorkouts, setActiveWorkouts] = useState([]);
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
@@ -50,9 +51,11 @@ export default function AdminUserOptions({ route, navigation }) {
   const [nextCheckInDate, setNextCheckInDate] = useState(''); 
   const [disableCheckIn, setDisableCheckIn] = useState(aluno.disableCheckIn || false);
 
-  // 🔥 ESTADOS DA DIETA
   const [dietGoal, setDietGoal] = useState(aluno.dietGoal || 'NONE');
   const [savingDiet, setSavingDiet] = useState(false);
+
+  // 🔥 NOVO INTERRUPTOR MANUAL DA DIETA 🔥
+  const [isDietTabVisible, setIsDietTabVisible] = useState(false);
 
   const [vipContents, setVipContents] = useState([]);
   const [userAccess, setUserAccess] = useState([]);
@@ -67,14 +70,16 @@ export default function AdminUserOptions({ route, navigation }) {
           setActiveWorkouts(workouts.active || []);
           setArchivedWorkouts(workouts.archived || []);
           if (freshness) {
+              setFreshAluno(freshness);
               setEvaluationUrl(freshness.evaluationUrl || '');
               if (freshness.nextCheckInDate) setNextCheckInDate(formatToBRDate(freshness.nextCheckInDate));
               setDisableCheckIn(!!freshness.disableCheckIn);
               setPhotoUrl(freshness.photoUrl);
               setDietGoal(freshness.dietGoal || 'NONE'); 
+              setIsDietTabVisible(!!freshness.dietModule); // Carrega status da dieta
               
               const dbPlan = freshness.plan || 'PREMIUM';
-              setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM');
+              setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S', 'ELITE', 'PERFORMANCE', 'PREMIUM'].includes(dbPlan) ? dbPlan : 'PREMIUM');
           }
           setLoading(false); 
         }
@@ -87,7 +92,6 @@ export default function AdminUserOptions({ route, navigation }) {
   }, [navigation]);
 
   const fetchAllData = async () => {
-    // 🔥 BLINDAGEM: Se o aluno não tiver ID, a função para e não faz o fetch, evitando o erro "undefined"
     if (!aluno || !aluno.id) {
         setLoading(false);
         return; 
@@ -118,14 +122,16 @@ export default function AdminUserOptions({ route, navigation }) {
 
         if (resUser.ok) {
             const fresh = await resUser.json();
+            setFreshAluno(fresh);
             setEvaluationUrl(fresh.evaluationUrl || '');
             if (fresh.nextCheckInDate) setNextCheckInDate(formatToBRDate(fresh.nextCheckInDate));
             setDisableCheckIn(!!fresh.disableCheckIn);
             setPhotoUrl(fresh.photoUrl);
             setIsActiveUser(fresh.active);
             setDietGoal(fresh.dietGoal || 'NONE');
+            setIsDietTabVisible(!!fresh.dietModule); // Atualiza status da dieta da nuvem
             
-            const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
+            const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S', 'ELITE', 'PERFORMANCE', 'PREMIUM'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
             setUserPlan(finalPlan);
 
             if (finalPlan === 'FICHA_8S') {
@@ -170,7 +176,9 @@ export default function AdminUserOptions({ route, navigation }) {
       if (userPlan === newPlan) return;
 
       const planNames = {
-          'PREMIUM': 'Elite Premium',
+          'ELITE': 'Consultoria Elite (Treino + Dieta)',
+          'PERFORMANCE': 'Consultoria Performance (Só Treino)',
+          'PREMIUM': 'Consultoria Premium (Antiga)',
           'FICHA_8S': 'Ficha 8 Semanas',
           'LOW_COST': 'Plano Básico',
           'CHALLENGE_21': 'Desafio 21 Dias'
@@ -190,16 +198,39 @@ export default function AdminUserOptions({ route, navigation }) {
 
   const handleChangePlan = async (newPlan) => {
       setUserPlan(newPlan); 
+      // 🔥 Lógica desvinculada: Mudar de plano não altera a dieta automaticamente mais.
       try {
           const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
-              method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ plan: newPlan })
+              method: 'PATCH', 
+              headers: {'Content-Type': 'application/json'}, 
+              body: JSON.stringify({ plan: newPlan })
           });
+          
           if (!res.ok) throw new Error("Falha na API");
+          
           if (Platform.OS === 'web') window.alert("Sucesso! Esteira do aluno atualizada.");
+          fetchAllData(); 
       } catch(e) {
           if (Platform.OS === 'web') window.alert("Erro ao atualizar o plano.");
           else Alert.alert("Erro", "Falha ao atualizar o plano do aluno.");
           fetchAllData(); 
+      }
+  };
+
+  // 🔥 FUNÇÃO DO NOVO BOTÃO DA MAÇÃ 🔥
+  const handleToggleDietTab = async () => {
+      const newValue = !isDietTabVisible;
+      setIsDietTabVisible(newValue);
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+              method: 'PATCH',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({ dietModule: newValue })
+          });
+          if (!res.ok) throw new Error("Erro API");
+      } catch(e) {
+          setIsDietTabVisible(!newValue); // Reverte se der erro
+          Alert.alert("Erro", "Não foi possível alterar a visibilidade da dieta.");
       }
   };
 
@@ -372,7 +403,6 @@ export default function AdminUserOptions({ route, navigation }) {
       } catch(e) {}
   };
 
-  // 🔥 SALVAR A DIETA NO BANCO 🔥
   const handleSaveDietGoal = async () => {
       setSavingDiet(true);
       try {
@@ -428,7 +458,6 @@ export default function AdminUserOptions({ route, navigation }) {
                             <Image source={{uri: photoUrl}} style={[styles.avatarImage, { borderColor: theme.border }]} />
                         ) : (
                             <View style={[styles.avatarPlaceholder, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                {/* 🔥 BLINDAGEM DO AVATAR 🔥 */}
                                 <Text style={[styles.avatarText, { color: theme.accent }]}>{(aluno?.name || 'A').charAt(0).toUpperCase()}</Text>
                             </View>
                         )}
@@ -491,7 +520,7 @@ export default function AdminUserOptions({ route, navigation }) {
                 )}
 
                 {/* =========================================
-                    TAB 2: ESTEIRA & ACESSOS & DIETA
+                    TAB 2: ESTEIRA & ACESSOS VIP
                 ========================================= */}
                 {superTab === 'acessos' && (
                     <View style={styles.tabContent}>
@@ -499,10 +528,26 @@ export default function AdminUserOptions({ route, navigation }) {
                         <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Defina qual plano ou projeto este aluno comprou.</Text>
                         
                         <View style={styles.plansContainer}>
+                            <TouchableOpacity style={[styles.planCard, userPlan === 'ELITE' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('ELITE')}>
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                                    <MaterialCommunityIcons name="crown" size={18} color={userPlan === 'ELITE' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.planTitle, { color: userPlan === 'ELITE' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>ELITE (TREINO+DIETA)</Text>
+                                </View>
+                                {userPlan === 'ELITE' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                            </TouchableOpacity>
+
+                            <TouchableOpacity style={[styles.planCard, userPlan === 'PERFORMANCE' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('PERFORMANCE')}>
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
+                                    <MaterialCommunityIcons name="weight-lifter" size={18} color={userPlan === 'PERFORMANCE' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.planTitle, { color: userPlan === 'PERFORMANCE' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>PERFORMANCE (SÓ TREINO)</Text>
+                                </View>
+                                {userPlan === 'PERFORMANCE' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
+                            </TouchableOpacity>
+
                             <TouchableOpacity style={[styles.planCard, userPlan === 'PREMIUM' ? { backgroundColor: theme.accent + '22', borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => confirmChangePlan('PREMIUM')}>
                                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1}}>
-                                    <MaterialCommunityIcons name="crown" size={18} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} />
-                                    <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>ELITE PREMIUM</Text>
+                                    <MaterialCommunityIcons name="star-circle" size={18} color={userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.planTitle, { color: userPlan === 'PREMIUM' ? theme.accent : theme.textSecondary }]} numberOfLines={2}>PREMIUM (ANTIGO)</Text>
                                 </View>
                                 {userPlan === 'PREMIUM' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                             </TouchableOpacity>
@@ -530,53 +575,6 @@ export default function AdminUserOptions({ route, navigation }) {
                                 </View>
                                 {userPlan === 'CHALLENGE_21' && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} style={{marginLeft: 4}} />}
                             </TouchableOpacity>
-                        </View>
-
-                        {/* 🔥 BLOCO DA ESTRATÉGIA ALIMENTAR (Liberar o botão na Home) 🔥 */}
-                        <Text style={[styles.sectionLabel, {marginTop: 20, color: theme.accent}]}>SUGESTÃO ALIMENTAR (APP DO ALUNO)</Text>
-                        <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                            <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
-                                <View style={[styles.iconBox, {backgroundColor: theme.accent + '22', width: 36, height: 36, borderRadius: 18}]}>
-                                    <MaterialCommunityIcons name="food-apple" size={18} color={theme.accent} />
-                                </View>
-                                <View style={{flex: 1}}>
-                                    <Text style={[styles.cardTitle, {color: theme.text}]}>Estratégia Atual</Text>
-                                    <Text style={{color: theme.textSecondary, fontSize: 11}}>Selecione a base alimentar para liberar o botão na Home do Aluno.</Text>
-                                    {userPlan === 'CHALLENGE_21' && (
-                                        <Text style={{color: '#FF9500', fontSize: 11, fontWeight: 'bold', marginTop: 4}}>⚠️ Alunos do Desafio 21 Dias já possuem a dieta de Emagrecimento liberada automaticamente por padrão.</Text>
-                                    )}
-                                </View>
-                            </View>
-                            <View style={{ padding: 20 }}>
-                                {DIET_OPTIONS.map(opt => (
-                                    <TouchableOpacity 
-                                        key={opt.id}
-                                        style={{flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: dietGoal === opt.id ? theme.accent : theme.border, backgroundColor: dietGoal === opt.id ? theme.accent + '15' : theme.bg, marginBottom: 10}}
-                                        onPress={() => setDietGoal(opt.id)}
-                                        disabled={userPlan === 'CHALLENGE_21'} 
-                                    >
-                                        <MaterialCommunityIcons name={dietGoal === opt.id ? "radiobox-marked" : "radiobox-blank"} size={20} color={dietGoal === opt.id ? theme.accent : theme.textSecondary} />
-                                        <View style={{flex: 1, marginLeft: 10}}>
-                                            <Text style={{color: dietGoal === opt.id ? theme.accent : theme.text, fontWeight: 'bold', fontSize: 13}}>{opt.label}</Text>
-                                            <Text style={{color: theme.textSecondary, fontSize: 11, marginTop: 2}}>{opt.desc}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
-                                {userPlan !== 'CHALLENGE_21' && (
-                                    <TouchableOpacity 
-                                        style={[styles.saveBtnLg, { backgroundColor: theme.accent, width: '100%', marginTop: 10, flexDirection: 'row', gap: 8, height: 48 }]} 
-                                        onPress={handleSaveDietGoal}
-                                        disabled={savingDiet}
-                                    >
-                                        {savingDiet ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
-                                            <>
-                                                <MaterialCommunityIcons name="content-save" size={18} color={theme.isDark ? '#000' : '#FFF'} />
-                                                <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 12, letterSpacing: 0.5}}>SALVAR ESTRATÉGIA</Text>
-                                            </>
-                                        )}
-                                    </TouchableOpacity>
-                                )}
-                            </View>
                         </View>
 
                         <View style={[styles.divider, { backgroundColor: theme.border }]} />
@@ -619,10 +617,95 @@ export default function AdminUserOptions({ route, navigation }) {
                 )}
 
                 {/* =========================================
-                    TAB 3: SISTEMA & DADOS 
+                    TAB 3: SISTEMA E DIETA
                 ========================================= */}
                 {superTab === 'sistema' && (
                     <View style={styles.tabContent}>
+
+                        <Text style={[styles.sectionLabel, {color: theme.accent}]}>LABORATÓRIO NUTRICIONAL (IA)</Text>
+                        <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Gerencie a visibilidade e a montagem do plano alimentar deste aluno.</Text>
+
+                        {/* 🔥 BOTÃO MANUAL PARA MOSTRAR/ESCONDER A MAÇÃ NO APP DO ALUNO 🔥 */}
+                        <View style={[styles.accessCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 15 }]}>
+                            <View style={[styles.accessIconBox, { backgroundColor: theme.bg }]}>
+                                <MaterialCommunityIcons name="food-apple" size={24} color={isDietTabVisible ? theme.accent : theme.textSecondary} />
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 15, paddingRight: 10 }}>
+                                <Text style={[styles.accessTitle, { color: theme.text }]}>Liberar Aba "Dieta" no App</Text>
+                                <Text style={styles.accessCategory}>Se ativado, a maçã ficará visível no celular do aluno.</Text>
+                            </View>
+                            <Switch 
+                                value={isDietTabVisible}
+                                onValueChange={handleToggleDietTab}
+                                trackColor={{ false: '#333', true: theme.accent }}
+                                thumbColor={Platform.OS === 'ios' ? '#FFF' : (isDietTabVisible ? '#000' : '#888')}
+                            />
+                        </View>
+
+                        {/* BOTÃO DA MESA DE OPERAÇÕES */}
+                        <TouchableOpacity 
+                            style={[styles.aiDietBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}
+                            // 🔥 CIRURGIA AQUI: Passamos o objeto (mesmo que quebre) E O ID LIMPO JUNTOS! 🔥
+                            onPress={() => navigation.navigate('AdminDietScreen', { 
+                                aluno: freshAluno || aluno,
+                                alunoId: aluno.id 
+                            })}
+                        >
+                            <View style={[styles.accessIconBox, {backgroundColor: theme.accent + '22'}]}>
+                                <MaterialCommunityIcons name="view-dashboard-edit-outline" size={22} color={theme.accent} />
+                            </View>
+                            <View style={{flex: 1, marginLeft: 15}}>
+                                <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.5}}>ABRIR MESA DE OPERAÇÕES</Text>
+                                <Text style={{color: theme.textSecondary, fontSize: 11, marginTop: 2}}>Montar dieta com Tabela TACO e Macros</Text>
+                            </View>
+                            <MaterialCommunityIcons name="chevron-right" size={24} color={theme.accent} />
+                        </TouchableOpacity>
+                        
+                        <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 15 }]}>
+                            <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
+                                <View style={[styles.iconBox, {backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, width: 36, height: 36, borderRadius: 18}]}>
+                                    <MaterialCommunityIcons name="clipboard-text-outline" size={18} color={theme.textSecondary} />
+                                </View>
+                                <View style={{flex: 1}}>
+                                    <Text style={[styles.cardTitle, {color: theme.text}]}>Estratégia Básica (Fallback)</Text>
+                                    <Text style={{color: theme.textSecondary, fontSize: 11}}>Sugestão genérica em PDF para alunos que não possuem a dieta prescrita na Mesa de Operações.</Text>
+                                </View>
+                            </View>
+                            <View style={{ padding: 20 }}>
+                                {DIET_OPTIONS.map(opt => (
+                                    <TouchableOpacity 
+                                        key={opt.id}
+                                        style={{flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: dietGoal === opt.id ? theme.accent : theme.border, backgroundColor: dietGoal === opt.id ? theme.accent + '15' : theme.bg, marginBottom: 10}}
+                                        onPress={() => setDietGoal(opt.id)}
+                                        disabled={userPlan === 'CHALLENGE_21'} 
+                                    >
+                                        <MaterialCommunityIcons name={dietGoal === opt.id ? "radiobox-marked" : "radiobox-blank"} size={20} color={dietGoal === opt.id ? theme.accent : theme.textSecondary} />
+                                        <View style={{flex: 1, marginLeft: 10}}>
+                                            <Text style={{color: dietGoal === opt.id ? theme.accent : theme.text, fontWeight: 'bold', fontSize: 13}}>{opt.label}</Text>
+                                            <Text style={{color: theme.textSecondary, fontSize: 11, marginTop: 2}}>{opt.desc}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))}
+                                {userPlan !== 'CHALLENGE_21' && (
+                                    <TouchableOpacity 
+                                        style={[styles.saveBtnLg, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, width: '100%', marginTop: 10, flexDirection: 'row', gap: 8, height: 48 }]} 
+                                        onPress={handleSaveDietGoal}
+                                        disabled={savingDiet}
+                                    >
+                                        {savingDiet ? <ActivityIndicator color={theme.text} /> : (
+                                            <>
+                                                <MaterialCommunityIcons name="content-save" size={18} color={theme.text} />
+                                                <Text style={{color: theme.text, fontWeight: '900', fontSize: 12, letterSpacing: 0.5}}>SALVAR ESTRATÉGIA BÁSICA</Text>
+                                            </>
+                                        )}
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        </View>
+
+                        <View style={[styles.divider, { backgroundColor: theme.border }]} />
+
+                        {/* OUTROS CONTROLES DO SISTEMA */}
                         <AdminUserSystem 
                             theme={theme} navigation={navigation} aluno={aluno} userPlan={userPlan}
                             isActiveUser={isActiveUser} handleToggleStatus={handleToggleStatus}
@@ -674,7 +757,10 @@ const styles = StyleSheet.create({
   premiumCard: { borderRadius: 20, marginBottom: 20, borderWidth: 1, overflow: 'hidden', elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 15, borderBottomWidth: 1 },
   cardTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
+  iconBox: { justifyContent: 'center', alignItems: 'center' },
   saveBtnLg: { borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+
+  aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1 },
 
   divider: { height:1, marginVertical:20 },
   sectionLabel: { color:'#888', fontWeight:'900', marginBottom:5, fontSize:12, letterSpacing:1 },

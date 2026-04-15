@@ -1,4 +1,3 @@
-// src/screens/PropostaScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
@@ -151,7 +150,7 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* 🔥 MENTOR (FOTOS 100% BLINDADAS SEM CORTES) 🔥 */}
+                    {/* MENTOR */}
                     <View style={styles.mentorSection}>
                         <LinearGradient colors={['rgba(26,26,26,0)', 'rgba(26,26,26,1)']} style={styles.mentorGradientBg} />
                         
@@ -224,12 +223,12 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* PROVA SOCIAL */}
+                    {/* PROVA SOCIAL - 🔥 CORREÇÃO: PAULO AGORA USA paulo_montagem 🔥 */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>RESULTADOS DOS ALUNOS</Text>
                     <Text style={styles.sectionSub}>Deslize para ver o que a disciplina somada à ciência pode fazer.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <ModernResultCard goal="🔥 DA FALTA DE TÔNUS À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
-                        <ModernResultCard goal="🏆 NOVAS COSTAS, NOVA POSTURA E GLÚTEOS UP (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
+                        <ModernResultCard goal="🏆 RECOMPOSIÇÃO CORPORAL E MUITA PERDA DE PESO E GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
                         <ModernResultCard goal="❤️ SAÚDE E ESTÉTICA: VENCENDO A GORDURA VISCERAL (Allan)" montageUri={linksAlunos.allan_montagem} />
                         <ModernResultCard goal="⏳ O FIM DO TREINO FOFO E A CINTURA FINA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
                         <ModernResultCard goal="💪 TRANSFORMANDO OBESIDADE EM PERFORMANCE (Pedro)" montageUri={linksAlunos.pedro_montagem} />
@@ -266,17 +265,15 @@ export default function PropostaScreen({ route }) {
                         <AthleteCard uri={linksAlunos.trio_fem} title="NOSSO TIME EM PESO" desc="Nossas atletas brilhando no campeonato. Estética, saúde e alta performance totalmente alinhadas." />
                     </ScrollView>
 
-                    {/* 🔥 BÔNUS EXCLUSIVOS COM AS REGRAS E PREÇOS CORRETOS 🔥 */}
+                    {/* BÔNUS EXCLUSIVOS */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>ARSENAL DE BÔNUS</Text>
                     <Text style={styles.sectionSub}>Material extra desbloqueado de acordo com o seu plano de assinatura.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <BonusCard uri={linksAlunos.ebook_5dicas} title="E-book: 5 Dicas de Emagrecimento" subtitle="O pontapé inicial para a queima." isAudio={false} price="14,90" unlockText="A PARTIR DO MENSAL" />
                         <BonusCard uri={linksAlunos.ebook_receitas_whey} title="Receitas Fit com Whey" subtitle="Sobremesas anabólicas." isAudio={false} price="19,90" unlockText="A PARTIR DO MENSAL" />
                         <BonusCard uri={linksAlunos.ebook_receitas_salgadas} title="Receitas Fit Salgadas" subtitle="Almoço e janta no plano." isAudio={false} price="19,90" unlockText="A PARTIR DO MENSAL" />
-                        
                         <BonusCard uri={linksAlunos.ebook_shape} title="E-book: Shape Natural" subtitle="Guia completo de hipertrofia." isAudio={false} price="34,90" unlockText="A PARTIR DO TRIMESTRAL" />
                         <BonusCard uri={linksAlunos.ebook_pernas} title="E-book: Pernas Grandes" subtitle="Foco em membros inferiores." isAudio={false} price="29,90" unlockText="A PARTIR DO TRIMESTRAL" />
-                        
                         <BonusCard uri={linksAlunos.ebook_5dicas} title="Audiobook: 5 Dicas de Emagrecimento" subtitle="Ouça em qualquer lugar." isAudio={true} price="14,90" unlockText="A PARTIR DO SEMESTRAL" />
                         <BonusCard uri={linksAlunos.audio_shape} title="Audiobook: Shape Natural" subtitle="Para ouvir a caminho do treino." isAudio={true} price="34,90" unlockText="A PARTIR DO SEMESTRAL" />
                     </ScrollView>
@@ -285,7 +282,7 @@ export default function PropostaScreen({ route }) {
                     <Text style={[styles.sectionTitle, {marginTop: 40, marginBottom: 20}]}>AINDA TEM DÚVIDAS?</Text>
                     <FaqAccordion faqs={faqList} />
 
-                    {/* ESCOLHA SEU PLANO (COM AS LISTAS DE BÔNUS CORRETAS) */}
+                    {/* ESCOLHA SEU PLANO */}
                     <Text style={styles.sectionTitle}>ESCOLHA SEU ARSENAL</Text>
                     <View style={styles.plansContainer}>
                         {/* PERFORMANCE */}
@@ -302,7 +299,6 @@ export default function PropostaScreen({ route }) {
                                 <Text style={[styles.planItem, { color: '#666', textDecorationLine: 'line-through' }]}>✗ Estratégia Alimentar Personalizada</Text>
                             </View>
                             
-                            {/* LISTA DE BÔNUS CORRETA DO PLANO */}
                             <View style={styles.bonusSection}>
                                 <Text style={styles.bonusTitle}>🎁 BÔNUS DE ACORDO COM O PLANO:</Text>
                                 <Text style={styles.bonusItem}>• Mensal: E-books 5 Dicas + Receitas (Whey e Salgadas)</Text>
@@ -336,7 +332,6 @@ export default function PropostaScreen({ route }) {
                                 <Text style={[styles.planItem, { color: '#4DE38F', fontWeight: 'bold' }]}>🔥 Estratégia Alimentar Específica</Text>
                             </View>
 
-                            {/* LISTA DE BÔNUS CORRETA DO PLANO */}
                             <View style={[styles.bonusSection, { borderColor: 'rgba(77, 227, 143, 0.2)' }]}>
                                 <Text style={[styles.bonusTitle, { color: '#4DE38F' }]}>🎁 BÔNUS DE ACORDO COM O PLANO:</Text>
                                 <Text style={[styles.bonusItem, { color: '#CCC' }]}>• Mensal: E-books 5 Dicas + Receitas (Whey e Salgadas)</Text>
@@ -399,7 +394,6 @@ const styles = StyleSheet.create({
     carouselContainerMentor: { paddingHorizontal: 10, paddingBottom: 20 },
     imageColMentor: { width: 330, alignItems: 'center', justifyContent: 'center', marginRight: 10 }, 
     
-    // 🔥 MENTOR FINALMENTE BLINDADO (SEM FUNDO PRETO PARA NÃO VAZAR BORDAS E CONTAIN PRA NÃO CORTAR) 🔥
     imagePlaceholderMentor: { width: '100%', aspectRatio: 9/16, borderRadius: 14, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: 'transparent' }, 
     resultImageMentorContain: { width: '100%', height: '100%', resizeMode: 'contain', borderRadius: 14 }, 
 

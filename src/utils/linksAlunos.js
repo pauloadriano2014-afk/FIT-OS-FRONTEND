@@ -17,7 +17,7 @@ export const linksAlunos = {
     yasmin_montagem: 'https://i.imgur.com/8sSYp0t.png',
     jean_montagem: 'https://i.imgur.com/OWWFyAj.png',
     vane_montagem: 'https://i.imgur.com/SDVR2tx.png',
-    bruno_montagem: 'https://i.imgur.com/nJgqK8a.png', 
+    bruno_montagem: 'https://i.imgur.com/Dbldkvn.png', 
     bruna_montagem: 'https://i.imgur.com/updhshZ.png',
     adri_montagem: 'https://i.imgur.com/nc3FNYN.png',
 

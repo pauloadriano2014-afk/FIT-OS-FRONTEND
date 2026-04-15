@@ -365,7 +365,8 @@ export default function AdminDashboard({ navigation }) {
                     alignItems: 'center' 
                 }
             ]} 
-            onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item })}
+            // NOVO (PASSA O ID SEPARADO PARA NÃO BUGAR NA URL)
+onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item, alunoId: item.id })}
         > 
           {item.photoUrl ? (
               <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />

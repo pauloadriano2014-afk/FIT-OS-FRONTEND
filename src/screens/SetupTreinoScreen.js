@@ -132,13 +132,20 @@ export default function SetupTreinoScreen({ navigation, route }) {
   const finalizeSetup = async () => {
       setLoading(true);
       try {
-          let user = route.params?.userData;
+          // 🔥 CIRURGIA: Blindagem contra o bug do [object Object] e string corrompida
+          let userRaw = route.params?.userData;
+          let user = typeof userRaw === 'string' ? JSON.parse(userRaw) : userRaw;
+
           if (!user) {
               const userJson = await AsyncStorage.getItem('user');
               if (userJson) user = JSON.parse(userJson);
           }
 
-          if (!user || !user.id) throw new Error("Sessão não encontrada");
+          // Verifica se o ID é legítimo e não é um "lixo" de memória
+          if (!user?.id || String(user.id).includes("object")) {
+              console.error("ID inválido detectado no Setup:", user?.id);
+              throw new Error("Sessão corrompida. Por favor, faça logout e entre novamente.");
+          }
 
           const finalGoal = userPlan === 'CHALLENGE_21' ? 'Emagrecimento Acelerado' : `${goal} (Foco: ${focus})`;
           const finalLevel = userPlan === 'CHALLENGE_21' ? 'Desafio Único' : level;

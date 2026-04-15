@@ -1,4 +1,3 @@
-// src/screens/PropostaStartScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
@@ -91,10 +90,11 @@ export default function PropostaStartScreen({ route }) {
         Linking.openURL(`https://wa.me/5541997991346?text=${encodeURIComponent(text)}`);
     };
 
-    const renderYouTubeVideo = (videoId) => {
+    const renderYouTubeVideo = (videoId, isAutoPlay = false) => {
+        const autoPlayParams = isAutoPlay ? `&autoplay=1&mute=1&loop=1&playlist=${videoId}` : '';
         if (isWeb) {
             return React.createElement('iframe', {
-                src: `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`,
+                src: `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1${autoPlayParams}`,
                 style: { width: '100%', height: '100%', border: 'none', position: 'absolute', top: 0, left: 0 },
                 allowFullScreen: true,
                 allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
@@ -146,7 +146,7 @@ export default function PropostaStartScreen({ route }) {
                         <Text style={styles.sectionTitle}>NÃO ACREDITE SÓ EM MIM</Text>
                         <Text style={styles.sectionSub}>Veja quem já transformou o corpo e a rotina com o nosso método.</Text>
                         <View style={styles.videoContainer9x16}>
-                            {renderYouTubeVideo('tvYMAVQpt8I')}
+                            {renderYouTubeVideo('tvYMAVQpt8I', false)}
                         </View>
                     </View>
 
@@ -184,7 +184,7 @@ export default function PropostaStartScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* ARSENAL ENXUTO (Com PA Coach AI liberado) */}
+                    {/* ARSENAL */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A TECNOLOGIA A SEU FAVOR</Text>
                     <Text style={styles.sectionSub}>Conheça o seu aplicativo exclusivo.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
@@ -198,7 +198,6 @@ export default function PropostaStartScreen({ route }) {
                             <Text style={styles.arsenalTitle}>Avaliações no App</Text>
                             <Text style={styles.arsenalDesc}>Envie suas fotos e medidas pelo sistema para registrarmos o seu ponto de partida e a sua evolução.</Text>
                         </View>
-                        {/* 🔥 PA COACH AI DE VOLTA AO ARSENAL 🔥 */}
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="chat-processing-outline" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>PA Coach AI 24h</Text>
@@ -211,26 +210,35 @@ export default function PropostaStartScreen({ route }) {
                         </View>
                     </ScrollView>
 
-                    {/* PROVA SOCIAL */}
+                    {/* PROVA SOCIAL COMPLETA (12 CARDS) */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A METODOLOGIA FUNCIONA</Text>
                     <Text style={styles.sectionSub}>Deslize para ver o que a disciplina somada à ciência pode fazer.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <ModernResultCard goal="🔥 DA FALTA DE TÔNUS À DEFINIÇÃO ESCULPIDA" montageUri={linksAlunos.bernard_montagem} />
-                        <ModernResultCard goal="🏆 NOVAS COSTAS E GLÚTEOS UP" montageUri={linksAlunos.evelyn_montagem} />
-                        <ModernResultCard goal="❤️ SAÚDE E ESTÉTICA" montageUri={linksAlunos.allan_montagem} />
-                        <ModernResultCard goal="⏳ O FIM DA CINTURA LARGA" montageUri={linksAlunos.evelyn_montagem} />
-                        <ModernResultCard goal="💪 TRANSFORMANDO OBESIDADE" montageUri={linksAlunos.pedro_montagem} />
-                        <ModernResultCard goal="⚡️ CORPO RECONSTRUÍDO" montageUri={linksAlunos.ana_montagem} />
+                        <ModernResultCard goal="🔥 DA FALTA DE TÔNUS À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
+                        <ModernResultCard goal="🏆 RECOMPOSIÇÃO CORPORAL E PERDA DE GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
+                        <ModernResultCard goal="❤️ SAÚDE E ESTÉTICA: VENCENDO A GORDURA VISCERAL (Allan)" montageUri={linksAlunos.allan_montagem} />
+                        <ModernResultCard goal="⏳ O FIM DO TREINO FOFO E A CINTURA FINA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
+                        <ModernResultCard goal="💪 TRANSFORMANDO OBESIDADE EM PERFORMANCE (Pedro)" montageUri={linksAlunos.pedro_montagem} />
+                        <ModernResultCard goal="⚡️ CORPO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
+                        <ModernResultCard goal="💣 MASSA MUSCULAR E DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
+                        <ModernResultCard goal="⏱️ CHOQUE DE REALIDADE EM APENAS 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
+                        <ModernResultCard goal="⚖️ COMPOSIÇÃO CORPORAL TOTALMENTE NOVA (Vane)" montageUri={linksAlunos.vane_montagem} />
+                        <ModernResultCard goal="🥊 ATACANDO A GORDURA ABDOMINAL (Bruno)" montageUri={linksAlunos.bruno_montagem} />
+                        <ModernResultCard goal="🔥 SILHUETA RENOVADA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
+                        <ModernResultCard goal="🏆 DA CONSTRUÇÃO AO PALCO COM SIMETRIA (Adri)" montageUri={linksAlunos.adri_montagem} />
                     </ScrollView>
 
-                    {/* FEEDBACKS WHATSAPP */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>O QUE ELES DIZEM</Text>
+                    {/* FEEDBACKS WHATSAPP COMPLETOS (7 CARDS) */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>O QUE ELES DIZEM NO WHATSAPP</Text>
+                    <Text style={styles.sectionSub}>A realidade de quem vive o método todos os dias.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <FeedbackCard uri={linksAlunos.feedback_paloma} legend="🤫 10KG ELIMINADOS (Paloma)" />
-                        <FeedbackCard uri={linksAlunos.feedback_eduardo} legend="🚀 5KG ELIMINADOS EM 42 DIAS (Eduardo)" />
-                        <FeedbackCard uri={linksAlunos.feedback_anne} legend="👖 MEDIDAS DESPENCANDO (Anne)" />
-                        <FeedbackCard uri={linksAlunos.feedback_juliana} legend="🥗 RESULTADOS RÁPIDOS (Juliana)" />
-                        <FeedbackCard uri={linksAlunos.feedback_thiago} legend="🎯 DISCIPLINA QUE GERA RESULTADO (Thiago)" />
+                        <FeedbackCard uri={linksAlunos.feedback_paloma} legend="🤫 10KG ELIMINADOS: CONTRA FATOS NÃO HÁ ARGUMENTOS (Paloma)" />
+                        <FeedbackCard uri={linksAlunos.feedback_eduardo} legend="🚀 A CHAVE VIROU: 5KG ELIMINADOS EM APENAS 42 DIAS (Eduardo)" />
+                        <FeedbackCard uri={linksAlunos.feedback_anne} legend="👖 MEDIDAS DESPENCANDO: A FELICIDADE DA CALÇA LARGONA (Anne)" />
+                        <FeedbackCard uri={linksAlunos.feedback_juliana} legend="🥗 DIETA SEM SOFRIMENTO E RESULTADOS RÁPIDOS (Juliana)" />
+                        <FeedbackCard uri={linksAlunos.feedback_thiago} legend="🎯 DISCIPLINA QUE GERA RESULTADO: QUASE 4KG OFF (Thiago)" />
+                        <FeedbackCard uri={linksAlunos.feedback_yasmin} legend="🔥 DERRETENDO GORDURA E RECUPERANDO O GUARDA-ROUPA (Yasmin)" />
+                        <FeedbackCard uri={linksAlunos.feedback_gleiber} legend="⚡ SHAPE RESPONDENDO E ABDÔMEN SECANDO (Gleiber)" />
                     </ScrollView>
 
                     {/* BÔNUS INCLUSO */}
@@ -241,7 +249,7 @@ export default function PropostaStartScreen({ route }) {
                     </ScrollView>
                     <Text style={styles.bonusLockedText}>🔒 Os e-books de Receitas, Guias de Hipertrofia e Audiobooks são exclusivos para assinantes dos planos Elite VIP e Performance.</Text>
 
-                    {/* ESCOLHA SEU PLANO (COM FILA STANDARD E IA) */}
+                    {/* ESCOLHA SEU PLANO */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>ESCOLHA SEU PLANO</Text>
                     <View style={styles.plansContainer}>
                         

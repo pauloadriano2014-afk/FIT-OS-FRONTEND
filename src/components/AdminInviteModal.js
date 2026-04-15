@@ -1,4 +1,3 @@
-// src/components/AdminInviteModal.js
 import React, { useState } from 'react';
 import { 
     View, Text, StyleSheet, Modal, TouchableOpacity, 
@@ -10,8 +9,8 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const [activeTab, setActiveTab] = useState('PROPOSTA'); 
     const [leadName, setLeadName] = useState('');
     
-    // 🔥 NOVO ESTADO: Controla qual tipo de proposta será gerada 🔥
-    const [propostaType, setPropostaType] = useState('VIP'); // 'VIP' ou 'START'
+    // 🔥 UNIFICADO: Agora foca apenas em ELITE (High-Ticket) ou START (Downsell)
+    const [propostaType, setPropostaType] = useState('ELITE'); 
 
     const getCoachInfo = () => {
         let coachCode = 'PATEAM'; 
@@ -50,9 +49,9 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         const finalName = leadName.trim() || 'Novo Aluno';
         const baseUrl = getBaseUrl();
         
-        // 🔥 LÓGICA DE ROTEAMENTO: Define a URL baseada na escolha do Admin 🔥
-        const routeName = propostaType === 'VIP' ? 'Proposta' : 'PropostaStart';
-        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}`; 
+        // Mantém a rota baseada no tipo selecionado
+        const routeName = propostaType === 'START' ? 'PropostaStart' : 'Proposta';
+        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}`; 
         
         const message = `Fala, ${finalName}! Tudo pronto para começarmos o seu processo.\n\nPara darmos o start, acesse o seu convite exclusivo abaixo, conheça a plataforma e destrave o seu acesso:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
         openWhatsApp(message);
@@ -61,10 +60,17 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const generateCadastroLink = (planType) => {
         const { coachCode, teamName } = getCoachInfo();
         const baseUrl = getBaseUrl();
+        
         const inviteLink = `${baseUrl}/registro?coach=${coachCode}&plan=${planType}`; 
         
-        const planNameStr = planType === 'PREMIUM' ? 'Consultoria Premium' : (planType === 'LOW_COST' ? 'Plano de Fichas' : 'Desafio');
-        const message = `Opa! Tudo pronto para começarmos o seu ${planNameStr}.\n\nPara darmos o start, acesse o link abaixo, instale o aplicativo oficial e faça seu cadastro:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
+        let planNameStr = '';
+        if (planType === 'ELITE') planNameStr = 'Consultoria Elite (Treino + Dieta)';
+        else if (planType === 'PERFORMANCE') planNameStr = 'Consultoria Performance (Só Treino)';
+        else if (planType === 'LOW_COST') planNameStr = 'Plano Básico';
+        else if (planType === 'FICHA_8S') planNameStr = 'Projeto de 8 Semanas';
+        else planNameStr = 'Desafio 21 Dias';
+
+        const message = `Opa! Tudo pronto para começarmos o seu ${planNameStr}.\n\nPara darmos o start, acesse o link abaixo, instale o aplicativo oficial e faça o seu cadastro:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
         openWhatsApp(message);
     };
 
@@ -80,7 +86,6 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                         </TouchableOpacity>
                     </View>
 
-                    {/* ABAS DO MODAL */}
                     <View style={[styles.tabsContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                         <TouchableOpacity 
                             style={[styles.tabBtn, activeTab === 'PROPOSTA' && { backgroundColor: theme.accent }]}
@@ -98,7 +103,6 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
                     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                         
-                        {/* CONTEÚDO: PROPOSTA */}
                         {activeTab === 'PROPOSTA' && (
                             <View style={styles.tabSection}>
                                 <Text style={[styles.sectionDesc, { color: theme.textSecondary }]}>Gera um link para a página de vendas expirável. O cronômetro inicia no primeiro clique do aluno.</Text>
@@ -112,55 +116,72 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     onChangeText={setLeadName}
                                 />
 
-                                {/* 🔥 NOVO: SELETOR DE TIPO DE PROPOSTA 🔥 */}
                                 <Text style={[styles.inputLabel, { color: theme.text, marginTop: 20 }]}>TIPO DE OFERTA:</Text>
-                                <View style={[styles.tabsContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
+                                <View style={[styles.propostaTypeContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
                                     <TouchableOpacity 
-                                        style={[styles.tabBtn, propostaType === 'VIP' && { backgroundColor: '#FFCC00' }]}
-                                        onPress={() => setPropostaType('VIP')}
+                                        style={[styles.propostaTypeBtn, propostaType === 'ELITE' && { backgroundColor: '#FFCC00' }]}
+                                        onPress={() => setPropostaType('ELITE')}
                                     >
-                                        <Text style={[styles.tabText, { color: propostaType === 'VIP' ? '#000' : theme.textSecondary }]}>ELITE (HIGH-TICKET)</Text>
+                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'ELITE' ? '#000' : theme.textSecondary }]}>ELITE (HIGH-TICKET)</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity 
-                                        style={[styles.tabBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
+                                        style={[styles.propostaTypeBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
                                         onPress={() => setPropostaType('START')}
                                     >
-                                        <Text style={[styles.tabText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>START (DOWNSELL)</Text>
+                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>START (DOWNSELL)</Text>
                                     </TouchableOpacity>
                                 </View>
+                                <Text style={{fontSize: 10, color: theme.textSecondary, marginBottom: 15, textAlign: 'center'}}>
+                                    {propostaType === 'ELITE' ? 'Consultoria Completa (Treino + Dieta)' : 'Plano de Entrada (Ficha de Treino)'}
+                                </Text>
 
-                                {/* BOTÃO DE GERAR PROPOSTA (Muda de cor de acordo com a escolha) */}
                                 <TouchableOpacity 
                                     style={[styles.optionCard, {
-                                        borderColor: propostaType === 'VIP' ? '#FFCC00' : '#32ADE6', 
-                                        backgroundColor: propostaType === 'VIP' ? '#FFCC0011' : '#32ADE611', 
-                                        marginTop: 15
+                                        borderColor: propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6', 
+                                        backgroundColor: propostaType === 'ELITE' ? '#FFCC0011' : '#32ADE611', 
                                     }]} 
                                     onPress={generatePropostaLink}
                                 >
                                     <View style={styles.optionLeft}>
-                                        <MaterialCommunityIcons name={propostaType === 'VIP' ? "star-shooting" : "rocket-launch"} size={24} color={propostaType === 'VIP' ? '#FFCC00' : '#32ADE6'} />
-                                        <Text style={[styles.optionText, { color: propostaType === 'VIP' ? '#FFCC00' : '#32ADE6', fontWeight: '900' }]}>
-                                            ENVIAR PROPOSTA {propostaType === 'VIP' ? 'VIP' : 'START'}
+                                        <MaterialCommunityIcons 
+                                            name={propostaType === 'ELITE' ? "crown" : "rocket-launch"} 
+                                            size={24} 
+                                            color={propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6'} 
+                                        />
+                                        <Text style={[styles.optionText, { color: propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6', fontWeight: '900' }]}>
+                                            ENVIAR PROPOSTA {propostaType}
                                         </Text>
                                     </View>
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color={propostaType === 'VIP' ? '#FFCC00' : '#32ADE6'} />
+                                    <MaterialCommunityIcons name="whatsapp" size={20} color={propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6'} />
                                 </TouchableOpacity>
                             </View>
                         )}
 
-                        {/* CONTEÚDO: CADASTRO DIRETO (Intocado) */}
                         {activeTab === 'CADASTRO' && (
                             <View style={styles.tabSection}>
-                                <Text style={[styles.sectionDesc, { color: theme.textSecondary, marginBottom: 15 }]}>Gera o link direto de cadastro no app. O aluno já entra com o plano selecionado.</Text>
+                                <Text style={[styles.sectionDesc, { color: theme.textSecondary, marginBottom: 15 }]}>Gera o link direto de cadastro no app. O aluno já entra com a conta configurada pro plano correto.</Text>
                                 
                                 <View style={{ gap: 10 }}>
-                                    <TouchableOpacity style={[styles.optionCard, {borderColor: '#FFCC00', backgroundColor: '#FFCC0011'}]} onPress={() => generateCadastroLink('PREMIUM')}>
+                                    <TouchableOpacity style={[styles.optionCard, {borderColor: '#FFCC00', backgroundColor: '#FFCC0011'}]} onPress={() => generateCadastroLink('ELITE')}>
                                         <View style={styles.optionLeft}>
                                             <MaterialCommunityIcons name="crown" size={24} color="#FFCC00" />
-                                            <Text style={[styles.optionText, { color: '#FFCC00' }]}>CONSULTORIA PREMIUM</Text>
+                                            <View>
+                                                <Text style={[styles.optionText, { color: '#FFCC00' }]}>ELITE</Text>
+                                                <Text style={{ fontSize: 9, color: '#FFCC00', fontWeight: 'bold' }}>TREINO + DIETA</Text>
+                                            </View>
                                         </View>
                                         <MaterialCommunityIcons name="whatsapp" size={20} color="#FFCC00" />
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={[styles.optionCard, {borderColor: '#FF3B30', backgroundColor: '#FF3B3011'}]} onPress={() => generateCadastroLink('PERFORMANCE')}>
+                                        <View style={styles.optionLeft}>
+                                            <MaterialCommunityIcons name="weight-lifter" size={24} color="#FF3B30" />
+                                            <View>
+                                                <Text style={[styles.optionText, { color: '#FF3B30' }]}>PERFORMANCE</Text>
+                                                <Text style={{ fontSize: 9, color: '#FF3B30', fontWeight: 'bold' }}>APENAS TREINO</Text>
+                                            </View>
+                                        </View>
+                                        <MaterialCommunityIcons name="whatsapp" size={20} color="#FF3B30" />
                                     </TouchableOpacity>
 
                                     <TouchableOpacity style={[styles.optionCard, {borderColor: '#32ADE6', backgroundColor: '#32ADE611'}]} onPress={() => generateCadastroLink('LOW_COST')}>
@@ -206,6 +227,10 @@ const styles = StyleSheet.create({
     tabsContainer: { flexDirection: 'row', borderRadius: 12, padding: 5, marginBottom: 20, borderWidth: 1 },
     tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
     tabText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+
+    propostaTypeContainer: { flexDirection: 'row', borderRadius: 12, padding: 5, borderWidth: 1 },
+    propostaTypeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
+    propostaTypeText: { fontWeight: '900', fontSize: 10, letterSpacing: 0.5 },
 
     tabSection: { paddingTop: 5 },
     sectionDesc: { fontSize: 13, lineHeight: 18, marginBottom: 20 },

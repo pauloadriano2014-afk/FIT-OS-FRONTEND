@@ -22,9 +22,15 @@ export default function AnamneseScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1);
   
+  // 🔥 TRILHO INTELIGENTE: 7 etapas se tiver módulo de dieta, 4 se for só treino
+  const totalSteps = currentUser?.dietModule ? 7 : 4;
+  
   const [form, setForm] = useState({
     peso: '', altura: '', objetivo: '', nivel: '',
-    limitacoes: [], cirurgias: [], frequencia: '', tempoDisponivel: ''
+    limitacoes: [], cirurgias: [], frequencia: '', tempoDisponivel: '',
+    // 🔥 NOVOS CAMPOS NUTRICIONAIS (Opcionais no banco)
+    mealsPerDay: '', wakeUpTime: '', sleepTime: '', workTime: '', trainTime: '',
+    allergies: '', foodPreferences: '', foodAversions: '', supplements: ''
   });
 
   useEffect(() => {
@@ -55,6 +61,11 @@ export default function AnamneseScreen({ route, navigation }) {
     if (!form.frequencia || !form.tempoDisponivel) {
         return Alert.alert("Falta dados", "Selecione a frequência e o tempo disponível.");
     }
+    
+    if (currentUser?.dietModule) {
+        if (!form.mealsPerDay) return Alert.alert("Falta dados", "Selecione quantas vezes prefere comer ao dia.");
+        if (!form.wakeUpTime || !form.trainTime) return Alert.alert("Atenção", "Preencha os horários básicos da sua rotina.");
+    }
 
     if (!currentUser || !currentUser.id) {
         Alert.alert("Sessão Expirada", "Faça login novamente.");
@@ -84,7 +95,19 @@ export default function AnamneseScreen({ route, navigation }) {
         tempoDisponivel: parseInt(form.tempoDisponivel) || 60,
         limitacoes: form.limitacoes,
         cirurgias: form.cirurgias,
-        equipamentos: []
+        equipamentos: [],
+        // 🔥 INJETANDO DADOS NUTRICIONAIS SE O MÓDULO ESTIVER ATIVO
+        ...(currentUser?.dietModule && {
+            mealsPerDay: parseInt(form.mealsPerDay) || null,
+            wakeUpTime: form.wakeUpTime,
+            sleepTime: form.sleepTime,
+            workTime: form.workTime,
+            trainTime: form.trainTime,
+            allergies: form.allergies,
+            foodPreferences: form.foodPreferences,
+            foodAversions: form.foodAversions,
+            supplements: form.supplements
+        })
       };
 
       const response = await fetch('https://fitos-final.onrender.com/api/anamnese', {
@@ -102,8 +125,8 @@ export default function AnamneseScreen({ route, navigation }) {
       const updatedUser = { ...currentUser, anamneses: [data] };
       await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
 
-      if(Platform.OS === 'web') window.alert("Perfil configurado! Aguarde a montagem do seu treino.");
-      else Alert.alert("Sucesso! 🚀", "Perfil configurado! Aguarde a montagem do seu treino.");
+      if(Platform.OS === 'web') window.alert("Perfil configurado! Aguarde a montagem do seu planejamento.");
+      else Alert.alert("Sucesso! 🚀", "Perfil configurado! Aguarde a montagem do seu planejamento.");
       
       navigation.reset({
           index: 0,
@@ -122,6 +145,12 @@ export default function AnamneseScreen({ route, navigation }) {
     if (step === 1 && (!form.peso || !form.altura)) return Alert.alert("Falta dados", "Preencha peso e altura.");
     if (step === 2 && (!form.objetivo || !form.nivel)) return Alert.alert("Falta dados", "Selecione objetivo e nível.");
     if (step === 3 && (form.limitacoes.length === 0 || form.cirurgias.length === 0)) return Alert.alert("Atenção", "Selecione as opções ou marque 'Nenhuma'.");
+    if (step === 4 && (!form.frequencia || !form.tempoDisponivel)) return Alert.alert("Falta dados", "Selecione a frequência e o tempo disponível.");
+    
+    // Validações da Dieta (Se houver módulo ativo)
+    if (step === 5 && !form.mealsPerDay) return Alert.alert("Falta dados", "Selecione a quantidade de refeições.");
+    if (step === 6 && (!form.wakeUpTime || !form.trainTime)) return Alert.alert("Falta dados", "Preencha os horários básicos (Acordar e Treinar).");
+
     setStep(step + 1);
   };
 
@@ -137,13 +166,13 @@ export default function AnamneseScreen({ route, navigation }) {
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{flex:1}}>
             
-            {/* HEADER COM BARRA DE PROGRESSO */}
+            {/* HEADER COM BARRA DE PROGRESSO DINÂMICA */}
             <View style={[styles.header, { backgroundColor: theme.bg }]}>
               <Text style={[styles.headerTitle, { color: theme.accent }]}>ANAMNESE</Text>
               <View style={[styles.progressBarBg, { backgroundColor: theme.border }]}>
-                  <View style={[styles.progressBarFill, { backgroundColor: theme.accent, width: `${step * 25}%`}]} />
+                  <View style={[styles.progressBarFill, { backgroundColor: theme.accent, width: `${(step / totalSteps) * 100}%`}]} />
               </View>
-              <Text style={[styles.stepCounter, { color: theme.textSecondary }]}>Etapa {step} de 4</Text>
+              <Text style={[styles.stepCounter, { color: theme.textSecondary }]}>Etapa {step} de {totalSteps}</Text>
             </View>
 
             <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -238,7 +267,7 @@ export default function AnamneseScreen({ route, navigation }) {
               {/* ETAPA 4 */}
               {step === 4 && (
                 <View>
-                  <Text style={[styles.question, { color: theme.text }]}>Frequência Semanal</Text>
+                  <Text style={[styles.question, { color: theme.text }]}>Frequência de Treino</Text>
                   <View style={styles.wrapGrid}>
                     {[1, 2, 3, 4, 5, 6, 7].map(d => (
                       <TouchableOpacity 
@@ -265,9 +294,105 @@ export default function AnamneseScreen({ route, navigation }) {
                   </View>
                 </View>
               )}
+
+              {/* 🔥 ETAPA 5: NUTRIÇÃO - REFEIÇÕES (SÓ MOSTRA SE DIETMODULE === TRUE) */}
+              {step === 5 && currentUser?.dietModule && (
+                <View>
+                  <Text style={[styles.question, { color: theme.text }]}>Planejamento Alimentar</Text>
+                  <Text style={[styles.label, { color: theme.textSecondary, marginBottom: 15 }]}>QUANTAS REFEIÇÕES VOCÊ PREFERE FAZER NO DIA?</Text>
+                  <View style={styles.wrapGrid}>
+                    {[2, 3, 4, 5, 6, 7, 8].map(d => (
+                      <TouchableOpacity 
+                          key={d} 
+                          style={[styles.circle, { backgroundColor: theme.surface, borderColor: theme.border }, form.mealsPerDay === d.toString() && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                          onPress={() => setForm({...form, mealsPerDay: d.toString()})}
+                      >
+                        <Text style={[styles.circleText, { color: theme.text }, form.mealsPerDay === d.toString() && {color: theme.isDark ? '#000' : '#FFF'}]}>{d}x</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {/* 🔥 ETAPA 6: NUTRIÇÃO - HORÁRIOS */}
+              {step === 6 && currentUser?.dietModule && (
+                <View>
+                  <Text style={[styles.question, { color: theme.text }]}>Como é a sua rotina?</Text>
+                  
+                  <View style={styles.row}>
+                    <View style={{flex:1, marginRight:10, marginBottom: 20}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORA QUE ACORDA</Text>
+                      <TextInput 
+                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          placeholder="Ex: 06:30" placeholderTextColor={theme.textSecondary} 
+                          onChangeText={v => setForm({...form, wakeUpTime: v})} value={form.wakeUpTime} 
+                      />
+                    </View>
+                    <View style={{flex:1, marginBottom: 20}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORA QUE DORME</Text>
+                      <TextInput 
+                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          placeholder="Ex: 23:00" placeholderTextColor={theme.textSecondary} 
+                          onChangeText={v => setForm({...form, sleepTime: v})} value={form.sleepTime} 
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.row}>
+                    <View style={{flex:1, marginRight:10}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORÁRIO DE TRABALHO</Text>
+                      <TextInput 
+                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          placeholder="Ex: 08h às 18h" placeholderTextColor={theme.textSecondary} 
+                          onChangeText={v => setForm({...form, workTime: v})} value={form.workTime} 
+                      />
+                    </View>
+                    <View style={{flex:1}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORÁRIO DO TREINO</Text>
+                      <TextInput 
+                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                          placeholder="Ex: 19:30" placeholderTextColor={theme.textSecondary} 
+                          onChangeText={v => setForm({...form, trainTime: v})} value={form.trainTime} 
+                      />
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* 🔥 ETAPA 7: NUTRIÇÃO - PREFERÊNCIAS E RESTRIÇÕES */}
+              {step === 7 && currentUser?.dietModule && (
+                <View>
+                  <Text style={[styles.question, { color: theme.text }]}>Preferências e Restrições</Text>
+                  
+                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 10 }]}>ALERGIAS OU INTOLERÂNCIAS</Text>
+                  <TextInput 
+                      style={[styles.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                      placeholder="Ex: Intolerância à lactose, alergia a camarão..." placeholderTextColor={theme.textSecondary} 
+                      multiline
+                      onChangeText={v => setForm({...form, allergies: v})} value={form.allergies} 
+                  />
+
+                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>O QUE VOCÊ ODEIA COMER?</Text>
+                  <TextInput 
+                      style={[styles.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                      placeholder="Ex: Fígado, batata doce, brócolis..." placeholderTextColor={theme.textSecondary} 
+                      multiline
+                      onChangeText={v => setForm({...form, foodAversions: v})} value={form.foodAversions} 
+                  />
+
+                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>SUPLEMENTOS QUE JÁ UTILIZA</Text>
+                  <TextInput 
+                      style={[styles.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                      placeholder="Ex: Whey protein, Creatina, Ômega 3..." placeholderTextColor={theme.textSecondary} 
+                      multiline
+                      onChangeText={v => setForm({...form, supplements: v})} value={form.supplements} 
+                  />
+                </View>
+              )}
+
             </ScrollView>
 
-            {/* 🔥 RODAPÉ FIXO (COM VOLTAR MESMO NA ÚLTIMA ETAPA) */}
+            {/* 🔥 RODAPÉ FIXO (COM VOLTAR MESMO NA ÚLTIMA ETAPA E CHECAGEM DE TOTAL DE ETAPAS) */}
             <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
                {step > 1 ? (
                  <TouchableOpacity onPress={() => setStep(step-1)} style={[styles.backBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}>
@@ -275,7 +400,7 @@ export default function AnamneseScreen({ route, navigation }) {
                  </TouchableOpacity>
                ) : <View style={{flex:1}} />}
                
-               {step < 4 ? (
+               {step < totalSteps ? (
                  <TouchableOpacity onPress={nextStep} style={[styles.nextBtn, { backgroundColor: theme.accent }]}>
                     <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'bold'}}>PRÓXIMO</Text>
                  </TouchableOpacity>
@@ -305,6 +430,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 11, fontWeight: 'bold', marginBottom: 8, letterSpacing: 0.5 },
   
   input: { padding: 18, borderRadius: 16, borderWidth: 1, fontSize: 16, outlineStyle: 'none' },
+  textArea: { padding: 18, borderRadius: 16, borderWidth: 1, fontSize: 15, outlineStyle: 'none', minHeight: 90, textAlignVertical: 'top' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },

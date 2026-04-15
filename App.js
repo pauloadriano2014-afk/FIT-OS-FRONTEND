@@ -14,8 +14,6 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
 /* ================= TELAS ================= */
-
-// AUTH & SETUP
 import InstallScreen from './src/screens/InstallScreen'; 
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
@@ -23,11 +21,9 @@ import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
 import SetupTreinoScreen from './src/screens/SetupTreinoScreen'; 
 
-// VENDAS (PROPOSTAS) 🔥
 import PropostaScreen from './src/screens/PropostaScreen'; 
 import PropostaStartScreen from './src/screens/PropostaStartScreen'; 
 
-// ALUNO
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -39,13 +35,12 @@ import BibliotecaScreen from './src/screens/BibliotecaScreen';
 import PDFViewerScreen from './src/screens/PDFViewerScreen'; 
 import VideoPlayerScreen from './src/screens/VideoPlayerScreen'; 
 import AudioPlayerScreen from './src/screens/AudioPlayerScreen';
+import DietScreen from './src/screens/DietScreen'; 
 
-// TREINO
 import RoutineDetailsScreen from './src/screens/RoutineDetailsScreen';
 import DayWorkoutScreen from './src/screens/DayWorkoutScreen';
 import FinishScreen from './src/screens/FinishScreen';
 
-// ADMIN
 import AdminDashboard from './src/screens/AdminDashboard';
 import MontarTreinoAdmin from './src/screens/MontarTreinoAdmin';
 import BibliotecaAdmin from './src/screens/BibliotecaAdmin';
@@ -54,9 +49,9 @@ import AdminUserOptions from './src/screens/AdminUserOptions';
 import AdminEvolutionScreen from './src/screens/AdminEvolutionScreen';
 import AdminAddContent from './src/screens/AdminAddContent';
 import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen';
-import AdminIALabScreen from './src/screens/AdminIALabScreen'; // 🔥 IMPORT DO LAB IA
+import AdminIALabScreen from './src/screens/AdminIALabScreen'; 
+import AdminDietScreen from './src/screens/AdminDietScreen'; 
 
-// GLOBAL
 import AIScannerModal from './src/components/AIScannerModal';
 
 /* ================= NOTIFICATIONS ================= */
@@ -91,18 +86,56 @@ async function registerForPushNotificationsAsync() {
 /* ================= NAVIGATORS E REFS ================= */
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
-
 const navigationRef = createNavigationContainerRef();
 
-/* ---------- ALUNO TABS ---------- */
+/* ---------- ALUNO TABS BLINDADO ---------- */
 function StudentTabs({ route }) {
-  const userData = route.params?.userData;
+  const [userData, setUserData] = useState(null);
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
 
+  useEffect(() => {
+    const loadUser = async () => {
+      // 1. Tenta pegar da rota
+      let u = route.params?.userData;
+      if (typeof u === 'string') u = JSON.parse(u);
+
+      // 2. Se falhar (o seu erro atual), resgata do AsyncStorage
+      if (!u || !u.id) {
+        const saved = await AsyncStorage.getItem('user');
+        if (saved) u = JSON.parse(saved);
+      }
+
+      if (u) {
+        setUserData(u);
+        // 🔥 Refresh opcional: Busca os dados mais novos do banco (plano, etc)
+        try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${u.id}?t=${Date.now()}`);
+          if (res.ok) {
+            const fresh = await res.json();
+            setUserData(fresh);
+            AsyncStorage.setItem('user', JSON.stringify(fresh));
+          }
+        } catch (e) { console.log("Erro refresh user", e); }
+      }
+    };
+    loadUser();
+  }, [route.params?.userData]);
+
+  if (!userData) {
+    return (
+      <View style={{ flex: 1, backgroundColor: theme.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color={theme.accent} size="large" />
+      </View>
+    );
+  }
+
+  const isElite = userData?.plan === 'ELITE' || userData?.plan === 'VIP';
+  const showDiet = userData?.dietModule === true || isElite;
+
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarStyle: {
           backgroundColor: theme.surface,
@@ -113,43 +146,21 @@ function StudentTabs({ route }) {
         },
         tabBarActiveTintColor: theme.accent,
         tabBarInactiveTintColor: theme.textSecondary,
-      })}
+      }}
     >
-      <Tab.Screen 
-        name="Início" 
-        component={HomeScreen} 
-        initialParams={{ userData }} 
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} /> }}
-      />
-      <Tab.Screen 
-        name="Treinos" 
-        component={TrainingScreen} 
-        initialParams={{ userData }} 
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="dumbbell" size={size} color={color} /> }}
-      />
-      <Tab.Screen 
-        name="Biblioteca" 
-        component={BibliotecaScreen} 
-        initialParams={{ userData }} 
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="play-box-multiple" size={size} color={color} /> }}
-      />
-      <Tab.Screen 
-        name="Evolução" 
-        component={EvolutionScreen} 
-        initialParams={{ userData }} 
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" size={size} color={color} /> }}
-      />
-      <Tab.Screen 
-        name="Perfil" 
-        component={ProfileScreen} 
-        initialParams={{ userData }} 
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} /> }}
-      />
+      <Tab.Screen name="Início" component={HomeScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} /> }} />
+      <Tab.Screen name="Treinos" component={TrainingScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="dumbbell" size={size} color={color} /> }} />
+      {showDiet && (
+        <Tab.Screen name="Dieta" component={DietScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="food-apple" size={size} color={color} /> }} />
+      )}
+      <Tab.Screen name="Biblioteca" component={BibliotecaScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="play-box-multiple" size={size} color={color} /> }} />
+      <Tab.Screen name="Evolução" component={EvolutionScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" size={size} color={color} /> }} />
+      <Tab.Screen name="Perfil" component={ProfileScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} /> }} />
     </Tab.Navigator>
   );
 }
 
-/* ================= NAVEGAÇÃO PRINCIPAL ================= */
+/* ---------- ROOT NAVIGATOR AJUSTADO ---------- */
 function RootNavigator() {
   const [loading, setLoading] = useState(true);
   const [initialRoute, setInitialRoute] = useState('Install'); 
@@ -164,25 +175,13 @@ function RootNavigator() {
 
         if (userJson) {
           const user = JSON.parse(userJson);
-          const finalRole = role || user.role || user.type; 
+          setSavedUser(user);
+          const finalRole = role || user.role || user.type || 'ALUNO'; 
 
-          if (finalRole) {
-            setSavedUser(user);
-            const targetRoute = finalRole.toLowerCase() === 'admin' ? 'AdminDashboard' : 'Main';
-            setInitialRoute(targetRoute);
-            
-            setTimeout(() => {
-                if (navigationRef.isReady()) {
-                    if (targetRoute === 'AdminDashboard') {
-                        navigationRef.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
-                    } else {
-                        navigationRef.reset({ index: 0, routes: [{ name: 'Main', params: { userData: user } }] });
-                    }
-                }
-            }, 100);
-
-            setLoading(false);
-            return;
+          if (finalRole.toLowerCase() === 'admin') {
+            setInitialRoute('AdminDashboard');
+          } else {
+            setInitialRoute('Main');
           }
         }
       } catch (e) {
@@ -193,20 +192,6 @@ function RootNavigator() {
     };
     restoreSession();
   }, []);
-
-  useEffect(() => {
-    if (!loading && savedUser) {
-      registerForPushNotificationsAsync().then((token) => {
-        if (token) {
-          fetch('https://fitos-final.onrender.com/api/user/push-token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: savedUser.id, token })
-          }).catch(() => {});
-        }
-      });
-    }
-  }, [loading, savedUser]);
 
   if (loading || loadingTheme) {
     return (
@@ -224,11 +209,12 @@ function RootNavigator() {
       <Stack.Screen name="Anamnese" component={AnamneseScreen} />
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
-      
       <Stack.Screen name="Proposta" component={PropostaScreen} />
       <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
 
+      {/* 🔥 GARANTE QUE O savedUser VÁ PARA O STUDENT TABS 🔥 */}
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
+      
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
       <Stack.Screen name="FinishScreen" component={FinishScreen} />
@@ -240,7 +226,6 @@ function RootNavigator() {
       <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
       <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
       <Stack.Screen name="PAFlix" component={PAFlixScreen} />
-
       <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
       <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
       <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
@@ -250,11 +235,11 @@ function RootNavigator() {
       <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
       <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
       <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} /> 
+      <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} /> 
     </Stack.Navigator>
   );
 }
 
-// 🔥 MAPEAMENTO DOS LINKS PARA O NAVEGADOR ENTENDER 🔥
 const linking = {
   prefixes: [
       'https://www.pauloadrianoteam.com.br', 
@@ -264,26 +249,9 @@ const linking = {
   ],
   config: {
     screens: {
-      Install: {
-          path: 'registro',
-          parse: {
-              coach: (coach) => coach,
-              plan: (plan) => plan
-          },
-          initialRouteName: 'Install',
-      },
-      Proposta: {
-          path: 'Proposta',
-          parse: {
-              nome: (nome) => nome
-          }
-      },
-      PropostaStart: {
-          path: 'PropostaStart',
-          parse: {
-              nome: (nome) => nome
-          }
-      },
+      Install: { path: 'registro', parse: { coach: (coach) => coach, plan: (plan) => plan }, initialRouteName: 'Install' },
+      Proposta: { path: 'Proposta', parse: { nome: (nome) => nome } },
+      PropostaStart: { path: 'PropostaStart', parse: { nome: (nome) => nome } },
       AdminStudentCheckins: { path: 'admin-checkins' },
       AdminEvolution: { path: 'admin-evolution' },
       AdminAlunoOptions: { path: 'admin-aluno' },
