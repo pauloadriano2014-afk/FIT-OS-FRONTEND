@@ -10,6 +10,8 @@ import { useTheme } from '../contexts/ThemeContext';
 
 import FoodSearchModal from '../components/FoodSearchModal';
 import SmartSubstituteModal from '../components/SmartSubstituteModal';
+// 🔥 NOVO: Modal isolado que vamos criar para ler o PDF
+import ImportDietModal from '../components/ImportDietModal'; 
 
 import { FOOD_DATABASE } from '../data/foodDatabase';
 import { FOOD_PORTIONS } from '../data/foodPortions';
@@ -44,13 +46,11 @@ const MEAL_NAME_OPTIONS = [
 export default function AdminDietScreen({ route, navigation }) {
     const { theme } = useTheme();
 
-    // 🔥 CIRURGIA: Desbuga o objeto aluno e garante o ID limpo
     const rawAluno = route.params?.aluno;
     const aluno = (typeof rawAluno === 'string' && rawAluno.startsWith('{')) 
         ? JSON.parse(rawAluno) 
         : rawAluno;
 
-    // Se o ID vier como "[object Object]", ele pega o reserva da URL (alunoId)
     const userId = (aluno?.id && aluno.id !== "[object Object]") 
         ? aluno.id 
         : route.params?.alunoId;
@@ -65,6 +65,9 @@ export default function AdminDietScreen({ route, navigation }) {
     const [nameModalVisible, setNameModalVisible] = useState(false);
     const [customNameModalVisible, setCustomNameModalVisible] = useState(false);
     const [smartModalVisible, setSmartModalVisible] = useState(false);
+    
+    // 🔥 NOVO: Estado para a Modal de Importação de PDF
+    const [importModalVisible, setImportModalVisible] = useState(false);
 
     const [activeMealId, setActiveMealId] = useState(null);
     const [activeGroupId, setActiveGroupId] = useState(null);
@@ -75,16 +78,13 @@ export default function AdminDietScreen({ route, navigation }) {
     const [dietConfig, setDietConfig] = useState({ goal: 'Indefinido', water: '3 Litros', notes: 'Siga os horários descritos.' });
     const [meals, setMeals] = useState([]);
 
-    // 🔥 BUSCA DIRETO DA FONTE (BANCO DE DADOS) 🔥
     useEffect(() => {
         const fetchAllData = async () => {
-            // Se o ID for lixo, a gente nem gasta internet
             if (!userId || String(userId).includes("object")) return;
 
             try {
                 setIsLoadingDiet(true);
                 
-                // 🔥 1. PUXA A ANAMNESE REAL DO BANCO (Ignora o lixo da URL)
                 const userRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userId}?t=${Date.now()}`);
                 if (userRes.ok) {
                     const userData = await userRes.json();
@@ -98,7 +98,6 @@ export default function AdminDietScreen({ route, navigation }) {
                     }
                 }
 
-                // 🔥 2. PUXA A DIETA (COM A ROTA ADMIN)
                 const dietRes = await fetch(`https://fitos-final.onrender.com/api/admin/diet/${userId}?t=${Date.now()}`);
                 
                 if (dietRes.ok) {
@@ -124,7 +123,6 @@ export default function AdminDietScreen({ route, navigation }) {
                                     name: item.name,
                                     amount: item.amount.toString(),
                                     unit: item.unit,
-                                    // 🔥 BACKUP DO BANCO LOCAL PARA NÃO ZERAR AS CALORIAS:
                                     p: item.protein ?? originalFood.p ?? 0,
                                     c: item.carbs ?? originalFood.c ?? 0,
                                     f: item.fats ?? originalFood.f ?? 0,
@@ -199,16 +197,11 @@ export default function AdminDietScreen({ route, navigation }) {
         };
     }, [meals]);
 
-    const handleAddMeal = () => {
-        setMeals(prev => [...prev, { id: Date.now().toString(), name: 'Selecione a Refeição', time: '07:00', notes: '', items: [] }]);
-    };
-
+    const handleAddMeal = () => setMeals(prev => [...prev, { id: Date.now().toString(), name: 'Selecione a Refeição', time: '07:00', notes: '', items: [] }]);
     const handleDeleteMeal = (mealId) => setMeals(prev => prev.filter(m => m.id !== mealId));
     const handleUpdateMeal = (mealId, field, value) => setMeals(prev => prev.map(m => m.id === mealId ? { ...m, [field]: value } : m));
-
     const handleOpenTimeSelect = (mealId) => { setActiveMealId(mealId); setTimeModalVisible(true); };
     const handleOpenNameSelect = (mealId) => { setActiveMealId(mealId); setNameModalVisible(true); };
-
     const handleSelectTime = (time) => { handleUpdateMeal(activeMealId, 'time', time); setTimeModalVisible(false); };
 
     const handleSelectName = (name) => {
@@ -299,8 +292,17 @@ export default function AdminDietScreen({ route, navigation }) {
             return { ...meal, items: meal.items.filter(item => item.uniqueId !== foodUniqueId) };
         }));
 
-    const handleGenerateAI = () =>
-        Alert.alert('Laboratório IA', 'Em breve: A IA irá ler o Raio-X e cruzar com templates TACO automaticamente!');
+    const handleGenerateAI = () => {
+        // 🔥 GATILHO DA IA AQUI (Em breve conectamos com a API)
+        Alert.alert('PA Coach AI', 'O módulo de geração inteligente será conectado na próxima etapa!');
+    };
+
+    const handleImportSuccess = (importedMeals) => {
+        setMeals(importedMeals);
+        setImportModalVisible(false);
+        if (Platform.OS === 'web') window.alert("Dieta importada com sucesso!");
+        else Alert.alert("Sucesso", "Dieta importada com sucesso!");
+    };
 
     const handleSaveDiet = async () => {
         const userId = (aluno?.id && aluno.id !== "[object Object]") ? aluno.id : route.params?.alunoId;
@@ -332,7 +334,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 body: JSON.stringify(payload)
             });
 
-            // 🔥 A MÁGICA: SE DER ERRO, ELE LÊ A MENSAGEM DO BANCO DE DADOS
             if (!response.ok) {
                 const errData = await response.json();
                 throw new Error(errData.details || errData.error || "Falha na API ao salvar dieta");
@@ -344,7 +345,6 @@ export default function AdminDietScreen({ route, navigation }) {
 
         } catch (error) {
             console.error("Erro ao salvar:", error);
-            // VAI MOSTRAR NA TELA O ERRO REAL (Ex: "substitutionGroupId expects Int")
             Alert.alert("🚨 Erro Técnico no Banco", error.message);
         } finally {
             setIsSaving(false);
@@ -370,23 +370,19 @@ export default function AdminDietScreen({ route, navigation }) {
         <RootComponent style={{ height: isWeb ? windowHeight : undefined, flex: isWeb ? undefined : 1, overflow: 'hidden', backgroundColor: isWeb ? (theme.isDark ? '#0a0a0a' : '#E5E5EA') : theme.bg }}>
             <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
 
-                {/* ── CABEÇALHO ── */}
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
                     </TouchableOpacity>
-
                     <View style={{ alignItems: 'center', flex: 1 }}>
                         <Text style={[styles.headerTitle, { color: theme.text }]}>MESA DE OPERAÇÕES</Text>
                         <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 1 }}>{aluno?.name}</Text>
                     </View>
-
                     <TouchableOpacity onPress={handleSaveDiet} disabled={isSaving} style={[styles.iconBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]}>
                         {isSaving ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <MaterialCommunityIcons name="content-save-check" size={22} color={theme.isDark ? '#000' : '#FFF'} />}
                     </TouchableOpacity>
                 </View>
 
-                {/* ── DASHBOARD DE MACROS ── */}
                 <View style={[styles.dashboard, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
                     {[
                         { label: 'KCAL', cur: currentMacros.kcal, target: macros.alvo, unit: 'kcal', color: theme.accent },
@@ -410,7 +406,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, ...(isWeb ? { display: 'flex', flexDirection: 'column' } : {}) }} enabled={!isWeb}>
                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }} scrollEnabled={true} nestedScrollEnabled={true}>
 
-                        {/* ── RAIO-X ── */}
                         <TouchableOpacity
                             style={[styles.raioXHeader, { backgroundColor: theme.surface, borderColor: theme.border, borderBottomLeftRadius: showRaioX ? 0 : 14, borderBottomRightRadius: showRaioX ? 0 : 14 }]}
                             onPress={() => setShowRaioX(!showRaioX)}
@@ -442,7 +437,6 @@ export default function AdminDietScreen({ route, navigation }) {
                                                 </View>
                                             ))}
                                         </View>
-
                                         <View style={[styles.rxTimeRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                             <MaterialCommunityIcons name="clock-outline" size={14} color={theme.accent} />
                                             {[
@@ -458,7 +452,6 @@ export default function AdminDietScreen({ route, navigation }) {
                                                 </React.Fragment>
                                             ))}
                                         </View>
-
                                         <View style={{ gap: 6, marginTop: 12 }}>
                                             {[
                                                 { label: 'ALERGIAS', value: anamnese.allergies || 'Nenhuma', color: '#FF3B30' },
@@ -478,7 +471,18 @@ export default function AdminDietScreen({ route, navigation }) {
                             </View>
                         )}
 
-                        {/* ── PRESCRIÇÃO ── */}
+                        {/* 🔥 NOVOS BOTÕES DE ASSISTENTES (IA E PDF) 🔥 */}
+                        <View style={styles.assistantRow}>
+                            <TouchableOpacity style={[styles.assistantBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '40' }]} onPress={handleGenerateAI}>
+                                <MaterialCommunityIcons name="robot-outline" size={20} color={theme.accent} />
+                                <Text style={[styles.assistantBtnText, { color: theme.accent }]}>GERAR COM IA</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.assistantBtn, { backgroundColor: '#32ADE6' + '15', borderColor: '#32ADE6' + '40' }]} onPress={() => setImportModalVisible(true)}>
+                                <MaterialCommunityIcons name="file-pdf-box" size={20} color="#32ADE6" />
+                                <Text style={[styles.assistantBtnText, { color: '#32ADE6' }]}>IMPORTAR PDF</Text>
+                            </TouchableOpacity>
+                        </View>
+
                         <View style={{ marginTop: 24 }}>
                             <View style={styles.sectionRow}>
                                 <Text style={[styles.sectionTitle, { color: theme.text }]}>PRESCRIÇÃO</Text>
@@ -491,7 +495,7 @@ export default function AdminDietScreen({ route, navigation }) {
                                 <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                                     <MaterialCommunityIcons name="silverware-fork-knife" size={38} color={theme.textSecondary} />
                                     <Text style={[styles.emptyTitle, { color: theme.text }]}>Nenhuma refeição</Text>
-                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Clique em "Adicionar Refeição" para começar</Text>
+                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Clique em "Adicionar Refeição" ou importe um PDF.</Text>
                                 </View>
                             ) : (
                                 meals.map(meal => {
@@ -648,6 +652,16 @@ export default function AdminDietScreen({ route, navigation }) {
                 {/* ── MODAIS EXTERNOS ── */}
                 <FoodSearchModal visible={searchModalVisible} onClose={() => setSearchModalVisible(false)} onSelectFood={handleAddFoodToMeal} targetGroup={activeGroupId} theme={theme} />
                 <SmartSubstituteModal visible={smartModalVisible} onClose={() => setSmartModalVisible(false)} onSelectFood={handleAddFoodToMeal} onManualSearch={handleSmartToManual} principalFood={smartPrincipalFood} principalAmount={smartPrincipalAmount} theme={theme} />
+                
+                {/* 🔥 NOVO: Modal de Importação conectada aqui! */}
+                {importModalVisible && (
+                    <ImportDietModal 
+                        visible={importModalVisible} 
+                        onClose={() => setImportModalVisible(false)} 
+                        theme={theme} 
+                        onImportSuccess={handleImportSuccess} 
+                    />
+                )}
 
                 {/* ── MODAIS INTERNOS SIMPLES ── */}
                 <Modal visible={timeModalVisible} transparent animationType="fade" onRequestClose={() => setTimeModalVisible(false)}>
@@ -722,6 +736,11 @@ const styles = StyleSheet.create({
     rxAlertRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 8, borderLeftWidth: 3 },
     rxAlertLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5, width: 90 },
     rxAlertVal: { fontSize: 12, flex: 1 },
+    
+    assistantRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+    assistantBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1 },
+    assistantBtnText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+
     btnIA: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 16, borderWidth: 1, marginTop: 14 },
     btnIALeft: { width: 48, height: 48, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
     btnIATitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
