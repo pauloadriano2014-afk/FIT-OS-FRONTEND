@@ -1,6 +1,6 @@
 // src/components/MontarTreino/ExerciseCardAdmin.js
 import React from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SmartThumbnail from './SmartThumbnail'; 
 
@@ -10,13 +10,22 @@ export default function ExerciseCardAdmin({
     removeSubstitute, atualizarBloco, adicionarBloco, removerBloco, 
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible, 
     atualizarObservacao, openPreview, currentExercisesLength,
-    setIsSwapping, setSwapIndex, setInitialCategoryFilter
+    setIsSwapping, setSwapIndex, setInitialCategoryFilter,
+    workoutModel 
 }) {
     const videoUrl = item.exercise?.videoUrl || item.videoUrl || "";
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
-    
-    // 🔥 DETETIVE DE FANTASMAS
     const isGhost = String(item.exerciseId || '').startsWith('custom_');
+
+    const QUICK_OBS = [
+        "Faça até a falha",
+        "Descanse apenas após executar com os 2 braços",
+        "Descansar apenas após executar com as 2 pernas",
+        "Pode mesclar os cardios, respeite as calorias",
+        "30 a 60 segundos mantendo a posição",
+        "Foque na fase excêntrica (descida controlada)",
+        "Use carga máxima para a meta de reps"
+    ];
 
     if (isReordering) {
         return (
@@ -42,16 +51,10 @@ export default function ExerciseCardAdmin({
             <View style={styles.cardTop}>
                 <View style={{flexDirection:'row', alignItems:'center', flex:1, gap:10}}>
                     {!isGhost && (
-                        <SmartThumbnail 
-                            url={videoUrl} 
-                            style={styles.thumbMini} 
-                            theme={theme} 
-                            onPress={() => openPreview({ ...item, name: item.title, isAdded: true })} 
-                        />
+                        <SmartThumbnail url={videoUrl} style={styles.thumbMini} theme={theme} onPress={() => openPreview({ ...item, name: item.title, isAdded: true })} />
                     )}
                     <View style={{flex: 1}}>
                         <Text style={[styles.manualExName, { color: isGhost ? '#FF3B30' : theme.text }]}>{index + 1}. {item.title}</Text>
-                        
                         {isGhost && (
                             <View style={{backgroundColor: '#FF3B30', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start', marginTop: 4}}>
                                 <Text style={{color: '#FFF', fontSize: 9, fontWeight: 'bold'}}>⚠️ NÃO VINCULADO</Text>
@@ -64,18 +67,14 @@ export default function ExerciseCardAdmin({
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                     <TouchableOpacity 
                         onPress={() => { 
-                            setIsSwapping(true); 
-                            setSwapIndex(index); 
-                            if (item.category && setInitialCategoryFilter) {
-                                setInitialCategoryFilter(item.category);
-                            }
+                            setIsSwapping(true); setSwapIndex(index); 
+                            if (item.category && setInitialCategoryFilter) setInitialCategoryFilter(item.category);
                             setModalBuscaVisible(true); 
                         }} 
                         style={{ padding: 8, backgroundColor: isGhost ? '#FF3B30' : theme.accent + '22', borderRadius: 8, marginRight: 5 }}
                     >
                         <MaterialCommunityIcons name={isGhost ? "link-variant-plus" : "sync"} size={20} color={isGhost ? '#FFF' : theme.accent} />
                     </TouchableOpacity>
-
                     <TouchableOpacity onPress={() => removeExercicio(item.tempId)} style={{ padding: 8 }}>
                         <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FF3B30" />
                     </TouchableOpacity>
@@ -90,17 +89,7 @@ export default function ExerciseCardAdmin({
                     <TouchableOpacity onPress={() => removeSubstitute(index)}><MaterialCommunityIcons name="close-circle" size={18} color={theme.textSecondary} /></TouchableOpacity>
                 </View>
             ) : (
-                <TouchableOpacity 
-                    style={styles.addSubBtn} 
-                    onPress={() => { 
-                        setIsSelectingSubstitute(true); 
-                        setTargetIndexForSubstitute(index); 
-                        if (item.category && setInitialCategoryFilter) {
-                            setInitialCategoryFilter(item.category);
-                        }
-                        setModalBuscaVisible(true); 
-                    }}
-                >
+                <TouchableOpacity style={styles.addSubBtn} onPress={() => { setIsSelectingSubstitute(true); setTargetIndexForSubstitute(index); if (item.category && setInitialCategoryFilter) setInitialCategoryFilter(item.category); setModalBuscaVisible(true); }}>
                     <Text style={[styles.addSubText, { color: theme.textSecondary }]}>+ Adicionar opção de troca</Text>
                 </TouchableOpacity>
             )}
@@ -116,6 +105,21 @@ export default function ExerciseCardAdmin({
                           <Text style={[styles.miniLabel, { color: isCardio ? theme.accent : theme.textSecondary }]}>{isCardio ? "KCAL ALVO" : "REPS"}</Text>
                           <TextInput style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={bloco.reps} keyboardType={isCardio ? "numeric" : "default"} onChangeText={(v) => atualizarBloco(index, bIndex, 'reps', v)} />
                       </View>
+                      
+                      {workoutModel === 'CARGA' && !isCardio && (
+                          <View style={styles.inputBox}>
+                              <Text style={[styles.miniLabel, { color: theme.accent }]}>ALVO / CARGA</Text>
+                              <TextInput 
+                                  style={[styles.miniInput, { backgroundColor: theme.surface, color: theme.accent, borderColor: theme.accent }]} 
+                                  value={bloco.load || ''} 
+                                  keyboardType="default" 
+                                  placeholder="Ex: 15kg lado" 
+                                  placeholderTextColor={theme.textSecondary} 
+                                  onChangeText={(v) => atualizarBloco(index, bIndex, 'load', v)} 
+                              />
+                          </View>
+                      )}
+
                       {!isCardio && (
                           <View style={styles.inputBox}>
                               <Text style={[styles.miniLabel, { color: theme.textSecondary }]}>DESC(s)</Text>
@@ -149,6 +153,22 @@ export default function ExerciseCardAdmin({
                     onChangeText={(text) => atualizarObservacao(index, text)}
                     multiline
                 />
+                
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 10 }} contentContainerStyle={{ gap: 8, paddingBottom: 5 }}>
+                    {QUICK_OBS.map((obsText, i) => (
+                        <TouchableOpacity 
+                            key={i} 
+                            style={[styles.quickObsBtn, { borderColor: theme.accent + '55', backgroundColor: theme.accent + '15' }]} 
+                            onPress={() => {
+                                const currentObs = item.observation || '';
+                                const separator = currentObs.length > 0 && !currentObs.endsWith(' ') ? ' - ' : '';
+                                atualizarObservacao(index, currentObs + separator + obsText);
+                            }}
+                        >
+                            <Text style={[styles.quickObsText, { color: theme.accent }]}>+ {obsText}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
             </View>
 
         </View>
@@ -171,7 +191,8 @@ const styles = StyleSheet.create({
   inputBox: { flex: 1 },
   techBox: { alignItems:'center', justifyContent:'center', borderRadius:8, borderWidth:1 },
   miniLabel: { fontSize: 9, fontWeight: 'bold', marginBottom: 4, textAlign:'center' },
-  // 🔥 CIRURGIA DE FONTE AQUI (Aumentado para 16 para bloquear o Zoom do iPhone)
   miniInput: { padding: 8, borderRadius: 8, fontSize: 16, textAlign: 'center', borderWidth: 1, fontWeight: 'bold', outlineStyle: 'none' },
-  obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 16, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' } 
+  obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 16, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' },
+  quickObsBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
+  quickObsText: { fontSize: 10, fontWeight: 'bold' }
 });

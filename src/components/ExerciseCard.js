@@ -34,8 +34,8 @@ export const ExerciseCard = ({
   isLastExercise, biSetType, onSwap, onOpenCalc, isTimerRunning,
   isVoiceEnabled, colors, 
   checkedSets, handleCheckSet,
-  // 🔥 CHAVE DA PORTARIA (RECEBIDA DA DAYWORKOUTSCREEN)
-  hasPremiumFeatures 
+  hasPremiumFeatures,
+  workoutModel 
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
@@ -284,6 +284,8 @@ export const ExerciseCard = ({
       const techInfo = identifyTechnique(rawTech);
       if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
 
+      const hasPrescribedLoad = workoutModel === 'CARGA' && block.load && block.load.trim() !== '';
+
       if (categoryType === 'MOBILITY') {
           return (
             <View style={{flex: 1.5, alignItems:'center', justifyContent:'center'}}>
@@ -325,11 +327,13 @@ export const ExerciseCard = ({
                     const isDone = val !== undefined && val !== '';
                     return (
                         <View key={idx} style={{flex:1, paddingHorizontal:2}}>
-                            <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}}>{label}</Text>
+                            <Text style={{color: hasPrescribedLoad ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad ? 10 : 8, fontWeight: '900', marginBottom: 3, textAlign: 'center'}}>
+                                {hasPrescribedLoad ? `🎯 ${String(block.load).toUpperCase()}` : label}
+                            </Text>
                             <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                                 <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                                     <TextInput 
-                                        style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
+                                        style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}, hasPrescribedLoad && {borderColor: colors.primary}]}
                                         placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                                         value={val !== undefined ? String(val) : ''}
                                         onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_${suffix}`)}
@@ -359,11 +363,13 @@ export const ExerciseCard = ({
                     const isDone = val !== undefined && val !== '';
                     return (
                         <View key={idx} style={{flex:1, paddingHorizontal:2}}>
-                            <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}}>{label}</Text>
+                            <Text style={{color: hasPrescribedLoad ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad ? 10 : 8, fontWeight: '900', marginBottom: 3, textAlign: 'center'}}>
+                                {hasPrescribedLoad ? `🎯 ${String(block.load).toUpperCase()}` : label}
+                            </Text>
                             <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                                 <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                                     <TextInput 
-                                        style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
+                                        style={[{backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold'}, isDone && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}, hasPrescribedLoad && {borderColor: colors.primary}]}
                                         placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                                         value={val !== undefined ? String(val) : ''}
                                         onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_${suffix}`)}
@@ -387,11 +393,13 @@ export const ExerciseCard = ({
           return (
             <View style={{flexDirection: 'row', flex: 1, justifyContent: 'space-between'}}>
                 <View style={{flex:1, paddingRight:5}}>
-                    <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}}>CARGA</Text>
+                    <Text style={{color: hasPrescribedLoad ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad ? 10 : 8, fontWeight: '900', marginBottom: 3, textAlign: 'center'}}>
+                        {hasPrescribedLoad ? `🎯 ALVO: ${String(block.load).toUpperCase()}` : 'CARGA'}
+                    </Text>
                     <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                         <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                             <TextInput 
-                                style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_MAIN`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}]}
+                                style={[{backgroundColor: colors.inputBg, color: colors.text, height: 40, width: '100%', borderRadius: 8, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 16, fontWeight: 'bold'}, lastWeights[item.id]?.[`${currentSetNum}_MAIN`] && {borderColor: techInfo.color, color: techInfo.color}, !isTimerRunning && {opacity: 0.5}, hasPrescribedLoad && {borderColor: colors.primary}]}
                                 placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
                                 value={lastWeights[item.id]?.[`${currentSetNum}_MAIN`] !== undefined ? String(lastWeights[item.id]?.[`${currentSetNum}_MAIN`]) : ''}
                                 onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_MAIN`)}
@@ -429,12 +437,20 @@ export const ExerciseCard = ({
       
       return (
         <View style={{flex: 1.5, alignItems:'center'}}>
-            <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>CARGA (KG)</Text>
+            <Text style={{
+                color: hasPrescribedLoad ? colors.primary : colors.textMuted, 
+                fontSize: hasPrescribedLoad ? 11 : 8, 
+                fontWeight: '900', 
+                marginBottom: 4, 
+                letterSpacing: hasPrescribedLoad ? 0.5 : 0
+            }}>
+                {hasPrescribedLoad ? `🎯 ALVO: ${String(block.load).toUpperCase()}` : 'CARGA (KG)'}
+            </Text>
             
             <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                 <View 
                     pointerEvents={isTimerRunning ? 'auto' : 'none'} 
-                    style={[{backgroundColor: colors.inputBg, height: 40, width: '100%', borderRadius: 8, borderWidth: 1, borderColor: colors.border, justifyContent:'center'}, isConfirmed && {borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
+                    style={[{backgroundColor: colors.inputBg, height: 40, width: '100%', borderRadius: 8, borderWidth: 1, borderColor: hasPrescribedLoad ? colors.primary : colors.border, justifyContent:'center'}, isConfirmed && {borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
                 >
                     <TextInput 
                         style={[{color: colors.text, width: '100%', height: '100%', textAlign: 'center', fontSize: 16, fontWeight: 'bold'}, isConfirmed && {color: colors.primary}]}
@@ -616,10 +632,8 @@ export const ExerciseCard = ({
                     </View>
                 </View>
                 
-                {/* 🔥 OS BOTÕES DE OURO (COM CADEADO INTELIGENTE) 🔥 */}
                 {showTools && (
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignSelf:'flex-start' }} pointerEvents="auto">
-                        {/* CALCULADORA DE 1RM */}
                         <TouchableOpacity 
                             style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} 
                             onPress={onOpenCalc}
@@ -628,7 +642,6 @@ export const ExerciseCard = ({
                             <Text style={{ color: hasPremiumFeatures ? '#FFF' : colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>CALCULAR</Text>
                         </TouchableOpacity>
                         
-                        {/* ANÁLISE IA DE MOVIMENTO */}
                         <TouchableOpacity 
                             style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} 
                             onPress={setModalVisible}

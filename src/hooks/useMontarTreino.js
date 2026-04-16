@@ -26,6 +26,9 @@ export const useMontarTreino = (route, navigation) => {
     const [isArchived, setIsArchived] = useState(false);
     const [isReordering, setIsReordering] = useState(false);
 
+    // 🔥 ESTADO OFICIAL DO MODELO (LIGADO DIRETO AO BANCO DE DADOS)
+    const [workoutModel, setWorkoutModel] = useState('CARGA'); // 'BASE' ou 'CARGA'
+
     const [showCalendarStart, setShowCalendarStart] = useState(false);
     const [showCalendarEnd, setShowCalendarEnd] = useState(false);
     
@@ -66,13 +69,11 @@ export const useMontarTreino = (route, navigation) => {
     const [collections, setCollections] = useState([]);
     const [saveTemplateCollectionId, setSaveTemplateCollectionId] = useState(null);
     
-    // 🔥 NOVA ARQUITETURA: Controle de Pilares e Níveis na Biblioteca
     const [selectedLibraryCollection, setSelectedLibraryCollection] = useState(null);
     const [selectedPillar, setSelectedPillar] = useState(null);
     const [selectedLevelTab, setSelectedLevelTab] = useState('Iniciante');
 
     const categories = ['TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 'Bíceps', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'];
-    // 🔥 PILARES OFICIAIS ATUALIZADOS
     const goals = ['Hipertrofia', 'Emagrecimento', 'Definição', 'Fortalecimento', 'Qualidade de Vida', 'Competição'];
     const levels = ['Iniciante', 'Intermediário', 'Avançado'];
     
@@ -99,6 +100,7 @@ export const useMontarTreino = (route, navigation) => {
             setStartDate(new Date());
             setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
             setIsArchived(false);
+            setWorkoutModel('CARGA'); // Reseta padrão
         }
         fetchDados(); 
     }, [isEditing, isTemplateMode]);
@@ -151,6 +153,14 @@ export const useMontarTreino = (route, navigation) => {
 
             if (isEditing && workoutToEdit) {
                 setCustomWorkoutName(workoutToEdit.name);
+                
+                // 🔥 Carrega o modelo oficial do banco de dados
+                if (workoutToEdit.workoutModel) {
+                    setWorkoutModel(workoutToEdit.workoutModel);
+                } else {
+                    setWorkoutModel('CARGA');
+                }
+                
                 if (workoutToEdit.startDate) setStartDate(new Date(workoutToEdit.startDate));
                 if (workoutToEdit.endDate) {
                     const end = new Date(workoutToEdit.endDate);
@@ -183,7 +193,6 @@ export const useMontarTreino = (route, navigation) => {
     const fetchTemplates = async () => {
         try {
             const currentAdminId = adminId || JSON.parse(await AsyncStorage.getItem('user')).id;
-            // Busca TODOS os templates do coach para filtrar localmente na nova arquitetura
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
@@ -493,6 +502,7 @@ export const useMontarTreino = (route, navigation) => {
     const applyClone = (workout) => {
         processWorkoutDataToState(workout.exercises);
         setCustomWorkoutName(`${workout.name} (Clone)`);
+        setWorkoutModel(workout.workoutModel || 'CARGA'); // Clona o modelo também
         setModalCloneVisible(false);
         setSelectedCloneStudent(null);
         setCloneWorkoutsList([]);
@@ -521,7 +531,7 @@ export const useMontarTreino = (route, navigation) => {
             if (!res.ok) throw new Error("Erro");
             setModalSaveTemplateVisible(false);
             Alert.alert("Sucesso", "Modelo salvo na biblioteca!");
-            fetchTemplates(); // Atualiza a lista por trás
+            fetchTemplates(); 
         } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
     };
 
@@ -625,7 +635,20 @@ export const useMontarTreino = (route, navigation) => {
         const endpoint = isUpdate ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` : `https://fitos-final.onrender.com/api/workout`; 
         const method = isUpdate ? 'PUT' : 'POST';
 
-        const response = await fetch(endpoint, { method: method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: aluno?.id, name: customWorkoutName, exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false }) });
+        // 🔥 SALVAMENTO OFICIAL: Usa o BD ao invés de Hack
+        const response = await fetch(endpoint, { 
+            method: method, 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ 
+                userId: aluno?.id, 
+                name: customWorkoutName, 
+                workoutModel: workoutModel, // ENVIA PRO BANCO DE DADOS
+                exercises: flatExercises, 
+                startDate: startDate.toISOString(), 
+                endDate: finalEndDate.toISOString(), 
+                archiveCurrent: false 
+            }) 
+        });
         if (!response.ok) throw new Error("Erro");
 
         alertMsg("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); navigation.goBack(); 
@@ -640,10 +663,12 @@ export const useMontarTreino = (route, navigation) => {
 
     return {
         state: {
-            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, selectedCategory, showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab
+            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, selectedCategory, showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab,
+            workoutModel // 🔥 Novo estado repassado para a interface
         },
         setters: {
-            setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, setSelectedCategory, setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab
+            setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, setSelectedCategory, setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
+            setWorkoutModel // 🔥 Setter do modelo repassado
         },
         actions: {
             handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab 

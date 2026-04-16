@@ -21,7 +21,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const params = route?.params || {};
   const workoutId = params.workoutId || '';
   const day = params.day || 'A';
-  const workoutName = params.workoutName || 'Treino';
+  
+  // 🔥 LÓGICA DE LIMPEZA DE NOME (Caso ainda existam treinos com a tag antiga)
+  const rawName = params.workoutName || 'Treino';
+  const workoutName = rawName.replace(' |#BASE#', '');
 
   const { theme } = useTheme();
 
@@ -37,6 +40,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  // 🔥 ESTADO DO MODELO: Agora ele sincroniza com o Banco de Dados
+  const [workoutModel, setWorkoutModel] = useState('CARGA'); 
 
   const appState = useRef(AppState.currentState);
   const isFinishingRef = useRef(false);
@@ -61,7 +67,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [rpe, setRpe] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
 
-  // 🔥 ESTADOS DO NOVO UPSELL E PEDÁGIO 🔥
   const [upsellModalVisible, setUpsellModalVisible] = useState(false);
   const [upsellType, setUpsellType] = useState('ia');
   const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
@@ -254,7 +259,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
           } catch(e) {}
       }
 
-      // 🔥 BATE NA API PRA BUSCAR O TREINO E AVISAR SE TEM FOTOS 🔥
       const [resWorkout, resCheckin] = await Promise.all([
           fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`),
           fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
@@ -262,7 +266,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
       
       const data = await resWorkout.json();
       
-      // CHECA FOTOS (Para liberar o botão de iniciar caso necessário)
       if (resCheckin.ok) {
           const checkinsData = await resCheckin.json();
           setHasSentInitialPhotos(Array.isArray(checkinsData) && checkinsData.length > 0);
@@ -270,6 +273,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
       
       if (resWorkout.ok && data && data.exercises) {
         
+        // 🔥 LÊ O MODELO OFICIAL DO BANCO DE DADOS (CARGA ou BASE)
+        setWorkoutModel(data.workoutModel || 'CARGA');
+
         const filteredExercises = data.exercises
             .filter(item => item.day === day)
             .map(item => {
@@ -445,7 +451,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   };
 
   const handleStartTimerRequest = () => {
-      // 🔥 LÓGICA DE PEDÁGIO FLEXÍVEL 🔥
       if (!hasSentInitialPhotos && userPlan !== 'PREMIUM') {
           setInitialPhotosModalVisible(true);
       } else {
@@ -488,7 +493,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
         <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: isWeb ? 1 : 0, borderBottomColor: theme.border }}>
-            <View style={{ width: '100%', maxWidth: isWeb ? 480 : '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'space-between' }}>
+            <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'space-between' }}>
                 
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
                     <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
@@ -610,6 +615,9 @@ export default function DayWorkoutScreen({ route, navigation }) {
                                     }}
                                     
                                     hasPremiumFeatures={userPlan === 'PREMIUM'} 
+                                    
+                                    // 🔥 REPASSANDO O MODELO DO TREINO PARA O CARTÃO 🔥
+                                    workoutModel={workoutModel}
 
                                     TECH_GUIDE={TECH_GUIDE} setTechModalVisible={setTechModalVisible} setSelectedTech={setSelectedTech}
                                     biSetType={biSetType} isLastExercise={index === exercisesToShow.length - 1} 
@@ -640,14 +648,13 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </ScrollView>
         </View>
 
-        {/* 🔥 MODAL DE PEDÁGIO FLEXÍVEL (NAG SCREEN) 🔥 */}
         <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
             <View style={styles.modalOverlay}>
                 <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
                     <TouchableOpacity style={styles.upsellClose} onPress={() => setInitialPhotosModalVisible(false)}>
                         <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
                     </TouchableOpacity>
-                    <View style={[styles.upsellIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
+                    <View style={[styles.upsellIconBox, { backgroundColor: theme.accent + '22' }]}>
                         <MaterialCommunityIcons name="camera-timer" size={36} color={theme.accent} />
                     </View>
                     <Text style={[styles.upsellTitle, { color: theme.text }]}>FOTOS PENDENTES 📸</Text>
@@ -675,7 +682,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </View>
         </Modal>
 
-        {/* 🔥 MODAL DE UPSELL INTELIGENTE (IA vs CALCULADORA) 🔥 */}
         <Modal visible={upsellModalVisible} transparent animationType="fade">
             <View style={styles.modalOverlay}>
                 <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: upsellType === 'ia' ? '#CCFF00' : '#32ADE6' }]}>
@@ -683,7 +689,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                         <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
                     </TouchableOpacity>
 
-                    <View style={[styles.upsellIconBox, { backgroundColor: upsellType === 'ia' ? '#CCFF0022' : '#32ADE622', marginBottom: 20 }]}>
+                    <View style={[styles.upsellIconBox, { backgroundColor: upsellType === 'ia' ? '#CCFF0022' : '#32ADE622' }]}>
                         <MaterialCommunityIcons 
                             name={upsellType === 'ia' ? "camera-metering-spot" : "calculator"} 
                             size={36} 
@@ -732,7 +738,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </View>
         </Modal>
 
-        {/* MODAL DE TÉCNICA */}
         <Modal visible={techModalVisible} transparent animationType="fade" onRequestClose={closeTechModal}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)', justifyContent: 'center', padding: 20, zIndex: 1000 }}>
                 <View style={[{ width: '100%', maxWidth: isWeb ? 440 : '100%', alignSelf: 'center', backgroundColor: theme.surface, padding: 25, borderRadius: 25, borderWidth: 1 }, { borderColor: selectedTech && TECH_GUIDE[selectedTech] ? (TECH_GUIDE[selectedTech].color === theme.accent && !theme.isDark ? theme.accent : TECH_GUIDE[selectedTech].color) : theme.border, maxHeight: '80%' }]}>
@@ -780,7 +785,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </KeyboardAvoidingView>
         </Modal>
         
-        {/* MODAL DE FINALIZAR TREINO */}
         <Modal visible={finishModalVisible} animationType="fade" transparent>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)', justifyContent: 'center', padding: 20, zIndex: 1000 }}>
                 <View style={{ width: '100%', maxWidth: isWeb ? 440 : '100%', alignSelf: 'center', backgroundColor: theme.surface, padding: 25, borderRadius: 25, borderColor: theme.border, borderWidth: 1, maxHeight: '80%' }}>
@@ -819,7 +823,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
             </KeyboardAvoidingView>
         </Modal>
 
-        {/* MODAL DA CALCULADORA DE 1RM */}
         <Modal visible={calcModalVisible} transparent animationType="fade">
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)', justifyContent: 'center', padding: 20, zIndex: 1000 }}>
                 <View style={{ width: '100%', maxWidth: isWeb ? 440 : '100%', alignSelf: 'center', backgroundColor: theme.surface, padding: 25, borderRadius: 25, borderColor: theme.border, borderWidth: 1, maxHeight: '80%' }}>
@@ -937,7 +940,7 @@ const styles = StyleSheet.create({
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
   upsellCard: { width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
   upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
-  upsellIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+  upsellIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   upsellTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
   upsellDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
   upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },

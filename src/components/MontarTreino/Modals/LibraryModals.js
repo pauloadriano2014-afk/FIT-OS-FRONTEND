@@ -1,17 +1,41 @@
 // src/components/MontarTreino/Modals/LibraryModals.js
-import React from 'react';
-import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, Platform, StyleSheet } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, Platform, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import SmartThumbnail from '../SmartThumbnail';
+import WorkoutPreviewPanel from '../WorkoutPreviewPanel';
 
 export default function LibraryModals({
     theme, isWeb, webOuterBg, modalBuscaVisible, setModalBuscaVisible, 
     searchText, setSearchText, selectedCategory, setSelectedCategory, 
     showCatDropdown, setShowCatDropdown, categories, exerciciosFiltrados, 
     addExercicioManual, isSwapping, openPreview, previewModalVisible, 
-    setPreviewModalVisible, previewExercise, setPreviewExercise, previewVideoRef
+    setPreviewModalVisible, previewExercise, setPreviewExercise, previewVideoRef,
+    currentExercises 
 }) {
+    // 🔥 LÓGICA DO AVISO FLUTUANTE (TOAST)
+    const [toastVisible, setToastVisible] = useState(false);
+    const [toastName, setToastName] = useState('');
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    const triggerToast = (name) => {
+        setToastName(name);
+        setToastVisible(true);
+        
+        // Animação: Sobe e aparece -> Fica um pouco -> Some
+        Animated.sequence([
+            Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+            Animated.delay(1200),
+            Animated.timing(fadeAnim, { toValue: 0, duration: 400, useNativeDriver: true })
+        ]).start(() => setToastVisible(false));
+    };
+
+    const handleAdd = (item) => {
+        addExercicioManual(item);
+        triggerToast(item.name);
+    };
+
     return (
         <>
             <Modal visible={modalBuscaVisible} animationType="slide">
@@ -57,9 +81,19 @@ export default function LibraryModals({
                         </View>
                     </View>
 
+                    {/* 🔥 TOAST ANIMADO (AVISO LEVE) */}
+                    {toastVisible && (
+                        <Animated.View style={[styles.toastContainer, { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] }]}>
+                            <View style={[styles.toastContent, { backgroundColor: '#4DE38F' }]}>
+                                <MaterialCommunityIcons name="check-circle" size={16} color="#000" />
+                                <Text style={styles.toastText} numberOfLines={1}>{toastName} ADICIONADO!</Text>
+                            </View>
+                        </Animated.View>
+                    )}
+
                     <FlatList 
                         style={[{ flex: 1, width: '100%' }, isWeb && { overflowY: 'auto' }]}
-                        contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 100, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
+                        contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 150, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
                         data={exerciciosFiltrados} 
                         keyExtractor={item => item.id} 
                         showsVerticalScrollIndicator={true}
@@ -70,12 +104,16 @@ export default function LibraryModals({
                                     <Text style={[styles.libName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
                                     <View style={[styles.catTag, { backgroundColor: theme.surface, marginTop: 5, alignSelf: 'flex-start' }]}><Text style={[styles.libCat, { color: theme.textSecondary }]}>{item.category}</Text></View>
                                 </View>
-                                <TouchableOpacity onPress={() => addExercicioManual(item)} style={{ padding: 8, backgroundColor: theme.accent + '22', borderRadius: 12 }}>
+                                <TouchableOpacity onPress={() => handleAdd(item)} style={{ padding: 8, backgroundColor: theme.accent + '22', borderRadius: 12 }}>
                                     <MaterialCommunityIcons name={isSwapping ? "sync" : "plus"} size={24} color={theme.accent} />
                                 </TouchableOpacity>
                             </View>
                         )} 
                     />
+
+                    {currentExercises && currentExercises.length > 0 && (
+                        <WorkoutPreviewPanel currentExercises={currentExercises} theme={theme} />
+                    )}
                 </View>
             </Modal>
 
@@ -109,8 +147,8 @@ export default function LibraryModals({
                         </View>
 
                         <View style={{ padding: 20, paddingTop: 0 }}>
-                            <TouchableOpacity style={{ backgroundColor: '#99CC00', padding: 18, borderRadius: 12, alignItems: 'center' }} onPress={() => addExercicioManual(previewExercise)}>
-                                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 16 }}>Adicionar ao treino</Text>
+                            <TouchableOpacity style={{ backgroundColor: '#4DE38F', padding: 18, borderRadius: 12, alignItems: 'center' }} onPress={() => handleAdd(previewExercise)}>
+                                <Text style={{ color: '#000', fontWeight: '900', fontSize: 16 }}>Adicionar ao treino</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -134,5 +172,34 @@ const styles = StyleSheet.create({
     catTag: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
     libCat: { fontSize: 10, fontWeight: '700' },
     previewBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    previewContainer: { width: '100%', maxWidth: 420, height: '85%', maxHeight: 800, borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column' }
+    previewContainer: { width: '100%', maxWidth: 420, height: '85%', maxHeight: 800, borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
+    // ESTILOS DO TOAST
+    toastContainer: {
+        position: 'absolute',
+        top: 150,
+        left: 0,
+        right: 0,
+        zIndex: 99,
+        alignItems: 'center',
+        pointerEvents: 'none',
+    },
+    toastContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 25,
+        gap: 8,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+    },
+    toastText: {
+        color: '#000',
+        fontWeight: '900',
+        fontSize: 12,
+        maxWidth: 200,
+    }
 });

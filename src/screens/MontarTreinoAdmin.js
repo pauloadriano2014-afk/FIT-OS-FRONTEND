@@ -10,6 +10,7 @@ import ExerciseCardAdmin from '../components/MontarTreino/ExerciseCardAdmin';
 import CustomCalendar from '../components/CustomCalendar';
 import LibraryModals from '../components/MontarTreino/Modals/LibraryModals';
 import TemplateAndCloneModals from '../components/MontarTreino/Modals/TemplateAndCloneModals';
+import WorkoutPreviewPanel from '../components/MontarTreino/WorkoutPreviewPanel';
 
 const { width } = Dimensions.get('window');
 const formatDateToString = (date) => { if (!date) return ''; const d = new Date(date); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; };
@@ -218,9 +219,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   <TouchableOpacity style={styles.dateInputGroup} onPress={() => setters.setShowCalendarEnd(true)}>
                                       <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>FIM</Text>
                                       <View style={[styles.dateDisplay, { backgroundColor: theme.bg, borderColor: theme.border }, state.isArchived && {opacity: 0.5}]}>
-                                          <MaterialCommunityIcons name="calendar-check" size={16} color="#32ADE6" /><Text style={[styles.dateText, { color: theme.text }]}>{formatDateToString(state.endDate)}</Text></View>
+                                          <MaterialCommunityIcons name="calendar-check" size={16} color={theme.accent} /><Text style={[styles.dateText, { color: theme.text }]}>{formatDateToString(state.endDate)}</Text></View>
                                   </TouchableOpacity>
                               </View>
+                              
                               <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                   <Text style={[styles.archiveLabel, state.isArchived ? {color:'#FF3B30'} : {color: theme.accent}]}>STATUS: {state.isArchived ? "ARQUIVADO" : "ATIVO"}</Text>
                                   <Switch 
@@ -229,6 +231,25 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                       trackColor={{false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5'}} 
                                       thumbColor={state.isArchived ? '#FF3B30' : theme.accent} 
                                   />
+                              </View>
+
+                              {/* 🔥 NOVO: SELETOR DE MODELO C/ CARGA VS S/ CARGA */}
+                              <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border, marginTop: 10 }]}>
+                                  <Text style={[styles.archiveLabel, {color: theme.textSecondary}]}>MODELO DO TREINO:</Text>
+                                  <View style={{flexDirection: 'row', gap: 10}}>
+                                      <TouchableOpacity 
+                                          style={[styles.tag, state.workoutModel === 'CARGA' ? {borderColor: theme.border} : {backgroundColor: '#4DE38F', borderColor: '#4DE38F'}]}
+                                          onPress={() => setters.setWorkoutModel('BASE')}
+                                      >
+                                          <Text style={[styles.tagText, state.workoutModel === 'BASE' ? {color: '#000'} : {color: theme.textSecondary}]}>S/ CARGA</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity 
+                                          style={[styles.tag, state.workoutModel === 'CARGA' ? {backgroundColor: '#4DE38F', borderColor: '#4DE38F'} : {borderColor: theme.border}]}
+                                          onPress={() => setters.setWorkoutModel('CARGA')}
+                                      >
+                                          <Text style={[styles.tagText, state.workoutModel === 'CARGA' ? {color: '#000'} : {color: theme.textSecondary}]}>C/ CARGA</Text>
+                                      </TouchableOpacity>
+                                  </View>
                               </View>
                           </View>
                       )}
@@ -241,14 +262,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                 </TouchableOpacity>
                             ) : (
                                 <>
-                                    <TouchableOpacity style={[styles.actionBtn, {borderColor:'#32ADE6', borderWidth:1, flex:1}]} onPress={() => setters.setIsReordering(true)}>
-                                        <MaterialCommunityIcons name="sort" size={20} color="#32ADE6" />
-                                        <Text style={[styles.actionBtnText, {color:'#32ADE6'}]}>REORDENAR</Text>
+                                    <TouchableOpacity style={[styles.actionBtn, {borderColor: theme.accent, borderWidth:1, flex:1}]} onPress={() => setters.setIsReordering(true)}>
+                                        <MaterialCommunityIcons name="sort" size={20} color={theme.accent} />
+                                        <Text style={[styles.actionBtnText, {color: theme.accent}]}>REORDENAR</Text>
                                     </TouchableOpacity>
                                     
-                                    <TouchableOpacity style={[styles.actionBtn, {backgroundColor:'#32ADE6', flex:1}]} onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}>
-                                        <MaterialCommunityIcons name="plus" size={20} color="#FFF" />
-                                        <Text style={[styles.actionBtnText, {color:'#FFF'}]}>ADICIONAR</Text>
+                                    <TouchableOpacity style={[styles.actionBtn, {backgroundColor: theme.accent, flex:1}]} onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}>
+                                        <MaterialCommunityIcons name="plus" size={20} color={theme.isDark ? "#000" : "#FFF"} />
+                                        <Text style={[styles.actionBtnText, {color: theme.isDark ? "#000" : "#FFF"}]}>ADICIONAR</Text>
                                     </TouchableOpacity>
                                 </>
                             )}
@@ -352,6 +373,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                   setModalTecnicaVisible={setters.setModalTecnicaVisible} atualizarObservacao={actions.atualizarObservacao}
                                   openPreview={actions.openPreview} currentExercisesLength={state.currentExercises.length}
                                   setIsSwapping={setters.setIsSwapping} setSwapIndex={setters.setSwapIndex}
+                                  workoutModel={state.workoutModel}
                                   setInitialCategoryFilter={(catName) => {
                                       const normalizedCat = catName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                                       const foundCat = state.categories.find(c => c.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === normalizedCat);
@@ -389,6 +411,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           openPreview={actions.openPreview} previewModalVisible={state.previewModalVisible}
           setPreviewModalVisible={setters.setPreviewModalVisible} previewExercise={state.previewExercise}
           setPreviewExercise={setters.setPreviewExercise} previewVideoRef={previewVideoRef}
+          currentExercises={state.currentExercises} // 🔥 OLHA A CHAVE AQUI!
       />
 
       <TemplateAndCloneModals 
