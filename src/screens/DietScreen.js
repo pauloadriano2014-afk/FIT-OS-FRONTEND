@@ -3,46 +3,14 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
     TouchableOpacity, ActivityIndicator, Platform, Linking,
-    Animated, useWindowDimensions, Modal
+    Animated, useWindowDimensions, Modal, TextInput, Image,
+    KeyboardAvoidingView
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
-// ─── HELPERS (COM CORREÇÃO DE CALORIAS) ──────────────────────────────────────
-const calcItemMacros = (item) => {
-    // Busca a quantidade real
-    const amount = parseFloat(item.gram_amount) || parseFloat(item.amount) || 0;
-    
-    // Busca os valores base (por 100g) que vieram do banco
-    const kcal100 = parseFloat(item.calories_per_100) || parseFloat(item.calories) || 0;
-    const p100 = parseFloat(item.p) || parseFloat(item.protein) || 0;
-    const c100 = parseFloat(item.c) || parseFloat(item.carbs) || 0;
-    const f100 = parseFloat(item.f) || parseFloat(item.fats) || 0;
-
-    // Regra de 3 para não zerar
-    return {
-        kcal: Math.round((kcal100 * amount) / 100),
-        prot: Math.round((p100 * amount) / 100),
-        carb: Math.round((c100 * amount) / 100),
-        fat:  Math.round((f100 * amount) / 100),
-    };
-};
-
-const calcMealMacros = (meal) => {
-    const groups = meal.items.reduce((acc, item) => {
-        const key = item.substitutionGroupId || item.id || Math.random().toString();
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(item);
-        return acc;
-    }, {});
-    
-    return Object.values(groups).reduce((sum, group) => {
-        const m = calcItemMacros(group[0]); // Considera o primeiro item do grupo "OU"
-        return { kcal: sum.kcal + m.kcal, prot: sum.prot + m.prot, carb: sum.carb + m.carb, fat: sum.fat + m.fat };
-    }, { kcal: 0, prot: 0, carb: 0, fat: 0 });
-};
-
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const parseWaterMl = (str) => {
     if (!str) return 3150;
     const s = String(str).toLowerCase();
@@ -51,6 +19,46 @@ const parseWaterMl = (str) => {
     if (s.includes('ml')) return Math.round(num);
     if (num > 0 && num < 20) return Math.round(num * 1000);
     return Math.round(num) || 3150;
+};
+
+const getMacroCategory = (food) => {
+    const p = parseFloat(food.protein || food.p || 0);
+    const c = parseFloat(food.carbs || food.c || 0);
+    const f = parseFloat(food.fats || food.f || 0);
+    
+    const max = Math.max(p, c, f);
+    if (max === 0) return "ACOMPANHAMENTO / LIVRE";
+    if (max === p) return "FONTE DE PROTEÍNA";
+    if (max === c) return "FONTE DE CARBOIDRATO";
+    return "FONTE DE GORDURA";
+};
+
+const getMealBackgroundImage = (mealName) => {
+    const name = String(mealName).toLowerCase();
+    if (name.includes('café') || name.includes('cafe') || name.includes('desjejum')) 
+        return 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&q=80&w=500';
+    if (name.includes('almoço') || name.includes('almoco')) 
+        return 'https://images.unsplash.com/photo-1544025162-811114cd3543?auto=format&fit=crop&q=80&w=500';
+    if (name.includes('janta') || name.includes('jantar')) 
+        return 'https://images.unsplash.com/photo-1551326844-4fd41d15db7f?auto=format&fit=crop&q=80&w=500';
+    if (name.includes('pré') || name.includes('pre')) 
+        return 'https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&q=80&w=500';
+    if (name.includes('pós') || name.includes('pos')) 
+        return 'https://images.unsplash.com/photo-1529692236671-f1f6cf9683ba?auto=format&fit=crop&q=80&w=500';
+    if (name.includes('ceia')) 
+        return 'https://images.unsplash.com/photo-1505253716362-afaea1d3d1af?auto=format&fit=crop&q=80&w=500';
+    return 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&q=80&w=500'; 
+};
+
+// 🔥 IA PARA LER O OBJETIVO DO ALUNO
+const getGoalType = (userData) => {
+    if (!userData) return 'HIPERTROFIA';
+    const goalStr = String(userData.goal || userData.anamneses?.[0]?.objetivo || '').toLowerCase();
+    
+    if (goalStr.includes('emagreci') || goalStr.includes('seca') || goalStr.includes('defini') || goalStr.includes('perda')) {
+        return 'EMAGRECIMENTO';
+    }
+    return 'HIPERTROFIA';
 };
 
 // ─── COMPONENTES DE UI ────────────────────────────────────────────────────────
@@ -70,9 +78,7 @@ function DaySelector({ theme }) {
                         style={[styles.dayBtn, isActive && { backgroundColor: theme.accent }]}
                         onPress={() => setActiveDay(i)}
                     >
-                        <Text style={[styles.dayText, { color: isActive ? '#000' : theme.textSecondary }]}>
-                            {d}
-                        </Text>
+                        <Text style={[styles.dayText, { color: isActive ? '#000' : theme.textSecondary }]}>{d}</Text>
                     </TouchableOpacity>
                 );
             })}
@@ -80,10 +86,9 @@ function DaySelector({ theme }) {
     );
 }
 
-function CleanMealCard({ meal, theme, index }) {
-    const mealMacros = calcMealMacros(meal);
+function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
+    const bgImage = getMealBackgroundImage(meal.name);
 
-    // Agrupamento para tratar os substitutos (OU)
     const grouped = meal.items.reduce((acc, item) => {
         const key = item.substitutionGroupId || item.id || Math.random().toString();
         if (!acc[key]) acc[key] = [];
@@ -93,66 +98,77 @@ function CleanMealCard({ meal, theme, index }) {
     const groups = Object.values(grouped);
 
     return (
-        <View style={[styles.cleanMealCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {/* Header da Refeição */}
+        <View style={[styles.cleanMealCard, { backgroundColor: theme.surface, borderColor: isChecked ? theme.accent : theme.border, opacity: isChecked ? 0.6 : 1 }]}>
+            <Image source={{ uri: bgImage }} style={styles.mealBgImage} resizeMode="cover" />
+            <View style={[styles.mealBgOverlay, { backgroundColor: theme.surface }]} />
+
             <View style={styles.cleanMealHeader}>
-                <View style={[styles.cleanTimeBadge, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                    <MaterialCommunityIcons name="clock-outline" size={14} color={theme.textSecondary} />
-                    <Text style={[styles.cleanTimeText, { color: theme.textSecondary }]}>{meal.time || '--:--'}</Text>
+                <View style={{flex: 1}}>
+                    <View style={[styles.cleanTimeBadge, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                        <MaterialCommunityIcons name="clock-outline" size={14} color={theme.textSecondary} />
+                        <Text style={[styles.cleanTimeText, { color: theme.textSecondary }]}>{meal.time || '--:--'}</Text>
+                    </View>
+                    <Text style={[styles.cleanMealTitle, { color: theme.text }]}>{meal.name?.toUpperCase()}</Text>
                 </View>
-                <Text style={[styles.cleanMealTitle, { color: theme.text }]}>{meal.name?.toUpperCase()}</Text>
-                <Text style={[styles.cleanMealMacros, { color: theme.accent }]}>
-                    {mealMacros.kcal} KCAL
-                </Text>
+
+                <TouchableOpacity 
+                    style={[styles.checkBtn, isChecked ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.bg, borderColor: theme.border }]} 
+                    onPress={() => onToggleCheck(meal.id)}
+                >
+                    <MaterialCommunityIcons name="check" size={24} color={isChecked ? '#000' : theme.textSecondary} />
+                </TouchableOpacity>
             </View>
 
-            {/* Itens da Refeição */}
             <View style={styles.cleanFoodList}>
-                {groups.map((group, gIdx) => (
-                    <View key={gIdx} style={styles.cleanFoodGroup}>
-                        {group.map((food, fIdx) => (
-                            <React.Fragment key={food.id || fIdx}>
-                                {fIdx > 0 && (
-                                    <View style={styles.cleanOuDivider}>
-                                        <View style={[styles.cleanOuLine, { backgroundColor: theme.border }]} />
-                                        <Text style={[styles.cleanOuText, { color: theme.textSecondary }]}>OU</Text>
-                                        <View style={[styles.cleanOuLine, { backgroundColor: theme.border }]} />
-                                    </View>
-                                )}
-                                <View style={[styles.cleanFoodItem, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                    <View style={[styles.cleanFoodIndex, { borderColor: theme.border }]}>
-                                        <Text style={[styles.cleanFoodIndexText, { color: theme.textSecondary }]}>{gIdx + 1}</Text>
-                                    </View>
-                                    <View style={styles.cleanFoodDetails}>
-                                        <Text style={[styles.cleanFoodName, { color: theme.text }]} numberOfLines={2}>
-                                            {food.amount} {food.unit} {food.name?.toUpperCase()}
-                                        </Text>
-                                        <Text style={[styles.cleanFoodSub, { color: theme.textSecondary }]}>
-                                            {food.amount} {food.unit}
-                                        </Text>
-                                    </View>
-                                </View>
-                            </React.Fragment>
-                        ))}
-                    </View>
-                ))}
+                {groups.map((group, gIdx) => {
+                    const macroCategory = getMacroCategory(group[0]);
+                    return (
+                        <View key={gIdx} style={styles.cleanFoodGroup}>
+                            <Text style={[styles.macroCategoryTag, { color: theme.accent }]}>🎯 {macroCategory}</Text>
+                            {group.map((food, fIdx) => {
+                                const isSub = fIdx > 0;
+                                return (
+                                    <React.Fragment key={food.id || fIdx}>
+                                        {isSub && (
+                                            <View style={styles.cleanOuDivider}>
+                                                <MaterialCommunityIcons name="swap-vertical" size={14} color={theme.textSecondary} />
+                                                <Text style={[styles.cleanOuText, { color: theme.textSecondary }]}>OU SUBSTITUA POR:</Text>
+                                            </View>
+                                        )}
+                                        <View style={[styles.cleanFoodItem, { backgroundColor: theme.bg, borderColor: theme.border, marginLeft: isSub ? 15 : 0 }]}>
+                                            <View style={styles.cleanFoodDetails}>
+                                                <Text style={[styles.cleanFoodName, { color: theme.text }]} numberOfLines={2}>
+                                                    {food.amount} {food.unit} de {food.name?.toUpperCase()}
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </React.Fragment>
+                                );
+                            })}
+                        </View>
+                    )
+                })}
             </View>
 
             {!!meal.notes && (
-                <View style={[styles.cleanNoteBox, { backgroundColor: theme.bg }]}>
-                    <MaterialCommunityIcons name="information-outline" size={14} color={theme.textSecondary} />
-                    <Text style={[styles.cleanNoteText, { color: theme.textSecondary }]}>{meal.notes}</Text>
+                <View style={[styles.cleanNoteBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '40' }]}>
+                    <MaterialCommunityIcons name="bullhorn-outline" size={16} color={theme.accent} />
+                    <View style={{flex: 1}}>
+                        <Text style={{ color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 2 }}>O COACH AVISA:</Text>
+                        <Text style={[styles.cleanNoteText, { color: theme.text }]}>{meal.notes}</Text>
+                    </View>
                 </View>
             )}
         </View>
     );
 }
 
+// 🔥 VOLTOU! Modal de Biofeedback
 function BiofeedbackModal({ visible, onClose, theme }) {
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.modalOverlay}>
-                <View style={[styles.modalBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.modalBox, { backgroundColor: theme.surface, borderColor: theme.border, width: '100%', maxWidth: 400 }]}>
                     <View style={[styles.modalHeader, { backgroundColor: theme.bg }]}>
                         <View style={[styles.modalIconWrap, { borderColor: theme.accent }]}>
                             <MaterialCommunityIcons name="heart-pulse" size={24} color={theme.accent} />
@@ -165,7 +181,6 @@ function BiofeedbackModal({ visible, onClose, theme }) {
                     </View>
 
                     <View style={styles.modalBody}>
-                        {/* Fake selectors just for UI layout based on print */}
                         <Text style={[styles.modalLabel, { color: theme.textSecondary }]}><MaterialCommunityIcons name="silverware-fork-knife" /> NÍVEL DE FOME</Text>
                         <View style={styles.modalOptionsRow}>
                             <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>BAIXA</Text></View>
@@ -173,18 +188,11 @@ function BiofeedbackModal({ visible, onClose, theme }) {
                             <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>ALTA</Text></View>
                         </View>
 
-                        <Text style={[styles.modalLabel, { color: theme.textSecondary, marginTop: 15 }]}><MaterialCommunityIcons name="stomach" /> DIGESTÃO E INTESTINO</Text>
+                        <Text style={[styles.modalLabel, { color: theme.textSecondary, marginTop: 15 }]}><MaterialCommunityIcons name="stomach" /> DIGESTÃO</Text>
                         <View style={styles.modalOptionsRow}>
                             <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>RUIM</Text></View>
                             <View style={[styles.modalOption, { borderColor: theme.border, backgroundColor: theme.bg }]}><Text style={{color: theme.text, fontSize: 11, fontWeight: 'bold'}}>NORMAL</Text></View>
-                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>PERFEITO</Text></View>
-                        </View>
-
-                        <Text style={[styles.modalLabel, { color: theme.textSecondary, marginTop: 15 }]}><MaterialCommunityIcons name="battery-charging" /> ENERGIA GERAL</Text>
-                        <View style={styles.modalOptionsRow}>
-                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>BAIXA</Text></View>
-                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>MÉDIA</Text></View>
-                            <View style={[styles.modalOption, { borderColor: theme.border, backgroundColor: theme.bg }]}><Text style={{color: theme.text, fontSize: 11, fontWeight: 'bold'}}>ALTA</Text></View>
+                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>PERFEITA</Text></View>
                         </View>
 
                         <TouchableOpacity style={[styles.modalSubmit, { backgroundColor: theme.textSecondary }]} onPress={onClose}>
@@ -193,6 +201,75 @@ function BiofeedbackModal({ visible, onClose, theme }) {
                     </View>
                 </View>
             </View>
+        </Modal>
+    );
+}
+
+function DietSurveyModal({ visible, onClose, theme }) {
+    const [saciedade, setSaciedade] = useState('');
+    const [dificuldade, setDificuldade] = useState('');
+    const [ajustes, setAjustes] = useState('');
+    const [enviando, setEnviando] = useState(false);
+
+    const enviarFeedback = () => {
+        setEnviando(true);
+        setTimeout(() => {
+            setEnviando(false);
+            if(Platform.OS === 'web') window.alert("Sucesso!\nSua solicitação de ajuste foi enviada ao Coach.");
+            else Alert.alert("Sucesso", "Sua solicitação de ajuste foi enviada ao Coach.");
+            onClose();
+        }, 1500);
+    };
+
+    return (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+                <View style={[styles.modalBox, { backgroundColor: theme.surface, borderColor: theme.border, width: '100%', maxWidth: 440 }]}>
+                    <TouchableOpacity style={styles.modalClose} onPress={onClose}>
+                        <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                    
+                    <Text style={[styles.modalTitle, { color: theme.text }]}>AJUSTAR PLANO</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 13, marginBottom: 20 }}>Dê seu feedback para que o Coach faça os ajustes cirúrgicos na sua dieta.</Text>
+
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary }]}>1. COMO ESTÁ SUA SACIEDADE?</Text>
+                    <View style={styles.modalOptionsRow}>
+                        <TouchableOpacity style={[styles.modalOption, saciedade === 'Fome' ? { backgroundColor: theme.accent, borderColor: theme.accent } : { borderColor: theme.border }]} onPress={() => setSaciedade('Fome')}>
+                            <Text style={{color: saciedade === 'Fome' ? '#000' : theme.text, fontSize: 10, fontWeight: 'bold'}}>COM FOME</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.modalOption, saciedade === 'Normal' ? { backgroundColor: theme.accent, borderColor: theme.accent } : { borderColor: theme.border }]} onPress={() => setSaciedade('Normal')}>
+                            <Text style={{color: saciedade === 'Normal' ? '#000' : theme.text, fontSize: 10, fontWeight: 'bold'}}>SATISFEITO</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.modalOption, saciedade === 'Cheio' ? { backgroundColor: theme.accent, borderColor: theme.accent } : { borderColor: theme.border }]} onPress={() => setSaciedade('Cheio')}>
+                            <Text style={{color: saciedade === 'Cheio' ? '#000' : theme.text, fontSize: 10, fontWeight: 'bold'}}>MUITO CHEIO</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary, marginTop: 15 }]}>2. ALGUMA REFEIÇÃO ESTÁ DIFÍCIL?</Text>
+                    <TextInput 
+                        style={[styles.obsInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
+                        placeholder="Ex: O almoço no trabalho está corrido..." 
+                        placeholderTextColor={theme.textSecondary} 
+                        multiline 
+                        value={dificuldade} 
+                        onChangeText={setDificuldade} 
+                    />
+
+                    <Text style={[styles.modalLabel, { color: theme.textSecondary, marginTop: 15 }]}>3. O QUE VOCÊ QUER ALTERAR?</Text>
+                    <TextInput 
+                        style={[styles.obsInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
+                        placeholder="Ex: Quero tirar o ovo da tarde e colocar whey..." 
+                        placeholderTextColor={theme.textSecondary} 
+                        multiline 
+                        value={ajustes} 
+                        onChangeText={setAjustes} 
+                    />
+
+                    <TouchableOpacity style={[styles.modalSubmit, { backgroundColor: theme.accent }]} onPress={enviarFeedback} disabled={enviando}>
+                        {enviando ? <ActivityIndicator color="#000" /> : <Text style={{ color: '#000', fontWeight: '900', letterSpacing: 1 }}>ENVIAR PARA O COACH</Text>}
+                    </TouchableOpacity>
+                </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }
@@ -208,10 +285,13 @@ export default function DietScreen({ route }) {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
     const [accessDenied, setAccessDenied] = useState(false);
-    const [activeTab, setActiveTab] = useState('DIETA'); // DIETA | PAINEL
+    const [activeTab, setActiveTab] = useState('DIETA'); 
     
-    // Panel States
     const [waterConsumed, setWaterConsumed] = useState(0);
+    const [checkedMeals, setCheckedMeals] = useState({});
+    
+    // 🔥 Modais
+    const [surveyModalVisible, setSurveyModalVisible] = useState(false);
     const [bioModalVisible, setBioModalVisible] = useState(false);
     
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -232,7 +312,6 @@ export default function DietScreen({ route }) {
                 if (!u.dietModule && !isElite) { setAccessDenied(true); setLoading(false); return; }
                 fetchDiet(u.id);
             } catch (e) {
-                console.error('Erro:', e);
                 setLoading(false);
             }
         };
@@ -256,15 +335,19 @@ export default function DietScreen({ route }) {
         }
     };
 
-    const waterTarget = useMemo(() => parseWaterMl(diet?.waterIntake), [diet]);
+    const toggleMealCheck = (mealId) => {
+        setCheckedMeals(prev => ({ ...prev, [mealId]: !prev[mealId] }));
+    };
 
-    // ── TELA DE BLOQUEIO ──
+    const waterTarget = useMemo(() => parseWaterMl(diet?.waterIntake), [diet]);
+    const goalType = useMemo(() => getGoalType(user), [user]);
+
     if (!loading && accessDenied) {
         return (
             <RootComponent style={[styles.centered, { backgroundColor: theme.bg }]}>
                 <MaterialCommunityIcons name="lock-outline" size={60} color={theme.textSecondary} style={{marginBottom: 20}} />
                 <Text style={[styles.stateTitle, { color: theme.text }]}>ÁREA RESTRITA</Text>
-                <Text style={[styles.stateDesc, { color: theme.textSecondary }]}>O módulo de nutrição integrado é exclusivo para alunos do plano completo.</Text>
+                <Text style={[styles.stateDesc, { color: theme.textSecondary }]}>O módulo de nutrição integrado é exclusivo para atletas da Consultoria Completa.</Text>
             </RootComponent>
         );
     }
@@ -282,7 +365,7 @@ export default function DietScreen({ route }) {
             <RootComponent style={[styles.centered, { backgroundColor: theme.bg }]}>
                 <MaterialCommunityIcons name="chef-hat" size={60} color={theme.accent} style={{marginBottom: 20}} />
                 <Text style={[styles.stateTitle, { color: theme.text }]}>QUASE LÁ!</Text>
-                <Text style={[styles.stateDesc, { color: theme.textSecondary }]}>O Coach está calculando seus macros e finalizando o plano. Volte em breve!</Text>
+                <Text style={[styles.stateDesc, { color: theme.textSecondary }]}>O Coach está finalizando a montagem do seu plano alimentar. Volte em breve!</Text>
                 <TouchableOpacity style={[styles.refreshBtn, { borderColor: theme.border }]} onPress={() => user?.id && fetchDiet(user.id)}>
                     <Text style={{ color: theme.textSecondary, fontWeight: 'bold' }}>ATUALIZAR TELA</Text>
                 </TouchableOpacity>
@@ -294,23 +377,23 @@ export default function DietScreen({ route }) {
         <RootComponent style={{ height: isWeb ? windowHeight : undefined, flex: isWeb ? undefined : 1, backgroundColor: theme.bg }}>
             <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg }}>
                 
-                {/* HEADER FIXO & ABAS */}
                 <View style={[styles.topHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
                     <View style={styles.topRow}>
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                             <MaterialCommunityIcons name="calendar-month" size={16} color={theme.textSecondary} />
                             <Text style={[styles.topHeaderTitle, { color: theme.textSecondary }]}>PROTOCOLOS</Text>
                         </View>
-                        <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                            <MaterialCommunityIcons name="file-download-outline" size={14} color={theme.text} />
-                            <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR DIETA</Text>
-                        </TouchableOpacity>
+                        {diet.pdfUrl && (
+                            <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => Linking.openURL(diet.pdfUrl)}>
+                                <MaterialCommunityIcons name="file-download-outline" size={14} color={theme.text} />
+                                <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR EM PDF</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                     
-                    {/* Seletor DIETA / PAINEL */}
                     <View style={[styles.mainTabs, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                         <TouchableOpacity style={[styles.mainTabBtn, activeTab === 'DIETA' && { backgroundColor: theme.accent }]} onPress={() => setActiveTab('DIETA')}>
-                            <Text style={[styles.mainTabText, { color: activeTab === 'DIETA' ? '#000' : theme.textSecondary }]}>DIETA</Text>
+                            <Text style={[styles.mainTabText, { color: activeTab === 'DIETA' ? '#000' : theme.textSecondary }]}>CARDÁPIO</Text>
                         </TouchableOpacity>
                         <TouchableOpacity style={[styles.mainTabBtn, activeTab === 'PAINEL' && { backgroundColor: theme.accent }]} onPress={() => setActiveTab('PAINEL')}>
                             <Text style={[styles.mainTabText, { color: activeTab === 'PAINEL' ? '#000' : theme.textSecondary }]}>PAINEL</Text>
@@ -318,7 +401,7 @@ export default function DietScreen({ route }) {
                     </View>
                 </View>
 
-                <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
+                <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
                     
                     {activeTab === 'DIETA' ? (
                         <>
@@ -326,21 +409,27 @@ export default function DietScreen({ route }) {
                             
                             <View style={styles.sectionHeader}>
                                 <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
-                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>DIETA DIÁRIA</Text>
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SUAS REFEIÇÕES</Text>
                             </View>
 
                             {diet.meals.map((meal, index) => (
-                                <CleanMealCard key={meal.id} meal={meal} theme={theme} index={index} />
+                                <CleanMealCard 
+                                    key={meal.id} 
+                                    meal={meal} 
+                                    theme={theme} 
+                                    index={index} 
+                                    isChecked={!!checkedMeals[meal.id]}
+                                    onToggleCheck={toggleMealCheck}
+                                />
                             ))}
                         </>
                     ) : (
                         <>
                             <View style={styles.sectionHeader}>
                                 <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
-                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SEU PAINEL</Text>
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>HIDRATAÇÃO</Text>
                             </View>
 
-                            {/* TRACKER DE ÁGUA MODERNIZADO */}
                             <View style={[styles.waterCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                 <View style={styles.waterTop}>
                                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
@@ -348,11 +437,10 @@ export default function DietScreen({ route }) {
                                             <MaterialCommunityIcons name="water-outline" size={20} color="#32ADE6" />
                                         </View>
                                         <View>
-                                            <Text style={[styles.waterTitle, { color: theme.text }]}>HIDRATAÇÃO</Text>
-                                            <Text style={[styles.waterMeta, { color: theme.textSecondary }]}>META MÍNIMA: {(waterTarget/1000).toFixed(2)}L</Text>
+                                            <Text style={[styles.waterTitle, { color: theme.text }]}>ÁGUA DIÁRIA</Text>
+                                            <Text style={[styles.waterMeta, { color: theme.textSecondary }]}>META: {(waterTarget/1000).toFixed(2)}L</Text>
                                         </View>
                                     </View>
-                                    <MaterialCommunityIcons name="information-outline" size={16} color={theme.border} />
                                 </View>
 
                                 <View style={styles.waterProgressRow}>
@@ -377,12 +465,12 @@ export default function DietScreen({ route }) {
                                 </View>
                             </View>
 
-                            {/* GRID DE FERRAMENTAS */}
+                            {/* 🔥 VOLTOU: GRID DE FERRAMENTAS */}
                             <View style={styles.toolsGrid}>
-                                <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => alert('Lista de Mercado será gerada em breve.')}>
+                                <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { if(Platform.OS === 'web') window.alert('Lista de Mercado será gerada em breve.'); else Alert.alert('Em Breve', 'Sua Lista de Mercado inteligente estará disponível na próxima atualização.'); }}>
                                     <MaterialCommunityIcons name="cart-outline" size={26} color={theme.accent} style={{marginBottom: 8}} />
                                     <Text style={[styles.toolTitle, { color: theme.text }]}>MERCADO</Text>
-                                    <Text style={[styles.toolSub, { color: theme.textSecondary }]}>LISTA AUTOMÁTICA</Text>
+                                    <Text style={[styles.toolSub, { color: theme.textSecondary }]}>SUA LISTA</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setBioModalVisible(true)}>
                                     <MaterialCommunityIcons name="heart-pulse" size={26} color={theme.accent} style={{marginBottom: 8}} />
@@ -391,12 +479,56 @@ export default function DietScreen({ route }) {
                                 </TouchableOpacity>
                             </View>
 
-                            {/* ALERTA DE FURO NA DIETA */}
-                            <TouchableOpacity style={[styles.dangerCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                <View style={styles.dangerIcon}><MaterialCommunityIcons name="fire" size={24} color="#FF6B35" /></View>
-                                <View style={{justifyContent: 'center'}}>
-                                    <Text style={[styles.toolTitle, { color: theme.text }]}>SAIU DO PLANO?</Text>
-                                    <Text style={[styles.toolSub, { color: theme.textSecondary }]}>REGISTRAR REFEIÇÃO LIVRE</Text>
+                            <View style={[styles.sectionHeader, { marginTop: 10 }]}>
+                                <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>MENTALIDADE DA DIETA</Text>
+                            </View>
+
+                            {/* INFO CARDS DINÂMICOS (Lê do Objetivo) */}
+                            <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                <View style={{flexDirection:'row', alignItems:'center', gap:8, marginBottom:8}}>
+                                    <MaterialCommunityIcons name="clock-fast" size={20} color={theme.accent} />
+                                    <Text style={[styles.infoTitle, { color: theme.text }]}>Horários Flexíveis</Text>
+                                </View>
+                                <Text style={[styles.infoDesc, { color: theme.textSecondary }]}>
+                                    Os horários são uma base. O mais importante é manter intervalos de 3 a 4 horas entre as refeições e garantir energia perto do seu treino.
+                                </Text>
+                            </View>
+
+                            <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                <View style={{flexDirection:'row', alignItems:'center', gap:8, marginBottom:8}}>
+                                    <MaterialCommunityIcons name="glass-wine" size={20} color="#FF6B35" />
+                                    <Text style={[styles.infoTitle, { color: theme.text }]}>O "Pecado" do Álcool</Text>
+                                </View>
+                                <Text style={[styles.infoDesc, { color: theme.textSecondary }]}>
+                                    {goalType === 'EMAGRECIMENTO' 
+                                        ? "Álcool é caloria vazia e paralisa a queima de gordura no corpo. Se for beber no final de semana, não exagere e sempre alterne a bebida com MUITA água para não estourar o déficit!"
+                                        : "O álcool prejudica severamente a recuperação e a síntese proteica (ganho de massa). Se for beber, modere, não fique horas sem comer e alterne com água!"}
+                                </Text>
+                            </View>
+
+                            <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                <View style={{flexDirection:'row', alignItems:'center', gap:8, marginBottom:8}}>
+                                    <MaterialCommunityIcons name="target" size={20} color={theme.accent} />
+                                    <Text style={[styles.infoTitle, { color: theme.text }]}>
+                                        {goalType === 'EMAGRECIMENTO' ? "Cuidado com os Beliscos" : "Não Pule Refeições"}
+                                    </Text>
+                                </View>
+                                <Text style={[styles.infoDesc, { color: theme.textSecondary }]}>
+                                    {goalType === 'EMAGRECIMENTO'
+                                        ? "Aquela 'beliscada' inocente fora do plano pode destruir o seu déficit calórico. Siga a dieta! Se a fome bater muito forte, beba água ou solicite um ajuste abaixo."
+                                        : "Para hipertrofiar, você precisa de superávit calórico. Pular refeições porque 'está sem fome' vai jogar seus ganhos no lixo. Cumpra a meta e o volume prescrito!"}
+                                </Text>
+                            </View>
+
+                            <TouchableOpacity 
+                                style={[styles.dangerCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 10 }]}
+                                onPress={() => setSurveyModalVisible(true)}
+                            >
+                                <View style={styles.dangerIcon}><MaterialCommunityIcons name="pencil-outline" size={24} color={theme.accent} /></View>
+                                <View style={{justifyContent: 'center', flex: 1}}>
+                                    <Text style={[styles.toolTitle, { color: theme.text }]}>PRECISA DE MUDANÇAS?</Text>
+                                    <Text style={[styles.toolSub, { color: theme.textSecondary }]}>SOLICITAR AJUSTE NO PLANO</Text>
                                 </View>
                             </TouchableOpacity>
 
@@ -405,6 +537,7 @@ export default function DietScreen({ route }) {
                 </Animated.ScrollView>
             </View>
 
+            <DietSurveyModal visible={surveyModalVisible} onClose={() => setSurveyModalVisible(false)} theme={theme} />
             <BiofeedbackModal visible={bioModalVisible} onClose={() => setBioModalVisible(false)} theme={theme} />
         </RootComponent>
     );
@@ -413,7 +546,7 @@ export default function DietScreen({ route }) {
 const styles = StyleSheet.create({
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
     stateTitle: { fontSize: 20, fontWeight: '900', letterSpacing: 1, marginBottom: 8 },
-    stateDesc: { fontSize: 13, textAlign: 'center', paddingHorizontal: 20 },
+    stateDesc: { fontSize: 13, textAlign: 'center', paddingHorizontal: 20, lineHeight: 20 },
     refreshBtn: { padding: 12, borderRadius: 8, borderWidth: 1, marginTop: 20 },
 
     topHeader: { padding: 16, paddingTop: Platform.OS === 'ios' ? 50 : 20, borderBottomWidth: 1 },
@@ -434,31 +567,33 @@ const styles = StyleSheet.create({
     greenStrip: { width: 4, height: 16, borderRadius: 2 },
     sectionTitle: { fontSize: 12, fontWeight: '900', fontStyle: 'italic', letterSpacing: 1 },
 
-    // CLEAN MEAL CARD (Inspirado no Print 1)
-    cleanMealCard: { borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1 },
-    cleanMealHeader: { marginBottom: 20 },
+    // CLEAN MEAL CARD 
+    cleanMealCard: { borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, position: 'relative', overflow: 'hidden' },
+    mealBgImage: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.15 }, 
+    mealBgOverlay: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.6 },
+    
+    cleanMealHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25, zIndex: 2 },
     cleanTimeBadge: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, borderWidth: 1, marginBottom: 10 },
     cleanTimeText: { fontSize: 11, fontWeight: 'bold' },
-    cleanMealTitle: { fontSize: 20, fontWeight: '900', fontStyle: 'italic', letterSpacing: -0.5 },
-    cleanMealMacros: { fontSize: 11, fontWeight: 'bold', marginTop: 4 },
+    cleanMealTitle: { fontSize: 22, fontWeight: '900', fontStyle: 'italic', letterSpacing: -0.5 },
     
-    cleanFoodList: { gap: 10 },
-    cleanFoodGroup: { gap: 10 },
-    cleanFoodItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, borderWidth: 1 },
-    cleanFoodIndex: { width: 32, height: 32, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-    cleanFoodIndexText: { fontSize: 12, fontWeight: 'bold' },
+    checkBtn: { width: 46, height: 46, borderRadius: 23, borderWidth: 1, alignItems: 'center', justifyContent: 'center', elevation: 3 },
+    
+    cleanFoodList: { gap: 20, zIndex: 2 },
+    cleanFoodGroup: { gap: 8 },
+    macroCategoryTag: { fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
+    
+    cleanFoodItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1 },
     cleanFoodDetails: { flex: 1 },
-    cleanFoodName: { fontSize: 13, fontWeight: '900', fontStyle: 'italic', marginBottom: 2 },
-    cleanFoodSub: { fontSize: 11, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.05)', alignSelf: 'flex-start', paddingHorizontal: 6, borderRadius: 4, overflow: 'hidden' },
+    cleanFoodName: { fontSize: 14, fontWeight: '900', fontStyle: 'italic', lineHeight: 20 },
 
-    cleanOuDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 4, paddingHorizontal: 10 },
-    cleanOuLine: { flex: 1, height: 1 },
-    cleanOuText: { fontSize: 10, fontWeight: 'bold', marginHorizontal: 10 },
+    cleanOuDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 4, paddingHorizontal: 15, gap: 6 },
+    cleanOuText: { fontSize: 10, fontWeight: 'bold', fontStyle: 'italic' },
 
-    cleanNoteBox: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 15, padding: 12, borderRadius: 12 },
-    cleanNoteText: { fontSize: 12, fontStyle: 'italic' },
+    cleanNoteBox: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 25, padding: 16, borderRadius: 16, borderWidth: 1, zIndex: 2 },
+    cleanNoteText: { fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
 
-    // PAINEL (Inspirado no Print 3)
+    // PAINEL
     waterCard: { borderRadius: 24, padding: 20, borderWidth: 1, marginBottom: 20 },
     waterTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
     waterIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#32ADE615', alignItems: 'center', justifyContent: 'center' },
@@ -478,20 +613,27 @@ const styles = StyleSheet.create({
     toolCard: { flex: 1, padding: 20, borderRadius: 20, borderWidth: 1 },
     toolTitle: { fontSize: 13, fontWeight: '900' },
     toolSub: { fontSize: 9, fontWeight: 'bold', marginTop: 2 },
-    
-    dangerCard: { flexDirection: 'row', padding: 20, borderRadius: 20, borderWidth: 1, gap: 15 },
-    dangerIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#FF6B3515', alignItems: 'center', justifyContent: 'center' },
 
-    // BIOFEEDBACK MODAL
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
-    modalBox: { borderRadius: 24, overflow: 'hidden', borderWidth: 1 },
-    modalHeader: { padding: 25, alignItems: 'center', position: 'relative' },
-    modalIconWrap: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
-    modalTitle: { fontSize: 20, fontWeight: '900', fontStyle: 'italic', letterSpacing: -0.5 },
-    modalClose: { position: 'absolute', top: 20, right: 20, padding: 5 },
-    modalBody: { padding: 25 },
+    infoCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
+    infoTitle: { fontSize: 14, fontWeight: '900' },
+    infoDesc: { fontSize: 12, lineHeight: 18 },
+
+    dangerCard: { flexDirection: 'row', padding: 20, borderRadius: 20, borderWidth: 1, gap: 15, alignItems: 'center' },
+    dangerIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#4DE38F15', alignItems: 'center', justifyContent: 'center' },
+
+    // MODAIS
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 20 },
+    modalBox: { borderRadius: 24, padding: 25, borderWidth: 1, position: 'relative', alignSelf: 'center' },
+    modalClose: { position: 'absolute', top: 20, right: 20, padding: 5, zIndex: 10 },
+    modalTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1, marginBottom: 5 },
     modalLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 10 },
     modalOptionsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-    modalOption: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
-    modalSubmit: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 }
+    modalOption: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+    obsInput: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, height: 80, textAlignVertical: 'top', marginBottom: 20 },
+    modalSubmit: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+
+    // BIO MODAL ESPECÍFICO
+    modalHeader: { padding: 25, alignItems: 'center', position: 'relative', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+    modalIconWrap: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
+    modalBody: { padding: 25 }
 });

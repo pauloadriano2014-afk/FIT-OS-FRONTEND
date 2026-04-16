@@ -27,14 +27,22 @@ const faqList = [
 ];
 
 export default function PropostaStartScreen({ route }) {
-    const leadName = route?.params?.nome || 'Atleta';
+    // 🔥 FILTRO INTELIGENTE DE NOME (ANTI-ROBÔ)
+    const rawName = route?.params?.nome?.trim() || '';
+    const genericNames = ['novo aluno', 'nova aluna', 'aluno', 'aluna', 'teste', 'atleta', 'lead', 'cliente'];
+    const isGeneric = !rawName || genericNames.includes(rawName.toLowerCase());
+    
+    // Se for genérico, chama de ATLETA (unissex e forte). Se não, usa o nome real.
+    const displayName = isGeneric ? 'ATLETA' : rawName.toUpperCase();
+    const storageKeyName = isGeneric ? 'default_lead' : rawName.toLowerCase();
+
     const [timeLeft, setTimeLeft] = useState(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         const initTimer = async () => {
             try {
-                const storedTime = await AsyncStorage.getItem(`@expire_time_start_${leadName}`);
+                const storedTime = await AsyncStorage.getItem(`@expire_time_start_${storageKeyName}`);
                 const now = Date.now();
                 let expireTime;
 
@@ -42,7 +50,7 @@ export default function PropostaStartScreen({ route }) {
                     expireTime = parseInt(storedTime, 10);
                 } else {
                     expireTime = now + (24 * 60 * 60 * 1000); 
-                    await AsyncStorage.setItem(`@expire_time_start_${leadName}`, expireTime.toString());
+                    await AsyncStorage.setItem(`@expire_time_start_${storageKeyName}`, expireTime.toString());
                 }
 
                 const diff = Math.floor((expireTime - now) / 1000);
@@ -52,7 +60,7 @@ export default function PropostaStartScreen({ route }) {
             }
         };
         initTimer();
-    }, [leadName]);
+    }, [storageKeyName]);
 
     useEffect(() => {
         if (timeLeft === null || timeLeft <= 0) return;
@@ -136,7 +144,7 @@ export default function PropostaStartScreen({ route }) {
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
                             <Text style={styles.timerText}>ESTE LINK EXPIRA EM: {formatTime(timeLeft)}</Text>
                         </View>
-                        <Text style={styles.heroGreeting}>FALA, {leadName.toUpperCase()}! ⚡</Text>
+                        <Text style={styles.heroGreeting}>FALA, {displayName}! ⚡</Text>
                         <Text style={styles.heroTitle}>SUA CHANCE DE TREINAR COM A <Text style={{color: '#4DE38F'}}>NOSSA METODOLOGIA</Text></Text>
                         <Text style={styles.heroSub}>O fim das fichas de papel da academia. Tenha acesso aos treinos, vídeos e o método que transforma corpos.</Text>
                     </View>

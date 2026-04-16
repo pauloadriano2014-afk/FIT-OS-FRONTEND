@@ -27,14 +27,22 @@ const faqList = [
 ];
 
 export default function PropostaScreen({ route }) {
-    const leadName = route?.params?.nome || 'Atleta';
+    // 🔥 FILTRO INTELIGENTE DE NOME (ANTI-ROBÔ)
+    const rawName = route?.params?.nome?.trim() || '';
+    const genericNames = ['novo aluno', 'nova aluna', 'aluno', 'aluna', 'teste', 'atleta', 'lead', 'cliente'];
+    const isGeneric = !rawName || genericNames.includes(rawName.toLowerCase());
+    
+    // Se for genérico, chama de ATLETA (unissex e forte). Se não, usa o nome real.
+    const displayName = isGeneric ? 'ATLETA' : rawName.toUpperCase();
+    const storageKeyName = isGeneric ? 'default_lead' : rawName.toLowerCase();
+
     const [timeLeft, setTimeLeft] = useState(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
     useEffect(() => {
         const initTimer = async () => {
             try {
-                const storedTime = await AsyncStorage.getItem(`@expire_time_${leadName}`);
+                const storedTime = await AsyncStorage.getItem(`@expire_time_${storageKeyName}`);
                 const now = Date.now();
                 let expireTime;
 
@@ -42,7 +50,7 @@ export default function PropostaScreen({ route }) {
                     expireTime = parseInt(storedTime, 10);
                 } else {
                     expireTime = now + (24 * 60 * 60 * 1000); 
-                    await AsyncStorage.setItem(`@expire_time_${leadName}`, expireTime.toString());
+                    await AsyncStorage.setItem(`@expire_time_${storageKeyName}`, expireTime.toString());
                 }
 
                 const diff = Math.floor((expireTime - now) / 1000);
@@ -52,7 +60,7 @@ export default function PropostaScreen({ route }) {
             }
         };
         initTimer();
-    }, [leadName]);
+    }, [storageKeyName]);
 
     useEffect(() => {
         if (timeLeft === null || timeLeft <= 0) return;
@@ -136,7 +144,7 @@ export default function PropostaScreen({ route }) {
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
                             <Text style={styles.timerText}>ESTE LINK EXPIRA EM: {formatTime(timeLeft)}</Text>
                         </View>
-                        <Text style={styles.heroGreeting}>FALA, {leadName.toUpperCase()}! ⚡</Text>
+                        <Text style={styles.heroGreeting}>FALA, {displayName}! ⚡</Text>
                         <Text style={styles.heroTitle}>O SEU CONVITE EXCLUSIVO PARA A <Text style={{color: '#4DE38F'}}>CONSULTORIA ELITE</Text></Text>
                         <Text style={styles.heroSub}>Você não está comprando uma "planilha de treino". Você está prestes a destravar uma experiência tecnológica de alta performance focada no seu resultado.</Text>
                     </View>
@@ -223,7 +231,7 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* PROVA SOCIAL - 🔥 CORREÇÃO: PAULO AGORA USA paulo_montagem 🔥 */}
+                    {/* PROVA SOCIAL */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>RESULTADOS DOS ALUNOS</Text>
                     <Text style={styles.sectionSub}>Deslize para ver o que a disciplina somada à ciência pode fazer.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
