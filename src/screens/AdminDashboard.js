@@ -8,7 +8,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native'; // 🔥 IMPORTAÇÃO NOVA AQUI
+import { useFocusEffect } from '@react-navigation/native';
 
 import { useTheme } from '../contexts/ThemeContext';
 import SendNoticeModal from '../components/SendNoticeModal';
@@ -49,6 +49,9 @@ export default function AdminDashboard({ navigation }) {
   const [alunosInativos, setAlunosInativos] = useState([]);
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
   
+  // 🔥 NOVO: Sub-aba para organizar o Sistema
+  const [subTabGestao, setSubTabGestao] = useState('FERRAMENTAS'); 
+
   const [statusFilter, setStatusFilter] = useState('TODOS'); 
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
@@ -83,7 +86,6 @@ export default function AdminDashboard({ navigation }) {
     { id: 'PLAN_CHALLENGE_21', label: 'SÓ DESAFIO 21D', icon: 'fire', color: '#FF9500' }
   ];
 
-  // 🔥 GATILHO INTELIGENTE: Atualiza os dados toda vez que a tela volta para o foco 🔥
   useFocusEffect(
     useCallback(() => {
       fetchData(false);
@@ -365,8 +367,7 @@ export default function AdminDashboard({ navigation }) {
                     alignItems: 'center' 
                 }
             ]} 
-            // NOVO (PASSA O ID SEPARADO PARA NÃO BUGAR NA URL)
-onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item, alunoId: item.id })}
+            onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item, alunoId: item.id })}
         > 
           {item.photoUrl ? (
               <Image source={{ uri: item.photoUrl }} style={[styles.avatarPlaceholder, { borderWidth: 0 }]} />
@@ -423,11 +424,10 @@ onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item, alunoId: 
           
           <View style={styles.header}>
             <View>
-                <Text style={[styles.title, { color: theme.text }]}>FIT OS <Text style={{color: theme.accent}}>COMMAND</Text></Text>
+                <Text style={[styles.title, { color: theme.text }]}>PAULO ADRIANO <Text style={{color: theme.accent}}>TEAM</Text></Text>
                 <Text style={styles.subtitle}>PAINEL ADMINISTRATIVO</Text>
             </View>
             
-            {/* 🔥 BOTÕES DE REFRESH E LOGOUT ADICIONADOS AQUI 🔥 */}
             <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TouchableOpacity onPress={() => fetchData(true)} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
                     <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
@@ -525,83 +525,108 @@ onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item, alunoId: 
             )}
 
             {activeTab === 'GESTAO' && (
-                <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
-                    <View style={styles.gridGestao}>
-                        
-                        <TouchableOpacity 
-                            style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} 
-                            onPress={() => navigation.navigate('AdminIALabScreen')}
-                        >
-                            <View style={[styles.iconCircle, {backgroundColor: '#4DE38F22'}]}>
-                                <MaterialCommunityIcons name="brain" size={32} color="#4DE38F" />
-                            </View>
-                            <Text style={[styles.bigCardTitle, { color: '#4DE38F' }]}>LABORATÓRIO IA</Text>
-                            <Text style={styles.bigCardDesc}>Análise avulsa de fotos e shape.</Text>
+                <View style={{ flex: 1 }}>
+                    {/* 🔥 SUB-ABAS PARA ORGANIZAR O CAOS 🔥 */}
+                    <View style={styles.subTabsContainer}>
+                        <TouchableOpacity style={[styles.subTab, subTabGestao === 'FERRAMENTAS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('FERRAMENTAS')}>
+                            <Text style={[styles.subTabText, { color: subTabGestao === 'FERRAMENTAS' ? theme.text : theme.textSecondary }]}>TREINO E DIETA</Text>
                         </TouchableOpacity>
-
-                        <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
-                            <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 15, width: '100%' }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                    <MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} />
-                                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text>
-                                </View>
-                                <Switch value={theme.isDark} onValueChange={toggleDarkMode} trackColor={{ false: '#ccc', true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')} />
-                            </View>
-                            {!theme.isDark && (
-                                <View style={{ width: '100%' }}>
-                                    <Text style={[styles.cardHeaderSmall, { marginBottom: 10, marginTop: 5 }]}>COR DE DESTAQUE</Text>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
-                                        <TouchableOpacity onPress={() => selectThemeColor('verde')} style={[styles.colorCircle, { backgroundColor: '#99CC00', borderColor: selectedColor === 'verde' ? theme.text : 'transparent' }]} />
-                                        <TouchableOpacity onPress={() => selectThemeColor('rosa')} style={[styles.colorCircle, { backgroundColor: '#FF2D55', borderColor: selectedColor === 'rosa' ? theme.text : 'transparent' }]} />
-                                        <TouchableOpacity onPress={() => selectThemeColor('roxo')} style={[styles.colorCircle, { backgroundColor: '#AF52DE', borderColor: selectedColor === 'roxo' ? theme.text : 'transparent' }]} />
-                                        <TouchableOpacity onPress={() => selectThemeColor('azul')} style={[styles.colorCircle, { backgroundColor: '#007AFF', borderColor: selectedColor === 'azul' ? theme.text : 'transparent' }]} />
-                                        <TouchableOpacity onPress={() => selectThemeColor('vermelho')} style={[styles.colorCircle, { backgroundColor: '#FF3B30', borderColor: selectedColor === 'vermelho' ? theme.text : 'transparent' }]} />
-                                    </View>
-                                </View>
-                            )}
-                        </View>
-
-                        <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('GerenciarTemplates')}>
-                            <View style={[styles.iconCircle, {backgroundColor: theme.accent}]}><MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} /></View>
-                            <Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text>
-                            <Text style={styles.bigCardDesc}>Crie fichas padrão.</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
-                            <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} /></View>
-                            <Text style={[styles.bigCardTitle, { color: theme.text }]}>EXERCÍCIOS</Text>
-                            <Text style={styles.bigCardDesc}>Gerencie a biblioteca.</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>
-                            <View style={[styles.iconCircle, {backgroundColor: '#BF5AF2'}]}><MaterialCommunityIcons name="video-plus" size={32} color="#FFF" /></View>
-                            <Text style={[styles.bigCardTitle, {color: '#BF5AF2'}]}>PA FLIX ADMIN</Text>
-                            <Text style={styles.bigCardDesc}>Adicionar novos vídeos.</Text>
-                        </TouchableOpacity>
-
-                        <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                            <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:15}}>
-                                <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
-                                <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
-                            </View>
-                            {[...alunosAtivos].sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
-                                <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
-                                    <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name || 'Aluno'}</Text>
-                                    <Text style={{color: theme.accent, fontWeight:'900'}}>{a.currentXP || 0} XP</Text>
-                                </View>
-                            ))}
-                        </View>
-                        
-                        <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setIsNoticeModalOpen(true)}>
-                            <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
-                                <MaterialCommunityIcons name="bullhorn" size={24} color="#32ADE6" />
-                                <Text style={[styles.bigCardTitle, {marginBottom:0, color:'#32ADE6'}]}>ENVIAR AVISO</Text>
-                            </View>
-                            <Text style={[styles.bigCardDesc, {marginTop:5}]}>Notifique todos ou um aluno.</Text>
+                        <TouchableOpacity style={[styles.subTab, subTabGestao === 'CONFIG' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('CONFIG')}>
+                            <Text style={[styles.subTabText, { color: subTabGestao === 'CONFIG' ? theme.text : theme.textSecondary }]}>SISTEMA E AVISOS</Text>
                         </TouchableOpacity>
                     </View>
-                </ScrollView>
+
+                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
+                        <View style={styles.gridGestao}>
+                            
+                            {/* 🔥 ABA 1: FERRAMENTAS DE TREINO E DIETA 🔥 */}
+                            {subTabGestao === 'FERRAMENTAS' && (
+                                <>
+                                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
+                                        <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} /></View>
+                                        <Text style={[styles.bigCardTitle, { color: theme.text }]}>EXERCÍCIOS</Text>
+                                        <Text style={styles.bigCardDesc}>Gerencie a biblioteca.</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('GerenciarTemplates')}>
+                                        <View style={[styles.iconCircle, {backgroundColor: theme.accent}]}><MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} /></View>
+                                        <Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text>
+                                        <Text style={styles.bigCardDesc}>Crie fichas de treino padrão.</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminDietLibraryScreen')}>
+                                        <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="food-apple" size={32} color={theme.accent} /></View>
+                                        <Text style={[styles.bigCardTitle, { color: theme.text }]}>COFRE DE DIETAS</Text>
+                                        <Text style={styles.bigCardDesc}>Gerencie templates alimentares.</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} onPress={() => navigation.navigate('AdminIALabScreen')}>
+                                        <View style={[styles.iconCircle, {backgroundColor: '#4DE38F22'}]}>
+                                            <MaterialCommunityIcons name="brain" size={32} color="#4DE38F" />
+                                        </View>
+                                        <Text style={[styles.bigCardTitle, { color: '#4DE38F' }]}>LABORATÓRIO IA</Text>
+                                        <Text style={styles.bigCardDesc}>Análise avulsa de fotos e shape.</Text>
+                                    </TouchableOpacity>
+
+                                    <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                        <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:15}}>
+                                            <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
+                                            <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
+                                        </View>
+                                        {[...alunosAtivos].sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
+                                            <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
+                                                <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name || 'Aluno'}</Text>
+                                                <Text style={{color: theme.accent, fontWeight:'900'}}>{a.currentXP || 0} XP</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+
+                            {/* 🔥 ABA 2: CONFIGURAÇÕES E AVISOS 🔥 */}
+                            {subTabGestao === 'CONFIG' && (
+                                <>
+                                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>
+                                        <View style={[styles.iconCircle, {backgroundColor: '#BF5AF2'}]}><MaterialCommunityIcons name="video-plus" size={32} color="#FFF" /></View>
+                                        <Text style={[styles.bigCardTitle, {color: '#BF5AF2'}]}>PA FLIX ADMIN</Text>
+                                        <Text style={styles.bigCardDesc}>Adicionar novos conteúdos e vídeos.</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setIsNoticeModalOpen(true)}>
+                                        <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
+                                            <MaterialCommunityIcons name="bullhorn" size={24} color="#32ADE6" />
+                                            <Text style={[styles.bigCardTitle, {marginBottom:0, color:'#32ADE6'}]}>ENVIAR AVISO</Text>
+                                        </View>
+                                        <Text style={[styles.bigCardDesc, {marginTop:5}]}>Notifique todos ou um aluno específico.</Text>
+                                    </TouchableOpacity>
+
+                                    <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
+                                        <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 15, width: '100%' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                <MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} />
+                                                <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text>
+                                            </View>
+                                            <Switch value={theme.isDark} onValueChange={toggleDarkMode} trackColor={{ false: '#ccc', true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')} />
+                                        </View>
+                                        {!theme.isDark && (
+                                            <View style={{ width: '100%' }}>
+                                                <Text style={[styles.cardHeaderSmall, { marginBottom: 10, marginTop: 5 }]}>COR DE DESTAQUE</Text>
+                                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
+                                                    <TouchableOpacity onPress={() => selectThemeColor('verde')} style={[styles.colorCircle, { backgroundColor: '#99CC00', borderColor: selectedColor === 'verde' ? theme.text : 'transparent' }]} />
+                                                    <TouchableOpacity onPress={() => selectThemeColor('rosa')} style={[styles.colorCircle, { backgroundColor: '#FF2D55', borderColor: selectedColor === 'rosa' ? theme.text : 'transparent' }]} />
+                                                    <TouchableOpacity onPress={() => selectThemeColor('roxo')} style={[styles.colorCircle, { backgroundColor: '#AF52DE', borderColor: selectedColor === 'roxo' ? theme.text : 'transparent' }]} />
+                                                    <TouchableOpacity onPress={() => selectThemeColor('azul')} style={[styles.colorCircle, { backgroundColor: '#007AFF', borderColor: selectedColor === 'azul' ? theme.text : 'transparent' }]} />
+                                                    <TouchableOpacity onPress={() => selectThemeColor('vermelho')} style={[styles.colorCircle, { backgroundColor: '#FF3B30', borderColor: selectedColor === 'vermelho' ? theme.text : 'transparent' }]} />
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+                                </>
+                            )}
+                        </View>
+                    </ScrollView>
+                </View>
             )}
 
           </View>
@@ -719,7 +744,7 @@ onPress={() => navigation.navigate('AdminAlunoOptions', { aluno: item, alunoId: 
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
   title: { fontSize: 22, fontWeight: '900' },
   subtitle: { color: '#888', fontSize: 10, letterSpacing: 1, fontWeight: 'bold' },
   logoutBtn: { padding: 10, borderRadius: 8, cursor: 'pointer' },

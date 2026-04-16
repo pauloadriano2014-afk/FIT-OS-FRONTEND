@@ -51,6 +51,7 @@ import AdminAddContent from './src/screens/AdminAddContent';
 import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen';
 import AdminIALabScreen from './src/screens/AdminIALabScreen'; 
 import AdminDietScreen from './src/screens/AdminDietScreen'; 
+import AdminDietLibraryScreen from './src/screens/AdminDietLibraryScreen'; // 🔥 NOVO: Cofre de Dietas
 
 import AIScannerModal from './src/components/AIScannerModal';
 
@@ -96,11 +97,9 @@ function StudentTabs({ route }) {
 
   useEffect(() => {
     const loadUser = async () => {
-      // 1. Tenta pegar da rota
       let u = route.params?.userData;
       if (typeof u === 'string') u = JSON.parse(u);
 
-      // 2. Se falhar (o seu erro atual), resgata do AsyncStorage
       if (!u || !u.id) {
         const saved = await AsyncStorage.getItem('user');
         if (saved) u = JSON.parse(saved);
@@ -108,7 +107,6 @@ function StudentTabs({ route }) {
 
       if (u) {
         setUserData(u);
-        // 🔥 Refresh opcional: Busca os dados mais novos do banco (plano, etc)
         try {
           const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${u.id}?t=${Date.now()}`);
           if (res.ok) {
@@ -212,7 +210,6 @@ function RootNavigator() {
       <Stack.Screen name="Proposta" component={PropostaScreen} />
       <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
 
-      {/* 🔥 GARANTE QUE O savedUser VÁ PARA O STUDENT TABS 🔥 */}
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
@@ -236,6 +233,7 @@ function RootNavigator() {
       <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
       <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} /> 
       <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} /> 
+      <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} /> 
     </Stack.Navigator>
   );
 }

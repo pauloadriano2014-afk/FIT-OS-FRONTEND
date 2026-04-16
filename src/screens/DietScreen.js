@@ -50,7 +50,6 @@ const getMealBackgroundImage = (mealName) => {
     return 'https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&q=80&w=500'; 
 };
 
-// 🔥 IA PARA LER O OBJETIVO DO ALUNO
 const getGoalType = (userData) => {
     if (!userData) return 'HIPERTROFIA';
     const goalStr = String(userData.goal || userData.anamneses?.[0]?.objetivo || '').toLowerCase();
@@ -163,7 +162,6 @@ function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
     );
 }
 
-// 🔥 VOLTOU! Modal de Biofeedback
 function BiofeedbackModal({ visible, onClose, theme }) {
     return (
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -290,7 +288,6 @@ export default function DietScreen({ route }) {
     const [waterConsumed, setWaterConsumed] = useState(0);
     const [checkedMeals, setCheckedMeals] = useState({});
     
-    // 🔥 Modais
     const [surveyModalVisible, setSurveyModalVisible] = useState(false);
     const [bioModalVisible, setBioModalVisible] = useState(false);
     
@@ -299,24 +296,37 @@ export default function DietScreen({ route }) {
     useEffect(() => {
         const initialize = async () => {
             try {
-                let u = route.params?.userData;
+                // 🔥 CORREÇÃO DO BUG DE CACHE DO ADMIN:
+                // Verifica todas as rotas possíveis que o painel envia
+                let u = route.params?.aluno || route.params?.userData || route.params?.user || route.params?.student;
+                
                 if (typeof u === 'string') u = JSON.parse(u);
+                
+                // Trata o caso onde o objeto inteiro é enviado direto na route
+                if (!u && route.params?.id) {
+                    u = route.params;
+                }
+
+                // Se não vier nada da navegação (ou seja, é o aluno acessando o próprio app), puxa do cache
                 if (!u || !u.id) {
                     const stored = await AsyncStorage.getItem('user');
                     if (stored) u = JSON.parse(stored);
                 }
+
                 if (!u || !u.id) { setLoading(false); return; }
                 setUser(u);
                 
                 const isElite = u.plan === 'ELITE' || u.plan === 'VIP';
                 if (!u.dietModule && !isElite) { setAccessDenied(true); setLoading(false); return; }
+                
+                // Agora o ID que vai buscar é definitivamente o ID da pessoa correta
                 fetchDiet(u.id);
             } catch (e) {
                 setLoading(false);
             }
         };
         initialize();
-    }, []);
+    }, [route.params]); // Dependência atualizada
 
     const fetchDiet = async (userId) => {
         try {
@@ -465,7 +475,6 @@ export default function DietScreen({ route }) {
                                 </View>
                             </View>
 
-                            {/* 🔥 VOLTOU: GRID DE FERRAMENTAS */}
                             <View style={styles.toolsGrid}>
                                 <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { if(Platform.OS === 'web') window.alert('Lista de Mercado será gerada em breve.'); else Alert.alert('Em Breve', 'Sua Lista de Mercado inteligente estará disponível na próxima atualização.'); }}>
                                     <MaterialCommunityIcons name="cart-outline" size={26} color={theme.accent} style={{marginBottom: 8}} />
@@ -484,7 +493,6 @@ export default function DietScreen({ route }) {
                                 <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>MENTALIDADE DA DIETA</Text>
                             </View>
 
-                            {/* INFO CARDS DINÂMICOS (Lê do Objetivo) */}
                             <View style={[styles.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                 <View style={{flexDirection:'row', alignItems:'center', gap:8, marginBottom:8}}>
                                     <MaterialCommunityIcons name="clock-fast" size={20} color={theme.accent} />
@@ -567,7 +575,6 @@ const styles = StyleSheet.create({
     greenStrip: { width: 4, height: 16, borderRadius: 2 },
     sectionTitle: { fontSize: 12, fontWeight: '900', fontStyle: 'italic', letterSpacing: 1 },
 
-    // CLEAN MEAL CARD 
     cleanMealCard: { borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, position: 'relative', overflow: 'hidden' },
     mealBgImage: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.15 }, 
     mealBgOverlay: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.6 },
@@ -593,7 +600,6 @@ const styles = StyleSheet.create({
     cleanNoteBox: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 25, padding: 16, borderRadius: 16, borderWidth: 1, zIndex: 2 },
     cleanNoteText: { fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
 
-    // PAINEL
     waterCard: { borderRadius: 24, padding: 20, borderWidth: 1, marginBottom: 20 },
     waterTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
     waterIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#32ADE615', alignItems: 'center', justifyContent: 'center' },
@@ -621,7 +627,6 @@ const styles = StyleSheet.create({
     dangerCard: { flexDirection: 'row', padding: 20, borderRadius: 20, borderWidth: 1, gap: 15, alignItems: 'center' },
     dangerIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#4DE38F15', alignItems: 'center', justifyContent: 'center' },
 
-    // MODAIS
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 20 },
     modalBox: { borderRadius: 24, padding: 25, borderWidth: 1, position: 'relative', alignSelf: 'center' },
     modalClose: { position: 'absolute', top: 20, right: 20, padding: 5, zIndex: 10 },
@@ -632,7 +637,6 @@ const styles = StyleSheet.create({
     obsInput: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, height: 80, textAlignVertical: 'top', marginBottom: 20 },
     modalSubmit: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
 
-    // BIO MODAL ESPECÍFICO
     modalHeader: { padding: 25, alignItems: 'center', position: 'relative', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
     modalIconWrap: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
     modalBody: { padding: 25 }
