@@ -42,10 +42,9 @@ export default function RoutineDetailsScreen({ route, navigation }) {
       if (!stored) return;
       const user = JSON.parse(stored);
       
-      // 🔥 CIRURGIA: Agora buscamos o array de dias concluídos, não apenas o último
       const localCompleted = await AsyncStorage.getItem(`@completed_days_${workoutId}`);
       let completedDays = localCompleted ? JSON.parse(localCompleted) : [];
-      completedDays = completedDays.map(d => String(d).trim().toUpperCase()); // Normaliza
+      completedDays = completedDays.map(d => String(d).trim().toUpperCase()); 
       
       const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${new Date().getTime()}`);
       const data = await response.json();
@@ -62,15 +61,13 @@ export default function RoutineDetailsScreen({ route, navigation }) {
         
         const daysArray = Object.values(groups);
 
-        // 🔥 Lógica de Checks Individuais
         const daysWithStatus = daysArray.map((d) => {
             const normDay = String(d.day).trim().toUpperCase();
-            const isDone = completedDays.includes(normDay); // Checa se ESTE dia específico está no diário
+            const isDone = completedDays.includes(normDay); 
             return { ...d, isDone, isNext: false, normDay };
         });
 
-        // 🔥 Define a "Próxima Missão" no primeiro que estiver faltando
-        let nextIndex = daysWithStatus.findIndex(x => !x.isDone);
+        let nextIndex = daysWithStatus.findIndex(x => !x.isDone && !(x.day.toUpperCase() === 'OFF' || x.day.toUpperCase().includes('DESCANSO')));
         if (nextIndex !== -1) {
             daysWithStatus[nextIndex].isNext = true;
         }
@@ -84,23 +81,6 @@ export default function RoutineDetailsScreen({ route, navigation }) {
     }
   };
 
-  const handleResetCycle = async () => {
-      if (Platform.OS === 'web') {
-          if(window.confirm("Deseja limpar os checks e iniciar um novo ciclo nesta semana?")) {
-              await AsyncStorage.removeItem(`@completed_days_${workoutId}`);
-              fetchRoutineDetails();
-          }
-      } else {
-          Alert.alert("Reiniciar Ciclo", "Deseja limpar os checks e iniciar um novo ciclo nesta semana?", [
-              {text: "Cancelar", style: "cancel"},
-              {text: "Reiniciar", onPress: async () => {
-                  await AsyncStorage.removeItem(`@completed_days_${workoutId}`);
-                  fetchRoutineDetails();
-              }}
-          ]);
-      }
-  };
-
   const renderCardItem = ({ item }) => {
     const isDescanso = item.day.toUpperCase() === 'OFF' || item.day.toUpperCase().includes('DESCANSO');
     const muscleGroupsStr = Array.from(item.muscleGroups).join(', ');
@@ -109,18 +89,26 @@ export default function RoutineDetailsScreen({ route, navigation }) {
     if (isDescanso) {
         return (
           <View style={[styles.cardDescanso, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <Text style={{color: theme.text, fontWeight:'bold', fontSize: 16}}>🛌 DIA DE DESCANSO</Text>
-            <Text style={[styles.textApoio, { color: theme.textSecondary }]}>Recupere suas energias!</Text>
+            <View style={[styles.descansoIconBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                <MaterialCommunityIcons name="bed-empty" size={24} color={theme.textSecondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={{color: theme.text, fontWeight:'900', fontSize: 15, letterSpacing: 0.5}}>DIA DE DESCANSO</Text>
+                <Text style={[styles.textApoio, { color: theme.textSecondary }]}>Recupere suas energias. O músculo cresce agora!</Text>
+            </View>
           </View>
         );
     }
 
-    const borderColor = item.isDone ? theme.accent : theme.border;
     const isDestacado = item.isNext && !item.isDone;
+    const isCompleted = item.isDone;
+
+    const borderColor = isDestacado ? theme.accent : (isCompleted ? theme.border : theme.border);
+    const bgColor = isCompleted ? (theme.isDark ? '#111' : '#f5f5f5') : theme.surface;
 
     const shadowOpt = { 
-        distance: isDestacado ? 15 : 6, 
-        startColor: isDestacado ? (theme.isDark ? theme.accent + '33' : theme.accent + '22') : (theme.isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.03)'), 
+        distance: isDestacado ? 15 : 4, 
+        startColor: isDestacado ? (theme.isDark ? theme.accent + '25' : theme.accent + '22') : (theme.isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.02)'), 
         offset: [0, 4] 
     };
 
@@ -130,39 +118,41 @@ export default function RoutineDetailsScreen({ route, navigation }) {
             <TouchableOpacity 
               style={[
                   styles.card, 
-                  { backgroundColor: theme.surface, borderColor: borderColor },
-                  initialTab === item.day && !item.isDone && { borderColor: theme.accent, backgroundColor: theme.isDark ? '#1a2200' : theme.accent + '0A' }
+                  { backgroundColor: bgColor, borderColor: borderColor, opacity: isCompleted ? 0.8 : 1 },
+                  initialTab === item.day && !item.isDone && !isDestacado && { borderColor: theme.accent, backgroundColor: theme.isDark ? '#1a2200' : theme.accent + '0A' }
               ]} 
               onPress={() => navigation.navigate('DayWorkout', { workoutId, day: item.day, workoutName: workoutName })}
+              activeOpacity={0.9}
             >
+              {isDestacado && (
+                  <View style={[styles.destaqueBadge, { backgroundColor: theme.accent }]}>
+                      <Text style={[styles.destaqueText, { color: theme.isDark ? '#000' : '#FFF' }]}>SUA MISSÃO HOJE</Text>
+                  </View>
+              )}
+
               <View style={styles.cardHeader}>
-                  <View style={[ styles.iconCircle, { backgroundColor: item.isDone ? theme.accent : theme.bg, borderColor: item.isDone ? theme.accent : theme.border, borderWidth: 1 } ]}>
-                      <MaterialCommunityIcons name={item.isDone ? "check-bold" : iconName} size={24} color={item.isDone ? (theme.isDark ? "#000" : "#FFF") : theme.textSecondary} />
+                  <View style={[ styles.iconCircle, { backgroundColor: isCompleted ? theme.bg : theme.accent + '15', borderColor: isCompleted ? theme.border : theme.accent + '40', borderWidth: 1 } ]}>
+                      <MaterialCommunityIcons name={isCompleted ? "check-all" : iconName} size={26} color={isCompleted ? theme.accent : theme.accent} />
                   </View>
+                  
                   <View style={styles.headerInfo}>
-                      <Text style={[styles.dayText, { color: item.isDone ? theme.accent : theme.text }]} numberOfLines={1}>{item.day.toUpperCase()}</Text>
+                      <Text style={[styles.dayText, { color: isCompleted ? theme.textSecondary : theme.text }]} numberOfLines={1}>{item.day.toUpperCase()}</Text>
                       <Text style={[styles.muscleText, { color: theme.textSecondary }]}>{muscleGroupsStr || 'Geral'}</Text>
-                  </View>
-                  <View style={[styles.goIconBox, { backgroundColor: item.isDone ? 'transparent' : theme.accent + '1A' }]}>
-                      <MaterialCommunityIcons name="arrow-right" size={20} color={item.isDone ? theme.accent : theme.accent} />
                   </View>
               </View>
 
               <View style={[styles.cardFooter, { borderTopColor: theme.border }]}>
                   <View style={styles.metaInfo}>
-                      <MaterialCommunityIcons name="dumbbell" size={14} color={theme.textSecondary} />
+                      <MaterialCommunityIcons name="format-list-numbered" size={16} color={theme.textSecondary} />
                       <Text style={[styles.metaText, { color: theme.textSecondary }]}>{item.exerciseCount} EXERCÍCIOS</Text>
                   </View>
                   
-                  {item.isDone ? (
-                      <View style={[styles.statusBadgeDone, { backgroundColor: theme.accent + '22' }]}>
-                          <Text style={[styles.statusTextDone, { color: theme.accent }]}>CONCLUÍDO ✅</Text>
-                      </View>
-                  ) : item.isNext ? (
-                      <View style={[styles.statusBadgeNext, { backgroundColor: theme.accent }]}>
-                          <Text style={[styles.statusTextNext, { color: theme.isDark ? '#000' : '#FFF' }]}>PRÓXIMA MISSÃO</Text>
-                      </View>
-                  ) : null}
+                  <View style={[styles.actionBtn, { backgroundColor: isCompleted ? theme.bg : theme.accent, borderColor: isCompleted ? theme.border : theme.accent, borderWidth: 1 }]}>
+                      <Text style={[styles.actionBtnText, { color: isCompleted ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
+                          {isCompleted ? 'REVISAR' : 'INICIAR TREINO'}
+                      </Text>
+                      <MaterialCommunityIcons name={isCompleted ? "eye-outline" : "play"} size={16} color={isCompleted ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
+                  </View>
               </View>
             </TouchableOpacity>
         </Shadow>
@@ -178,8 +168,6 @@ export default function RoutineDetailsScreen({ route, navigation }) {
       ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } 
       : { flex: 1, backgroundColor: theme.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 };
 
-  const allDone = workoutDays.length > 0 && workoutDays.every(d => d.isDone || d.day.toUpperCase() === 'OFF' || d.day.toUpperCase().includes('DESCANSO'));
-
   if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
   return (
@@ -192,7 +180,7 @@ export default function RoutineDetailsScreen({ route, navigation }) {
             <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
             </TouchableOpacity>
-            <View>
+            <View style={{flex: 1}}>
                 <Text style={[styles.headerLabel, { color: theme.textSecondary }]}>CRONOGRAMA DE TREINOS</Text>
                 <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>{workoutName?.toUpperCase()}</Text>
             </View>
@@ -207,15 +195,6 @@ export default function RoutineDetailsScreen({ route, navigation }) {
             bounces={false}
             overScrollMode="never"
             style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto' } : { flex: 1, width: '100%' }} 
-            ListFooterComponent={allDone ? (
-                <TouchableOpacity 
-                    style={[styles.resetBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                    onPress={handleResetCycle}
-                >
-                    <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
-                    <Text style={[styles.resetBtnText, { color: theme.accent }]}>REINICIAR CICLO DA SEMANA</Text>
-                </TouchableOpacity>
-            ) : null}
           />
       </View>
     </RootComponent>
@@ -224,27 +203,31 @@ export default function RoutineDetailsScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { padding: 20, paddingTop: 15, flexDirection: 'row', alignItems: 'center', gap: 15, borderBottomWidth: 1, paddingBottom: 20 },
+  header: { padding: 20, paddingTop: 15, flexDirection: 'row', alignItems: 'center', gap: 15, borderBottomWidth: 1, paddingBottom: 20, elevation: 2, zIndex: 10 },
   backBtn: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-  headerLabel: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginBottom: 2 },
-  headerTitle: { fontSize: 20, fontWeight: '900', maxWidth: width - 100 },
-  list: { padding: 20, paddingBottom: 80 },
-  card: { borderRadius: 24, padding: 20, borderWidth: 1.5 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 20 },
-  iconCircle: { width: 54, height: 54, borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
-  headerInfo: { flex: 1, marginRight: 10 },
-  dayText: { fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
-  muscleText: { fontSize: 11, textTransform: 'uppercase', marginTop: 4, fontWeight: '600' },
-  goIconBox: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 15, borderTopWidth: 1 },
+  headerLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.5, marginBottom: 4 },
+  headerTitle: { fontSize: 20, fontWeight: '900' },
+  
+  list: { padding: 20, paddingBottom: 80, paddingTop: 30 },
+  
+  card: { borderRadius: 24, padding: 20, borderWidth: 1.5, position: 'relative' },
+  destaqueBadge: { position: 'absolute', top: -12, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 4, borderRadius: 12, zIndex: 10 },
+  destaqueText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 },
+  iconCircle: { width: 60, height: 60, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
+  headerInfo: { flex: 1 },
+  dayText: { fontSize: 22, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
+  muscleText: { fontSize: 11, textTransform: 'uppercase', fontWeight: '800', letterSpacing: 0.5 },
+  
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1 },
   metaInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { fontSize: 11, fontWeight: 'bold' },
-  statusBadgeDone: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  statusTextDone: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  statusBadgeNext: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
-  statusTextNext: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-  cardDescanso: { padding:30, borderRadius:24, marginBottom:20, alignItems:'center', borderWidth:1, borderStyle: 'dashed' },
-  textApoio: { fontSize:13, marginTop:8 },
-  resetBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, borderWidth: 1, gap: 10, marginTop: 10 },
-  resetBtnText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }
+  metaText: { fontSize: 11, fontWeight: '800' },
+  
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 12 },
+  actionBtnText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  
+  cardDescanso: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1, borderStyle: 'dashed' },
+  descansoIconBox: { width: 48, height: 48, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  textApoio: { fontSize: 12, marginTop: 4, lineHeight: 18 }
 });

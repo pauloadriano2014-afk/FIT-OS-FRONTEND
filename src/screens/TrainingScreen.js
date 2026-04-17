@@ -1,66 +1,49 @@
 // src/screens/TrainingScreen.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  Dimensions, StatusBar, Alert, ActivityIndicator, RefreshControl, Platform, Modal
+  StatusBar, Alert, ActivityIndicator, RefreshControl, Platform, Modal
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { Shadow } from 'react-native-shadow-2'; 
-import { LinearGradient } from 'expo-linear-gradient'; 
 
 import { useTheme } from '../contexts/ThemeContext';
-
-const { width } = Dimensions.get('window');
-
-const TIPS = [
-    "A consistência vence a intensidade no longo prazo.",
-    "Controle a descida (excêntrica). É lá que o músculo cresce.",
-    "Hidratação é anabólica. Bebeu água hoje?",
-    "Não pule o aquecimento. Sua longevidade agradece.",
-    "O descanso faz parte do treino. Durma bem."
-];
+import WorkoutFolder from '../components/Training/WorkoutFolder';
+import CycleInfoModal from '../components/Training/CycleInfoModal'; 
+import MindsetModal from '../components/Training/MindsetModal'; // 🔥 NOVO MODAL!
 
 export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
-  const [activeProgram, setActiveProgram] = useState(null); 
+  const [activePrograms, setActivePrograms] = useState([]); 
   const [userPlan, setUserPlan] = useState('PREMIUM');
-  
   const { theme } = useTheme();
-  
-  const [isTodayDone, setIsTodayDone] = useState(false);
-  const [energyLevel, setEnergyLevel] = useState(null);
-  const [dailyTip, setDailyTip] = useState("");
 
-  // 🔥 CONTROLE DE PEDÁGIO FLEXÍVEL (DIA 1)
   const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
+  const [pendingWorkoutNav, setPendingWorkoutNav] = useState(null);
+  
+  // Estados dos Modais
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [mindsetModalVisible, setMindsetModalVisible] = useState(false);
 
   const generateWeeklyView = (history = []) => {
       const today = new Date();
       const dayOfWeekReal = today.getDay(); 
       const todayIndexNormalized = dayOfWeekReal === 0 ? 6 : dayOfWeekReal - 1; 
-
       const daysShort = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
       const data = [];
-
       const monday = new Date(today);
       monday.setDate(today.getDate() - todayIndexNormalized);
 
       for (let i = 0; i < 7; i++) {
           const currentDayDate = new Date(monday);
           currentDayDate.setDate(monday.getDate() + i);
-
           const isDone = history.some(log => new Date(log.date).toDateString() === currentDayDate.toDateString());
-
-          data.push({
-              dayName: daysShort[i],
-              isToday: i === todayIndexNormalized,
-              isDone: isDone
-          });
+          data.push({ dayName: daysShort[i], isToday: i === todayIndexNormalized, isDone: isDone });
       }
       return data;
   };
@@ -86,54 +69,61 @@ export default function TrainingScreen({ navigation }) {
       let hasPhotosInDb = false;
       if (checkinRes.ok) {
           const checkinsData = await checkinRes.json();
-          if (Array.isArray(checkinsData) && checkinsData.length > 0) {
-              hasPhotosInDb = true;
-          }
+          if (Array.isArray(checkinsData) && checkinsData.length > 0) hasPhotosInDb = true;
       }
 
       const data = await response.json();
+      const today = new Date();
 
-      if (response.ok && Array.isArray(data) && data.length > 0) {
-        const today = new Date();
+      if (response.ok && Array.isArray(data)) {
         const activeList = data.filter(w => new Date(w.endDate) >= today && !w.archived);
 
-        if (activeList.length > 0) {
-            const currentWorkout = activeList[0];
-            setActiveProgram(currentWorkout);
-            
-            // 🔥 Lógica do Pedágio (Nag Screen)
-            if (resolvedPlan !== 'PREMIUM') {
-                let startD = new Date(currentWorkout.startDate); 
-                startD.setHours(0,0,0,0);
-                const todayD = new Date(); todayD.setHours(0,0,0,0);
-                const diffTime = todayD.getTime() - startD.getTime();
-                const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
-                
-                const isPlaceholder = currentWorkout.name.includes("CONSTRUÇÃO") || !currentWorkout.routine || currentWorkout.routine.length === 0;
+        const processedPrograms = await Promise.all(activeList.map(async (workout) => {
+            const localCompleted = await AsyncStorage.getItem(`@completed_days_${workout.id}`);
+            let completedDays = localCompleted ? JSON.parse(localCompleted) : [];
+            completedDays = completedDays.map(d => String(d).trim().toUpperCase());
 
-                // Se o treino já começou, não é placeholder e não tem foto, a trava arma!
-                if (!hasPhotosInDb && diffDays >= 0 && !isPlaceholder) {
-                    setHasSentInitialPhotos(false);
-                } else {
-                    setHasSentInitialPhotos(true);
-                }
-            } else {
-                setHasSentInitialPhotos(true);
-            }
+            const groups = (workout.exercises || []).reduce((acc, item) => {
+                const day = item.day || 'Treino';
+                if (!acc[day]) acc[day] = { day: day, muscleGroups: new Set(), exerciseCount: 0 };
+                acc[day].exerciseCount++;
+                if (item.exercise?.category) acc[day].muscleGroups.add(item.exercise.category);
+                return acc;
+            }, {});
 
+            const daysArray = Object.values(groups);
+            const daysWithStatus = daysArray.map((d) => {
+                const normDay = String(d.day).trim().toUpperCase();
+                const isDone = completedDays.includes(normDay);
+                return { ...d, isDone, isNext: false, normDay };
+            });
+
+            let nextIndex = daysWithStatus.findIndex(x => !x.isDone && !(x.day.toUpperCase() === 'OFF' || x.day.toUpperCase().includes('DESCANSO')));
+            if (nextIndex !== -1) daysWithStatus[nextIndex].isNext = true;
+
+            return { ...workout, routineDays: daysWithStatus };
+        }));
+
+        setActivePrograms(processedPrograms);
+
+        if (processedPrograms.length > 0 && resolvedPlan !== 'PREMIUM') {
+            let startD = new Date(processedPrograms[0].startDate); 
+            startD.setHours(0,0,0,0);
+            const todayD = new Date(); todayD.setHours(0,0,0,0);
+            const diffTime = todayD.getTime() - startD.getTime();
+            const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+            const isPlaceholder = processedPrograms[0].name.includes("CONSTRUÇÃO") || processedPrograms[0].routineDays.length === 0;
+            if (!hasPhotosInDb && diffDays >= 0 && !isPlaceholder) setHasSentInitialPhotos(false);
+            else setHasSentInitialPhotos(true);
         } else {
-            setActiveProgram(null);
+            setHasSentInitialPhotos(true);
         }
       } else {
-        setActiveProgram(null);
+        setActivePrograms([]);
       }
 
       const historyData = await historyRes.json();
-
       if (Array.isArray(historyData)) {
-          const todayStr = new Date().toDateString(); 
-          const foundToday = historyData.some(log => new Date(log.date).toDateString() === todayStr);
-          setIsTodayDone(foundToday);
           setWeeklyHistoryData(generateWeeklyView(historyData));
       }
 
@@ -146,31 +136,30 @@ export default function TrainingScreen({ navigation }) {
   };
 
   useFocusEffect(useCallback(() => { fetchWorkouts(); }, []));
-  useEffect(() => { setDailyTip(TIPS[Math.floor(Math.random() * TIPS.length)]); }, []);
 
   const onRefresh = useCallback(() => { setRefreshing(true); fetchWorkouts(); }, []);
 
-  const handleEnergySelect = (level) => {
-      setEnergyLevel(level);
-      let title = "", msg = "";
-      if (level === 'low') {
-           title = "Dia de Cautela 🛡️";
-           msg = "Escute seu corpo. Reduza cargas em 20% e foque na técnica.";
-      } else if (level === 'medium') {
-           title = "Disciplina é Tudo ⚔️";
-           msg = "Excelente. Mantenha o foco e siga o plano.";
+  const handleResetCycle = async (workoutId) => {
+      const execReset = async () => {
+          await AsyncStorage.removeItem(`@completed_days_${workoutId}`);
+          fetchWorkouts();
+      };
+      if (Platform.OS === 'web') {
+          if(window.confirm("Deseja limpar os checks e iniciar um novo ciclo nesta semana?")) execReset();
       } else {
-           title = "Modo Besta Ativado 🔥";
-           msg = "Aproveite a energia! Dia de buscar o melhor rendimento.";
+          Alert.alert("Reiniciar Ciclo", "Deseja limpar os checks e iniciar um novo ciclo nesta semana?", [
+              {text: "Cancelar", style: "cancel"},
+              {text: "Reiniciar", style: "destructive", onPress: execReset}
+          ]);
       }
-      if (Platform.OS === 'web') { window.alert(`${title}\n\n${msg}`); } else { Alert.alert(title, msg); }
   };
 
-  const handleStartWorkout = () => {
+  const handleDayPress = (workoutId, day, workoutName) => {
       if (!hasSentInitialPhotos && userPlan !== 'PREMIUM') {
+          setPendingWorkoutNav({ workoutId, day, workoutName });
           setInitialPhotosModalVisible(true);
       } else {
-          navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name });
+          navigation.navigate('DayWorkout', { workoutId, day, workoutName });
       }
   };
 
@@ -189,7 +178,7 @@ export default function TrainingScreen({ navigation }) {
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <ScrollView 
             style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ flexGrow: 1, paddingBottom: 150 }}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent}/>}
             showsVerticalScrollIndicator={false}
           >
@@ -208,7 +197,6 @@ export default function TrainingScreen({ navigation }) {
                             {weeklyHistoryData.map((day, index) => (
                                 <View key={index} style={styles.calendarDayItemMod}>
                                     <Text style={[styles.calendarDayTextMod, { color: theme.text }, day.isToday && {color: theme.accent, fontWeight: 'bold'}]}>{day.dayName}</Text>
-                                    
                                     {day.isDone ? (
                                         <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
                                     ) : (
@@ -221,87 +209,17 @@ export default function TrainingScreen({ navigation }) {
                 </Shadow>
             </View>
 
-            <View style={styles.sectionContainerMod}>
-                <Text style={[styles.sectionTitleMod, { color: theme.textSecondary }]}>COMO VOCÊ ESTÁ SE SENTINDO HOJE?</Text>
-                <View style={styles.readinessRowMod}>
-                    {[
-                        { level: 'low', emoji: '😫', label: 'Cansado', color: '#FF3B30', bg: theme.isDark ? '#331111' : '#FFE5E5' },
-                        { level: 'medium', emoji: '😐', label: 'Disciplina', color: '#32ADE6', bg: theme.isDark ? '#112233' : '#E5F6FF' },
-                        { level: 'high', emoji: '😤', label: 'Motivado', color: theme.accent, bg: theme.isDark ? '#1A2200' : theme.accent + '15' }
-                    ].map((item) => (
-                        <TouchableOpacity 
-                            key={item.level} 
-                            style={[
-                                styles.energyCardMod, 
-                                { backgroundColor: theme.surface, borderColor: theme.border },
-                                energyLevel === item.level && { borderColor: item.color, backgroundColor: item.bg, elevation: 8 }
-                            ]}
-                            onPress={() => handleEnergySelect(item.level)} 
-                        >
-                            <Text style={styles.energyEmojiMod}>{item.emoji}</Text>
-                            <Text style={[styles.energyLabelMod, { color: energyLevel === item.level ? item.color : theme.text }]}>{item.label}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
-
-            {activeProgram ? (
+            {activePrograms.length > 0 ? (
                 <View style={styles.sectionContainerMod}>
-                  <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
-                    <TouchableOpacity 
-                        style={[styles.heroCardMod, { borderColor: theme.border }, isTodayDone && {borderColor: theme.accent} ]}
-                        onPress={handleStartWorkout} // 🔥 TRAVA APLICADA AQUI
-                        activeOpacity={0.9}
-                    >
-                        <LinearGradient 
-                            colors={isTodayDone ? [theme.accent + '15', theme.surface] : [theme.surface, theme.surface]} 
-                            style={StyleSheet.absoluteFillObject} 
+                    {activePrograms.map(program => (
+                        <WorkoutFolder 
+                            key={program.id} 
+                            program={program} 
+                            theme={theme} 
+                            handleDayPress={handleDayPress} 
+                            handleResetCycle={handleResetCycle} 
                         />
-
-                        <View style={styles.heroHeaderMod}>
-                            <View style={{ flex: 1, marginRight: 15 }}>
-                                <View style={styles.heroBadgeRowMod}>
-                                    <View style={[styles.goalBadgeMod, {backgroundColor: theme.accent + '15', borderColor: theme.accent}]}>
-                                        <Text style={[styles.goalBadgeTextMod, {color: theme.accent}]}>{activeProgram.goal?.toUpperCase() || 'GERAL'}</Text>
-                                    </View>
-                                    {isTodayDone && (
-                                        <View style={[styles.goalBadgeMod, {backgroundColor: '#28A74515', borderColor: '#28A745'}]}>
-                                            <Text style={[styles.goalBadgeTextMod, {color: '#28A745'}]}>CONCLUÍDO ✅</Text>
-                                        </View>
-                                    )}
-                                </View>
-                                
-                                <Text style={[styles.heroTitleMod, { color: theme.text }]} numberOfLines={2}>
-                                    {activeProgram.name}
-                                </Text>
-                            </View>
-                            
-                            <View style={[styles.iconCircleMod, { borderColor: isTodayDone ? theme.accent : theme.border, backgroundColor: isTodayDone ? theme.accent : theme.bg }]}>
-                                <MaterialCommunityIcons 
-                                    name={isTodayDone ? "trophy" : "calendar-check"} 
-                                    size={36} 
-                                    color={isTodayDone ? (theme.isDark ? "#000" : "#FFF") : theme.textSecondary} 
-                                />
-                            </View>
-                        </View>
-
-                        <View style={[styles.heroFooterMod, {borderTopColor: theme.border}]}>
-                            <View style={styles.heroInfoItemMod}>
-                                <Ionicons name="calendar" size={14} color={theme.accent} />
-                                <Text style={[styles.heroInfoTextMod, { color: theme.textSecondary, fontWeight:'bold', fontSize: 10 }]}>
-                                    Ver cronograma
-                                </Text>
-                            </View>
-                            
-                            <View style={[styles.startBtnMod, { backgroundColor: isTodayDone ? theme.border : theme.accent, elevation: isTodayDone ? 0 : 4 }]}>
-                                <Text style={[styles.startBtnTextMod, { color: isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                                    {isTodayDone ? 'REVISAR' : (!hasSentInitialPhotos && userPlan !== 'PREMIUM' ? 'FOTO PENDENTE' : 'TREINAR')}
-                                </Text>
-                                <Ionicons name={isTodayDone ? "book-outline" : (!hasSentInitialPhotos && userPlan !== 'PREMIUM' ? "camera" : "play-forward")} size={14} color={isTodayDone ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
-                            </View>
-                        </View>
-                    </TouchableOpacity>
-                  </Shadow>
+                    ))}
                 </View>
             ) : (
                 <View style={styles.sectionContainerMod}>
@@ -313,22 +231,34 @@ export default function TrainingScreen({ navigation }) {
                 </View>
             )}
 
-            <View style={styles.sectionContainerMod}>
-                <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
-                    <View style={[styles.tipCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <View style={styles.tipHeaderRow}>
-                            <Ionicons name="bulb-outline" size={24} color={theme.accent} />
-                            <Text style={[styles.tipTitleLimpadoMod, { color: theme.accent }]}>DICA DO <Text style={{fontWeight: '900'}}>PAULO ADRIANO TEAM</Text></Text>
+            {/* 🔥 BOTÕES DE INFORMAÇÕES E MINDSET (GUIAS DO TREINO) 🔥 */}
+            <View style={[styles.sectionContainerMod, { marginTop: -5 }]}>
+                <View style={{flexDirection: 'row', gap: 10, width: '100%'}}>
+                    <TouchableOpacity 
+                        style={[styles.guideBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                        onPress={() => setInfoModalVisible(true)}
+                    >
+                        <View style={[styles.guideIconBox, { backgroundColor: theme.accent + '20' }]}>
+                            <MaterialCommunityIcons name="information-outline" size={20} color={theme.accent} />
                         </View>
-                        <Text style={[styles.tipTextLimpadoMod, { color: theme.text }]}>"{dailyTip}"</Text>
-                    </View>
-                </Shadow>
+                        <Text style={[styles.guideBtnText, { color: theme.text }]}>INFORMAÇÕES{"\n"}DO TREINO</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={[styles.guideBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                        onPress={() => setMindsetModalVisible(true)}
+                    >
+                        <View style={[styles.guideIconBox, { backgroundColor: '#AF52DE20' }]}>
+                            <MaterialCommunityIcons name="brain" size={20} color="#AF52DE" />
+                        </View>
+                        <Text style={[styles.guideBtnText, { color: theme.text }]}>MINDSET &{"\n"}REGRAS</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
           </ScrollView>
       </View>
 
-      {/* 🔥 MODAL DE AVISO FLEXÍVEL (Dia 1) 🔥 */}
       <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
           <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 }}>
               <View style={{ width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.accent }}>
@@ -355,7 +285,10 @@ export default function TrainingScreen({ navigation }) {
                       style={{padding: 15, alignItems: 'center'}} 
                       onPress={() => { 
                           setInitialPhotosModalVisible(false); 
-                          navigation.navigate('RoutineDetails', { workoutId: activeProgram.id, workoutName: activeProgram.name }); 
+                          if (pendingWorkoutNav) {
+                              navigation.navigate('DayWorkout', pendingWorkoutNav);
+                              setPendingWorkoutNav(null);
+                          }
                       }}
                   >
                       <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>
@@ -366,6 +299,10 @@ export default function TrainingScreen({ navigation }) {
           </View>
       </Modal>
 
+      {/* 🔥 MODAIS RENDEREZADOS AQUI 🔥 */}
+      <CycleInfoModal visible={infoModalVisible} onClose={() => setInfoModalVisible(false)} theme={theme} />
+      <MindsetModal visible={mindsetModalVisible} onClose={() => setMindsetModalVisible(false)} theme={theme} />
+
     </RootComponent>
   );
 }
@@ -374,12 +311,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 5 : 0 },
   scrollArea: { flex: 1, width: '100%' },
   center: { flex: 1, justifyContent:'center', alignItems:'center' },
-  
   headerLimpado: { padding: 20, paddingTop: 15, marginBottom: 10 },
   headerTitleLimpado: { fontSize: 28, fontWeight: '800' },
-
   sectionContainerMod: { marginHorizontal: 20, marginBottom: 30, alignItems: 'center' },
-  sectionTitleMod: { fontSize: 11, fontWeight: '900', letterSpacing: 1.2, marginBottom: 15, alignSelf: 'flex-start' },
 
   calendarCardMod: { width: '100%', padding: 20, borderRadius: 24, borderWidth: 1 },
   calendarHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15, alignSelf: 'center' },
@@ -389,32 +323,11 @@ const styles = StyleSheet.create({
   calendarDayTextMod: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
   calendarDotMod: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
 
-  readinessRowMod: { flexDirection: 'row', gap: 12, width: '100%' },
-  energyCardMod: { flex: 1, borderRadius: 20, padding: 18, alignItems: 'center', borderWidth: 1 },
-  energyEmojiMod: { fontSize: 36, marginBottom: 10 },
-  energyLabelMod: { fontSize: 12, fontWeight: 'bold' },
-
-  heroCardMod: { width: '100%', borderRadius: 30, padding: 25, borderWidth: 1, overflow: 'hidden', position: 'relative' },
-  heroHeaderMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, zIndex: 2 },
-  heroBadgeRowMod: { flexDirection: 'row', gap: 8, marginBottom: 10 },
-  goalBadgeMod: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
-  goalBadgeTextMod: { fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
-  heroTitleMod: { fontSize: 22, fontWeight: '900', lineHeight: 28 },
-  iconCircleMod: { width: 72, height: 72, borderRadius: 36, borderWidth: 1, justifyContent: 'center', alignItems: 'center', zIndex: 2 },
-  
-  heroFooterMod: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 20, borderTopWidth: 1, zIndex: 2, gap: 5 },
-  heroInfoItemMod: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 },
-  heroInfoTextMod: { flexShrink: 1 },
-  
-  startBtnMod: { paddingVertical: 12, paddingHorizontal: 16, borderRadius: 15, flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
-  startBtnTextMod: { fontWeight: '900', fontSize: 12 },
-  
   emptyCardMod: { width:'100%', padding: 50, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
   emptyCardTextMod: { fontWeight: 'bold', fontSize: 16, marginTop: 20, marginBottom: 8 },
 
-  tipCardMod: { width: '100%', padding: 20, borderRadius: 24, borderWidth: 1 },
-  tipHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  tipTitleLimpadoMod: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
-  tipTextLimpadoMod: { fontSize: 14, fontStyle: 'italic', lineHeight: 20, paddingLeft: 36 },
-
+  // 🔥 Estilos dos Novos Botões
+  guideBtn: { flex: 1, padding: 15, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  guideIconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+  guideBtnText: { fontSize: 11, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, lineHeight: 16 }
 });
