@@ -74,7 +74,6 @@ export default function AdminDietScreen({ route, navigation }) {
     const [dietConfig, setDietConfig] = useState({ goal: 'Indefinido', water: '3 Litros', notes: 'Siga os horários descritos.' });
     const [meals, setMeals] = useState([]);
     
-    // 🔥 NOVO: Estado que controla qual dia da dieta estamos vendo
     const [activeDayType, setActiveDayType] = useState('PADRÃO'); 
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -82,7 +81,6 @@ export default function AdminDietScreen({ route, navigation }) {
     const enrichMealsWithDatabase = (mealsArray) => {
         return mealsArray.map(meal => ({
             ...meal,
-            // Garante que se o modelo velho não tiver dayType, ele caia no Padrão
             dayType: meal.dayType || 'PADRÃO',
             items: meal.items.map(item => {
                 let query = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
@@ -273,7 +271,6 @@ export default function AdminDietScreen({ route, navigation }) {
         }
     };
 
-    // 🔥 FILTRA AS REFEIÇÕES QUE APARECEM NA TELA DE ACORDO COM A ABA CLICADA
     const visibleMeals = useMemo(() => {
         return meals.filter(m => (m.dayType || 'PADRÃO') === activeDayType);
     }, [meals, activeDayType]);
@@ -298,7 +295,6 @@ export default function AdminDietScreen({ route, navigation }) {
         return { tmb: Math.round(tmb), gastoTotal: Math.round(gastoTotal), alvo: Math.round(alvo), proteinaAlvo, carboAlvo, fatAlvo };
     }, [anamnese]);
 
-    // Macros consideram apenas as refeições VISÍVEIS da aba atual para o Coach ter controle total
     const currentMacros = useMemo(() => {
         let kcal = 0, prot = 0, carb = 0, fatG = 0;
         visibleMeals.forEach(meal => {
@@ -319,7 +315,6 @@ export default function AdminDietScreen({ route, navigation }) {
         return { kcal: Math.round(kcal), prot: Math.round(prot), carb: Math.round(carb), fat: Math.round(fatG) };
     }, [visibleMeals]);
 
-    // Adiciona uma refeição já com a etiqueta da aba que está aberta
     const handleAddMeal = () => setMeals(prev => [...prev, { id: Date.now().toString(), name: 'Selecione a Refeição', time: '07:00', notes: '', items: [], dayType: activeDayType }]);
     const handleDeleteMeal = (mealId) => setMeals(prev => prev.filter(m => m.id !== mealId));
     const handleUpdateMeal = (mealId, field, value) => setMeals(prev => prev.map(m => m.id === mealId ? { ...m, [field]: value } : m));
@@ -421,10 +416,9 @@ export default function AdminDietScreen({ route, navigation }) {
             if (!response.ok) throw new Error("Falha ao comunicar com a IA.");
             const data = await response.json();
             if (data.meals && data.meals.length > 0) {
-                // Ao gerar da IA, tudo vai para o PADRÃO
                 const newMeals = enrichMealsWithDatabase(data.meals).map(m => ({...m, dayType: 'PADRÃO'}));
                 setMeals(newMeals);
-                setActiveDayType('PADRÃO'); // Foca na aba Padrão
+                setActiveDayType('PADRÃO'); 
                 const succMsg = "O PA Coach AI estruturou a dieta na Mesa de Operações. Revise e guarde!";
                 if (Platform.OS === 'web') window.alert("Estratégia Pronta!\n" + succMsg);
                 else Alert.alert("Estratégia Pronta!", succMsg);
@@ -444,7 +438,6 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleImportSuccess = (importedMeals) => {
         const newMeals = enrichMealsWithDatabase(importedMeals).map(m => ({...m, dayType: activeDayType}));
-        // Importa as refeições e junta as antigas
         setMeals(prev => [...prev, ...newMeals]);
         setImportModalVisible(false);
         if (Platform.OS === 'web') window.alert("Dieta importada com sucesso para esta aba!");
@@ -460,7 +453,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 totalKcal: currentMacros.kcal, totalProtein: currentMacros.prot,
                 totalCarbs: currentMacros.carb, totalFats: currentMacros.fat,
                 waterIntake: dietConfig.water, generalNotes: dietConfig.notes, 
-                meals // Envia o banco completo (com todos os dayTypes misturados)
+                meals 
             };
             const response = await fetch('https://fitos-final.onrender.com/api/admin/diet', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
@@ -508,86 +501,91 @@ export default function AdminDietScreen({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                <DietHeaderWidgets theme={theme} currentMacros={currentMacros} macros={macros} pct={pct} showRaioX={showRaioX} setShowRaioX={setShowRaioX} anamnese={anamnese} handleGenerateAI={handleGenerateAI} isGenerating={isGenerating} setImportModalVisible={setImportModalVisible} />
-
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, ...(isWeb ? { display: 'flex', flexDirection: 'column' } : {}) }} enabled={!isWeb}>
-                    <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }}>
+                    
+                    {/* 🔥 SCROLLVIEW GERAL - ENGLOBA WIDGETS E DIETA 🔥 */}
+                    <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingBottom: 110 }}>
+                        
+                        {/* WIDGETS AGORA ROLAM JUNTO COM A TELA */}
+                        <DietHeaderWidgets theme={theme} currentMacros={currentMacros} macros={macros} pct={pct} showRaioX={showRaioX} setShowRaioX={setShowRaioX} anamnese={anamnese} handleGenerateAI={handleGenerateAI} isGenerating={isGenerating} setImportModalVisible={setImportModalVisible} />
 
-                        <View style={styles.actionToolsContainer}>
-                            <TouchableOpacity style={[styles.actionToolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setModalCloneVisible(true)}>
-                                <View style={[styles.actionIconBox, { backgroundColor: theme.accent + '20' }]}>
-                                    <MaterialCommunityIcons name="account-switch-outline" size={18} color={theme.accent} />
-                                </View>
-                                <Text style={[styles.actionToolText, { color: theme.text }]}>CLONAR</Text>
-                            </TouchableOpacity>
+                        {/* CONTEÚDO PRINCIPAL (COM PADDING ORIGINAL) */}
+                        <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
                             
-                            <TouchableOpacity style={[styles.actionToolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setModalTemplatesVisible(true)}>
-                                <View style={[styles.actionIconBox, { backgroundColor: theme.accent + '20' }]}>
-                                    <MaterialCommunityIcons name="folder-star-outline" size={18} color={theme.accent} />
-                                </View>
-                                <Text style={[styles.actionToolText, { color: theme.text }]}>TEMPLATES</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.actionToolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setModalSaveTemplateVisible(true)}>
-                                <View style={[styles.actionIconBox, { backgroundColor: theme.accent + '20' }]}>
-                                    <MaterialCommunityIcons name="content-save-all" size={18} color={theme.accent} />
-                                </View>
-                                <Text style={[styles.actionToolText, { color: theme.text }]}>SALVAR</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* 🔥 ABAS INTELIGENTES: TREINO VS DESCANSO 🔥 */}
-                        <View style={styles.daysTabsContainer}>
-                            {['PADRÃO', 'TREINO', 'DESCANSO'].map(type => (
-                                <TouchableOpacity 
-                                    key={type} 
-                                    style={[
-                                        styles.dayTab, 
-                                        activeDayType === type 
-                                            ? { backgroundColor: theme.accent, borderColor: theme.accent, elevation: 4 } 
-                                            : { backgroundColor: theme.surface, borderColor: theme.border }
-                                    ]} 
-                                    onPress={() => setActiveDayType(type)}
-                                >
-                                    <Text style={{
-                                        color: activeDayType === type ? '#000' : theme.textSecondary, 
-                                        fontWeight: '900', letterSpacing: 0.5, fontSize: 10
-                                    }}>
-                                        {type === 'PADRÃO' ? 'PADRÃO / GERAL' : `DIA DE ${type}`}
-                                    </Text>
+                            <View style={styles.actionToolsContainer}>
+                                <TouchableOpacity style={[styles.actionToolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setModalCloneVisible(true)}>
+                                    <View style={[styles.actionIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                        <MaterialCommunityIcons name="account-switch-outline" size={18} color={theme.accent} />
+                                    </View>
+                                    <Text style={[styles.actionToolText, { color: theme.text }]}>CLONAR</Text>
                                 </TouchableOpacity>
-                            ))}
-                        </View>
+                                
+                                <TouchableOpacity style={[styles.actionToolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setModalTemplatesVisible(true)}>
+                                    <View style={[styles.actionIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                        <MaterialCommunityIcons name="folder-star-outline" size={18} color={theme.accent} />
+                                    </View>
+                                    <Text style={[styles.actionToolText, { color: theme.text }]}>TEMPLATES</Text>
+                                </TouchableOpacity>
 
-                        <View style={styles.sectionRow}>
-                            <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                                PRESCRIÇÃO <Text style={{ color: theme.accent }}>({activeDayType})</Text>
-                            </Text>
-                            <View style={[styles.tacoBadge, { backgroundColor: theme.accent + '20', borderColor: theme.accent + '50' }]}>
-                                <Text style={[styles.tacoBadgeText, { color: theme.accent }]}>BASE TACO</Text>
+                                <TouchableOpacity style={[styles.actionToolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setModalSaveTemplateVisible(true)}>
+                                    <View style={[styles.actionIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                        <MaterialCommunityIcons name="content-save-all" size={18} color={theme.accent} />
+                                    </View>
+                                    <Text style={[styles.actionToolText, { color: theme.text }]}>SALVAR</Text>
+                                </TouchableOpacity>
                             </View>
-                        </View>
 
-                        {/* RENDERIZA APENAS AS REFEIÇÕES DA ABA SELECIONADA */}
-                        {visibleMeals.length === 0 ? (
-                            <View style={[styles.emptyBox, { borderColor: theme.border }]}>
-                                <View style={[styles.emptyIconBg, { backgroundColor: theme.surface }]}>
-                                    <MaterialCommunityIcons name="silverware-fork-knife" size={32} color={theme.textSecondary} />
+                            <View style={styles.daysTabsContainer}>
+                                {['PADRÃO', 'TREINO', 'DESCANSO'].map(type => (
+                                    <TouchableOpacity 
+                                        key={type} 
+                                        style={[
+                                            styles.dayTab, 
+                                            activeDayType === type 
+                                                ? { backgroundColor: theme.accent, borderColor: theme.accent, elevation: 4 } 
+                                                : { backgroundColor: theme.surface, borderColor: theme.border }
+                                        ]} 
+                                        onPress={() => setActiveDayType(type)}
+                                    >
+                                        <Text style={{
+                                            color: activeDayType === type ? '#000' : theme.textSecondary, 
+                                            fontWeight: '900', letterSpacing: 0.5, fontSize: 10
+                                        }}>
+                                            {type === 'PADRÃO' ? 'PADRÃO / GERAL' : `DIA DE ${type}`}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <View style={styles.sectionRow}>
+                                <Text style={[styles.sectionTitle, { color: theme.text }]}>
+                                    PRESCRIÇÃO <Text style={{ color: theme.accent }}>({activeDayType})</Text>
+                                </Text>
+                                <View style={[styles.tacoBadge, { backgroundColor: theme.accent + '20', borderColor: theme.accent + '50' }]}>
+                                    <Text style={[styles.tacoBadgeText, { color: theme.accent }]}>BASE TACO</Text>
                                 </View>
-                                <Text style={[styles.emptyTitle, { color: theme.text }]}>Dieta em branco</Text>
-                                <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Adicione refeições para "{activeDayType}".</Text>
                             </View>
-                        ) : (
-                            visibleMeals.map(meal => (
-                                <MealCardAdmin key={meal.id} meal={meal} theme={theme} toGrams={toGrams} handleOpenNameSelect={handleOpenNameSelect} handleOpenTimeSelect={handleOpenTimeSelect} handleDeleteMeal={handleDeleteMeal} handleUpdateFoodAmount={handleUpdateFoodAmount} handleToggleUnit={handleToggleUnit} handleDeleteFood={handleDeleteFood} handleOpenSearch={handleOpenSearch} handleMealOptions={handleMealOptions} />
-                            ))
-                        )}
 
-                        <TouchableOpacity style={[styles.addMealBtn, { borderColor: theme.accent + '50', backgroundColor: theme.accent + '08' }]} onPress={handleAddMeal} activeOpacity={0.75}>
-                            <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.accent} />
-                            <Text style={[styles.addMealText, { color: theme.accent }]}>ADICIONAR REFEIÇÃO</Text>
-                        </TouchableOpacity>
+                            {visibleMeals.length === 0 ? (
+                                <View style={[styles.emptyBox, { borderColor: theme.border }]}>
+                                    <View style={[styles.emptyIconBg, { backgroundColor: theme.surface }]}>
+                                        <MaterialCommunityIcons name="silverware-fork-knife" size={32} color={theme.textSecondary} />
+                                    </View>
+                                    <Text style={[styles.emptyTitle, { color: theme.text }]}>Dieta em branco</Text>
+                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Adicione refeições para o dia de "{activeDayType}".</Text>
+                                </View>
+                            ) : (
+                                visibleMeals.map(meal => (
+                                    <MealCardAdmin key={meal.id} meal={meal} theme={theme} toGrams={toGrams} handleOpenNameSelect={handleOpenNameSelect} handleOpenTimeSelect={handleOpenTimeSelect} handleDeleteMeal={handleDeleteMeal} handleUpdateFoodAmount={handleUpdateFoodAmount} handleToggleUnit={handleToggleUnit} handleDeleteFood={handleDeleteFood} handleOpenSearch={handleOpenSearch} handleMealOptions={handleMealOptions} />
+                                ))
+                            )}
 
+                            <TouchableOpacity style={[styles.addMealBtn, { borderColor: theme.accent + '50', backgroundColor: theme.accent + '08' }]} onPress={handleAddMeal} activeOpacity={0.75}>
+                                <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.accent} />
+                                <Text style={[styles.addMealText, { color: theme.accent }]}>ADICIONAR REFEIÇÃO</Text>
+                            </TouchableOpacity>
+
+                        </View>
                     </Animated.ScrollView>
                 </KeyboardAvoidingView>
 
@@ -625,5 +623,6 @@ const styles = StyleSheet.create({
     emptyTitle: { fontSize: 16, fontWeight: '900' },
     emptyDesc: { fontSize: 12, marginTop: 6, textAlign: 'center', lineHeight: 18 },
     
-    addMealBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, borderRadius: 16, borderWidth: 1, marginTop: 10 }
+    addMealBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 16, borderRadius: 16, borderWidth: 1, marginTop: 10 },
+    addMealText: { fontWeight: '900', fontSize: 12, letterSpacing: 1 }
 });

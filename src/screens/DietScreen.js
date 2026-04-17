@@ -4,23 +4,18 @@ import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
     TouchableOpacity, ActivityIndicator, Platform, Linking,
     Animated, useWindowDimensions, Modal, TextInput, Image,
-    KeyboardAvoidingView
+    KeyboardAvoidingView, Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-const parseWaterMl = (str) => {
-    if (!str) return 3150;
-    const s = String(str).toLowerCase();
-    const num = parseFloat(s);
-    if (s.includes('litro') || (s.includes('l') && !s.includes('ml'))) return Math.round(num * 1000);
-    if (s.includes('ml')) return Math.round(num);
-    if (num > 0 && num < 20) return Math.round(num * 1000);
-    return Math.round(num) || 3150;
-};
+// 🔥 Importando os Componentes Modularizados
+import WaterTracker from '../components/ClientDiet/WaterTracker';
+import BiofeedbackModal from '../components/ClientDiet/BiofeedbackModal';
+import ShoppingListModal from '../components/ClientDiet/ShoppingListModal';
 
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const getMacroCategory = (food) => {
     const p = parseFloat(food.protein || food.p || 0);
     const c = parseFloat(food.carbs || food.c || 0);
@@ -62,22 +57,20 @@ const getGoalType = (userData) => {
 
 // ─── COMPONENTES DE UI ────────────────────────────────────────────────────────
 
-function DaySelector({ theme }) {
-    const days = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
-    const today = new Date().getDay();
-    const [activeDay, setActiveDay] = useState(today);
-
+function RoutineSelector({ theme, types, activeType, onChange }) {
     return (
         <View style={[styles.daySelectorContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {days.map((d, i) => {
-                const isActive = activeDay === i;
+            {types.map(t => {
+                const isActive = activeType === t;
                 return (
                     <TouchableOpacity 
-                        key={d} 
+                        key={t} 
                         style={[styles.dayBtn, isActive && { backgroundColor: theme.accent }]}
-                        onPress={() => setActiveDay(i)}
+                        onPress={() => onChange(t)}
                     >
-                        <Text style={[styles.dayText, { color: isActive ? '#000' : theme.textSecondary }]}>{d}</Text>
+                        <Text style={[styles.dayText, { color: isActive ? '#000' : theme.textSecondary }]}>
+                            {t === 'PADRÃO' ? 'GERAL' : t}
+                        </Text>
                     </TouchableOpacity>
                 );
             })}
@@ -162,61 +155,52 @@ function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
     );
 }
 
-function BiofeedbackModal({ visible, onClose, theme }) {
-    return (
-        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-            <View style={styles.modalOverlay}>
-                <View style={[styles.modalBox, { backgroundColor: theme.surface, borderColor: theme.border, width: '100%', maxWidth: 400 }]}>
-                    <View style={[styles.modalHeader, { backgroundColor: theme.bg }]}>
-                        <View style={[styles.modalIconWrap, { borderColor: theme.accent }]}>
-                            <MaterialCommunityIcons name="heart-pulse" size={24} color={theme.accent} />
-                        </View>
-                        <Text style={[styles.modalTitle, { color: theme.text }]}>BIOFEEDBACK</Text>
-                        <Text style={{ color: theme.textSecondary, fontSize: 10, letterSpacing: 1 }}>RELATÓRIO DIÁRIO</Text>
-                        <TouchableOpacity style={styles.modalClose} onPress={onClose}>
-                            <MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.modalBody}>
-                        <Text style={[styles.modalLabel, { color: theme.textSecondary }]}><MaterialCommunityIcons name="silverware-fork-knife" /> NÍVEL DE FOME</Text>
-                        <View style={styles.modalOptionsRow}>
-                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>BAIXA</Text></View>
-                            <View style={[styles.modalOption, { borderColor: theme.border, backgroundColor: theme.bg }]}><Text style={{color: theme.text, fontSize: 11, fontWeight: 'bold'}}>NORMAL</Text></View>
-                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>ALTA</Text></View>
-                        </View>
-
-                        <Text style={[styles.modalLabel, { color: theme.textSecondary, marginTop: 15 }]}><MaterialCommunityIcons name="stomach" /> DIGESTÃO</Text>
-                        <View style={styles.modalOptionsRow}>
-                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>RUIM</Text></View>
-                            <View style={[styles.modalOption, { borderColor: theme.border, backgroundColor: theme.bg }]}><Text style={{color: theme.text, fontSize: 11, fontWeight: 'bold'}}>NORMAL</Text></View>
-                            <View style={[styles.modalOption, { borderColor: theme.border }]}><Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>PERFEITA</Text></View>
-                        </View>
-
-                        <TouchableOpacity style={[styles.modalSubmit, { backgroundColor: theme.textSecondary }]} onPress={onClose}>
-                            <Text style={{ color: theme.surface, fontWeight: '900', letterSpacing: 1 }}>REGISTRAR NO DIÁRIO</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </View>
-        </Modal>
-    );
-}
-
-function DietSurveyModal({ visible, onClose, theme }) {
+function DietSurveyModal({ visible, onClose, theme, userId }) {
     const [saciedade, setSaciedade] = useState('');
     const [dificuldade, setDificuldade] = useState('');
     const [ajustes, setAjustes] = useState('');
     const [enviando, setEnviando] = useState(false);
 
-    const enviarFeedback = () => {
+    const enviarFeedback = async () => {
+        if (!saciedade && !dificuldade && !ajustes) {
+            const msg = "Preencha pelo menos um campo para enviar o feedback.";
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert("Aviso", msg);
+            return;
+        }
+
         setEnviando(true);
-        setTimeout(() => {
-            setEnviando(false);
-            if(Platform.OS === 'web') window.alert("Sucesso!\nSua solicitação de ajuste foi enviada ao Coach.");
-            else Alert.alert("Sucesso", "Sua solicitação de ajuste foi enviada ao Coach.");
+        try {
+            const payload = {
+                userId,
+                satiety: saciedade,
+                difficulty: dificuldade,
+                requestedChanges: ajustes,
+                timestamp: new Date().toISOString()
+            };
+
+            const res = await fetch('https://fitos-final.onrender.com/api/diet-feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error("Falha ao registrar feedback");
+
+            if(Platform.OS === 'web') window.alert("Sucesso!\nSua solicitação foi enviada direto para o painel do Coach.");
+            else Alert.alert("Sucesso", "Sua solicitação foi enviada direto para o painel do Coach.");
+            
+            setSaciedade('');
+            setDificuldade('');
+            setAjustes('');
             onClose();
-        }, 1500);
+        } catch (error) {
+            const msg = "Não foi possível enviar sua solicitação no momento. Tente novamente mais tarde.";
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert("Erro", msg);
+        } finally {
+            setEnviando(false);
+        }
     };
 
     return (
@@ -283,31 +267,29 @@ export default function DietScreen({ route }) {
     const [loading, setLoading] = useState(true);
     const [user, setUser] = useState(null);
     const [accessDenied, setAccessDenied] = useState(false);
-    const [activeTab, setActiveTab] = useState('DIETA'); 
     
-    const [waterConsumed, setWaterConsumed] = useState(0);
+    // Abas Principais
+    const [activeTab, setActiveTab] = useState('DIETA'); 
+    const [activeDayType, setActiveDayType] = useState('TREINO'); 
+
+    // Estados Locais
     const [checkedMeals, setCheckedMeals] = useState({});
     
+    // Estados dos Modais
     const [surveyModalVisible, setSurveyModalVisible] = useState(false);
     const [bioModalVisible, setBioModalVisible] = useState(false);
+    const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
+    const [checkedShoppingItems, setCheckedShoppingItems] = useState([]);
     
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
         const initialize = async () => {
             try {
-                // 🔥 CORREÇÃO DO BUG DE CACHE DO ADMIN:
-                // Verifica todas as rotas possíveis que o painel envia
                 let u = route.params?.aluno || route.params?.userData || route.params?.user || route.params?.student;
-                
                 if (typeof u === 'string') u = JSON.parse(u);
-                
-                // Trata o caso onde o objeto inteiro é enviado direto na route
-                if (!u && route.params?.id) {
-                    u = route.params;
-                }
+                if (!u && route.params?.id) u = route.params;
 
-                // Se não vier nada da navegação (ou seja, é o aluno acessando o próprio app), puxa do cache
                 if (!u || !u.id) {
                     const stored = await AsyncStorage.getItem('user');
                     if (stored) u = JSON.parse(stored);
@@ -319,14 +301,13 @@ export default function DietScreen({ route }) {
                 const isElite = u.plan === 'ELITE' || u.plan === 'VIP';
                 if (!u.dietModule && !isElite) { setAccessDenied(true); setLoading(false); return; }
                 
-                // Agora o ID que vai buscar é definitivamente o ID da pessoa correta
                 fetchDiet(u.id);
             } catch (e) {
                 setLoading(false);
             }
         };
         initialize();
-    }, [route.params]); // Dependência atualizada
+    }, [route.params]);
 
     const fetchDiet = async (userId) => {
         try {
@@ -349,8 +330,87 @@ export default function DietScreen({ route }) {
         setCheckedMeals(prev => ({ ...prev, [mealId]: !prev[mealId] }));
     };
 
-    const waterTarget = useMemo(() => parseWaterMl(diet?.waterIntake), [diet]);
     const goalType = useMemo(() => getGoalType(user), [user]);
+
+    const availableTypes = useMemo(() => {
+        if (!diet?.meals) return ['TREINO', 'CARDIO', 'DESCANSO'];
+        const types = [...new Set(diet.meals.map(m => m.dayType || 'PADRÃO'))];
+        const order = ['PADRÃO', 'TREINO', 'CARDIO', 'DESCANSO'];
+        const present = order.filter(t => types.includes(t));
+        return present.length > 0 ? present : ['TREINO'];
+    }, [diet]);
+
+    useEffect(() => {
+        if (availableTypes.length > 0 && !availableTypes.includes(activeDayType)) {
+            setActiveDayType(availableTypes[0]);
+        }
+    }, [availableTypes]);
+
+    const visibleMeals = useMemo(() => {
+        if (!diet?.meals) return [];
+        return diet.meals.filter(m => (m.dayType || 'PADRÃO') === activeDayType);
+    }, [diet, activeDayType]);
+
+    // 🔥 MOTOR DA LISTA DE MERCADO
+    const shoppingList = useMemo(() => {
+        if (!diet?.meals) return {};
+        const list = {};
+
+        diet.meals.forEach((meal) => {
+            meal.items?.forEach((item) => {
+                const amt = parseFloat(item.amount) || 0;
+                if (amt === 0) return;
+
+                let cleanName = item.name.trim();
+                const prefixRegex = /^(\d+(?:[.,]\d+)?)\s*([a-zA-Záéíóúç]+)?\s*(de\s+)?/i;
+                if (prefixRegex.test(cleanName)) cleanName = cleanName.replace(prefixRegex, '').trim();
+
+                const key = `${cleanName.toLowerCase()}|${item.unit}`;
+
+                if (!list[key]) {
+                    let cat = '🛒 Outros';
+                    const n = cleanName.toLowerCase();
+                    if (n.includes('frango') || n.includes('carne') || n.includes('peixe') || n.includes('ovo') || n.includes('queijo') || n.includes('leite') || n.includes('mussarela')) {
+                        cat = '🥩 Açougue e Laticínios';
+                    } else if (n.includes('arroz') || n.includes('aveia') || n.includes('pão') || n.includes('macarrão') || n.includes('azeite') || n.includes('tapioca') || n.includes('crepioca')) {
+                        cat = '📦 Mercearia';
+                    } else if (n.includes('banana') || n.includes('maçã') || n.includes('batata') || n.includes('morango') || n.includes('uva') || n.includes('abóbora') || n.includes('cenoura') || n.includes('brócolis')) {
+                        cat = '🥦 Frutaria e Legumes';
+                    } else if (n.includes('whey') || n.includes('creatina') || n.includes('albumina') || n.includes('soja') || n.includes('yopro')) {
+                        cat = '💪 Suplementos';
+                    }
+                    list[key] = { name: cleanName, unit: item.unit, amount: amt, category: cat };
+                } else {
+                    list[key].amount += amt;
+                }
+            });
+        });
+
+        // Agrupa por categoria e converte g para Kg / ml para L
+        const grouped = {};
+        Object.values(list).forEach(item => {
+            let finalAmount = item.amount;
+            let finalUnit = item.unit;
+            if (finalUnit === 'g' && finalAmount >= 1000) {
+                finalAmount = (finalAmount / 1000).toFixed(1).replace('.0', '');
+                finalUnit = 'kg';
+            } else if (finalUnit === 'ml' && finalAmount >= 1000) {
+                finalAmount = (finalAmount / 1000).toFixed(1).replace('.0', '');
+                finalUnit = 'L';
+            }
+            if (!grouped[item.category]) grouped[item.category] = [];
+            grouped[item.category].push({ ...item, amount: finalAmount, unit: finalUnit });
+        });
+        return grouped;
+    }, [diet]);
+
+    const toggleShoppingItem = (itemName) => {
+        if (checkedShoppingItems.includes(itemName)) {
+            setCheckedShoppingItems(checkedShoppingItems.filter(i => i !== itemName));
+        } else {
+            setCheckedShoppingItems([...checkedShoppingItems, itemName]);
+        }
+    };
 
     if (!loading && accessDenied) {
         return (
@@ -415,23 +475,31 @@ export default function DietScreen({ route }) {
                     
                     {activeTab === 'DIETA' ? (
                         <>
-                            <DaySelector theme={theme} />
+                            <RoutineSelector theme={theme} types={availableTypes} activeType={activeDayType} onChange={setActiveDayType} />
                             
                             <View style={styles.sectionHeader}>
                                 <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
                                 <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SUAS REFEIÇÕES</Text>
                             </View>
 
-                            {diet.meals.map((meal, index) => (
-                                <CleanMealCard 
-                                    key={meal.id} 
-                                    meal={meal} 
-                                    theme={theme} 
-                                    index={index} 
-                                    isChecked={!!checkedMeals[meal.id]}
-                                    onToggleCheck={toggleMealCheck}
-                                />
-                            ))}
+                            {visibleMeals.length === 0 ? (
+                                <View style={[styles.emptyBox, { borderColor: theme.border }]}>
+                                    <MaterialCommunityIcons name="silverware-fork-knife" size={32} color={theme.textSecondary} />
+                                    <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia Livre</Text>
+                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Nenhuma refeição cadastrada pelo Coach para o dia de "{activeDayType}".</Text>
+                                </View>
+                            ) : (
+                                visibleMeals.map((meal, index) => (
+                                    <CleanMealCard 
+                                        key={meal.id} 
+                                        meal={meal} 
+                                        theme={theme} 
+                                        index={index} 
+                                        isChecked={!!checkedMeals[meal.id]}
+                                        onToggleCheck={toggleMealCheck}
+                                    />
+                                ))
+                            )}
                         </>
                     ) : (
                         <>
@@ -440,48 +508,26 @@ export default function DietScreen({ route }) {
                                 <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>HIDRATAÇÃO</Text>
                             </View>
 
-                            <View style={[styles.waterCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                <View style={styles.waterTop}>
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                                        <View style={styles.waterIconCircle}>
-                                            <MaterialCommunityIcons name="water-outline" size={20} color="#32ADE6" />
-                                        </View>
-                                        <View>
-                                            <Text style={[styles.waterTitle, { color: theme.text }]}>ÁGUA DIÁRIA</Text>
-                                            <Text style={[styles.waterMeta, { color: theme.textSecondary }]}>META: {(waterTarget/1000).toFixed(2)}L</Text>
-                                        </View>
-                                    </View>
-                                </View>
-
-                                <View style={styles.waterProgressRow}>
-                                    <Text style={styles.waterValueBig}>{(waterConsumed/1000).toFixed(2)}L</Text>
-                                    <Text style={[styles.waterValueSmall, { color: theme.textSecondary }]}>/ {(waterTarget/1000).toFixed(2)}L</Text>
-                                </View>
-                                
-                                <View style={[styles.progressBarBg, { backgroundColor: theme.bg }]}>
-                                    <View style={[styles.progressBarFill, { width: `${Math.min((waterConsumed/waterTarget)*100, 100)}%` }]} />
-                                </View>
-
-                                <View style={styles.waterBtnsRow}>
-                                    <TouchableOpacity style={[styles.waterBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => setWaterConsumed(w => w + 250)}>
-                                        <Text style={styles.waterBtnText}>+ 250ml</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.waterBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => setWaterConsumed(w => w + 500)}>
-                                        <Text style={styles.waterBtnText}>+ 500ml</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.waterResetBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => setWaterConsumed(0)}>
-                                        <MaterialCommunityIcons name="refresh" size={16} color={theme.textSecondary} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
+                            {/* 🔥 WaterTracker Modularizado Injetado Aqui */}
+                            <WaterTracker 
+                                theme={theme} 
+                                studentId={user?.id} 
+                                weight={user?.peso} 
+                            />
 
                             <View style={styles.toolsGrid}>
-                                <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { if(Platform.OS === 'web') window.alert('Lista de Mercado será gerada em breve.'); else Alert.alert('Em Breve', 'Sua Lista de Mercado inteligente estará disponível na próxima atualização.'); }}>
+                                <TouchableOpacity 
+                                    style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                                    onPress={() => setIsShoppingListOpen(true)}
+                                >
                                     <MaterialCommunityIcons name="cart-outline" size={26} color={theme.accent} style={{marginBottom: 8}} />
                                     <Text style={[styles.toolTitle, { color: theme.text }]}>MERCADO</Text>
                                     <Text style={[styles.toolSub, { color: theme.textSecondary }]}>SUA LISTA</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setBioModalVisible(true)}>
+                                <TouchableOpacity 
+                                    style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                                    onPress={() => setBioModalVisible(true)}
+                                >
                                     <MaterialCommunityIcons name="heart-pulse" size={26} color={theme.accent} style={{marginBottom: 8}} />
                                     <Text style={[styles.toolTitle, { color: theme.text }]}>RELATÓRIO</Text>
                                     <Text style={[styles.toolSub, { color: theme.textSecondary }]}>BIOFEEDBACK</Text>
@@ -545,8 +591,17 @@ export default function DietScreen({ route }) {
                 </Animated.ScrollView>
             </View>
 
-            <DietSurveyModal visible={surveyModalVisible} onClose={() => setSurveyModalVisible(false)} theme={theme} />
-            <BiofeedbackModal visible={bioModalVisible} onClose={() => setBioModalVisible(false)} theme={theme} />
+            {/* 🔥 MODAIS IMPORTADOS */}
+            <DietSurveyModal visible={surveyModalVisible} onClose={() => setSurveyModalVisible(false)} theme={theme} userId={user?.id} />
+            <BiofeedbackModal visible={bioModalVisible} onClose={() => setBioModalVisible(false)} theme={theme} userId={user?.id} />
+            <ShoppingListModal 
+                visible={isShoppingListOpen} 
+                onClose={() => setIsShoppingListOpen(false)} 
+                theme={theme} 
+                shoppingList={shoppingList}
+                checkedShoppingItems={checkedShoppingItems}
+                toggleShoppingItem={toggleShoppingItem}
+            />
         </RootComponent>
     );
 }
@@ -567,7 +622,7 @@ const styles = StyleSheet.create({
     mainTabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
     mainTabText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
 
-    daySelectorContainer: { flexDirection: 'row', justifyContent: 'space-between', padding: 5, borderRadius: 20, borderWidth: 1, marginBottom: 25 },
+    daySelectorContainer: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 5, borderRadius: 20, borderWidth: 1, marginBottom: 25 },
     dayBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16 },
     dayText: { fontSize: 10, fontWeight: '900' },
 
@@ -600,21 +655,6 @@ const styles = StyleSheet.create({
     cleanNoteBox: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 25, padding: 16, borderRadius: 16, borderWidth: 1, zIndex: 2 },
     cleanNoteText: { fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
 
-    waterCard: { borderRadius: 24, padding: 20, borderWidth: 1, marginBottom: 20 },
-    waterTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-    waterIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#32ADE615', alignItems: 'center', justifyContent: 'center' },
-    waterTitle: { fontSize: 14, fontWeight: '900' },
-    waterMeta: { fontSize: 10, fontWeight: 'bold', marginTop: 2 },
-    waterProgressRow: { flexDirection: 'row', alignItems: 'baseline', marginBottom: 8 },
-    waterValueBig: { fontSize: 32, fontWeight: '900', color: '#32ADE6', fontStyle: 'italic', letterSpacing: -1 },
-    waterValueSmall: { fontSize: 12, fontWeight: 'bold', marginLeft: 5, marginBottom: 6 },
-    progressBarBg: { height: 8, borderRadius: 4, width: '100%', marginBottom: 20, overflow: 'hidden' },
-    progressBarFill: { height: '100%', backgroundColor: '#32ADE6', borderRadius: 4 },
-    waterBtnsRow: { flexDirection: 'row', gap: 10 },
-    waterBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
-    waterBtnText: { color: '#32ADE6', fontWeight: '900', fontSize: 12 },
-    waterResetBtn: { width: 44, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-
     toolsGrid: { flexDirection: 'row', gap: 15, marginBottom: 15 },
     toolCard: { flex: 1, padding: 20, borderRadius: 20, borderWidth: 1 },
     toolTitle: { fontSize: 13, fontWeight: '900' },
@@ -637,7 +677,7 @@ const styles = StyleSheet.create({
     obsInput: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, height: 80, textAlignVertical: 'top', marginBottom: 20 },
     modalSubmit: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
 
-    modalHeader: { padding: 25, alignItems: 'center', position: 'relative', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
-    modalIconWrap: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
-    modalBody: { padding: 25 }
+    emptyBox: { alignItems: 'center', padding: 40, borderStyle: 'dashed', borderWidth: 1, borderRadius: 24, marginTop: 10 },
+    emptyTitle: { fontSize: 16, fontWeight: '900', marginTop: 10 },
+    emptyDesc: { fontSize: 12, marginTop: 6, textAlign: 'center', lineHeight: 18 },
 });

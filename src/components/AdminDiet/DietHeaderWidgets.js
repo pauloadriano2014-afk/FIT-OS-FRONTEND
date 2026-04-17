@@ -1,5 +1,6 @@
+// src/components/AdminDiet/DietHeaderWidgets.js
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function DietHeaderWidgets({ 
@@ -7,47 +8,68 @@ export default function DietHeaderWidgets({
     anamnese, handleGenerateAI, isGenerating, setImportModalVisible 
 }) {
     return (
-        <>
-            {/* DASHBOARD DE MACROS */}
-            <View style={[styles.dashboard, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-                {[
-                    { label: 'KCAL', cur: currentMacros.kcal, target: macros.alvo, unit: 'kcal', color: theme.accent },
-                    { label: 'PROT', cur: currentMacros.prot, target: macros.proteinaAlvo, unit: 'g', color: '#32ADE6' },
-                    { label: 'CARBO', cur: currentMacros.carb, target: macros.carboAlvo, unit: 'g', color: '#FFCC00' },
-                    { label: 'GORD', cur: currentMacros.fat, target: macros.fatAlvo, unit: 'g', color: '#FF6B35' },
-                ].map(({ label, cur, target, unit, color }) => (
-                    <View key={label} style={styles.macroCol}>
-                        <Text style={[styles.macroLabel, { color: theme.textSecondary }]}>{label}</Text>
-                        <Text style={[styles.macroVal, { color: cur >= target && target > 0 ? color : theme.text }]}>
-                            {cur}<Text style={{ fontSize: 10, color: theme.textSecondary }}>{unit}</Text>
-                        </Text>
-                        <Text style={[styles.macroTarget, { color: theme.textSecondary }]}>/ {target}{unit}</Text>
-                        <View style={[styles.progBg, { backgroundColor: theme.border }]}>
-                            <View style={[styles.progFill, { backgroundColor: color, width: `${pct(cur, target)}%` }]} />
+        <View style={styles.container}>
+            
+            {/* 🔥 DASHBOARD DE MACROS HORIZONTAL (Modernizado) */}
+            <View style={[styles.dashboardCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.dashboardHeader, { borderBottomColor: theme.border }]}>
+                    <MaterialCommunityIcons name="chart-donut-variant" size={16} color={theme.textSecondary} />
+                    <Text style={[styles.dashboardTitle, { color: theme.textSecondary }]}>RESUMO DE MACRONUTRIENTES</Text>
+                </View>
+                
+                <View style={styles.macroList}>
+                    {[
+                        { label: 'KCAL', cur: currentMacros.kcal, target: macros.alvo, unit: 'kcal', color: theme.accent },
+                        { label: 'PROT', cur: currentMacros.prot, target: macros.proteinaAlvo, unit: 'g', color: '#32ADE6' },
+                        { label: 'CARBO', cur: currentMacros.carb, target: macros.carboAlvo, unit: 'g', color: '#FFCC00' },
+                        { label: 'GORD', cur: currentMacros.fat, target: macros.fatAlvo, unit: 'g', color: '#FF6B35' },
+                    ].map(({ label, cur, target, unit, color }) => (
+                        <View key={label} style={styles.hMacroRow}>
+                            <Text style={[styles.hMacroLabel, { color: theme.textSecondary }]}>{label}</Text>
+                            
+                            {/* Barra Horizontal Grossa e Arredondada */}
+                            <View style={styles.hBarContainer}>
+                                <View style={[styles.hBarBg, { backgroundColor: theme.border }]}>
+                                    <View style={[styles.hBarFill, { backgroundColor: color, width: `${pct(cur, target)}%` }]} />
+                                </View>
+                            </View>
+                            
+                            <View style={styles.hMacroValues}>
+                                <Text style={[styles.hMacroCur, { color: cur >= target && target > 0 ? color : theme.text }]}>
+                                    {cur}<Text style={{ fontSize: 9, color: theme.textSecondary }}>{unit}</Text>
+                                </Text>
+                                <Text style={[styles.hMacroTarget, { color: theme.textSecondary }]}>/ {target}{unit}</Text>
+                            </View>
                         </View>
-                    </View>
-                ))}
+                    ))}
+                </View>
             </View>
 
-            {/* RAIO-X DO ALUNO */}
+            {/* 🔥 RAIO-X DO ALUNO (Modernizado com Cards) */}
             <TouchableOpacity
-                style={[styles.raioXHeader, { backgroundColor: theme.surface, borderColor: theme.border, borderBottomLeftRadius: showRaioX ? 0 : 14, borderBottomRightRadius: showRaioX ? 0 : 14 }]}
+                style={[styles.raioXHeader, { 
+                    backgroundColor: theme.surface, 
+                    borderColor: theme.border, 
+                    borderBottomLeftRadius: showRaioX ? 0 : 16, 
+                    borderBottomRightRadius: showRaioX ? 0 : 16 
+                }]}
                 onPress={() => setShowRaioX(!showRaioX)}
                 activeOpacity={0.8}
             >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={[styles.raioXIcon, { backgroundColor: theme.accent + '20' }]}>
-                        <MaterialCommunityIcons name="clipboard-pulse" size={16} color={theme.accent} />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                    <View style={[styles.raioXIcon, { backgroundColor: theme.accent + '15' }]}>
+                        <MaterialCommunityIcons name="clipboard-pulse-outline" size={18} color={theme.accent} />
                     </View>
-                    <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>RAIO-X DO ALUNO</Text>
+                    <Text style={[styles.sectionTitle, { color: theme.text }]}>RAIO-X DO ALUNO</Text>
                 </View>
-                <MaterialCommunityIcons name={showRaioX ? 'chevron-up' : 'chevron-down'} size={22} color={theme.textSecondary} />
+                <MaterialCommunityIcons name={showRaioX ? 'chevron-up' : 'chevron-down'} size={24} color={theme.textSecondary} />
             </TouchableOpacity>
 
             {showRaioX && (
                 <View style={[styles.raioXBody, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     {anamnese ? (
                         <>
+                            {/* Grid em formato de Mini Cards */}
                             <View style={styles.rxGrid}>
                                 {[
                                     { l: 'OBJETIVO', v: anamnese.objetivo },
@@ -55,50 +77,55 @@ export default function DietHeaderWidgets({
                                     { l: 'GASTO TOTAL', v: `${macros.gastoTotal} kcal` },
                                     { l: 'REFEIÇÕES', v: `${anamnese.mealsPerDay || '?'}x / dia` },
                                 ].map(({ l, v }) => (
-                                    <View key={l} style={styles.rxItem}>
+                                    <View key={l} style={[styles.rxItemCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                         <Text style={[styles.rxLabel, { color: theme.textSecondary }]}>{l}</Text>
-                                        <Text style={[styles.rxVal, { color: theme.text }]}>{v}</Text>
+                                        <Text style={[styles.rxVal, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>{v}</Text>
                                     </View>
                                 ))}
                             </View>
+                            
                             <View style={[styles.rxTimeRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                <MaterialCommunityIcons name="clock-outline" size={14} color={theme.accent} />
+                                <MaterialCommunityIcons name="clock-outline" size={16} color={theme.accent} />
                                 {[
                                     { l: 'Acorda', v: anamnese.wakeUpTime || '--' },
                                     { l: 'Treina', v: anamnese.trainTime || '--' },
                                     { l: 'Dorme', v: anamnese.sleepTime || '--' },
                                 ].map(({ l, v }, i) => (
                                     <React.Fragment key={l}>
-                                        {i > 0 && <Text style={{ color: theme.border }}>·</Text>}
+                                        {i > 0 && <Text style={{ color: theme.border, marginHorizontal: 2 }}>|</Text>}
                                         <Text style={[styles.rxTimeText, { color: theme.textSecondary }]}>
-                                            {l}: <Text style={{ color: theme.text, fontWeight: '700' }}>{v}</Text>
+                                            {l}: <Text style={{ color: theme.text, fontWeight: '800' }}>{v}</Text>
                                         </Text>
                                     </React.Fragment>
                                 ))}
                             </View>
-                            <View style={{ gap: 6, marginTop: 12 }}>
+
+                            <View style={{ gap: 8, marginTop: 15 }}>
                                 {[
                                     { label: 'ALERGIAS', value: anamnese.allergies || 'Nenhuma', color: '#FF3B30' },
                                     { label: 'RESTRIÇÕES', value: anamnese.foodAversions || 'Nenhuma', color: '#FF9500' },
                                     { label: 'SUPLEMENTOS', value: anamnese.supplements || 'Nenhum', color: theme.accent },
                                 ].map(({ label, value, color }) => (
-                                    <View key={label} style={[styles.rxAlertRow, { borderLeftColor: color, backgroundColor: color + '10' }]}>
+                                    <View key={label} style={[styles.rxAlertRow, { borderLeftColor: color, backgroundColor: theme.bg, borderColor: theme.border }]}>
                                         <Text style={[styles.rxAlertLabel, { color }]}>{label}</Text>
-                                        <Text style={[styles.rxAlertVal, { color: theme.text }]}>{value}</Text>
+                                        <Text style={[styles.rxAlertVal, { color: theme.text }]} numberOfLines={2}>{value}</Text>
                                     </View>
                                 ))}
                             </View>
                         </>
                     ) : (
-                        <Text style={{ color: theme.textSecondary, fontSize: 13, fontStyle: 'italic' }}>Nenhuma anamnese preenchida.</Text>
+                        <View style={{ padding: 20, alignItems: 'center' }}>
+                            <MaterialCommunityIcons name="clipboard-text-off-outline" size={32} color={theme.border} />
+                            <Text style={{ color: theme.textSecondary, fontSize: 13, fontStyle: 'italic', marginTop: 10 }}>Nenhuma anamnese preenchida pelo aluno.</Text>
+                        </View>
                     )}
                 </View>
             )}
 
-            {/* BOTÕES ASSISTENTES */}
+            {/* 🔥 BOTÕES ASSISTENTES (IA / PDF) BLINDADOS */}
             <View style={styles.assistantRow}>
                 <TouchableOpacity 
-                    style={[styles.assistantBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '40' }]} 
+                    style={[styles.assistantBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
                     onPress={handleGenerateAI}
                     disabled={isGenerating}
                 >
@@ -106,42 +133,67 @@ export default function DietHeaderWidgets({
                         <ActivityIndicator size="small" color={theme.accent} />
                     ) : (
                         <>
-                            <MaterialCommunityIcons name="robot-outline" size={20} color={theme.accent} />
-                            <Text style={[styles.assistantBtnText, { color: theme.accent }]}>GERAR COM IA</Text>
+                            <View style={[styles.iconGlow, { backgroundColor: theme.accent + '15' }]}>
+                                <MaterialCommunityIcons name="robot-outline" size={18} color={theme.accent} />
+                            </View>
+                            <Text style={[styles.assistantBtnText, { color: theme.text }]}>GERAR COM IA</Text>
                         </>
                     )}
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.assistantBtn, { backgroundColor: '#32ADE6' + '15', borderColor: '#32ADE6' + '40' }]} onPress={() => setImportModalVisible(true)}>
-                    <MaterialCommunityIcons name="file-pdf-box" size={20} color="#32ADE6" />
-                    <Text style={[styles.assistantBtnText, { color: '#32ADE6' }]}>IMPORTAR PDF</Text>
+                
+                <TouchableOpacity 
+                    style={[styles.assistantBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                    onPress={() => setImportModalVisible(true)}
+                >
+                    <View style={[styles.iconGlow, { backgroundColor: '#32ADE6' + '15' }]}>
+                        <MaterialCommunityIcons name="file-pdf-box" size={18} color="#32ADE6" />
+                    </View>
+                    <Text style={[styles.assistantBtnText, { color: theme.text }]}>IMPORTAR PDF</Text>
                 </TouchableOpacity>
             </View>
-        </>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-    dashboard: { flexDirection: 'row', padding: 16, gap: 8, borderBottomWidth: 1 },
-    macroCol: { flex: 1 },
-    macroLabel: { fontSize: 8, fontWeight: '900', letterSpacing: 0.8, marginBottom: 3 },
-    macroVal: { fontSize: 15, fontWeight: '900', marginBottom: 1 },
-    macroTarget: { fontSize: 9, marginBottom: 5 },
-    progBg: { height: 3, borderRadius: 2, overflow: 'hidden' },
-    progFill: { height: '100%', borderRadius: 2 },
-    raioXHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderWidth: 1, borderTopLeftRadius: 14, borderTopRightRadius: 14 },
-    raioXIcon: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-    sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.2 },
-    raioXBody: { padding: 14, borderWidth: 1, borderTopWidth: 0, borderBottomLeftRadius: 14, borderBottomRightRadius: 14 },
-    rxGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
-    rxItem: { width: '47%' },
-    rxLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
-    rxVal: { fontSize: 13, fontWeight: '800' },
-    rxTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, borderRadius: 10, borderWidth: 1, flexWrap: 'wrap' },
+    container: { padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+    
+    // Dashboard Horizontal
+    dashboardCard: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
+    dashboardHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15, paddingBottom: 10, borderBottomWidth: 1 },
+    dashboardTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    macroList: { gap: 12 },
+    
+    hMacroRow: { flexDirection: 'row', alignItems: 'center' },
+    hMacroLabel: { width: 45, fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+    hBarContainer: { flex: 1, paddingHorizontal: 10 },
+    hBarBg: { height: 8, borderRadius: 4, overflow: 'hidden' }, // Barra grossa
+    hBarFill: { height: '100%', borderRadius: 4 },
+    hMacroValues: { width: 70, alignItems: 'flex-end' },
+    hMacroCur: { fontSize: 13, fontWeight: '900' },
+    hMacroTarget: { fontSize: 9, marginTop: 2 },
+
+    // Raio X Modernizado
+    raioXHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderWidth: 1, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+    raioXIcon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    sectionTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+    raioXBody: { padding: 16, borderWidth: 1, borderTopWidth: 0, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
+    
+    rxGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 15 },
+    rxItemCard: { width: '48%', padding: 12, borderRadius: 12, borderWidth: 1 },
+    rxLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5, marginBottom: 4 },
+    rxVal: { fontSize: 13, fontWeight: '900' },
+    
+    rxTimeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, borderRadius: 12, borderWidth: 1 },
     rxTimeText: { fontSize: 11 },
-    rxAlertRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 8, borderLeftWidth: 3 },
-    rxAlertLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5, width: 90 },
-    rxAlertVal: { fontSize: 12, flex: 1 },
-    assistantRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-    assistantBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 12, borderWidth: 1 },
-    assistantBtnText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 }
+    
+    rxAlertRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 12, borderRadius: 12, borderWidth: 1, borderLeftWidth: 4 },
+    rxAlertLabel: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5, width: 85, marginTop: 2 },
+    rxAlertVal: { fontSize: 12, flex: 1, fontWeight: '600' },
+
+    // Botões Assistentes
+    assistantRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
+    assistantBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, gap: 10 },
+    iconGlow: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+    assistantBtnText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 }
 });
