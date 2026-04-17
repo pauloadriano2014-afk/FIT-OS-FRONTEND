@@ -12,7 +12,6 @@ import { useTheme } from '../contexts/ThemeContext';
 
 // 🔥 Importando os Componentes Modularizados
 import WaterTracker from '../components/ClientDiet/WaterTracker';
-import BiofeedbackModal from '../components/ClientDiet/BiofeedbackModal';
 import ShoppingListModal from '../components/ClientDiet/ShoppingListModal';
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
@@ -80,6 +79,8 @@ function RoutineSelector({ theme, types, activeType, onChange }) {
 
 function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
     const bgImage = getMealBackgroundImage(meal.name);
+    // Controla quais grupos de substituição estão abertos
+    const [showSubs, setShowSubs] = useState({});
 
     const grouped = meal.items.reduce((acc, item) => {
         const key = item.substitutionGroupId || item.id || Math.random().toString();
@@ -88,6 +89,10 @@ function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
         return acc;
     }, {});
     const groups = Object.values(grouped);
+
+    const toggleSubs = (idx) => {
+        setShowSubs(prev => ({ ...prev, [idx]: !prev[idx] }));
+    };
 
     return (
         <View style={[styles.cleanMealCard, { backgroundColor: theme.surface, borderColor: isChecked ? theme.accent : theme.border, opacity: isChecked ? 0.6 : 1 }]}>
@@ -114,29 +119,45 @@ function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
             <View style={styles.cleanFoodList}>
                 {groups.map((group, gIdx) => {
                     const macroCategory = getMacroCategory(group[0]);
+                    const mainFood = group[0];
+                    const substitutes = group.slice(1);
+                    const isShowingSubs = !!showSubs[gIdx];
+
                     return (
                         <View key={gIdx} style={styles.cleanFoodGroup}>
                             <Text style={[styles.macroCategoryTag, { color: theme.accent }]}>🎯 {macroCategory}</Text>
-                            {group.map((food, fIdx) => {
-                                const isSub = fIdx > 0;
-                                return (
-                                    <React.Fragment key={food.id || fIdx}>
-                                        {isSub && (
-                                            <View style={styles.cleanOuDivider}>
-                                                <MaterialCommunityIcons name="swap-vertical" size={14} color={theme.textSecondary} />
-                                                <Text style={[styles.cleanOuText, { color: theme.textSecondary }]}>OU SUBSTITUA POR:</Text>
-                                            </View>
-                                        )}
-                                        <View style={[styles.cleanFoodItem, { backgroundColor: theme.bg, borderColor: theme.border, marginLeft: isSub ? 15 : 0 }]}>
-                                            <View style={styles.cleanFoodDetails}>
-                                                <Text style={[styles.cleanFoodName, { color: theme.text }]} numberOfLines={2}>
-                                                    {food.amount} {food.unit} de {food.name?.toUpperCase()}
-                                                </Text>
-                                            </View>
+                            
+                            {/* Alimento Principal - Destaque em Verde Neon Premium */}
+                            <View style={[styles.mainFoodCard, { backgroundColor: 'rgba(77, 227, 143, 0.1)', borderColor: '#4DE38F' }]}>
+                                <Text style={[styles.cleanFoodName, { color: theme.text }]} numberOfLines={2}>
+                                    {mainFood.amount} {mainFood.unit} de {mainFood.name?.toUpperCase()}
+                                </Text>
+                            </View>
+
+                            {/* Área de Substitutos (Apenas se houver) */}
+                            {substitutes.length > 0 && (
+                                <>
+                                    <TouchableOpacity 
+                                        style={styles.showSubsBtn} 
+                                        onPress={() => toggleSubs(gIdx)}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Text style={[styles.showSubsText, { color: theme.textSecondary }]}>
+                                            {isShowingSubs ? 'Ocultar opções de troca' : `Gostaria de substituir este alimento? (+${substitutes.length})`}
+                                        </Text>
+                                        <MaterialCommunityIcons name={isShowingSubs ? "chevron-up" : "chevron-down"} size={16} color={theme.textSecondary} />
+                                    </TouchableOpacity>
+
+                                    {isShowingSubs && substitutes.map((sub, sIdx) => (
+                                        <View key={sIdx} style={[styles.subFoodCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                            <Text style={[styles.subFoodName, { color: theme.textSecondary }]} numberOfLines={2}>
+                                                {sub.amount} {sub.unit} de {sub.name?.toUpperCase()}
+                                            </Text>
+                                            <MaterialCommunityIcons name="swap-horizontal" size={16} color={theme.textSecondary} />
                                         </View>
-                                    </React.Fragment>
-                                );
-                            })}
+                                    ))}
+                                </>
+                            )}
                         </View>
                     )
                 })}
@@ -277,7 +298,6 @@ export default function DietScreen({ route }) {
     
     // Estados dos Modais
     const [surveyModalVisible, setSurveyModalVisible] = useState(false);
-    const [bioModalVisible, setBioModalVisible] = useState(false);
     const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
     const [checkedShoppingItems, setCheckedShoppingItems] = useState([]);
     
@@ -351,21 +371,46 @@ export default function DietScreen({ route }) {
         return diet.meals.filter(m => (m.dayType || 'PADRÃO') === activeDayType);
     }, [diet, activeDayType]);
 
-    // 🔥 MOTOR DA LISTA DE MERCADO
+    // 🔥 MOTOR DA LISTA DE MERCADO (Com Multiplicador Semanal 4-2-1)
     const shoppingList = useMemo(() => {
         if (!diet?.meals) return {};
         const list = {};
 
-        diet.meals.forEach((meal) => {
-            meal.items?.forEach((item) => {
-                const amt = parseFloat(item.amount) || 0;
-                if (amt === 0) return;
+        // Frequência base por semana
+        const dayMultiplier = {
+            'TREINO': 4,
+            'CARDIO': 2,
+            'DESCANSO': 1,
+            'PADRÃO': 7
+        };
 
-                let cleanName = item.name.trim();
+        diet.meals.forEach((meal) => {
+            const multiplier = dayMultiplier[meal.dayType || 'PADRÃO'] || 1;
+
+            // Agrupa itens para ignorar os substitutos (não estourar a lista de compras do aluno)
+            const groupedItems = meal.items?.reduce((acc, item) => {
+                const key = item.substitutionGroupId || item.id || Math.random().toString();
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(item);
+                return acc;
+            }, {});
+
+            if (!groupedItems) return;
+
+            Object.values(groupedItems).forEach((group) => {
+                const mainItem = group[0]; // Adiciona apenas o Alimento Principal
+                if (!mainItem) return;
+
+                const baseAmt = parseFloat(mainItem.amount) || 0;
+                if (baseAmt === 0) return;
+
+                const amt = baseAmt * multiplier;
+
+                let cleanName = mainItem.name.trim();
                 const prefixRegex = /^(\d+(?:[.,]\d+)?)\s*([a-zA-Záéíóúç]+)?\s*(de\s+)?/i;
                 if (prefixRegex.test(cleanName)) cleanName = cleanName.replace(prefixRegex, '').trim();
 
-                const key = `${cleanName.toLowerCase()}|${item.unit}`;
+                const key = `${cleanName.toLowerCase()}|${mainItem.unit}`;
 
                 if (!list[key]) {
                     let cat = '🛒 Outros';
@@ -379,7 +424,7 @@ export default function DietScreen({ route }) {
                     } else if (n.includes('whey') || n.includes('creatina') || n.includes('albumina') || n.includes('soja') || n.includes('yopro')) {
                         cat = '💪 Suplementos';
                     }
-                    list[key] = { name: cleanName, unit: item.unit, amount: amt, category: cat };
+                    list[key] = { name: cleanName, unit: mainItem.unit, amount: amt, category: cat };
                 } else {
                     list[key].amount += amt;
                 }
@@ -508,7 +553,6 @@ export default function DietScreen({ route }) {
                                 <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>HIDRATAÇÃO</Text>
                             </View>
 
-                            {/* 🔥 WaterTracker Modularizado Injetado Aqui */}
                             <WaterTracker 
                                 theme={theme} 
                                 studentId={user?.id} 
@@ -521,16 +565,22 @@ export default function DietScreen({ route }) {
                                     onPress={() => setIsShoppingListOpen(true)}
                                 >
                                     <MaterialCommunityIcons name="cart-outline" size={26} color={theme.accent} style={{marginBottom: 8}} />
-                                    <Text style={[styles.toolTitle, { color: theme.text }]}>MERCADO</Text>
-                                    <Text style={[styles.toolSub, { color: theme.textSecondary }]}>SUA LISTA</Text>
+                                    <View>
+                                        <Text style={[styles.toolTitle, { color: theme.text }]}>MERCADO</Text>
+                                        <Text style={[styles.toolSub, { color: theme.textSecondary }]}>SUA LISTA</Text>
+                                    </View>
                                 </TouchableOpacity>
+
+                                {/* Substitui o Biofeedback pelo Ajuste de Dieta */}
                                 <TouchableOpacity 
                                     style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                                    onPress={() => setBioModalVisible(true)}
+                                    onPress={() => setSurveyModalVisible(true)}
                                 >
-                                    <MaterialCommunityIcons name="heart-pulse" size={26} color={theme.accent} style={{marginBottom: 8}} />
-                                    <Text style={[styles.toolTitle, { color: theme.text }]}>RELATÓRIO</Text>
-                                    <Text style={[styles.toolSub, { color: theme.textSecondary }]}>BIOFEEDBACK</Text>
+                                    <MaterialCommunityIcons name="pencil-outline" size={26} color={theme.accent} style={{marginBottom: 8}} />
+                                    <View>
+                                        <Text style={[styles.toolTitle, { color: theme.text }]}>AJUSTES</Text>
+                                        <Text style={[styles.toolSub, { color: theme.textSecondary }]}>MUDAR PLANO</Text>
+                                    </View>
                                 </TouchableOpacity>
                             </View>
 
@@ -575,17 +625,6 @@ export default function DietScreen({ route }) {
                                 </Text>
                             </View>
 
-                            <TouchableOpacity 
-                                style={[styles.dangerCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 10 }]}
-                                onPress={() => setSurveyModalVisible(true)}
-                            >
-                                <View style={styles.dangerIcon}><MaterialCommunityIcons name="pencil-outline" size={24} color={theme.accent} /></View>
-                                <View style={{justifyContent: 'center', flex: 1}}>
-                                    <Text style={[styles.toolTitle, { color: theme.text }]}>PRECISA DE MUDANÇAS?</Text>
-                                    <Text style={[styles.toolSub, { color: theme.textSecondary }]}>SOLICITAR AJUSTE NO PLANO</Text>
-                                </View>
-                            </TouchableOpacity>
-
                         </>
                     )}
                 </Animated.ScrollView>
@@ -593,7 +632,6 @@ export default function DietScreen({ route }) {
 
             {/* 🔥 MODAIS IMPORTADOS */}
             <DietSurveyModal visible={surveyModalVisible} onClose={() => setSurveyModalVisible(false)} theme={theme} userId={user?.id} />
-            <BiofeedbackModal visible={bioModalVisible} onClose={() => setBioModalVisible(false)} theme={theme} userId={user?.id} />
             <ShoppingListModal 
                 visible={isShoppingListOpen} 
                 onClose={() => setIsShoppingListOpen(false)} 
@@ -645,27 +683,25 @@ const styles = StyleSheet.create({
     cleanFoodGroup: { gap: 8 },
     macroCategoryTag: { fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 4 },
     
-    cleanFoodItem: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1 },
-    cleanFoodDetails: { flex: 1 },
+    mainFoodCard: { padding: 16, borderRadius: 16, borderWidth: 1.5, marginBottom: 4 },
     cleanFoodName: { fontSize: 14, fontWeight: '900', fontStyle: 'italic', lineHeight: 20 },
-
-    cleanOuDivider: { flexDirection: 'row', alignItems: 'center', marginVertical: 4, paddingHorizontal: 15, gap: 6 },
-    cleanOuText: { fontSize: 10, fontWeight: 'bold', fontStyle: 'italic' },
+    
+    showSubsBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, paddingHorizontal: 4 },
+    showSubsText: { fontSize: 11, fontWeight: '700' },
+    subFoodCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', marginTop: 6 },
+    subFoodName: { fontSize: 13, fontWeight: '600', flex: 1 },
 
     cleanNoteBox: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 25, padding: 16, borderRadius: 16, borderWidth: 1, zIndex: 2 },
     cleanNoteText: { fontSize: 12, fontStyle: 'italic', lineHeight: 18 },
 
     toolsGrid: { flexDirection: 'row', gap: 15, marginBottom: 15 },
-    toolCard: { flex: 1, padding: 20, borderRadius: 20, borderWidth: 1 },
+    toolCard: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 15, padding: 20, borderRadius: 20, borderWidth: 1 },
     toolTitle: { fontSize: 13, fontWeight: '900' },
     toolSub: { fontSize: 9, fontWeight: 'bold', marginTop: 2 },
 
     infoCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
     infoTitle: { fontSize: 14, fontWeight: '900' },
     infoDesc: { fontSize: 12, lineHeight: 18 },
-
-    dangerCard: { flexDirection: 'row', padding: 20, borderRadius: 20, borderWidth: 1, gap: 15, alignItems: 'center' },
-    dangerIcon: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#4DE38F15', alignItems: 'center', justifyContent: 'center' },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 20 },
     modalBox: { borderRadius: 24, padding: 25, borderWidth: 1, position: 'relative', alignSelf: 'center' },
