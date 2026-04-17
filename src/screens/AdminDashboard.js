@@ -32,6 +32,33 @@ const getExpirationStatus = (workout) => {
     return { text: `VENCE EM ${diffDays}D`, bg: 'rgba(52, 199, 89, 0.15)', color: '#34C759', cat: 'OK' };
 };
 
+// 🔥 NOVO: Helper que espelha a lógica do seu AdminUserSystem para ler a data de check-in
+const getCheckinStatus = (aluno) => {
+    // 1. Verifica se a data existe
+    if (!aluno || !aluno.nextCheckInDate) return false;
+    
+    // 2. Garante que o disableCheckIn não é uma string "false" enganando o JS
+    if (aluno.disableCheckIn === true || String(aluno.disableCheckIn).toLowerCase() === 'true') return false;
+    
+    let targetDate;
+    
+    // 3. Lê tanto o formato BR (DD/MM/YYYY) quanto o formato de Banco (ISO String)
+    if (typeof aluno.nextCheckInDate === 'string' && aluno.nextCheckInDate.includes('/')) {
+        const parts = aluno.nextCheckInDate.split('/');
+        targetDate = new Date(parts[2], parts[1] - 1, parts[0]);
+    } else {
+        targetDate = new Date(aluno.nextCheckInDate);
+    }
+    
+    if (isNaN(targetDate.getTime())) return false; // Fail-safe contra Invalid Date
+    
+    targetDate.setHours(0,0,0,0);
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    return targetDate.getTime() < today.getTime(); 
+};
+
 const getPlanBadge = (plan) => {
     switch(plan) {
         case 'LOW_COST': return { text: 'LOW COST', color: '#32ADE6', icon: 'rocket-launch' };
@@ -49,7 +76,9 @@ export default function AdminDashboard({ navigation }) {
   const [alunosInativos, setAlunosInativos] = useState([]);
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
   
-  // 🔥 NOVO: Sub-aba para organizar o Sistema
+  const [subTabCheckins, setSubTabCheckins] = useState('AVALIACOES'); 
+  const [dietFeedbacks, setDietFeedbacks] = useState([]);
+
   const [subTabGestao, setSubTabGestao] = useState('FERRAMENTAS'); 
 
   const [statusFilter, setStatusFilter] = useState('TODOS'); 
@@ -76,7 +105,7 @@ export default function AdminDashboard({ navigation }) {
   const filterOptions = [
     { id: 'TODOS', label: 'TODOS OS ALUNOS', icon: 'account-group', color: theme.text },
     { id: 'PENDENTES', label: 'AVALIAÇÃO PENDENTE', icon: 'alert-circle', color: '#FF3B30' },
-    { id: 'ATRASADOS', label: 'TREINOS ATRASADOS', icon: 'alert-circle', color: '#FF3B30' },
+    { id: 'ATRASADOS', label: 'ATRASADOS (TREINO/FOTO)', icon: 'alert-circle', color: '#FF3B30' },
     { id: 'ALERTA', label: 'ALERTA (VENCE EM 7D)', icon: 'clock-fast', color: '#FFCC00' },
     { id: 'OK', label: 'NO PRAZO', icon: 'check-circle', color: '#34C759' },
     { id: 'SEM_TREINO', label: 'SEM TREINO', icon: 'calendar-blank', color: theme.textSecondary },
@@ -101,11 +130,12 @@ export default function AdminDashboard({ navigation }) {
       } else {
           const cachedData = await AsyncStorage.getItem('@dashboard_cache');
           if (cachedData) {
-              const { cacheAtivos, cacheInativos, cacheFeed, cacheCheckins } = JSON.parse(cachedData);
+              const { cacheAtivos, cacheInativos, cacheFeed, cacheCheckins, cacheFeedbacks } = JSON.parse(cachedData);
               if (cacheAtivos) setAlunosAtivos(cacheAtivos);
               if (cacheInativos) setAlunosInativos(cacheInativos);
               if (cacheFeed) setFeed(cacheFeed);
               if (cacheCheckins) setCheckins(cacheCheckins);
+              if (cacheFeedbacks) setDietFeedbacks(cacheFeedbacks);
               setLoading(false); 
           } else {
               setLoading(true);
@@ -175,11 +205,48 @@ export default function AdminDashboard({ navigation }) {
         })
         .catch(e => console.log("Erro Busca Checkins:", e));
 
+      fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?t=${t}`)
+        .then(res => res.json())
+        .then(async dataFeedbacks => {
+            if (Array.isArray(dataFeedbacks)) {
+                setDietFeedbacks(dataFeedbacks);
+                const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
+                await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({
+                    ...currentCache,
+                    cacheFeedbacks: dataFeedbacks
+                }));
+            }
+        })
+        .catch(e => console.log("Erro Busca Feedbacks de Dieta:", e));
+
     } catch (e) { 
         console.log("Erro geral fetchData", e); 
         setLoading(false);
         setRefreshing(false);
     }
+  };
+
+  const handleMarkFeedbackRead = async (id) => {
+      try {
+          await fetch('https://fitos-final.onrender.com/api/admin/diet-feedbacks', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id, read: true })
+          });
+          setDietFeedbacks(prev => prev.map(f => f.id === id ? { ...f, read: true } : f));
+      } catch (e) { console.log(e); }
+  };
+
+  const handleDeleteFeedback = (id) => {
+      Alert.alert("Excluir", "Deseja remover este aviso permanentemente?", [
+          { text: "Cancelar" },
+          { text: "Sim", style: 'destructive', onPress: async () => {
+              try {
+                  await fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?id=${id}`, { method: 'DELETE' });
+                  setDietFeedbacks(prev => prev.filter(f => f.id !== id));
+              } catch (e) { console.log(e); }
+          }}
+      ]);
   };
 
   const displayList = useMemo(() => {
@@ -200,6 +267,15 @@ export default function AdminDashboard({ navigation }) {
               }
 
               const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
+              
+              // 🔥 FIX: Filtro unificado de Atraso (Treino OU Fotos)
+              if (statusFilter === 'ATRASADOS') {
+                  const isCheckinLate = getCheckinStatus(a);
+                  const workoutStatus = getExpirationStatus(activeWorkout);
+                  const isWorkoutLate = workoutStatus && workoutStatus.cat === 'ATRASADOS';
+                  return isCheckinLate || isWorkoutLate;
+              }
+
               if (!activeWorkout) return statusFilter === 'SEM_TREINO';
               const status = getExpirationStatus(activeWorkout);
               return status && status.cat === statusFilter;
@@ -298,6 +374,58 @@ export default function AdminDashboard({ navigation }) {
       }
   };
 
+  const renderDietFeedbackItem = ({ item }) => (
+      <View style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.read ? theme.border : theme.accent, opacity: item.read ? 0.6 : 1, flexDirection: 'column', alignItems: 'stretch' }]}>
+          
+          {/* Cabeçalho do Card */}
+          <View style={{flexDirection:'row', justifyContent:'space-between', alignItems: 'center', width: '100%', marginBottom: 12}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                  <View style={[styles.iconBox, { backgroundColor: item.read ? theme.bg : theme.accent + '22', marginRight: 0 }]}>
+                      <MaterialCommunityIcons name="food-apple" size={20} color={item.read ? theme.textSecondary : theme.accent} />
+                  </View>
+                  <View>
+                      <Text style={[styles.feedUser, { color: theme.text }]}>{item.user?.name || "Aluno"}</Text>
+                      <Text style={styles.feedTime}>{new Date(item.createdAt).toLocaleDateString('pt-BR')} às {new Date(item.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</Text>
+                  </View>
+              </View>
+
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                  {!item.read && (
+                      <TouchableOpacity onPress={() => handleMarkFeedbackRead(item.id)} style={{padding: 8, backgroundColor: theme.accent, borderRadius: 8}}>
+                          <MaterialCommunityIcons name="check-bold" size={16} color="#000" />
+                      </TouchableOpacity>
+                  )}
+                  <TouchableOpacity onPress={() => handleDeleteFeedback(item.id)} style={{padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border}}>
+                      <MaterialCommunityIcons name="trash-can-outline" size={16} color={theme.textSecondary} />
+                  </TouchableOpacity>
+              </View>
+          </View>
+
+          {/* Respostas do Aluno */}
+          <View style={{backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border, gap: 12}}>
+              <View>
+                  <Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>1. SACIEDADE</Text>
+                  <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{item.satiety || 'Não informou'}</Text>
+              </View>
+              
+              {item.difficulty ? (
+                  <View>
+                      <Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>2. DIFICULDADE NA ROTINA</Text>
+                      <Text style={{color: theme.text, fontSize: 13, fontStyle: 'italic'}}>"{item.difficulty}"</Text>
+                  </View>
+              ) : null}
+
+              {item.requestedChanges ? (
+                  <View>
+                      <Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>3. O QUE QUER MUDAR</Text>
+                      <Text style={{color: theme.text, fontSize: 13, fontStyle: 'italic'}}>"{item.requestedChanges}"</Text>
+                  </View>
+              ) : null}
+          </View>
+
+      </View>
+  );
+
   const renderCheckinItem = ({ item }) => (
       <TouchableOpacity style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.coachFeedback ? theme.border : '#FF3B30' }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
           <View style={[styles.iconBox, { backgroundColor: 'rgba(50, 173, 230, 0.15)' }]}><MaterialCommunityIcons name="camera-account" size={20} color="#32ADE6" /></View>
@@ -348,6 +476,7 @@ export default function AdminDashboard({ navigation }) {
   const renderAluno = ({ item }) => {
       const activeWorkout = (item.workouts && item.workouts.length > 0) ? item.workouts[0] : null;
       const farol = getExpirationStatus(activeWorkout);
+      const isCheckinLate = getCheckinStatus(item); // 🔥 VERIFICA SE ESTÁ DEVENDO FOTO
       const primeiraLetra = item.name ? item.name.charAt(0).toUpperCase() : 'A';
       
       const dbPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(item.plan) ? item.plan : 'PREMIUM';
@@ -396,6 +525,16 @@ export default function AdminDashboard({ navigation }) {
                         </Text>
                     </View>
                 )}
+
+                {/* 🔥 AVISO CORRIGIDO: Só aparece se a data do check-in estiver de fato atrasada */}
+                {isCheckinLate && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#000', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <MaterialCommunityIcons name="camera-off" size={10} color="#FFF" />
+                        <Text style={{ fontSize: 9, fontWeight: '900', color: '#FFF' }}>
+                            DEVENDO FOTOS
+                        </Text>
+                    </View>
+                )}
             </View>
           </View>
 
@@ -415,6 +554,9 @@ export default function AdminDashboard({ navigation }) {
 
   const RootComponent = isWeb ? View : SafeAreaView;
   const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
+
+  const unreadFeedbacksCount = dietFeedbacks.filter(f => !f.read).length;
+  const totalAlerts = checkins.length + unreadFeedbacksCount;
 
   return (
     <RootComponent style={rootStyle}>
@@ -441,8 +583,8 @@ export default function AdminDashboard({ navigation }) {
           <View style={styles.tabs}>
             {['ALUNOS', 'CHECKINS', 'FEED', 'GESTAO'].map(tab => (
                 <TouchableOpacity key={tab} style={[styles.tab, activeTab===tab && { borderBottomWidth: 3, borderBottomColor: theme.accent }]} onPress={()=>setActiveTab(tab)}>
-                    <Text style={[styles.tabText, activeTab===tab && { color: theme.text }]}>{tab === 'GESTAO' ? 'SISTEMA' : tab}</Text>
-                    {tab === 'CHECKINS' && checkins.length > 0 && <View style={styles.badgeCount}><Text style={styles.badgeText}>{checkins.length}</Text></View>}
+                    <Text style={[styles.tabText, activeTab===tab && { color: theme.text }]}>{tab === 'GESTAO' ? 'SISTEMA' : tab === 'CHECKINS' ? 'AVALIAÇÕES' : tab}</Text>
+                    {tab === 'CHECKINS' && totalAlerts > 0 && <View style={styles.badgeCount}><Text style={styles.badgeText}>{totalAlerts}</Text></View>}
                 </TouchableOpacity>
             ))}
           </View>
@@ -503,14 +645,36 @@ export default function AdminDashboard({ navigation }) {
             )}
 
             {activeTab === 'CHECKINS' && (
-                <FlatList 
-                    data={checkins} keyExtractor={item => item.id}
-                    contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
-                    showsVerticalScrollIndicator={false}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
-                    renderItem={renderCheckinItem}
-                    ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in.</Text>}
-                />
+                <View style={{ flex: 1 }}>
+                    <View style={styles.subTabsContainer}>
+                        <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AVALIACOES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AVALIACOES')}>
+                            <Text style={[styles.subTabText, { color: subTabCheckins === 'AVALIACOES' ? theme.text : theme.textSecondary }]}>CHECK-INS FOTOS ({checkins.length})</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AJUSTES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AJUSTES')}>
+                            <Text style={[styles.subTabText, { color: subTabCheckins === 'AJUSTES' ? theme.text : theme.textSecondary }]}>AJUSTES DE DIETA ({unreadFeedbacksCount})</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {subTabCheckins === 'AVALIACOES' ? (
+                        <FlatList 
+                            data={checkins} keyExtractor={item => item.id}
+                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
+                            showsVerticalScrollIndicator={false}
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
+                            renderItem={renderCheckinItem}
+                            ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in de avaliação pendente.</Text>}
+                        />
+                    ) : (
+                        <FlatList 
+                            data={dietFeedbacks} keyExtractor={item => item.id}
+                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }}
+                            showsVerticalScrollIndicator={false}
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
+                            renderItem={renderDietFeedbackItem}
+                            ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste de dieta.</Text>}
+                        />
+                    )}
+                </View>
             )}
 
             {activeTab === 'FEED' && (
@@ -526,7 +690,6 @@ export default function AdminDashboard({ navigation }) {
 
             {activeTab === 'GESTAO' && (
                 <View style={{ flex: 1 }}>
-                    {/* 🔥 SUB-ABAS PARA ORGANIZAR O CAOS 🔥 */}
                     <View style={styles.subTabsContainer}>
                         <TouchableOpacity style={[styles.subTab, subTabGestao === 'FERRAMENTAS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('FERRAMENTAS')}>
                             <Text style={[styles.subTabText, { color: subTabGestao === 'FERRAMENTAS' ? theme.text : theme.textSecondary }]}>TREINO E DIETA</Text>
@@ -539,7 +702,6 @@ export default function AdminDashboard({ navigation }) {
                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}>
                         <View style={styles.gridGestao}>
                             
-                            {/* 🔥 ABA 1: FERRAMENTAS DE TREINO E DIETA 🔥 */}
                             {subTabGestao === 'FERRAMENTAS' && (
                                 <>
                                     <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
@@ -583,7 +745,6 @@ export default function AdminDashboard({ navigation }) {
                                 </>
                             )}
 
-                            {/* 🔥 ABA 2: CONFIGURAÇÕES E AVISOS 🔥 */}
                             {subTabGestao === 'CONFIG' && (
                                 <>
                                     <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>

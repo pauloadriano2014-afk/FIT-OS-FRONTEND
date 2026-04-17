@@ -12,7 +12,8 @@ import { Shadow } from 'react-native-shadow-2';
 import { useTheme } from '../contexts/ThemeContext';
 import WorkoutFolder from '../components/Training/WorkoutFolder';
 import CycleInfoModal from '../components/Training/CycleInfoModal'; 
-import MindsetModal from '../components/Training/MindsetModal'; // 🔥 NOVO MODAL!
+import MindsetModal from '../components/Training/MindsetModal'; 
+import MonthlyFrequencyModal from '../components/Training/MonthlyFrequencyModal'; // 🔥 NOVO MODAL MODULARIZADO!
 
 export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,9 @@ export default function TrainingScreen({ navigation }) {
   // Estados dos Modais
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [mindsetModalVisible, setMindsetModalVisible] = useState(false);
+  const [monthlyModalVisible, setMonthlyModalVisible] = useState(false); // 🔥 ESTADO DO CALENDÁRIO MENSAL
+
+  const [fullHistory, setFullHistory] = useState([]); // 🔥 GUARDA O HISTÓRICO COMPLETO PARA O MÊS
 
   const generateWeeklyView = (history = []) => {
       const today = new Date();
@@ -125,6 +129,7 @@ export default function TrainingScreen({ navigation }) {
       const historyData = await historyRes.json();
       if (Array.isArray(historyData)) {
           setWeeklyHistoryData(generateWeeklyView(historyData));
+          setFullHistory(historyData); // 🔥 SALVA O HISTÓRICO COMPLETO
       }
 
     } catch (error) {
@@ -205,6 +210,16 @@ export default function TrainingScreen({ navigation }) {
                                 </View>
                             ))}
                         </View>
+
+                        {/* 🔥 NOVO BOTÃO PARA ABRIR O CALENDÁRIO MENSAL */}
+                        <TouchableOpacity 
+                            style={[styles.monthlyBtn, { borderTopColor: theme.border }]}
+                            onPress={() => setMonthlyModalVisible(true)}
+                        >
+                            <Text style={[styles.monthlyBtnText, { color: theme.textSecondary }]}>VER ANO COMPLETO</Text>
+                            <MaterialCommunityIcons name="chevron-right" size={16} color={theme.textSecondary} />
+                        </TouchableOpacity>
+
                     </View>
                 </Shadow>
             </View>
@@ -231,7 +246,6 @@ export default function TrainingScreen({ navigation }) {
                 </View>
             )}
 
-            {/* 🔥 BOTÕES DE INFORMAÇÕES E MINDSET (GUIAS DO TREINO) 🔥 */}
             <View style={[styles.sectionContainerMod, { marginTop: -5 }]}>
                 <View style={{flexDirection: 'row', gap: 10, width: '100%'}}>
                     <TouchableOpacity 
@@ -302,6 +316,7 @@ export default function TrainingScreen({ navigation }) {
       {/* 🔥 MODAIS RENDEREZADOS AQUI 🔥 */}
       <CycleInfoModal visible={infoModalVisible} onClose={() => setInfoModalVisible(false)} theme={theme} />
       <MindsetModal visible={mindsetModalVisible} onClose={() => setMindsetModalVisible(false)} theme={theme} />
+      <MonthlyFrequencyModal visible={monthlyModalVisible} onClose={() => setMonthlyModalVisible(false)} theme={theme} history={fullHistory} />
 
     </RootComponent>
   );
@@ -323,10 +338,13 @@ const styles = StyleSheet.create({
   calendarDayTextMod: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
   calendarDotMod: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
 
+  // 🔥 Estilo do Botão do Calendário Mensal
+  monthlyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 20, paddingTop: 15, borderTopWidth: 1 },
+  monthlyBtnText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
+
   emptyCardMod: { width:'100%', padding: 50, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
   emptyCardTextMod: { fontWeight: 'bold', fontSize: 16, marginTop: 20, marginBottom: 8 },
 
-  // 🔥 Estilos dos Novos Botões
   guideBtn: { flex: 1, padding: 15, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   guideIconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   guideBtnText: { fontSize: 11, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, lineHeight: 16 }

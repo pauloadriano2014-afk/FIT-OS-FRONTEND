@@ -200,7 +200,7 @@ function DietSurveyModal({ visible, onClose, theme, userId }) {
                 timestamp: new Date().toISOString()
             };
 
-            const res = await fetch('https://fitos-final.onrender.com/api/diet-feedback', {
+            const res = await fetch('https://fitos-final.onrender.com/api/diet/feedback', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
