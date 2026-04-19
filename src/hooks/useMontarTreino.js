@@ -100,7 +100,7 @@ export const useMontarTreino = (route, navigation) => {
             setStartDate(new Date());
             setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
             setIsArchived(false);
-            setWorkoutModel('CARGA'); // Reseta padrão
+            setWorkoutModel('CARGA'); 
         }
         fetchDados(); 
     }, [isEditing, isTemplateMode]);
@@ -173,7 +173,6 @@ export const useMontarTreino = (route, navigation) => {
                 setTemplateGoalInput(templateData.goal || 'Hipertrofia');
                 setTemplateLevelInput(templateData.level || 'Intermediário');
                 
-                // 🔥 RECUPERA O MODELO DO TEMPLATE CASO ELE EXISTA
                 if (templateData.workoutModel) {
                     setWorkoutModel(templateData.workoutModel);
                 }
@@ -452,7 +451,6 @@ export const useMontarTreino = (route, navigation) => {
                 setExercisesByDay(parsed);
                 if(!customWorkoutName) setCustomWorkoutName(template.name);
                 
-                // 🔥 PUXA O WORKOUT MODEL DO TEMPLATE (Se ele tiver)
                 if (template.workoutModel) {
                     setWorkoutModel(template.workoutModel);
                 }
@@ -513,7 +511,7 @@ export const useMontarTreino = (route, navigation) => {
     const applyClone = (workout) => {
         processWorkoutDataToState(workout.exercises);
         setCustomWorkoutName(`${workout.name} (Clone)`);
-        setWorkoutModel(workout.workoutModel || 'CARGA'); // Clona o modelo também
+        setWorkoutModel(workout.workoutModel || 'CARGA'); 
         setModalCloneVisible(false);
         setSelectedCloneStudent(null);
         setCloneWorkoutsList([]);
@@ -526,7 +524,6 @@ export const useMontarTreino = (route, navigation) => {
         try {
             const orderedExercisesByDay = {};
             
-            // Mantém os blocos (blocks) INTACTOS para o Raio-X poder ler drop-sets, pirâmides, etc!
             workoutTabs.forEach(tab => {
                 if (exercisesByDay[tab]) {
                     orderedExercisesByDay[tab] = exercisesByDay[tab].map(ex => {
@@ -546,7 +543,7 @@ export const useMontarTreino = (route, navigation) => {
                     level: templateLevelInput, 
                     collectionId: saveTemplateCollectionId, 
                     adminId: adminId, 
-                    workoutModel: workoutModel, // 🔥 ENVIA O MODELO (CARGA VS BASE)
+                    workoutModel: workoutModel,
                     data: JSON.stringify(orderedExercisesByDay) 
                 })
             });
@@ -580,16 +577,67 @@ export const useMontarTreino = (route, navigation) => {
     };
 
     const removeSubstitute = (i) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].substitute=null; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
+    
     const removeExercicio = (id) => { setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: exercisesByDay[selectedWorkoutTab].filter(x => x.tempId !== id)}); };
+    
     const moveExercise = (i, dir) => { 
         const l = [...(exercisesByDay[selectedWorkoutTab] || [])]; 
         if(dir==='up' && i>0) { [l[i-1], l[i]] = [l[i], l[i-1]]; } else if(dir==='down' && i < l.length-1) { [l[i+1], l[i]] = [l[i], l[i+1]]; }
         setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
     };
+    
     const atualizarObservacao = (i, v) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].observation=v; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
-    const adicionarBloco = (exIndex) => { const l = [...exercisesByDay[selectedWorkoutTab]]; const lastBlock = l[exIndex].blocks[l[exIndex].blocks.length - 1]; l[exIndex].blocks.push({ sets: '1', reps: lastBlock.reps, restTime: lastBlock.restTime, technique: '' }); setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); };
-    const removerBloco = (exIndex, blockIndex) => { const l = [...exercisesByDay[selectedWorkoutTab]]; l[exIndex].blocks.splice(blockIndex, 1); setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); };
-    const atualizarBloco = (exIndex, blockIndex, field, value) => { const l = [...exercisesByDay[selectedWorkoutTab]]; l[exIndex].blocks[blockIndex][field] = value; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); };
+    
+    // 🔥 CÓPIA INTELIGENTE DOS BLOCOS 🔥
+    const adicionarBloco = (exIndex) => { 
+        const l = [...exercisesByDay[selectedWorkoutTab]]; 
+        const lastBlock = l[exIndex].blocks[l[exIndex].blocks.length - 1]; 
+        l[exIndex].blocks.push({ 
+            sets: '1', 
+            reps: lastBlock.reps, 
+            load: lastBlock.load || '',
+            restTime: lastBlock.restTime, 
+            technique: lastBlock.technique || '' 
+        }); 
+        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
+    };
+    
+    const removerBloco = (exIndex, blockIndex) => { 
+        const l = [...exercisesByDay[selectedWorkoutTab]]; 
+        l[exIndex].blocks.splice(blockIndex, 1); 
+        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
+    };
+    
+    // 🔥 MÁGICA DA PIRÂMIDE EXPLOSIVA 🔥
+    const atualizarBloco = (exIndex, blockIndex, field, value) => { 
+        const l = [...exercisesByDay[selectedWorkoutTab]]; 
+        
+        if (field === 'reps' && value) {
+            const parts = String(value).split(/[-/,]/).map(x => x.trim()).filter(x => x);
+            
+            // Se detectou traços (ex: 12-10-8), ele explode a linha em múltiplas!
+            if (parts.length > 1) {
+                const originalBlock = { ...l[exIndex].blocks[blockIndex] };
+                
+                const newBlocks = parts.map(rep => ({
+                    sets: '1',
+                    reps: rep,
+                    load: originalBlock.load || '',
+                    restTime: originalBlock.restTime || '60',
+                    technique: originalBlock.technique || ''
+                }));
+
+                // Injeta as novas linhas com as repetições separadas
+                l[exIndex].blocks.splice(blockIndex, 1, ...newBlocks);
+                setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
+                return; 
+            }
+        }
+
+        // Comportamento normal
+        l[exIndex].blocks[blockIndex][field] = value; 
+        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
+    };
 
     const salvarTreinoFinal = async () => {
       const alertMsg = (title, msg) => { if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`); else Alert.alert(title, msg); };
@@ -600,14 +648,11 @@ export const useMontarTreino = (route, navigation) => {
       
       workoutTabs.forEach(tab => {
           if (exercisesByDay[tab]) {
+              // 🔥 Mantém as linhas intactas para o Raio-X funcionar perfeito!
               orderedExercisesByDay[tab] = exercisesByDay[tab].map(ex => {
-                  const safeBlocks = (ex.blocks && ex.blocks.length > 0) ? ex.blocks : [{ sets: '3', reps: '10', technique: '', restTime: '60' }];
                   return {
                       ...ex,
-                      name: ex.title || ex.name || 'Exercício',
-                      sets: safeBlocks[0].sets,
-                      reps: safeBlocks[0].reps,
-                      technique: safeBlocks[0].technique || ''
+                      name: ex.title || ex.name || 'Exercício'
                   }
               });
           }
@@ -676,7 +721,7 @@ export const useMontarTreino = (route, navigation) => {
             body: JSON.stringify({ 
                 userId: aluno?.id, 
                 name: customWorkoutName, 
-                workoutModel: workoutModel, // 🔥 ENVIA PRO BANCO DE DADOS (ALUNO)
+                workoutModel: workoutModel, 
                 exercises: flatExercises, 
                 startDate: startDate.toISOString(), 
                 endDate: finalEndDate.toISOString(), 
