@@ -1,5 +1,5 @@
 // src/screens/AdminDashboard.js
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
   TextInput, StatusBar, RefreshControl, Modal, ScrollView, Alert, Platform, Switch 
@@ -13,12 +13,14 @@ import { useTheme } from '../contexts/ThemeContext';
 import SendNoticeModal from '../components/SendNoticeModal';
 import AdminInviteModal from '../components/AdminInviteModal'; 
 
-// 🔥 Importações Modulares
 import { getExpirationStatus, getCheckinStatus } from '../utils/adminHelpers';
 import AdminStudentCard from '../components/Admin/AdminStudentCard';
 import AdminCheckinModal from '../components/Admin/AdminCheckinModal';
 import DisparoNPSModal from '../components/Admin/DisparoNPSModal';
-import AdminSurveyCard from '../components/Admin/AdminSurveyCard'; // NOVO: NPS Card
+import AdminSurveyCard from '../components/Admin/AdminSurveyCard'; 
+
+// 🔥 CONSTANTE PARA O ID DA ADRI
+const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
 
 export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
@@ -28,9 +30,12 @@ export default function AdminDashboard({ navigation }) {
   const [alunosInativos, setAlunosInativos] = useState([]);
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
   
+  // 🔥 FILTRO DE EQUIPE
+  const [coachFilter, setCoachFilter] = useState('PAULO'); 
+
   const [subTabCheckins, setSubTabCheckins] = useState('AVALIACOES'); 
   const [dietFeedbacks, setDietFeedbacks] = useState([]);
-  const [surveys, setSurveys] = useState([]); // 🔥 NOVO: Estado para as Pesquisas
+  const [surveys, setSurveys] = useState([]); 
   const [subTabGestao, setSubTabGestao] = useState('FERRAMENTAS'); 
 
   const [statusFilter, setStatusFilter] = useState('TODOS'); 
@@ -42,6 +47,7 @@ export default function AdminDashboard({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
+  
   const [adminEmail, setAdminEmail] = useState('');
   const [adminId, setAdminId] = useState('');
 
@@ -53,6 +59,8 @@ export default function AdminDashboard({ navigation }) {
   const [isNpsModalOpen, setIsNpsModalOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState('verde');
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
+
+  const isFirstLoadRef = useRef(true); // Ref para controlar a aba padrão na hora do login
 
   const filterOptions = [
     { id: 'TODOS', label: 'TODOS OS ALUNOS', icon: 'account-group', color: theme.text },
@@ -68,7 +76,7 @@ export default function AdminDashboard({ navigation }) {
   ];
 
   useFocusEffect(useCallback(() => { fetchData(false); }, []));
-  useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter]);
+  useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter, coachFilter]);
 
   const fetchData = async (isManualRefresh = false) => {
     try {
@@ -93,7 +101,16 @@ export default function AdminDashboard({ navigation }) {
       let localAdminId = '';
       if (userJson) {
           const userObj = JSON.parse(userJson);
-          setAdminEmail(userObj.email); setAdminId(userObj.id); localAdminId = userObj.id; 
+          const email = userObj.email.toLowerCase();
+          setAdminEmail(email); 
+          setAdminId(userObj.id); 
+          localAdminId = userObj.id; 
+
+          // 🔥 DEFINE A ABA PADRÃO NA ENTRADA COM BASE EM QUEM LOGOU
+          if (isFirstLoadRef.current) {
+              setCoachFilter(email === 'adri.personal@hotmail.com' ? 'ADRI' : 'PAULO');
+              isFirstLoadRef.current = false;
+          }
       }
 
       if (savedThemeObj) {
@@ -110,12 +127,17 @@ export default function AdminDashboard({ navigation }) {
         .then(async data => {
             const rawAtivos = data.activeUsers || data.users || [];
             const rawInativos = data.inactiveUsers || [];
-            setAlunosAtivos(rawAtivos); setAlunosInativos(rawInativos);
+            
+            const processadosAtivos = rawAtivos.map(u => ({ ...u, isMyNutritionClient: u.nutritionistId === localAdminId }));
+            const processadosInativos = rawInativos.map(u => ({ ...u, isMyNutritionClient: u.nutritionistId === localAdminId }));
+
+            setAlunosAtivos(processadosAtivos); 
+            setAlunosInativos(processadosInativos);
             if (data.recentLogs) setFeed(data.recentLogs);
 
             const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
             await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({
-                ...currentCache, cacheAtivos: rawAtivos, cacheInativos: rawInativos, cacheFeed: data.recentLogs || []
+                ...currentCache, cacheAtivos: processadosAtivos, cacheInativos: processadosInativos, cacheFeed: data.recentLogs || []
             }));
             if (data.exercises) await AsyncStorage.setItem('@global_exercises', JSON.stringify(data.exercises));
         })
@@ -142,13 +164,10 @@ export default function AdminDashboard({ navigation }) {
             }
         }).catch(e => console.log(e));
 
-      // 🔥 NOVO: Busca as Pesquisas NPS
       fetch(`https://fitos-final.onrender.com/api/admin/surveys?t=${t}`)
         .then(res => res.json())
         .then(async dataSurveys => {
-            if (Array.isArray(dataSurveys)) {
-                setSurveys(dataSurveys);
-            }
+            if (Array.isArray(dataSurveys)) setSurveys(dataSurveys);
         }).catch(e => console.log("Erro NPS:", e));
 
     } catch (e) { setLoading(false); setRefreshing(false); }
@@ -163,7 +182,6 @@ export default function AdminDashboard({ navigation }) {
       } catch (e) { console.log(e); }
   };
 
-  // 🔥 Função para marcar NPS como Lido
   const handleMarkSurveyRead = async (id) => {
       try {
           await fetch('https://fitos-final.onrender.com/api/admin/surveys', {
@@ -185,9 +203,44 @@ export default function AdminDashboard({ navigation }) {
       ]);
   };
 
+  // 🔥 LÓGICA DE IDENTIFICAÇÃO E HIERARQUIA VISUAL (Quem é o dono da conta logada?)
+  const isAdriLogged = adminEmail.toLowerCase() === 'adri.personal@hotmail.com';
+  
+  const ownerKey = isAdriLogged ? 'ADRI' : 'PAULO';
+  const partnerKey = isAdriLogged ? 'PAULO' : 'ADRI';
+  const ownerColor = isAdriLogged ? '#AF52DE' : theme.accent;
+  const partnerColor = isAdriLogged ? theme.accent : '#AF52DE';
+  const ownerTextColor = isAdriLogged ? '#FFF' : '#000';
+  const partnerTextColor = isAdriLogged ? '#000' : '#FFF';
+
+  const userCoachMap = useMemo(() => {
+      const map = {};
+      [...alunosAtivos, ...alunosInativos].forEach(u => {
+          map[u.id] = u.coachId;
+      });
+      return map;
+  }, [alunosAtivos, alunosInativos]);
+
+  const getLogCoach = useCallback((item) => {
+      let uId = item.id; 
+      if (item.userId) uId = item.userId;
+      else if (item.user && item.user.id) uId = item.user.id;
+
+      const cIdMapped = userCoachMap[uId] !== undefined ? userCoachMap[uId] : item.coachId;
+
+      if (isAdriLogged) {
+          return cIdMapped === adminId ? 'ADRI' : 'PAULO';
+      } else {
+          return (!cIdMapped || cIdMapped === adminId) ? 'PAULO' : 'ADRI';
+      }
+  }, [userCoachMap, adminId, isAdriLogged]);
+
+  // 1. FILTRANDO LISTA DE ALUNOS
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
+      
+      list = list.filter(a => getLogCoach(a) === coachFilter); 
       
       if (statusFilter !== 'TODOS') {
           list = list.filter(a => {
@@ -206,7 +259,21 @@ export default function AdminDashboard({ navigation }) {
           });
       }
       return list;
-  }, [alunosAtivos, alunosInativos, subTabAlunos, search, statusFilter]);
+  }, [alunosAtivos, alunosInativos, subTabAlunos, search, statusFilter, coachFilter, getLogCoach]);
+
+  // 2. FILTRANDO FEED, DIETAS E NPS
+  const filteredFeed = useMemo(() => feed.filter(item => getLogCoach(item) === coachFilter), [feed, coachFilter, getLogCoach]);
+  const filteredDiet = useMemo(() => dietFeedbacks.filter(item => getLogCoach(item) === coachFilter), [dietFeedbacks, coachFilter, getLogCoach]);
+  const filteredSurveys = useMemo(() => surveys.filter(item => getLogCoach(item) === coachFilter), [surveys, coachFilter, getLogCoach]);
+
+  // 3. FILTRANDO CHECKINS COM TRAVA DE PRIVACIDADE MÁXIMA
+  const filteredCheckins = useMemo(() => checkins.filter(item => {
+      const coach = getLogCoach(item);
+      if (coach !== coachFilter) return false;
+      if (coach === 'ADRI' && !isAdriLogged) return false; 
+      if (coach === 'PAULO' && isAdriLogged) return false; 
+      return true;
+  }), [checkins, coachFilter, getLogCoach, isAdriLogged]);
 
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache', '@global_exercises']);
@@ -319,9 +386,9 @@ export default function AdminDashboard({ navigation }) {
   const RootComponent = isWeb ? View : SafeAreaView;
   const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
   
-  const unreadFeedbacksCount = dietFeedbacks.filter(f => !f.read).length;
-  const unreadSurveysCount = surveys.filter(s => !s.readByAdmin).length;
-  const totalAlerts = checkins.length + unreadFeedbacksCount + unreadSurveysCount;
+  const unreadFeedbacksCount = filteredDiet.filter(f => !f.read).length;
+  const unreadSurveysCount = filteredSurveys.filter(s => !s.readByAdmin).length;
+  const totalAlerts = filteredCheckins.length + unreadFeedbacksCount + unreadSurveysCount;
 
   return (
     <RootComponent style={rootStyle}>
@@ -348,6 +415,27 @@ export default function AdminDashboard({ navigation }) {
             ))}
           </View>
 
+          {/* 🔥 NOVO FILTRO GLOBAL: DINÂMICO E HIERÁRQUICO 🔥 */}
+          {activeTab !== 'GESTAO' && (
+              <View style={styles.coachFilterContainer}>
+                  {/* Botão Principal: Quem está logado */}
+                  <TouchableOpacity 
+                      style={[styles.coachFilterBtn, coachFilter === ownerKey ? { backgroundColor: ownerColor, borderColor: ownerColor } : { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                      onPress={() => setCoachFilter(ownerKey)}
+                  >
+                      <Text style={[styles.coachFilterText, coachFilter === ownerKey ? { color: ownerTextColor } : { color: theme.textSecondary }]}>MEUS ALUNOS</Text>
+                  </TouchableOpacity>
+
+                  {/* Botão Secundário: O Parceiro da Equipe */}
+                  <TouchableOpacity 
+                      style={[styles.coachFilterBtn, coachFilter === partnerKey ? { backgroundColor: partnerColor, borderColor: partnerColor } : { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                      onPress={() => setCoachFilter(partnerKey)}
+                  >
+                      <Text style={[styles.coachFilterText, coachFilter === partnerKey ? { color: partnerTextColor } : { color: theme.textSecondary }]}>ALUNOS {partnerKey}</Text>
+                  </TouchableOpacity>
+              </View>
+          )}
+
           <View style={{ flex: 1 }}>
             {activeTab === 'ALUNOS' && (
                 <>
@@ -359,13 +447,13 @@ export default function AdminDashboard({ navigation }) {
                     <TextInput style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, borderWidth: 1 }]} placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary} value={search} onChangeText={setSearch} />
 
                     <TouchableOpacity style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setFilterModalVisible(true)}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}><MaterialCommunityIcons name="filter-variant" size={20} color={theme.accent} /><Text style={[styles.filterSelectorVal, { color: theme.text }]}>FILTRAR: {filterOptions.find(f => f.id === statusFilter)?.label}</Text></View>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}><MaterialCommunityIcons name="filter-variant" size={20} color={theme.accent} /><Text style={[styles.filterSelectorVal, { color: theme.text }]}>FILTRAR STATUS: {filterOptions.find(f => f.id === statusFilter)?.label}</Text></View>
                         <MaterialCommunityIcons name="chevron-down" size={22} color={theme.textSecondary} />
                     </TouchableOpacity>
 
                     <View style={styles.subTabsContainer}>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('ATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({alunosAtivos.length})</Text></TouchableOpacity>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('INATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS ({alunosInativos.length})</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('ATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({displayList.length})</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('INATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS</Text></TouchableOpacity>
                     </View>
 
                     {loading ? (
@@ -375,8 +463,8 @@ export default function AdminDashboard({ navigation }) {
                             data={displayList.slice(0, visibleCount)} keyExtractor={item => item.id}
                             contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
-                            renderItem={({item}) => <AdminStudentCard item={item} theme={theme} navigation={navigation} />}
-                            ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno neste filtro.</Text>}
+                            renderItem={({item}) => <AdminStudentCard item={item} theme={theme} navigation={navigation} isHeadCoach={true} />}
+                            ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado neste filtro.</Text>}
                             onEndReached={() => setVisibleCount(prev => prev + 15)} onEndReachedThreshold={0.5} initialNumToRender={15}
                         />
                     )}
@@ -386,20 +474,27 @@ export default function AdminDashboard({ navigation }) {
             {activeTab === 'CHECKINS' && (
                 <View style={{ flex: 1 }}>
                     <View style={styles.subTabsContainer}>
-                        <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AVALIACOES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AVALIACOES')}><Text style={[styles.subTabText, { color: subTabCheckins === 'AVALIACOES' ? theme.text : theme.textSecondary }]}>FOTOS ({checkins.length})</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AVALIACOES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AVALIACOES')}><Text style={[styles.subTabText, { color: subTabCheckins === 'AVALIACOES' ? theme.text : theme.textSecondary }]}>FOTOS ({filteredCheckins.length})</Text></TouchableOpacity>
                         <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AJUSTES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AJUSTES')}><Text style={[styles.subTabText, { color: subTabCheckins === 'AJUSTES' ? theme.text : theme.textSecondary }]}>DIETA ({unreadFeedbacksCount})</Text></TouchableOpacity>
                         <TouchableOpacity style={[styles.subTab, subTabCheckins === 'NPS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('NPS')}><Text style={[styles.subTabText, { color: subTabCheckins === 'NPS' ? theme.text : theme.textSecondary }]}>NPS ({unreadSurveysCount})</Text></TouchableOpacity>
                     </View>
 
                     {subTabCheckins === 'AVALIACOES' && (
-                        <FlatList data={checkins} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderCheckinItem} ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in de avaliação pendente.</Text>} />
+                        (coachFilter === 'ADRI' && !isAdriLogged) || (coachFilter === 'PAULO' && isAdriLogged) ? (
+                            <View style={{ marginTop: 50, alignItems: 'center', paddingHorizontal: 40 }}>
+                                <MaterialCommunityIcons name="lock" size={48} color={theme.border} />
+                                <Text style={[styles.empty, { marginTop: 15 }]}>Fotos restritas apenas para a Coach responsável pelo plano.</Text>
+                            </View>
+                        ) : (
+                            <FlatList data={filteredCheckins} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderCheckinItem} ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in de avaliação pendente.</Text>} />
+                        )
                     )}
                     {subTabCheckins === 'AJUSTES' && (
-                        <FlatList data={dietFeedbacks} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderDietFeedbackItem} ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste de dieta.</Text>} />
+                        <FlatList data={filteredDiet} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderDietFeedbackItem} ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste de dieta.</Text>} />
                     )}
                     {subTabCheckins === 'NPS' && (
                         <FlatList 
-                            data={surveys} keyExtractor={item => item.id} 
+                            data={filteredSurveys} keyExtractor={item => item.id} 
                             contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} 
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} 
                             renderItem={({item}) => <AdminSurveyCard item={item} theme={theme} onMarkRead={handleMarkSurveyRead} />} 
@@ -410,7 +505,7 @@ export default function AdminDashboard({ navigation }) {
             )}
 
             {activeTab === 'FEED' && (
-                <FlatList data={feed} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderFeedItem} ListEmptyComponent={<Text style={styles.empty}>Nada recente.</Text>} />
+                <FlatList data={filteredFeed} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderFeedItem} ListEmptyComponent={<Text style={styles.empty}>Nada recente.</Text>} />
             )}
 
             {activeTab === 'GESTAO' && (
@@ -478,7 +573,6 @@ export default function AdminDashboard({ navigation }) {
           </TouchableOpacity>
       </Modal>
 
-      {/* 🔥 MODAL DE AVALIAÇÃO MODULARIZADO */}
       <AdminCheckinModal 
           visible={checkinModalVisible} 
           onClose={() => setCheckinModalVisible(false)} 
@@ -488,7 +582,6 @@ export default function AdminDashboard({ navigation }) {
           onResolve={handleResolveCheckin} 
       />
 
-      {/* 🔥 MODAL DE DISPARO DE NPS */}
       <DisparoNPSModal 
           visible={isNpsModalOpen} 
           onClose={() => setIsNpsModalOpen(false)} 
@@ -512,6 +605,12 @@ const styles = StyleSheet.create({
   badgeCount: { backgroundColor:'#FF3B30', paddingHorizontal:6, borderRadius:10, height:16, justifyContent:'center', marginLeft:5 }, badgeText: { color:'#FFF', fontSize:9, fontWeight:'bold' },
   inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginBottom: 15, padding: 15, borderRadius: 12, gap: 8 },
   inviteBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  
+  // 🔥 ESTILOS NOVOS DO FILTRO DE EQUIPE
+  coachFilterContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, gap: 10, backgroundColor: 'transparent' },
+  coachFilterBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  coachFilterText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+
   searchBar: { padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
   filterSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 15 },
   filterSelectorVal: { fontSize: 13, fontWeight: '800' },

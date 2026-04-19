@@ -5,9 +5,13 @@ import {
   ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking, TextInput, Dimensions 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 ADICIONADO PARA LER O LOGIN
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useTheme } from '../contexts/ThemeContext';
+
+// Constante da Adri (Mesma usada no AdminDashboard)
+const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
 
 const ThumbnailImage = ({ originalUri, onPress, theme }) => {
     const thumbUri = originalUri && originalUri.includes('.jpg') 
@@ -34,10 +38,14 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
   const rawId = route.params?.alunoId || route.params?.aluno?.id || '';
   const rawName = route.params?.alunoName || route.params?.aluno?.name || 'ALUNO';
-  const aluno = { id: rawId, name: rawName };
+  const alunoCoachId = route.params?.aluno?.coachId; // 🔥 Puxa de quem é o aluno
+  const aluno = { id: rawId, name: rawName, coachId: alunoCoachId };
 
   const [loading, setLoading] = useState(true);
   const [checkins, setCheckins] = useState([]);
+  
+  // 🔥 ESTADOS DE PRIVACIDADE MULTITENANT
+  const [hasPermission, setHasPermission] = useState(false);
   
   const [visibleCount, setVisibleCount] = useState(3);
   
@@ -57,7 +65,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // 🔥 ESTADOS PARA UPLOAD DE FOTO ANTIGA (GALERIA) COM SLOTS ESPECÍFICOS 🔥
   const [compareSource, setCompareSource] = useState('system'); 
   const [oldFront, setOldFront] = useState(null);
   const [oldSide, setOldSide] = useState(null);
@@ -65,16 +72,43 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
   const [customOldWeight, setCustomOldWeight] = useState('');
   const [customOldDate, setCustomOldDate] = useState('');
   
-  // 🔥 ESTADO DO DIRECIONAMENTO DA IA 🔥
   const [contextText, setContextText] = useState('');
 
   useEffect(() => {
-      if (aluno.id) {
-          fetchCheckins();
-      } else {
+      checkPermissionAndFetch();
+  }, [aluno.id]);
+
+  const checkPermissionAndFetch = async () => {
+      try {
+          const userJson = await AsyncStorage.getItem('user');
+          if (userJson) {
+              const userObj = JSON.parse(userJson);
+              const adminEmail = userObj.email.toLowerCase();
+              const adminId = userObj.id;
+              
+              const isAdriLogged = adminEmail === 'adri.personal@hotmail.com';
+              
+              // Verifica se quem está logado é o dono do aluno
+              let isMyStudent = false;
+              if (isAdriLogged) {
+                  isMyStudent = (aluno.coachId === ADRI_COACH_ID);
+              } else {
+                  isMyStudent = (aluno.coachId === adminId || !aluno.coachId);
+              }
+
+              setHasPermission(isMyStudent);
+
+              // Só busca os checkins no banco se tiver permissão (Economiza banda e blinda a rota)
+              if (isMyStudent && aluno.id) {
+                  await fetchCheckins();
+              } else {
+                  setLoading(false);
+              }
+          }
+      } catch (e) {
           setLoading(false);
       }
-  }, [aluno.id]);
+  };
 
   const fetchCheckins = async () => {
       setLoading(true);
@@ -193,7 +227,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
       setFeedbackText(rawFb); 
       setCompareSource('system');
       
-      // Reseta os estados adicionais
       setOldFront(null);
       setOldSide(null);
       setOldBack(null);
@@ -249,7 +282,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
               oldBack ? `data:image/jpeg;base64,${oldBack.base64}` : ''
           ] : [];
 
-          // 🔥 ADICIONA O CONTEXT TEXT NO PAYLOAD 🔥
           const payload = { 
               checkInId: currentCheckinForEval.id,
               oldCheckInId: (evaluationType === 'comparison' && compareSource === 'system') ? selectedOldCheckinId : null,
@@ -424,6 +456,18 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             <View style={{ flex: 1, position: 'relative' }}>
             <ScrollView style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
                 {loading ? <ActivityIndicator color={theme.accent} size="large" style={{marginTop: 50}} /> : (
+                    
+                    // 🔥 TELA DE BLOQUEIO DE PRIVACIDADE 🔥
+                    !hasPermission ? (
+                        <View style={{ marginTop: 80, alignItems: 'center', paddingHorizontal: 30 }}>
+                            <MaterialCommunityIcons name="shield-lock" size={80} color={theme.border} />
+                            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900', marginTop: 20, textAlign: 'center' }}>ACESSO RESTRITO</Text>
+                            <Text style={{ color: theme.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 22 }}>
+                                Por questões de privacidade, o check-in com as fotos deste aluno só pode ser visualizado ou avaliado pelo(a) Coach responsável pelo plano.
+                            </Text>
+                        </View>
+                    ) : (
+
                     checkins.length === 0 ? (
                         <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                             <MaterialCommunityIcons name="camera-off" size={48} color={theme.textSecondary} />
@@ -555,7 +599,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             )}
                         </>
                     )
-                )}
+                ))}
             </ScrollView>
             </View>
         </View>
@@ -898,7 +942,8 @@ const styles = StyleSheet.create({
   compareLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   comparePhotoImg: { width: '100%', height: 250, borderRadius: 16, borderWidth: 2, backgroundColor: '#000' },
   
-  inputContext: { padding: 15, borderRadius: 12, borderWidth: 1, minHeight: 80, textAlignVertical: 'top', outlineStyle: 'none', marginBottom: 25, fontSize: 14 },
+  inputContext: { padding: 15, borderRadius: 12, borderWidth: 1, minHeight: 80, textAlignVertical: 'top', outlineStyle: 'none', marginBottom: 25, fontSize: 14, marginTop: 10 },
+  sectionLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, marginBottom: 5 },
   
   generateAIBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
   evalInputContainer: { padding: 20, borderRadius: 20, borderWidth: 1 },
