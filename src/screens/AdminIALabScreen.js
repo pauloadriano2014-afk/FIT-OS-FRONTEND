@@ -34,6 +34,9 @@ export default function AdminIALabScreen({ navigation }) {
     const [oldSide, setOldSide] = useState(null);
     const [oldBack, setOldBack] = useState(null);
 
+    // 🔥 ESTADO DE IDENTIFICAÇÃO DO COACH PARA O LABORATÓRIO 🔥
+    const [isAdminAdri, setIsAdminAdri] = useState(false);
+
     useEffect(() => {
         fetchAlunos();
     }, []);
@@ -44,6 +47,10 @@ export default function AdminIALabScreen({ navigation }) {
             if (!userString) return;
             const userObj = JSON.parse(userString);
             const adminId = userObj.id;
+            const adminEmail = userObj.email.toLowerCase();
+            
+            const isAdriLogged = adminEmail === 'adri.personal@hotmail.com';
+            setIsAdminAdri(isAdriLogged);
 
             const t = Date.now();
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`);
@@ -53,7 +60,18 @@ export default function AdminIALabScreen({ navigation }) {
                 const rawAtivos = data.activeUsers || data.users || [];
                 const rawInativos = data.inactiveUsers || [];
                 const todos = [...rawAtivos, ...rawInativos].sort((a,b) => a.name?.localeCompare(b.name));
-                setAlunos(todos);
+                
+                // 🔥 TRAVA DE PRIVACIDADE DO LABORATÓRIO 🔥
+                const filtrados = todos.filter(aluno => {
+                    const cId = aluno.coachId;
+                    if (isAdriLogged) {
+                        return cId === adminId; // Aluno da Adri
+                    } else {
+                        return cId === adminId || !cId; // Aluno do Paulo (ou legado sem coach)
+                    }
+                });
+
+                setAlunos(filtrados);
             }
         } catch (e) { 
             console.log("Erro ao buscar alunos no Lab:", e); 
@@ -150,7 +168,9 @@ export default function AdminIALabScreen({ navigation }) {
                     labUserId: selectedAluno ? selectedAluno.id : null,
                     customCurrentPhotos: customCurrentPhotos,
                     customOldPhotos: customOldPhotos,
-                    contextText: contextText
+                    contextText: contextText,
+                    // 🔥 ENVIA QUEM É O COACH PARA A IA ASSUMIR A PERSONA CORRETA 🔥
+                    coachName: isAdminAdri ? 'Adri Kern' : 'Paulo Adriano'
                 })
             });
 
@@ -194,7 +214,6 @@ export default function AdminIALabScreen({ navigation }) {
                     currentBack?.base64 || ''
                 ];
 
-                // 🔥 A MÁGICA SALVADORA: Enviando as fotos antigas pro R2 fazer o upload e gerar os links! 🔥
                 const customOldPhotos = analysisType === 'comparison' ? [
                     oldFront ? `data:image/jpeg;base64,${oldFront.base64}` : '',
                     oldSide ? `data:image/jpeg;base64,${oldSide.base64}` : '',
@@ -208,7 +227,7 @@ export default function AdminIALabScreen({ navigation }) {
                         userId: selectedAluno.id,
                         coachFeedback: resultText,
                         images: payloadImages,
-                        customOldPhotos: customOldPhotos, // Agora o backend vai ver isso e criar o [COMPARE:urls]
+                        customOldPhotos: customOldPhotos, 
                         isLabSave: true
                     })
                 });
@@ -444,7 +463,7 @@ export default function AdminIALabScreen({ navigation }) {
                         <Text style={[styles.sectionLabel, { color: theme.text }]}>DIRECIONAMENTO (OPCIONAL)</Text>
                         <TextInput 
                             style={[styles.inputContext, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
-                            placeholder="Ex: Aluno sente dor no ombro; avaliar assimetria nas costas..."
+                            placeholder="Ex: Aluno relatou dor no ombro; foque nisso e evite falar do abdômen..."
                             placeholderTextColor={theme.textSecondary}
                             multiline
                             value={contextText}

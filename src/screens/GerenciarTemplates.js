@@ -1,3 +1,4 @@
+// src/screens/GerenciarTemplates.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
@@ -27,9 +28,13 @@ export default function GerenciarTemplates({ navigation }) {
   const [modalMoveVisible, setModalMoveVisible] = useState(false); 
   const [templateToMove, setTemplateToMove] = useState(null);
 
+  // 🔥 ESTADOS DO NOVO SISTEMA DE VISUALIZAÇÃO E CLONAGEM 🔥
+  const [modalPreviewVisible, setModalPreviewVisible] = useState(false);
+  const [templateToPreview, setTemplateToPreview] = useState(null);
+  const [isCloning, setIsCloning] = useState(false);
+
   const [isImportingAI, setIsImportingAI] = useState(false); 
   
-  // 🔥 CONTROLE DE EDIÇÃO DE PASTA
   const [colName, setColName] = useState('');
   const [colColor, setColColor] = useState(FOLDER_COLORS[0]);
   const [editingCollectionId, setEditingCollectionId] = useState(null);
@@ -37,6 +42,10 @@ export default function GerenciarTemplates({ navigation }) {
   const [newTempName, setNewTempName] = useState('');
   const [newTempGoal, setNewTempGoal] = useState('Hipertrofia');
   const [newTempLevel, setNewTempLevel] = useState('Intermediário');
+
+  const [adminId, setAdminId] = useState(null);
+  const [isAdriLogged, setIsAdriLogged] = useState(false);
+  const [libFilter, setLibFilter] = useState('MEUS'); 
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => { fetchData(); });
@@ -48,11 +57,16 @@ export default function GerenciarTemplates({ navigation }) {
     try {
         const userJson = await AsyncStorage.getItem('user');
         if (!userJson) return;
-        const adminId = JSON.parse(userJson).id;
+        const userObj = JSON.parse(userJson);
+        const currentAdminId = userObj.id;
+        const email = userObj.email.toLowerCase();
+        
+        setAdminId(currentAdminId);
+        setIsAdriLogged(email === 'adri.personal@hotmail.com');
 
         const [resCol, resTemp] = await Promise.all([
-            fetch(`https://fitos-final.onrender.com/api/admin/collections?adminId=${adminId}&t=${Date.now()}`),
-            fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${adminId}&t=${Date.now()}`)
+            fetch(`https://fitos-final.onrender.com/api/admin/collections?adminId=${currentAdminId}&t=${Date.now()}`),
+            fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${Date.now()}`)
         ]);
 
         if (resCol.ok) setCollections(await resCol.json());
@@ -64,7 +78,15 @@ export default function GerenciarTemplates({ navigation }) {
     } finally { setLoading(false); }
   };
 
-  // 🔥 FUNÇÃO UNIFICADA: CRIA OU EDITA A PASTA
+  const isOwner = (item) => {
+      const itemAdminId = item.adminId || item.coachId; // Garantia dupla dependendo de como salvou
+      if (isAdriLogged) {
+          return itemAdminId === adminId;
+      } else {
+          return itemAdminId === adminId || !itemAdminId;
+      }
+  };
+
   const handleCreateOrEditCollection = async () => {
       if (!colName.trim()) {
           if (Platform.OS === 'web') window.alert("Dê um nome para a pasta.");
@@ -73,7 +95,6 @@ export default function GerenciarTemplates({ navigation }) {
       }
       setLoading(true);
       try {
-          const adminId = JSON.parse(await AsyncStorage.getItem('user')).id;
           const method = editingCollectionId ? 'PUT' : 'POST';
           const body = editingCollectionId 
               ? { id: editingCollectionId, name: colName, color: colColor }
@@ -196,7 +217,7 @@ export default function GerenciarTemplates({ navigation }) {
               body: JSON.stringify({ 
                   id: templateToMove.id, name: templateToMove.name, goal: templateToMove.goal, 
                   level: templateToMove.level, data: templateToMove.data,
-                  adminId: JSON.parse(await AsyncStorage.getItem('user')).id,
+                  adminId: adminId,
                   collectionId: collectionId 
               })
           });
@@ -210,6 +231,13 @@ export default function GerenciarTemplates({ navigation }) {
   };
 
   const goToEditor = (template = null) => {
+      if (template && !isOwner(template)) {
+          // 🔥 AO INVÉS DE BLOQUEAR, ABRE O RAIO-X PARA CLONAGEM 🔥
+          setTemplateToPreview(template);
+          setModalPreviewVisible(true);
+          return;
+      }
+
       setModalTempVisible(false);
       if (template) {
           navigation.navigate('MontarTreinoAdmin', { isTemplateMode: true, templateData: template });
@@ -220,6 +248,41 @@ export default function GerenciarTemplates({ navigation }) {
               templateData: { name: finalName, goal: newTempGoal, level: newTempLevel, collectionId: selectedCollection?.id || null, data: JSON.stringify({ 'A': [] }) } 
           });
           setNewTempName('');
+      }
+  };
+
+  // 🔥 FUNÇÃO PARA CLONAR O TREINO DA EQUIPE PARA A SUA BIBLIOTECA 🔥
+  const handleCloneTemplate = async () => {
+      setIsCloning(true);
+      try {
+          const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  name: `${templateToPreview.name} (Cópia)`,
+                  goal: templateToPreview.goal,
+                  level: templateToPreview.level,
+                  data: templateToPreview.data,
+                  adminId: adminId, // Salva com o seu ID
+                  collectionId: null // Salva avulso na raiz
+              })
+          });
+          
+          if (res.ok) {
+              setModalPreviewVisible(false);
+              setLibFilter('MEUS'); // Muda de aba pra você ver a cópia
+              setSelectedCollection(null); // Sai da pasta da equipe
+              fetchData();
+              if (Platform.OS === 'web') window.alert("Treino importado com sucesso para seus Treinos Avulsos!");
+              else Alert.alert("Sucesso", "Treino importado para a sua biblioteca avulsa.");
+          } else {
+              throw new Error("Erro ao salvar.");
+          }
+      } catch (e) {
+          if (Platform.OS === 'web') window.alert("Erro ao clonar treino.");
+          else Alert.alert("Erro", "Falha ao clonar o treino.");
+      } finally {
+          setIsCloning(false);
       }
   };
 
@@ -237,13 +300,76 @@ export default function GerenciarTemplates({ navigation }) {
       setModalColVisible(true);
   };
 
+  // 🔥 RENDERIZADOR DO RAIO-X DE TREINO (COM BLOCOS COMPLETOS E CARDIO) 🔥
+  const renderPreviewRoutine = () => {
+      if (!templateToPreview || !templateToPreview.data) return null;
+      try {
+          const parsedData = typeof templateToPreview.data === 'string' ? JSON.parse(templateToPreview.data) : templateToPreview.data;
+          const days = Object.keys(parsedData);
+          
+          return days.map(day => (
+              <View key={day} style={{ marginBottom: 20 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+                      <MaterialCommunityIcons name="dumbbell" size={16} color={theme.accent} />
+                      <Text style={{ fontSize: 16, fontWeight: '900', color: theme.accent }}>TREINO {day}</Text>
+                  </View>
+                  {(!parsedData[day] || parsedData[day].length === 0) ? (
+                      <Text style={{ color: theme.textSecondary, fontSize: 12, fontStyle: 'italic', marginLeft: 24 }}>Nenhum exercício cadastrado.</Text>
+                  ) : (
+                      parsedData[day].map((exercise, idx) => {
+                          const exName = exercise.name || exercise.title || exercise.exerciseName || 'Exercício sem nome';
+                          const isCardio = (exercise.category || '').toUpperCase() === 'CARDIO';
+                          
+                          // 🔥 PUXA TODOS OS BLOCOS (OU CRIA UM FAKE SE FOR TREINO LEGADO)
+                          let renderBlocks = [];
+                          if (exercise.blocks && exercise.blocks.length > 0) {
+                              renderBlocks = exercise.blocks;
+                          } else if (exercise.sets && exercise.reps) {
+                              renderBlocks = [{ sets: exercise.sets, reps: exercise.reps, technique: exercise.technique || '' }];
+                          } else {
+                              renderBlocks = [{ sets: '-', reps: '-', technique: '' }];
+                          }
+
+                          return (
+                              <View key={idx} style={{ backgroundColor: theme.surface, padding: 12, borderRadius: 8, marginBottom: 6, borderWidth: 1, borderColor: theme.border, marginLeft: 10 }}>
+                                  <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 13, marginBottom: 6 }} numberOfLines={2}>
+                                      {exName}
+                                  </Text>
+                                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                      {renderBlocks.map((blk, bIdx) => (
+                                          <View key={bIdx} style={{ backgroundColor: theme.bg, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                              <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '900' }}>
+                                                  {isCardio ? `${blk.sets}min / ${blk.reps}kcal` : `${blk.sets} x ${blk.reps}`}
+                                              </Text>
+                                              {blk.technique ? (
+                                                  <Text style={{ color: theme.accent, fontSize: 9, fontWeight: 'bold', marginLeft: 4 }}>
+                                                      ({blk.technique})
+                                                  </Text>
+                                              ) : null}
+                                          </View>
+                                      ))}
+                                  </View>
+                              </View>
+                          );
+                      })
+                  )}
+              </View>
+          ));
+      } catch (e) {
+          return <Text style={{color: '#FF3B30'}}>Erro ao ler a estrutura do treino.</Text>;
+      }
+  };
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
 
+  const filteredCollections = collections.filter(c => libFilter === 'MEUS' ? isOwner(c) : !isOwner(c));
+  const filteredTemplatesTotal = templates.filter(t => libFilter === 'MEUS' ? isOwner(t) : !isOwner(t));
+
   const displayedTemplates = selectedCollection 
-      ? templates.filter(t => t.collectionId === selectedCollection.id)
-      : templates.filter(t => !t.collectionId); 
+      ? filteredTemplatesTotal.filter(t => t.collectionId === selectedCollection.id)
+      : filteredTemplatesTotal.filter(t => !t.collectionId); 
 
   return (
     <RootComponent style={isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg }}>
@@ -261,16 +387,31 @@ export default function GerenciarTemplates({ navigation }) {
                 </Text>
                 {selectedCollection && <Text style={{ color: selectedCollection.color, fontSize: 10, fontWeight: 'bold' }}>COLEÇÃO DE TREINOS</Text>}
             </View>
-            <TouchableOpacity onPress={() => selectedCollection ? setModalTempVisible(true) : openCreateCollectionModal()} style={styles.addIcon}>
-                  <Ionicons name={selectedCollection ? "add-circle" : "folder-open"} size={28} color={selectedCollection ? selectedCollection.color : theme.accent}/>
-            </TouchableOpacity>
+            
+            {(!selectedCollection && libFilter === 'MEUS') || (selectedCollection && isOwner(selectedCollection)) ? (
+                <TouchableOpacity onPress={() => selectedCollection ? setModalTempVisible(true) : openCreateCollectionModal()} style={styles.addIcon}>
+                    <Ionicons name={selectedCollection ? "add-circle" : "folder-open"} size={28} color={selectedCollection ? selectedCollection.color : theme.accent}/>
+                </TouchableOpacity>
+            ) : (
+                <View style={{ width: 38 }} />
+            )}
           </View>
+
+          {!selectedCollection && (
+              <View style={styles.coachFilterContainer}>
+                  <TouchableOpacity style={[styles.coachFilterBtn, libFilter === 'MEUS' ? { backgroundColor: theme.accent, borderColor: theme.accent } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLibFilter('MEUS')}>
+                      <Text style={[styles.coachFilterText, libFilter === 'MEUS' ? { color: '#000' } : { color: theme.textSecondary }]}>MINHA BIBLIOTECA</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.coachFilterBtn, libFilter === 'EQUIPE' ? { backgroundColor: '#AF52DE', borderColor: '#AF52DE' } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLibFilter('EQUIPE')}>
+                      <Text style={[styles.coachFilterText, libFilter === 'EQUIPE' ? { color: '#FFF' } : { color: theme.textSecondary }]}>EQUIPE</Text>
+                  </TouchableOpacity>
+              </View>
+          )}
 
           {loading ? <ActivityIndicator color={theme.accent} style={{marginTop:50}} /> : (
             <ScrollView contentContainerStyle={{padding: 20, paddingBottom: 100, flexGrow: 1}} showsVerticalScrollIndicator={false}>
                 
-                {/* 🔥 BOTÕES DE EDIÇÃO DENTRO DA PASTA */}
-                {selectedCollection && (
+                {selectedCollection && isOwner(selectedCollection) && (
                     <View style={{flexDirection: 'row', gap: 10, marginBottom: 25}}>
                         <TouchableOpacity style={{flex: 1, flexDirection:'row', alignItems:'center', justifyContent:'center', padding: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 12}} onPress={openEditCollectionModal}>
                             <MaterialCommunityIcons name="pencil" size={18} color={theme.text} />
@@ -283,14 +424,21 @@ export default function GerenciarTemplates({ navigation }) {
                     </View>
                 )}
 
+                {selectedCollection && !isOwner(selectedCollection) && (
+                    <View style={{backgroundColor: theme.surface, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border, marginBottom: 25, alignItems: 'center', flexDirection: 'row', gap: 10}}>
+                        <MaterialCommunityIcons name="shield-lock" size={24} color={theme.textSecondary} />
+                        <Text style={{color: theme.textSecondary, flex: 1, fontSize: 12, fontWeight: 'bold'}}>Pasta Protegida. Você só pode visualizar e importar os treinos contidos nela.</Text>
+                    </View>
+                )}
+
                 {!selectedCollection && (
                     <>
                         <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>PROGRAMAS E PASTAS</Text>
                         <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 30 }}>
-                            {collections.length === 0 ? (
-                                <Text style={styles.emptyText}>Nenhuma coleção criada ainda.</Text>
+                            {filteredCollections.length === 0 ? (
+                                <Text style={styles.emptyText}>Nenhuma coleção encontrada nesta aba.</Text>
                             ) : (
-                                collections.map(col => (
+                                filteredCollections.map(col => (
                                     <TouchableOpacity key={col.id} style={[styles.collectionCard, { backgroundColor: col.color + '15', borderColor: col.color }]} onPress={() => setSelectedCollection(col)}>
                                         <MaterialCommunityIcons name="folder-star" size={32} color={col.color} style={{ marginBottom: 10 }} />
                                         <Text style={[styles.collectionTitle, { color: col.color }]} numberOfLines={2}>{col.name}</Text>
@@ -317,23 +465,68 @@ export default function GerenciarTemplates({ navigation }) {
                                 <Text style={{fontSize: 11, color: theme.textSecondary, fontWeight: 'bold', marginTop: 4}}>{item.goal} • {item.level}</Text>
                             </TouchableOpacity>
                             
-                            <View style={styles.premiumCardActions}>
-                                <TouchableOpacity onPress={() => openMoveModal(item)} style={styles.actionBtn}>
-                                    <MaterialCommunityIcons name="folder-move-outline" size={22} color={theme.accent} />
+                            {isOwner(item) ? (
+                                <View style={styles.premiumCardActions}>
+                                    <TouchableOpacity onPress={() => openMoveModal(item)} style={styles.actionBtn}>
+                                        <MaterialCommunityIcons name="folder-move-outline" size={22} color={theme.accent} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => goToEditor(item)} style={styles.actionBtn}>
+                                        <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.actionBtn}>
+                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <TouchableOpacity style={styles.premiumCardActions} onPress={() => goToEditor(item)}>
+                                    <View style={{backgroundColor: theme.bg, padding: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}}>
+                                        <MaterialCommunityIcons name="eye-outline" size={16} color={theme.textSecondary} />
+                                        <Text style={{fontSize: 10, fontWeight: 'bold', color: theme.textSecondary}}>VER</Text>
+                                    </View>
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={() => goToEditor(item)} style={styles.actionBtn}>
-                                    <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.actionBtn}>
-                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
-                                </TouchableOpacity>
-                            </View>
+                            )}
                         </View>
                     ))
                 )}
             </ScrollView>
           )}
       </View>
+
+      {/* 🔥 MODAL DE VISUALIZAÇÃO E CLONAGEM (RAIO-X) 🔥 */}
+      <Modal visible={modalPreviewVisible} transparent animationType="slide">
+          <View style={styles.modalOverlayPreview}>
+              <View style={[styles.modalContentPreview, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <View style={[styles.modalHeader, { padding: 20, borderBottomWidth: 1, borderBottomColor: theme.border, marginBottom: 0 }]}>
+                      <View style={{flex: 1}}>
+                          <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>{templateToPreview?.name}</Text>
+                          <Text style={{color: theme.textSecondary, fontSize: 12, fontWeight: 'bold', marginTop: 4}}>{templateToPreview?.goal} • {templateToPreview?.level}</Text>
+                      </View>
+                      <TouchableOpacity onPress={() => setModalPreviewVisible(false)} style={{padding: 5}}>
+                          <Ionicons name="close" size={24} color={theme.text}/>
+                      </TouchableOpacity>
+                  </View>
+
+                  <ScrollView style={{ padding: 20, flex: 1 }} showsVerticalScrollIndicator={false}>
+                      {renderPreviewRoutine()}
+                  </ScrollView>
+
+                  <View style={{ padding: 20, borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.bg }}>
+                      <TouchableOpacity 
+                          style={[styles.createBtn, { backgroundColor: '#4DE38F', marginTop: 0, flexDirection: 'row', gap: 10 }]} 
+                          onPress={handleCloneTemplate} 
+                          disabled={isCloning}
+                      >
+                          {isCloning ? <ActivityIndicator color="#000" /> : (
+                              <>
+                                  <MaterialCommunityIcons name="content-copy" size={20} color="#000" />
+                                  <Text style={[styles.createBtnText, { color: '#000' }]}>IMPORTAR PARA MINHA BIBLIOTECA</Text>
+                              </>
+                          )}
+                      </TouchableOpacity>
+                  </View>
+              </View>
+          </View>
+      </Modal>
 
       <Modal visible={modalMoveVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
@@ -349,7 +542,7 @@ export default function GerenciarTemplates({ navigation }) {
                         <MaterialCommunityIcons name="folder-outline" size={20} color={theme.textSecondary} />
                         <Text style={{color: theme.text, fontWeight: 'bold'}}>Remover da pasta (Avulso)</Text>
                     </TouchableOpacity>
-                    {collections.map(col => (
+                    {collections.filter(c => isOwner(c)).map(col => (
                         <TouchableOpacity key={col.id} style={[styles.moveOption, { borderBottomColor: theme.border }]} onPress={() => handleMoveTemplate(col.id)}>
                             <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: col.color }} />
                             <Text style={{color: col.color, fontWeight: 'bold'}}>{col.name}</Text>
@@ -360,7 +553,6 @@ export default function GerenciarTemplates({ navigation }) {
         </View>
       </Modal>
 
-      {/* 📁 MODAL DE NOVA/EDITAR COLEÇÃO (PASTA) */}
       <Modal visible={modalColVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
             <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -458,6 +650,10 @@ const styles = StyleSheet.create({
   title: { fontWeight:'900', fontSize: 14, letterSpacing: 0.5 },
   backBtn: { padding: 5 },
   addIcon: { padding: 5 },
+
+  coachFilterContainer: { flexDirection: 'row', paddingHorizontal: 20, paddingTop: 15, gap: 10, backgroundColor: 'transparent' },
+  coachFilterBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  coachFilterText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   
   sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 15, marginTop: 10 },
   
@@ -475,6 +671,10 @@ const styles = StyleSheet.create({
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', padding: 20 },
   modalContent: { padding: 25, borderRadius: 24, borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center', maxHeight: '90%' },
+  
+  modalOverlayPreview: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 },
+  modalContentPreview: { borderRadius: 24, borderWidth: 1, width: '100%', maxWidth: 480, alignSelf: 'center', height: '80%', padding: 0, overflow: 'hidden' },
+
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontWeight: '900', fontSize: 18, letterSpacing: 0.5 },
 
@@ -495,6 +695,6 @@ const styles = StyleSheet.create({
   rowWrap: { flexDirection:'row', flexWrap:'wrap', gap:8 },
   chip: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
   chipText: { fontSize: 11, fontWeight: 'bold' },
-  createBtn: { padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 10 },
+  createBtn: { padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 10, justifyContent: 'center' },
   createBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });

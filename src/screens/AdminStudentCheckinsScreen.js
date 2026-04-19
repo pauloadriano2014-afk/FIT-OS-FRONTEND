@@ -5,13 +5,10 @@ import {
   ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking, TextInput, Dimensions 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 ADICIONADO PARA LER O LOGIN
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { useTheme } from '../contexts/ThemeContext';
-
-// Constante da Adri (Mesma usada no AdminDashboard)
-const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
 
 const ThumbnailImage = ({ originalUri, onPress, theme }) => {
     const thumbUri = originalUri && originalUri.includes('.jpg') 
@@ -84,21 +81,31 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
           if (userJson) {
               const userObj = JSON.parse(userJson);
               const adminEmail = userObj.email.toLowerCase();
-              const adminId = userObj.id;
+              const adminId = userObj.id; 
               
               const isAdriLogged = adminEmail === 'adri.personal@hotmail.com';
               
-              // Verifica se quem está logado é o dono do aluno
+              // 🔥 BUSCA O COACH ID REAL NO CACHE (Já que a tela anterior não enviou)
+              let realCoachId = aluno.coachId;
+              const cachedData = await AsyncStorage.getItem('@dashboard_cache');
+              if (cachedData) {
+                  const { cacheAtivos, cacheInativos } = JSON.parse(cachedData);
+                  const allUsers = [...(cacheAtivos || []), ...(cacheInativos || [])];
+                  const foundUser = allUsers.find(u => u.id === aluno.id);
+                  if (foundUser && foundUser.coachId) {
+                      realCoachId = foundUser.coachId;
+                  }
+              }
+
               let isMyStudent = false;
               if (isAdriLogged) {
-                  isMyStudent = (aluno.coachId === ADRI_COACH_ID);
+                  isMyStudent = (realCoachId === adminId);
               } else {
-                  isMyStudent = (aluno.coachId === adminId || !aluno.coachId);
+                  isMyStudent = (realCoachId === adminId || !realCoachId);
               }
 
               setHasPermission(isMyStudent);
 
-              // Só busca os checkins no banco se tiver permissão (Economiza banda e blinda a rota)
               if (isMyStudent && aluno.id) {
                   await fetchCheckins();
               } else {
@@ -782,7 +789,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             </View>
                         </View>
 
-                        {/* 🔥 NOVO CAMPO: DIRECIONAMENTO (OPCIONAL) 🔥 */}
                         <Text style={[styles.sectionLabel, { color: theme.text }]}>DIRECIONAMENTO (OPCIONAL)</Text>
                         <TextInput 
                             style={[styles.inputContext, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}

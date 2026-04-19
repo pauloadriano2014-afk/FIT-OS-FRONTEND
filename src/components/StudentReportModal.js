@@ -3,7 +3,15 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function StudentReportModal({ visible, onClose, pendingFeedback, userName, markFeedbackAsRead, isMarkingAsRead }) {
+// 🔥 CONSTANTE PARA O ID DA ADRI (Mesmo usado no AdminDashboard)
+const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
+
+export default function StudentReportModal({ visible, onClose, pendingFeedback, userName, markFeedbackAsRead, isMarkingAsRead, coachId }) {
+    
+    // 🔥 IDENTIFICAÇÃO DE ASSINATURA (Paulo vs Adri) 🔥
+    const currentCoachId = coachId || pendingFeedback?.coachId || pendingFeedback?.user?.coachId;
+    const isAdri = currentCoachId === ADRI_COACH_ID;
+
     // 🔥 DECODIFICADOR DO CÓDIGO OCULTO DE COMPARAÇÃO 🔥
     let rawFeedbackText = pendingFeedback?.coachFeedback || '';
     let displayFeedbackText = rawFeedbackText;
@@ -97,17 +105,29 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                             })}
                         </View>
                         
-                        <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                            <Image source={require('../../assets/paulo-foto-perfil.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
-                                <Text style={[styles.coachTitle, { color: '#AAA', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
+                        {/* 🔥 ASSINATURA DINÂMICA (PAULO vs ADRI) 🔥 */}
+                        {isAdri ? (
+                            <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                                <View style={{ flex: 1 }}>
+                                    {/* 🔥 Nome dela, sem subtítulo de equipe 🔥 */}
+                                    <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>ADRI KERN</Text>
+                                </View>
+                                {/* 🔥 Logo exclusiva dela "TEAM KERN" 🔥 */}
+                                <Image source={require('../../assets/TEAMKERN.jpg')} style={{ width: 60, height: 60 }} resizeMode="contain" />
                             </View>
-                            <Image source={require('../../assets/logo-pa.png')} style={{ width: 45, height: 45 }} resizeMode="contain" />
-                        </View>
+                        ) : (
+                            <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                                <Image source={require('../../assets/paulo-foto-perfil.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
+                                    <Text style={[styles.coachTitle, { color: '#AAA', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
+                                </View>
+                                <Image source={require('../../assets/logo-pa.png')} style={{ width: 45, height: 45 }} resizeMode="contain" />
+                            </View>
+                        )}
 
                         <TouchableOpacity style={[styles.upsellBtn, {backgroundColor: '#4DE38F', marginTop: 30, marginBottom: 20}]} onPress={markFeedbackAsRead} disabled={isMarkingAsRead}>
-                            {isMarkingAsRead ? <ActivityIndicator color="#000" /> : <Text style={[styles.upsellBtnText, {color: '#000'}]}>COMPREENDIDO, COACH! 👊</Text>}
+                            {isMarkingAsRead ? <ActivityIndicator color="#000" /> : <Text style={[styles.upsellBtnText, {color: '#000'}]}>{isAdri ? 'COMPREENDIDO! 👊' : 'COMPREENDIDO, COACH! 👊'}</Text>}
                         </TouchableOpacity>
                     </ScrollView>
                 </View>
