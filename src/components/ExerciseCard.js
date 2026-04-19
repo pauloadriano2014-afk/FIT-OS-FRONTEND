@@ -40,7 +40,6 @@ export const ExerciseCard = ({
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
   const videoLink = item.exercise?.videoUrl || item.videoUrl;
-  
   const thumbLink = item.exercise?.thumbUrl || item.thumbUrl || item.exercise?.imageUrl || item.imageUrl || item.exercise?.image || item.image;
   
   const standardRestTime = item.restTime || 60;
@@ -481,7 +480,8 @@ export const ExerciseCard = ({
       const techInfo = identifyTechnique(rawTech);
       if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
 
-      if (blockIndex > 0 && techInfo.key && techInfo.key !== 'BISET') {
+      // 🔥 REMOVE "EXECUÇÃO PADRÃO"
+      if (blockIndex > 0 && techInfo.key && techInfo.key !== 'BISET' && techInfo.key !== 'NORMAL') {
           renderedLines.push(
               <View key={`divider_${blockIndex}`} style={{flexDirection: 'row', alignItems: 'center', marginVertical: 12}}>
                   <View style={{flex: 1, height: 1, backgroundColor: colors.border}} />
@@ -530,6 +530,7 @@ export const ExerciseCard = ({
                     <View style={{width: 60, alignItems:'center', marginRight: 10}}>
                         <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>META</Text>
                         <View style={{ height: 40, justifyContent: 'center' }}>
+                            {/* 🔥 MOSTRA MINUTOS E KCAL */}
                             <Text style={{ color: colors.text, fontSize: 12, fontWeight: 'bold', textAlign:'center' }}>{block.sets}m / {block.reps}kcal</Text>
                         </View>
                     </View>
@@ -568,6 +569,14 @@ export const ExerciseCard = ({
 
   const rawTopTech = blocks[0]?.technique || item.technique || '';
   const exerciseTopTechnique = typeof rawTopTech === 'string' ? rawTopTech.trim().toUpperCase() : '';
+
+  // 🔥 MOSTRAR TEXTO INTELIGENTE NO TOPO DO VÍDEO
+  let topVideoText = '';
+  if (categoryType === 'CARDIO') {
+      topVideoText = `${blocks[0]?.sets} Minutos | ${blocks[0]?.reps} Kcal`;
+  } else {
+      topVideoText = `${calculateTotalSets()} Séries Totais`;
+  }
 
   return (
     <View style={{ marginBottom: biSetType === 'start' ? 0 : 20 }}>
@@ -621,7 +630,7 @@ export const ExerciseCard = ({
             <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'space-between', padding: 15 }} pointerEvents="box-none">
                 <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', alignItems:'flex-start'}} pointerEvents="box-none">
                     <View pointerEvents="auto">
-                        {identifyTechnique(exerciseTopTechnique).key && (
+                        {identifyTechnique(exerciseTopTechnique).key && identifyTechnique(exerciseTopTechnique).key !== 'NORMAL' && (
                             <TouchableOpacity style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, elevation: 3, backgroundColor: identifyTechnique(exerciseTopTechnique).color}} onPress={() => { if(setSelectedTech && setTechModalVisible) { setSelectedTech(identifyTechnique(exerciseTopTechnique).key); setTechModalVisible(true); }}}>
                                 <View style={{flexDirection:'row', alignItems:'center', gap:4}}>
                                     <MaterialCommunityIcons name="information-outline" size={12} color={colors.bg === '#000000' && (identifyTechnique(exerciseTopTechnique).key === 'BISET' || identifyTechnique(exerciseTopTechnique).key === '21') ? '#000' : '#FFF'} />
@@ -656,7 +665,7 @@ export const ExerciseCard = ({
                     <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'flex-end'}}>
                         <View style={{flex:1, paddingRight: 10}}>
                             <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>{exerciseTitle}</Text>
-                            <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{calculateTotalSets()} Séries Totais</Text>
+                            <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{topVideoText}</Text>
                         </View>
                         
                         <View style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}>
