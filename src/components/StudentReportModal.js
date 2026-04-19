@@ -3,14 +3,19 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// 🔥 CONSTANTE PARA O ID DA ADRI (Mesmo usado no AdminDashboard)
-const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
+// 🔥 ID REAL DA ADRI (Sincronizado com o Banco de Dados)
+const ADRI_COACH_ID = 'b7c0c181-41fd-4156-b8fe-963a267759a3'; 
 
 export default function StudentReportModal({ visible, onClose, pendingFeedback, userName, markFeedbackAsRead, isMarkingAsRead, coachId }) {
     
     // 🔥 IDENTIFICAÇÃO DE ASSINATURA (Paulo vs Adri) 🔥
     const currentCoachId = coachId || pendingFeedback?.coachId || pendingFeedback?.user?.coachId;
-    const isAdri = currentCoachId === ADRI_COACH_ID;
+    const coachEmail = pendingFeedback?.coach?.email || '';
+    
+    // Validação tripla para garantir que a assinatura Team Kern apareça sempre que for ela
+    const isAdri = currentCoachId === ADRI_COACH_ID || 
+                   coachEmail.toLowerCase() === 'adri.personal@hotmail.com' ||
+                   pendingFeedback?.coachFeedback?.includes('Coach Adri Kern');
 
     // 🔥 DECODIFICADOR DO CÓDIGO OCULTO DE COMPARAÇÃO 🔥
     let rawFeedbackText = pendingFeedback?.coachFeedback || '';
@@ -36,10 +41,10 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                         </TouchableOpacity>
                         <View style={{ alignItems: 'center', marginTop: 10 }}>
                             <Text style={[styles.reportTitle, { color: '#FFF', fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
-                            <Text style={[styles.reportSubtitle, { color: '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {userName.toUpperCase()}</Text>
+                            <Text style={[styles.reportSubtitle, { color: isAdri ? '#AF52DE' : '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {userName.toUpperCase()}</Text>
                         </View>
-                        <View style={{ marginTop: 15, backgroundColor: '#4DE38F22', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 10 }}>
-                            <Text style={{ color: '#4DE38F', fontSize: 11, fontWeight: '900' }}>
+                        <View style={{ marginTop: 15, backgroundColor: isAdri ? '#AF52DE22' : '#4DE38F22', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 10 }}>
+                            <Text style={{ color: isAdri ? '#AF52DE' : '#4DE38F', fontSize: 11, fontWeight: '900' }}>
                                 DATA: {pendingFeedback?.date ? new Date(pendingFeedback.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}
                             </Text>
                         </View>
@@ -68,8 +73,8 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                                             {currentPic && (
                                                 <View style={{ width: 130, height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
                                                     <Image source={{ uri: currentPic }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                                    <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: '#4DE38F', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                                                        <Text style={{ color: '#000', fontSize: 8, fontWeight: '900' }}>DEPOIS ({label})</Text>
+                                                    <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: isAdri ? '#AF52DE' : '#4DE38F', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
+                                                        <Text style={{ color: isAdri ? '#FFF' : '#000', fontSize: 8, fontWeight: '900' }}>DEPOIS ({label})</Text>
                                                     </View>
                                                 </View>
                                             )}
@@ -83,7 +88,7 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                                     pendingFeedback?.[key] && (
                                         <View key={i} style={styles.reportPhotoContainer}>
                                             <Image source={{ uri: pendingFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
-                                            <View style={[styles.reportPhotoBadge, { backgroundColor: '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color:'#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
+                                            <View style={[styles.reportPhotoBadge, { backgroundColor: isAdri ? '#AF52DE' : '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color: isAdri ? '#FFF' : '#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
                                         </View>
                                     )
                                 ))}
@@ -91,7 +96,7 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                         )}
 
                         <View style={styles.reportDivider} />
-                        <Text style={[styles.reportSectionTitle, { color: '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
+                        <Text style={[styles.reportSectionTitle, { color: isAdri ? '#AF52DE' : '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
                         <View style={{ marginTop: 10, marginBottom: 10 }}>
                             {displayFeedbackText.split('\n').map((paragraph, index) => {
                                 const parts = paragraph.split(/(\*[^*]+\*)/g);
@@ -107,13 +112,13 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                         
                         {/* 🔥 ASSINATURA DINÂMICA (PAULO vs ADRI) 🔥 */}
                         {isAdri ? (
-                            <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                            <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#AF52DE', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                                <Image source={require('../../assets/TEAMKERN.jpg')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#AF52DE' }} />
                                 <View style={{ flex: 1 }}>
-                                    {/* 🔥 Nome dela, sem subtítulo de equipe 🔥 */}
                                     <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>ADRI KERN</Text>
+                                    <Text style={[styles.coachTitle, { color: '#AF52DE', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & POSING COACH</Text>
                                 </View>
-                                {/* 🔥 Logo exclusiva dela "TEAM KERN" 🔥 */}
-                                <Image source={require('../../assets/TEAMKERN.jpg')} style={{ width: 60, height: 60 }} resizeMode="contain" />
+                                <MaterialCommunityIcons name="star-check" size={32} color="#AF52DE" />
                             </View>
                         ) : (
                             <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
@@ -126,8 +131,12 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                             </View>
                         )}
 
-                        <TouchableOpacity style={[styles.upsellBtn, {backgroundColor: '#4DE38F', marginTop: 30, marginBottom: 20}]} onPress={markFeedbackAsRead} disabled={isMarkingAsRead}>
-                            {isMarkingAsRead ? <ActivityIndicator color="#000" /> : <Text style={[styles.upsellBtnText, {color: '#000'}]}>{isAdri ? 'COMPREENDIDO! 👊' : 'COMPREENDIDO, COACH! 👊'}</Text>}
+                        <TouchableOpacity 
+                            style={[styles.upsellBtn, {backgroundColor: isAdri ? '#AF52DE' : '#4DE38F', marginTop: 30, marginBottom: 20}]} 
+                            onPress={markFeedbackAsRead} 
+                            disabled={isMarkingAsRead}
+                        >
+                            {isMarkingAsRead ? <ActivityIndicator color="#000" /> : <Text style={[styles.upsellBtnText, {color: isAdri ? '#FFF' : '#000'}]}>{isAdri ? 'COMPREENDIDO! 👊' : 'COMPREENDIDO, COACH! 👊'}</Text>}
                         </TouchableOpacity>
                     </ScrollView>
                 </View>
