@@ -76,6 +76,9 @@ export default function AdminDietLibraryScreen({ navigation }) {
     const renderTemplateCard = ({ item }) => {
         const parsedMeals = typeof item.meals === 'string' ? JSON.parse(item.meals) : item.meals;
         const mealCount = parsedMeals?.length || 0;
+        
+        // Descobre de qual "Dia" esse template foi salvo
+        const sourceDay = parsedMeals?.[0]?.dayType || 'TREINO';
 
         return (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -88,6 +91,9 @@ export default function AdminDietLibraryScreen({ navigation }) {
                             </Text>
                             <Text style={{ color: theme.border }}>•</Text>
                             <Text style={{ color: theme.textSecondary, fontSize: 12 }}>{mealCount} Refeições</Text>
+                            <Text style={{ color: theme.border }}>•</Text>
+                            {/* Mostra de onde a base veio */}
+                            <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>Origem: {sourceDay}</Text>
                         </View>
                     </View>
                     <View style={[styles.iconBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
