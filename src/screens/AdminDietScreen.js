@@ -74,15 +74,19 @@ export default function AdminDietScreen({ route, navigation }) {
     const [dietConfig, setDietConfig] = useState({ goal: 'Indefinido', water: '3 Litros', notes: 'Siga os horários descritos.' });
     const [meals, setMeals] = useState([]);
     
-    // 🔥 ABAS SIMPLIFICADAS: Remove o 'PADRÃO' redundante
     const [activeDayType, setActiveDayType] = useState('TREINO'); 
+    
+    // 🔥 ANTIVÍRUS: Guarda a aba real pra quando o modal tentar abrir e bagunçar
+    const activeDayTypeRef = useRef(activeDayType);
+    useEffect(() => {
+        activeDayTypeRef.current = activeDayType;
+    }, [activeDayType]);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const enrichMealsWithDatabase = (mealsArray) => {
         return mealsArray.map(meal => ({
             ...meal,
-            // 🔥 REMOVIDA a conversão forçada aqui. Deixamos o dia que vier ou vazio.
             items: meal.items.map(item => {
                 let query = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
                 if (query.endsWith('s')) query = query.slice(0, -1);
@@ -142,7 +146,6 @@ export default function AdminDietScreen({ route, navigation }) {
                         const loadedMeals = savedDiet.meals.map(meal => ({
                             ...meal,
                             id: meal.id.toString(),
-                            // Carrega a aba exata (ou corrige o fantasma do PADRÃO se houver)
                             dayType: (meal.dayType === 'PADRÃO' || !meal.dayType) ? 'TREINO' : meal.dayType,
                             items: (meal.items || []).map(item => ({
                                 ...item,
@@ -191,9 +194,20 @@ export default function AdminDietScreen({ route, navigation }) {
             if (!res.ok) throw new Error("Dieta não encontrada");
             const data = await res.json();
             if (data && data.meals) {
-                const enriched = enrichMealsWithDatabase(data.meals);
-                setMeals(enriched);
-                if (Platform.OS === 'web') window.alert("Dieta clonada com sucesso!");
+                const currentDay = activeDayTypeRef.current;
+                const mapped = data.meals.map(m => ({
+                    ...m,
+                    id: Math.random().toString(),
+                    dayType: currentDay
+                }));
+                const enriched = enrichMealsWithDatabase(mapped);
+                
+                setMeals(prev => {
+                    const outrasAbas = prev.filter(m => m.dayType !== currentDay);
+                    return [...outrasAbas, ...enriched];
+                });
+                
+                if (Platform.OS === 'web') window.alert("Dieta clonada com sucesso na aba " + currentDay);
                 else Alert.alert("Sucesso", "Dieta clonada com sucesso!");
             }
         } catch (e) {
@@ -203,25 +217,24 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleApplyTemplate = (template) => {
         try {
+            const currentDay = activeDayTypeRef.current;
             const parsedMeals = typeof template.meals === 'string' ? JSON.parse(template.meals) : template.meals;
             
-            // 🔥 REGRA DO COACH: O que você importar, vai pra aba que você está olhando.
             const mapped = parsedMeals.map(m => ({
                 ...m,
                 id: Math.random().toString(),
-                dayType: activeDayType 
+                dayType: currentDay 
             }));
 
             const enriched = enrichMealsWithDatabase(mapped);
             
-            // 🔥 LIMPEZA CIRÚRGICA: Apaga as refeições velhas DAQUELA ABA e injeta as novas.
             setMeals(prev => {
-                const outrasAbas = prev.filter(m => m.dayType !== activeDayType);
+                const outrasAbas = prev.filter(m => m.dayType !== currentDay);
                 return [...outrasAbas, ...enriched];
             });
 
-            if (Platform.OS === 'web') window.alert(`Base aplicada com sucesso no DIA DE ${activeDayType}!`);
-            else Alert.alert("Sucesso", `Base aplicada no ${activeDayType}!`);
+            if (Platform.OS === 'web') window.alert(`Base aplicada com sucesso no DIA DE ${currentDay}!`);
+            else Alert.alert("Sucesso", `Base aplicada no ${currentDay}!`);
         } catch(e) {
             Alert.alert("Erro", "Falha ao aplicar modelo.");
         }
@@ -229,8 +242,11 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleSaveAsTemplate = async (templateName) => {
         try {
+            const currentDay = activeDayTypeRef.current;
+            const mealsToSave = meals.filter(m => m.dayType === currentDay);
+            
             const payload = {
-                name: templateName, goal: dietConfig.goal, totalKcal: currentMacros.kcal, meals: meals
+                name: templateName, goal: dietConfig.goal, totalKcal: currentMacros.kcal, meals: mealsToSave
             };
             const res = await fetch('https://fitos-final.onrender.com/api/admin/diet-templates', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
@@ -240,7 +256,7 @@ export default function AdminDietScreen({ route, navigation }) {
             const newTemplate = await res.json();
             setTemplatesList(prev => [newTemplate, ...prev]);
 
-            if (Platform.OS === 'web') window.alert("Modelo guardado com sucesso!");
+            if (Platform.OS === 'web') window.alert("Modelo da aba salvo com sucesso!");
             else Alert.alert("Sucesso", "Modelo guardado no seu cofre!");
         } catch(e) {
             Alert.alert("Erro", "Falha ao guardar modelo.");
@@ -335,20 +351,24 @@ export default function AdminDietScreen({ route, navigation }) {
         return { kcal: Math.round(kcal), prot: Math.round(prot), carb: Math.round(carb), fat: Math.round(fatG) };
     }, [visibleMeals]);
 
-    const handleAddMeal = () => setMeals(prev => [...prev, { id: Date.now().toString(), name: 'Selecione a Refeição', time: '07:00', notes: '', items: [], dayType: activeDayType }]);
+    const handleAddMeal = () => {
+        const currentDay = activeDayTypeRef.current;
+        setMeals(prev => [...prev, { id: Date.now().toString(), name: 'Selecione a Refeição', time: '07:00', notes: '', items: [], dayType: currentDay }]);
+    };
+    
     const handleDeleteMeal = (mealId) => setMeals(prev => prev.filter(m => m.id !== mealId));
     
-    // 🔥 Função nova para você limpar os "fantasmas" que se acumularam nos testes passados
     const handleClearDay = () => {
+        const currentDay = activeDayTypeRef.current;
         if (Platform.OS === 'web') {
-            if (window.confirm(`ATENÇÃO: Você quer apagar todas as refeições do DIA DE ${activeDayType}? Isso vai zerar as macros dessa aba.`)) {
-                setMeals(prev => prev.filter(m => m.dayType !== activeDayType));
+            if (window.confirm(`ATENÇÃO: Você quer apagar todas as refeições do DIA DE ${currentDay}? Isso vai zerar as macros dessa aba.`)) {
+                setMeals(prev => prev.filter(m => m.dayType !== currentDay));
             }
         } else {
-            Alert.alert("Limpar Dia", `ATENÇÃO: Deseja apagar as refeições de ${activeDayType}?`, [
+            Alert.alert("Limpar Dia", `ATENÇÃO: Deseja apagar as refeições de ${currentDay}?`, [
                 { text: "Cancelar", style: "cancel" },
                 { text: "Apagar Tudo", style: "destructive", onPress: () => {
-                    setMeals(prev => prev.filter(m => m.dayType !== activeDayType));
+                    setMeals(prev => prev.filter(m => m.dayType !== currentDay));
                 }}
             ]);
         }
@@ -515,22 +535,22 @@ export default function AdminDietScreen({ route, navigation }) {
     };
 
     const handleImportSuccess = (importedMeals) => {
-        // 🔥 Mesma regra para quando você importa dieta de outro aluno
+        const currentDay = activeDayTypeRef.current;
         const mapped = importedMeals.map(m => ({
             ...m,
             id: Math.random().toString(),
-            dayType: activeDayType 
+            dayType: currentDay 
         }));
 
         const enriched = enrichMealsWithDatabase(mapped);
         
         setMeals(prev => {
-            const outrasAbas = prev.filter(m => m.dayType !== activeDayType);
+            const outrasAbas = prev.filter(m => m.dayType !== currentDay);
             return [...outrasAbas, ...enriched];
         });
 
         setImportModalVisible(false);
-        if (Platform.OS === 'web') window.alert(`Dieta importada para o DIA DE ${activeDayType}!`);
+        if (Platform.OS === 'web') window.alert(`Dieta importada para o DIA DE ${currentDay}!`);
     };
 
     const handleSaveDiet = async () => {
@@ -564,7 +584,7 @@ export default function AdminDietScreen({ route, navigation }) {
             
             if (!response.ok) throw new Error("Erro no servidor ao salvar.");
 
-            if (Platform.OS === 'web') window.alert("🚀 Dieta blindada no banco de dados!");
+            if (Platform.OS === 'web') window.alert("🚀 Dieta salva nas abas com sucesso!");
             else Alert.alert("Sucesso", "Dieta salva!");
 
         } catch (error) {
@@ -693,7 +713,6 @@ export default function AdminDietScreen({ route, navigation }) {
                                 ))
                             )}
 
-                            {/* 🔥 ADICIONADO: Os dois botões lado a lado para você se salvar da bagunça */}
                             <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                                 <TouchableOpacity style={[styles.addMealBtn, { flex: 1, borderColor: theme.accent + '50', backgroundColor: theme.accent + '08' }]} onPress={handleAddMeal} activeOpacity={0.75}>
                                     <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.accent} />
