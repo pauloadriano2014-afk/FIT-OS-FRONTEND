@@ -4,7 +4,6 @@ import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView } from 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SmartThumbnail from './SmartThumbnail'; 
 
-// 🔥 COMPONENTE DO DROPDOWN HÍBRIDO 🔥
 const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, widthWeight = 1, keyboardType = 'default', onSubmitEditing, nextFocusRef, inputRef }) => {
     const [showDropdown, setShowDropdown] = useState(false);
     
@@ -63,12 +62,10 @@ const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, wid
     );
 };
 
-// 🔥 ISOLAMENTO DA LINHA (CORRIGE O CRASH DO REACT HOOKS) 🔥
 const BlockRow = ({ 
     bloco, bIndex, index, isCardio, theme, atualizarBloco, removerBloco, adicionarBloco, 
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible, workoutModel, OPTIONS_SETS, OPTIONS_REPS, OPTIONS_REST, canRemove 
 }) => {
-    // Agora os hooks estão isolados no próprio componente da linha
     const refSets = useRef(null);
     const refReps = useRef(null);
     const refRest = useRef(null);
@@ -142,7 +139,6 @@ const BlockRow = ({
     );
 };
 
-
 export default function ExerciseCardAdmin({ 
     item, index, theme, isReordering, moveExercise, removeExercicio, 
     setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible, 
@@ -157,6 +153,7 @@ export default function ExerciseCardAdmin({
     const isGhost = String(item.exerciseId || '').startsWith('custom_');
 
     const [showObsDropdown, setShowObsDropdown] = useState(false);
+    const [showPyramidDropdown, setShowPyramidDropdown] = useState(false);
 
     const QUICK_OBS = [
         "Faça até a falha",
@@ -172,13 +169,11 @@ export default function ExerciseCardAdmin({
         ? [{val: 10, label: '10'}, {val: 15, label: '15'}, {val: 20, label: '20'}, {val: 30, label: '30'}, {val: 45, label: '45'}, {val: 60, label: '60'}]
         : [1,2,3,4,5,6,7,8,9,10].map(n => ({val: n, label: String(n)}));
 
+    // 🔥 LISTA LIMPA, APENAS REPS NORMAIS 🔥
     const OPTIONS_REPS = isCardio
         ? [{val: 150, label: '150'}, {val: 200, label: '200'}, {val: 250, label: '250'}, {val: 300, label: '300'}, {val: 400, label: '400'}]
         : [
-            { isTitle: true, label: "NORMAIS" },
-            {val: 'FALHA', label: 'FALHA'}, {val: '6', label: '6'}, {val: '8', label: '8'}, {val: '10', label: '10'}, {val: '12', label: '12'}, {val: '15', label: '15'}, {val: '20', label: '20'}, {val: '30', label: '30'},
-            { isTitle: true, label: "PIRÂMIDES" },
-            {val: '12-10-8-8', label: '12-10-8-8'}, {val: '15-12-10-10', label: '15-12-10-10'}, {val: '15-12-12-10', label: '15-12-12-10'}, {val: '15-12-10-8', label: '15-12-10-8'}, {val: '12-12-10', label: '12-12-10'}, {val: '12-10-8', label: '12-10-8'}
+            {val: 'FALHA', label: 'FALHA'}, {val: '6', label: '6'}, {val: '8', label: '8'}, {val: '10', label: '10'}, {val: '12', label: '12'}, {val: '15', label: '15'}, {val: '20', label: '20'}, {val: '30', label: '30'}
         ];
 
     const OPTIONS_REST = [5,10,15,30,45,60,90,120].map(n => ({val: n, label: String(n)}));
@@ -263,14 +258,44 @@ export default function ExerciseCardAdmin({
                   />
               ))}
               
+              {/* 🔥 NOVOS BOTÕES INTELIGENTES (MANUAL VS BLOCO) 🔥 */}
               {!isCardio && (
-                  <TouchableOpacity style={{ alignSelf: 'flex-start', paddingVertical: 5 }} onPress={() => adicionarBloco(index)}>
-                      <Text style={{ color: theme.accent, fontSize: 11, fontWeight: 'bold' }}>+ Adicionar Variação de Série</Text>
-                  </TouchableOpacity>
+                  <View style={{ marginTop: 6 }}>
+                      <View style={{ flexDirection: 'row', gap: 10, marginBottom: showPyramidDropdown ? 8 : 0 }}>
+                          <TouchableOpacity style={styles.actionAddBtn} onPress={() => adicionarBloco(index)}>
+                              <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                              <Text style={{ color: theme.accent, fontSize: 11, fontWeight: 'bold' }}>Adição Manual</Text>
+                          </TouchableOpacity>
+                          
+                          <TouchableOpacity style={styles.actionAddBtn} onPress={() => setShowPyramidDropdown(!showPyramidDropdown)}>
+                              <MaterialCommunityIcons name="layers-triple" size={16} color={theme.accent} />
+                              <Text style={{ color: theme.accent, fontSize: 11, fontWeight: 'bold' }}>Bloco de Séries</Text>
+                          </TouchableOpacity>
+                      </View>
+
+                      {showPyramidDropdown && (
+                          <View style={[styles.pyramidContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                              <Text style={[styles.miniLabel, { color: theme.textSecondary, marginBottom: 8, textAlign: 'left' }]}>ESCOLHA A ESTRUTURA (PIRÂMIDE):</Text>
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                  {['12-10-8-8', '15-12-10-10', '15-12-12-10', '15-12-10-8', '12-12-10', '12-10-8'].map(p => (
+                                      <TouchableOpacity 
+                                          key={p} 
+                                          style={[styles.pyramidBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                          onPress={() => {
+                                              adicionarBloco(index, p); // Injeta a pirâmide
+                                              setShowPyramidDropdown(false);
+                                          }}
+                                      >
+                                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: 'bold' }}>{p}</Text>
+                                      </TouchableOpacity>
+                                  ))}
+                              </View>
+                          </View>
+                      )}
+                  </View>
               )}
             </View>
 
-            {/* 🔥 DROPDOWN PARA OBSERVAÇÕES 🔥 */}
             <View style={{ marginTop: 20, zIndex: 50 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <Text style={[styles.miniLabel, { color: theme.textSecondary, marginBottom: 0 }]}>OBSERVAÇÃO (OPCIONAL)</Text>
@@ -338,11 +363,14 @@ const styles = StyleSheet.create({
   miniInput: { padding: 8, borderRadius: 8, fontSize: 16, textAlign: 'center', borderWidth: 1, fontWeight: 'bold', outlineStyle: 'none' },
   obsInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 16, minHeight: 40, textAlignVertical: 'top', outlineStyle: 'none' },
   
-  // 🔥 Estilos Híbridos Corrigidos (Largura Fixada para não quebrar linha) 🔥
   hybridDropdown: { position: 'absolute', top: 55, width: 140, left: -20, maxHeight: 200, borderWidth: 1, borderRadius: 8, zIndex: 100, elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.2 },
   hybridOption: { padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
 
-  // 🔥 Estilos do Dropdown de Observações 🔥
   obsDropdownContainer: { borderWidth: 1, borderRadius: 8, marginBottom: 8, overflow: 'hidden' },
-  obsOption: { padding: 12, borderBottomWidth: 1 }
+  obsOption: { padding: 12, borderBottomWidth: 1 },
+
+  // 🔥 Estilos dos Novos Botões 🔥
+  actionAddBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#4DE38F55', backgroundColor: '#4DE38F11', gap: 6 },
+  pyramidContainer: { padding: 12, borderRadius: 8, borderWidth: 1 },
+  pyramidBtn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, borderWidth: 1 }
 });
