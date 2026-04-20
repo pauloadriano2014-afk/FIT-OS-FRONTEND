@@ -39,7 +39,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const aluno = (typeof rawAluno === 'string' && rawAluno.startsWith('{')) ? JSON.parse(rawAluno) : rawAluno;
     const userId = (aluno?.id && aluno.id !== "[object Object]") ? aluno.id : route.params?.alunoId;
 
-    const [anamnese, setAnamnese] = useState({}); // 🔥 INICIALIZA COM OBJETO VAZIO PARA NÃO QUEBRAR O RAIO-X
+    const [anamnese, setAnamnese] = useState({}); 
     const [showRaioX, setShowRaioX] = useState(false); 
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingDiet, setIsLoadingDiet] = useState(true);
@@ -123,7 +123,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 const userRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userId}?t=${Date.now()}`);
                 if (userRes.ok) {
                     const userData = await userRes.json();
-                    // 🔥 PEGA A ÚLTIMA ANAMNESE E GARANTE QUE NÃO É NULA
                     const lastAnamnese = userData.anamneses?.length > 0 ? userData.anamneses[userData.anamneses.length - 1] : {};
                     setAnamnese(lastAnamnese); 
                     if (lastAnamnese.objetivo) setDietConfig(prev => ({ ...prev, goal: lastAnamnese.objetivo }));
@@ -379,11 +378,45 @@ export default function AdminDietScreen({ route, navigation }) {
         setActiveGroupId(null);
     };
 
-    const handleUpdateFoodAmount = (mealId, foodUniqueId, newAmount) =>
+    // 🔥 O MOTOR DE RECÁLCULO PROPORCIONAL
+    const handleUpdateFoodAmount = (mealId, foodUniqueId, newAmount) => {
         setMeals(prev => prev.map(meal => {
             if (meal.id !== mealId) return meal;
-            return { ...meal, items: meal.items.map(item => item.uniqueId === foodUniqueId ? { ...item, amount: newAmount } : item) };
+
+            const targetFood = meal.items.find(item => item.uniqueId === foodUniqueId);
+            if (!targetFood) return meal;
+
+            const newAmountNum = parseFloat(newAmount) || 0;
+            
+            // 1. Descobre as CALORIAS EXATAS do alimento com a nova quantidade
+            const targetGrams = toGrams(newAmountNum, targetFood.unit, targetFood);
+            const targetTotalKcal = ((parseFloat(targetFood.calories_per_100) || 0) * targetGrams) / 100;
+
+            return { 
+                ...meal, 
+                items: meal.items.map(item => {
+                    // Atualiza o que você está digitando
+                    if (item.uniqueId === foodUniqueId) {
+                        return { ...item, amount: newAmount };
+                    }
+                    
+                    // Atualiza os substitutos cravando a caloria (ignora o erro de digitação contínua)
+                    if (item.groupId === targetFood.groupId) {
+                        const itemKcalPer100 = parseFloat(item.calories_per_100) || 1;
+                        const neededGrams = (targetTotalKcal * 100) / itemKcalPer100;
+                        
+                        const portions = FOOD_PORTIONS[item.id] || null;
+                        const factor = portions?.[item.unit] ?? UNIT_GRAM_FACTOR[item.unit] ?? 1;
+                        
+                        const finalAmount = Math.round(neededGrams / factor);
+                        return { ...item, amount: finalAmount.toString() };
+                    }
+                    
+                    return item;
+                }) 
+            };
         }));
+    };
 
     const handleToggleUnit = (mealId, foodUniqueId) =>
         setMeals(prev => prev.map(meal => {
