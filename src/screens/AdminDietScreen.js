@@ -39,7 +39,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const aluno = (typeof rawAluno === 'string' && rawAluno.startsWith('{')) ? JSON.parse(rawAluno) : rawAluno;
     const userId = (aluno?.id && aluno.id !== "[object Object]") ? aluno.id : route.params?.alunoId;
 
-    const [anamnese, setAnamnese] = useState(null);
+    const [anamnese, setAnamnese] = useState({}); // 🔥 INICIALIZA COM OBJETO VAZIO PARA NÃO QUEBRAR O RAIO-X
     const [showRaioX, setShowRaioX] = useState(false); 
     const [isSaving, setIsSaving] = useState(false);
     const [isLoadingDiet, setIsLoadingDiet] = useState(true);
@@ -123,9 +123,10 @@ export default function AdminDietScreen({ route, navigation }) {
                 const userRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userId}?t=${Date.now()}`);
                 if (userRes.ok) {
                     const userData = await userRes.json();
-                    const lastAnamnese = userData.anamneses?.length > 0 ? userData.anamneses[userData.anamneses.length - 1] : null;
+                    // 🔥 PEGA A ÚLTIMA ANAMNESE E GARANTE QUE NÃO É NULA
+                    const lastAnamnese = userData.anamneses?.length > 0 ? userData.anamneses[userData.anamneses.length - 1] : {};
                     setAnamnese(lastAnamnese); 
-                    if (lastAnamnese) setDietConfig(prev => ({ ...prev, goal: lastAnamnese.objetivo || 'Hipertrofia' }));
+                    if (lastAnamnese.objetivo) setDietConfig(prev => ({ ...prev, goal: lastAnamnese.objetivo }));
                 }
 
                 const dietRes = await fetch(`https://fitos-final.onrender.com/api/admin/diet/${userId}?t=${Date.now()}`);
@@ -151,7 +152,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 }
 
                 const [studentsRes, templatesRes, mealTempRes] = await Promise.all([
-                    fetch('https://fitos-final.onrender.com/api/admin/users'),
+                    fetch('https://fitos-final.onrender.com/api/admin/user'),
                     fetch('https://fitos-final.onrender.com/api/admin/diet-templates'),
                     fetch('https://fitos-final.onrender.com/api/admin/meal-templates')
                 ]);
@@ -169,7 +170,7 @@ export default function AdminDietScreen({ route, navigation }) {
                     setMealTemplatesList(mData.templates || []);
                 }
 
-                Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+                Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: false }).start();
 
             } catch (error) {
                 console.error("Erro ao carregar dados:", error);
@@ -293,7 +294,7 @@ export default function AdminDietScreen({ route, navigation }) {
         const calRest = alvo - (proteinaAlvo * 4 + fatAlvo * 9);
         const carboAlvo = Math.max(0, Math.round(calRest / 4));
         return { tmb: Math.round(tmb), gastoTotal: Math.round(gastoTotal), alvo: Math.round(alvo), proteinaAlvo, carboAlvo, fatAlvo };
-    }, [anamnese]);
+    }, [anamnese, aluno]);
 
     const currentMacros = useMemo(() => {
         let kcal = 0, prot = 0, carb = 0, fatG = 0;
@@ -404,7 +405,7 @@ export default function AdminDietScreen({ route, navigation }) {
         }));
 
     const handleGenerateAI = async () => {
-        if (!anamnese) {
+        if (!anamnese || Object.keys(anamnese).length === 0) {
             const msg = "O aluno precisa preencher a anamnese primeiro para a IA gerar o plano.";
             return Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Atenção", msg);
         }
@@ -503,13 +504,10 @@ export default function AdminDietScreen({ route, navigation }) {
 
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, ...(isWeb ? { display: 'flex', flexDirection: 'column' } : {}) }} enabled={!isWeb}>
                     
-                    {/* 🔥 SCROLLVIEW GERAL - ENGLOBA WIDGETS E DIETA 🔥 */}
                     <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingBottom: 110 }}>
                         
-                        {/* WIDGETS AGORA ROLAM JUNTO COM A TELA */}
                         <DietHeaderWidgets theme={theme} currentMacros={currentMacros} macros={macros} pct={pct} showRaioX={showRaioX} setShowRaioX={setShowRaioX} anamnese={anamnese} handleGenerateAI={handleGenerateAI} isGenerating={isGenerating} setImportModalVisible={setImportModalVisible} />
 
-                        {/* CONTEÚDO PRINCIPAL (COM PADDING ORIGINAL) */}
                         <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
                             
                             <View style={styles.actionToolsContainer}>

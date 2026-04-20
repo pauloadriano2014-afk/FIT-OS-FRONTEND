@@ -19,7 +19,6 @@ import AdminCheckinModal from '../components/Admin/AdminCheckinModal';
 import DisparoNPSModal from '../components/Admin/DisparoNPSModal';
 import AdminSurveyCard from '../components/Admin/AdminSurveyCard'; 
 
-// 🔥 CONSTANTE PARA O ID DA ADRI
 const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
 
 export default function AdminDashboard({ navigation }) {
@@ -30,7 +29,6 @@ export default function AdminDashboard({ navigation }) {
   const [alunosInativos, setAlunosInativos] = useState([]);
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
   
-  // 🔥 FILTRO DE EQUIPE
   const [coachFilter, setCoachFilter] = useState('PAULO'); 
 
   const [subTabCheckins, setSubTabCheckins] = useState('AVALIACOES'); 
@@ -43,7 +41,13 @@ export default function AdminDashboard({ navigation }) {
 
   const [feed, setFeed] = useState([]); 
   const [checkins, setCheckins] = useState([]);
+  
   const [visibleCount, setVisibleCount] = useState(15); 
+  const [visibleCountCheckins, setVisibleCountCheckins] = useState(5); 
+  const [visibleCountDiet, setVisibleCountDiet] = useState(5); 
+  const [visibleCountSurveys, setVisibleCountSurveys] = useState(5); 
+  const [visibleCountFeed, setVisibleCountFeed] = useState(10); 
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
@@ -60,7 +64,7 @@ export default function AdminDashboard({ navigation }) {
   const [selectedColor, setSelectedColor] = useState('verde');
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-  const isFirstLoadRef = useRef(true); // Ref para controlar a aba padrão na hora do login
+  const isFirstLoadRef = useRef(true); 
 
   const filterOptions = [
     { id: 'TODOS', label: 'TODOS OS ALUNOS', icon: 'account-group', color: theme.text },
@@ -76,7 +80,14 @@ export default function AdminDashboard({ navigation }) {
   ];
 
   useFocusEffect(useCallback(() => { fetchData(false); }, []));
-  useEffect(() => { setVisibleCount(15); }, [subTabAlunos, search, statusFilter, coachFilter]);
+  
+  useEffect(() => { 
+      setVisibleCount(15); 
+      setVisibleCountCheckins(5);
+      setVisibleCountDiet(5);
+      setVisibleCountSurveys(5);
+      setVisibleCountFeed(10);
+  }, [subTabAlunos, subTabCheckins, activeTab, search, statusFilter, coachFilter]);
 
   const fetchData = async (isManualRefresh = false) => {
     try {
@@ -106,7 +117,6 @@ export default function AdminDashboard({ navigation }) {
           setAdminId(userObj.id); 
           localAdminId = userObj.id; 
 
-          // 🔥 DEFINE A ABA PADRÃO NA ENTRADA COM BASE EM QUEM LOGOU
           if (isFirstLoadRef.current) {
               setCoachFilter(email === 'adri.personal@hotmail.com' ? 'ADRI' : 'PAULO');
               isFirstLoadRef.current = false;
@@ -192,18 +202,23 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const handleDeleteFeedback = (id) => {
-      Alert.alert("Excluir", "Deseja remover este aviso permanentemente?", [
-          { text: "Cancelar" },
-          { text: "Sim", style: 'destructive', onPress: async () => {
-              try {
-                  await fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?id=${id}`, { method: 'DELETE' });
-                  setDietFeedbacks(prev => prev.filter(f => f.id !== id));
-              } catch (e) { console.log(e); }
-          }}
-      ]);
+      const confirmAction = async () => {
+          try {
+              await fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?id=${id}`, { method: 'DELETE' });
+              setDietFeedbacks(prev => prev.filter(f => f.id !== id));
+          } catch (e) { console.log(e); }
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm("Deseja remover este aviso permanentemente?")) confirmAction();
+      } else {
+          Alert.alert("Excluir", "Deseja remover este aviso permanentemente?", [
+              { text: "Cancelar" },
+              { text: "Sim", style: 'destructive', onPress: confirmAction }
+          ]);
+      }
   };
 
-  // 🔥 LÓGICA DE IDENTIFICAÇÃO E HIERARQUIA VISUAL (Quem é o dono da conta logada?)
   const isAdriLogged = adminEmail.toLowerCase() === 'adri.personal@hotmail.com';
   
   const ownerKey = isAdriLogged ? 'ADRI' : 'PAULO';
@@ -216,26 +231,22 @@ export default function AdminDashboard({ navigation }) {
   const userCoachMap = useMemo(() => {
       const map = {};
       [...alunosAtivos, ...alunosInativos].forEach(u => {
-          map[u.id] = u.coachId;
+          map[u.id] = u.coachId || (isAdriLogged ? adminId : null);
       });
       return map;
-  }, [alunosAtivos, alunosInativos]);
+  }, [alunosAtivos, alunosInativos, isAdriLogged, adminId]);
 
   const getLogCoach = useCallback((item) => {
-      let uId = item.id; 
-      if (item.userId) uId = item.userId;
-      else if (item.user && item.user.id) uId = item.user.id;
-
-      const cIdMapped = userCoachMap[uId] !== undefined ? userCoachMap[uId] : item.coachId;
+      let uId = item.userId || (item.user && item.user.id) || item.id;
+      const cIdMapped = userCoachMap[uId] || item.coachId || (item.user && item.user.coachId);
 
       if (isAdriLogged) {
-          return cIdMapped === adminId ? 'ADRI' : 'PAULO';
+          return (cIdMapped === adminId) ? 'ADRI' : 'PAULO';
       } else {
-          return (!cIdMapped || cIdMapped === adminId) ? 'PAULO' : 'ADRI';
+          return (cIdMapped && cIdMapped !== adminId) ? 'ADRI' : 'PAULO';
       }
   }, [userCoachMap, adminId, isAdriLogged]);
 
-  // 1. FILTRANDO LISTA DE ALUNOS
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
@@ -261,12 +272,10 @@ export default function AdminDashboard({ navigation }) {
       return list;
   }, [alunosAtivos, alunosInativos, subTabAlunos, search, statusFilter, coachFilter, getLogCoach]);
 
-  // 2. FILTRANDO FEED, DIETAS E NPS
   const filteredFeed = useMemo(() => feed.filter(item => getLogCoach(item) === coachFilter), [feed, coachFilter, getLogCoach]);
   const filteredDiet = useMemo(() => dietFeedbacks.filter(item => getLogCoach(item) === coachFilter), [dietFeedbacks, coachFilter, getLogCoach]);
   const filteredSurveys = useMemo(() => surveys.filter(item => getLogCoach(item) === coachFilter), [surveys, coachFilter, getLogCoach]);
 
-  // 3. FILTRANDO CHECKINS COM TRAVA DE PRIVACIDADE MÁXIMA
   const filteredCheckins = useMemo(() => checkins.filter(item => {
       const coach = getLogCoach(item);
       if (coach !== coachFilter) return false;
@@ -282,9 +291,18 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const handleDeleteLog = (logId) => {
-      Alert.alert("Remover", "Deseja ocultar este item do feed?", [
-          { text: "Cancelar" }, { text: "Sim", style: 'destructive', onPress: () => setFeed(current => current.filter(item => item.id !== logId)) }
-      ]);
+      const confirmAction = () => {
+          setFeed(current => current.filter(item => item.id !== logId));
+      };
+
+      if (Platform.OS === 'web') {
+          if (window.confirm("Deseja ocultar este item do feed?")) confirmAction();
+      } else {
+          Alert.alert("Remover", "Deseja ocultar este item do feed?", [
+              { text: "Cancelar", style: "cancel" }, 
+              { text: "Sim", style: 'destructive', onPress: confirmAction }
+          ]);
+      }
   };
 
   const toggleDarkMode = (newValue) => {
@@ -401,6 +419,11 @@ export default function AdminDashboard({ navigation }) {
                 <Text style={styles.subtitle}>PAINEL ADMINISTRATIVO</Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
+                {/* 🔥 ATALHO DO TEMA INVISÍVEL E PRÁTICO AQUI 🔥 */}
+                <TouchableOpacity onPress={() => toggleDarkMode(!theme.isDark)} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                    <MaterialCommunityIcons name={theme.isDark ? "white-balance-sunny" : "moon-waning-crescent"} size={20} color={theme.text} />
+                </TouchableOpacity>
+
                 <TouchableOpacity onPress={() => fetchData(true)} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}><MaterialCommunityIcons name="refresh" size={20} color={theme.accent} /></TouchableOpacity>
                 <TouchableOpacity onPress={handleLogout} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}><MaterialCommunityIcons name="logout" size={20} color="#FF4444" /></TouchableOpacity>
             </View>
@@ -415,10 +438,8 @@ export default function AdminDashboard({ navigation }) {
             ))}
           </View>
 
-          {/* 🔥 NOVO FILTRO GLOBAL: DINÂMICO E HIERÁRQUICO 🔥 */}
           {activeTab !== 'GESTAO' && (
               <View style={styles.coachFilterContainer}>
-                  {/* Botão Principal: Quem está logado */}
                   <TouchableOpacity 
                       style={[styles.coachFilterBtn, coachFilter === ownerKey ? { backgroundColor: ownerColor, borderColor: ownerColor } : { backgroundColor: theme.surface, borderColor: theme.border }]} 
                       onPress={() => setCoachFilter(ownerKey)}
@@ -426,7 +447,6 @@ export default function AdminDashboard({ navigation }) {
                       <Text style={[styles.coachFilterText, coachFilter === ownerKey ? { color: ownerTextColor } : { color: theme.textSecondary }]}>MEUS ALUNOS</Text>
                   </TouchableOpacity>
 
-                  {/* Botão Secundário: O Parceiro da Equipe */}
                   <TouchableOpacity 
                       style={[styles.coachFilterBtn, coachFilter === partnerKey ? { backgroundColor: partnerColor, borderColor: partnerColor } : { backgroundColor: theme.surface, borderColor: theme.border }]} 
                       onPress={() => setCoachFilter(partnerKey)}
@@ -465,7 +485,13 @@ export default function AdminDashboard({ navigation }) {
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
                             renderItem={({item}) => <AdminStudentCard item={item} theme={theme} navigation={navigation} isHeadCoach={true} />}
                             ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado neste filtro.</Text>}
-                            onEndReached={() => setVisibleCount(prev => prev + 15)} onEndReachedThreshold={0.5} initialNumToRender={15}
+                            ListFooterComponent={
+                                visibleCount < displayList.length ? (
+                                    <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCount(prev => prev + 15)}>
+                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
+                                    </TouchableOpacity>
+                                ) : null
+                            }
                         />
                     )}
                 </>
@@ -486,26 +512,80 @@ export default function AdminDashboard({ navigation }) {
                                 <Text style={[styles.empty, { marginTop: 15 }]}>Fotos restritas apenas para a Coach responsável pelo plano.</Text>
                             </View>
                         ) : (
-                            <FlatList data={filteredCheckins} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderCheckinItem} ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in de avaliação pendente.</Text>} />
+                            <FlatList 
+                                data={filteredCheckins.slice(0, visibleCountCheckins)} 
+                                keyExtractor={item => item.id} 
+                                contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
+                                showsVerticalScrollIndicator={false} 
+                                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} 
+                                renderItem={renderCheckinItem} 
+                                ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in de avaliação pendente.</Text>} 
+                                ListFooterComponent={
+                                    visibleCountCheckins < filteredCheckins.length ? (
+                                        <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountCheckins(prev => prev + 5)}>
+                                            <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS FOTOS</Text>
+                                        </TouchableOpacity>
+                                    ) : null
+                                }
+                            />
                         )
                     )}
                     {subTabCheckins === 'AJUSTES' && (
-                        <FlatList data={filteredDiet} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderDietFeedbackItem} ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste de dieta.</Text>} />
+                        <FlatList 
+                            data={filteredDiet.slice(0, visibleCountDiet)} 
+                            keyExtractor={item => item.id} 
+                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
+                            showsVerticalScrollIndicator={false} 
+                            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} 
+                            renderItem={renderDietFeedbackItem} 
+                            ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste de dieta.</Text>} 
+                            ListFooterComponent={
+                                visibleCountDiet < filteredDiet.length ? (
+                                    <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountDiet(prev => prev + 5)}>
+                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS PEDIDOS</Text>
+                                    </TouchableOpacity>
+                                ) : null
+                            }
+                        />
                     )}
                     {subTabCheckins === 'NPS' && (
                         <FlatList 
-                            data={filteredSurveys} keyExtractor={item => item.id} 
-                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} 
+                            data={filteredSurveys.slice(0, visibleCountSurveys)} 
+                            keyExtractor={item => item.id} 
+                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
+                            showsVerticalScrollIndicator={false} 
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} 
                             renderItem={({item}) => <AdminSurveyCard item={item} theme={theme} onMarkRead={handleMarkSurveyRead} />} 
                             ListEmptyComponent={<Text style={styles.empty}>Nenhuma pesquisa recebida.</Text>} 
+                            ListFooterComponent={
+                                visibleCountSurveys < filteredSurveys.length ? (
+                                    <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountSurveys(prev => prev + 5)}>
+                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS NPS</Text>
+                                    </TouchableOpacity>
+                                ) : null
+                            }
                         />
                     )}
                 </View>
             )}
 
             {activeTab === 'FEED' && (
-                <FlatList data={filteredFeed} keyExtractor={item => item.id} contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} renderItem={renderFeedItem} ListEmptyComponent={<Text style={styles.empty}>Nada recente.</Text>} />
+                <FlatList 
+                    data={filteredFeed.slice(0, visibleCountFeed)} 
+                    keyExtractor={item => item.id} 
+                    contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
+                    showsVerticalScrollIndicator={false} 
+                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} 
+                    renderItem={renderFeedItem} 
+                    ListEmptyComponent={<Text style={styles.empty}>Nada recente.</Text>} 
+                    ListFooterComponent={
+                        visibleCountFeed < filteredFeed.length ? (
+                            <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountFeed(prev => prev + 10)}>
+                                <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS FEED</Text>
+                            </TouchableOpacity>
+                        ) : null
+                    }
+                />
             )}
 
             {activeTab === 'GESTAO' && (
@@ -606,7 +686,6 @@ const styles = StyleSheet.create({
   inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginBottom: 15, padding: 15, borderRadius: 12, gap: 8 },
   inviteBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
   
-  // 🔥 ESTILOS NOVOS DO FILTRO DE EQUIPE
   coachFilterContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, gap: 10, backgroundColor: 'transparent' },
   coachFilterBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   coachFilterText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
@@ -627,5 +706,8 @@ const styles = StyleSheet.create({
   gridGestao: { gap: 15 },
   bigCard: { padding: 25, borderRadius: 20, borderWidth: 1, alignItems: 'center', cursor: 'pointer' }, iconCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   bigCardTitle: { fontSize: 18, fontWeight: '900', marginBottom: 5 }, bigCardDesc: { color: '#888', fontSize: 12, textAlign: 'center', paddingHorizontal: 20 },
-  cardHeaderSmall: { color:'#888', fontWeight:'bold', fontSize:12 }, colorCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 3 }
+  cardHeaderSmall: { color:'#888', fontWeight:'bold', fontSize:12 }, colorCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 3 },
+  
+  loadMoreBtn: { padding: 15, marginBottom: 20, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  loadMoreText: { fontWeight: '900', fontSize: 12, letterSpacing: 1 }
 });

@@ -15,6 +15,15 @@ export default function StudentRaioX({ anamnese, macros, show, onToggle, theme }
         );
     }
 
+    // 🔥 Agrupa restrições alimentares e alergias para exibir limpo e direto
+    const getRestricoes = () => {
+        const parts = [];
+        if (anamnese.allergies) parts.push(anamnese.allergies);
+        if (anamnese.foodAversions) parts.push(anamnese.foodAversions);
+        if (anamnese.restricoes) parts.push(anamnese.restricoes);
+        return parts.length > 0 ? parts.join(' | ') : 'Nenhuma';
+    };
+
     return (
         <View style={[s.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <TouchableOpacity style={s.headerInside} onPress={onToggle}>
@@ -25,14 +34,27 @@ export default function StudentRaioX({ anamnese, macros, show, onToggle, theme }
             {anamnese ? (
                 <View style={s.body}>
                     <View style={s.grid}>
-                        <View style={s.item}><Text style={s.label}>OBJETIVO</Text><Text style={[s.val, {color: theme.text}]}>{anamnese.objetivo}</Text></View>
-                        <View style={s.item}><Text style={s.label}>TMB</Text><Text style={[s.val, {color: theme.text}]}>{macros.tmb} kcal</Text></View>
-                        <View style={s.item}><Text style={s.label}>ALVO</Text><Text style={[s.val, {color: theme.text}]}>{macros.alvo} kcal</Text></View>
-                        <View style={s.item}><Text style={s.label}>FREQUÊNCIA</Text><Text style={[s.val, {color: theme.text}]}>{anamnese.frequencia}x</Text></View>
+                        <View style={s.item}><Text style={s.label}>OBJETIVO</Text><Text style={[s.val, {color: theme.text}]}>{anamnese.objetivo || '---'}</Text></View>
+                        <View style={s.item}><Text style={s.label}>TMB</Text><Text style={[s.val, {color: theme.text}]}>{macros?.tmb || 0} kcal</Text></View>
+                        <View style={s.item}><Text style={s.label}>ALVO</Text><Text style={[s.val, {color: theme.text}]}>{macros?.alvo || 0} kcal</Text></View>
+                        <View style={s.item}><Text style={s.label}>FREQUÊNCIA</Text><Text style={[s.val, {color: theme.text}]}>{anamnese.frequencia || 0}x</Text></View>
+                        
+                        {/* 🔥 Horário de Trabalho renderizado perfeitamente na grid */}
+                        {anamnese.workSchedule && (
+                            <View style={[s.item, { width: '100%', marginTop: 5 }]}><Text style={s.label}>HORÁRIO DE TRABALHO</Text><Text style={[s.val, {color: theme.text}]}>{anamnese.workSchedule}</Text></View>
+                        )}
                     </View>
+
+                    {/* 🔥 Bloco de Suplementos (Azul de Destaque) */}
+                    <View style={[s.alert, { borderLeftColor: '#007AFF', backgroundColor: '#007AFF10', marginBottom: 8 }]}>
+                        <Text style={[s.alertLabel, {color: '#007AFF'}]}>SUPLEMENTOS EM USO:</Text>
+                        <Text style={[s.alertVal, {color: theme.text}]}>{anamnese.supplements || 'Nenhum'}</Text>
+                    </View>
+
+                    {/* 🔥 Bloco de Restrições Agrupado */}
                     <View style={[s.alert, { borderLeftColor: '#FF3B30', backgroundColor: '#FF3B3010' }]}>
-                        <Text style={s.alertLabel}>RESTRIÇÕES:</Text>
-                        <Text style={[s.alertVal, {color: theme.text}]}>{anamnese.allergies || anamnese.foodAversions || 'Nenhuma'}</Text>
+                        <Text style={s.alertLabel}>ALERGIAS / RESTRIÇÕES:</Text>
+                        <Text style={[s.alertVal, {color: theme.text}]}>{getRestricoes()}</Text>
                     </View>
                 </View>
             ) : <Text style={s.empty}>Nenhuma anamnese disponível.</Text>}
@@ -53,5 +75,5 @@ const s = StyleSheet.create({
     alert: { padding: 10, borderRadius: 8, borderLeftWidth: 3, marginTop: 5 },
     alertLabel: { fontSize: 9, color: '#FF3B30', fontWeight: '900' },
     alertVal: { fontSize: 12 },
-    empty: { padding: 20, fontStyle: 'italic', color: '#888' }
+    empty: { padding: 20, fontStyle: 'italic', color: '#888', textAlign: 'center' }
 });
