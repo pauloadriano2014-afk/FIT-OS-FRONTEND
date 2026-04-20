@@ -16,7 +16,6 @@ const UNIT_GRAM_FACTOR = {
     'scoop': 30, 'scoops': 30 
 };
 
-// 🔥 Converte a medida do visor em peso real para o cálculo
 const toGramsLocal = (amount, unit, foodId) => {
     const portions = FOOD_PORTIONS ? FOOD_PORTIONS[foodId] : null;
     let cleanUnit = String(unit).toLowerCase().trim();
@@ -44,24 +43,20 @@ const getCategoryIcon = (category) => {
     return icons[category] || 'food';
 };
 
-// Define qual o "Macro Rei" de acordo com a Categoria Geral
 const getTargetMacro = (category) => {
     if (category === 'Carnes e Proteínas' || category === 'Frios e Laticínios' || category === 'Suplementos') return 'p';
     if (category === 'Gorduras e Oleaginosas') return 'f';
     return 'c'; 
 };
 
-// 🔥 Formatação Visual Avançada (A Magia do Coach)
 const formatVisualUnit = (foodName, rawGrams, subcategory) => {
     const grams = Math.round(rawGrams);
 
-    // Regra da Crepioca (+ Ovos adicionados visualmente)
     if (foodName === 'Massa de Crepioca') {
         const ovos = grams > 60 ? 2 : 1;
         return { displayVal: grams.toString(), labelUnit: `g Tapioca\n+ ${ovos} Ovo`, realUnit: 'g' };
     }
 
-    // Regras de Pães
     if (foodName === 'Pão Francês') {
         let unids = Math.round((grams / 50) * 2) / 2;
         if (unids === 0) unids = 0.5;
@@ -78,14 +73,12 @@ const formatVisualUnit = (foodName, rawGrams, subcategory) => {
         return { displayVal: unids.toString(), labelUnit: 'Unid (30g)', realUnit: 'unid' };
     }
 
-    // Regras de Suplementos
     if (subcategory === 'Suplementos em Pó') {
         let scoops = Math.round((grams / 30) * 2) / 2;
         if (scoops === 0) scoops = 0.5;
         return { displayVal: scoops.toString(), labelUnit: 'Scoop (30g)', realUnit: 'scoop' };
     }
 
-    // Regras de Frios e Queijos Pastosos
     if (subcategory === 'Queijos e Pastas' && (foodName.includes('Requeijão') || foodName.includes('Cream Cheese'))) {
         let colheres = Math.round((grams / 20) * 2) / 2;
         if (colheres === 0) colheres = 0.5;
@@ -102,65 +95,63 @@ const formatVisualUnit = (foodName, rawGrams, subcategory) => {
         return { displayVal: fatias.toString(), labelUnit: 'Fatia (20g)', realUnit: 'fatia' };
     }
 
-    // Padrão Geral
     return { displayVal: grams.toString(), labelUnit: 'g', realUnit: 'g' };
 };
 
-export default function SmartSubstituteModal({ visible, onClose, onSelectFood, onManualSearch, principalFood, principalAmount, theme }) {
+// 🔥 ADICIONADA PROP existingGroupItems para rastrear o que já foi selecionado
+export default function SmartSubstituteModal({ visible, onClose, onSelectFood, onManualSearch, principalFood, principalAmount, theme, existingGroupItems = [] }) {
     
-    const { amountInGrams, truePrincipal, principalMacroValue, principalKcal } = useMemo(() => {
-        if (!principalFood) return { amountInGrams: 0, truePrincipal: null, principalMacroValue: 0, principalKcal: 0 };
+    const { truePrincipal, principalKcal } = useMemo(() => {
+        if (!principalFood) return { truePrincipal: null, principalKcal: 0 };
         
         const rawAmount = parseFloat(principalAmount) || 100;
         const currentUnit = principalFood.unit || principalFood.base_unit || 'g';
         
         const grams = toGramsLocal(rawAmount, currentUnit, principalFood.id);
         const pureDbFood = FOOD_DATABASE.find(f => f.id === principalFood.id) || principalFood;
-        const targetMacroKey = getTargetMacro(pureDbFood.category);
         
-        const macroVal = ((pureDbFood[targetMacroKey] || 0) * grams) / 100;
-        const kcalVal = ((pureDbFood.calories_per_100 || 0) * grams) / 100;
+        const kcalPer100 = parseFloat(pureDbFood.calories_per_100 ?? pureDbFood.calories ?? 0);
+        const kcalVal = (kcalPer100 * grams) / 100;
 
-        return { amountInGrams: grams, truePrincipal: pureDbFood, principalMacroValue: macroVal, principalKcal: kcalVal };
+        return { truePrincipal: pureDbFood, principalKcal: kcalVal };
     }, [principalFood, principalAmount]);
 
     const substitutes = useMemo(() => {
         if (!truePrincipal) return [];
 
-        // Proteção para itens bloqueados
         if (truePrincipal.subcategory === 'Creatina Isolada' || truePrincipal.subcategory === 'Doces Isolados') {
             return [];
         }
-
-        const targetMacroKey = getTargetMacro(truePrincipal.category);
 
         const candidates = FOOD_DATABASE.filter(f =>
             f.subcategory === truePrincipal.subcategory && f.id !== truePrincipal.id
         );
 
         return candidates.map(food => {
-            const macroPer100 = food[targetMacroKey] || 1; 
+            const itemKcalPer100 = parseFloat(food.calories_per_100 ?? food.calories ?? 1);
+            let calculatedGrams = (principalKcal * 100) / itemKcalPer100;
             
-            let calculatedGrams = (principalMacroValue * 100) / macroPer100;
             if (calculatedGrams === Infinity || calculatedGrams === 0) calculatedGrams = 100;
             
             const suggestedAmount = Math.max(5, Math.round(calculatedGrams));
 
-            let subKcal = Math.round(((food.calories_per_100 || 0) * suggestedAmount) / 100);
-            let subProt = Math.round(((food.p || 0) * suggestedAmount) / 100);
-            let subCarb = Math.round(((food.c || 0) * suggestedAmount) / 100);
-            let subFat = Math.round(((food.f || 0) * suggestedAmount) / 100);
+            let subKcal = Math.round((itemKcalPer100 * suggestedAmount) / 100);
+            let subProt = Math.round(((parseFloat(food.p ?? food.protein ?? 0)) * suggestedAmount) / 100);
+            let subCarb = Math.round(((parseFloat(food.c ?? food.carbs ?? 0)) * suggestedAmount) / 100);
+            let subFat = Math.round(((parseFloat(food.f ?? food.fats ?? 0)) * suggestedAmount) / 100);
 
-            // 🔥 Adiciona os macros do ovo à Crepioca para o Coach e o Aluno não perderem as contas!
             if (food.name === 'Massa de Crepioca') {
                 const ovos = suggestedAmount > 60 ? 2 : 1;
-                subKcal += ovos * 70; // 1 ovo = ~70 kcal
-                subProt += ovos * 6;  // 1 ovo = ~6g prot
-                subFat += ovos * 5;   // 1 ovo = ~5g gord
+                subKcal += ovos * 70;
+                subProt += ovos * 6;  
+                subFat += ovos * 5;   
             }
             
             const dKcal = subKcal - Math.round(principalKcal);
             const formatted = formatVisualUnit(food.name, suggestedAmount, food.subcategory);
+            
+            // 🔥 Verifica se o item já está na dieta para desabilitar visualmente
+            const isAlreadyAdded = existingGroupItems.some(item => item.name === food.name);
 
             return { 
                 ...food, 
@@ -168,19 +159,23 @@ export default function SmartSubstituteModal({ visible, onClose, onSelectFood, o
                 displayVal: formatted.displayVal,      
                 labelUnit: formatted.labelUnit,       
                 realUnit: formatted.realUnit,        
-                subKcal, dKcal, subProt, subCarb, subFat 
+                subKcal, dKcal, subProt, subCarb, subFat,
+                isAlreadyAdded
             };
         })
-        .sort((a, b) => Math.abs(a.dKcal) - Math.abs(b.dKcal));
+        .sort((a, b) => {
+            // Ordena primeiro por não adicionados, depois por proximidade de kcal
+            if (a.isAlreadyAdded !== b.isAlreadyAdded) return a.isAlreadyAdded ? 1 : -1;
+            return Math.abs(a.dKcal) - Math.abs(b.dKcal);
+        });
 
-    }, [truePrincipal, principalMacroValue, principalKcal]);
+    }, [truePrincipal, principalKcal, existingGroupItems]);
 
     if (!principalFood || !truePrincipal) return null;
 
     const catIcon = getCategoryIcon(truePrincipal.category);
     const rawAmount = parseFloat(principalAmount) || 100;
     const currentUnit = principalFood.unit || principalFood.base_unit || 'g';
-    const targetMacroLabel = getTargetMacro(truePrincipal.category).toUpperCase();
 
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -197,20 +192,20 @@ export default function SmartSubstituteModal({ visible, onClose, onSelectFood, o
                                     {truePrincipal.subcategory || truePrincipal.category}
                                 </Text>
                             </View>
-                            <TouchableOpacity onPress={onClose} style={[ss.closeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                <MaterialCommunityIcons name="close" size={16} color={theme.textSecondary} />
+                            <TouchableOpacity onPress={onClose} style={[ss.closeBtn, { backgroundColor: theme.accent }]}>
+                                <Text style={{color: '#000', fontWeight: '900', fontSize: 12}}>CONCLUIR</Text>
                             </TouchableOpacity>
                         </View>
 
-                        <Text style={[ss.sheetTitle, { color: theme.text }]}>Substituir por</Text>
+                        <Text style={[ss.sheetTitle, { color: theme.text }]}>Lista de Substitutos</Text>
                         <Text style={[ss.sheetSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                            {truePrincipal.name} · {rawAmount} {currentUnit} · {Math.round(principalKcal)} kcal
+                            Base: {truePrincipal.name} ({rawAmount}{currentUnit})
                         </Text>
                         
                         <View style={[ss.logicAlert, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                            <MaterialCommunityIcons name="scale-balance" size={14} color={theme.textSecondary} />
+                            <MaterialCommunityIcons name="information-outline" size={14} color={theme.accent} />
                             <Text style={[ss.logicAlertText, { color: theme.textSecondary }]}>
-                                Cálculo pareado pelo <Text style={{fontWeight: '900', color: theme.text}}>Macro Dominante ({targetMacroLabel})</Text>. As calorias e gorduras extras podem variar e ficam a seu critério.
+                                Toque nos alimentos para adicionar. O modal ficará aberto para multi-seleção.
                             </Text>
                         </View>
 
@@ -220,43 +215,47 @@ export default function SmartSubstituteModal({ visible, onClose, onSelectFood, o
                             data={substitutes}
                             keyExtractor={item => item.id}
                             showsVerticalScrollIndicator={false}
-                            contentContainerStyle={{ paddingBottom: 8 }}
-                            ListEmptyComponent={() => (
-                                <View style={{ padding: 32, alignItems: 'center' }}>
-                                    <MaterialCommunityIcons name="food-off" size={36} color={theme.textSecondary} />
-                                    <Text style={{ color: theme.textSecondary, marginTop: 10, fontSize: 13, textAlign: 'center', lineHeight: 20 }}>
-                                        Nenhuma opção de substituição direta autorizada pelo sistema.
-                                    </Text>
-                                </View>
-                            )}
+                            contentContainerStyle={{ paddingBottom: 20 }}
                             renderItem={({ item }) => {
                                 const isEquiv = item.dKcal === 0;
                                 const isLower = item.dKcal < 0;
                                 const diffColor = isEquiv ? '#34C759' : isLower ? '#32ADE6' : '#FF3B30';
-                                const diffLabel = isEquiv ? '≈ Equiv.' : `${item.dKcal > 0 ? '+' : ''}${item.dKcal} kcal`;
+                                const diffLabel = isEquiv ? 'Equiv.' : `${item.dKcal > 0 ? '+' : ''}${item.dKcal} kcal`;
 
                                 return (
                                     <TouchableOpacity
-                                        style={[ss.subCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                        onPress={() => onSelectFood({ ...item, suggestedAmount: item.displayVal, base_unit: item.realUnit })}
+                                        style={[
+                                            ss.subCard, 
+                                            { backgroundColor: theme.surface, borderColor: theme.border },
+                                            item.isAlreadyAdded && { opacity: 0.4, borderColor: theme.accent + '40' }
+                                        ]}
+                                        onPress={() => !item.isAlreadyAdded && onSelectFood({ ...item, suggestedAmount: item.displayVal, base_unit: item.realUnit })}
                                         activeOpacity={0.75}
+                                        disabled={item.isAlreadyAdded}
                                     >
-                                        <View style={[ss.amtBadge, { backgroundColor: theme.accent }]}>
-                                            <Text style={ss.amtValue} adjustsFontSizeToFit numberOfLines={1}>{item.displayVal}</Text>
-                                            <Text style={ss.amtUnit}>{item.labelUnit}</Text>
+                                        <View style={[ss.amtBadge, { backgroundColor: item.isAlreadyAdded ? theme.border : theme.accent }]}>
+                                            {item.isAlreadyAdded ? (
+                                                <MaterialCommunityIcons name="check-bold" size={24} color={theme.textSecondary} />
+                                            ) : (
+                                                <>
+                                                    <Text style={ss.amtValue} adjustsFontSizeToFit numberOfLines={1}>{item.displayVal}</Text>
+                                                    <Text style={ss.amtUnit}>{item.labelUnit}</Text>
+                                                </>
+                                            )}
                                         </View>
                                         <View style={{ flex: 1, paddingHorizontal: 12 }}>
-                                            <Text style={[ss.subName, { color: theme.text }]} numberOfLines={2}>{item.name}</Text>
+                                            <Text style={[ss.subName, { color: theme.text }, item.isAlreadyAdded && { textDecorationLine: 'line-through' }]} numberOfLines={2}>{item.name}</Text>
                                             <View style={ss.macroRow}>
                                                 <Text style={[ss.macroChip, { color: theme.textSecondary }]}>{item.subKcal} kcal</Text>
                                                 <Text style={[ss.macroChip, { color: '#32ADE6' }]}>P {item.subProt}g</Text>
                                                 <Text style={[ss.macroChip, { color: '#FFCC00' }]}>C {item.subCarb}g</Text>
-                                                <Text style={[ss.macroChip, { color: '#FF9500' }]}>G {item.subFat}g</Text>
                                             </View>
                                         </View>
-                                        <View style={[ss.diffPill, { backgroundColor: diffColor + '18', borderColor: diffColor + '40' }]}>
-                                            <Text style={[ss.diffText, { color: diffColor }]}>{diffLabel}</Text>
-                                        </View>
+                                        {!item.isAlreadyAdded && (
+                                            <View style={[ss.diffPill, { backgroundColor: diffColor + '18', borderColor: diffColor + '40' }]}>
+                                                <Text style={[ss.diffText, { color: diffColor }]}>{diffLabel}</Text>
+                                            </View>
+                                        )}
                                     </TouchableOpacity>
                                 );
                             }}
@@ -275,29 +274,27 @@ export default function SmartSubstituteModal({ visible, onClose, onSelectFood, o
 }
 
 const ss = StyleSheet.create({
-    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
-    sheet: { width: '100%', maxWidth: 480, alignSelf: 'center', maxHeight: '85%', borderTopLeftRadius: 28, borderTopRightRadius: 28, borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 0 },
-    handle: { width: 36, height: 4, borderRadius: 2, alignSelf: 'center', marginBottom: 16 },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-    catPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1 },
-    catPillText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3, textTransform: 'uppercase' },
-    closeBtn: { padding: 7, borderRadius: 10, borderWidth: 1 },
-    sheetTitle: { fontSize: 22, fontWeight: '900', letterSpacing: -0.5, marginBottom: 4 },
-    sheetSub: { fontSize: 13, marginBottom: 10, fontWeight: '700' },
-    
-    logicAlert: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
-    logicAlertText: { fontSize: 10, lineHeight: 14, flex: 1 },
-
-    divider: { height: 1, marginBottom: 14 },
-    subCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 8 },
-    amtBadge: { width: 62, height: 62, borderRadius: 14, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
-    amtValue: { fontSize: 16, fontWeight: '900', color: '#000' },
-    amtUnit: { fontSize: 8, fontWeight: '800', color: '#000', opacity: 0.8, marginTop: -2, textAlign: 'center' },
-    subName: { fontSize: 13, fontWeight: '800', marginBottom: 6 },
-    macroRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-    macroChip: { fontSize: 11, fontWeight: '800' },
-    diffPill: { paddingHorizontal: 9, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
-    diffText: { fontSize: 11, fontWeight: '900' },
-    manualBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 18, marginHorizontal: -20, borderTopWidth: 1 },
-    manualText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.3 },
+    backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'flex-end' },
+    sheet: { width: '100%', maxWidth: 480, alignSelf: 'center', maxHeight: '85%', borderTopLeftRadius: 32, borderTopRightRadius: 32, borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 0 },
+    handle: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 16 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+    catPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+    catPillText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase' },
+    closeBtn: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12 },
+    sheetTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5, marginBottom: 4 },
+    sheetSub: { fontSize: 14, marginBottom: 12, fontWeight: '700' },
+    logicAlert: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 15 },
+    logicAlertText: { fontSize: 11, fontWeight: '700', flex: 1 },
+    divider: { height: 1, marginBottom: 15 },
+    subCard: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 20, borderWidth: 1, marginBottom: 10 },
+    amtBadge: { width: 64, height: 64, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
+    amtValue: { fontSize: 18, fontWeight: '900', color: '#000' },
+    amtUnit: { fontSize: 9, fontWeight: '800', color: '#000', opacity: 0.8, marginTop: -2, textAlign: 'center' },
+    subName: { fontSize: 14, fontWeight: '800', marginBottom: 6 },
+    macroRow: { flexDirection: 'row', gap: 10 },
+    macroChip: { fontSize: 11, fontWeight: '900' },
+    diffPill: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, borderWidth: 1 },
+    diffText: { fontSize: 10, fontWeight: '900' },
+    manualBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 20, marginHorizontal: -20, borderTopWidth: 1 },
+    manualText: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
 });

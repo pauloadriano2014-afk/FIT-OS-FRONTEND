@@ -10,11 +10,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 Importando os Componentes Modularizados
 import WaterTracker from '../components/ClientDiet/WaterTracker';
 import ShoppingListModal from '../components/ClientDiet/ShoppingListModal';
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
 const getMacroCategory = (food) => {
     const p = parseFloat(food.protein || food.p || 0);
     const c = parseFloat(food.carbs || food.c || 0);
@@ -54,8 +52,6 @@ const getGoalType = (userData) => {
     return 'HIPERTROFIA';
 };
 
-// ─── COMPONENTES DE UI ────────────────────────────────────────────────────────
-
 function RoutineSelector({ theme, types, activeType, onChange }) {
     return (
         <View style={[styles.daySelectorContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -68,7 +64,7 @@ function RoutineSelector({ theme, types, activeType, onChange }) {
                         onPress={() => onChange(t)}
                     >
                         <Text style={[styles.dayText, { color: isActive ? '#000' : theme.textSecondary }]}>
-                            {t === 'PADRÃO' ? 'GERAL' : t}
+                            DIA DE {t}
                         </Text>
                     </TouchableOpacity>
                 );
@@ -79,7 +75,6 @@ function RoutineSelector({ theme, types, activeType, onChange }) {
 
 function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
     const bgImage = getMealBackgroundImage(meal.name);
-    // Controla quais grupos de substituição estão abertos
     const [showSubs, setShowSubs] = useState({});
 
     const grouped = meal.items.reduce((acc, item) => {
@@ -127,14 +122,12 @@ function CleanMealCard({ meal, theme, index, isChecked, onToggleCheck }) {
                         <View key={gIdx} style={styles.cleanFoodGroup}>
                             <Text style={[styles.macroCategoryTag, { color: theme.accent }]}>🎯 {macroCategory}</Text>
                             
-                            {/* Alimento Principal - Destaque em Verde Neon Premium */}
                             <View style={[styles.mainFoodCard, { backgroundColor: 'rgba(77, 227, 143, 0.1)', borderColor: '#4DE38F' }]}>
                                 <Text style={[styles.cleanFoodName, { color: theme.text }]} numberOfLines={2}>
                                     {mainFood.amount} {mainFood.unit} de {mainFood.name?.toUpperCase()}
                                 </Text>
                             </View>
 
-                            {/* Área de Substitutos (Apenas se houver) */}
                             {substitutes.length > 0 && (
                                 <>
                                     <TouchableOpacity 
@@ -277,7 +270,6 @@ function DietSurveyModal({ visible, onClose, theme, userId }) {
     );
 }
 
-// ─── MAIN SCREEN ──────────────────────────────────────────────────────────────
 export default function DietScreen({ route }) {
     const { theme } = useTheme();
     const isWeb = Platform.OS === 'web';
@@ -289,14 +281,11 @@ export default function DietScreen({ route }) {
     const [user, setUser] = useState(null);
     const [accessDenied, setAccessDenied] = useState(false);
     
-    // Abas Principais
     const [activeTab, setActiveTab] = useState('DIETA'); 
     const [activeDayType, setActiveDayType] = useState('TREINO'); 
 
-    // Estados Locais
     const [checkedMeals, setCheckedMeals] = useState({});
     
-    // Estados dos Modais
     const [surveyModalVisible, setSurveyModalVisible] = useState(false);
     const [isShoppingListOpen, setIsShoppingListOpen] = useState(false);
     const [checkedShoppingItems, setCheckedShoppingItems] = useState([]);
@@ -352,10 +341,14 @@ export default function DietScreen({ route }) {
 
     const goalType = useMemo(() => getGoalType(user), [user]);
 
+    // 🔥 ABAS LIMPAS: Foco total na rotina real, sem redundância
     const availableTypes = useMemo(() => {
         if (!diet?.meals) return ['TREINO', 'CARDIO', 'DESCANSO'];
-        const types = [...new Set(diet.meals.map(m => m.dayType || 'PADRÃO'))];
-        const order = ['PADRÃO', 'TREINO', 'CARDIO', 'DESCANSO'];
+        
+        // Pega apenas os tipos que existem na dieta e que fazem parte da nossa trinca oficial
+        const types = [...new Set(diet.meals.map(m => m.dayType))];
+        const order = ['TREINO', 'CARDIO', 'DESCANSO'];
+        
         const present = order.filter(t => types.includes(t));
         return present.length > 0 ? present : ['TREINO'];
     }, [diet]);
@@ -371,23 +364,20 @@ export default function DietScreen({ route }) {
         return diet.meals.filter(m => (m.dayType || 'PADRÃO') === activeDayType);
     }, [diet, activeDayType]);
 
-    // 🔥 MOTOR DA LISTA DE MERCADO (Com Multiplicador Semanal 4-2-1)
     const shoppingList = useMemo(() => {
         if (!diet?.meals) return {};
         const list = {};
 
-        // Frequência base por semana
+        // Frequência base por semana (Ajustado para a trinca oficial)
         const dayMultiplier = {
             'TREINO': 4,
             'CARDIO': 2,
-            'DESCANSO': 1,
-            'PADRÃO': 7
+            'DESCANSO': 1
         };
 
         diet.meals.forEach((meal) => {
             const multiplier = dayMultiplier[meal.dayType || 'PADRÃO'] || 1;
 
-            // Agrupa itens para ignorar os substitutos (não estourar a lista de compras do aluno)
             const groupedItems = meal.items?.reduce((acc, item) => {
                 const key = item.substitutionGroupId || item.id || Math.random().toString();
                 if (!acc[key]) acc[key] = [];
@@ -398,7 +388,7 @@ export default function DietScreen({ route }) {
             if (!groupedItems) return;
 
             Object.values(groupedItems).forEach((group) => {
-                const mainItem = group[0]; // Adiciona apenas o Alimento Principal
+                const mainItem = group[0]; 
                 if (!mainItem) return;
 
                 const baseAmt = parseFloat(mainItem.amount) || 0;
@@ -431,7 +421,6 @@ export default function DietScreen({ route }) {
             });
         });
 
-        // Agrupa por categoria e converte g para Kg / ml para L
         const grouped = {};
         Object.values(list).forEach(item => {
             let finalAmount = item.amount;
@@ -520,18 +509,21 @@ export default function DietScreen({ route }) {
                     
                     {activeTab === 'DIETA' ? (
                         <>
-                            <RoutineSelector theme={theme} types={availableTypes} activeType={activeDayType} onChange={setActiveDayType} />
+                            {/* 🔥 O SELETOR DE ABAS AGORA APARECE PARA O ALUNO SE TIVER MAIS DE UM DIA CADASTRADO */}
+                            {availableTypes.length > 1 && (
+                                <RoutineSelector theme={theme} types={availableTypes} activeType={activeDayType} onChange={setActiveDayType} />
+                            )}
                             
                             <View style={styles.sectionHeader}>
                                 <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
-                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SUAS REFEIÇÕES</Text>
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>SUAS REFEIÇÕES ({activeDayType})</Text>
                             </View>
 
                             {visibleMeals.length === 0 ? (
                                 <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                                     <MaterialCommunityIcons name="silverware-fork-knife" size={32} color={theme.textSecondary} />
                                     <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia Livre</Text>
-                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Nenhuma refeição cadastrada pelo Coach para o dia de "{activeDayType}".</Text>
+                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Nenhuma refeição cadastrada pelo Coach para este dia específico.</Text>
                                 </View>
                             ) : (
                                 visibleMeals.map((meal, index) => (
@@ -550,7 +542,9 @@ export default function DietScreen({ route }) {
                         <>
                             <View style={styles.sectionHeader}>
                                 <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
-                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>HIDRATAÇÃO</Text>
+                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
+                                    ESTRATÉGIA: <Text style={{color: theme.text}}>DIA DE {activeDayType}</Text>
+                                </Text>
                             </View>
 
                             <WaterTracker 
@@ -571,7 +565,6 @@ export default function DietScreen({ route }) {
                                     </View>
                                 </TouchableOpacity>
 
-                                {/* Substitui o Biofeedback pelo Ajuste de Dieta */}
                                 <TouchableOpacity 
                                     style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
                                     onPress={() => setSurveyModalVisible(true)}
@@ -630,7 +623,6 @@ export default function DietScreen({ route }) {
                 </Animated.ScrollView>
             </View>
 
-            {/* 🔥 MODAIS IMPORTADOS */}
             <DietSurveyModal visible={surveyModalVisible} onClose={() => setSurveyModalVisible(false)} theme={theme} userId={user?.id} />
             <ShoppingListModal 
                 visible={isShoppingListOpen} 

@@ -74,7 +74,8 @@ export default function AdminDietScreen({ route, navigation }) {
     const [dietConfig, setDietConfig] = useState({ goal: 'Indefinido', water: '3 Litros', notes: 'Siga os horários descritos.' });
     const [meals, setMeals] = useState([]);
     
-    const [activeDayType, setActiveDayType] = useState('PADRÃO'); 
+    // 🔥 ABAS SIMPLIFICADAS: Remove o 'PADRÃO' redundante
+    const [activeDayType, setActiveDayType] = useState('TREINO'); 
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -199,9 +200,25 @@ export default function AdminDietScreen({ route, navigation }) {
     const handleApplyTemplate = (template) => {
         try {
             const parsedMeals = typeof template.meals === 'string' ? JSON.parse(template.meals) : template.meals;
-            const enriched = enrichMealsWithDatabase(parsedMeals);
-            setMeals(enriched);
-            if (Platform.OS === 'web') window.alert(`Modelo '${template.name}' aplicado!`);
+            
+            // 🔥 INTELIGÊNCIA DE IMPORTAÇÃO: 
+            // Se o template for antigo (PADRÃO), ele força as refeições para a aba atual (TREINO, etc)
+            const mappedMeals = parsedMeals.map(m => ({
+                ...m,
+                id: Math.random().toString(), // Novo ID para evitar conflitos
+                dayType: (m.dayType === 'PADRÃO' || !m.dayType) ? activeDayType : m.dayType
+            }));
+
+            const enriched = enrichMealsWithDatabase(mappedMeals);
+            
+            // Mescla as refeições importadas com as que já existem em outros dias,
+            // mas substitui o conteúdo do dia atual para não duplicar.
+            setMeals(prev => {
+                const otherDays = prev.filter(m => m.dayType !== activeDayType);
+                return [...otherDays, ...enriched];
+            });
+
+            if (Platform.OS === 'web') window.alert(`Modelo '${template.name}' aplicado com sucesso no DIA DE ${activeDayType}!`);
             else Alert.alert("Sucesso", `Modelo '${template.name}' aplicado!`);
         } catch(e) {
             Alert.alert("Erro", "Falha ao ler o modelo.");
@@ -378,7 +395,7 @@ export default function AdminDietScreen({ route, navigation }) {
         setActiveGroupId(null);
     };
 
-    // 🔥 O MOTOR DE RECÁLCULO PROPORCIONAL
+    // 🔥 MOTOR HIERÁRQUICO: Base manda, Substituto obedece.
     const handleUpdateFoodAmount = (mealId, foodUniqueId, newAmount) => {
         setMeals(prev => prev.map(meal => {
             if (meal.id !== mealId) return meal;
@@ -386,34 +403,40 @@ export default function AdminDietScreen({ route, navigation }) {
             const targetFood = meal.items.find(item => item.uniqueId === foodUniqueId);
             if (!targetFood) return meal;
 
+            // Identifica se o que você está mexendo é o ALIMENTO BASE (o primeiro do grupo)
+            const isBase = meal.items.findIndex(i => i.groupId === targetFood.groupId) === meal.items.indexOf(targetFood);
             const newAmountNum = parseFloat(newAmount) || 0;
-            
-            // 1. Descobre as CALORIAS EXATAS do alimento com a nova quantidade
-            const targetGrams = toGrams(newAmountNum, targetFood.unit, targetFood);
-            const targetTotalKcal = ((parseFloat(targetFood.calories_per_100) || 0) * targetGrams) / 100;
 
+            if (isBase) {
+                // REGRA DO REI: Mexeu na base, recalcula a esteira toda de substitutos
+                const targetGrams = toGrams(newAmountNum, targetFood.unit, targetFood);
+                const targetTotalKcal = ((parseFloat(targetFood.calories_per_100) || 0) * targetGrams) / 100;
+
+                return { 
+                    ...meal, 
+                    items: meal.items.map(item => {
+                        // Atualiza a própria base
+                        if (item.uniqueId === foodUniqueId) return { ...item, amount: newAmount };
+                        
+                        // Atualiza os substitutos deste grupo cravando a caloria da nova base
+                        if (item.groupId === targetFood.groupId) {
+                            const itemKcalPer100 = parseFloat(item.calories_per_100) || 1;
+                            const neededGrams = (targetTotalKcal * 100) / itemKcalPer100;
+                            const factor = (FOOD_PORTIONS[item.id]?.[item.unit]) ?? UNIT_GRAM_FACTOR[item.unit] ?? 1;
+                            
+                            return { ...item, amount: Math.round(neededGrams / factor).toString() };
+                        }
+                        return item;
+                    }) 
+                };
+            }
+
+            // REGRA DO SUB: Se mexer no substituto, altera APENAS ele mesmo
             return { 
                 ...meal, 
-                items: meal.items.map(item => {
-                    // Atualiza o que você está digitando
-                    if (item.uniqueId === foodUniqueId) {
-                        return { ...item, amount: newAmount };
-                    }
-                    
-                    // Atualiza os substitutos cravando a caloria (ignora o erro de digitação contínua)
-                    if (item.groupId === targetFood.groupId) {
-                        const itemKcalPer100 = parseFloat(item.calories_per_100) || 1;
-                        const neededGrams = (targetTotalKcal * 100) / itemKcalPer100;
-                        
-                        const portions = FOOD_PORTIONS[item.id] || null;
-                        const factor = portions?.[item.unit] ?? UNIT_GRAM_FACTOR[item.unit] ?? 1;
-                        
-                        const finalAmount = Math.round(neededGrams / factor);
-                        return { ...item, amount: finalAmount.toString() };
-                    }
-                    
-                    return item;
-                }) 
+                items: meal.items.map(item => 
+                    item.uniqueId === foodUniqueId ? { ...item, amount: newAmount } : item
+                ) 
             };
         }));
     };
@@ -436,6 +459,14 @@ export default function AdminDietScreen({ route, navigation }) {
             if (meal.id !== mealId) return meal;
             return { ...meal, items: meal.items.filter(item => item.uniqueId !== foodUniqueId) };
         }));
+
+        const handleSwapBaseFood = (mealId, oldBaseFood) => {
+        setActiveMealId(mealId);
+        setActiveGroupId(oldBaseFood.groupId);
+        // Remove a base antiga antes de abrir a busca da nova base
+        setMeals(prev => prev.map(m => m.id === mealId ? { ...m, items: m.items.filter(i => i.uniqueId !== oldBaseFood.uniqueId) } : m));
+        setSearchModalVisible(true);
+    };
 
     const handleGenerateAI = async () => {
         if (!anamnese || Object.keys(anamnese).length === 0) {
@@ -471,11 +502,23 @@ export default function AdminDietScreen({ route, navigation }) {
     };
 
     const handleImportSuccess = (importedMeals) => {
-        const newMeals = enrichMealsWithDatabase(importedMeals).map(m => ({...m, dayType: activeDayType}));
-        setMeals(prev => [...prev, ...newMeals]);
+        // 🔥 Garante que o que vier de outro aluno caia direto na aba que você está editando
+        const mapped = importedMeals.map(m => ({
+            ...m,
+            id: Math.random().toString(),
+            dayType: activeDayType 
+        }));
+
+        const enriched = enrichMealsWithDatabase(mapped);
+        
+        setMeals(prev => {
+            const otherDays = prev.filter(m => m.dayType !== activeDayType);
+            return [...otherDays, ...enriched];
+        });
+
         setImportModalVisible(false);
-        if (Platform.OS === 'web') window.alert("Dieta importada com sucesso para esta aba!");
-        else Alert.alert("Sucesso", "Dieta importada com sucesso para esta aba!");
+        if (Platform.OS === 'web') window.alert(`Dieta importada para a aba ${activeDayType}!`);
+        else Alert.alert("Sucesso", "Importação concluída!");
     };
 
     const handleSaveDiet = async () => {
@@ -567,7 +610,7 @@ export default function AdminDietScreen({ route, navigation }) {
                             </View>
 
                             <View style={styles.daysTabsContainer}>
-                                {['PADRÃO', 'TREINO', 'DESCANSO'].map(type => (
+                                {['TREINO', 'CARDIO', 'DESCANSO'].map(type => (
                                     <TouchableOpacity 
                                         key={type} 
                                         style={[
@@ -582,20 +625,18 @@ export default function AdminDietScreen({ route, navigation }) {
                                             color: activeDayType === type ? '#000' : theme.textSecondary, 
                                             fontWeight: '900', letterSpacing: 0.5, fontSize: 10
                                         }}>
-                                            {type === 'PADRÃO' ? 'PADRÃO / GERAL' : `DIA DE ${type}`}
+                                            DIA DE {type}
                                         </Text>
                                     </TouchableOpacity>
                                 ))}
                             </View>
 
                             <View style={styles.sectionRow}>
-                                <Text style={[styles.sectionTitle, { color: theme.text }]}>
-                                    PRESCRIÇÃO <Text style={{ color: theme.accent }}>({activeDayType})</Text>
-                                </Text>
-                                <View style={[styles.tacoBadge, { backgroundColor: theme.accent + '20', borderColor: theme.accent + '50' }]}>
-                                    <Text style={[styles.tacoBadgeText, { color: theme.accent }]}>BASE TACO</Text>
-                                </View>
-                            </View>
+    <Text style={[styles.sectionTitle, { color: theme.text }]}>PRESCRIÇÃO <Text style={{ color: theme.accent }}>({activeDayType})</Text></Text>
+    <View style={[styles.tacoBadge, { backgroundColor: theme.accent + '20', borderColor: theme.accent + '50' }]}>
+        <Text style={[styles.tacoBadgeText, { color: theme.accent }]}>BASE TACO</Text>
+    </View>
+</View>
 
                             {visibleMeals.length === 0 ? (
                                 <View style={[styles.emptyBox, { borderColor: theme.border }]}>
@@ -607,7 +648,21 @@ export default function AdminDietScreen({ route, navigation }) {
                                 </View>
                             ) : (
                                 visibleMeals.map(meal => (
-                                    <MealCardAdmin key={meal.id} meal={meal} theme={theme} toGrams={toGrams} handleOpenNameSelect={handleOpenNameSelect} handleOpenTimeSelect={handleOpenTimeSelect} handleDeleteMeal={handleDeleteMeal} handleUpdateFoodAmount={handleUpdateFoodAmount} handleToggleUnit={handleToggleUnit} handleDeleteFood={handleDeleteFood} handleOpenSearch={handleOpenSearch} handleMealOptions={handleMealOptions} />
+                                    <MealCardAdmin 
+                                        key={meal.id} 
+                                        meal={meal} 
+                                        theme={theme} 
+                                        toGrams={toGrams} 
+                                        handleOpenNameSelect={handleOpenNameSelect} 
+                                        handleOpenTimeSelect={handleOpenTimeSelect} 
+                                        handleDeleteMeal={handleDeleteMeal} 
+                                        handleUpdateFoodAmount={handleUpdateFoodAmount} 
+                                        handleToggleUnit={handleToggleUnit} 
+                                        handleDeleteFood={handleDeleteFood} 
+                                        handleOpenSearch={handleOpenSearch} 
+                                        handleMealOptions={handleMealOptions}
+                                        handleSwapBaseFood={handleSwapBaseFood} // 🔥 FUNÇÃO INJETADA
+                                    />
                                 ))
                             )}
 
@@ -625,7 +680,16 @@ export default function AdminDietScreen({ route, navigation }) {
                 <DietActionModals theme={theme} isWeb={isWeb} modalCloneVisible={modalCloneVisible} setModalCloneVisible={setModalCloneVisible} studentsList={studentsList} handleCloneFromStudent={handleCloneFromStudent} modalTemplatesVisible={modalTemplatesVisible} setModalTemplatesVisible={setModalTemplatesVisible} templatesList={templatesList} handleApplyTemplate={handleApplyTemplate} modalSaveTemplateVisible={modalSaveTemplateVisible} setModalSaveTemplateVisible={setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate} modalMealOptionsVisible={modalMealOptionsVisible} setModalMealOptionsVisible={setModalMealOptionsVisible} modalSaveMealVisible={modalSaveMealVisible} setModalSaveMealVisible={setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate} modalImportMealVisible={modalImportMealVisible} setModalImportMealVisible={setModalImportMealVisible} mealTemplatesList={mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
 
                 <FoodSearchModal visible={searchModalVisible} onClose={() => setSearchModalVisible(false)} onSelectFood={handleAddFoodToMeal} targetGroup={activeGroupId} theme={theme} />
-                <SmartSubstituteModal visible={smartModalVisible} onClose={() => setSmartModalVisible(false)} onSelectFood={handleAddFoodToMeal} onManualSearch={handleSmartToManual} principalFood={smartPrincipalFood} principalAmount={smartPrincipalAmount} theme={theme} />
+                <SmartSubstituteModal 
+    visible={smartModalVisible} 
+    onClose={() => setSmartModalVisible(false)} 
+    onSelectFood={handleAddFoodToMeal} 
+    onManualSearch={handleSmartToManual} 
+    principalFood={smartPrincipalFood} 
+    principalAmount={smartPrincipalAmount} 
+    theme={theme}
+    existingGroupItems={meals.find(m => m.id === activeMealId)?.items.filter(i => i.groupId === activeGroupId) || []} // 🔥 PASSA OS ITENS JÁ ADICIONADOS
+/>
                 {importModalVisible && <ImportDietModal visible={importModalVisible} onClose={() => setImportModalVisible(false)} theme={theme} onImportSuccess={handleImportSuccess} />}
             </View>
         </RootComponent>
