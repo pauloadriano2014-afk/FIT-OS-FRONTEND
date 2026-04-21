@@ -14,6 +14,21 @@ import WaterTracker from '../components/ClientDiet/WaterTracker';
 import ShoppingListModal from '../components/ClientDiet/ShoppingListModal';
 
 const getMacroCategory = (food) => {
+    const name = String(food.name || '').toLowerCase();
+
+    if (name.includes('queijo') || name.includes('leite') || name.includes('iogurte') || name.includes('mussarela') || name.includes('requeijão') || name.includes('cotage') || name.includes('cottage')) {
+        return "LATICÍNIOS";
+    }
+    if (name.includes('alface') || name.includes('tomate') || name.includes('brócolis') || name.includes('brocolis') || name.includes('cenoura') || name.includes('abóbora') || name.includes('abobora') || name.includes('salada') || name.includes('vegetais') || name.includes('pepino') || name.includes('rúcula') || name.includes('espinafre') || name.includes('couve') || name.includes('cebola') || name.includes('alho')) {
+        return "VEGETAIS E VERDURAS";
+    }
+    if (name.includes('fruta') || name.includes('banana') || name.includes('maçã') || name.includes('maca') || name.includes('morango') || name.includes('uva') || name.includes('abacaxi') || name.includes('mamão') || name.includes('mamao') || name.includes('melão') || name.includes('melancia') || name.includes('laranja') || name.includes('limão') || name.includes('limao') || name.includes('pera') || name.includes('kiwi')) {
+        return "FRUTAS";
+    }
+    if (name.includes('whey') || name.includes('albumina') || name.includes('creatina')) {
+        return "FONTE DE PROTEÍNA";
+    }
+
     const p = parseFloat(food.protein || food.p || 0);
     const c = parseFloat(food.carbs || food.c || 0);
     const f = parseFloat(food.fats || food.f || 0);
@@ -64,7 +79,7 @@ function RoutineSelector({ theme, types, activeType, onChange }) {
                         onPress={() => onChange(t)}
                     >
                         <Text style={[styles.dayText, { color: isActive ? '#000' : theme.textSecondary }]}>
-                            DIA DE {t}
+                            {t}
                         </Text>
                     </TouchableOpacity>
                 );
@@ -341,14 +356,10 @@ export default function DietScreen({ route }) {
 
     const goalType = useMemo(() => getGoalType(user), [user]);
 
-    // 🔥 ABAS LIMPAS: Foco total na rotina real, sem redundância
     const availableTypes = useMemo(() => {
         if (!diet?.meals) return ['TREINO', 'CARDIO', 'DESCANSO'];
-        
-        // Pega apenas os tipos que existem na dieta e que fazem parte da nossa trinca oficial
         const types = [...new Set(diet.meals.map(m => m.dayType))];
         const order = ['TREINO', 'CARDIO', 'DESCANSO'];
-        
         const present = order.filter(t => types.includes(t));
         return present.length > 0 ? present : ['TREINO'];
     }, [diet]);
@@ -367,17 +378,10 @@ export default function DietScreen({ route }) {
     const shoppingList = useMemo(() => {
         if (!diet?.meals) return {};
         const list = {};
-
-        // Frequência base por semana (Ajustado para a trinca oficial)
-        const dayMultiplier = {
-            'TREINO': 4,
-            'CARDIO': 2,
-            'DESCANSO': 1
-        };
+        const dayMultiplier = { 'TREINO': 4, 'CARDIO': 2, 'DESCANSO': 1 };
 
         diet.meals.forEach((meal) => {
             const multiplier = dayMultiplier[meal.dayType || 'PADRÃO'] || 1;
-
             const groupedItems = meal.items?.reduce((acc, item) => {
                 const key = item.substitutionGroupId || item.id || Math.random().toString();
                 if (!acc[key]) acc[key] = [];
@@ -386,52 +390,32 @@ export default function DietScreen({ route }) {
             }, {});
 
             if (!groupedItems) return;
-
             Object.values(groupedItems).forEach((group) => {
                 const mainItem = group[0]; 
                 if (!mainItem) return;
-
                 const baseAmt = parseFloat(mainItem.amount) || 0;
                 if (baseAmt === 0) return;
-
                 const amt = baseAmt * multiplier;
-
                 let cleanName = mainItem.name.trim();
-                const prefixRegex = /^(\d+(?:[.,]\d+)?)\s*([a-zA-Záéíóúç]+)?\s*(de\s+)?/i;
-                if (prefixRegex.test(cleanName)) cleanName = cleanName.replace(prefixRegex, '').trim();
-
                 const key = `${cleanName.toLowerCase()}|${mainItem.unit}`;
-
                 if (!list[key]) {
                     let cat = '🛒 Outros';
                     const n = cleanName.toLowerCase();
-                    if (n.includes('frango') || n.includes('carne') || n.includes('peixe') || n.includes('ovo') || n.includes('queijo') || n.includes('leite') || n.includes('mussarela')) {
-                        cat = '🥩 Açougue e Laticínios';
-                    } else if (n.includes('arroz') || n.includes('aveia') || n.includes('pão') || n.includes('macarrão') || n.includes('azeite') || n.includes('tapioca') || n.includes('crepioca')) {
-                        cat = '📦 Mercearia';
-                    } else if (n.includes('banana') || n.includes('maçã') || n.includes('batata') || n.includes('morango') || n.includes('uva') || n.includes('abóbora') || n.includes('cenoura') || n.includes('brócolis')) {
-                        cat = '🥦 Frutaria e Legumes';
-                    } else if (n.includes('whey') || n.includes('creatina') || n.includes('albumina') || n.includes('soja') || n.includes('yopro')) {
-                        cat = '💪 Suplementos';
-                    }
+                    if (n.includes('frango') || n.includes('carne') || n.includes('peixe') || n.includes('ovo') || n.includes('queijo') || n.includes('leite')) cat = '🥩 Açougue e Laticínios';
+                    else if (n.includes('arroz') || n.includes('aveia') || n.includes('pão') || n.includes('azeite')) cat = '📦 Mercearia';
+                    else if (n.includes('banana') || n.includes('maçã') || n.includes('batata') || n.includes('uva')) cat = '🥦 Frutaria e Legumes';
+                    else if (n.includes('whey') || n.includes('creatina')) cat = '💪 Suplementos';
                     list[key] = { name: cleanName, unit: mainItem.unit, amount: amt, category: cat };
                 } else {
                     list[key].amount += amt;
                 }
             });
         });
-
         const grouped = {};
         Object.values(list).forEach(item => {
             let finalAmount = item.amount;
             let finalUnit = item.unit;
-            if (finalUnit === 'g' && finalAmount >= 1000) {
-                finalAmount = (finalAmount / 1000).toFixed(1).replace('.0', '');
-                finalUnit = 'kg';
-            } else if (finalUnit === 'ml' && finalAmount >= 1000) {
-                finalAmount = (finalAmount / 1000).toFixed(1).replace('.0', '');
-                finalUnit = 'L';
-            }
+            if (finalUnit === 'g' && finalAmount >= 1000) { finalAmount = (finalAmount / 1000).toFixed(1); finalUnit = 'kg'; }
             if (!grouped[item.category]) grouped[item.category] = [];
             grouped[item.category].push({ ...item, amount: finalAmount, unit: finalUnit });
         });
@@ -439,11 +423,8 @@ export default function DietScreen({ route }) {
     }, [diet]);
 
     const toggleShoppingItem = (itemName) => {
-        if (checkedShoppingItems.includes(itemName)) {
-            setCheckedShoppingItems(checkedShoppingItems.filter(i => i !== itemName));
-        } else {
-            setCheckedShoppingItems([...checkedShoppingItems, itemName]);
-        }
+        if (checkedShoppingItems.includes(itemName)) setCheckedShoppingItems(checkedShoppingItems.filter(i => i !== itemName));
+        else setCheckedShoppingItems([...checkedShoppingItems, itemName]);
     };
 
     if (!loading && accessDenied) {
@@ -481,7 +462,8 @@ export default function DietScreen({ route }) {
         <RootComponent style={{ height: isWeb ? windowHeight : undefined, flex: isWeb ? undefined : 1, backgroundColor: theme.bg }}>
             <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg }}>
                 
-                <View style={[styles.topHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+                {/* 🔥 CABEÇALHO FUNDIDO COM O FUNDO, SEM LINHA DE CORTE */}
+                <View style={[styles.topHeader, { backgroundColor: theme.bg }]}>
                     <View style={styles.topRow}>
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
                             <MaterialCommunityIcons name="calendar-month" size={16} color={theme.textSecondary} />
@@ -495,7 +477,8 @@ export default function DietScreen({ route }) {
                         )}
                     </View>
                     
-                    <View style={[styles.mainTabs, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                    {/* 🔥 ABAS SUPERIORES ALINHADAS */}
+                    <View style={[styles.mainTabs, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <TouchableOpacity style={[styles.mainTabBtn, activeTab === 'DIETA' && { backgroundColor: theme.accent }]} onPress={() => setActiveTab('DIETA')}>
                             <Text style={[styles.mainTabText, { color: activeTab === 'DIETA' ? '#000' : theme.textSecondary }]}>CARDÁPIO</Text>
                         </TouchableOpacity>
@@ -505,11 +488,12 @@ export default function DietScreen({ route }) {
                     </View>
                 </View>
 
-                <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
+                {/* 🔥 SCROLLVIEW ALINHADO */}
+                <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
                     
                     {activeTab === 'DIETA' ? (
                         <>
-                            {/* 🔥 O SELETOR DE ABAS AGORA APARECE PARA O ALUNO SE TIVER MAIS DE UM DIA CADASTRADO */}
+                            {/* 🔥 ABAS SECUNDÁRIAS ALINHADAS E IDÊNTICAS ÀS DE CIMA */}
                             {availableTypes.length > 1 && (
                                 <RoutineSelector theme={theme} types={availableTypes} activeType={activeDayType} onChange={setActiveDayType} />
                             )}
@@ -523,7 +507,7 @@ export default function DietScreen({ route }) {
                                 <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                                     <MaterialCommunityIcons name="silverware-fork-knife" size={32} color={theme.textSecondary} />
                                     <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia Livre</Text>
-                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Nenhuma refeição cadastrada pelo Coach para este dia específico.</Text>
+                                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Nenhuma refeição cadastrada pelo Coach.</Text>
                                 </View>
                             ) : (
                                 visibleMeals.map((meal, index) => (
@@ -540,43 +524,18 @@ export default function DietScreen({ route }) {
                         </>
                     ) : (
                         <>
-                            <View style={styles.sectionHeader}>
-                                <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
-                                <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
-                                    ESTRATÉGIA: <Text style={{color: theme.text}}>DIA DE {activeDayType}</Text>
-                                </Text>
-                            </View>
-
-                            <WaterTracker 
-                                theme={theme} 
-                                studentId={user?.id} 
-                                weight={user?.peso} 
-                            />
-
+                            <WaterTracker theme={theme} studentId={user?.id} weight={user?.peso} />
                             <View style={styles.toolsGrid}>
-                                <TouchableOpacity 
-                                    style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                                    onPress={() => setIsShoppingListOpen(true)}
-                                >
+                                <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsShoppingListOpen(true)}>
                                     <MaterialCommunityIcons name="cart-outline" size={26} color={theme.accent} style={{marginBottom: 8}} />
-                                    <View>
-                                        <Text style={[styles.toolTitle, { color: theme.text }]}>MERCADO</Text>
-                                        <Text style={[styles.toolSub, { color: theme.textSecondary }]}>SUA LISTA</Text>
-                                    </View>
+                                    <View><Text style={[styles.toolTitle, { color: theme.text }]}>MERCADO</Text><Text style={[styles.toolSub, { color: theme.textSecondary }]}>SUA LISTA</Text></View>
                                 </TouchableOpacity>
-
-                                <TouchableOpacity 
-                                    style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                                    onPress={() => setSurveyModalVisible(true)}
-                                >
+                                <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setSurveyModalVisible(true)}>
                                     <MaterialCommunityIcons name="pencil-outline" size={26} color={theme.accent} style={{marginBottom: 8}} />
-                                    <View>
-                                        <Text style={[styles.toolTitle, { color: theme.text }]}>AJUSTES</Text>
-                                        <Text style={[styles.toolSub, { color: theme.textSecondary }]}>MUDAR PLANO</Text>
-                                    </View>
+                                    <View><Text style={[styles.toolTitle, { color: theme.text }]}>AJUSTES</Text><Text style={[styles.toolSub, { color: theme.textSecondary }]}>MUDAR PLANO</Text></View>
                                 </TouchableOpacity>
                             </View>
-
+                            
                             <View style={[styles.sectionHeader, { marginTop: 10 }]}>
                                 <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
                                 <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>MENTALIDADE DA DIETA</Text>
@@ -617,21 +576,13 @@ export default function DietScreen({ route }) {
                                         : "Para hipertrofiar, você precisa de superávit calórico. Pular refeições porque 'está sem fome' vai jogar seus ganhos no lixo. Cumpra a meta e o volume prescrito!"}
                                 </Text>
                             </View>
-
                         </>
                     )}
                 </Animated.ScrollView>
             </View>
 
             <DietSurveyModal visible={surveyModalVisible} onClose={() => setSurveyModalVisible(false)} theme={theme} userId={user?.id} />
-            <ShoppingListModal 
-                visible={isShoppingListOpen} 
-                onClose={() => setIsShoppingListOpen(false)} 
-                theme={theme} 
-                shoppingList={shoppingList}
-                checkedShoppingItems={checkedShoppingItems}
-                toggleShoppingItem={toggleShoppingItem}
-            />
+            <ShoppingListModal visible={isShoppingListOpen} onClose={() => setIsShoppingListOpen(false)} theme={theme} shoppingList={shoppingList} checkedShoppingItems={checkedShoppingItems} toggleShoppingItem={toggleShoppingItem} />
         </RootComponent>
     );
 }
@@ -642,18 +593,20 @@ const styles = StyleSheet.create({
     stateDesc: { fontSize: 13, textAlign: 'center', paddingHorizontal: 20, lineHeight: 20 },
     refreshBtn: { padding: 12, borderRadius: 8, borderWidth: 1, marginTop: 20 },
 
-    topHeader: { padding: 16, paddingTop: Platform.OS === 'ios' ? 50 : 20, borderBottomWidth: 1 },
+    // 🔥 PADDING EXATO E FUNDO INVISÍVEL PRA NÃO CORTAR O LAYOUT
+    topHeader: { paddingHorizontal: 16, paddingBottom: 15, paddingTop: Platform.OS === 'ios' ? 50 : 20 }, 
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     topHeaderTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
     downloadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1 },
     downloadText: { fontSize: 10, fontWeight: '900' },
     
-    mainTabs: { flexDirection: 'row', borderRadius: 12, padding: 4, borderWidth: 1 },
-    mainTabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+    // 🔥 LARGURA, GAP E BORDAS IDÊNTICAS PARA OS DOIS SELETORES
+    mainTabs: { width: '100%', flexDirection: 'row', borderRadius: 14, padding: 4, borderWidth: 1 },
+    mainTabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
     mainTabText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
 
-    daySelectorContainer: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, padding: 5, borderRadius: 20, borderWidth: 1, marginBottom: 25 },
-    dayBtn: { flex: 1, alignItems: 'center', paddingVertical: 12, borderRadius: 16 },
+    daySelectorContainer: { width: '100%', flexDirection: 'row', gap: 4, padding: 4, borderRadius: 14, borderWidth: 1, marginBottom: 25 },
+    dayBtn: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10 },
     dayText: { fontSize: 10, fontWeight: '900' },
 
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
