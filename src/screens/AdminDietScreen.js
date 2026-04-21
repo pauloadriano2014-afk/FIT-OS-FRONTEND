@@ -7,6 +7,8 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 import DietHeaderWidgets from '../components/AdminDiet/DietHeaderWidgets';
 import MealCardAdmin from '../components/AdminDiet/MealCardAdmin';
@@ -67,7 +69,6 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const [activeMealId, setActiveMealId] = useState(null);
     const [activeGroupId, setActiveGroupId] = useState(null);
-    // 🔥 A MIRA A LASER: Guarda quem vai ser substituído sem deletar ele
     const [foodToSwapId, setFoodToSwapId] = useState(null); 
     const [smartPrincipalFood, setSmartPrincipalFood] = useState(null);
     const [smartPrincipalAmount, setSmartPrincipalAmount] = useState('100');
@@ -417,7 +418,6 @@ export default function AdminDietScreen({ route, navigation }) {
         setSearchModalVisible(true);
     };
 
-    // 🔥 O SEGREDO DO "CHUTA A CADEIRA" ACONTECE AQUI
     const handleAddFoodToMeal = (food) => {
         setSearchModalVisible(false);
         setSmartModalVisible(false);
@@ -429,17 +429,14 @@ export default function AdminDietScreen({ route, navigation }) {
             if (meal.id !== activeMealId) return meal;
             
             const newGroupId = activeGroupId || Math.random().toString();
-            // 🔥 Math.random() impede de gerar IDs iguais se você der clique duplo
             const newItem = { ...food, uniqueId: Math.random().toString(), groupId: newGroupId, amount: initialAmount, unit: initialUnit };
 
             if (foodToSwapId) {
-                // SUBSTITUIÇÃO CIRÚRGICA: Mantém a exata mesma posição e o Morango continua no lugar dele
                 return {
                     ...meal,
                     items: meal.items.map(i => i.uniqueId === foodToSwapId ? newItem : i)
                 };
             } else {
-                // ADIÇÃO NORMAL
                 return {
                     ...meal,
                     items: [...meal.items, newItem]
@@ -449,7 +446,7 @@ export default function AdminDietScreen({ route, navigation }) {
         
         setActiveMealId(null);
         setActiveGroupId(null);
-        setFoodToSwapId(null); // Limpa o alvo
+        setFoodToSwapId(null); 
     };
 
     const handleUpdateFoodAmount = (mealId, foodUniqueId, newAmount) => {
@@ -508,19 +505,15 @@ export default function AdminDietScreen({ route, navigation }) {
     const handleDeleteFood = (mealId, foodUniqueId) => {
         setMeals(prev => prev.map(meal => {
             if (meal.id !== mealId) return meal;
-
-            // Filtra o alimento fora
             const newItems = meal.items.filter(item => item.uniqueId !== foodUniqueId);
-
             return { ...meal, items: newItems };
         }));
     };
 
-    // 🔥 O NOVO SWAP: Marca quem vai morrer, mas NÃO deleta ainda!
     const handleSwapBaseFood = (mealId, oldBaseFood) => {
         setActiveMealId(mealId);
         setActiveGroupId(oldBaseFood.groupId);
-        setFoodToSwapId(oldBaseFood.uniqueId); // Trava a mira nele
+        setFoodToSwapId(oldBaseFood.uniqueId); 
         setSearchModalVisible(true);
     };
 
@@ -574,6 +567,112 @@ export default function AdminDietScreen({ route, navigation }) {
 
         setImportModalVisible(false);
         if (Platform.OS === 'web') window.alert(`Dieta importada para o DIA DE ${currentDay}!`);
+    };
+
+    // 🔥 GERADOR DE PDF 100% LIMPO (SEM A UI DA TELA) 🔥
+    const handleGeneratePDF = async () => {
+        if (visibleMeals.length === 0) {
+            const msg = "Adicione refeições na aba atual antes de gerar o PDF.";
+            return Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Atenção", msg);
+        }
+
+        try {
+            let htmlContent = `
+                <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Plano Alimentar - PA TEAM</title>
+                    <style>
+                        body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #222; padding: 40px; line-height: 1.5; background: #fff; }
+                        .header { text-align: center; border-bottom: 3px solid #CCFF00; padding-bottom: 20px; margin-bottom: 30px; }
+                        h1 { color: #111; margin: 0 0 5px 0; font-size: 28px; text-transform: uppercase; letter-spacing: 2px; }
+                        .subtitle { font-size: 14px; color: #555; font-weight: bold; letter-spacing: 1px; }
+                        .macros-box { background-color: #f8f9fa; border-radius: 8px; padding: 15px; text-align: center; font-weight: bold; margin-bottom: 30px; font-size: 14px; border: 1px solid #ddd; }
+                        .meal-card { border: 2px solid #CCFF00; border-radius: 12px; padding: 20px; margin-bottom: 20px; page-break-inside: avoid; }
+                        .meal-header { font-size: 18px; font-weight: 800; color: #111; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+                        .food-group { margin-bottom: 15px; }
+                        .food-item { font-size: 16px; color: #333; margin-bottom: 6px; }
+                        .or-text { color: #888; font-size: 14px; font-style: italic; margin-left: 20px; font-weight: bold; margin-top: 4px; margin-bottom: 4px; }
+                        .meal-notes { background-color: #f9f9f9; padding: 12px; border-radius: 8px; font-size: 14px; font-style: italic; margin-top: 15px; color: #444; border-left: 4px solid #CCFF00; }
+                        .footer { margin-top: 50px; padding-top: 20px; border-top: 1px solid #eee; text-align: center; font-size: 13px; color: #777; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <h1>PLANO ALIMENTAR</h1>
+                        <div class="subtitle">ALUNO(A): ${aluno?.name?.toUpperCase() || 'NÃO INFORMADO'} &nbsp;|&nbsp; TIPO: DIA DE ${activeDayType}</div>
+                    </div>
+                    
+                    <div class="macros-box">
+                        OBJETIVO: ${dietConfig.goal.toUpperCase()} &nbsp;|&nbsp; 
+                        KCAL: ${currentMacros.kcal} &nbsp;|&nbsp; 
+                        PROT: ${currentMacros.prot}g &nbsp;|&nbsp; 
+                        CARB: ${currentMacros.carb}g &nbsp;|&nbsp; 
+                        GORD: ${currentMacros.fat}g
+                    </div>
+            `;
+
+            visibleMeals.forEach(meal => {
+                htmlContent += `
+                    <div class="meal-card">
+                        <div class="meal-header">⏰ ${meal.time} - ${meal.name.toUpperCase()}</div>
+                `;
+
+                const grouped = meal.items.reduce((acc, item) => {
+                    if (!acc[item.groupId]) acc[item.groupId] = [];
+                    acc[item.groupId].push(item);
+                    return acc;
+                }, {});
+
+                Object.values(grouped).forEach(group => {
+                    htmlContent += `<div class="food-group">`;
+                    group.forEach((item, index) => {
+                        if (index > 0) {
+                            htmlContent += `<div class="or-text">↳ Ou substitua por:</div>`;
+                        }
+                        htmlContent += `
+                            <div class="food-item">
+                                • <strong>${item.amount} ${item.unit}</strong> de ${item.name}
+                            </div>
+                        `;
+                    });
+                    htmlContent += `</div>`;
+                });
+
+                if (meal.notes && meal.notes.trim() !== '') {
+                    htmlContent += `<div class="meal-notes">⚠️ Obs: ${meal.notes}</div>`;
+                }
+
+                htmlContent += `</div>`;
+            });
+
+            htmlContent += `
+                    <div class="footer">
+                        <p><strong>Meta Diária de Água:</strong> ${dietConfig.water}</p>
+                        <p><strong>Anotações Gerais:</strong> ${dietConfig.notes}</p>
+                        <p style="margin-top: 20px; font-weight: bold;">Gerado pelo PAULO ADRIANO TEAM</p>
+                    </div>
+                </body>
+                </html>
+            `;
+
+            if (Platform.OS === 'web') {
+                await Print.printAsync({ html: htmlContent });
+            } else {
+                const { uri } = await Print.printToFileAsync({ html: htmlContent });
+                const canShare = await Sharing.isAvailableAsync();
+                if (canShare) {
+                    await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+                } else {
+                    Alert.alert("Sucesso", "PDF gerado: " + uri);
+                }
+            }
+
+        } catch (error) {
+            console.error(error);
+            const msg = "Erro inesperado ao gerar o PDF da dieta.";
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert("Erro", msg);
+        }
     };
 
     const handleSaveDiet = async () => {
@@ -650,7 +749,7 @@ export default function AdminDietScreen({ route, navigation }) {
 
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, ...(isWeb ? { display: 'flex', flexDirection: 'column' } : {}) }} enabled={!isWeb}>
                     
-                    <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingBottom: 110 }}>
+                    <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingBottom: 110 }} keyboardShouldPersistTaps="handled">
                         
                         <DietHeaderWidgets theme={theme} currentMacros={currentMacros} macros={macros} pct={pct} showRaioX={showRaioX} setShowRaioX={setShowRaioX} anamnese={anamnese} handleGenerateAI={handleGenerateAI} isGenerating={isGenerating} setImportModalVisible={setImportModalVisible} />
 
@@ -676,6 +775,14 @@ export default function AdminDietScreen({ route, navigation }) {
                                         <MaterialCommunityIcons name="content-save-all" size={18} color={theme.accent} />
                                     </View>
                                     <Text style={[styles.actionToolText, { color: theme.text }]}>SALVAR</Text>
+                                </TouchableOpacity>
+
+                                {/* 🔥 BOTÃO NOVO: GERAR PDF DA ABA ATUAL 🔥 */}
+                                <TouchableOpacity style={[styles.actionToolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={handleGeneratePDF}>
+                                    <View style={[styles.actionIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                        <MaterialCommunityIcons name="file-pdf-box" size={18} color={theme.accent} />
+                                    </View>
+                                    <Text style={[styles.actionToolText, { color: theme.text }]}>GERAR PDF</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -732,6 +839,7 @@ export default function AdminDietScreen({ route, navigation }) {
                                         handleOpenSearch={handleOpenSearch} 
                                         handleMealOptions={handleMealOptions}
                                         handleSwapBaseFood={handleSwapBaseFood} 
+                                        handleUpdateMeal={handleUpdateMeal} 
                                     />
                                 ))
                             )}
@@ -756,7 +864,6 @@ export default function AdminDietScreen({ route, navigation }) {
 
                 <DietActionModals theme={theme} isWeb={isWeb} modalCloneVisible={modalCloneVisible} setModalCloneVisible={setModalCloneVisible} studentsList={studentsList} handleCloneFromStudent={handleCloneFromStudent} modalTemplatesVisible={modalTemplatesVisible} setModalTemplatesVisible={setModalTemplatesVisible} templatesList={templatesList} handleApplyTemplate={handleApplyTemplate} modalSaveTemplateVisible={modalSaveTemplateVisible} setModalSaveTemplateVisible={setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate} modalMealOptionsVisible={modalMealOptionsVisible} setModalMealOptionsVisible={setModalMealOptionsVisible} modalSaveMealVisible={modalSaveMealVisible} setModalSaveMealVisible={setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate} modalImportMealVisible={modalImportMealVisible} setModalImportMealVisible={setModalImportMealVisible} mealTemplatesList={mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
 
-                {/* 🔥 LIMPANDO O ALVO SE O MODAL FOR FECHADO ANTES DA HORA */}
                 <FoodSearchModal 
                     visible={searchModalVisible} 
                     onClose={() => { setSearchModalVisible(false); setFoodToSwapId(null); }} 

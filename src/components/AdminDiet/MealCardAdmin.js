@@ -6,7 +6,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 export default function MealCardAdmin({ 
     meal, theme, toGrams, handleOpenNameSelect, handleOpenTimeSelect, 
     handleDeleteMeal, handleUpdateFoodAmount, handleToggleUnit, 
-    handleDeleteFood, handleOpenSearch, handleMealOptions, handleSwapBaseFood
+    handleDeleteFood, handleOpenSearch, handleMealOptions, handleSwapBaseFood,
+    handleUpdateMeal
 }) {
     const grouped = meal.items.reduce((acc, item) => {
         if (!acc[item.groupId]) acc[item.groupId] = [];
@@ -185,6 +186,24 @@ export default function MealCardAdmin({
                 <MaterialCommunityIcons name="plus" size={16} color={theme.textSecondary} />
                 <Text style={[styles.addFoodText, { color: theme.textSecondary }]}>NOVO ALIMENTO BASE</Text>
             </TouchableOpacity>
+
+            {/* 🔥 CAMPO DE OBSERVAÇÕES DA REFEIÇÃO 🔥 */}
+            <View style={styles.notesContainer}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <MaterialCommunityIcons name="text-box-outline" size={16} color={theme.textSecondary} />
+                    <Text style={[styles.notesLabel, { color: theme.textSecondary }]}>OBSERVAÇÕES DESTA REFEIÇÃO</Text>
+                </View>
+                <TextInput
+                    style={[styles.notesInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                    placeholder="Ex: Bater tudo no liquidificador com gelo."
+                    placeholderTextColor={theme.textSecondary + '80'}
+                    value={meal.notes || ''}
+                    onChangeText={(val) => handleUpdateMeal(meal.id, 'notes', val)}
+                    multiline={true}
+                    numberOfLines={2}
+                />
+            </View>
+
         </View>
     );
 }
@@ -207,7 +226,7 @@ const styles = StyleSheet.create({
     diffRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
     diffChip: { fontSize: 10, fontWeight: '800' },
     amountBox: { flexDirection: 'row', alignItems: 'center', marginLeft: 4 },
-    amountInput: { width: 56, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10, borderWidth: 1, textAlign: 'center', fontSize: 14, fontWeight: '800' },
+    amountInput: { width: 56, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10, borderWidth: 1, textAlign: 'center', fontSize: 14, fontWeight: '800', outlineStyle: 'none' },
     unitBtn: { paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10, borderWidth: 1, marginLeft: 4, alignItems: 'center' },
     unitText: { fontSize: 10, fontWeight: '800' },
     ouRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
@@ -216,6 +235,11 @@ const styles = StyleSheet.create({
     ouText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
     subBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginTop: 12 },
     subBtnText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-    addFoodBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 16, padding: 16, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed' },
-    addFoodText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 }
+    addFoodBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 0, marginBottom: 16, padding: 16, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed' },
+    addFoodText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
+    
+    // 🔥 ESTILOS DAS OBSERVAÇÕES 🔥
+    notesContainer: { paddingHorizontal: 16, paddingBottom: 20 },
+    notesLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    notesInput: { padding: 12, borderRadius: 12, borderWidth: 1, fontSize: 14, minHeight: 60, textAlignVertical: 'top', outlineStyle: 'none' }
 });

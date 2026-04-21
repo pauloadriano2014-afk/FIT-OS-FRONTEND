@@ -13,6 +13,43 @@ import { useTheme } from '../contexts/ThemeContext';
 import WaterTracker from '../components/ClientDiet/WaterTracker';
 import ShoppingListModal from '../components/ClientDiet/ShoppingListModal';
 
+// 🔥 COMPONENTE DE ALERTAS PERSONALIZADOS (SÓ PARA ELA) 🔥
+function PersonalizedAlerts({ theme, userId }) {
+    // SUBSTITUA O TEXTO ABAIXO PELO ID REAL DA ALUNA QUE VOCÊ VÊ NO PAINEL ADMIN
+    const TARGET_STUDENT_ID = '675a4acd-a4af-41c3-8caf-be1e03107ae8'; 
+
+    if (userId !== TARGET_STUDENT_ID) return null;
+
+    return (
+        <View style={[styles.siboCard, { backgroundColor: theme.surface, borderColor: '#FF9500' }]}>
+            <View style={styles.siboHeader}>
+                <MaterialCommunityIcons name="alert-decagram" size={20} color="#FF9500" />
+                <Text style={[styles.siboTitle, { color: '#FF9500' }]}>REGRAS DE OURO (PROTOCOLO SIBO)</Text>
+            </View>
+            
+            <View style={styles.siboContent}>
+                <Text style={[styles.siboText, { color: theme.text }]}>
+                    <Text style={{ fontWeight: '900' }}>• Macarrão:</Text> Apenas de Arroz ou Milho (Sem Glúten).
+                </Text>
+                <Text style={[styles.siboText, { color: theme.text }]}>
+                    <Text style={{ fontWeight: '900' }}>• Iogurte:</Text> Apenas Zero Lactose e SEM Xilitol/Sorbitol.
+                </Text>
+                <Text style={[styles.siboText, { color: theme.text }]}>
+                    <Text style={{ fontWeight: '900' }}>• Suplementação:</Text> Whey Isolado sem Xilitol (Atenção ao rótulo).
+                </Text>
+                <Text style={[styles.siboText, { color: theme.text }]}>
+                    <Text style={{ fontWeight: '900' }}>• Frutas:</Text> Banana mais firme (verde); Mamão pesado à risca.
+                </Text>
+                <View style={[styles.siboRule, { backgroundColor: theme.accent + '20' }]}>
+                    <Text style={[styles.siboRuleText, { color: theme.accent }]}>
+                        ⚠️ ÁGUA: Nunca com a comida. Beba 30min antes ou 30min depois.
+                    </Text>
+                </View>
+            </View>
+        </View>
+    );
+}
+
 const getMacroCategory = (food) => {
     const name = String(food.name || '').toLowerCase();
 
@@ -462,7 +499,6 @@ export default function DietScreen({ route }) {
         <RootComponent style={{ height: isWeb ? windowHeight : undefined, flex: isWeb ? undefined : 1, backgroundColor: theme.bg }}>
             <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg }}>
                 
-                {/* 🔥 CABEÇALHO FUNDIDO COM O FUNDO, SEM LINHA DE CORTE */}
                 <View style={[styles.topHeader, { backgroundColor: theme.bg }]}>
                     <View style={styles.topRow}>
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
@@ -477,7 +513,6 @@ export default function DietScreen({ route }) {
                         )}
                     </View>
                     
-                    {/* 🔥 ABAS SUPERIORES ALINHADAS */}
                     <View style={[styles.mainTabs, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <TouchableOpacity style={[styles.mainTabBtn, activeTab === 'DIETA' && { backgroundColor: theme.accent }]} onPress={() => setActiveTab('DIETA')}>
                             <Text style={[styles.mainTabText, { color: activeTab === 'DIETA' ? '#000' : theme.textSecondary }]}>CARDÁPIO</Text>
@@ -488,12 +523,10 @@ export default function DietScreen({ route }) {
                     </View>
                 </View>
 
-                {/* 🔥 SCROLLVIEW ALINHADO */}
                 <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false}>
                     
                     {activeTab === 'DIETA' ? (
                         <>
-                            {/* 🔥 ABAS SECUNDÁRIAS ALINHADAS E IDÊNTICAS ÀS DE CIMA */}
                             {availableTypes.length > 1 && (
                                 <RoutineSelector theme={theme} types={availableTypes} activeType={activeDayType} onChange={setActiveDayType} />
                             )}
@@ -524,6 +557,9 @@ export default function DietScreen({ route }) {
                         </>
                     ) : (
                         <>
+                            {/* 🔥 ALERTAS ESTRATÉGICOS PERSONALIZADOS MOVIDOS PARA O PAINEL 🔥 */}
+                            <PersonalizedAlerts theme={theme} userId={user?.id} />
+
                             <WaterTracker theme={theme} studentId={user?.id} weight={user?.peso} />
                             <View style={styles.toolsGrid}>
                                 <TouchableOpacity style={[styles.toolCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsShoppingListOpen(true)}>
@@ -593,14 +629,12 @@ const styles = StyleSheet.create({
     stateDesc: { fontSize: 13, textAlign: 'center', paddingHorizontal: 20, lineHeight: 20 },
     refreshBtn: { padding: 12, borderRadius: 8, borderWidth: 1, marginTop: 20 },
 
-    // 🔥 PADDING EXATO E FUNDO INVISÍVEL PRA NÃO CORTAR O LAYOUT
     topHeader: { paddingHorizontal: 16, paddingBottom: 15, paddingTop: Platform.OS === 'ios' ? 50 : 20 }, 
     topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     topHeaderTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
     downloadBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1 },
     downloadText: { fontSize: 10, fontWeight: '900' },
     
-    // 🔥 LARGURA, GAP E BORDAS IDÊNTICAS PARA OS DOIS SELETORES
     mainTabs: { width: '100%', flexDirection: 'row', borderRadius: 14, padding: 4, borderWidth: 1 },
     mainTabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
     mainTabText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
@@ -612,6 +646,15 @@ const styles = StyleSheet.create({
     sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
     greenStrip: { width: 4, height: 16, borderRadius: 2 },
     sectionTitle: { fontSize: 12, fontWeight: '900', fontStyle: 'italic', letterSpacing: 1 },
+
+    // 🔥 ESTILOS SIBO (ESTILO PREMIUM E DISCRETO) 🔥
+    siboCard: { borderRadius: 20, padding: 18, marginBottom: 25, borderWidth: 1.5, borderStyle: 'dashed' },
+    siboHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 },
+    siboTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+    siboContent: { gap: 10 },
+    siboText: { fontSize: 13, lineHeight: 20 },
+    siboRule: { padding: 12, borderRadius: 10, marginTop: 5 },
+    siboRuleText: { fontSize: 11, fontWeight: '900', textAlign: 'center' },
 
     cleanMealCard: { borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, position: 'relative', overflow: 'hidden' },
     mealBgImage: { position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.15 }, 
