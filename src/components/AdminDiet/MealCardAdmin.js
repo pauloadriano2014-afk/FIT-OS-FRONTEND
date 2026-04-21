@@ -14,15 +14,16 @@ export default function MealCardAdmin({
         return acc;
     }, {});
 
+    // 🔥 CÁLCULO BLINDADO: Considera estritamente o Alimento Base (index 0) de cada grupo
     const mealKcal = Object.values(grouped).reduce((sum, grp) => {
         const item = grp[0];
+        if (!item) return sum;
         return sum + ((item.calories_per_100 || 0) * toGrams(item.amount, item.unit, item)) / 100;
     }, 0);
 
     return (
         <View style={[styles.mealCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             
-            {/* 🔥 CABEÇALHO REESTRUTURADO E DESTACADO 🔥 */}
             <View style={[styles.mealHeader, { backgroundColor: theme.bg }]}>
                 <TouchableOpacity style={{ flex: 1 }} onPress={() => handleOpenNameSelect(meal.id)}>
                     <Text style={[styles.mealName, { color: theme.text }]}>{meal.name?.toUpperCase()}</Text>
@@ -89,7 +90,6 @@ export default function MealCardAdmin({
                                         </View>
                                     )}
 
-                                    {/* 🔥 DESIGN PREMIUM: CARD DO ALIMENTO PRINCIPAL x SUBSTITUTO 🔥 */}
                                     <View style={[
                                         styles.foodRow, 
                                         isSub 
@@ -139,16 +139,28 @@ export default function MealCardAdmin({
                                             </TouchableOpacity>
                                         </View>
 
-                                        {/* 🔥 BOTÃO DE TROCAR A BASE (Apenas no alimento principal) */}
-                                        {!isSub ? (
-                                            <TouchableOpacity onPress={() => handleSwapBaseFood && handleSwapBaseFood(meal.id, food)} style={[styles.actionIconBtn, { marginLeft: 8, backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                                <MaterialCommunityIcons name="swap-horizontal" size={18} color={theme.text} />
+                                        {/* 🔥 ÁREA DE AÇÃO: Agora o Base tem Troca e Lixeira lateral */}
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                                            {!isSub && (
+                                                <TouchableOpacity 
+                                                    onPress={() => handleSwapBaseFood && handleSwapBaseFood(meal.id, food)} 
+                                                    style={[styles.actionIconBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                                >
+                                                    <MaterialCommunityIcons name="swap-horizontal" size={18} color={theme.text} />
+                                                </TouchableOpacity>
+                                            )}
+                                            
+                                            <TouchableOpacity 
+                                                onPress={() => handleDeleteFood(meal.id, food.uniqueId)} 
+                                                style={[styles.actionIconBtn, { backgroundColor: '#FF3B3015', borderColor: '#FF3B3030' }]}
+                                            >
+                                                <MaterialCommunityIcons 
+                                                    name={isSub ? "close" : "trash-can-outline"} 
+                                                    size={isSub ? 16 : 18} 
+                                                    color="#FF3B30" 
+                                                />
                                             </TouchableOpacity>
-                                        ) : (
-                                            <TouchableOpacity onPress={() => handleDeleteFood(meal.id, food.uniqueId)} style={[styles.actionIconBtn, { marginLeft: 8, backgroundColor: '#FF3B3015', borderColor: 'transparent' }]}>
-                                                <MaterialCommunityIcons name="close" size={16} color="#FF3B30" />
-                                            </TouchableOpacity>
-                                        )}
+                                        </View>
                                         
                                     </View>
                                 </React.Fragment>
@@ -186,31 +198,24 @@ const styles = StyleSheet.create({
     timePillText: { fontSize: 13, fontWeight: '900' },
     actionIconBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     mealDivider: { height: 1, width: '100%' },
-    
     groupBox: { marginHorizontal: 16, paddingBottom: 16 },
-    
     foodRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8, position: 'relative' },
     baseBadge: { position: 'absolute', top: -10, left: 16, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, zIndex: 10 },
     baseBadgeText: { fontSize: 8, fontWeight: '900', color: '#000', letterSpacing: 0.5 },
-    
     foodName: { fontSize: 13, fontWeight: '700', marginBottom: 2, lineHeight: 18 },
     foodKcal: { fontSize: 11, fontWeight: '800' },
     diffRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
     diffChip: { fontSize: 10, fontWeight: '800' },
-    
     amountBox: { flexDirection: 'row', alignItems: 'center', marginLeft: 4 },
-    amountInput: { width: 56, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10, borderWidth: 1, textAlign: 'center', fontSize: 14, fontWeight: '800', outlineStyle: 'none' },
+    amountInput: { width: 56, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10, borderWidth: 1, textAlign: 'center', fontSize: 14, fontWeight: '800' },
     unitBtn: { paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10, borderWidth: 1, marginLeft: 4, alignItems: 'center' },
     unitText: { fontSize: 10, fontWeight: '800' },
-    
     ouRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
     ouLine: { flex: 1, height: 1 },
     ouBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderWidth: 1, marginHorizontal: 10 },
     ouText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    
     subBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginTop: 12 },
     subBtnText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-    
     addFoodBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, margin: 16, padding: 16, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed' },
     addFoodText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 }
 });

@@ -67,6 +67,8 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const [activeMealId, setActiveMealId] = useState(null);
     const [activeGroupId, setActiveGroupId] = useState(null);
+    // 🔥 A MIRA A LASER: Guarda quem vai ser substituído sem deletar ele
+    const [foodToSwapId, setFoodToSwapId] = useState(null); 
     const [smartPrincipalFood, setSmartPrincipalFood] = useState(null);
     const [smartPrincipalAmount, setSmartPrincipalAmount] = useState('100');
     const [customNameInput, setCustomNameInput] = useState('');
@@ -76,7 +78,6 @@ export default function AdminDietScreen({ route, navigation }) {
     
     const [activeDayType, setActiveDayType] = useState('TREINO'); 
     
-    // 🔥 ANTIVÍRUS: Guarda a aba real pra quando o modal tentar abrir e bagunçar
     const activeDayTypeRef = useRef(activeDayType);
     useEffect(() => {
         activeDayTypeRef.current = activeDayType;
@@ -217,7 +218,7 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleApplyTemplate = (template) => {
         try {
-            const currentDay = activeDayTypeRef.current;
+            const currentDay = activeDayTypeRef.current; 
             const parsedMeals = typeof template.meals === 'string' ? JSON.parse(template.meals) : template.meals;
             
             const mapped = parsedMeals.map(m => ({
@@ -416,6 +417,7 @@ export default function AdminDietScreen({ route, navigation }) {
         setSearchModalVisible(true);
     };
 
+    // 🔥 O SEGREDO DO "CHUTA A CADEIRA" ACONTECE AQUI
     const handleAddFoodToMeal = (food) => {
         setSearchModalVisible(false);
         setSmartModalVisible(false);
@@ -425,14 +427,29 @@ export default function AdminDietScreen({ route, navigation }) {
 
         setMeals(prev => prev.map(meal => {
             if (meal.id !== activeMealId) return meal;
-            const newGroupId = activeGroupId || Date.now().toString();
-            return {
-                ...meal,
-                items: [...meal.items, { ...food, uniqueId: Date.now().toString(), groupId: newGroupId, amount: initialAmount, unit: initialUnit }]
-            };
+            
+            const newGroupId = activeGroupId || Math.random().toString();
+            // 🔥 Math.random() impede de gerar IDs iguais se você der clique duplo
+            const newItem = { ...food, uniqueId: Math.random().toString(), groupId: newGroupId, amount: initialAmount, unit: initialUnit };
+
+            if (foodToSwapId) {
+                // SUBSTITUIÇÃO CIRÚRGICA: Mantém a exata mesma posição e o Morango continua no lugar dele
+                return {
+                    ...meal,
+                    items: meal.items.map(i => i.uniqueId === foodToSwapId ? newItem : i)
+                };
+            } else {
+                // ADIÇÃO NORMAL
+                return {
+                    ...meal,
+                    items: [...meal.items, newItem]
+                };
+            }
         }));
+        
         setActiveMealId(null);
         setActiveGroupId(null);
+        setFoodToSwapId(null); // Limpa o alvo
     };
 
     const handleUpdateFoodAmount = (mealId, foodUniqueId, newAmount) => {
@@ -488,16 +505,22 @@ export default function AdminDietScreen({ route, navigation }) {
             };
         }));
 
-    const handleDeleteFood = (mealId, foodUniqueId) =>
+    const handleDeleteFood = (mealId, foodUniqueId) => {
         setMeals(prev => prev.map(meal => {
             if (meal.id !== mealId) return meal;
-            return { ...meal, items: meal.items.filter(item => item.uniqueId !== foodUniqueId) };
-        }));
 
+            // Filtra o alimento fora
+            const newItems = meal.items.filter(item => item.uniqueId !== foodUniqueId);
+
+            return { ...meal, items: newItems };
+        }));
+    };
+
+    // 🔥 O NOVO SWAP: Marca quem vai morrer, mas NÃO deleta ainda!
     const handleSwapBaseFood = (mealId, oldBaseFood) => {
         setActiveMealId(mealId);
         setActiveGroupId(oldBaseFood.groupId);
-        setMeals(prev => prev.map(m => m.id === mealId ? { ...m, items: m.items.filter(i => i.uniqueId !== oldBaseFood.uniqueId) } : m));
+        setFoodToSwapId(oldBaseFood.uniqueId); // Trava a mira nele
         setSearchModalVisible(true);
     };
 
@@ -733,11 +756,18 @@ export default function AdminDietScreen({ route, navigation }) {
 
                 <DietActionModals theme={theme} isWeb={isWeb} modalCloneVisible={modalCloneVisible} setModalCloneVisible={setModalCloneVisible} studentsList={studentsList} handleCloneFromStudent={handleCloneFromStudent} modalTemplatesVisible={modalTemplatesVisible} setModalTemplatesVisible={setModalTemplatesVisible} templatesList={templatesList} handleApplyTemplate={handleApplyTemplate} modalSaveTemplateVisible={modalSaveTemplateVisible} setModalSaveTemplateVisible={setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate} modalMealOptionsVisible={modalMealOptionsVisible} setModalMealOptionsVisible={setModalMealOptionsVisible} modalSaveMealVisible={modalSaveMealVisible} setModalSaveMealVisible={setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate} modalImportMealVisible={modalImportMealVisible} setModalImportMealVisible={setModalImportMealVisible} mealTemplatesList={mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
 
-                <FoodSearchModal visible={searchModalVisible} onClose={() => setSearchModalVisible(false)} onSelectFood={handleAddFoodToMeal} targetGroup={activeGroupId} theme={theme} />
+                {/* 🔥 LIMPANDO O ALVO SE O MODAL FOR FECHADO ANTES DA HORA */}
+                <FoodSearchModal 
+                    visible={searchModalVisible} 
+                    onClose={() => { setSearchModalVisible(false); setFoodToSwapId(null); }} 
+                    onSelectFood={handleAddFoodToMeal} 
+                    targetGroup={activeGroupId} 
+                    theme={theme} 
+                />
                 
                 <SmartSubstituteModal 
                     visible={smartModalVisible} 
-                    onClose={() => setSmartModalVisible(false)} 
+                    onClose={() => { setSmartModalVisible(false); setFoodToSwapId(null); }} 
                     onSelectFood={handleAddFoodToMeal} 
                     onManualSearch={handleSmartToManual} 
                     principalFood={smartPrincipalFood} 
