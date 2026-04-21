@@ -1,6 +1,6 @@
 // src/components/MontarTreino/WorkoutSettingsCard.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Switch, StyleSheet, LayoutAnimation, UIManager, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Switch, StyleSheet, LayoutAnimation, UIManager, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Permite a animação de sanfona no Android
@@ -186,8 +186,17 @@ export default function WorkoutSettingsCard({ state, setters, actions, theme }) 
                         onPress={actions?.handleImportPDF}
                         disabled={state.isImportingAI}
                     >
-                        <MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} />
-                        <Text style={[styles.toolBtnPrimaryText, { color: theme.accent }]}>IMPORTAR TREINO DA MFIT (PDF)</Text>
+                        {state.isImportingAI ? (
+                            <>
+                                <ActivityIndicator color={theme.accent} size="small" />
+                                <Text style={[styles.toolBtnPrimaryText, { color: theme.accent }]}>EXTRAINDO CARGAS DO PDF...</Text>
+                            </>
+                        ) : (
+                            <>
+                                <MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} />
+                                <Text style={[styles.toolBtnPrimaryText, { color: theme.accent }]}>IMPORTAR TREINO DA MFIT (PDF)</Text>
+                            </>
+                        )}
                     </TouchableOpacity>
 
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
