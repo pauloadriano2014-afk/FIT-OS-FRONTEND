@@ -414,12 +414,12 @@ export default function AdminDashboard({ navigation }) {
       
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <View style={styles.header}>
-            <View>
-                <Text style={[styles.title, { color: theme.text }]}>PAULO ADRIANO <Text style={{color: theme.accent}}>TEAM</Text></Text>
+            {/* 🔥 AQUI TÁ O PULO DO GATO: flex: 1 faz o texto respeitar o espaço e não empurrar os botões */}
+            <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>PAULO ADRIANO <Text style={{color: theme.accent}}>TEAM</Text></Text>
                 <Text style={styles.subtitle}>PAINEL ADMINISTRATIVO</Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-                {/* 🔥 ATALHO DO TEMA INVISÍVEL E PRÁTICO AQUI 🔥 */}
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                 <TouchableOpacity onPress={() => toggleDarkMode(!theme.isDark)} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
                     <MaterialCommunityIcons name={theme.isDark ? "white-balance-sunny" : "moon-waning-crescent"} size={20} color={theme.text} />
                 </TouchableOpacity>
@@ -676,8 +676,8 @@ export default function AdminDashboard({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // 🔥 PADDING DE SEGURANÇA AJUSTADO PARA NÃO VAZAR NO PWA / IOS
-  header: { paddingTop: Platform.OS === 'android' ? 30 : 50, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  // 🔥 VOLTOU AO NORMAL (Como você pediu)
+  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
   title: { fontSize: 22, fontWeight: '900' }, subtitle: { color: '#888', fontSize: 10, letterSpacing: 1, fontWeight: 'bold' },
   logoutBtn: { padding: 10, borderRadius: 8, cursor: 'pointer' },
   tabs: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20 },
