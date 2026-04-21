@@ -676,7 +676,8 @@ export default function AdminDashboard({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  // 🔥 PADDING DE SEGURANÇA AJUSTADO PARA NÃO VAZAR NO PWA / IOS
+  header: { paddingTop: Platform.OS === 'android' ? 30 : 50, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
   title: { fontSize: 22, fontWeight: '900' }, subtitle: { color: '#888', fontSize: 10, letterSpacing: 1, fontWeight: 'bold' },
   logoutBtn: { padding: 10, borderRadius: 8, cursor: 'pointer' },
   tabs: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20 },
