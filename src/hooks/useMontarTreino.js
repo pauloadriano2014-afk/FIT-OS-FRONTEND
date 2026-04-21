@@ -7,6 +7,9 @@ import * as DocumentPicker from 'expo-document-picker';
 export const useMontarTreino = (route, navigation) => {
     const { aluno, isTemplateMode, templateData, workoutToEdit, isEditing } = route.params || {};
 
+    // 🔥 CHAVE ÚNICA DO RASCUNHO (Auto-Save) 🔥
+    const draftKey = workoutToEdit?.id ? `@draft_edit_${workoutToEdit.id}` : `@draft_new_${aluno?.id || 'template'}`;
+
     const [detalhes, setDetalhes] = useState({ anamnese: {} });
     const [biblioteca, setBiblioteca] = useState([]); 
     const [loading, setLoading] = useState(true);
@@ -95,6 +98,25 @@ export const useMontarTreino = (route, navigation) => {
     
     const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
 
+    // 🔥 VIGIA E SALVA AUTOMATICAMENTE (Auto-Save) 🔥
+    useEffect(() => {
+        const autoSave = async () => {
+            if (loading) return; 
+            
+            const dataToSave = {
+                exercisesByDay,
+                workoutTabs,
+                customWorkoutName,
+                workoutModel,
+                intensityMultiplier,
+                intensityEndDate: intensityEndDate ? intensityEndDate.toISOString() : null,
+                lastUpdated: new Date().getTime()
+            };
+            await AsyncStorage.setItem(draftKey, JSON.stringify(dataToSave));
+        };
+        autoSave();
+    }, [exercisesByDay, workoutTabs, customWorkoutName, workoutModel, intensityMultiplier, intensityEndDate, loading]);
+
     useEffect(() => { 
         if (!isEditing && !isTemplateMode) {
             setExercisesByDay({ 'A': [] });
@@ -158,6 +180,9 @@ export const useMontarTreino = (route, navigation) => {
                 }
             }
 
+            // Variável de controle para saber se carregamos um rascunho
+            let draftLoaded = false;
+
             if (isEditing && workoutToEdit) {
                 setCustomWorkoutName(workoutToEdit.name);
                 setWorkoutModel(workoutToEdit.workoutModel || 'CARGA');
@@ -209,6 +234,37 @@ export const useMontarTreino = (route, navigation) => {
                     setExercisesByDay(parsed || {'A': []});
                 } catch (e) { setExercisesByDay({'A': []}); }
             }
+
+            // 🔥 RECUPERAÇÃO DE RASCUNHO (Após carregar os dados oficiais) 🔥
+            const savedDraft = await AsyncStorage.getItem(draftKey);
+            if (savedDraft) {
+                try {
+                    const parsedDraft = JSON.parse(savedDraft);
+                    // Só sobrepõe se o rascunho for válido
+                    if (parsedDraft && parsedDraft.exercisesByDay) {
+                        setExercisesByDay(parsedDraft.exercisesByDay);
+                        if (parsedDraft.workoutTabs && parsedDraft.workoutTabs.length > 0) {
+                            setWorkoutTabs(parsedDraft.workoutTabs);
+                            setSelectedWorkoutTab(parsedDraft.workoutTabs[0]); 
+                        }
+                        if (parsedDraft.customWorkoutName) setCustomWorkoutName(parsedDraft.customWorkoutName);
+                        if (parsedDraft.workoutModel) setWorkoutModel(parsedDraft.workoutModel);
+                        if (parsedDraft.intensityMultiplier) setIntensityMultiplier(parsedDraft.intensityMultiplier);
+                        if (parsedDraft.intensityEndDate) setIntensityEndDate(new Date(parsedDraft.intensityEndDate));
+                        
+                        draftLoaded = true;
+                    }
+                } catch (e) {
+                    console.log("Erro ao carregar o rascunho", e);
+                }
+            }
+
+            if (draftLoaded) {
+                if (Platform.OS === 'web') {
+                    console.log("📝 Rascunho anterior recuperado com sucesso.");
+                }
+            }
+
         } catch (err) { 
             console.log("Erro ao carregar dados do treino:", err);
         } finally { 
@@ -335,6 +391,7 @@ export const useMontarTreino = (route, navigation) => {
                                     expandedBlocks.push({
                                         sets: '1',
                                         reps: p,
+                                        load: b.load || '',
                                         restTime: String(b.restTime || '60'),
                                         technique: b.technique || ''
                                     });
@@ -351,7 +408,7 @@ export const useMontarTreino = (route, navigation) => {
                             category: aiEx.category || (match ? match.category : ''),
                             observation: aiEx.observation || '',
                             tempId: Math.random().toString(),
-                            substitute: null,
+                            substitute: aiEx.substitute ? { id: `custom_${Math.random()}`, name: aiEx.substitute, videoUrl: '' } : null,
                             blocks: expandedBlocks 
                         };
                     });
@@ -692,6 +749,10 @@ export const useMontarTreino = (route, navigation) => {
                   }) 
               });
               if (!res.ok) throw new Error("Erro");
+              
+              // 🔥 LIMPA O RASCUNHO APÓS SALVAR
+              await AsyncStorage.removeItem(draftKey);
+              
               alertMsg("Sucesso", "Template atualizado na biblioteca!"); navigation.goBack();
           } catch(e) { alertMsg("Erro", "Falha ao salvar template."); } finally { setSending(false); }
           return;
@@ -754,6 +815,9 @@ export const useMontarTreino = (route, navigation) => {
             }) 
         });
         if (!response.ok) throw new Error("Erro");
+
+        // 🔥 LIMPA O RASCUNHO DO APARELHO QUANDO SALVAR COM SUCESSO NO BANCO 🔥
+        await AsyncStorage.removeItem(draftKey);
 
         alertMsg("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); navigation.goBack(); 
       } catch (e) { alertMsg("Erro", "Falha de conexão."); } finally { setSending(false); }
