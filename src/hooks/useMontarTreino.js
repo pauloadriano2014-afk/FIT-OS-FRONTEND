@@ -26,8 +26,12 @@ export const useMontarTreino = (route, navigation) => {
     const [isArchived, setIsArchived] = useState(false);
     const [isReordering, setIsReordering] = useState(false);
 
-    // 🔥 ESTADO OFICIAL DO MODELO (LIGADO DIRETO AO BANCO DE DADOS)
     const [workoutModel, setWorkoutModel] = useState('CARGA'); 
+
+    // 🔥 MOTOR DE PERIODIZAÇÃO 🔥
+    const [intensityMultiplier, setIntensityMultiplier] = useState(1.0);
+    const [intensityEndDate, setIntensityEndDate] = useState(null);
+    const [showCalendarIntensity, setShowCalendarIntensity] = useState(false);
 
     const [showCalendarStart, setShowCalendarStart] = useState(false);
     const [showCalendarEnd, setShowCalendarEnd] = useState(false);
@@ -101,6 +105,9 @@ export const useMontarTreino = (route, navigation) => {
             setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
             setIsArchived(false);
             setWorkoutModel('CARGA'); 
+            
+            setIntensityMultiplier(1.0);
+            setIntensityEndDate(null);
         }
         fetchDados(); 
     }, [isEditing, isTemplateMode]);
@@ -153,13 +160,11 @@ export const useMontarTreino = (route, navigation) => {
 
             if (isEditing && workoutToEdit) {
                 setCustomWorkoutName(workoutToEdit.name);
+                setWorkoutModel(workoutToEdit.workoutModel || 'CARGA');
                 
-                if (workoutToEdit.workoutModel) {
-                    setWorkoutModel(workoutToEdit.workoutModel);
-                } else {
-                    setWorkoutModel('CARGA');
-                }
-                
+                setIntensityMultiplier(workoutToEdit.intensityMultiplier || 1.0);
+                if (workoutToEdit.intensityEndDate) setIntensityEndDate(new Date(workoutToEdit.intensityEndDate));
+
                 if (workoutToEdit.startDate) setStartDate(new Date(workoutToEdit.startDate));
                 if (workoutToEdit.endDate) {
                     const end = new Date(workoutToEdit.endDate);
@@ -167,6 +172,23 @@ export const useMontarTreino = (route, navigation) => {
                     if (end < new Date()) setIsArchived(true);
                 }
                 processWorkoutDataToState(workoutToEdit.exercises);
+
+                // 🔥 O CAÇA FANTASMA: FORÇA A BUSCA DA INTENSIDADE REAL NO BANCO DE DADOS
+                try {
+                    const resFresh = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno?.id}&workoutId=${workoutToEdit.id}&t=${t}`);
+                    if (resFresh.ok) {
+                        const freshWorkout = await resFresh.json();
+                        if (freshWorkout && freshWorkout.id) {
+                            setIntensityMultiplier(freshWorkout.intensityMultiplier || 1.0);
+                            if (freshWorkout.intensityEndDate) {
+                                setIntensityEndDate(new Date(freshWorkout.intensityEndDate));
+                            } else {
+                                setIntensityEndDate(null);
+                            }
+                            if (freshWorkout.workoutModel) setWorkoutModel(freshWorkout.workoutModel);
+                        }
+                    }
+                } catch(e) {}
             } 
             else if (isTemplateMode && templateData) {
                 setCustomWorkoutName(templateData.name || '');
@@ -425,6 +447,7 @@ export const useMontarTreino = (route, navigation) => {
 
     const onSelectStartDate = (date) => { setStartDate(date); setShowCalendarStart(false); };
     const onSelectEndDate = (date) => { setEndDate(date); setShowCalendarEnd(false); setIsArchived(false); };
+    const onSelectIntensityEndDate = (date) => { setIntensityEndDate(date); setShowCalendarIntensity(false); };
 
     const applyTemplate = (template) => {
         try {
@@ -512,6 +535,10 @@ export const useMontarTreino = (route, navigation) => {
         processWorkoutDataToState(workout.exercises);
         setCustomWorkoutName(`${workout.name} (Clone)`);
         setWorkoutModel(workout.workoutModel || 'CARGA'); 
+        
+        setIntensityMultiplier(workout.intensityMultiplier || 1.0);
+        if (workout.intensityEndDate) setIntensityEndDate(new Date(workout.intensityEndDate));
+
         setModalCloneVisible(false);
         setSelectedCloneStudent(null);
         setCloneWorkoutsList([]);
@@ -587,13 +614,11 @@ export const useMontarTreino = (route, navigation) => {
     
     const atualizarObservacao = (i, v) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].observation=v; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
     
-    // 🔥 CÓPIA INTELIGENTE E INJEÇÃO DE PIRÂMIDES 🔥
     const adicionarBloco = (exIndex, piramideString = null) => { 
         const l = [...exercisesByDay[selectedWorkoutTab]]; 
         const lastBlock = l[exIndex].blocks[l[exIndex].blocks.length - 1] || {}; 
 
         if (piramideString) {
-            // Explode a pirâmide em várias linhas
             const parts = piramideString.split(/[-/,]/).map(x => x.trim()).filter(x => x);
             const newBlocks = parts.map(rep => ({
                 sets: '1',
@@ -603,14 +628,12 @@ export const useMontarTreino = (route, navigation) => {
                 technique: ''
             }));
             
-            // Se for o bloco padrão recém-criado (3x12), substitui pra ficar limpo
             if (l[exIndex].blocks.length === 1 && l[exIndex].blocks[0].sets === '3' && l[exIndex].blocks[0].reps === '12') {
                 l[exIndex].blocks = newBlocks;
             } else {
                 l[exIndex].blocks.push(...newBlocks);
             }
         } else {
-            // Adição Manual Clássica
             l[exIndex].blocks.push({ 
                 sets: '1', 
                 reps: lastBlock.reps || '10', 
@@ -629,7 +652,6 @@ export const useMontarTreino = (route, navigation) => {
         setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
     };
     
-    // 🔥 ATUALIZAR BLOCO SIMPLES 🔥
     const atualizarBloco = (exIndex, blockIndex, field, value) => { 
         const l = [...exercisesByDay[selectedWorkoutTab]]; 
         l[exIndex].blocks[blockIndex][field] = value; 
@@ -706,6 +728,9 @@ export const useMontarTreino = (route, navigation) => {
       let finalEndDate = endDate;
       if (isArchived) { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); finalEndDate = yesterday; }
 
+      let finalIntensityEndDate = intensityEndDate;
+      if (intensityMultiplier === 1.0) { finalIntensityEndDate = null; } 
+
       try {
         const isUpdate = isEditing && workoutToEdit?.id;
         const endpoint = isUpdate ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` : `https://fitos-final.onrender.com/api/workout`; 
@@ -718,6 +743,10 @@ export const useMontarTreino = (route, navigation) => {
                 userId: aluno?.id, 
                 name: customWorkoutName, 
                 workoutModel: workoutModel, 
+                
+                intensityMultiplier: intensityMultiplier,
+                intensityEndDate: finalIntensityEndDate ? finalIntensityEndDate.toISOString() : null,
+                
                 exercises: flatExercises, 
                 startDate: startDate.toISOString(), 
                 endDate: finalEndDate.toISOString(), 
@@ -739,14 +768,16 @@ export const useMontarTreino = (route, navigation) => {
     return {
         state: {
             detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, selectedCategory, showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab,
-            workoutModel 
+            workoutModel,
+            intensityMultiplier, intensityEndDate, showCalendarIntensity 
         },
         setters: {
             setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, setSelectedCategory, setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
-            setWorkoutModel 
+            setWorkoutModel,
+            setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity 
         },
         actions: {
-            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab 
+            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab 
         }
     };
 };

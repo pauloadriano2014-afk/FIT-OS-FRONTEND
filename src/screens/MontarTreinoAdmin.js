@@ -10,7 +10,7 @@ import ExerciseCardAdmin from '../components/MontarTreino/ExerciseCardAdmin';
 import CustomCalendar from '../components/CustomCalendar';
 import LibraryModals from '../components/MontarTreino/Modals/LibraryModals';
 import TemplateAndCloneModals from '../components/MontarTreino/Modals/TemplateAndCloneModals';
-import WorkoutPreviewPanel from '../components/MontarTreino/WorkoutPreviewPanel';
+import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard'; // 🔥 COMPONENTE IMPORTADO 🔥
 
 const { width } = Dimensions.get('window');
 const formatDateToString = (date) => { if (!date) return ''; const d = new Date(date); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; };
@@ -19,7 +19,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const { theme } = useTheme(); 
   const previewVideoRef = useRef(null);
   
-  // 🔥 O SCANNER DE ROTA DEFINITIVO 🔥
   let aluno = null;
   let isRouteCorrupted = false;
 
@@ -38,7 +37,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       console.error("Erro ao decodificar aluno da rota:", e);
   }
 
-  // Passa o aluno processado para o hook
   const patchedRoute = { ...route, params: { ...route.params, aluno } };
   const controller = useMontarTreino(patchedRoute, navigation);
 
@@ -48,19 +46,17 @@ export default function MontarTreinoAdmin({ route, navigation }) {
   const RootComponent = isWeb ? View : SafeAreaViewContext;
 
   const [anamneseData, setAnamneseData] = useState(null);
+  const [isRaioxExpanded, setIsRaioxExpanded] = useState(false); // 🔥 ESTADO DA SANFONA DO RAIO-X 🔥
 
-  // 🔥 SOLUÇÃO DEFINITIVA: BUSCA O ALUNO FRESCO NO BANCO PARA O RAIO-X
   useEffect(() => {
       if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
           const fetchDadosRaioX = async () => {
               try {
-                  // 1. BUSCA O ALUNO ATUALIZADO DIRETO DA API (Ignora o lixo do cache/rota)
                   const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
                   const freshUser = resUser.ok ? await resUser.json() : aluno;
 
                   let foundAnamnese = null;
 
-                  // 2. TENTA LER DO PERFIL ATUALIZADO (Plano Básico / Fichas / Desafio)
                   if (freshUser.goal || freshUser.level) {
                       let rawGoal = freshUser.goal || '';
                       foundAnamnese = {
@@ -71,7 +67,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                       };
                   }
                   
-                  // 3. SE NÃO TINHA NO PERFIL, BUSCA ANAMNESE PREMIUM (Premium Raiz)
                   if (!foundAnamnese) {
                       const resAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
                       if (resAnamnese.ok) {
@@ -100,7 +95,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
   const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
 
-  // 🔥 TELA DE ERRO SE A ROTA BUGAR NA WEB
   if (isRouteCorrupted) {
       return (
           <RootComponent style={[styles.center, rootStyle]}>
@@ -149,109 +143,75 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           >
               <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100%' } : {}) }}>
                     
+                      {/* 🔥 SANFONA DO RAIO-X IMPLEMENTADA AQUI 🔥 */}
                       {!state.isTemplateMode && anamneseData && (
                           <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                              <View style={{flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15}}>
-                                  <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={theme.accent} />
-                                  <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO {anamneseData.isSetupTreino ? '(BÁSICO)' : ''}</Text>
-                              </View>
-
-                              <View style={styles.anamneseRow}>
-                                  <View style={styles.anamneseCol}>
-                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
-                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo}</Text>
+                              <TouchableOpacity style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}} onPress={() => setIsRaioxExpanded(!isRaioxExpanded)}>
+                                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                                      <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={theme.accent} />
+                                      <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO {anamneseData.isSetupTreino ? '(BÁSICO)' : ''}</Text>
                                   </View>
-                                  <View style={styles.anamneseCol}>
-                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
-                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel}</Text>
-                                  </View>
-                              </View>
+                                  <MaterialCommunityIcons name={isRaioxExpanded ? "chevron-up" : "chevron-down"} size={22} color={theme.accent} />
+                              </TouchableOpacity>
 
-                              {anamneseData.isSetupTreino && anamneseData.foco && (
-                                  <View style={[styles.anamneseRow, { marginBottom: 0 }]}>
-                                      <View style={styles.anamneseCol}>
-                                          <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>FOCO PRINCIPAL</Text>
-                                          <Text style={{color: theme.accent, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.foco}</Text>
-                                      </View>
-                                  </View>
-                              )}
-
-                              {!anamneseData.isSetupTreino && (
-                                  <>
+                              {isRaioxExpanded && (
+                                  <View style={{marginTop: 15}}>
                                       <View style={styles.anamneseRow}>
                                           <View style={styles.anamneseCol}>
-                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
-                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x sem` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel}min` : '-'}</Text>
+                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
+                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo}</Text>
                                           </View>
                                           <View style={styles.anamneseCol}>
-                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
-                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
+                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
+                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel}</Text>
                                           </View>
                                       </View>
 
-                                      {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
-                                          <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
-                                              <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
-                                              <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
+                                      {anamneseData.isSetupTreino && anamneseData.foco && (
+                                          <View style={[styles.anamneseRow, { marginBottom: 0 }]}>
+                                              <View style={styles.anamneseCol}>
+                                                  <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>FOCO PRINCIPAL</Text>
+                                                  <Text style={{color: theme.accent, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.foco}</Text>
+                                              </View>
                                           </View>
                                       )}
 
-                                      {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
-                                          <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
-                                              <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
-                                              <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
-                                          </View>
+                                      {!anamneseData.isSetupTreino && (
+                                          <>
+                                              <View style={styles.anamneseRow}>
+                                                  <View style={styles.anamneseCol}>
+                                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
+                                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x sem` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel}min` : '-'}</Text>
+                                                  </View>
+                                                  <View style={styles.anamneseCol}>
+                                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
+                                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
+                                                  </View>
+                                              </View>
+
+                                              {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
+                                                  <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
+                                                      <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
+                                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
+                                                  </View>
+                                              )}
+
+                                              {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
+                                                  <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
+                                                      <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
+                                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
+                                                  </View>
+                                              )}
+                                          </>
                                       )}
-                                  </>
+                                  </View>
                               )}
                           </View>
                       )}
 
+                      {/* 🔥 O COMPONENTE MODULARIZADO SUBSTITUINDO A BUROCRACIA 🔥 */}
                       {!state.isTemplateMode && (
-                          <View style={[styles.planningContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                              <TextInput style={[styles.nameInput, { backgroundColor: theme.bg, color: theme.accent, borderColor: theme.border }]} placeholder="NOME DA ROTINA (EX: HIPERTROFIA A)" placeholderTextColor={theme.textSecondary} value={state.customWorkoutName} onChangeText={setters.setCustomWorkoutName} />
-                              
-                              <View style={styles.dateRow}>
-                                  <TouchableOpacity style={styles.dateInputGroup} onPress={() => setters.setShowCalendarStart(true)}>
-                                      <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>INÍCIO</Text>
-                                      <View style={[styles.dateDisplay, { backgroundColor: theme.bg, borderColor: theme.border }]}><MaterialCommunityIcons name="calendar" size={16} color={theme.accent} /><Text style={[styles.dateText, { color: theme.text }]}>{formatDateToString(state.startDate)}</Text></View>
-                                  </TouchableOpacity>
-                                  <TouchableOpacity style={styles.dateInputGroup} onPress={() => setters.setShowCalendarEnd(true)}>
-                                      <Text style={[styles.dateLabel, { color: theme.textSecondary }]}>FIM</Text>
-                                      <View style={[styles.dateDisplay, { backgroundColor: theme.bg, borderColor: theme.border }, state.isArchived && {opacity: 0.5}]}>
-                                          <MaterialCommunityIcons name="calendar-check" size={16} color={theme.accent} /><Text style={[styles.dateText, { color: theme.text }]}>{formatDateToString(state.endDate)}</Text></View>
-                                  </TouchableOpacity>
-                              </View>
-                              
-                              <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                  <Text style={[styles.archiveLabel, state.isArchived ? {color:'#FF3B30'} : {color: theme.accent}]}>STATUS: {state.isArchived ? "ARQUIVADO" : "ATIVO"}</Text>
-                                  <Switch 
-                                      value={state.isArchived} 
-                                      onValueChange={(val) => { setters.setIsArchived(val); if (!val && state.endDate < new Date()) { const futureDate = new Date(); futureDate.setDate(futureDate.getDate() + 30); setters.setEndDate(futureDate); } }} 
-                                      trackColor={{false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5'}} 
-                                      thumbColor={state.isArchived ? '#FF3B30' : theme.accent} 
-                                  />
-                              </View>
-
-                              {/* 🔥 NOVO: SELETOR DE MODELO C/ CARGA VS S/ CARGA */}
-                              <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border, marginTop: 10 }]}>
-                                  <Text style={[styles.archiveLabel, {color: theme.textSecondary}]}>MODELO DO TREINO:</Text>
-                                  <View style={{flexDirection: 'row', gap: 10}}>
-                                      <TouchableOpacity 
-                                          style={[styles.tag, state.workoutModel === 'CARGA' ? {borderColor: theme.border} : {backgroundColor: '#4DE38F', borderColor: '#4DE38F'}]}
-                                          onPress={() => setters.setWorkoutModel('BASE')}
-                                      >
-                                          <Text style={[styles.tagText, state.workoutModel === 'BASE' ? {color: '#000'} : {color: theme.textSecondary}]}>S/ CARGA</Text>
-                                      </TouchableOpacity>
-                                      <TouchableOpacity 
-                                          style={[styles.tag, state.workoutModel === 'CARGA' ? {backgroundColor: '#4DE38F', borderColor: '#4DE38F'} : {borderColor: theme.border}]}
-                                          onPress={() => setters.setWorkoutModel('CARGA')}
-                                      >
-                                          <Text style={[styles.tagText, state.workoutModel === 'CARGA' ? {color: '#000'} : {color: theme.textSecondary}]}>C/ CARGA</Text>
-                                      </TouchableOpacity>
-                                  </View>
-                              </View>
-                          </View>
+                          <WorkoutSettingsCard state={state} setters={setters} actions={actions} theme={theme} />
                       )}
 
                       <View style={{flexDirection:'row', gap:10, marginBottom:15}}>
@@ -297,37 +257,30 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                           </View>
                       )}
 
-                      <View style={styles.toolsRow}>
-                          <TouchableOpacity style={[styles.toolBtnHighlight, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.accent }]} onPress={actions.handleClearWorkout}>
-                              <MaterialCommunityIcons name="delete-sweep" size={18} color={theme.text} />
-                              <Text style={[styles.toolBtnTextDark, { color: theme.text }]}>LIMPAR DIA</Text>
+                      {/* 🔥 LADO A LADO: LIMPAR DIA E MODO ESPIÃO 🔥 */}
+                      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
+                          <TouchableOpacity style={[styles.actionBtn, {backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, flex: 1}]} onPress={actions.handleClearWorkout}>
+                              <MaterialCommunityIcons name="delete-sweep" size={18} color={theme.textSecondary} />
+                              <Text style={[styles.actionBtnText, {color: theme.textSecondary}]}>LIMPAR DIA</Text>
                           </TouchableOpacity>
 
-                          {!state.isTemplateMode && (
-                              <TouchableOpacity style={[styles.toolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { actions.fetchStudentsForClone(); setters.setModalCloneVisible(true); }}>
-                                  <MaterialCommunityIcons name="account-switch" size={18} color={theme.text} />
-                                  <Text style={[styles.toolBtnText, { color: theme.text }]}>CLONAR ALUNO</Text>
+                          {route.params?.isEditing && (
+                              <TouchableOpacity 
+                                  style={[styles.actionBtn, {backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1, flex: 1.5}]} 
+                                  onPress={() => {
+                                      navigation.navigate('DayWorkoutScreen', { 
+                                          workoutId: route.params.workoutToEdit.id, 
+                                          day: state.selectedWorkoutTab, 
+                                          workoutName: state.customWorkoutName,
+                                          isPreview: true 
+                                      });
+                                  }}
+                              >
+                                  <MaterialCommunityIcons name="eye" size={18} color={theme.accent} />
+                                  <Text style={[styles.actionBtnText, {color: theme.accent}]}>VISUALIZAR TREINO DO ALUNO</Text>
                               </TouchableOpacity>
                           )}
-
-                          <TouchableOpacity style={[styles.toolBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => { actions.fetchTemplates(); setters.setModalTemplatesVisible(true); }}>
-                              <MaterialCommunityIcons name="folder-download" size={18} color={theme.text} />
-                              <Text style={[styles.toolBtnText, { color: theme.text }]}>BIBLIOTECA</Text>
-                          </TouchableOpacity>
                       </View>
-                      
-                      <TouchableOpacity 
-                          style={[{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 20, gap: 10, elevation: 2 }]} 
-                          onPress={actions.handleImportPDF}
-                          disabled={state.isImportingAI}
-                      >
-                          {state.isImportingAI ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> : (
-                              <>
-                                  <MaterialCommunityIcons name="magic-staff" size={22} color={theme.isDark ? "#000" : "#FFF"} />
-                                  <Text style={[{ color: theme.isDark ? "#000" : "#FFF", fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }]}>IMPORTAR TREINO DA MFIT (PDF)</Text>
-                              </>
-                          )}
-                      </TouchableOpacity>
 
                       <View style={{ marginBottom: 15 }}>
                           <ScrollView horizontal showsHorizontalScrollIndicator={isWeb} style={isWeb ? { overflowX: 'auto' } : {}} contentContainerStyle={{ gap: 10, paddingBottom: 5 }}>
@@ -411,7 +364,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
           openPreview={actions.openPreview} previewModalVisible={state.previewModalVisible}
           setPreviewModalVisible={setters.setPreviewModalVisible} previewExercise={state.previewExercise}
           setPreviewExercise={setters.setPreviewExercise} previewVideoRef={previewVideoRef}
-          currentExercises={state.currentExercises} // 🔥 OLHA A CHAVE AQUI!
+          currentExercises={state.currentExercises}
       />
 
       <TemplateAndCloneModals 
@@ -476,6 +429,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
       <Modal visible={state.showCalendarEnd} transparent animationType="fade">
           <View style={styles.modalOverlay}><CustomCalendar selectedDate={state.endDate} onSelect={actions.onSelectEndDate} onClose={() => setters.setShowCalendarEnd(false)} theme={theme} /></View>
       </Modal>
+      <Modal visible={state.showCalendarIntensity} transparent animationType="fade">
+          <View style={styles.modalOverlay}><CustomCalendar selectedDate={state.intensityEndDate || new Date()} onSelect={actions.onSelectIntensityEndDate} onClose={() => setters.setShowCalendarIntensity(false)} theme={theme} /></View>
+      </Modal>
       
       <Modal visible={state.modalTecnicaVisible} transparent animationType="fade">
           <View style={styles.modalOverlay}>
@@ -511,6 +467,10 @@ const styles = StyleSheet.create({
   dateText: { fontWeight:'bold', fontSize:14 },
   archiveRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:10, borderRadius:10, borderWidth:1 },
   archiveLabel: { fontWeight:'900', fontSize:12 },
+  
+  intensityBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, gap: 4 },
+  intensityText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+
   configBox: { borderRadius:15, padding:15, marginBottom:15, borderWidth:1 },
   actionBtn: { flexDirection:'row', alignItems:'center', justifyContent:'center', padding:15, borderRadius:10, gap:8 },
   actionBtnText: { fontWeight:'900', fontSize:12 },

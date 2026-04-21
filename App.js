@@ -213,7 +213,11 @@ function RootNavigator() {
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
+      
+      {/* 🔥 TELA DAYWORKOUTSCREEN ADICIONADA / PADRONIZADA 🔥 */}
+      <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
       <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
+
       <Stack.Screen name="FinishScreen" component={FinishScreen} />
       <Stack.Screen name="CheckIn" component={CheckInScreen} />
       <Stack.Screen name="UserHistory" component={UserHistoryScreen} />

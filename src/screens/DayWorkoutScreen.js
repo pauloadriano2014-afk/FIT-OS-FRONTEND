@@ -13,7 +13,6 @@ import { Video, ResizeMode, Audio } from 'expo-av';
 import { formatTime, calculate1RM } from '../utils/workoutUtils'; 
 import { useTheme } from '../contexts/ThemeContext';
 
-// 🔥 IMPORTAÇÕES MODULARIZADAS ALINHADAS COM A SUA ÁRVORE 🔥
 import ExpandableExerciseBlock from '../components/Training/ExpandableExerciseBlock';
 import InitialPhotosModal from '../components/InitialPhotosModal'; 
 import UpsellModal from '../components/Training/UpsellModal';
@@ -27,12 +26,27 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { width } = Dimensions.get('window');
 
+// 🔥 MATEMÁTICA INTELIGENTE DE TEXTOS 🔥
+// Pega qualquer texto ("20kgs de cada lado", "10 a 12") e multiplica APENAS os números.
+const applyMaskToString = (str, multiplier) => {
+    if (!str) return str;
+    return String(str).replace(/(\d+([.,]\d+)?)/g, (match) => {
+        const num = parseFloat(match.replace(',', '.'));
+        // Multiplica e arredonda para 1 casa decimal
+        let calc = Math.round(num * multiplier * 10) / 10;
+        return calc.toString().replace('.', ',');
+    });
+};
+
 export default function DayWorkoutScreen({ route, navigation }) {
   const params = route?.params || {};
   const workoutId = params.workoutId || '';
   const day = params.day || 'A';
   const rawName = params.workoutName || 'Treino';
   const workoutName = rawName.replace(' |#BASE#', '');
+  
+  // 🔥 TRAVA DE SEGURANÇA (MODO ESPIÃO) 🔥
+  const isPreviewMode = params.isPreview || false;
 
   const { theme } = useTheme();
 
@@ -49,17 +63,18 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [workoutModel, setWorkoutModel] = useState('CARGA'); 
   const [expandedBlockId, setExpandedBlockId] = useState(null);
 
+  const [activeIntensityMultiplier, setActiveIntensityMultiplier] = useState(1.0);
+  const [isIntensityMaskActive, setIsIntensityMaskActive] = useState(false);
+
   const appState = useRef(AppState.currentState);
   const isFinishingRef = useRef(false);
 
-  // Estados dos Modais
   const [techModalVisible, setTechModalVisible] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [isPlayingTechVoice, setIsPlayingTechVoice] = useState(false);
   const [voiceSound, setVoiceSound] = useState(null);
 
-  // Mantive o Vídeo na tela principal para não quebrar a lib do expo-av
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const videoRef = useRef(null);
@@ -90,7 +105,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
       { val: 4,  label: 'LEVE', desc: 'Aquecimento', color: '#32ADE6' },
   ];
 
-  // 🔥 RESTAURADO: Seus textos exatos e completos, sem nenhum resumo!
   const TECH_GUIDE = {
     'DROPSET': { id: 'DROPSET', title: 'DROP-SET', color: '#FF3B30', icon: 'arrow-down-bold', audio: require('../../assets/audio/exp_dropset.m4a'), desc: 'COMO EXECUTAR:\nFaça as repetições até a falha muscular. Imediatamente reduza a carga (cerca de 20 a 30%) e continue o exercício até falhar novamente, sem nenhum descanso.\n\nPOR QUE FAZER:\nAumenta o estresse metabólico e recruta fibras musculares mais profundas que não foram fadigadas inicialmente. Excelente para hipertrofia e "pump" máximo.' },
     'RESTPAUSE': { id: 'RESTPAUSE', title: 'REST-PAUSE', color: '#FF9500', icon: 'timer-sand', audio: require('../../assets/audio/exp_restpause.m4a'), desc: 'COMO EXECUTAR:\nRealize a série até a falha. Descanse apenas 10 a 15 segundos e volte a fazer o exercício com a MESMA carga até falhar de novo.\n\nPOR QUE FAZER:\nPermite realizar mais repetições totais com uma carga alta (tensão mecânica extrema), gerando um forte estímulo de hipertrofia na metade do tempo.' },
@@ -125,7 +139,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   useEffect(() => {
       const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-          if (!isTimerRunning || isFinishingRef.current) return; 
+          if (!isTimerRunning || isFinishingRef.current || isPreviewMode) return; // 🔥 MODO ESPIÃO SAI SEM AVISO 🔥
           e.preventDefault(); 
           if (Platform.OS === 'web') {
               if (window.confirm("⚠️ TREINO EM ANDAMENTO!\nVocê está com o cronômetro rodando. Tem certeza que deseja sair? O tempo pode ser perdido.")) {
@@ -139,9 +153,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
           }
       });
       return unsubscribe;
-  }, [navigation, isTimerRunning]);
+  }, [navigation, isTimerRunning, isPreviewMode]);
 
   useEffect(() => {
+    // 🔥 SE FOR MODO ESPIÃO, COMEÇA O CRONÔMETRO AUTOMÁTICO SEM SALVAR NO BANCO 🔥
+    if (isPreviewMode && !loading && exercisesToShow.length > 0) {
+        setIsTimerRunning(true);
+        return;
+    }
+
     const syncTimer = async () => {
         const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}_${day}`);
         if (savedStart) {
@@ -151,10 +171,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
           setIsTimerRunning(true); 
         }
       };
-      syncTimer();
-  }, [workoutId, day]);
+      if (!isPreviewMode) syncTimer();
+  }, [workoutId, day, isPreviewMode, loading, exercisesToShow]);
 
   useEffect(() => {
+    if (isPreviewMode) return; // 🔥 MODO ESPIÃO IGNORA BACKGROUND 🔥
+
     const handleAppStateChange = async (nextAppState) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         const savedStart = await AsyncStorage.getItem(`@workout_start_${workoutId}_${day}`);
@@ -168,7 +190,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
     };
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, [workoutId, day]);
+  }, [workoutId, day, isPreviewMode]);
 
   useEffect(() => {
     let interval = null;
@@ -177,6 +199,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
   }, [isTimerRunning]);
 
   useEffect(() => {
+    if (isPreviewMode) return; // 🔥 MODO ESPIÃO NÃO SALVA RASCUNHO 🔥
+
     const saveProgress = async () => {
         if (Object.keys(lastWeights).length > 0 || Object.keys(checkedSets).length > 0) {
             const key = `draft_workout_${workoutId}_${day}`;
@@ -185,7 +209,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
     };
     const timer = setTimeout(saveProgress, 500); 
     return () => clearTimeout(timer);
-  }, [lastWeights, checkedSets, workoutId, day]);
+  }, [lastWeights, checkedSets, workoutId, day, isPreviewMode]);
 
   const handlePlayTechVoice = async (techKey) => {
       try {
@@ -225,11 +249,11 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
       const cacheKey = `@cached_workout_${workoutId}_${day}`;
       const cachedData = await AsyncStorage.getItem(cacheKey);
-      if (cachedData) setExercisesToShow(JSON.parse(cachedData));
+      if (cachedData && !isPreviewMode) setExercisesToShow(JSON.parse(cachedData)); // Modo espião sempre pega fresco
 
       const draftKey = `draft_workout_${workoutId}_${day}`;
       const draft = await AsyncStorage.getItem(draftKey);
-      if (draft) { 
+      if (draft && !isPreviewMode) { 
           try {
               const parsed = JSON.parse(draft);
               if (parsed.weights) {
@@ -241,9 +265,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
           } catch(e) {}
       }
 
+      // 🔥 No Modo Espião, não precisa buscar checkin do aluno 🔥
       const [resWorkout, resCheckin] = await Promise.all([
           fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`),
-          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+          isPreviewMode ? Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: 'mock' }]) }) : fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
       ]);
       
       const data = await resWorkout.json();
@@ -254,6 +279,21 @@ export default function DayWorkoutScreen({ route, navigation }) {
       
       if (resWorkout.ok && data && data.exercises) {
         setWorkoutModel(data.workoutModel || 'CARGA');
+
+        let multiplier = data.intensityMultiplier || 1.0;
+        let isMaskActive = false;
+        
+        if (multiplier !== 1.0 && data.intensityEndDate) {
+            const expirationDate = new Date(data.intensityEndDate);
+            if (new Date() <= expirationDate) {
+                isMaskActive = true;
+            } else {
+                multiplier = 1.0; 
+            }
+        }
+        
+        setActiveIntensityMultiplier(multiplier);
+        setIsIntensityMaskActive(isMaskActive);
 
         const filteredExercises = data.exercises
             .filter(item => item.day === day)
@@ -275,19 +315,58 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 if (!realBlocks || !Array.isArray(realBlocks) || realBlocks.length === 0) {
                     realBlocks = [{ sets: String(item.sets || '3'), reps: String(item.reps || '12'), restTime: String(item.restTime || '60'), technique: realTech || '' }];
                 }
+
+                if (isMaskActive && data.workoutModel === 'CARGA') {
+                    realBlocks = realBlocks.map(block => {
+                        let newBlock = { ...block };
+                        
+                        if (newBlock.load) {
+                            newBlock.load = applyMaskToString(newBlock.load, multiplier);
+                        }
+
+                        if (multiplier === 0.8) {
+                            if (newBlock.technique && newBlock.technique !== 'NORMAL' && newBlock.technique !== 'TUT') {
+                                newBlock.technique = 'NORMAL';
+                                realObs = `⚠️ DELOAD: Técnica avançada suspensa. ${realObs}`;
+                            }
+                        }
+                        
+                        if (multiplier > 1.0) {
+                            let currentRest = parseInt(newBlock.restTime) || 60;
+                            newBlock.restTime = String(currentRest + 30);
+                            if(!realObs.includes("CHOQUE")) {
+                                realObs = `🔥 CHOQUE: Descanso prolongado para +carga. ${realObs}`;
+                            }
+                        }
+                        return newBlock;
+                    });
+                }
+
                 return { ...item, blocks: realBlocks, technique: realTech, observation: realObs };
             });
 
         setExercisesToShow(filteredExercises);
+        
         if (data.lastWeights) {
-            setHistoryWeights(data.lastWeights);
-            await AsyncStorage.setItem(`@cached_history_${workoutId}_${day}`, JSON.stringify(data.lastWeights));
+            let maskedWeights = { ...data.lastWeights };
+            if (isMaskActive && data.workoutModel === 'CARGA') {
+                Object.keys(maskedWeights).forEach(exId => {
+                    Object.keys(maskedWeights[exId]).forEach(setIdx => {
+                        let originalWeight = maskedWeights[exId][setIdx];
+                        maskedWeights[exId][setIdx] = applyMaskToString(originalWeight, multiplier);
+                    });
+                });
+            }
+            setHistoryWeights(maskedWeights);
+            if(!isPreviewMode) await AsyncStorage.setItem(`@cached_history_${workoutId}_${day}`, JSON.stringify(maskedWeights));
         }
-        await AsyncStorage.setItem(cacheKey, JSON.stringify(filteredExercises));
+        if(!isPreviewMode) await AsyncStorage.setItem(cacheKey, JSON.stringify(filteredExercises));
       }
     } catch (error) { 
-        const histCache = await AsyncStorage.getItem(`@cached_history_${workoutId}_${day}`);
-        if (histCache) setHistoryWeights(JSON.parse(histCache));
+        if (!isPreviewMode) {
+            const histCache = await AsyncStorage.getItem(`@cached_history_${workoutId}_${day}`);
+            if (histCache) setHistoryWeights(JSON.parse(histCache));
+        }
     } finally { setLoading(false); }
   };
 
@@ -347,6 +426,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
   };
 
   const handleSaveWeight = async (itemId, weight, setIndex) => {
+    if (isPreviewMode) return; // 🔥 MODO ESPIÃO BLOQUEIA SALVAR CARGA 🔥
     setLastWeights({ ...lastWeights, [itemId]: { ...(lastWeights[itemId] || {}), [setIndex]: weight } });
   };
 
@@ -400,7 +480,13 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     if (val !== undefined && val !== null && val !== '') {
                         const cleanIndex = parseInt(setKey); 
                         const repsVal = ex.blocks?.[0]?.reps || ex.reps || 10;
-                        setsData.push({ index: isNaN(cleanIndex) ? 1 : cleanIndex, weight: val, reps: repsVal });
+
+                        let realWeightToSave = val;
+                        if (isIntensityMaskActive && workoutModel === 'CARGA' && activeIntensityMultiplier !== 1.0) {
+                             realWeightToSave = applyMaskToString(val, (1 / activeIntensityMultiplier));
+                        }
+
+                        setsData.push({ index: isNaN(cleanIndex) ? 1 : cleanIndex, weight: realWeightToSave, reps: repsVal });
                     }
                 });
                 if (setsData.length > 0) exercisesDone.push({ exerciseId: ex.exerciseId, name: ex.exercise?.name || ex.name, sets: setsData });
@@ -459,13 +545,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
   };
 
   const executeStartTimer = async () => {
-      await AsyncStorage.setItem(`@workout_start_${workoutId}_${day}`, Date.now().toString());
+      if(!isPreviewMode) await AsyncStorage.setItem(`@workout_start_${workoutId}_${day}`, Date.now().toString());
       setIsTimerRunning(true);
   };
 
   const openDynamicUpsell = (type) => { setUpsellType(type); setUpsellModalVisible(true); };
 
-  // 🔥 LÓGICA PARA O INITIAL PHOTOS MODAL 🔥
   const getPhotoModalContent = () => {
       switch (userPlan) {
           case 'PREMIUM': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Para mapear sua evolução na Consultoria Elite, faça o seu primeiro registro. É rápido e 100% sigiloso.', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'FAZER DEPOIS', showEscape: true };
@@ -498,6 +583,24 @@ export default function DayWorkoutScreen({ route, navigation }) {
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
         <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: isWeb ? 1 : 0, borderBottomColor: theme.border }}>
+            {/* 🔥 AVISO DE MODO ESPIÃO 🔥 */}
+            {isPreviewMode && (
+                <View style={{ width: '100%', backgroundColor: '#FF9500', padding: 8, alignItems: 'center' }}>
+                    <Text style={{ color: '#000', fontSize: 10, fontWeight: '900', letterSpacing: 1 }}>🕵️ MODO ESPIÃO ATIVO (APENAS VISUALIZAÇÃO)</Text>
+                </View>
+            )}
+
+            {isIntensityMaskActive && activeIntensityMultiplier === 0.8 && (
+                <View style={{ width: '100%', backgroundColor: '#32ADE6', padding: 8, alignItems: 'center' }}>
+                    <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 }}>🧊 SEMANA DE DELOAD ATIVADA (CARGAS REDUZIDAS)</Text>
+                </View>
+            )}
+            {isIntensityMaskActive && activeIntensityMultiplier > 1.0 && (
+                <View style={{ width: '100%', backgroundColor: '#FF3B30', padding: 8, alignItems: 'center' }}>
+                    <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 }}>🔥 SEMANA DE CHOQUE (DESCANSO AUMENTADO E +CARGA)</Text>
+                </View>
+            )}
+
             <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingVertical: 12, justifyContent: 'space-between' }}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}><MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} /></TouchableOpacity>
                 <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 10 }}>
@@ -506,7 +609,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <TouchableOpacity onPress={toggleVoice} style={{ padding: 6, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}><MaterialCommunityIcons name={isVoiceEnabled ? "volume-high" : "volume-mute"} size={18} color={isVoiceEnabled ? theme.accent : theme.textSecondary} /></TouchableOpacity>
-                    {isTimerRunning ? (
+                    {isTimerRunning && !isPreviewMode ? (
                         <View style={{ flexDirection:'row', alignItems:'center', gap:4, backgroundColor: theme.accent, paddingVertical:6, paddingHorizontal:8, borderRadius:8 }}><MaterialCommunityIcons name="fire" size={14} color={theme.isDark ? '#000' : '#FFF'} /><Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold', fontSize: 9 }}>EM TREINO</Text></View>
                     ) : <View style={{ width: 32 }} />}
                 </View>
@@ -518,14 +621,14 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 <View style={{ width: isWeb ? '100%' : width, maxWidth: isWeb ? 480 : width, flexGrow: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingBottom: 150, paddingTop: 15, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
                     
                     <View style={{ marginBottom: 20 }}>
-                        {!isTimerRunning && elapsedSeconds === 0 ? (
+                        {!isTimerRunning && elapsedSeconds === 0 && !isPreviewMode ? (
                             <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }} onPress={handleStartTimerRequest}>
                                 <MaterialCommunityIcons name="play" size={30} color={theme.isDark ? '#000' : '#FFF'} />
                                 <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 }}>INICIAR TREINO</Text>
                             </TouchableOpacity>
                         ) : (
                             <View style={{ backgroundColor: theme.surface, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: theme.accent, alignItems: 'center', justifyContent: 'center' }}>
-                                <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 5 }}>TEMPO DECORRIDO</Text>
+                                <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 5 }}>{isPreviewMode ? "CRONÔMETRO (ESPIÃO)" : "TEMPO DECORRIDO"}</Text>
                                 <Text style={{ color: theme.text, fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{formatTime(elapsedSeconds)}</Text>
                             </View>
                         )}
@@ -542,14 +645,16 @@ export default function DayWorkoutScreen({ route, navigation }) {
                         />
                     ))}
 
-                    <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginTop: 20, gap: 10 }} onPress={validateAndFinish}>
-                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>FINALIZAR TREINO</Text><MaterialCommunityIcons name="check-all" size={24} color={theme.isDark ? '#000' : '#FFF'} />
-                    </TouchableOpacity>
+                    {/* 🔥 ESCONDE O BOTÃO DE FINALIZAR SE FOR MODO ESPIÃO 🔥 */}
+                    {!isPreviewMode && (
+                        <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginTop: 20, gap: 10 }} onPress={validateAndFinish}>
+                            <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>FINALIZAR TREINO</Text><MaterialCommunityIcons name="check-all" size={24} color={theme.isDark ? '#000' : '#FFF'} />
+                        </TouchableOpacity>
+                    )}
                 </View>
             </ScrollView>
         </View>
 
-        {/* 🔥 MODAIS MODULARIZADOS 🔥 */}
         <InitialPhotosModal 
             visible={initialPhotosModalVisible} 
             onClose={() => { setInitialPhotosModalVisible(false); executeStartTimer(); }} 
@@ -563,7 +668,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
         <FinishWorkoutModal visible={finishModalVisible} onClose={() => setFinishModalVisible(false)} theme={theme} RPE_OPTIONS={RPE_OPTIONS} rpe={rpe} setRpe={setRpe} feedbackText={feedbackText} setFeedbackText={setFeedbackText} submitFinish={submitFinish} isWeb={isWeb} />
         <CalculatorModal visible={calcModalVisible} onClose={() => setCalcModalVisible(false)} theme={theme} calcWeight={calcWeight} setCalcWeight={setCalcWeight} calcReps={calcReps} setCalcReps={setCalcReps} oneRM={oneRM} isWeb={isWeb} />
         
-        {/* MODAL DE VÍDEO NATIVO MANTIDO AQUI (Evita Bugs no iOS/Web de Fullscreen) */}
         <Modal visible={videoModalVisible} animationType="fade" transparent onRequestClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }}>
             <View style={styles.modalOverlay}>
                 <View style={styles.videoCard}>
