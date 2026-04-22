@@ -59,8 +59,17 @@ export default function BibliotecaScreen({ navigation, route }) {
           const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
           setUserPlan(resolvedPlan);
 
+          // 🔥 CORREÇÃO DE HERANÇA DA BIBLIOTECA 🔥
+          // Para que os alunos da Adri ou de qualquer sub-coach vejam os seus conteúdos,
+          // forçamos a busca a olhar para o seu adminId (o mestre) caso não traga os da Adri.
+          // Como o endpoint /api/contents pode estar filtrando no banco de dados,
+          // passamos o adminId para a busca puxar de todos os administradores ligados à consultoria.
+          
+          let targetAdminId = user.adminId; // ID do admin que o aluno pertence (ex: Adri)
+          const adminMestreId = 'cm1ab2c3'; // Se tiver o seu ID de Admin mestre, pode colocar aqui no futuro.
+
           const [resContents, resAccess] = await Promise.all([
-              fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&t=${Date.now()}`),
+              fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&adminId=${targetAdminId}&global=true&t=${Date.now()}`),
               fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}&t=${Date.now()}`)
           ]);
 
