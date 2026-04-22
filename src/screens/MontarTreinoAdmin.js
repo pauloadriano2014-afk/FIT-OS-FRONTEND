@@ -1,8 +1,13 @@
 // src/screens/MontarTreinoAdmin.js
-import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Modal, KeyboardAvoidingView, Platform, Switch, StatusBar, Dimensions } from 'react-native'; 
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import {
+    View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
+    TextInput, Modal, KeyboardAvoidingView, Platform, StatusBar,
+    ScrollView, Dimensions, Alert
+} from 'react-native';
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DraggableFlatList from 'react-native-draggable-flatlist';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useMontarTreino } from '../hooks/useMontarTreino';
@@ -10,493 +15,855 @@ import ExerciseCardAdmin from '../components/MontarTreino/ExerciseCardAdmin';
 import CustomCalendar from '../components/CustomCalendar';
 import LibraryModals from '../components/MontarTreino/Modals/LibraryModals';
 import TemplateAndCloneModals from '../components/MontarTreino/Modals/TemplateAndCloneModals';
-import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard'; // 🔥 COMPONENTE IMPORTADO 🔥
+import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard';
 
 const { width } = Dimensions.get('window');
-const formatDateToString = (date) => { if (!date) return ''; const d = new Date(date); return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; };
 
 export default function MontarTreinoAdmin({ route, navigation }) {
-  const { theme } = useTheme(); 
-  const previewVideoRef = useRef(null);
-  
-  let aluno = null;
-  let isRouteCorrupted = false;
+    const { theme } = useTheme();
+    const previewVideoRef = useRef(null);
+    const isWeb = Platform.OS === 'web';
+    const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
-  try {
-      const alunoParam = route.params?.aluno;
-      if (typeof alunoParam === 'string') {
-          if (alunoParam.includes('[object Object]')) {
-              isRouteCorrupted = true;
-          } else {
-              aluno = JSON.parse(alunoParam);
-          }
-      } else if (alunoParam) {
-          aluno = alunoParam;
-      }
-  } catch (e) {
-      console.error("Erro ao decodificar aluno da rota:", e);
-  }
+    let aluno = null;
+    let isRouteCorrupted = false;
+    try {
+        const alunoParam = route.params?.aluno;
+        if (typeof alunoParam === 'string') {
+            if (alunoParam.includes('[object Object]')) {
+                isRouteCorrupted = true;
+            } else {
+                aluno = JSON.parse(alunoParam);
+            }
+        } else if (alunoParam) {
+            aluno = alunoParam;
+        }
+    } catch (e) {
+        console.error('Erro ao decodificar aluno da rota:', e);
+    }
 
-  const patchedRoute = { ...route, params: { ...route.params, aluno } };
-  const controller = useMontarTreino(patchedRoute, navigation);
+    const patchedRoute = { ...route, params: { ...route.params, aluno } };
+    const controller = useMontarTreino(patchedRoute, navigation);
+    const { state, setters, actions } = controller;
 
-  const { state, setters, actions } = controller;
-  const isWeb = Platform.OS === 'web';
-  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
-  const RootComponent = isWeb ? View : SafeAreaViewContext;
+    const [anamneseData, setAnamneseData] = useState(null);
+    const [isRaioxExpanded, setIsRaioxExpanded] = useState(false);
+    
+    // 🔥 NOVOS ESTADOS PARA O DROPDOWN MODERNO 🔥
+    const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
+    const [editingTabName, setEditingTabName] = useState(null);
+    const [editingTabValue, setEditingTabValue] = useState('');
 
-  const [anamneseData, setAnamneseData] = useState(null);
-  const [isRaioxExpanded, setIsRaioxExpanded] = useState(false); // 🔥 ESTADO DA SANFONA DO RAIO-X 🔥
+    useEffect(() => {
+        if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
+            const fetchDadosRaioX = async () => {
+                try {
+                    const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
+                    const freshUser = resUser.ok ? await resUser.json() : aluno;
+                    let foundAnamnese = null;
+                    if (freshUser.goal || freshUser.level) {
+                        let rawGoal = freshUser.goal || '';
+                        foundAnamnese = {
+                            objetivo: rawGoal.split('(Foco:')[0].trim() || 'Não informado',
+                            nivel: freshUser.level || 'Não informado',
+                            foco: rawGoal.includes('(Foco:') ? rawGoal.split('(Foco:')[1].replace(')', '').trim() : 'Geral',
+                            isSetupTreino: true,
+                        };
+                    }
+                    if (!foundAnamnese) {
+                        const resAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
+                        if (resAnamnese.ok) {
+                            const data = await resAnamnese.json();
+                            const ana = Array.isArray(data) ? data[0] : data;
+                            if (ana && ana.id) foundAnamnese = { ...ana, isSetupTreino: false };
+                        }
+                    }
+                    setAnamneseData(foundAnamnese || { objetivo: 'Sem dados no DB', nivel: 'Sem dados', foco: 'Sem dados', isSetupTreino: true });
+                } catch (e) {
+                    setAnamneseData({ objetivo: 'Erro de conexão', nivel: 'Erro', foco: 'Erro', isSetupTreino: true });
+                }
+            };
+            fetchDadosRaioX();
+        }
+    }, [aluno?.id, state.isTemplateMode, isRouteCorrupted]);
 
-  useEffect(() => {
-      if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
-          const fetchDadosRaioX = async () => {
-              try {
-                  const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
-                  const freshUser = resUser.ok ? await resUser.json() : aluno;
+    // ─── FUNÇÃO DE REORGANIZAR DIAS QUE HAVIA SUMIDO ───
+    const moveTab = useCallback((tabName, direction) => {
+        const tabs = [...state.workoutTabs];
+        const idx = tabs.indexOf(tabName);
+        if (direction === 'up' && idx > 0) {
+            [tabs[idx - 1], tabs[idx]] = [tabs[idx], tabs[idx - 1]];
+        } else if (direction === 'down' && idx < tabs.length - 1) {
+            [tabs[idx], tabs[idx + 1]] = [tabs[idx + 1], tabs[idx]];
+        }
+        setters.setWorkoutTabs(tabs);
+    }, [state.workoutTabs, setters]);
 
-                  let foundAnamnese = null;
+    const handleDragEnd = useCallback(({ data }) => {
+        const updated = { ...state.exercisesByDay, [state.selectedWorkoutTab]: data };
+        setters.setExercisesByDay(updated);
+    }, [state.exercisesByDay, state.selectedWorkoutTab]);
 
-                  if (freshUser.goal || freshUser.level) {
-                      let rawGoal = freshUser.goal || '';
-                      foundAnamnese = {
-                          objetivo: rawGoal.split('(Foco:')[0].trim() || 'Não informado',
-                          nivel: freshUser.level || 'Não informado',
-                          foco: rawGoal.includes('(Foco:') ? rawGoal.split('(Foco:')[1].replace(')','').trim() : 'Geral',
-                          isSetupTreino: true
-                      };
-                  }
-                  
-                  if (!foundAnamnese) {
-                      const resAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
-                      if (resAnamnese.ok) {
-                          const data = await resAnamnese.json();
-                          const ana = Array.isArray(data) ? data[0] : data;
-                          if (ana && ana.id) {
-                              foundAnamnese = { ...ana, isSetupTreino: false };
-                          }
-                      }
-                  }
+    const moveExerciseWeb = useCallback((index, direction) => {
+        const exercises = [...state.currentExercises];
+        if (direction === 'up' && index > 0) {
+            [exercises[index - 1], exercises[index]] = [exercises[index], exercises[index - 1]];
+        } else if (direction === 'down' && index < exercises.length - 1) {
+            [exercises[index], exercises[index + 1]] = [exercises[index + 1], exercises[index]];
+        }
+        const updated = { ...state.exercisesByDay, [state.selectedWorkoutTab]: exercises };
+        setters.setExercisesByDay(updated);
+    }, [state.currentExercises, state.exercisesByDay, state.selectedWorkoutTab]);
 
-                  if (foundAnamnese) {
-                      setAnamneseData(foundAnamnese);
-                  } else {
-                      setAnamneseData({ objetivo: 'Sem dados no DB', nivel: 'Sem dados', foco: 'Sem dados', isSetupTreino: true });
-                  }
-              } catch (e) {
-                  console.error("Erro ao carregar Raio-X:", e);
-                  setAnamneseData({ objetivo: 'Erro de conexão', nivel: 'Erro', foco: 'Erro', isSetupTreino: true });
-              }
-          };
+    const confirmRenameTab = useCallback((oldName) => {
+        const newName = editingTabValue.trim();
+        if (!newName || newName === oldName) {
+            setEditingTabName(null);
+            return;
+        }
+        if (state.workoutTabs.includes(newName)) {
+            alert("Já existe um dia com esse nome!");
+            return;
+        }
+        const tabs = state.workoutTabs.map(t => t === oldName ? newName : t);
+        const newExercises = {};
+        Object.keys(state.exercisesByDay).forEach(k => {
+            newExercises[k === oldName ? newName : k] = state.exercisesByDay[k];
+        });
+        setters.setWorkoutTabs(tabs);
+        setters.setExercisesByDay(newExercises);
+        if (state.selectedWorkoutTab === oldName) setters.setSelectedWorkoutTab(newName);
+        setEditingTabName(null);
+    }, [editingTabValue, state.workoutTabs, state.exercisesByDay, state.selectedWorkoutTab, setters]);
 
-          fetchDadosRaioX();
-      }
-  }, [aluno?.id, state.isTemplateMode, isRouteCorrupted]);
+    const deleteTabInline = useCallback((tabName) => {
+        if (state.workoutTabs.length <= 1) return;
 
-  const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
+        const executaExclusao = () => {
+            const tabs = state.workoutTabs.filter(t => t !== tabName);
+            const newExercises = { ...state.exercisesByDay };
+            delete newExercises[tabName];
+            setters.setWorkoutTabs(tabs);
+            setters.setExercisesByDay(newExercises);
+            if (state.selectedWorkoutTab === tabName) setters.setSelectedWorkoutTab(tabs[0]);
+        };
 
-  if (isRouteCorrupted) {
-      return (
-          <RootComponent style={[styles.center, rootStyle]}>
-              <MaterialCommunityIcons name="alert-decagram" size={60} color="#FF3B30" style={{marginBottom: 20}} />
-              <Text style={{color: theme.text, fontSize: 20, fontWeight: '900', textAlign: 'center'}}>ERRO DE ROTA WEB</Text>
-              <Text style={{color: theme.textSecondary, textAlign: 'center', marginTop: 10, paddingHorizontal: 30, lineHeight: 22}}>
-                  O objeto do aluno foi corrompido para <Text style={{fontWeight: 'bold', color: '#FF3B30'}}>[object Object]</Text>. Volte para a tela anterior e tente novamente.
-              </Text>
-              <TouchableOpacity style={{marginTop: 30, backgroundColor: theme.accent, padding: 15, borderRadius: 10}} onPress={() => navigation.goBack()}>
-                  <Text style={{color: '#FFF', fontWeight: 'bold'}}>VOLTAR</Text>
-              </TouchableOpacity>
-          </RootComponent>
-      );
-  }
+        // 🔥 Trava de segurança (Funciona na Web e no App)
+        if (Platform.OS === 'web') {
+            if (window.confirm(`Tem certeza que deseja excluir o dia "${tabName}"?\nTodos os exercícios dele serão perdidos.`)) {
+                executaExclusao();
+            }
+        } else {
+            Alert.alert(
+                "Atenção!",
+                `Tem certeza que deseja excluir o dia "${tabName}"?\nTodos os exercícios dele serão perdidos.`,
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Sim, excluir", style: "destructive", onPress: executaExclusao }
+                ]
+            );
+        }
+    }, [state.workoutTabs, state.exercisesByDay, state.selectedWorkoutTab, setters]);
 
-  if (state.loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator size="large" color={theme.accent} /></View>;
+    const renderExercise = useCallback(({ item, drag, isActive, getIndex }) => {
+        const index = getIndex();
+        return (
+            <View style={{ width: '100%', paddingHorizontal: 16 }}>
+                <ExerciseCardAdmin
+                    key={item.tempId}
+                    item={item}
+                    index={index}
+                    theme={theme}
+                    drag={drag}
+                    isActive={isActive}
+                    moveExercise={moveExerciseWeb}
+                    removeExercicio={actions.removeExercicio}
+                    setIsSelectingSubstitute={setters.setIsSelectingSubstitute}
+                    setTargetIndexForSubstitute={setters.setTargetIndexForSubstitute}
+                    setModalBuscaVisible={setters.setModalBuscaVisible}
+                    removeSubstitute={actions.removeSubstitute}
+                    atualizarBloco={actions.atualizarBloco}
+                    adicionarBloco={actions.adicionarBloco}
+                    removerBloco={actions.removerBloco}
+                    setIndexExercicioAtual={setters.setIndexExercicioAtual}
+                    setIndexBlocoAtual={setters.setIndexBlocoAtual}
+                    setModalTecnicaVisible={setters.setModalTecnicaVisible}
+                    atualizarObservacao={actions.atualizarObservacao}
+                    openPreview={actions.openPreview}
+                    currentExercisesLength={state.currentExercises.length}
+                    setIsSwapping={setters.setIsSwapping}
+                    setSwapIndex={setters.setSwapIndex}
+                    workoutModel={state.workoutModel}
+                    setInitialCategoryFilter={(catName) => {
+                        const normalizedCat = catName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                        const foundCat = state.categories.find(c =>
+                            c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === normalizedCat
+                        );
+                        if (foundCat) setters.setSelectedCategory(foundCat);
+                    }}
+                />
+            </View>
+        );
+    }, [theme, state, setters, actions, moveExerciseWeb]);
 
-  const currentExOpened = state.currentExercises[state.indexExercicioAtual];
-  const isCurrentCardio = currentExOpened?.category?.toUpperCase() === 'CARDIO';
-  const modalOptionsToShow = isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis;
-  const modalTitleToShow = isCurrentCardio ? 'INTENSIDADE' : 'TÉCNICA';
+    const rootStyle = isWeb
+        ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' }
+        : { flex: 1, backgroundColor: theme.bg };
 
-  return (
-    <RootComponent style={rootStyle}>
-      <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
-      
-      <View style={{ width: '100%', backgroundColor: theme.bg, zIndex: 10, ...(isWeb ? { borderBottomWidth: 1, borderBottomColor: theme.border } : {}) }}>
-          <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: isWeb ? 20 : 10, paddingBottom: 15 }}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, width: 45, alignItems: 'center' }}>
-                  <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
-              </TouchableOpacity>
-              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', letterSpacing: 1, flex: 1, textAlign: 'center' }} numberOfLines={1}>
-                  {route.params?.isEditing ? "EDITAR ROTINA" : "NOVA ROTINA"}
-              </Text>
-              <TouchableOpacity onPress={actions.salvarTreinoFinal} disabled={state.sending} style={{ width: 45, alignItems: 'center' }}>
-                  {state.sending ? <ActivityIndicator color={theme.accent}/> : <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 12 }}>SALVAR</Text>}
-              </TouchableOpacity>
-          </View>
-      </View>
+    if (isRouteCorrupted) {
+        return (
+            <View style={[styles.center, rootStyle]}>
+                <View style={[styles.errorBox, { backgroundColor: theme.surface }]}>
+                    <MaterialCommunityIcons name="alert-decagram" size={48} color="#FF3B30" style={{ marginBottom: 16 }} />
+                    <Text style={[styles.errorTitle, { color: theme.text }]}>Erro de rota</Text>
+                    <Text style={[styles.errorDesc, { color: theme.textSecondary }]}>
+                        O objeto do aluno foi corrompido para{' '}
+                        <Text style={{ fontWeight: '800', color: '#FF3B30' }}>[object Object]</Text>.
+                        Volte e tente novamente.
+                    </Text>
+                    <TouchableOpacity style={[styles.errorBtn, { backgroundColor: theme.accent }]} onPress={() => navigation.goBack()}>
+                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900' }}>Voltar</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        );
+    }
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, width: '100%' }} enabled={Platform.OS !== 'web'}>
-          <ScrollView 
-              style={isWeb ? { flex: 1, width: '100%', overflowY: 'auto', overscrollBehaviorY: 'none' } : { flex: 1, width: '100%' }} 
-              contentContainerStyle={{ flexGrow: 1, alignItems: 'center', width: '100%' }} 
-              showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never"
-          >
-              <View style={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, flex: 1, padding: 20, paddingBottom: 150, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, minHeight: '100%' } : {}) }}>
-                    
-                      {/* 🔥 SANFONA DO RAIO-X IMPLEMENTADA AQUI 🔥 */}
-                      {!state.isTemplateMode && anamneseData && (
-                          <View style={[styles.anamneseCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                              <TouchableOpacity style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'}} onPress={() => setIsRaioxExpanded(!isRaioxExpanded)}>
-                                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                                      <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={theme.accent} />
-                                      <Text style={{color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 1}}>RAIO-X DO ALUNO {anamneseData.isSetupTreino ? '(BÁSICO)' : ''}</Text>
-                                  </View>
-                                  <MaterialCommunityIcons name={isRaioxExpanded ? "chevron-up" : "chevron-down"} size={22} color={theme.accent} />
-                              </TouchableOpacity>
+    if (state.loading) return (
+        <View style={[styles.center, { backgroundColor: theme.bg }]}>
+            <ActivityIndicator size="large" color={theme.accent} />
+        </View>
+    );
 
-                              {isRaioxExpanded && (
-                                  <View style={{marginTop: 15}}>
-                                      <View style={styles.anamneseRow}>
-                                          <View style={styles.anamneseCol}>
-                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>OBJETIVO</Text>
-                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.objetivo}</Text>
-                                          </View>
-                                          <View style={styles.anamneseCol}>
-                                              <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>NÍVEL</Text>
-                                              <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.nivel}</Text>
-                                          </View>
-                                      </View>
+    const currentExOpened = state.currentExercises[state.indexExercicioAtual];
+    const isCurrentCardio = currentExOpened?.category?.toUpperCase() === 'CARDIO';
+    const modalOptionsToShow = isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis;
+    const modalTitleToShow = isCurrentCardio ? 'Intensidade' : 'Técnica';
 
-                                      {anamneseData.isSetupTreino && anamneseData.foco && (
-                                          <View style={[styles.anamneseRow, { marginBottom: 0 }]}>
-                                              <View style={styles.anamneseCol}>
-                                                  <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>FOCO PRINCIPAL</Text>
-                                                  <Text style={{color: theme.accent, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.foco}</Text>
-                                              </View>
-                                          </View>
-                                      )}
+    // 🔥 NOVO SELETOR DE DIAS (DROPDOWN MODERNO) 🔥
+    const DaySelector = () => (
+        <View style={styles.daySelectorWrapper}>
+            <TouchableOpacity
+                style={[styles.daySelectorBtn, {
+                    backgroundColor: theme.surface,
+                    borderColor: dayDropdownOpen ? theme.accent + '60' : theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    ...Platform.select({
+                        ios: { shadowColor: '#000', shadowOpacity: 0.07, shadowRadius: 10, shadowOffset: { width: 0, height: 3 } },
+                        android: { elevation: 2 },
+                        web: { boxShadow: '0 2px 12px rgba(0,0,0,0.08)' },
+                    }),
+                }]}
+                onPress={() => setDayDropdownOpen(!dayDropdownOpen)}
+                activeOpacity={0.8}
+            >
+                <View style={[styles.dayIconBox, { backgroundColor: theme.accent }]}>
+                    <MaterialCommunityIcons name="calendar-today" size={16} color={theme.isDark ? '#000' : '#FFF'} />
+                </View>
+                <View style={styles.daySelectorInfo}>
+                    <Text style={[styles.daySelectorLabel, { color: theme.textSecondary }]}>DIA ATIVO</Text>
+                    <Text style={[styles.daySelectorValue, { color: theme.text }]}>
+                        {state.selectedWorkoutTab}
+                        <Text style={[styles.daySelectorCount, { color: theme.textSecondary }]}>
+                            {' '}· {state.currentExercises.length} exercício{state.currentExercises.length !== 1 ? 's' : ''}
+                        </Text>
+                    </Text>
+                </View>
+                <View style={[styles.chevronBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}>
+                    <MaterialCommunityIcons name={dayDropdownOpen ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
+                </View>
+            </TouchableOpacity>
 
-                                      {!anamneseData.isSetupTreino && (
-                                          <>
-                                              <View style={styles.anamneseRow}>
-                                                  <View style={styles.anamneseCol}>
-                                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>ROTINA</Text>
-                                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.frequencia ? `${anamneseData.frequencia}x sem` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel}min` : '-'}</Text>
-                                                  </View>
-                                                  <View style={styles.anamneseCol}>
-                                                      <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: 'bold'}}>CORPO</Text>
-                                                      <Text style={{color: theme.text, fontSize: 14, fontWeight: 'bold'}}>{anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}</Text>
-                                                  </View>
-                                              </View>
+            {dayDropdownOpen && (
+                <View style={[styles.dayDropdown, {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    ...Platform.select({
+                        ios: { shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } },
+                        android: { elevation: 6 },
+                        web: { boxShadow: '0 6px 24px rgba(0,0,0,0.12)' },
+                    }),
+                }]}>
+                    {state.workoutTabs.map((tab, tabIndex) => {
+                        const isSelected = tab === state.selectedWorkoutTab;
+                        const isEditing = editingTabName === tab;
+                        const exCount = (state.exercisesByDay[tab] || []).length;
 
-                                              {(anamneseData.limitacoes && anamneseData.limitacoes.length > 0 && !anamneseData.limitacoes.includes('Nenhuma')) && (
-                                                  <View style={{marginTop: 15, padding: 10, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF3B30'}}>
-                                                      <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ LIMITAÇÕES / DORES</Text>
-                                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.limitacoes.join(', ')}</Text>
-                                                  </View>
-                                              )}
+                        return (
+                            <View
+                                key={tab}
+                                style={[styles.dayRow, {
+                                    backgroundColor: isSelected ? theme.accent + '12' : 'transparent',
+                                    borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                                    borderBottomWidth: tabIndex < state.workoutTabs.length - 1 ? 1 : 0,
+                                }]}
+                            >
+                                {/* INDICADOR ATIVO */}
+                                <View style={[styles.dayActiveBar, { backgroundColor: isSelected ? theme.accent : 'transparent' }]} />
 
-                                              {(anamneseData.cirurgias && anamneseData.cirurgias.length > 0 && !anamneseData.cirurgias.includes('Nenhuma')) && (
-                                                  <View style={{marginTop: 10, padding: 10, backgroundColor: 'rgba(255,149,0,0.1)', borderRadius: 8, borderWidth: 1, borderColor: '#FF9500'}}>
-                                                      <Text style={{color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginBottom: 4}}>⚠️ CIRURGIAS</Text>
-                                                      <Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{anamneseData.cirurgias.join(', ')}</Text>
-                                                  </View>
-                                              )}
-                                          </>
-                                      )}
-                                  </View>
-                              )}
-                          </View>
-                      )}
-
-                      {/* 🔥 O COMPONENTE MODULARIZADO SUBSTITUINDO A BUROCRACIA 🔥 */}
-                      {!state.isTemplateMode && (
-                          <WorkoutSettingsCard state={state} setters={setters} actions={actions} theme={theme} />
-                      )}
-
-                      <View style={{flexDirection:'row', gap:10, marginBottom:15}}>
-                            {state.isReordering ? (
-                                <TouchableOpacity style={[styles.actionBtn, {backgroundColor: '#28a745', flex:1}]} onPress={() => setters.setIsReordering(false)}>
-                                    <MaterialCommunityIcons name="check" size={20} color="#FFF" />
-                                    <Text style={[styles.actionBtnText, {color:'#FFF'}]}>FINALIZAR ORDENAÇÃO</Text>
-                                </TouchableOpacity>
-                            ) : (
-                                <>
-                                    <TouchableOpacity style={[styles.actionBtn, {borderColor: theme.accent, borderWidth:1, flex:1}]} onPress={() => setters.setIsReordering(true)}>
-                                        <MaterialCommunityIcons name="sort" size={20} color={theme.accent} />
-                                        <Text style={[styles.actionBtnText, {color: theme.accent}]}>REORDENAR</Text>
-                                    </TouchableOpacity>
+                                {/* 🔥 ENVELOPAMOS O NOME E AS AÇÕES PARA FICAREM EM LINHAS SEPARADAS */}
+                                <View style={styles.dayContentWrapper}>
                                     
-                                    <TouchableOpacity style={[styles.actionBtn, {backgroundColor: theme.accent, flex:1}]} onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}>
-                                        <MaterialCommunityIcons name="plus" size={20} color={theme.isDark ? "#000" : "#FFF"} />
-                                        <Text style={[styles.actionBtnText, {color: theme.isDark ? "#000" : "#FFF"}]}>ADICIONAR</Text>
-                                    </TouchableOpacity>
+                                    {/* LINHA 1: NOME OU INPUT */}
+                                    {isEditing ? (
+                                        <TextInput
+                                            style={[styles.dayRenameInput, {
+                                                color: theme.text,
+                                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                                                borderColor: theme.accent + '60',
+                                            }]}
+                                            value={editingTabValue}
+                                            onChangeText={setEditingTabValue}
+                                            autoFocus
+                                            onSubmitEditing={() => confirmRenameTab(tab)}
+                                            onBlur={() => confirmRenameTab(tab)}
+                                        />
+                                    ) : (
+                                        <TouchableOpacity
+                                            style={styles.dayNameBtn}
+                                            onPress={() => {
+                                                setters.setSelectedWorkoutTab(tab);
+                                                setDayDropdownOpen(false);
+                                            }}
+                                        >
+                                            <Text style={[styles.dayName, {
+                                                color: isSelected ? theme.accent : theme.text,
+                                                fontWeight: isSelected ? '900' : '600',
+                                            }]}>{tab}</Text>
+                                            <Text style={[styles.dayCount, { color: theme.textSecondary }]}>
+                                                {exCount} ex.
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {/* LINHA 2: AÇÕES MODERNAS COM BOTÕES PÍLULA */}
+                                    <View style={styles.dayRowActions}>
+                                        <View style={{ flexDirection: 'row', backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderRadius: 10, overflow: 'hidden' }}>
+                                            <TouchableOpacity style={styles.actionPillIcon} onPress={() => moveTab(tab, 'up')} disabled={tabIndex === 0}>
+                                                <MaterialCommunityIcons name="arrow-up" size={16} color={tabIndex === 0 ? theme.textSecondary + '40' : theme.textSecondary} />
+                                            </TouchableOpacity>
+                                            <View style={{ width: 1, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }} />
+                                            <TouchableOpacity style={styles.actionPillIcon} onPress={() => moveTab(tab, 'down')} disabled={tabIndex === state.workoutTabs.length - 1}>
+                                                <MaterialCommunityIcons name="arrow-down" size={16} color={tabIndex === state.workoutTabs.length - 1 ? theme.textSecondary + '40' : theme.textSecondary} />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <TouchableOpacity
+                                            style={[styles.actionPillBtn, { backgroundColor: isEditing ? theme.accent + '25' : theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}
+                                            onPress={() => {
+                                                if (isEditing) confirmRenameTab(tab);
+                                                else { setEditingTabName(tab); setEditingTabValue(tab); }
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name={isEditing ? 'check-circle' : 'pencil'} size={14} color={isEditing ? theme.accent : theme.textSecondary} />
+                                            <Text style={[styles.actionPillText, { color: isEditing ? theme.accent : theme.textSecondary }]}>
+                                                {isEditing ? 'SALVAR' : 'EDITAR'}
+                                            </Text>
+                                        </TouchableOpacity>
+
+                                        <TouchableOpacity
+                                            style={[styles.actionPillBtn, { backgroundColor: 'rgba(255,59,48,0.1)', opacity: state.workoutTabs.length <= 1 ? 0.3 : 1 }]}
+                                            onPress={() => deleteTabInline(tab)}
+                                            disabled={state.workoutTabs.length <= 1}
+                                        >
+                                            <MaterialCommunityIcons name="trash-can" size={14} color="#FF3B30" />
+                                            <Text style={[styles.actionPillText, { color: '#FF3B30' }]}>EXCLUIR</Text>
+                                        </TouchableOpacity>
+                                    </View>
+
+                                </View>
+                            </View>
+                        );                    })}
+
+                    <TouchableOpacity
+                        style={[styles.addDayBtn, { borderTopColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)' }]}
+                        onPress={() => {
+                            actions.addNewTab();
+                            setDayDropdownOpen(false);
+                        }}
+                    >
+                        <View style={[styles.addDayIconBox, { backgroundColor: theme.accent + '20' }]}>
+                            <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                        </View>
+                        <Text style={[styles.addDayText, { color: theme.accent }]}>Adicionar dia de treino</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+        </View>
+    );
+
+    const SharedHeader = () => (
+        <View style={styles.scrollContent}>
+            {!state.isTemplateMode && anamneseData && (
+                <View style={[styles.raioxCard, { backgroundColor: theme.surface },
+                    Platform.select({
+                        ios: { shadowColor: '#000', shadowOpacity: theme.isDark ? 0.3 : 0.07, shadowRadius: 16, shadowOffset: { width: 0, height: 5 } },
+                        android: { elevation: 3 },
+                        web: { boxShadow: theme.isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 20px rgba(0,0,0,0.07)' },
+                    }),
+                ]}>
+                    <TouchableOpacity
+                        style={[styles.raioxHeader, { backgroundColor: isRaioxExpanded ? theme.accent + '12' : 'transparent', borderRadius: isRaioxExpanded ? 10 : 0 }]}
+                        onPress={() => setIsRaioxExpanded(!isRaioxExpanded)}
+                    >
+                        <View style={styles.raioxHeaderLeft}>
+                            <View style={[styles.raioxIconBox, { backgroundColor: theme.accent }]}>
+                                <MaterialCommunityIcons name="clipboard-pulse-outline" size={16} color={theme.isDark ? '#000' : '#FFF'} />
+                            </View>
+                            <View>
+                                <Text style={[styles.raioxTitle, { color: theme.text }]}>Raio-X do Aluno</Text>
+                                {anamneseData.isSetupTreino && (
+                                    <Text style={[styles.raioxSubtitle, { color: theme.textSecondary }]}>Dados básicos</Text>
+                                )}
+                            </View>
+                        </View>
+                        <View style={[styles.chevronBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }]}>
+                            <MaterialCommunityIcons name={isRaioxExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={theme.textSecondary} />
+                        </View>
+                    </TouchableOpacity>
+                    {isRaioxExpanded && (
+                        <View style={styles.raioxBody}>
+                            <View style={styles.raioxRow}>
+                                <View style={styles.raioxCol}>
+                                    <Text style={[styles.raioxLabel, { color: theme.textSecondary }]}>OBJETIVO</Text>
+                                    <Text style={[styles.raioxValue, { color: theme.text }]}>{anamneseData.objetivo}</Text>
+                                </View>
+                                <View style={styles.raioxCol}>
+                                    <Text style={[styles.raioxLabel, { color: theme.textSecondary }]}>NÍVEL</Text>
+                                    <Text style={[styles.raioxValue, { color: theme.text }]}>{anamneseData.nivel}</Text>
+                                </View>
+                            </View>
+                            {anamneseData.isSetupTreino && anamneseData.foco && (
+                                <View style={[styles.raioxRow, { marginBottom: 0 }]}>
+                                    <View style={styles.raioxCol}>
+                                        <Text style={[styles.raioxLabel, { color: theme.textSecondary }]}>FOCO PRINCIPAL</Text>
+                                        <Text style={[styles.raioxValue, { color: theme.accent }]}>{anamneseData.foco}</Text>
+                                    </View>
+                                </View>
+                            )}
+                            {!anamneseData.isSetupTreino && (
+                                <>
+                                    <View style={styles.raioxRow}>
+                                        <View style={styles.raioxCol}>
+                                            <Text style={[styles.raioxLabel, { color: theme.textSecondary }]}>ROTINA</Text>
+                                            <Text style={[styles.raioxValue, { color: theme.text }]}>
+                                                {anamneseData.frequencia ? `${anamneseData.frequencia}x sem` : '-'} | {anamneseData.tempoDisponivel ? `${anamneseData.tempoDisponivel}min` : '-'}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.raioxCol}>
+                                            <Text style={[styles.raioxLabel, { color: theme.textSecondary }]}>CORPO</Text>
+                                            <Text style={[styles.raioxValue, { color: theme.text }]}>
+                                                {anamneseData.peso ? `${anamneseData.peso}kg` : '-'} | {anamneseData.altura ? `${anamneseData.altura}cm` : '-'}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                    {anamneseData.limitacoes?.length > 0 && !anamneseData.limitacoes.includes('Nenhuma') && (
+                                        <View style={styles.alertBox}>
+                                            <Text style={styles.alertBoxTitle}>⚠️ LIMITAÇÕES / DORES</Text>
+                                            <Text style={[styles.alertBoxText, { color: theme.text }]}>{anamneseData.limitacoes.join(', ')}</Text>
+                                        </View>
+                                    )}
+                                    {anamneseData.cirurgias?.length > 0 && !anamneseData.cirurgias.includes('Nenhuma') && (
+                                        <View style={[styles.alertBox, { backgroundColor: 'rgba(255,149,0,0.1)', borderColor: '#FF9500', marginTop: 8 }]}>
+                                            <Text style={[styles.alertBoxTitle, { color: '#FF9500' }]}>⚠️ CIRURGIAS</Text>
+                                            <Text style={[styles.alertBoxText, { color: theme.text }]}>{anamneseData.cirurgias.join(', ')}</Text>
+                                        </View>
+                                    )}
                                 </>
                             )}
-                       </View>
+                        </View>
+                    )}
+                </View>
+            )}
 
-                      {state.isTemplateMode && (
-                          <View style={[styles.configBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                              <Text style={[styles.miniLabel, { color: theme.textSecondary }]}>NOME DO MODELO</Text>
-                              <TextInput style={[styles.nameInput, { backgroundColor: theme.bg, color: theme.accent, borderColor: theme.border, marginTop: 10 }]} placeholder="Ex: Hipertrofia Elite A/B/C" placeholderTextColor={theme.textSecondary} value={state.customWorkoutName} onChangeText={setters.setCustomWorkoutName} />
-                              <Text style={[styles.miniLabel, { color: theme.textSecondary, marginTop: 10 }]}>CATEGORIA / PASTA</Text>
-                              <View style={{flexDirection:'row', gap:8, marginTop:10, flexWrap:'wrap'}}>
-                                  {['Hipertrofia','Emagrecimento','Força'].map(g => (
-                                      <TouchableOpacity key={g} style={[styles.tag, { borderColor: theme.border, backgroundColor: theme.bg }, state.templateGoalInput===g && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>setters.setTemplateGoalInput(g)}>
-                                          <Text style={[styles.tagText, { color: theme.textSecondary }, state.templateGoalInput===g && {color: theme.isDark ? '#000' : '#FFF'}]}>{g}</Text>
-                                      </TouchableOpacity>
-                                  ))}
-                              </View>
-                              <View style={{flexDirection:'row', gap:8, marginTop:10, flexWrap:'wrap'}}>
-                                      {['Iniciante','Intermediário','Avançado'].map(l => (
-                                          <TouchableOpacity key={l} style={[styles.tag, { borderColor: theme.border, backgroundColor: theme.bg }, state.templateLevelInput===l && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={()=>setters.setTemplateLevelInput(l)}>
-                                              <Text style={[styles.tagText, { color: theme.textSecondary }, state.templateLevelInput===l && {color: theme.isDark ? '#000' : '#FFF'}]}>{l}</Text>
-                                          </TouchableOpacity>
-                                      ))}
-                              </View>
-                          </View>
-                      )}
+            {!state.isTemplateMode && (
+                <WorkoutSettingsCard state={state} setters={setters} actions={actions} theme={theme} />
+            )}
 
-                      {/* 🔥 LADO A LADO: LIMPAR DIA E MODO ESPIÃO 🔥 */}
-                      <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20 }}>
-                          <TouchableOpacity style={[styles.actionBtn, {backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, flex: 1}]} onPress={actions.handleClearWorkout}>
-                              <MaterialCommunityIcons name="delete-sweep" size={18} color={theme.textSecondary} />
-                              <Text style={[styles.actionBtnText, {color: theme.textSecondary}]}>LIMPAR DIA</Text>
-                          </TouchableOpacity>
+            {state.isTemplateMode && (
+                <View style={[styles.templateBox, {
+                    backgroundColor: theme.surface,
+                    ...Platform.select({
+                        ios: { shadowColor: '#000', shadowOpacity: theme.isDark ? 0.3 : 0.07, shadowRadius: 16, shadowOffset: { width: 0, height: 5 } },
+                        android: { elevation: 3 },
+                    }),
+                }]}>
+                    <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>NOME DO MODELO</Text>
+                    <TextInput
+                        style={[styles.templateNameInput, {
+                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                            color: theme.accent,
+                            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                        }]}
+                        placeholder="Ex: Hipertrofia Elite A/B/C"
+                        placeholderTextColor={theme.textSecondary}
+                        value={state.customWorkoutName}
+                        onChangeText={setters.setCustomWorkoutName}
+                    />
+                    <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginTop: 14 }]}>CATEGORIA</Text>
+                    <View style={styles.tagRow}>
+                        {['Hipertrofia', 'Emagrecimento', 'Força'].map(g => (
+                            <TouchableOpacity key={g} style={[styles.tag, {
+                                backgroundColor: state.templateGoalInput === g ? theme.accent : theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                                borderColor: state.templateGoalInput === g ? theme.accent : theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                            }]} onPress={() => setters.setTemplateGoalInput(g)}>
+                                <Text style={[styles.tagText, { color: state.templateGoalInput === g ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>{g}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                    <View style={[styles.tagRow, { marginTop: 8 }]}>
+                        {['Iniciante', 'Intermediário', 'Avançado'].map(l => (
+                            <TouchableOpacity key={l} style={[styles.tag, {
+                                backgroundColor: state.templateLevelInput === l ? theme.accent : theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+                                borderColor: state.templateLevelInput === l ? theme.accent : theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                            }]} onPress={() => setters.setTemplateLevelInput(l)}>
+                                <Text style={[styles.tagText, { color: state.templateLevelInput === l ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>{l}</Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+            )}
 
-                          {route.params?.isEditing && (
-                              <TouchableOpacity 
-                                  style={[styles.actionBtn, {backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 1, flex: 1.5}]} 
-                                  onPress={() => {
-                                      navigation.navigate('DayWorkoutScreen', { 
-                                          workoutId: route.params.workoutToEdit.id, 
-                                          day: state.selectedWorkoutTab, 
-                                          workoutName: state.customWorkoutName,
-                                          isPreview: true 
-                                      });
-                                  }}
-                              >
-                                  <MaterialCommunityIcons name="eye" size={18} color={theme.accent} />
-                                  <Text style={[styles.actionBtnText, {color: theme.accent}]}>VISUALIZAR TREINO DO ALUNO</Text>
-                              </TouchableOpacity>
-                          )}
-                      </View>
+            <TouchableOpacity
+                style={[styles.addBtn, {
+                    backgroundColor: theme.accent,
+                    ...Platform.select({ ios: { shadowColor: theme.accent, shadowOpacity: 0.4, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } } }),
+                }]}
+                onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}
+            >
+                <MaterialCommunityIcons name="plus-circle" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                <Text style={[styles.addBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ADICIONAR EXERCÍCIO</Text>
+            </TouchableOpacity>
 
-                      <View style={{ marginBottom: 15 }}>
-                          <ScrollView horizontal showsHorizontalScrollIndicator={isWeb} style={isWeb ? { overflowX: 'auto' } : {}} contentContainerStyle={{ gap: 10, paddingBottom: 5 }}>
-                              {state.workoutTabs.map(tab => (
-                                  <TouchableOpacity 
-                                      key={tab} 
-                                      style={[styles.tabBtnDynamic, { backgroundColor: theme.surface, borderColor: theme.border }, state.selectedWorkoutTab === tab && { borderColor: theme.accent, backgroundColor: theme.accent + '11' }]} 
-                                      onPress={() => { 
-                                          if(state.selectedWorkoutTab === tab) { setters.setNewTabName(tab); setters.setRenameTabModalVisible(true);
-                                          } else {
-                                              setters.setSelectedWorkoutTab(tab); 
-                                              if(!state.exercisesByDay[tab]) { const updated = {...state.exercisesByDay, [tab]: []}; setters.setExercisesByDay(updated); }
-                                          }
-                                      }}
-                                  >
-                                      <Text style={[styles.tabBtnTextDynamic, { color: theme.textSecondary }, state.selectedWorkoutTab === tab && { color: theme.accent }]}>{tab}</Text>
-                                      {state.selectedWorkoutTab === tab && <MaterialCommunityIcons name="pencil" size={12} color={theme.accent} style={{marginLeft: 5}} />}
-                                  </TouchableOpacity>
-                              ))}
-                              <TouchableOpacity style={[styles.tabBtnDynamic, { backgroundColor: theme.surface, borderColor: theme.border, borderStyle: 'dashed' }]} onPress={actions.addNewTab}>
-                                  <MaterialCommunityIcons name="plus" size={18} color={theme.textSecondary} />
-                              </TouchableOpacity>
-                          </ScrollView>
-                      </View>
+            <View style={[styles.actionRow, { marginBottom: 20 }]}>
+                <TouchableOpacity
+                    style={[styles.utilBtn, {
+                        backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    }]}
+                    onPress={actions.handleClearWorkout}
+                >
+                    <MaterialCommunityIcons name="delete-sweep" size={17} color={theme.textSecondary} />
+                    <Text style={[styles.utilBtnText, { color: theme.textSecondary }]}>LIMPAR DIA</Text>
+                </TouchableOpacity>
+                {route.params?.isEditing && (
+                    <TouchableOpacity
+                        style={[styles.utilBtn, { flex: 1.5, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.accent + '50' }]}
+                        onPress={() => navigation.navigate('DayWorkoutScreen', {
+                            workoutId: route.params.workoutToEdit.id,
+                            day: state.selectedWorkoutTab,
+                            workoutName: state.customWorkoutName,
+                            isPreview: true,
+                        })}
+                    >
+                        <MaterialCommunityIcons name="eye" size={17} color={theme.accent} />
+                        <Text style={[styles.utilBtnText, { color: theme.accent }]}>VER TREINO DO ALUNO</Text>
+                    </TouchableOpacity>
+                )}
+            </View>
 
-                      {state.isReordering && <Text style={{color: theme.textSecondary, textAlign:'center', fontStyle:'italic', marginBottom:10}}>Use as setas para mover os itens</Text>}
+            {/* AQUI ESTÁ O NOVO DROPDOWN NO LUGAR DOS BOTÕES */}
+            <DaySelector />
 
-                      {state.currentExercises.length === 0 ? (
-                          <View style={{alignItems:'center', marginTop:30}}>
-                              <MaterialCommunityIcons name="dumbbell" size={40} color={theme.border} />
-                              <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Dia vazio.</Text>
-                          </View>
-                      ) : (
-                          <>
-                          {state.currentExercises.map((item, index) => (
-                              <ExerciseCardAdmin 
-                                  key={item.tempId} item={item} index={index} theme={theme}
-                                  isReordering={state.isReordering} moveExercise={actions.moveExercise} removeExercicio={actions.removeExercicio}
-                                  setIsSelectingSubstitute={setters.setIsSelectingSubstitute} setTargetIndexForSubstitute={setters.setTargetIndexForSubstitute}
-                                  setModalBuscaVisible={setters.setModalBuscaVisible} removeSubstitute={actions.removeSubstitute}
-                                  atualizarBloco={actions.atualizarBloco} adicionarBloco={actions.adicionarBloco} removerBloco={actions.removerBloco}
-                                  setIndexExercicioAtual={setters.setIndexExercicioAtual} setIndexBlocoAtual={setters.setIndexBlocoAtual}
-                                  setModalTecnicaVisible={setters.setModalTecnicaVisible} atualizarObservacao={actions.atualizarObservacao}
-                                  openPreview={actions.openPreview} currentExercisesLength={state.currentExercises.length}
-                                  setIsSwapping={setters.setIsSwapping} setSwapIndex={setters.setSwapIndex}
-                                  workoutModel={state.workoutModel}
-                                  setInitialCategoryFilter={(catName) => {
-                                      const normalizedCat = catName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-                                      const foundCat = state.categories.find(c => c.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === normalizedCat);
-                                      if (foundCat) setters.setSelectedCategory(foundCat);
-                                  }}
-                              />
-                          ))}
-                          
-                          {!state.isReordering && (
-                              <TouchableOpacity style={[styles.addBtnSmall, { borderColor: theme.border }]} onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}>
-                                  <Text style={[styles.addBtnText, { color: theme.textSecondary }]}>+ ADICIONAR EXERCÍCIO</Text>
-                              </TouchableOpacity>
-                          )}
-                          
-                          {!state.isTemplateMode && (
-                              <TouchableOpacity style={{ marginTop: 25, padding: 15, borderRadius: 12, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }} onPress={() => setters.setModalSaveTemplateVisible(true)}>
-                                  <MaterialCommunityIcons name="content-save-all" size={18} color={theme.accent} />
-                                  <Text style={{color: theme.accent, fontWeight: 'bold', fontSize: 12}}>SALVAR ROTINA COMO TEMPLATE</Text>
-                              </TouchableOpacity>
-                          )}
-                          </>
-                      )}
-              </View>
-          </ScrollView>
-      </KeyboardAvoidingView>
+            {state.currentExercises.length === 0 && (
+                <View style={[styles.emptyState, { borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                    <View style={[styles.emptyIconBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                        <MaterialCommunityIcons name="dumbbell" size={36} color={theme.textSecondary} style={{ opacity: 0.5 }} />
+                    </View>
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia sem exercícios</Text>
+                    <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>
+                        Adicione exercícios usando o botão acima ou importe um template nas configurações.
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
 
-      <LibraryModals 
-          theme={theme} isWeb={isWeb} webOuterBg={webOuterBg}
-          modalBuscaVisible={state.modalBuscaVisible} setModalBuscaVisible={setters.setModalBuscaVisible}
-          searchText={state.searchText} setSearchText={setters.setSearchText}
-          selectedCategory={state.selectedCategory} setSelectedCategory={setters.setSelectedCategory}
-          showCatDropdown={state.showCatDropdown} setShowCatDropdown={setters.setShowCatDropdown}
-          categories={state.categories} exerciciosFiltrados={state.exerciciosFiltrados}
-          addExercicioManual={actions.addExercicioManual} isSwapping={state.isSwapping}
-          openPreview={actions.openPreview} previewModalVisible={state.previewModalVisible}
-          setPreviewModalVisible={setters.setPreviewModalVisible} previewExercise={state.previewExercise}
-          setPreviewExercise={setters.setPreviewExercise} previewVideoRef={previewVideoRef}
-          currentExercises={state.currentExercises}
-      />
+    const SharedFooter = () => (
+        <View style={styles.listFooter}>
+            {state.currentExercises.length > 0 && (
+                <>
+                    <TouchableOpacity
+                        style={[styles.addMoreBtn, { borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}
+                        onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}
+                    >
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.textSecondary} />
+                        <Text style={[styles.addMoreBtnText, { color: theme.textSecondary }]}>Adicionar mais exercícios</Text>
+                    </TouchableOpacity>
+                    {!state.isTemplateMode && (
+                        <TouchableOpacity
+                            style={[styles.saveTemplateBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.accent + '40' }]}
+                            onPress={() => setters.setModalSaveTemplateVisible(true)}
+                        >
+                            <MaterialCommunityIcons name="content-save-all" size={17} color={theme.accent} />
+                            <Text style={[styles.saveTemplateBtnText, { color: theme.accent }]}>Salvar como template</Text>
+                        </TouchableOpacity>
+                    )}
+                </>
+            )}
+            <View style={{ height: 120 }} />
+        </View>
+    );
 
-      <TemplateAndCloneModals 
-          theme={theme} isWeb={isWeb} webOuterBg={webOuterBg}
-          modalCloneVisible={state.modalCloneVisible} setModalCloneVisible={setters.setModalCloneVisible}
-          cloneStudentsList={state.cloneStudentsList} selectedCloneStudent={state.selectedCloneStudent} setSelectedCloneStudent={setters.setSelectedCloneStudent}
-          cloneWorkoutsList={state.cloneWorkoutsList} applyClone={actions.applyClone} fetchWorkoutsOfStudent={actions.fetchWorkoutsOfStudent}
-          modalTemplatesVisible={state.modalTemplatesVisible} setModalTemplatesVisible={setters.setModalTemplatesVisible}
-          templatesList={state.templatesList} goals={state.goals} levels={state.levels}
-          templateGoal={state.templateGoal} setTemplateGoal={setters.setTemplateGoal} templateLevel={state.templateLevel} setTemplateLevel={setters.setTemplateLevel}
-          fetchTemplates={actions.fetchTemplates} applyTemplate={actions.applyTemplate}
-          modalSaveTemplateVisible={state.modalSaveTemplateVisible} setModalSaveTemplateVisible={setters.setModalSaveTemplateVisible}
-          saveTemplateName={state.saveTemplateName} setSaveTemplateName={setters.setSaveTemplateName}
-          templateGoalInput={state.templateGoalInput} setTemplateGoalInput={setters.setTemplateGoalInput}
-          templateLevelInput={state.templateLevelInput} setTemplateLevelInput={setters.setTemplateLevelInput}
-          saveAsTemplate={actions.saveAsTemplate}
-          collections={state.collections} 
-          saveTemplateCollectionId={state.saveTemplateCollectionId} 
-          setSaveTemplateCollectionId={setters.setSaveTemplateCollectionId}
-          selectedLibraryCollection={state.selectedLibraryCollection} setSelectedLibraryCollection={setters.setSelectedLibraryCollection}
-          selectedPillar={state.selectedPillar} setSelectedPillar={setters.setSelectedPillar}
-          selectedLevelTab={state.selectedLevelTab} setSelectedLevelTab={setters.setSelectedLevelTab}
-      />
+    const Modais = () => (
+        <>
+            <LibraryModals
+                theme={theme} isWeb={isWeb} webOuterBg={webOuterBg}
+                modalBuscaVisible={state.modalBuscaVisible} setModalBuscaVisible={setters.setModalBuscaVisible}
+                searchText={state.searchText} setSearchText={setters.setSearchText}
+                selectedCategory={state.selectedCategory} setSelectedCategory={setters.setSelectedCategory}
+                showCatDropdown={state.showCatDropdown} setShowCatDropdown={setters.setShowCatDropdown}
+                categories={state.categories} exerciciosFiltrados={state.exerciciosFiltrados}
+                addExercicioManual={actions.addExercicioManual} isSwapping={state.isSwapping}
+                openPreview={actions.openPreview} previewModalVisible={state.previewModalVisible}
+                setPreviewModalVisible={setters.setPreviewModalVisible} previewExercise={state.previewExercise}
+                setPreviewExercise={setters.setPreviewExercise} previewVideoRef={previewVideoRef}
+                currentExercises={state.currentExercises}
+            />
+            <TemplateAndCloneModals
+                theme={theme} isWeb={isWeb} webOuterBg={webOuterBg}
+                modalCloneVisible={state.modalCloneVisible} setModalCloneVisible={setters.setModalCloneVisible}
+                cloneStudentsList={state.cloneStudentsList} selectedCloneStudent={state.selectedCloneStudent} setSelectedCloneStudent={setters.setSelectedCloneStudent}
+                cloneWorkoutsList={state.cloneWorkoutsList} applyClone={actions.applyClone} fetchWorkoutsOfStudent={actions.fetchWorkoutsOfStudent}
+                modalTemplatesVisible={state.modalTemplatesVisible} setModalTemplatesVisible={setters.setModalTemplatesVisible}
+                templatesList={state.templatesList} goals={state.goals} levels={state.levels}
+                templateGoal={state.templateGoal} setTemplateGoal={setters.setTemplateGoal}
+                templateLevel={state.templateLevel} setTemplateLevel={setters.setTemplateLevel}
+                fetchTemplates={actions.fetchTemplates} applyTemplate={actions.applyTemplate}
+                modalSaveTemplateVisible={state.modalSaveTemplateVisible} setModalSaveTemplateVisible={setters.setModalSaveTemplateVisible}
+                saveTemplateName={state.saveTemplateName} setSaveTemplateName={setters.setSaveTemplateName}
+                templateGoalInput={state.templateGoalInput} setTemplateGoalInput={setters.setTemplateGoalInput}
+                templateLevelInput={state.templateLevelInput} setTemplateLevelInput={setters.setTemplateLevelInput}
+                saveAsTemplate={actions.saveAsTemplate}
+                collections={state.collections}
+                saveTemplateCollectionId={state.saveTemplateCollectionId}
+                setSaveTemplateCollectionId={setters.setSaveTemplateCollectionId}
+                selectedLibraryCollection={state.selectedLibraryCollection} setSelectedLibraryCollection={setters.setSelectedLibraryCollection}
+                selectedPillar={state.selectedPillar} setSelectedPillar={setters.setSelectedPillar}
+                selectedLevelTab={state.selectedLevelTab} setSelectedLevelTab={setters.setSelectedLevelTab}
+            />
+            <Modal visible={state.showCalendarStart} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <CustomCalendar selectedDate={state.startDate} onSelect={actions.onSelectStartDate} onClose={() => setters.setShowCalendarStart(false)} theme={theme} />
+                </View>
+            </Modal>
+            <Modal visible={state.showCalendarEnd} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <CustomCalendar selectedDate={state.endDate} onSelect={actions.onSelectEndDate} onClose={() => setters.setShowCalendarEnd(false)} theme={theme} />
+                </View>
+            </Modal>
+            <Modal visible={state.showCalendarIntensity} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <CustomCalendar selectedDate={state.intensityEndDate || new Date()} onSelect={actions.onSelectIntensityEndDate} onClose={() => setters.setShowCalendarIntensity(false)} theme={theme} />
+                </View>
+            </Modal>
+            <Modal visible={state.modalTecnicaVisible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
+                        <Text style={[styles.modalTitle, { color: theme.text }]}>{modalTitleToShow}</Text>
+                        {modalOptionsToShow.map((t) => (
+                            <TouchableOpacity
+                                key={t.id}
+                                style={[styles.techOption, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}
+                                onPress={() => {
+                                    actions.atualizarBloco(state.indexExercicioAtual, state.indexBlocoAtual, 'technique', t.id);
+                                    setters.setModalTecnicaVisible(false);
+                                }}
+                            >
+                                <Text style={[
+                                    styles.techOptionText, { color: theme.text },
+                                    state.exercisesByDay[state.selectedWorkoutTab]?.[state.indexExercicioAtual]?.blocks?.[state.indexBlocoAtual]?.technique === t.id
+                                    && { color: theme.accent, fontWeight: '900' }
+                                ]}>{t.title}</Text>
+                            </TouchableOpacity>
+                        ))}
+                        <TouchableOpacity style={[styles.modalCancelBtn, { marginTop: 10 }]} onPress={() => setters.setModalTecnicaVisible(false)}>
+                            <Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Cancelar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </>
+    );
 
-      <Modal visible={state.renameTabModalVisible} transparent animationType="fade" onRequestClose={() => setters.setRenameTabModalVisible(false)}>
-          <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.modalTitle, { color: theme.accent }]}>GERENCIAR DIA</Text>
-                  <Text style={[styles.miniLabelLeft, { color: theme.textSecondary, marginTop: 10 }]}>NOME DO DIA/TREINO:</Text>
-                  <TextInput style={[styles.modalInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginBottom: 20 }]} value={state.newTabName} onChangeText={setters.setNewTabName} autoFocus />
-                  
-                  <View style={{flexDirection: 'row', gap: 10, marginBottom: 20}}>
-                      <TouchableOpacity style={[styles.saveBtnModal, { backgroundColor: theme.accent, flex: 1 }]} onPress={actions.handleRenameTab}>
-                          <Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight:'900'}}>SALVAR NOME</Text>
-                      </TouchableOpacity>
-                  </View>
-                  <Text style={[styles.miniLabelLeft, { color: theme.textSecondary, textAlign: 'center' }]}>ORDEM DESTE TREINO:</Text>
-                  <View style={{flexDirection: 'row', justifyContent: 'center', gap: 15, marginBottom: 20}}>
-                      <TouchableOpacity style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} onPress={() => actions.moveTab('left')}>
-                          <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
-                          <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 12}}>P/ ESQUERDA</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity style={{padding: 10, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}} onPress={() => actions.moveTab('right')}>
-                          <Text style={{color: theme.text, fontWeight: 'bold', fontSize: 12}}>P/ DIREITA</Text>
-                          <MaterialCommunityIcons name="arrow-right" size={20} color={theme.text} />
-                      </TouchableOpacity>
-                  </View>
-                  <TouchableOpacity style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 10, gap: 5}} onPress={actions.handleDeleteTab}>
-                      <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
-                      <Text style={{color: '#FF3B30', fontWeight: 'bold'}}>Excluir este dia inteiro</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={{marginTop:20, padding: 10}} onPress={() => setters.setRenameTabModalVisible(false)}>
-                      <Text style={{color: theme.textSecondary, textAlign:'center'}}>Cancelar</Text>
-                  </TouchableOpacity>
-              </View>
-          </View>
-      </Modal>
+    if (isWeb) {
+        return (
+            <View style={rootStyle}>
+                <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
+                <View style={{
+                    width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg,
+                    borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, height: '100%', display: 'flex', flexDirection: 'column',
+                }}>
+                    <View style={[styles.header, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+                        <View style={[styles.headerInner, { paddingTop: 20 }]}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface }]}>
+                                <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
+                            </TouchableOpacity>
+                            <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+                                {route.params?.isEditing ? 'Editar Rotina' : 'Nova Rotina'}
+                            </Text>
+                            <TouchableOpacity
+                                onPress={actions.salvarTreinoFinal} disabled={state.sending}
+                                style={[styles.saveBtn, { backgroundColor: state.sending ? theme.border : theme.accent }]}
+                            >
+                                {state.sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR</Text>}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
 
-      <Modal visible={state.showCalendarStart} transparent animationType="fade">
-          <View style={styles.modalOverlay}><CustomCalendar selectedDate={state.startDate} onSelect={actions.onSelectStartDate} onClose={() => setters.setShowCalendarStart(false)} theme={theme} /></View>
-      </Modal>
-      <Modal visible={state.showCalendarEnd} transparent animationType="fade">
-          <View style={styles.modalOverlay}><CustomCalendar selectedDate={state.endDate} onSelect={actions.onSelectEndDate} onClose={() => setters.setShowCalendarEnd(false)} theme={theme} /></View>
-      </Modal>
-      <Modal visible={state.showCalendarIntensity} transparent animationType="fade">
-          <View style={styles.modalOverlay}><CustomCalendar selectedDate={state.intensityEndDate || new Date()} onSelect={actions.onSelectIntensityEndDate} onClose={() => setters.setShowCalendarIntensity(false)} theme={theme} /></View>
-      </Modal>
-      
-      <Modal visible={state.modalTecnicaVisible} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-              <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.modalTitle, { color: theme.accent }]}>{modalTitleToShow}</Text>
-                  {modalOptionsToShow.map((t) => (
-                      <TouchableOpacity key={t.id} style={[styles.techOption, { borderBottomColor: theme.border }]} onPress={() => { actions.atualizarBloco(state.indexExercicioAtual, state.indexBlocoAtual, 'technique', t.id); setters.setModalTecnicaVisible(false); }}>
-                          <Text style={[styles.techOptionText, { color: theme.text }, (state.exercisesByDay[state.selectedWorkoutTab]?.[state.indexExercicioAtual]?.blocks?.[state.indexBlocoAtual]?.technique === t.id) && {color: theme.accent}]}>{t.title}</Text>
-                      </TouchableOpacity>
-                  ))}
-                  <TouchableOpacity style={{marginTop:20, padding: 15, backgroundColor: theme.bg, borderRadius: 10, alignItems: 'center'}} onPress={() => setters.setModalTecnicaVisible(false)}>
-                      <Text style={{color: theme.text, fontWeight: 'bold'}}>Cancelar</Text>
-                  </TouchableOpacity>
-              </View>
-          </View>
-      </Modal>
+                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
+                        <SharedHeader />
+                        {state.currentExercises.map((item, index) => (
+                            <View key={item.tempId} style={{ width: '100%', paddingHorizontal: 16 }}>
+                                <ExerciseCardAdmin
+                                    item={item} index={index} theme={theme} drag={null} isActive={false} moveExercise={moveExerciseWeb}
+                                    removeExercicio={actions.removeExercicio} setIsSelectingSubstitute={setters.setIsSelectingSubstitute} setTargetIndexForSubstitute={setters.setTargetIndexForSubstitute}
+                                    setModalBuscaVisible={setters.setModalBuscaVisible} removeSubstitute={actions.removeSubstitute} atualizarBloco={actions.atualizarBloco}
+                                    adicionarBloco={actions.adicionarBloco} removerBloco={actions.removerBloco} setIndexExercicioAtual={setters.setIndexExercicioAtual}
+                                    setIndexBlocoAtual={setters.setIndexBlocoAtual} setModalTecnicaVisible={setters.setModalTecnicaVisible} atualizarObservacao={actions.atualizarObservacao}
+                                    openPreview={actions.openPreview} currentExercisesLength={state.currentExercises.length} setIsSwapping={setters.setIsSwapping}
+                                    setSwapIndex={setters.setSwapIndex} workoutModel={state.workoutModel}
+                                    setInitialCategoryFilter={(catName) => {
+                                        const normalizedCat = catName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                                        const foundCat = state.categories.find(c => c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === normalizedCat);
+                                        if (foundCat) setters.setSelectedCategory(foundCat);
+                                    }}
+                                />
+                            </View>
+                        ))}
+                        <SharedFooter />
+                    </ScrollView>
+                </View>
+                <Modais />
+            </View>
+        );
+    }
 
-    </RootComponent>
-  );
+    return (
+        <SafeAreaViewContext style={rootStyle}>
+            <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
+            <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg }}>
+                <View style={[styles.header, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
+                    <View style={[styles.headerInner, { paddingTop: 10 }]}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface }]}>
+                            <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
+                        </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+                            {route.params?.isEditing ? 'Editar Rotina' : 'Nova Rotina'}
+                        </Text>
+                        <TouchableOpacity
+                            onPress={actions.salvarTreinoFinal} disabled={state.sending}
+                            style={[styles.saveBtn, { backgroundColor: state.sending ? theme.border : theme.accent }]}
+                        >
+                            {state.sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR</Text>}
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%' }} enabled>
+                    <DraggableFlatList
+                        data={state.currentExercises} keyExtractor={(item) => item.tempId} renderItem={renderExercise} onDragEnd={handleDragEnd}
+                        activationDistance={10} ListHeaderComponent={<SharedHeader />} ListFooterComponent={<SharedFooter />}
+                        contentContainerStyle={{ paddingBottom: 40 }} style={{ flex: 1 }} showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never" containerStyle={{ flex: 1 }}
+                    />
+                </KeyboardAvoidingView>
+            </View>
+            <Modais />
+        </SafeAreaViewContext>
+    );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, justifyContent:'center', alignItems:'center' },
-  anamneseCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
-  anamneseRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  anamneseCol: { flex: 1 },
-  planningContainer: { padding:15, borderRadius:15, borderWidth:1, marginBottom:20 },
-  nameInput: { padding: 15, borderRadius: 10, marginBottom: 15, borderWidth: 1, fontSize: 16, fontWeight: 'bold', textAlign: 'center', outlineStyle: 'none' },
-  dateRow: { flexDirection: 'row', gap: 10, marginBottom:15 },
-  dateInputGroup: { flex: 1 },
-  dateLabel: { fontSize: 10, fontWeight: '900', marginBottom: 5 },
-  dateDisplay: { flexDirection:'row', alignItems:'center', justifyContent:'center', gap:8, padding:12, borderRadius:8, borderWidth:1 },
-  dateText: { fontWeight:'bold', fontSize:14 },
-  archiveRow: { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:10, borderRadius:10, borderWidth:1 },
-  archiveLabel: { fontWeight:'900', fontSize:12 },
-  
-  intensityBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, gap: 4 },
-  intensityText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    errorBox: { margin: 30, padding: 30, borderRadius: 20, alignItems: 'center' },
+    errorTitle: { fontSize: 20, fontWeight: '900', marginBottom: 10 },
+    errorDesc: { textAlign: 'center', lineHeight: 22, marginBottom: 24 },
+    errorBtn: { paddingHorizontal: 24, paddingVertical: 13, borderRadius: 12 },
 
-  configBox: { borderRadius:15, padding:15, marginBottom:15, borderWidth:1 },
-  actionBtn: { flexDirection:'row', alignItems:'center', justifyContent:'center', padding:15, borderRadius:10, gap:8 },
-  actionBtnText: { fontWeight:'900', fontSize:12 },
-  toolsRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },
-  toolBtn: { flex: 1, padding: 12, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, borderWidth:1 },
-  toolBtnHighlight: { flex: 1, padding: 12, borderRadius: 10, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 },
-  toolBtnText: { fontWeight: 'bold', fontSize: 11 },
-  toolBtnTextDark: { fontWeight: '900', fontSize: 11 },
-  tabBtnDynamic: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, flexDirection: 'row' },
-  tabBtnTextDynamic: { fontWeight: 'bold', fontSize: 13 },
-  addBtnSmall: { padding: 18, alignItems:'center', borderWidth:1, borderRadius:12, marginTop:10, borderStyle: 'dashed' },
-  addBtnText: { fontWeight: 'bold', fontSize:13 },
-  emptyText: { textAlign: 'center', marginVertical: 20 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 30 },
-  modalContent: { borderRadius: 15, padding: 20, borderWidth: 1, width: '100%', maxWidth: 400, alignSelf: 'center' },
-  modalTitle: { fontWeight: '900', textAlign: 'center', marginBottom: 10 },
-  modalInput: { padding:12, borderRadius:8, borderWidth:1, marginBottom:15, fontSize: 16, outlineStyle: 'none' },
-  saveBtnModal: { padding:15, borderRadius:10, alignItems:'center', width:'100%' },
-  techOption: { paddingVertical: 12, borderBottomWidth: 1 },
-  techOptionText: { fontWeight: 'bold', textAlign: 'center' },
-  closeBtn: { paddingVertical: 12, borderRadius: 12, alignItems: 'center', width: '100%', marginTop: 15 },
-  infoBlock: { marginBottom: 15, borderBottomWidth:1, paddingBottom:5 },
-  infoLabel: { fontSize:10, fontWeight:'900', marginBottom:2 },
-  infoValue: { fontSize:14 },
-  tag: { paddingHorizontal:12, paddingVertical:6, borderRadius:20, borderWidth:1, marginRight:5, height: 30, justifyContent: 'center' },
-  tagText: { fontSize:10, fontWeight:'bold' },
-  miniLabelLeft: { fontSize:10, fontWeight:'bold', marginBottom:8 },
-  miniLabel: { fontSize:10, fontWeight:'bold', marginBottom:5 }
+    header: { zIndex: 10, borderBottomWidth: 1 },
+    headerInner: { width: '100%', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingBottom: 12, gap: 12 },
+    backBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    headerTitle: { flex: 1, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+    saveBtn: { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20, minWidth: 80, alignItems: 'center' },
+    saveBtnText: { fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+
+    scrollContent: { width: '100%', paddingHorizontal: 16, paddingTop: 16 },
+    listFooter: { width: '100%', paddingHorizontal: 16 },
+
+    raioxCard: { borderRadius: 18, marginBottom: 16, overflow: 'hidden', padding: 14 },
+    raioxHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 4 },
+    raioxHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    raioxIconBox: { width: 34, height: 34, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+    raioxTitle: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
+    raioxSubtitle: { fontSize: 11 },
+    chevronBox: { borderRadius: 8, padding: 4 },
+    raioxBody: { marginTop: 16 },
+    raioxRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+    raioxCol: { flex: 1 },
+    raioxLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 3 },
+    raioxValue: { fontSize: 14, fontWeight: '700' },
+    alertBox: { marginTop: 10, padding: 12, backgroundColor: 'rgba(255,59,48,0.1)', borderRadius: 10, borderWidth: 1, borderColor: '#FF3B3050' },
+    alertBoxTitle: { color: '#FF3B30', fontSize: 10, fontWeight: '900', marginBottom: 4 },
+    alertBoxText: { fontSize: 13, fontWeight: '700' },
+
+    templateBox: { borderRadius: 18, padding: 16, marginBottom: 16 },
+    sectionLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 10 },
+    templateNameInput: { padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 15, fontWeight: '700', outlineStyle: 'none' },
+    tagRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+    tag: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+    tagText: { fontSize: 12, fontWeight: '700' },
+
+    addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 14, gap: 8, marginBottom: 12 },
+    addBtnText: { fontWeight: '900', fontSize: 14 },
+
+    actionRow: { flexDirection: 'row', gap: 8 },
+    utilBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 13, borderRadius: 12, borderWidth: 1, gap: 6 },
+    utilBtnText: { fontWeight: '700', fontSize: 11 },
+
+    // ─── DAY SELECTOR (DROPDOWN MODERNO) ─────────────────────────────
+    daySelectorWrapper: { marginBottom: 20 },
+    daySelectorBtn: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, gap: 12 },
+    dayIconBox: { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
+    daySelectorInfo: { flex: 1 },
+    daySelectorLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8, marginBottom: 2 },
+    daySelectorValue: { fontSize: 15, fontWeight: '800' },
+    daySelectorCount: { fontSize: 13, fontWeight: '500' },
+
+    dayDropdown: { marginTop: 8, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+    
+    // 🔥 ESTILOS NOVOS DO CARD DE 2 LINHAS 🔥
+    dayRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 16, paddingHorizontal: 16, gap: 12 },
+    dayActiveBar: { width: 3, height: 22, borderRadius: 2, marginTop: 2 },
+    dayContentWrapper: { flex: 1, gap: 12 },
+    dayNameBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+    dayName: { fontSize: 16 },
+    dayCount: { fontSize: 11, fontWeight: '600' },
+    dayRenameInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 15, fontWeight: '700', outlineStyle: 'none' },
+    
+    dayRowActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+    actionPillBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, gap: 6 },
+    actionPillText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+    actionPillIcon: { paddingHorizontal: 12, paddingVertical: 8, alignItems: 'center', justifyContent: 'center' },
+
+    addDayBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderTopWidth: 1, gap: 12 },
+    addDayIconBox: { width: 30, height: 30, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    addDayText: { fontSize: 13, fontWeight: '700' },
+
+    // ─── EMPTY STATE ────────────────────────────────────────────────
+    emptyState: { alignItems: 'center', marginTop: 24, marginBottom: 24, padding: 36, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 20 },
+    emptyIconBox: { borderRadius: 50, padding: 20, marginBottom: 16 },
+    emptyTitle: { fontSize: 15, fontWeight: '700', marginBottom: 8 },
+    emptyDesc: { fontSize: 13, textAlign: 'center', lineHeight: 20 },
+
+    addMoreBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 14, marginBottom: 12, gap: 6 },
+    addMoreBtnText: { fontWeight: '700', fontSize: 13 },
+    saveTemplateBtn: { padding: 15, borderRadius: 14, borderWidth: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 },
+    saveTemplateBtnText: { fontWeight: '700', fontSize: 13 },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
+    modalBox: { borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, alignSelf: 'center' },
+    modalTitle: { fontSize: 17, fontWeight: '900', textAlign: 'center', marginBottom: 20 },
+    modalCancelBtn: { padding: 12, alignItems: 'center' },
+    modalCancelText: { fontWeight: '600' },
+    techOption: { paddingVertical: 14, borderBottomWidth: 1 },
+    techOptionText: { fontWeight: '600', textAlign: 'center', fontSize: 14 },
 });

@@ -1,10 +1,19 @@
 // src/components/MontarTreino/Modals/LibraryModals.js
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, Platform, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import SmartThumbnail from '../SmartThumbnail';
 import WorkoutPreviewPanel from '../WorkoutPreviewPanel';
+
+// 🔥 MAPA DE SUBCATEGORIAS ATUALIZADO 🔥
+const subCategoriesMap = {
+    "Peito": ["Todos", "Superior", "Medial", "Inferior"],
+    "Costas": ["Todos", "Puxadas", "Remadas", "Lombar"],
+    "Pernas": ["Todos", "Multiarticular", "Quadríceps e Adutores", "Posteriores", "Glúteos", "Panturrilha"],
+    "Ombros": ["Todos", "Multiarticular", "Frontal", "Lateral", "Posterior", "Trapézio"],
+    "Abdômen": ["Todos", "Supra", "Infra", "Core", "Completo"]
+};
 
 export default function LibraryModals({
     theme, isWeb, webOuterBg, modalBuscaVisible, setModalBuscaVisible, 
@@ -14,16 +23,20 @@ export default function LibraryModals({
     setPreviewModalVisible, previewExercise, setPreviewExercise, previewVideoRef,
     currentExercises 
 }) {
-    // 🔥 LÓGICA DO AVISO FLUTUANTE (TOAST)
     const [toastVisible, setToastVisible] = useState(false);
     const [toastName, setToastName] = useState('');
     const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    const [selectedSubCat, setSelectedSubCat] = useState('Todos');
+
+    useEffect(() => {
+        setSelectedSubCat('Todos');
+    }, [selectedCategory]);
 
     const triggerToast = (name) => {
         setToastName(name);
         setToastVisible(true);
         
-        // Animação: Sobe e aparece -> Fica um pouco -> Some
         Animated.sequence([
             Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
             Animated.delay(1200),
@@ -35,6 +48,11 @@ export default function LibraryModals({
         addExercicioManual(item);
         triggerToast(item.name);
     };
+
+    const finalExercises = exerciciosFiltrados.filter(e => {
+        if (selectedSubCat === 'Todos') return true;
+        return e.subCategory === selectedSubCat;
+    });
 
     return (
         <>
@@ -54,7 +72,7 @@ export default function LibraryModals({
                                 <TextInput style={[styles.searchInput, { color: theme.text }]} placeholder="Buscar exercício..." placeholderTextColor={theme.textSecondary} value={searchText} onChangeText={setSearchText} />
                             </View>
                             
-                            <TouchableOpacity style={[styles.catSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setShowCatDropdown(!showCatDropdown)}>
+                            <TouchableOpacity style={[styles.catSelector, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: (selectedCategory !== 'TODOS' && subCategoriesMap[selectedCategory]) ? 10 : 0 }]} onPress={() => setShowCatDropdown(!showCatDropdown)}>
                                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                                     <MaterialCommunityIcons name="filter-variant" size={20} color={theme.textSecondary} />
                                     <Text style={[styles.catSelectorVal, { color: theme.text }]}>{selectedCategory.toUpperCase()}</Text>
@@ -78,10 +96,31 @@ export default function LibraryModals({
                                     </ScrollView>
                                 </View>
                             )}
+
+                            {selectedCategory !== 'TODOS' && subCategoriesMap[selectedCategory] && !showCatDropdown && (
+                                <View style={{ marginTop: 5 }}>
+                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                                        {subCategoriesMap[selectedCategory].map(sub => {
+                                            const isSelected = selectedSubCat === sub;
+                                            return (
+                                                <TouchableOpacity 
+                                                    key={sub}
+                                                    style={[styles.subCatPill, { backgroundColor: isSelected ? theme.accent : theme.surface, borderColor: isSelected ? theme.accent : theme.border }]}
+                                                    onPress={() => setSelectedSubCat(sub)}
+                                                >
+                                                    <Text style={[styles.subCatPillText, { color: isSelected ? '#000' : theme.textSecondary, fontWeight: isSelected ? '900' : '600' }]}>
+                                                        {sub.toUpperCase()}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </ScrollView>
+                                </View>
+                            )}
+
                         </View>
                     </View>
 
-                    {/* 🔥 TOAST ANIMADO (AVISO LEVE) */}
                     {toastVisible && (
                         <Animated.View style={[styles.toastContainer, { opacity: fadeAnim, transform: [{ translateY: fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [-20, 0] }) }] }]}>
                             <View style={[styles.toastContent, { backgroundColor: '#4DE38F' }]}>
@@ -94,21 +133,31 @@ export default function LibraryModals({
                     <FlatList 
                         style={[{ flex: 1, width: '100%' }, isWeb && { overflowY: 'auto' }]}
                         contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 150, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
-                        data={exerciciosFiltrados} 
+                        data={finalExercises} 
                         keyExtractor={item => item.id} 
                         showsVerticalScrollIndicator={true}
-                        renderItem={({ item }) => (
-                            <View style={[styles.libItem, { borderBottomColor: theme.border }]}>
-                                <SmartThumbnail url={item.videoUrl} style={styles.thumbList} theme={theme} onPress={() => openPreview(item)} />
-                                <View style={{flex:1, marginLeft: 15}}>
-                                    <Text style={[styles.libName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
-                                    <View style={[styles.catTag, { backgroundColor: theme.surface, marginTop: 5, alignSelf: 'flex-start' }]}><Text style={[styles.libCat, { color: theme.textSecondary }]}>{item.category}</Text></View>
+                        renderItem={({ item }) => {
+                            let displayCat = item.category.toUpperCase();
+                            if (item.subCategory && item.subCategory !== 'Geral') {
+                                displayCat += ` • ${item.subCategory.toUpperCase()}`;
+                            }
+
+                            return (
+                                <View style={[styles.libItem, { borderBottomColor: theme.border }]}>
+                                    <SmartThumbnail url={item.videoUrl} style={styles.thumbList} theme={theme} onPress={() => openPreview(item)} />
+                                    <View style={{flex:1, marginLeft: 15}}>
+                                        <Text style={[styles.libName, { color: theme.text }]} numberOfLines={1}>{item.name}</Text>
+                                        <View style={[styles.catTag, { backgroundColor: theme.surface, marginTop: 5, alignSelf: 'flex-start' }]}>
+                                            <Text style={[styles.libCat, { color: theme.textSecondary }]}>{displayCat}</Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity onPress={() => handleAdd(item)} style={{ padding: 8, backgroundColor: theme.accent + '22', borderRadius: 12 }}>
+                                        <MaterialCommunityIcons name={isSwapping ? "sync" : "plus"} size={24} color={theme.accent} />
+                                    </TouchableOpacity>
                                 </View>
-                                <TouchableOpacity onPress={() => handleAdd(item)} style={{ padding: 8, backgroundColor: theme.accent + '22', borderRadius: 12 }}>
-                                    <MaterialCommunityIcons name={isSwapping ? "sync" : "plus"} size={24} color={theme.accent} />
-                                </TouchableOpacity>
-                            </View>
-                        )} 
+                            );
+                        }} 
+                        ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 30, color: theme.textSecondary }}>Nenhum exercício encontrado nessa categoria.</Text>}
                     />
 
                     {currentExercises && currentExercises.length > 0 && (
@@ -124,7 +173,9 @@ export default function LibraryModals({
                             <View style={{ flex: 1, marginRight: 15 }}>
                                 <Text style={{ fontSize: 18, fontWeight: '900', color: theme.text }} numberOfLines={2}>{previewExercise?.name}</Text>
                                 <View style={{ alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
-                                    <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>{previewExercise?.category}</Text>
+                                    <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>
+                                        {previewExercise?.category} {previewExercise?.subCategory && previewExercise.subCategory !== 'Geral' ? `• ${previewExercise.subCategory}` : ''}
+                                    </Text>
                                 </View>
                             </View>
                             <TouchableOpacity style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: theme.border, justifyContent: 'center', alignItems: 'center' }} onPress={() => { setPreviewModalVisible(false); setPreviewExercise(null); }}>
@@ -166,6 +217,10 @@ const styles = StyleSheet.create({
     catSelectorVal: { fontSize: 15, fontWeight: '800' },
     dropdownContainer: { position: 'absolute', top: 140, left: 20, right: 20, zIndex: 100, borderRadius: 12, borderWidth: 1, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },
     dropdownItem: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+    
+    subCatPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+    subCatPillText: { fontSize: 10, letterSpacing: 0.5 },
+
     libItem: { paddingVertical: 15, borderBottomWidth: 1, flexDirection:'row', alignItems:'center' },
     thumbList: { width: 60, height: 60, borderRadius: 14 },
     libName: { fontSize: 15, fontWeight: 'bold' },
@@ -173,7 +228,7 @@ const styles = StyleSheet.create({
     libCat: { fontSize: 10, fontWeight: '700' },
     previewBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 20 },
     previewContainer: { width: '100%', maxWidth: 420, height: '85%', maxHeight: 800, borderRadius: 20, overflow: 'hidden', display: 'flex', flexDirection: 'column' },
-    // ESTILOS DO TOAST
+    
     toastContainer: {
         position: 'absolute',
         top: 150,

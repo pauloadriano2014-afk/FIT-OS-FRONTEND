@@ -3,15 +3,14 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Switch, StyleSheet, LayoutAnimation, UIManager, Platform, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Permite a animação de sanfona no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-const formatDateToString = (date) => { 
-    if (!date) return ''; 
-    const d = new Date(date); 
-    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; 
+const formatDateToString = (date) => {
+    if (!date) return 'Não definido';
+    const d = new Date(date);
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
 };
 
 export default function WorkoutSettingsCard({ state, setters, actions, theme }) {
@@ -23,152 +22,306 @@ export default function WorkoutSettingsCard({ state, setters, actions, theme }) 
     };
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            {/* 🔥 CABEÇALHO DO ACCORDION 🔥 */}
-            <TouchableOpacity style={styles.header} onPress={toggleExpand}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                    <View style={{ backgroundColor: theme.accent + '20', padding: 6, borderRadius: 8 }}>
-                        <MaterialCommunityIcons name="tune-variant" size={20} color={theme.accent} />
+        <View style={[
+            styles.container,
+            { backgroundColor: theme.surface },
+            Platform.select({
+                ios: {
+                    shadowColor: '#000',
+                    shadowOpacity: theme.isDark ? 0.35 : 0.08,
+                    shadowRadius: 20,
+                    shadowOffset: { width: 0, height: 6 },
+                },
+                android: { elevation: 4 },
+                web: {
+                    boxShadow: theme.isDark
+                        ? '0 4px 24px rgba(0,0,0,0.4)'
+                        : '0 4px 24px rgba(0,0,0,0.08)',
+                },
+            }),
+        ]}>
+
+            {/* CABEÇALHO */}
+            <TouchableOpacity style={[
+                styles.header,
+                {
+                    borderBottomWidth: isExpanded ? 1 : 0,
+                    borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                }
+            ]} onPress={toggleExpand} activeOpacity={0.7}>
+                <View style={styles.headerLeft}>
+                    <View style={[
+                        styles.headerIcon,
+                        { backgroundColor: theme.accent },
+                        Platform.select({
+                            ios: {
+                                shadowColor: theme.accent,
+                                shadowOpacity: 0.4,
+                                shadowRadius: 8,
+                                shadowOffset: { width: 0, height: 3 },
+                            },
+                        }),
+                    ]}>
+                        <MaterialCommunityIcons name="tune-variant" size={18} color={theme.isDark ? '#000' : '#FFF'} />
                     </View>
-                    <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>
-                        CONFIGURAÇÕES E FERRAMENTAS
-                    </Text>
+                    <View>
+                        <Text style={[styles.headerTitle, { color: theme.text }]}>Configurações</Text>
+                        <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+                            {isExpanded ? 'Toque para recolher' : 'Período, modelo e ferramentas'}
+                        </Text>
+                    </View>
                 </View>
-                <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                <View style={[styles.chevronBox, {
+                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                }]}>
+                    <MaterialCommunityIcons
+                        name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={20}
+                        color={theme.textSecondary}
+                    />
+                </View>
             </TouchableOpacity>
 
-            {/* 🔥 ÁREA ESCONDIDA (BUROCRACIA) 🔥 */}
+            {/* CONTEÚDO EXPANSÍVEL */}
             {isExpanded && (
                 <View style={styles.content}>
-                    
+
                     {/* NOME DA ROTINA */}
-                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>NOME DA ROTINA</Text>
-                    <TextInput 
-                        style={[styles.nameInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
-                        placeholder="Ex: HIPERTROFIA A" 
-                        placeholderTextColor={theme.textSecondary} 
-                        value={state.customWorkoutName} 
-                        onChangeText={setters.setCustomWorkoutName} 
+                    <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>NOME DA ROTINA</Text>
+                    <TextInput
+                        style={[styles.nameInput, {
+                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                            color: theme.text,
+                            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                        }]}
+                        placeholder="Ex: HIPERTROFIA A"
+                        placeholderTextColor={theme.textSecondary}
+                        value={state.customWorkoutName}
+                        onChangeText={setters.setCustomWorkoutName}
                     />
-                    
-                    {/* DATAS COMPACTAS (INÍCIO E FIM NA MESMA CAIXA) */}
-                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>PERÍODO DE VALIDADE</Text>
-                    <View style={[styles.compactDateBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                        <TouchableOpacity style={styles.compactDateBtn} onPress={() => setters.setShowCalendarStart(true)}>
-                            <MaterialCommunityIcons name="calendar-arrow-right" size={18} color={theme.accent} />
+
+                    {/* PERÍODO */}
+                    <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>PERÍODO DE VALIDADE</Text>
+                    <View style={[styles.dateRow, {
+                        backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    }]}>
+                        <TouchableOpacity style={styles.dateBtn} onPress={() => setters.setShowCalendarStart(true)}>
+                            <View style={[styles.dateIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                <MaterialCommunityIcons name="calendar-arrow-right" size={16} color={theme.accent} />
+                            </View>
                             <View>
-                                <Text style={[styles.compactDateLabel, { color: theme.textSecondary }]}>Início</Text>
-                                <Text style={[styles.compactDateValue, { color: theme.text }]}>{formatDateToString(state.startDate)}</Text>
+                                <Text style={[styles.dateBtnLabel, { color: theme.textSecondary }]}>Início</Text>
+                                <Text style={[styles.dateBtnValue, { color: theme.text }]}>
+                                    {formatDateToString(state.startDate)}
+                                </Text>
                             </View>
                         </TouchableOpacity>
-                        
-                        <View style={[styles.dateDivider, { backgroundColor: theme.border }]} />
-                        
-                        <TouchableOpacity style={[styles.compactDateBtn, state.isArchived && { opacity: 0.4 }]} onPress={() => setters.setShowCalendarEnd(true)}>
-                            <MaterialCommunityIcons name="calendar-remove" size={18} color={theme.accent} />
+
+                        <View style={[styles.dateSeparator, {
+                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                        }]} />
+
+                        <TouchableOpacity
+                            style={[styles.dateBtn, state.isArchived && { opacity: 0.4 }]}
+                            onPress={() => setters.setShowCalendarEnd(true)}
+                        >
+                            <View style={[styles.dateIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                <MaterialCommunityIcons name="calendar-remove" size={16} color={theme.accent} />
+                            </View>
                             <View>
-                                <Text style={[styles.compactDateLabel, { color: theme.textSecondary }]}>Fim</Text>
-                                <Text style={[styles.compactDateValue, { color: theme.text }]}>{formatDateToString(state.endDate)}</Text>
+                                <Text style={[styles.dateBtnLabel, { color: theme.textSecondary }]}>Fim</Text>
+                                <Text style={[styles.dateBtnValue, { color: theme.text }]}>
+                                    {formatDateToString(state.endDate)}
+                                </Text>
                             </View>
                         </TouchableOpacity>
                     </View>
-                    
-                    {/* STATUS (ATIVO/ARQUIVADO) */}
-                    <View style={[styles.archiveRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <MaterialCommunityIcons name={state.isArchived ? "archive-lock" : "check-decagram"} size={18} color={state.isArchived ? '#FF3B30' : theme.accent} />
-                            <Text style={[styles.archiveLabel, state.isArchived ? {color:'#FF3B30'} : {color: theme.accent}]}>
-                                {state.isArchived ? "TREINO ARQUIVADO" : "TREINO ATIVO"}
-                            </Text>
+
+                    {/* STATUS ATIVO / ARQUIVADO */}
+                    <View style={[styles.archiveRow, {
+                        backgroundColor: state.isArchived
+                            ? 'rgba(255,59,48,0.08)'
+                            : theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                        borderColor: state.isArchived ? '#FF3B3044' : theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                    }]}>
+                        <View style={styles.archiveLeft}>
+                            <View style={[styles.archiveIconBox, {
+                                backgroundColor: state.isArchived ? '#FF3B3020' : theme.accent + '20',
+                            }]}>
+                                <MaterialCommunityIcons
+                                    name={state.isArchived ? 'archive-lock' : 'check-decagram'}
+                                    size={16}
+                                    color={state.isArchived ? '#FF3B30' : theme.accent}
+                                />
+                            </View>
+                            <View>
+                                <Text style={[styles.archiveTitle, {
+                                    color: state.isArchived ? '#FF3B30' : theme.accent,
+                                }]}>
+                                    {state.isArchived ? 'Treino Arquivado' : 'Treino Ativo'}
+                                </Text>
+                                <Text style={[styles.archiveSubtitle, { color: theme.textSecondary }]}>
+                                    {state.isArchived ? 'Não aparece para o aluno' : 'Visível para o aluno'}
+                                </Text>
+                            </View>
                         </View>
-                        <Switch 
-                            value={state.isArchived} 
-                            onValueChange={(val) => { 
-                                setters.setIsArchived(val); 
-                                if (!val && state.endDate < new Date()) { 
-                                    const futureDate = new Date(); 
-                                    futureDate.setDate(futureDate.getDate() + 30); 
-                                    setters.setEndDate(futureDate); 
-                                } 
-                            }} 
-                            trackColor={{false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5'}} 
-                            thumbColor={state.isArchived ? '#FF3B30' : theme.accent} 
+                        <Switch
+                            value={state.isArchived}
+                            onValueChange={(val) => {
+                                setters.setIsArchived(val);
+                                if (!val && state.endDate < new Date()) {
+                                    const futureDate = new Date();
+                                    futureDate.setDate(futureDate.getDate() + 30);
+                                    setters.setEndDate(futureDate);
+                                }
+                            }}
+                            trackColor={{ false: theme.border, true: theme.isDark ? '#330000' : '#FFE5E5' }}
+                            thumbColor={state.isArchived ? '#FF3B30' : theme.accent}
                         />
                     </View>
 
-                    <View style={styles.separator} />
+                    <View style={[styles.separator, {
+                        backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                    }]} />
 
-                    {/* 🔥 MODELO DO TREINO */}
-                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>ESTRUTURA DO TREINO</Text>
-                    <View style={{flexDirection: 'row', gap: 10, marginBottom: 15}}>
-                        <TouchableOpacity 
-                            style={[styles.modelBtn, state.workoutModel === 'BASE' ? {backgroundColor: theme.accent, borderColor: theme.accent} : {backgroundColor: theme.bg, borderColor: theme.border}]}
-                            onPress={() => { 
-                                setters.setWorkoutModel('BASE'); 
-                                setters.setIntensityMultiplier(1.0); 
-                                setters.setIntensityEndDate(null); 
+                    {/* ESTRUTURA DO TREINO */}
+                    <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>ESTRUTURA DO TREINO</Text>
+                    <View style={styles.modelRow}>
+                        <TouchableOpacity
+                            style={[
+                                styles.modelBtn,
+                                state.workoutModel === 'BASE'
+                                    ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                                    : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                state.workoutModel === 'BASE' && Platform.OS === 'ios' && {
+                                    shadowColor: theme.accent,
+                                    shadowOpacity: 0.4,
+                                    shadowRadius: 10,
+                                    shadowOffset: { width: 0, height: 4 },
+                                },
+                            ]}
+                            onPress={() => {
+                                setters.setWorkoutModel('BASE');
+                                setters.setIntensityMultiplier(1.0);
+                                setters.setIntensityEndDate(null);
                             }}
                         >
-                            <MaterialCommunityIcons name="weight-lifter" size={20} color={state.workoutModel === 'BASE' ? '#000' : theme.textSecondary} />
-                            <Text style={[styles.modelBtnText, state.workoutModel === 'BASE' ? {color: '#000'} : {color: theme.textSecondary}]}>SEM CARGA</Text>
+                            <MaterialCommunityIcons
+                                name="weight-lifter"
+                                size={20}
+                                color={state.workoutModel === 'BASE' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary}
+                            />
+                            <Text style={[styles.modelBtnText, {
+                                color: state.workoutModel === 'BASE' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary,
+                            }]}>Sem Carga</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity 
-                            style={[styles.modelBtn, state.workoutModel === 'CARGA' ? {backgroundColor: theme.accent, borderColor: theme.accent} : {backgroundColor: theme.bg, borderColor: theme.border}]}
+                        <TouchableOpacity
+                            style={[
+                                styles.modelBtn,
+                                state.workoutModel === 'CARGA'
+                                    ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                                    : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                state.workoutModel === 'CARGA' && Platform.OS === 'ios' && {
+                                    shadowColor: theme.accent,
+                                    shadowOpacity: 0.4,
+                                    shadowRadius: 10,
+                                    shadowOffset: { width: 0, height: 4 },
+                                },
+                            ]}
                             onPress={() => setters.setWorkoutModel('CARGA')}
                         >
-                            <MaterialCommunityIcons name="dumbbell" size={20} color={state.workoutModel === 'CARGA' ? '#000' : theme.textSecondary} />
-                            <Text style={[styles.modelBtnText, state.workoutModel === 'CARGA' ? {color: '#000'} : {color: theme.textSecondary}]}>COM CARGA</Text>
+                            <MaterialCommunityIcons
+                                name="dumbbell"
+                                size={20}
+                                color={state.workoutModel === 'CARGA' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary}
+                            />
+                            <Text style={[styles.modelBtnText, {
+                                color: state.workoutModel === 'CARGA' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary,
+                            }]}>Com Carga</Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* 🔥 O MOTOR DE PERIODIZAÇÃO 🔥 */}
+                    {/* PERIODIZAÇÃO */}
                     {state.workoutModel === 'CARGA' && (
-                        <View style={[styles.intensityBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                            <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15}}>
-                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 6}}>
-                                    <MaterialCommunityIcons name="chart-bell-curve-cumulative" size={16} color={theme.text} />
-                                    <Text style={{color: theme.text, fontSize: 11, fontWeight: '900', letterSpacing: 0.5}}>PERIODIZAÇÃO</Text>
+                        <View style={[styles.intensityBox, {
+                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                        }]}>
+                            <View style={styles.intensityHeader}>
+                                <View style={styles.intensityHeaderLeft}>
+                                    <MaterialCommunityIcons name="chart-bell-curve-cumulative" size={15} color={theme.textSecondary} />
+                                    <Text style={[styles.intensityTitle, { color: theme.textSecondary }]}>Periodização</Text>
                                 </View>
-                                <Text style={{color: theme.textSecondary, fontSize: 9, fontWeight: 'bold'}}>MÁSCARA DE CARGA</Text>
+                                <Text style={[styles.intensitySubtitle, { color: theme.textSecondary }]}>Máscara de carga</Text>
                             </View>
 
-                            <View style={{flexDirection: 'row', justifyContent: 'space-between', gap: 8}}>
-                                <TouchableOpacity 
-                                    style={[styles.intensityBtn, state.intensityMultiplier === 0.8 ? { backgroundColor: '#32ADE6', borderColor: '#32ADE6' } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                    onPress={() => { setters.setIntensityMultiplier(0.8); if (!state.intensityEndDate) setters.setShowCalendarIntensity(true); }}
+                            <View style={styles.intensityBtns}>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.intensityBtn,
+                                        state.intensityMultiplier === 0.8
+                                            ? { backgroundColor: '#32ADE6', borderColor: '#32ADE6' }
+                                            : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                    ]}
+                                    onPress={() => {
+                                        setters.setIntensityMultiplier(0.8);
+                                        if (!state.intensityEndDate) setters.setShowCalendarIntensity(true);
+                                    }}
                                 >
                                     <MaterialCommunityIcons name="snowflake-alert" size={18} color={state.intensityMultiplier === 0.8 ? '#FFF' : theme.textSecondary} />
-                                    <Text style={[styles.intensityText, state.intensityMultiplier === 0.8 ? {color: '#FFF'} : {color: theme.textSecondary}]}>DELOAD</Text>
+                                    <Text style={[styles.intensityBtnText, { color: state.intensityMultiplier === 0.8 ? '#FFF' : theme.textSecondary }]}>Deload</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity 
-                                    style={[styles.intensityBtn, state.intensityMultiplier === 1.0 ? { backgroundColor: theme.text, borderColor: theme.text } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                    onPress={() => { setters.setIntensityMultiplier(1.0); setters.setIntensityEndDate(null); }}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.intensityBtn,
+                                        state.intensityMultiplier === 1.0
+                                            ? { backgroundColor: theme.text, borderColor: theme.text }
+                                            : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                    ]}
+                                    onPress={() => {
+                                        setters.setIntensityMultiplier(1.0);
+                                        setters.setIntensityEndDate(null);
+                                    }}
                                 >
                                     <MaterialCommunityIcons name="bullseye-arrow" size={18} color={state.intensityMultiplier === 1.0 ? theme.bg : theme.textSecondary} />
-                                    <Text style={[styles.intensityText, state.intensityMultiplier === 1.0 ? {color: theme.bg} : {color: theme.textSecondary}]}>NORMAL</Text>
+                                    <Text style={[styles.intensityBtnText, { color: state.intensityMultiplier === 1.0 ? theme.bg : theme.textSecondary }]}>Normal</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity 
-                                    style={[styles.intensityBtn, state.intensityMultiplier === 1.15 ? { backgroundColor: '#FF3B30', borderColor: '#FF3B30' } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                    onPress={() => { setters.setIntensityMultiplier(1.15); if (!state.intensityEndDate) setters.setShowCalendarIntensity(true); }}
+                                <TouchableOpacity
+                                    style={[
+                                        styles.intensityBtn,
+                                        state.intensityMultiplier === 1.15
+                                            ? { backgroundColor: '#FF3B30', borderColor: '#FF3B30' }
+                                            : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' },
+                                    ]}
+                                    onPress={() => {
+                                        setters.setIntensityMultiplier(1.15);
+                                        if (!state.intensityEndDate) setters.setShowCalendarIntensity(true);
+                                    }}
                                 >
                                     <MaterialCommunityIcons name="fire-alert" size={18} color={state.intensityMultiplier === 1.15 ? '#FFF' : theme.textSecondary} />
-                                    <Text style={[styles.intensityText, state.intensityMultiplier === 1.15 ? {color: '#FFF'} : {color: theme.textSecondary}]}>CHOQUE</Text>
+                                    <Text style={[styles.intensityBtnText, { color: state.intensityMultiplier === 1.15 ? '#FFF' : theme.textSecondary }]}>Choque</Text>
                                 </TouchableOpacity>
                             </View>
 
                             {state.intensityMultiplier !== 1.0 && (
-                                <TouchableOpacity 
-                                    style={[styles.calendarBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                                <TouchableOpacity
+                                    style={[styles.calendarBtn, {
+                                        backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                                        borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                                    }]}
                                     onPress={() => setters.setShowCalendarIntensity(true)}
                                 >
-                                    <MaterialCommunityIcons name="calendar-clock" size={16} color={theme.accent} style={{marginRight: 6}} />
+                                    <View style={[styles.dateIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                        <MaterialCommunityIcons name="calendar-clock" size={15} color={theme.accent} />
+                                    </View>
                                     <View>
-                                        <Text style={{color: theme.textSecondary, fontSize: 9, fontWeight: 'bold'}}>FIM DA MÁSCARA AUTOMÁTICA</Text>
-                                        <Text style={{color: theme.text, fontSize: 12, fontWeight: '900'}}>
-                                            {state.intensityEndDate ? formatDateToString(state.intensityEndDate) : `Selecione uma data...`}
+                                        <Text style={[styles.dateBtnLabel, { color: theme.textSecondary }]}>Fim da máscara automática</Text>
+                                        <Text style={[styles.dateBtnValue, { color: theme.text }]}>
+                                            {state.intensityEndDate ? formatDateToString(state.intensityEndDate) : 'Selecione uma data...'}
                                         </Text>
                                     </View>
                                 </TouchableOpacity>
@@ -176,38 +329,57 @@ export default function WorkoutSettingsCard({ state, setters, actions, theme }) 
                         </View>
                     )}
 
-                    <View style={styles.separator} />
+                    <View style={[styles.separator, {
+                        backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                    }]} />
 
-                    {/* 🔥 FERRAMENTAS EXTRAS EMBUTIDAS (MFIT, CLONAR, BIBLIOTECA) 🔥 */}
-                    <Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>FERRAMENTAS DE IMPORTAÇÃO</Text>
-                    
-                    <TouchableOpacity 
-                        style={[styles.toolBtnPrimary, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]} 
+                    {/* FERRAMENTAS DE IMPORTAÇÃO */}
+                    <Text style={[styles.sectionLabel, { color: theme.textSecondary }]}>FERRAMENTAS DE IMPORTAÇÃO</Text>
+
+                    <TouchableOpacity
+                        style={[styles.toolBtnPrimary, {
+                            backgroundColor: theme.accent + '12',
+                            borderColor: theme.accent + '40',
+                        }]}
                         onPress={actions?.handleImportPDF}
                         disabled={state.isImportingAI}
                     >
                         {state.isImportingAI ? (
                             <>
                                 <ActivityIndicator color={theme.accent} size="small" />
-                                <Text style={[styles.toolBtnPrimaryText, { color: theme.accent }]}>EXTRAINDO CARGAS DO PDF...</Text>
+                                <Text style={[styles.toolBtnPrimaryText, { color: theme.accent }]}>Extraindo cargas do PDF...</Text>
                             </>
                         ) : (
                             <>
-                                <MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} />
-                                <Text style={[styles.toolBtnPrimaryText, { color: theme.accent }]}>IMPORTAR TREINO DA MFIT (PDF)</Text>
+                                <View style={[styles.toolIconBox, { backgroundColor: theme.accent + '20' }]}>
+                                    <MaterialCommunityIcons name="magic-staff" size={17} color={theme.accent} />
+                                </View>
+                                <Text style={[styles.toolBtnPrimaryText, { color: theme.accent }]}>Importar treino da Mfit (PDF)</Text>
                             </>
                         )}
                     </TouchableOpacity>
 
-                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-                        <TouchableOpacity style={[styles.toolBtnSecondary, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); }}>
-                            <MaterialCommunityIcons name="account-switch-outline" size={18} color={theme.text} />
-                            <Text style={[styles.toolBtnSecondaryText, { color: theme.text }]}>CLONAR ALUNO</Text>
+                    <View style={styles.toolRow}>
+                        <TouchableOpacity
+                            style={[styles.toolBtnSecondary, {
+                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                                borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                            }]}
+                            onPress={() => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); }}
+                        >
+                            <MaterialCommunityIcons name="account-switch-outline" size={17} color={theme.text} />
+                            <Text style={[styles.toolBtnSecondaryText, { color: theme.text }]}>Clonar Aluno</Text>
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={[styles.toolBtnSecondary, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); }}>
-                            <MaterialCommunityIcons name="folder-download-outline" size={18} color={theme.text} />
-                            <Text style={[styles.toolBtnSecondaryText, { color: theme.text }]}>BIBLIOTECA</Text>
+                        <TouchableOpacity
+                            style={[styles.toolBtnSecondary, {
+                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                                borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                            }]}
+                            onPress={() => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); }}
+                        >
+                            <MaterialCommunityIcons name="folder-download-outline" size={17} color={theme.text} />
+                            <Text style={[styles.toolBtnSecondaryText, { color: theme.text }]}>Biblioteca</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -218,33 +390,240 @@ export default function WorkoutSettingsCard({ state, setters, actions, theme }) 
 }
 
 const styles = StyleSheet.create({
-    container: { borderRadius: 15, borderWidth: 1, marginBottom: 20, overflow: 'hidden', elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
-    header: { padding: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    content: { padding: 15, paddingTop: 5 },
-    sectionTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 8, marginTop: 5 },
-    nameInput: { padding: 15, borderRadius: 10, marginBottom: 20, borderWidth: 1, fontSize: 15, fontWeight: 'bold', outlineStyle: 'none' },
-    
-    compactDateBox: { flexDirection: 'row', alignItems: 'center', borderRadius: 10, borderWidth: 1, marginBottom: 20 },
-    compactDateBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, gap: 10 },
-    dateDivider: { width: 1, height: '60%' },
-    compactDateLabel: { fontSize: 9, fontWeight: 'bold', marginBottom: 2 },
-    compactDateValue: { fontSize: 13, fontWeight: '900' },
-    
-    archiveRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1 },
-    archiveLabel: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
-    
-    separator: { height: 1, backgroundColor: 'rgba(150,150,150,0.2)', marginVertical: 20 },
-    
-    modelBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1, gap: 6 },
-    modelBtnText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-    
-    intensityBox: { marginTop: 5, padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' },
-    intensityBtn: { flex: 1, flexDirection: 'column', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 10, borderWidth: 1, gap: 6 },
-    intensityText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-    calendarBtn: { marginTop: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 10, borderWidth: 1 },
-    
-    toolBtnPrimary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 10, borderWidth: 1, gap: 8 },
-    toolBtnPrimaryText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
-    toolBtnSecondary: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, borderRadius: 10, borderWidth: 1, gap: 6 },
-    toolBtnSecondaryText: { fontSize: 11, fontWeight: 'bold' }
+    container: {
+        borderRadius: 20,
+        marginBottom: 20,
+        overflow: 'hidden',
+    },
+    header: {
+        padding: 16,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    headerIcon: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerTitle: {
+        fontSize: 15,
+        fontWeight: '800',
+        marginBottom: 2,
+    },
+    headerSubtitle: {
+        fontSize: 11,
+    },
+    chevronBox: {
+        borderRadius: 8,
+        padding: 5,
+    },
+    content: {
+        padding: 16,
+        paddingTop: 8,
+    },
+    sectionLabel: {
+        fontSize: 10,
+        fontWeight: '900',
+        letterSpacing: 1.2,
+        marginBottom: 10,
+        marginTop: 6,
+    },
+    nameInput: {
+        padding: 14,
+        borderRadius: 12,
+        marginBottom: 20,
+        borderWidth: 1,
+        fontSize: 15,
+        fontWeight: '700',
+        outlineStyle: 'none',
+    },
+    dateRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 12,
+        overflow: 'hidden',
+    },
+    dateBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+        gap: 10,
+    },
+    dateIconBox: {
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    dateBtnLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+        marginBottom: 2,
+    },
+    dateBtnValue: {
+        fontSize: 13,
+        fontWeight: '800',
+    },
+    dateSeparator: {
+        width: 1,
+        height: 36,
+    },
+    archiveRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 14,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 4,
+    },
+    archiveLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    archiveIconBox: {
+        width: 30,
+        height: 30,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    archiveTitle: {
+        fontSize: 13,
+        fontWeight: '800',
+        marginBottom: 2,
+    },
+    archiveSubtitle: {
+        fontSize: 10,
+        fontWeight: '500',
+    },
+    separator: {
+        height: 1,
+        marginVertical: 20,
+    },
+    modelRow: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 14,
+    },
+    modelBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 13,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 7,
+    },
+    modelBtnText: {
+        fontSize: 12,
+        fontWeight: '800',
+    },
+    intensityBox: {
+        padding: 14,
+        borderRadius: 14,
+        borderWidth: 1,
+        marginBottom: 4,
+    },
+    intensityHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 14,
+    },
+    intensityHeaderLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    intensityTitle: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    intensitySubtitle: {
+        fontSize: 9,
+        fontWeight: '600',
+        opacity: 0.7,
+    },
+    intensityBtns: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    intensityBtn: {
+        flex: 1,
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        gap: 5,
+    },
+    intensityBtnText: {
+        fontSize: 10,
+        fontWeight: '800',
+    },
+    calendarBtn: {
+        marginTop: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 10,
+        borderWidth: 1,
+        gap: 10,
+    },
+    toolBtnPrimary: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 15,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 10,
+        marginBottom: 10,
+    },
+    toolIconBox: {
+        width: 28,
+        height: 28,
+        borderRadius: 7,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    toolBtnPrimaryText: {
+        fontSize: 13,
+        fontWeight: '800',
+    },
+    toolRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    toolBtnSecondary: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 13,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 7,
+    },
+    toolBtnSecondaryText: {
+        fontSize: 12,
+        fontWeight: '700',
+    },
 });

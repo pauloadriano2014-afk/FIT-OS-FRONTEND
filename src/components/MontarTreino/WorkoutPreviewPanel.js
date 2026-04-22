@@ -4,7 +4,6 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, LayoutAnimation, 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import SmartThumbnail from './SmartThumbnail';
 
-// Habilita animação fluida no Android (no iOS já é nativo)
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -15,81 +14,172 @@ export default function WorkoutPreviewPanel({ currentExercises, theme }) {
     if (!currentExercises || currentExercises.length === 0) return null;
 
     const toggleExpand = () => {
-        // Animação suave estilo "Apple" ao abrir e fechar o carrinho
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         setExpanded(!expanded);
     };
 
-    // Calcula o total de séries prescritas até agora
     const totalSets = currentExercises.reduce((acc, ex) => {
         return acc + (ex.blocks ? ex.blocks.length : 1);
     }, 0);
 
     return (
-        <View style={[styles.wrapper, { shadowColor: theme.isDark ? '#000' : '#4DE38F' }]}>
-            <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                
-                {/* CABEÇALHO DO CARRINHO (Visão Retraída) */}
-                <TouchableOpacity 
-                    style={[styles.header, expanded && styles.headerExpanded, { backgroundColor: theme.surface }]} 
+        <View style={[
+            styles.wrapper,
+            Platform.select({
+                ios: {
+                    shadowColor: theme.accent,
+                    shadowOpacity: 0.2,
+                    shadowRadius: 20,
+                    shadowOffset: { width: 0, height: 8 },
+                },
+                android: { elevation: 16 },
+                web: {
+                    boxShadow: `0 8px 32px rgba(0,0,0,0.25)`,
+                },
+            }),
+        ]}>
+            <View style={[styles.container, {
+                backgroundColor: theme.surface,
+                borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+            }]}>
+
+                {/* CABEÇALHO */}
+                <TouchableOpacity
+                    style={styles.header}
                     onPress={toggleExpand}
                     activeOpacity={0.8}
                 >
-                    <View style={styles.badgeRow}>
-                        <View style={[styles.iconContainer, { backgroundColor: '#4DE38F' }]}>
-                            <MaterialCommunityIcons name="dumbbell" size={18} color="#000" />
+                    <View style={styles.headerLeft}>
+                        <View style={[styles.iconBox, { backgroundColor: theme.accent }]}>
+                            <MaterialCommunityIcons name="dumbbell" size={17} color={theme.isDark ? '#000' : '#FFF'} />
                         </View>
                         <View>
-                            <Text style={[styles.title, { color: theme.text }]}>
-                                {currentExercises.length} EXERCÍCIO{currentExercises.length > 1 ? 'S' : ''}
+                            <Text style={[styles.headerTitle, { color: theme.text }]}>
+                                {currentExercises.length} exercício{currentExercises.length > 1 ? 's' : ''}
                             </Text>
-                            <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>
-                                {totalSets} SÉRIES TOTAIS NESTE DIA
+                            <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
+                                {totalSets} série{totalSets > 1 ? 's' : ''} neste dia
                             </Text>
                         </View>
                     </View>
-                    <View style={[styles.toggleBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                        <MaterialCommunityIcons name={expanded ? "chevron-down" : "chevron-up"} size={20} color={theme.text} />
+
+                    <View style={[styles.toggleBtn, {
+                        backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+                    }]}>
+                        <MaterialCommunityIcons
+                            name={expanded ? 'chevron-down' : 'chevron-up'}
+                            size={20}
+                            color={theme.textSecondary}
+                        />
                     </View>
                 </TouchableOpacity>
 
-                {/* LISTA EXPANDIDA COM MINIATURAS */}
+                {/* LISTA EXPANDIDA */}
                 {expanded && (
-                    <View style={[styles.listContainer, { borderTopColor: theme.border }]}>
-                        <ScrollView style={{ maxHeight: 250 }} showsVerticalScrollIndicator={false} bounces={true}>
+                    <View style={[styles.listContainer, {
+                        borderTopColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                    }]}>
+                        <ScrollView
+                            style={{ maxHeight: 260 }}
+                            showsVerticalScrollIndicator={false}
+                            bounces={false}
+                        >
                             {currentExercises.map((ex, index) => {
-                                const videoUrl = ex.exercise?.videoUrl || ex.videoUrl || "";
+                                const videoUrl = ex.exercise?.videoUrl || ex.videoUrl || '';
                                 const setsCount = ex.blocks ? ex.blocks.length : 1;
-                                
+                                const isLast = index === currentExercises.length - 1;
+
                                 return (
-                                    <View key={ex.tempId || index} style={[styles.listItem, { borderBottomColor: theme.bg }]}>
-                                        <Text style={[styles.indexText, { color: theme.textSecondary }]}>{index + 1}.</Text>
-                                        
-                                        {/* A MINIATURA DE ELITE AQUI */}
+                                    <View
+                                        key={ex.tempId || index}
+                                        style={[styles.listItem, {
+                                            borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                                            borderBottomWidth: isLast ? 0 : 1,
+                                        }]}
+                                    >
+                                        {/* NÚMERO */}
+                                        <View style={[styles.indexBox, {
+                                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                                        }]}>
+                                            <Text style={[styles.indexText, { color: theme.textSecondary }]}>
+                                                {index + 1}
+                                            </Text>
+                                        </View>
+
+                                        {/* THUMBNAIL */}
                                         <View pointerEvents="none">
-                                            <SmartThumbnail 
-                                                url={videoUrl} 
-                                                style={styles.thumb} 
-                                                theme={theme} 
+                                            <SmartThumbnail
+                                                url={videoUrl}
+                                                style={styles.thumb}
+                                                theme={theme}
                                             />
                                         </View>
 
+                                        {/* NOME E CATEGORIA */}
                                         <View style={styles.itemInfo}>
                                             <Text style={[styles.itemName, { color: theme.text }]} numberOfLines={1}>
-                                                {ex.title || ex.name || "Exercício"}
+                                                {ex.title || ex.name || 'Exercício'}
                                             </Text>
-                                            <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>
-                                                {ex.category || "Geral"}
+                                            <Text style={[styles.itemCategory, { color: theme.textSecondary }]}>
+                                                {ex.category || 'Geral'}
                                             </Text>
                                         </View>
 
-                                        <View style={[styles.setBadge, { backgroundColor: theme.isDark ? '#4DE38F22' : '#4DE38F' }]}>
-                                            <Text style={[styles.setBadgeText, { color: theme.isDark ? '#4DE38F' : '#000' }]}>{setsCount}x</Text>
+                                        {/* BADGE DE SÉRIES */}
+                                        <View style={[styles.setBadge, {
+                                            backgroundColor: theme.accent + '18',
+                                        }]}>
+                                            <Text style={[styles.setBadgeText, { color: theme.accent }]}>
+                                                {setsCount}x
+                                            </Text>
                                         </View>
                                     </View>
                                 );
                             })}
                         </ScrollView>
+
+                        {/* RODAPÉ COM TOTAIS */}
+                        <View style={[styles.footer, {
+                            borderTopColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                        }]}>
+                            <View style={styles.footerItem}>
+                                <Text style={[styles.footerValue, { color: theme.text }]}>
+                                    {currentExercises.length}
+                                </Text>
+                                <Text style={[styles.footerLabel, { color: theme.textSecondary }]}>
+                                    exercícios
+                                </Text>
+                            </View>
+                            <View style={[styles.footerDivider, {
+                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                            }]} />
+                            <View style={styles.footerItem}>
+                                <Text style={[styles.footerValue, { color: theme.text }]}>
+                                    {totalSets}
+                                </Text>
+                                <Text style={[styles.footerLabel, { color: theme.textSecondary }]}>
+                                    séries totais
+                                </Text>
+                            </View>
+                            <View style={[styles.footerDivider, {
+                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                            }]} />
+                            <View style={styles.footerItem}>
+                                <Text style={[styles.footerValue, { color: theme.accent }]}>
+                                    {currentExercises.filter(ex => ex.category?.toUpperCase() === 'CARDIO').length > 0
+                                        ? `${currentExercises.filter(ex => ex.category?.toUpperCase() === 'CARDIO').length} cardio`
+                                        : `${currentExercises.filter(ex => ex.substitute).length} trocas`
+                                    }
+                                </Text>
+                                <Text style={[styles.footerLabel, { color: theme.textSecondary }]}>
+                                    {currentExercises.filter(ex => ex.category?.toUpperCase() === 'CARDIO').length > 0
+                                        ? 'no dia'
+                                        : 'opcionais'
+                                    }
+                                </Text>
+                            </View>
+                        </View>
                     </View>
                 )}
             </View>
@@ -100,94 +190,129 @@ export default function WorkoutPreviewPanel({ currentExercises, theme }) {
 const styles = StyleSheet.create({
     wrapper: {
         position: 'absolute',
-        bottom: 25,
-        left: 20,
-        right: 20,
+        bottom: 20,
+        left: 16,
+        right: 16,
         zIndex: 9999,
-        elevation: 15,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.25,
-        shadowRadius: 15,
     },
     container: {
-        borderRadius: 20,
+        borderRadius: 22,
         borderWidth: 1,
         overflow: 'hidden',
     },
+
+    // HEADER
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 16,
     },
-    headerExpanded: {
-        borderBottomWidth: 0,
-    },
-    badgeRow: {
+    headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 12,
     },
-    iconContainer: {
-        width: 38,
-        height: 38,
-        borderRadius: 12,
+    iconBox: {
+        width: 40,
+        height: 40,
+        borderRadius: 13,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    title: {
-        fontWeight: '900',
-        fontSize: 14,
-        letterSpacing: 0.5,
+    headerTitle: {
+        fontSize: 15,
+        fontWeight: '800',
         marginBottom: 2,
+    },
+    headerSubtitle: {
+        fontSize: 11,
+        fontWeight: '500',
     },
     toggleBtn: {
         width: 34,
         height: 34,
         borderRadius: 17,
-        borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
+
+    // LISTA
     listContainer: {
-        paddingHorizontal: 15,
-        paddingBottom: 10,
         borderTopWidth: 1,
     },
     listItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 12,
-        borderBottomWidth: 1,
+        paddingHorizontal: 16,
+        gap: 12,
+    },
+    indexBox: {
+        width: 26,
+        height: 26,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     indexText: {
-        fontSize: 12,
-        fontWeight: '900',
-        width: 22,
+        fontSize: 11,
+        fontWeight: '800',
     },
     thumb: {
         width: 44,
         height: 44,
-        borderRadius: 10,
-        marginRight: 12,
+        borderRadius: 11,
     },
     itemInfo: {
         flex: 1,
         justifyContent: 'center',
+        gap: 3,
     },
     itemName: {
         fontSize: 13,
-        fontWeight: '800',
-        marginBottom: 4,
+        fontWeight: '700',
+    },
+    itemCategory: {
+        fontSize: 10,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     setBadge: {
         paddingHorizontal: 10,
-        paddingVertical: 6,
+        paddingVertical: 5,
         borderRadius: 8,
-        marginLeft: 10,
     },
     setBadgeText: {
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: '900',
-    }
+    },
+
+    // RODAPÉ
+    footer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderTopWidth: 1,
+    },
+    footerItem: {
+        flex: 1,
+        alignItems: 'center',
+        gap: 2,
+    },
+    footerValue: {
+        fontSize: 15,
+        fontWeight: '900',
+    },
+    footerLabel: {
+        fontSize: 10,
+        fontWeight: '600',
+    },
+    footerDivider: {
+        width: 1,
+        height: 28,
+        marginHorizontal: 8,
+    },
 });

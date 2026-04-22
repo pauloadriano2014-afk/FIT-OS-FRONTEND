@@ -8,10 +8,10 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as DocumentPicker from 'expo-document-picker'; 
+import * as DocumentPicker from 'expo-document-picker';
+import { Video, ResizeMode } from 'expo-av'; 
 
 import { useTheme } from '../contexts/ThemeContext';
-// 🔥 IMPORTAÇÃO CORRIGIDA PARA A SUA PASTA COMPONENTS
 import VideoPreviewModal from '../components/VideoPreviewModal';
 
 const categoryCovers = {
@@ -35,6 +35,15 @@ const categories = [
     'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
 ];
 
+// 🔥 MAPA DE SUBCATEGORIAS ATUALIZADO 🔥
+const subCategoriesMap = {
+    "Peito": ["Todos", "Superior", "Medial", "Inferior"],
+    "Costas": ["Todos", "Puxadas", "Remadas", "Lombar"],
+    "Pernas": ["Todos", "Multiarticular", "Quadríceps e Adutores", "Posteriores", "Glúteos", "Panturrilha"],
+    "Ombros": ["Todos", "Multiarticular", "Frontal", "Lateral", "Posterior", "Trapézio"],
+    "Abdômen": ["Todos", "Supra", "Infra", "Core", "Completo"]
+};
+
 const getThumbnailUrl = (url) => {
     if (!url) return null;
     if (url.includes('cloudflarestream.com')) {
@@ -44,7 +53,14 @@ const getThumbnailUrl = (url) => {
 };
 
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme }) => {
-    const thumb = getThumbnailUrl(item.videoUrl);
+    // Verifica se é Cloudflare (que tem a foto nativa) ou CloudFront (mp4)
+    const isCloudflare = item.videoUrl && item.videoUrl.includes('cloudflarestream.com');
+    const thumbCloudflare = isCloudflare ? item.videoUrl.replace('/manifest/video.m3u8', '/thumbnails/thumbnail.jpg') : null;
+
+    let displayCat = item.category.toUpperCase();
+    if (item.subCategory && item.subCategory !== 'Geral') {
+        displayCat += ` • ${item.subCategory.toUpperCase()}`;
+    }
 
     return (
         <TouchableOpacity 
@@ -52,21 +68,29 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
             onPress={() => onPress(item.videoUrl)}
             activeOpacity={0.7}
         >
-            <View style={[styles.mfitThumbBox, { borderColor: theme.border, backgroundColor: theme.bg }]}>
-                {thumb ? (
-                    <Image source={{ uri: thumb }} style={styles.mfitThumbImage} resizeMode="cover" />
+            <View style={[styles.mfitThumbBox, { borderColor: theme.border, backgroundColor: theme.bg, position: 'relative', overflow: 'hidden' }]}>
+                {isCloudflare && thumbCloudflare ? (
+                    <Image source={{ uri: thumbCloudflare }} style={styles.mfitThumbImage} resizeMode="cover" />
+                ) : item.videoUrl ? (
+                    /* 🔥 O SEGREDO: Usa o próprio vídeo pausado no segundo 1 como miniatura! */
+                    <>
+                        {Platform.OS === 'web' ? (
+                            <video src={`${item.videoUrl}#t=1.0`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" />
+                        ) : (
+                            <Video source={{ uri: item.videoUrl }} style={styles.mfitThumbImage} resizeMode={ResizeMode.COVER} shouldPlay={false} positionMillis={1000} />
+                        )}
+                        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+                            <MaterialCommunityIcons name="play-circle-outline" size={24} color="#FFF" />
+                        </View>
+                    </>
                 ) : (
                     <MaterialCommunityIcons name="play-circle-outline" size={28} color={theme.accent} />
                 )}
             </View>
 
             <View style={styles.mfitInfo}>
-                <Text style={[styles.mfitTitle, { color: theme.text }]} numberOfLines={2}>
-                    {item.name}
-                </Text>
-                <Text style={[styles.mfitCategory, { color: theme.textSecondary }]}>
-                    {item.category.toUpperCase()}
-                </Text>
+                <Text style={[styles.mfitTitle, { color: theme.text }]} numberOfLines={2}>{item.name}</Text>
+                <Text style={[styles.mfitCategory, { color: theme.textSecondary }]}>{displayCat}</Text>
             </View>
 
             <View style={styles.mfitActionGroup}>
@@ -84,6 +108,7 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
            prev.item.videoUrl === next.item.videoUrl && 
            prev.item.name === next.item.name && 
            prev.item.category === next.item.category && 
+           prev.item.subCategory === next.item.subCategory && 
            prev.width === next.width &&
            prev.theme === next.theme;
 });
@@ -95,19 +120,24 @@ export default function BibliotecaAdmin({ navigation }) {
   const [exercises, setExercises] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterText, setFilterText] = useState('');
+  
   const [selectedCat, setSelectedCat] = useState('TODOS');
+  const [selectedSubCat, setSelectedSubCat] = useState('Todos'); 
   
   const [modalVisible, setModalVisible] = useState(false); 
   const [catModalVisible, setCatModalVisible] = useState(false); 
   const [showFormDropdown, setShowFormDropdown] = useState(false);
+  const [showFormSubDropdown, setShowFormSubDropdown] = useState(false); 
   const [videoModalVisible, setVideoModalVisible] = useState(false); 
 
   const [formExercise, setFormExercise] = useState({ 
       id: null, 
       name: '', 
       category: 'Peito', 
+      subCategory: 'Geral',
       videoUrl: '' 
   });
+  
   const [saving, setSaving] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false); 
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
@@ -136,24 +166,21 @@ export default function BibliotecaAdmin({ navigation }) {
       if (!userJson) return;
       const adminId = JSON.parse(userJson).id;
 
-      // 1. Tenta carregar do CACHE (Instantâneo)
       const cachedExercises = await AsyncStorage.getItem('@global_exercises');
       if (cachedExercises) {
           const parsed = JSON.parse(cachedExercises);
           setExercises([...parsed].reverse());
-          setLoading(false); // Já mostra os dados na tela
+          setLoading(false); 
       } else {
           setLoading(true);
       }
 
-      // 2. Busca do servidor apenas EXERCÍCIOS (Rota leve que acabamos de criar)
       const res = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${Date.now()}`);
       const data = await res.json();
       
       if (Array.isArray(data)) {
           const reversed = [...data].reverse();
           setExercises(reversed);
-          // Atualiza o cache para a próxima vez
           await AsyncStorage.setItem('@global_exercises', JSON.stringify(data));
       }
     } catch (error) { 
@@ -263,7 +290,6 @@ export default function BibliotecaAdmin({ navigation }) {
           
           if (res.ok) {
               setModalVisible(false);
-              // Força a atualização da lista e do cache
               fetchLibrary(); 
               if(isWeb) window.alert("Exercício salvo com sucesso!");
               else Alert.alert("Sucesso", "Exercício salvo com sucesso!");
@@ -287,7 +313,11 @@ export default function BibliotecaAdmin({ navigation }) {
   const filteredList = exercises.filter(e => {
       const matchText = e.name.toLowerCase().includes(filterText.toLowerCase());
       const matchCat = selectedCat === 'TODOS' || e.category === selectedCat;
-      return matchText && matchCat;
+      const matchSubCat = (selectedCat === 'TODOS') || 
+                          (selectedSubCat === 'Todos') || 
+                          (e.subCategory === selectedSubCat);
+                          
+      return matchText && matchCat && matchSubCat;
   });
 
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -365,7 +395,7 @@ export default function BibliotecaAdmin({ navigation }) {
                     </View>
 
                     <TouchableOpacity 
-                        style={[styles.catSelector, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        style={[styles.catSelector, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: (selectedCat !== 'TODOS' && subCategoriesMap[selectedCat]) ? 10 : 20 }]}
                         onPress={() => setCatModalVisible(true)}
                     >
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
@@ -374,6 +404,27 @@ export default function BibliotecaAdmin({ navigation }) {
                         </View>
                         <MaterialCommunityIcons name="chevron-down" size={22} color={theme.textSecondary} />
                     </TouchableOpacity>
+
+                    {selectedCat !== 'TODOS' && subCategoriesMap[selectedCat] && (
+                        <View style={{ marginBottom: 20 }}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                                {subCategoriesMap[selectedCat].map(sub => {
+                                    const isSelected = selectedSubCat === sub;
+                                    return (
+                                        <TouchableOpacity 
+                                            key={sub}
+                                            style={[styles.subCatPill, { backgroundColor: isSelected ? theme.accent : theme.surface, borderColor: isSelected ? theme.accent : theme.border }]}
+                                            onPress={() => setSelectedSubCat(sub)}
+                                        >
+                                            <Text style={[styles.subCatPillText, { color: isSelected ? '#000' : theme.textSecondary, fontWeight: isSelected ? '900' : '600' }]}>
+                                                {sub.toUpperCase()}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </ScrollView>
+                        </View>
+                    )}
 
                     <View style={{ marginBottom: 20 }}>
                         <ImageBackground 
@@ -397,7 +448,12 @@ export default function BibliotecaAdmin({ navigation }) {
                   <ExerciseCard 
                       item={item} width={itemWidth} theme={theme}
                       onPress={openVideoPreview}
-                      onEdit={(ex) => { setFormExercise(ex); setShowFormDropdown(false); setModalVisible(true); }}
+                      onEdit={(ex) => { 
+                          setFormExercise({...ex, subCategory: ex.subCategory || 'Geral'}); 
+                          setShowFormDropdown(false); 
+                          setShowFormSubDropdown(false);
+                          setModalVisible(true); 
+                      }}
                       onDelete={handleDelete}
                   />
               )}
@@ -407,7 +463,7 @@ export default function BibliotecaAdmin({ navigation }) {
             <View style={[styles.footerBar, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
                 <TouchableOpacity 
                     style={[styles.btnPremium, { backgroundColor: theme.accent, marginTop: 0, width: '100%' }]} 
-                    onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', videoUrl: '' }); setShowFormDropdown(false); setModalVisible(true); }}
+                    onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '' }); setShowFormDropdown(false); setShowFormSubDropdown(false); setModalVisible(true); }}
                 >
                     <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10}}>
                         <MaterialCommunityIcons name="plus-circle" size={22} color={theme.isDark ? '#000' : '#FFF'} />
@@ -427,7 +483,7 @@ export default function BibliotecaAdmin({ navigation }) {
                             <TouchableOpacity 
                                 key={cat} 
                                 style={[styles.catOption, selectedCat === cat && { backgroundColor: theme.accent + '22' }]}
-                                onPress={() => { setSelectedCat(cat); setCatModalVisible(false); }}
+                                onPress={() => { setSelectedCat(cat); setSelectedSubCat('Todos'); setCatModalVisible(false); }}
                             >
                                 <Text style={[styles.catOptionText, { color: theme.text }, selectedCat === cat && { color: theme.accent, fontWeight: '800' }]}>{cat}</Text>
                                 {selectedCat === cat && <MaterialCommunityIcons name="check-decagram" size={20} color={theme.accent} />}
@@ -475,7 +531,11 @@ export default function BibliotecaAdmin({ navigation }) {
                                       <TouchableOpacity 
                                           key={cat} 
                                           style={{ padding: 14, borderRadius: 10, backgroundColor: formExercise.category === cat ? theme.accent + '22' : 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                                          onPress={() => { setFormExercise({...formExercise, category: cat}); setShowFormDropdown(false); }}
+                                          onPress={() => { 
+                                              const hasSubs = subCategoriesMap[cat] && subCategoriesMap[cat].length > 1;
+                                              setFormExercise({...formExercise, category: cat, subCategory: hasSubs ? 'Geral' : 'Geral'}); 
+                                              setShowFormDropdown(false); 
+                                          }}
                                       >
                                           <Text style={{ color: formExercise.category === cat ? theme.accent : theme.text, fontWeight: formExercise.category === cat ? 'bold' : '500' }}>{cat}</Text>
                                           {formExercise.category === cat && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
@@ -483,6 +543,44 @@ export default function BibliotecaAdmin({ navigation }) {
                                   ))}
                               </ScrollView>
                           </View>
+                      )}
+
+                      {subCategoriesMap[formExercise.category] && (
+                          <>
+                              <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>SUBCATEGORIA (MÁQUINA/MOVIMENTO)</Text>
+                              <TouchableOpacity 
+                                  style={[styles.catSelector, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: showFormSubDropdown ? 10 : 25 }]}
+                                  onPress={() => setShowFormSubDropdown(!showFormSubDropdown)}
+                              >
+                                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                      <MaterialCommunityIcons name="tag-outline" size={20} color={theme.textSecondary} />
+                                      <Text style={[styles.catSelectorVal, { color: theme.text }]}>{(formExercise.subCategory || 'Geral').toUpperCase()}</Text>
+                                  </View>
+                                  <MaterialCommunityIcons name={showFormSubDropdown ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                              </TouchableOpacity>
+
+                              {showFormSubDropdown && (
+                                  <View style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, marginBottom: 25, padding: 10 }}>
+                                      {subCategoriesMap[formExercise.category].filter(c => c !== 'Todos').map(sub => (
+                                          <TouchableOpacity 
+                                              key={sub} 
+                                              style={{ padding: 14, borderRadius: 10, backgroundColor: formExercise.subCategory === sub ? theme.accent + '22' : 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                                              onPress={() => { setFormExercise({...formExercise, subCategory: sub}); setShowFormSubDropdown(false); }}
+                                          >
+                                              <Text style={{ color: formExercise.subCategory === sub ? theme.accent : theme.text, fontWeight: formExercise.subCategory === sub ? 'bold' : '500' }}>{sub}</Text>
+                                              {formExercise.subCategory === sub && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
+                                          </TouchableOpacity>
+                                      ))}
+                                      <TouchableOpacity 
+                                          style={{ padding: 14, borderRadius: 10, backgroundColor: formExercise.subCategory === 'Geral' ? theme.accent + '22' : 'transparent', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                                          onPress={() => { setFormExercise({...formExercise, subCategory: 'Geral'}); setShowFormSubDropdown(false); }}
+                                      >
+                                          <Text style={{ color: formExercise.subCategory === 'Geral' ? theme.accent : theme.text, fontWeight: formExercise.subCategory === 'Geral' ? 'bold' : '500' }}>Geral</Text>
+                                          {formExercise.subCategory === 'Geral' && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
+                                      </TouchableOpacity>
+                                  </View>
+                              )}
+                          </>
                       )}
                       
                       <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>VÍDEO DO EXERCÍCIO</Text>
@@ -523,7 +621,6 @@ export default function BibliotecaAdmin({ navigation }) {
           </KeyboardAvoidingView>
         </Modal>
 
-        {/* 🔥 IMPORTAÇÃO DO NOVO MODAL ISOLADO */}
         <VideoPreviewModal 
             visible={videoModalVisible} 
             videoUrl={currentVideoUrl} 
@@ -542,7 +639,7 @@ const styles = StyleSheet.create({
   backBtn: { padding: 12, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   searchBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20, height: 55, borderRadius: 30, borderWidth: 1 },
   searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500', outlineStyle: 'none' },
-  catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1 },
   catSelectorVal: { fontSize: 15, fontWeight: '800' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
@@ -554,6 +651,9 @@ const styles = StyleSheet.create({
   coverBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   coverCount: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   
+  subCatPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  subCatPillText: { fontSize: 11, letterSpacing: 0.5 },
+
   mfitCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, borderWidth: 1, marginBottom: 12, elevation: 2 },
   mfitThumbBox: { width: 65, height: 65, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginRight: 15 },
   mfitThumbImage: { width: '100%', height: '100%' },
@@ -571,5 +671,6 @@ const styles = StyleSheet.create({
   modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 15, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
   uploadBtn: { padding: 18, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   btnPremium: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 3 },
-  btnTextPremium: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 }
+  btnTextPremium: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
+  emptyText: { textAlign: 'center', marginTop: 30, fontSize: 14, color: '#888' }
 });

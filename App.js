@@ -1,4 +1,3 @@
-// App.js
 import React, { useEffect, useState } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -9,38 +8,33 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-/* ================= IMPORTAÇÃO DO TEMA ================= */
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 
-/* ================= TELAS ================= */
-import InstallScreen from './src/screens/InstallScreen'; 
+import InstallScreen from './src/screens/InstallScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
 import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
-import SetupTreinoScreen from './src/screens/SetupTreinoScreen'; 
-
-import PropostaScreen from './src/screens/PropostaScreen'; 
-import PropostaStartScreen from './src/screens/PropostaStartScreen'; 
-
+import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
+import PropostaScreen from './src/screens/PropostaScreen';
+import PropostaStartScreen from './src/screens/PropostaStartScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CheckInScreen from './src/screens/CheckInScreen';
 import UserHistoryScreen from './src/screens/UserHistoryScreen';
-import PAFlixScreen from './src/screens/PAFlixScreen'; 
-import BibliotecaScreen from './src/screens/BibliotecaScreen'; 
-import PDFViewerScreen from './src/screens/PDFViewerScreen'; 
-import VideoPlayerScreen from './src/screens/VideoPlayerScreen'; 
+import PAFlixScreen from './src/screens/PAFlixScreen';
+import BibliotecaScreen from './src/screens/BibliotecaScreen';
+import PDFViewerScreen from './src/screens/PDFViewerScreen';
+import VideoPlayerScreen from './src/screens/VideoPlayerScreen';
 import AudioPlayerScreen from './src/screens/AudioPlayerScreen';
-import DietScreen from './src/screens/DietScreen'; 
-
+import DietScreen from './src/screens/DietScreen';
 import RoutineDetailsScreen from './src/screens/RoutineDetailsScreen';
 import DayWorkoutScreen from './src/screens/DayWorkoutScreen';
 import FinishScreen from './src/screens/FinishScreen';
-
 import AdminDashboard from './src/screens/AdminDashboard';
 import MontarTreinoAdmin from './src/screens/MontarTreinoAdmin';
 import BibliotecaAdmin from './src/screens/BibliotecaAdmin';
@@ -49,13 +43,11 @@ import AdminUserOptions from './src/screens/AdminUserOptions';
 import AdminEvolutionScreen from './src/screens/AdminEvolutionScreen';
 import AdminAddContent from './src/screens/AdminAddContent';
 import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen';
-import AdminIALabScreen from './src/screens/AdminIALabScreen'; 
-import AdminDietScreen from './src/screens/AdminDietScreen'; 
-import AdminDietLibraryScreen from './src/screens/AdminDietLibraryScreen'; // 🔥 NOVO: Cofre de Dietas
-
+import AdminIALabScreen from './src/screens/AdminIALabScreen';
+import AdminDietScreen from './src/screens/AdminDietScreen';
+import AdminDietLibraryScreen from './src/screens/AdminDietLibraryScreen';
 import AIScannerModal from './src/components/AIScannerModal';
 
-/* ================= NOTIFICATIONS ================= */
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -84,12 +76,10 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
-/* ================= NAVIGATORS E REFS ================= */
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 const navigationRef = createNavigationContainerRef();
 
-/* ---------- ALUNO TABS BLINDADO ---------- */
 function StudentTabs({ route }) {
   const [userData, setUserData] = useState(null);
   const insets = useSafeAreaInsets();
@@ -99,12 +89,10 @@ function StudentTabs({ route }) {
     const loadUser = async () => {
       let u = route.params?.userData;
       if (typeof u === 'string') u = JSON.parse(u);
-
       if (!u || !u.id) {
         const saved = await AsyncStorage.getItem('user');
         if (saved) u = JSON.parse(saved);
       }
-
       if (u) {
         setUserData(u);
         try {
@@ -158,10 +146,9 @@ function StudentTabs({ route }) {
   );
 }
 
-/* ---------- ROOT NAVIGATOR AJUSTADO ---------- */
 function RootNavigator() {
   const [loading, setLoading] = useState(true);
-  const [initialRoute, setInitialRoute] = useState('Install'); 
+  const [initialRoute, setInitialRoute] = useState('Install');
   const [savedUser, setSavedUser] = useState(null);
   const { theme, loadingTheme } = useTheme();
 
@@ -169,13 +156,11 @@ function RootNavigator() {
     const restoreSession = async () => {
       try {
         const userJson = await AsyncStorage.getItem('user');
-        const role = await AsyncStorage.getItem('role'); 
-
+        const role = await AsyncStorage.getItem('role');
         if (userJson) {
           const user = JSON.parse(userJson);
           setSavedUser(user);
-          const finalRole = role || user.role || user.type || 'ALUNO'; 
-
+          const finalRole = role || user.role || user.type || 'ALUNO';
           if (finalRole.toLowerCase() === 'admin') {
             setInitialRoute('AdminDashboard');
           } else {
@@ -209,15 +194,10 @@ function RootNavigator() {
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
       <Stack.Screen name="Proposta" component={PropostaScreen} />
       <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
-
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
-      
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
-      
-      {/* 🔥 TELA DAYWORKOUTSCREEN ADICIONADA / PADRONIZADA 🔥 */}
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
       <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
-
       <Stack.Screen name="FinishScreen" component={FinishScreen} />
       <Stack.Screen name="CheckIn" component={CheckInScreen} />
       <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
@@ -235,19 +215,19 @@ function RootNavigator() {
       <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
       <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
       <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
-      <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} /> 
-      <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} /> 
-      <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} /> 
+      <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} />
+      <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} />
+      <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} />
     </Stack.Navigator>
   );
 }
 
 const linking = {
   prefixes: [
-      'https://www.pauloadrianoteam.com.br', 
-      'https://pauloadrianoteam.com.br', 
-      'http://localhost:8081', 
-      'http://localhost:8082'
+    'https://www.pauloadrianoteam.com.br',
+    'https://pauloadrianoteam.com.br',
+    'http://localhost:8081',
+    'http://localhost:8082'
   ],
   config: {
     screens: {
@@ -263,12 +243,14 @@ const linking = {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <ThemeProvider>
-        <NavigationContainer ref={navigationRef} linking={linking}>
-          <RootNavigator />
-        </NavigationContainer>
-      </ThemeProvider>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <NavigationContainer ref={navigationRef} linking={linking}>
+            <RootNavigator />
+          </NavigationContainer>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
