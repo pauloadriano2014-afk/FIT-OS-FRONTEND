@@ -50,6 +50,121 @@ function PersonalizedAlerts({ theme, userId }) {
     );
 }
 
+// 🔥 COMPONENTE DO GUIA DA REFEIÇÃO LIVRE (AGORA SANFONA E CHAMATIVO) 🔥
+function FreeMealGuide({ theme }) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const wppNumber = '5541997991346';
+
+    return (
+        <View style={{ marginTop: 10, marginBottom: 20 }}>
+            <TouchableOpacity 
+                style={{
+                    flexDirection: 'row', alignItems: 'center', padding: 18, 
+                    backgroundColor: theme.surface, 
+                    borderRadius: isExpanded ? 0 : 16, 
+                    borderTopLeftRadius: 16, borderTopRightRadius: 16, 
+                    borderWidth: 2, borderColor: theme.accent, 
+                    borderBottomWidth: isExpanded ? 0 : 2
+                }}
+                onPress={() => setIsExpanded(!isExpanded)}
+                activeOpacity={0.8}
+            >
+                <View style={[styles.iconBox, { backgroundColor: theme.accent, width: 44, height: 44, borderRadius: 22, marginRight: 15 }]}>
+                    <MaterialCommunityIcons name="pizza" size={24} color="#000" />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text, fontStyle: 'italic' }}>REFEIÇÃO LIVRE</Text>
+                    <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: 'bold', marginTop: 2 }}>TOQUE PARA VER REGRAS E OPÇÕES</Text>
+                </View>
+                <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={26} color={theme.accent} />
+            </TouchableOpacity>
+
+            {isExpanded && (
+                <View style={{ 
+                    backgroundColor: theme.surface, 
+                    borderWidth: 2, borderColor: theme.accent, 
+                    borderTopWidth: 0, 
+                    borderBottomLeftRadius: 16, borderBottomRightRadius: 16, 
+                    paddingBottom: 20 
+                }}>
+                    {/* REGRAS DO JOGO */}
+                    <View style={{ padding: 20, paddingTop: 10, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                            <MaterialCommunityIcons name="gavel" size={18} color={theme.accent} />
+                            <Text style={{ fontSize: 14, fontWeight: '900', color: theme.text }}>AS REGRAS DO JOGO</Text>
+                        </View>
+                        <Text style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 20, marginBottom: 15 }}>
+                            A refeição livre é uma estratégia mental e metabólica. Ela ajuda a acelerar um metabolismo estagnado e dar alívio psicológico, mas <Text style={{ color: theme.text, fontWeight: 'bold' }}>não é uma desculpa para chutar o balde e estragar a semana inteira</Text>.
+                        </Text>
+                        
+                        <View style={{ gap: 12 }}>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <Text style={{ color: theme.accent, fontWeight: '900' }}>1.</Text>
+                                <Text style={{ flex: 1, fontSize: 13, color: theme.text, lineHeight: 18 }}><Text style={{ fontWeight: 'bold' }}>A Regra do Merecimento:</Text> Só está liberada se você seguiu a dieta 100% à risca nos outros dias. Furou na semana? Perdeu o direito.</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <Text style={{ color: theme.accent, fontWeight: '900' }}>2.</Text>
+                                <Text style={{ flex: 1, fontSize: 13, color: theme.text, lineHeight: 18 }}><Text style={{ fontWeight: 'bold' }}>É UMA Refeição:</Text> Escolha apenas uma refeição do seu dia (ex: jantar) para fazer livre. As outras continuam na balança.</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <Text style={{ color: theme.accent, fontWeight: '900' }}>3.</Text>
+                                <Text style={{ flex: 1, fontSize: 13, color: theme.text, lineHeight: 18 }}><Text style={{ fontWeight: 'bold' }}>Até a Saciedade:</Text> O objetivo é matar a vontade, não passar mal. Sentiu que o estômago encheu? Pare.</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <Text style={{ color: theme.accent, fontWeight: '900' }}>4.</Text>
+                                <Text style={{ flex: 1, fontSize: 13, color: theme.text, lineHeight: 18 }}><Text style={{ fontWeight: 'bold' }}>Retorno Imediato:</Text> Na refeição seguinte, volte ao plano imediatamente. Aumente o consumo de água no dia para limpar a retenção.</Text>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* OPÇÕES */}
+                    <View style={{ padding: 20 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 }}>
+                            <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={theme.accent} />
+                            <Text style={{ fontSize: 14, fontWeight: '900', color: theme.text }}>OPÇÕES INTELIGENTES</Text>
+                        </View>
+
+                        <View style={{ gap: 15 }}>
+                            <View style={{ backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}>
+                                <Text style={{ fontSize: 13, fontWeight: '900', color: theme.text, marginBottom: 4 }}>🍕 Pizza Proteica (A controlada)</Text>
+                                <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 18 }}>2 a 3 fatias. Foque em recheios como Frango com Catupiry, Marguerita ou Carne Seca. <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Evite:</Text> Calabresa, Bacon e bordas recheadas.</Text>
+                            </View>
+                            
+                            <View style={{ backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}>
+                                <Text style={{ fontSize: 13, fontWeight: '900', color: theme.text, marginBottom: 4 }}>🍔 Hambúrguer Artesanal (O monstro limpo)</Text>
+                                <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 18 }}>1 Hambúrguer duplo completo (pão, 2 carnes, queijo, salada). <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Evite:</Text> Batata frita e refrigerante com açúcar.</Text>
+                            </View>
+                            
+                            <View style={{ backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}>
+                                <Text style={{ fontSize: 13, fontWeight: '900', color: theme.text, marginBottom: 4 }}>🍣 Sushi (O volume limpo)</Text>
+                                <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 18 }}>15 a 20 peças (Sashimi, Nigiri, Uramaki). Não é rodízio liberado! <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Evite:</Text> Excesso de frituras (Hot Rolls) e molho Tarê (puro açúcar).</Text>
+                            </View>
+                            
+                            <View style={{ backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}>
+                                <Text style={{ fontSize: 13, fontWeight: '900', color: theme.text, marginBottom: 4 }}>🍝 Massa / Macarronada (Carbo load)</Text>
+                                <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 18 }}>1 prato fundo com molho à base de proteína (Bolonhesa de patinho, frango ou camarão). <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Evite:</Text> Molhos brancos pesados (quatro queijos, bacon).</Text>
+                            </View>
+                            
+                            <View style={{ backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}>
+                                <Text style={{ fontSize: 13, fontWeight: '900', color: theme.text, marginBottom: 4 }}>🍦 Foco no Doce (A sobremesa tática)</Text>
+                                <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 18 }}>Faça a sua refeição normal da dieta e troque a caloria livre por uma sobremesa (1 fatia de cheesecake, 1 brownie artesanal ou açaí com frutas sem leite condensado).</Text>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity 
+                            style={{ marginTop: 20, backgroundColor: theme.accent + '20', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                            onPress={() => Linking.openURL(`https://wa.me/${wppNumber}?text=Fala%20Coach!%20Estou%20vendo%20as%20op%C3%A7%C3%B5es%20da%20refei%C3%A7%C3%A3o%20livre%20e%20queria%20tirar%20uma%20d%C3%BAvida.`)}
+                        >
+                            <MaterialCommunityIcons name="whatsapp" size={20} color={theme.accent} />
+                            <Text style={{ color: theme.accent, fontWeight: 'bold', fontSize: 12 }}>QUER OUTRA OPÇÃO? FALE COM O COACH</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+        </View>
+    );
+}
+
 const getMacroCategory = (food) => {
     const name = String(food.name || '').toLowerCase();
 
@@ -557,7 +672,6 @@ export default function DietScreen({ route }) {
                         </>
                     ) : (
                         <>
-                            {/* 🔥 ALERTAS ESTRATÉGICOS PERSONALIZADOS MOVIDOS PARA O PAINEL 🔥 */}
                             <PersonalizedAlerts theme={theme} userId={user?.id} />
 
                             <WaterTracker theme={theme} studentId={user?.id} weight={user?.peso} />
@@ -571,6 +685,9 @@ export default function DietScreen({ route }) {
                                     <View><Text style={[styles.toolTitle, { color: theme.text }]}>AJUSTES</Text><Text style={[styles.toolSub, { color: theme.textSecondary }]}>MUDAR PLANO</Text></View>
                                 </TouchableOpacity>
                             </View>
+
+                            {/* 🔥 GUIA DA REFEIÇÃO LIVRE COMO ACORDEÃO NO PAINEL 🔥 */}
+                            <FreeMealGuide theme={theme} />
                             
                             <View style={[styles.sectionHeader, { marginTop: 10 }]}>
                                 <View style={[styles.greenStrip, { backgroundColor: theme.accent }]} />
@@ -698,7 +815,7 @@ const styles = StyleSheet.create({
     modalLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 10 },
     modalOptionsRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
     modalOption: { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
-    obsInput: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, height: 80, textAlignVertical: 'top', marginBottom: 20 },
+    obsInput: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 16, height: 80, textAlignVertical: 'top', marginBottom: 20 },
     modalSubmit: { padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
 
     emptyBox: { alignItems: 'center', padding: 40, borderStyle: 'dashed', borderWidth: 1, borderRadius: 24, marginTop: 10 },
