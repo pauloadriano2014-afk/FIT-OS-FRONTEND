@@ -412,7 +412,7 @@ export default function AdminDashboard({ navigation }) {
           <View style={styles.header}>
             <View style={{ flex: 1, paddingRight: 10, overflow: 'hidden', minWidth: 0 }}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
-                    PAULO ADRIANO <Text style={{color: theme.accent}}>TEAM</Text>
+                    PA <Text style={{color: theme.accent}}>TEAM</Text>
                 </Text>
                 <Text style={styles.subtitle}>PAINEL ADMINISTRATIVO</Text>
             </View>
