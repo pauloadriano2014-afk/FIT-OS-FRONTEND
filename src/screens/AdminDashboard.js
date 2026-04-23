@@ -397,6 +397,8 @@ export default function AdminDashboard({ navigation }) {
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
+  
+  // 🔥 ROOT BLINDADO (Garante que nunca vaze nada para os lados no PWA) 🔥
   const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg, overflowX: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
   
   const unreadFeedbacksCount = filteredDiet.filter(f => !f.read).length;
@@ -408,29 +410,30 @@ export default function AdminDashboard({ navigation }) {
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, overflow: 'hidden', ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
-          {/* 🔥 CABEÇALHO BLINDADO CONTRA VAZAMENTO 🔥 */}
+          
+          {/* 🔥 CABEÇALHO CLONADO DA FOTO 🔥 */}
           <View style={styles.header}>
             <View style={{ flex: 1, paddingRight: 10, overflow: 'hidden', minWidth: 0 }}>
                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
-                    PAULO ADRIANO <Text style={{color: theme.accent}}>TEAM</Text>
+                    PA <Text style={{color: theme.accent}}>TEAM</Text>
                 </Text>
                 <Text style={styles.subtitle}>PAINEL ADMINISTRATIVO</Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <TouchableOpacity onPress={toggleDarkMode} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                <TouchableOpacity onPress={toggleDarkMode} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <MaterialCommunityIcons name={theme.isDark ? "white-balance-sunny" : "moon-waning-crescent"} size={20} color={theme.text} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => fetchData(true)} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                <TouchableOpacity onPress={() => fetchData(true)} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={handleLogout} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                <TouchableOpacity onPress={handleLogout} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <MaterialCommunityIcons name="logout" size={20} color="#FF3B30" />
                 </TouchableOpacity>
             </View>
           </View>
 
-          {/* 🔥 ABAS ORIGINAIS FIXAS 🔥 */}
-          <View style={styles.tabs}>
+          {/* 🔥 ABAS FIXAS E ALINHADAS COMO NA FOTO 🔥 */}
+          <View style={styles.tabsContainer}>
             {['ALUNOS', 'CHECKINS', 'FEED', 'GESTAO'].map(tab => {
                 const isActive = activeTab === tab;
                 const label = tab === 'GESTAO' ? 'SISTEMA' : tab === 'CHECKINS' ? 'AVALIAÇÕES' : tab;
@@ -442,8 +445,9 @@ export default function AdminDashboard({ navigation }) {
                     >
                         <Text style={[styles.tabText, isActive && { color: theme.text }]}>{label}</Text>
                         {tab === 'CHECKINS' && totalAlerts > 0 && (
-                            <View style={styles.badgeCount}>
-                                <Text style={styles.badgeText}>{totalAlerts}</Text>
+                            // 🔥 NOTIFICAÇÃO 100% VISÍVEL 🔥
+                            <View style={[styles.badgeCount, { backgroundColor: isActive ? (theme.isDark ? '#333' : '#E5E5EA') : '#FF3B30' }]}>
+                                <Text style={[styles.badgeText, { color: isActive ? (theme.isDark ? '#FFF' : '#000') : '#FFF' }]}>{totalAlerts}</Text>
                             </View>
                         )}
                     </TouchableOpacity>
@@ -451,7 +455,7 @@ export default function AdminDashboard({ navigation }) {
             })}
           </View>
 
-          {/* 🔥 TOGGLE SEGMENTADO DE ALUNOS (VISIBILIDADE 100% NO ESCURO) 🔥 */}
+          {/* 🔥 TOGGLE SEGMENTADO DE ALUNOS 🔥 */}
           {activeTab !== 'GESTAO' && (
               <View style={[styles.segmentedControl, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
                   <TouchableOpacity 
@@ -701,20 +705,24 @@ export default function AdminDashboard({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 15, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
-  title: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 }, subtitle: { color: '#888', fontSize: 10, letterSpacing: 1.5, fontWeight: '800', marginTop: 2 },
-  iconBtn: { padding: 8, borderRadius: 10 }, 
+  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  title: { fontSize: 26, fontWeight: '900', letterSpacing: -0.5 }, 
+  subtitle: { color: '#888', fontSize: 10, letterSpacing: 1.5, fontWeight: '800', marginTop: 2 },
+  iconBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' }, 
   
-  // 🔥 ABAS FIXAS 🔥
-  tabs: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20, width: '100%', justifyContent: 'space-between' },
-  tab: { paddingBottom: 10, flexDirection:'row', alignItems:'center', gap: 5 },
-  tabText: { color: '#888', fontWeight: 'bold', fontSize: 12 },
+  // 🔥 ABAS COM ESPAÇAMENTO UNIFORME E FIXAS (IGUAIS DA FOTO) 🔥
+  tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20, width: '100%', gap: 20, flexWrap: 'wrap' },
+  tab: { paddingBottom: 8, flexDirection:'row', alignItems:'center', gap: 6 },
+  tabText: { color: '#888', fontWeight: 'bold', fontSize: 12, letterSpacing: 0.5 },
+  
+  // 🔥 BALÃO DE AVISO (NUNCA MAIS SOME NO ESCURO) 🔥
+  badgeCount: { paddingHorizontal: 6, borderRadius: 10, height: 20, minWidth: 20, justifyContent: 'center', alignItems: 'center' }, 
+  badgeText: { fontSize: 10, fontWeight: '900' },
   
   segmentedControl: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, padding: 4, borderRadius: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
 
-  badgeCount: { paddingHorizontal:6, borderRadius:10, height:18, justifyContent:'center' }, badgeText: { fontSize:10, fontWeight:'900' },
   inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, padding: 14, borderRadius: 14, gap: 8 },
   inviteBtnText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   
