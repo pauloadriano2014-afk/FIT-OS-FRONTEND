@@ -436,15 +436,18 @@ const styles = StyleSheet.create({
         marginBottom: 10,
         marginTop: 6,
     },
+    
+    // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
     nameInput: {
         padding: 14,
         borderRadius: 12,
         marginBottom: 20,
         borderWidth: 1,
-        fontSize: 15,
+        fontSize: 16, // CRAVADO EM 16PX PRA BLINDAR O IOS
         fontWeight: '700',
         outlineStyle: 'none',
     },
+    
     dateRow: {
         flexDirection: 'row',
         alignItems: 'center',

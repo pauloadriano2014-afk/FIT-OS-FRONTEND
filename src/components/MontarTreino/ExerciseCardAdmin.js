@@ -332,8 +332,13 @@ export default function ExerciseCardAdmin({
                             <TouchableOpacity
                                 onPress={() => {
                                     setIsSwapping(true); setSwapIndex(index);
-                                    if (item.category && setInitialCategoryFilter) setInitialCategoryFilter(item.category);
-                                    setModalBuscaVisible(true);
+                                    // 🔥 CORREÇÃO: VERIFICA SE A FUNÇÃO EXISTE ANTES DE CHAMAR 🔥
+                                    try {
+    if (item.category && setInitialCategoryFilter) {
+        setInitialCategoryFilter(item.category, item.subCategory);
+    }
+} catch(e) { console.log(e); }
+setModalBuscaVisible(true);
                                 }}
                                 style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]}
                             >
@@ -352,7 +357,10 @@ export default function ExerciseCardAdmin({
                         <TouchableOpacity
                             onPress={() => {
                                 setIsSwapping(true); setSwapIndex(index);
-                                if (item.category && setInitialCategoryFilter) setInitialCategoryFilter(item.category);
+                                // 🔥 CORREÇÃO: VERIFICA SE A FUNÇÃO EXISTE ANTES DE CHAMAR 🔥
+                                if (item.category && typeof setInitialCategoryFilter === 'function') {
+                                    setInitialCategoryFilter(item.category, item.subCategory);
+                                }
                                 setModalBuscaVisible(true);
                             }}
                             style={[styles.swapBtn, {
@@ -388,7 +396,10 @@ export default function ExerciseCardAdmin({
                         onPress={() => {
                             setIsSelectingSubstitute(true);
                             setTargetIndexForSubstitute(index);
-                            if (item.category && setInitialCategoryFilter) setInitialCategoryFilter(item.category);
+                            // 🔥 CORREÇÃO: VERIFICA SE A FUNÇÃO EXISTE ANTES DE CHAMAR 🔥
+                            if (item.category && typeof setInitialCategoryFilter === 'function') {
+                                setInitialCategoryFilter(item.category, item.subCategory);
+                            }
                             setModalBuscaVisible(true);
                         }}
                     >

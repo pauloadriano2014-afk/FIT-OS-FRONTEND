@@ -59,7 +59,10 @@ export const useMontarTreino = (route, navigation) => {
     const [isSelectingSubstitute, setIsSelectingSubstitute] = useState(false);
     const [targetIndexForSubstitute, setTargetIndexForSubstitute] = useState(null);
     const [searchText, setSearchText] = useState('');
+    
+    // 🔥 CONTROLES DA BIBLIOTECA 🔥
     const [selectedCategory, setSelectedCategory] = useState('TODOS');
+    const [selectedSubCat, setSelectedSubCat] = useState('Todos'); // 🔥 ESTADO NOVO ADICIONADO 🔥
     const [showCatDropdown, setShowCatDropdown] = useState(false); 
     
     const [indexExercicioAtual, setIndexExercicioAtual] = useState(null);
@@ -317,6 +320,7 @@ export const useMontarTreino = (route, navigation) => {
                 videoUrl: item.exercise?.videoUrl,
                 observation: realObs || '',
                 category: item.exercise?.category || '',
+                subCategory: item.exercise?.subCategory || '', // 🔥 MANTÉM A SUBCATEGORIA NA MEMÓRIA
                 tempId: Math.random().toString(),
                 substitute: (item.substituteId && item.substitute) ? { id: item.substituteId, name: item.substitute.name, videoUrl: item.substitute.videoUrl } : null,
                 blocks: realBlocks 
@@ -643,17 +647,17 @@ export const useMontarTreino = (route, navigation) => {
       const initialBlocks = isCardio ? [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada' }] : [{ sets: '3', reps: '12', restTime: '60', technique: '' }];
 
       if (isSwapping && swapIndex !== null) {
-          currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category };
+          currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category, subCategory: ex.subCategory }; // 🔥 Mantém a subCat
           setIsSwapping(false); setSwapIndex(null);
           setModalBuscaVisible(false); 
-          setSearchText(''); setSelectedCategory('TODOS');
+          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); // 🔥 Reseta
       } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
           currentList[targetIndexForSubstitute].substitute = { id: ex.id, name: ex.name, videoUrl: ex.videoUrl };
           setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
           setModalBuscaVisible(false); 
-          setSearchText(''); setSelectedCategory('TODOS');
+          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); // 🔥 Reseta
       } else {
-          currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitute: null, category: ex.category, blocks: initialBlocks });
+          currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitute: null, category: ex.category, subCategory: ex.subCategory, blocks: initialBlocks });
       }
       setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
       setPreviewModalVisible(false); 
@@ -826,20 +830,32 @@ export const useMontarTreino = (route, navigation) => {
     const openPreview = (ex) => { setPreviewExercise(ex); setPreviewModalVisible(true); };
 
     const currentExercises = exercisesByDay[selectedWorkoutTab] || [];
-    const exerciciosFiltrados = biblioteca.filter(e => e.name.toLowerCase().includes(searchText.toLowerCase()) && (selectedCategory === 'TODOS' || e.category === selectedCategory));
+    
+    // 🔥 FILTRO ATUALIZADO PARA RESPEITAR TAMBÉM A SUBCATEGORIA 🔥
+    const exerciciosFiltrados = biblioteca.filter(e => {
+        const matchesSearch = e.name.toLowerCase().includes(searchText.toLowerCase());
+        const matchesCategory = selectedCategory === 'TODOS' || e.category === selectedCategory;
+        const matchesSubCategory = selectedSubCat === 'Todos' || e.subCategory === selectedSubCat;
+        return matchesSearch && matchesCategory && matchesSubCategory;
+    });
+    
     const hasInjury = detalhes?.anamnese && ((detalhes.anamnese.limitacoes && detalhes.anamnese.limitacoes.length > 0) || (detalhes.anamnese.cirurgias && detalhes.anamnese.cirurgias.length > 0));
 
     return {
         state: {
-            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, selectedCategory, showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab,
+            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, 
+            selectedCategory, selectedSubCat, // 🔥 EXPOSTO PRO MODAL
+            showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab,
             workoutModel,
             intensityMultiplier, intensityEndDate, showCalendarIntensity 
         },
         setters: {
-            setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, setSelectedCategory, setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
+            setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, 
+            setSelectedCategory, setSelectedSubCat, // 🔥 EXPOSTO PRO MODAL
+            setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
             setWorkoutModel,
             setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
-            setWorkoutTabs, setExercisesByDay // 🔥 ADICIONADO AQUI!
+            setWorkoutTabs, setExercisesByDay 
         },
         actions: {
             handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab 

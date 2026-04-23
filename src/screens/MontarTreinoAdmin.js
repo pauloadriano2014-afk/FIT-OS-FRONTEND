@@ -49,7 +49,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [anamneseData, setAnamneseData] = useState(null);
     const [isRaioxExpanded, setIsRaioxExpanded] = useState(false);
     
-    // 🔥 ESTADOS DO DROPDOWN MODERNO 🔥
     const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
     const [editingTabName, setEditingTabName] = useState(null);
     const [editingTabValue, setEditingTabValue] = useState('');
@@ -103,7 +102,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         setters.setExercisesByDay(updated);
     }, [state.exercisesByDay, state.selectedWorkoutTab]);
 
-    // 🔥 NOVA FUNÇÃO DE MOVER COM CONFIRMAÇÃO (ANTI-MISSCLICK) 🔥
     const moveExerciseWeb = useCallback((index, direction) => {
         const confirmAndMove = () => {
             const exercises = [...state.currentExercises];
@@ -181,6 +179,24 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         }
     }, [state.workoutTabs, state.exercisesByDay, state.selectedWorkoutTab, setters]);
 
+    // 🔥 FILTRO BLINDADO ANTI-CRASH 🔥
+    const safeSetInitialCategoryFilter = (catName, subCatName) => {
+        try {
+            if (catName && setters.setSelectedCategory) {
+                const normalizedCat = String(catName).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                const foundCat = state.categories.find(c => String(c).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === normalizedCat);
+                if (foundCat) setters.setSelectedCategory(foundCat);
+            }
+            if (subCatName && String(subCatName).trim() !== '' && String(subCatName) !== 'Geral') {
+                if (setters.setSelectedSubCat && typeof setters.setSelectedSubCat === 'function') {
+                    setters.setSelectedSubCat(String(subCatName));
+                }
+            }
+        } catch (err) {
+            console.log("Erro no filtro de categoria:", err);
+        }
+    };
+
     const renderExercise = useCallback(({ item, drag, isActive, getIndex }) => {
         const index = getIndex ? getIndex() : state.currentExercises.findIndex(ex => ex.tempId === item.tempId);
         return (
@@ -210,20 +226,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     setIsSwapping={setters.setIsSwapping}
                     setSwapIndex={setters.setSwapIndex}
                     workoutModel={state.workoutModel}
-                    setInitialCategoryFilter={(catName) => {
-                        const normalizedCat = catName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-                        const foundCat = state.categories.find(c =>
-                            c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === normalizedCat
-                        );
-                        if (foundCat) setters.setSelectedCategory(foundCat);
-                    }}
+                    setInitialCategoryFilter={safeSetInitialCategoryFilter}
                 />
             </View>
         );
     }, [theme, state, setters, actions, moveExerciseWeb]);
 
     const rootStyle = isWeb
-        ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflowX: 'hidden' } // Blindado contra vazamento lateral
+        ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflowX: 'hidden' }
         : { flex: 1, backgroundColor: theme.bg };
 
     if (isRouteCorrupted) {
@@ -621,6 +631,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 modalBuscaVisible={state.modalBuscaVisible} setModalBuscaVisible={setters.setModalBuscaVisible}
                 searchText={state.searchText} setSearchText={setters.setSearchText}
                 selectedCategory={state.selectedCategory} setSelectedCategory={setters.setSelectedCategory}
+                
+                // 🔥 O LINK DA SUBCATEGORIA QUE ESTAVA FALTANDO AQUI! 🔥
+                selectedSubCat={state.selectedSubCat} setSelectedSubCat={setters.setSelectedSubCat} 
+                
                 showCatDropdown={state.showCatDropdown} setShowCatDropdown={setters.setShowCatDropdown}
                 categories={state.categories} exerciciosFiltrados={state.exerciciosFiltrados}
                 addExercicioManual={actions.addExercicioManual} isSwapping={state.isSwapping}
@@ -721,7 +735,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     </View>
 
                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
-                        <SharedHeader />
+                        {SharedHeader()}
                         {state.currentExercises.map((item, index) => (
                             <View key={item.tempId} style={{ width: '100%', paddingHorizontal: 16 }}>
                                 <ExerciseCardAdmin
@@ -732,15 +746,11 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                     setIndexBlocoAtual={setters.setIndexBlocoAtual} setModalTecnicaVisible={setters.setModalTecnicaVisible} atualizarObservacao={actions.atualizarObservacao}
                                     openPreview={actions.openPreview} currentExercisesLength={state.currentExercises.length} setIsSwapping={setters.setIsSwapping}
                                     setSwapIndex={setters.setSwapIndex} workoutModel={state.workoutModel}
-                                    setInitialCategoryFilter={(catName) => {
-                                        const normalizedCat = catName.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-                                        const foundCat = state.categories.find(c => c.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === normalizedCat);
-                                        if (foundCat) setters.setSelectedCategory(foundCat);
-                                    }}
+                                    setInitialCategoryFilter={safeSetInitialCategoryFilter}
                                 />
                             </View>
                         ))}
-                        <SharedFooter />
+                        {SharedFooter()}
                     </ScrollView>
                 </View>
                 <Modais />
@@ -772,7 +782,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 <KeyboardAvoidingView behavior="padding" style={{ flex: 1, width: '100%' }} enabled>
                     <DraggableFlatList
                         data={state.currentExercises} keyExtractor={(item) => item.tempId} renderItem={renderExercise} onDragEnd={handleDragEnd}
-                        activationDistance={10} ListHeaderComponent={<SharedHeader />} ListFooterComponent={<SharedFooter />}
+                        activationDistance={10} ListHeaderComponent={SharedHeader()} ListFooterComponent={SharedFooter()}
                         contentContainerStyle={{ paddingBottom: 40 }} style={{ flex: 1 }} showsVerticalScrollIndicator={true} bounces={false} overScrollMode="never" containerStyle={{ flex: 1 }}
                     />
                 </KeyboardAvoidingView>
@@ -818,7 +828,6 @@ const styles = StyleSheet.create({
     templateBox: { borderRadius: 18, padding: 16, marginBottom: 16 },
     sectionLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 10 },
     
-    // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
     templateNameInput: { padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 16, fontWeight: '700', outlineStyle: 'none' },
     
     tagRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
@@ -849,7 +858,6 @@ const styles = StyleSheet.create({
     dayName: { fontSize: 16 },
     dayCount: { fontSize: 11, fontWeight: '600' },
     
-    // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
     dayRenameInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 16, fontWeight: '700', outlineStyle: 'none' },
     
     dayRowActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },

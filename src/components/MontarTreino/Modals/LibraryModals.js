@@ -18,6 +18,7 @@ const subCategoriesMap = {
 export default function LibraryModals({
     theme, isWeb, webOuterBg, modalBuscaVisible, setModalBuscaVisible, 
     searchText, setSearchText, selectedCategory, setSelectedCategory, 
+    selectedSubCat, setSelectedSubCat, // 🔥 ADICIONADO AQUI
     showCatDropdown, setShowCatDropdown, categories, exerciciosFiltrados, 
     addExercicioManual, isSwapping, openPreview, previewModalVisible, 
     setPreviewModalVisible, previewExercise, setPreviewExercise, previewVideoRef,
@@ -27,13 +28,16 @@ export default function LibraryModals({
     const [toastName, setToastName] = useState('');
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
-    const [selectedSubCat, setSelectedSubCat] = useState('Todos');
+    // Removemos os states locais de subCat pois agora vêm das props (do Hook)
     const [showSubCatDropdown, setShowSubCatDropdown] = useState(false);
 
     useEffect(() => {
-        setSelectedSubCat('Todos');
-        setShowSubCatDropdown(false);
-    }, [selectedCategory]);
+        // Reseta a subcategoria apenas quando a CATEGORIA principal for trocada manualmente pelo Dropdown
+        if (!modalBuscaVisible) {
+            setSelectedSubCat('Todos');
+            setShowSubCatDropdown(false);
+        }
+    }, [selectedCategory, modalBuscaVisible]);
 
     const triggerToast = (name) => {
         setToastName(name);
@@ -51,11 +55,15 @@ export default function LibraryModals({
         triggerToast(item.name);
     };
 
-    // 🔥 CACHE DE PERFORMANCE: Só refiltra se mudar os dados ou a subcategoria 🔥
+    // 🔥 CACHE DE PERFORMANCE: BLINDADO CONTRA ACENTOS E LETRAS MAIÚSCULAS 🔥
     const finalExercises = useMemo(() => {
         return exerciciosFiltrados.filter(e => {
-            if (selectedSubCat === 'Todos') return true;
-            return e.subCategory === selectedSubCat;
+            if (!selectedSubCat || selectedSubCat === 'Todos') return true;
+            
+            const itemSubCat = String(e.subCategory || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            const filterSubCat = String(selectedSubCat).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            
+            return itemSubCat === filterSubCat;
         });
     }, [exerciciosFiltrados, selectedSubCat]);
 
@@ -92,7 +100,7 @@ export default function LibraryModals({
                                             <TouchableOpacity 
                                                 key={cat} 
                                                 style={[styles.dropdownItem, selectedCategory === cat && { backgroundColor: theme.accent + '22' }]} 
-                                                onPress={() => { setSelectedCategory(cat); setShowCatDropdown(false); }}
+                                                onPress={() => { setSelectedCategory(cat); setSelectedSubCat('Todos'); setShowCatDropdown(false); }}
                                             >
                                                 <Text style={{ color: selectedCategory === cat ? theme.accent : theme.text, fontWeight: selectedCategory === cat ? 'bold' : '500' }}>{cat}</Text>
                                                 {selectedCategory === cat && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
