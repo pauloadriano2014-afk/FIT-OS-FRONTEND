@@ -123,6 +123,29 @@ export default function BibliotecaAdmin({ navigation }) {
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
+  // 🔥 INJEÇÃO DE CSS: SCROLLBAR INVISÍVEL PARA WEB 🔥
+  useEffect(() => {
+      if (Platform.OS === 'web') {
+          const style = document.createElement('style');
+          style.id = 'hidden-scrollbar';
+          style.innerHTML = `
+              ::-webkit-scrollbar {
+                  width: 0px;
+                  background: transparent;
+              }
+              * {
+                  scrollbar-width: none; /* Firefox */
+              }
+          `;
+          document.head.appendChild(style);
+          
+          return () => {
+              const el = document.getElementById('hidden-scrollbar');
+              if (el) el.remove();
+          };
+      }
+  }, []);
+
   const getNumColumns = () => {
       if (width > 800 && isWeb) return 2; 
       return 1; 
@@ -320,10 +343,10 @@ export default function BibliotecaAdmin({ navigation }) {
             </View>
         )}
 
+        {/* MUDANÇA WEB: Width passou para 100% para pegar o scroll de fora e contentContainerStyle restringe pra tela ficar no centro */}
         <View style={{ 
-            flex: 1, width: isWeb ? '100%' : '100%', maxWidth: containerWidth, 
-            alignSelf: 'center', backgroundColor: theme.bg, 
-            ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, overflow: 'hidden' } : {}) 
+            flex: 1, width: '100%', 
+            alignSelf: 'center', backgroundColor: isWeb ? 'transparent' : theme.bg
         }}>
             
             <FlatList
@@ -332,9 +355,10 @@ export default function BibliotecaAdmin({ navigation }) {
               keyExtractor={item => String(item.id)}
               numColumns={numColumns}
               style={{ flex: 1, width: '100%' }}
-              contentContainerStyle={{ width: '100%', paddingBottom: 30, paddingHorizontal: HORIZONTAL_PADDING, flexGrow: 1 }}
+              // MUDANÇA: O container limita em containerWidth, e o alignSelf center joga no meio
+              contentContainerStyle={{ width: '100%', maxWidth: containerWidth, alignSelf: 'center', backgroundColor: theme.bg, paddingBottom: 30, paddingHorizontal: HORIZONTAL_PADDING, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, overflow: 'hidden' } : {}) }}
               columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
-              showsVerticalScrollIndicator={true} 
+              showsVerticalScrollIndicator={false} // ESCONDIDO NA PROPRIEDADE POR GARANTIA
               
               initialNumToRender={8}
               maxToRenderPerBatch={8}
@@ -472,16 +496,18 @@ export default function BibliotecaAdmin({ navigation }) {
               ListEmptyComponent={!loading && <Text style={styles.emptyText}>Nenhum exercício encontrado.</Text>}
             />
 
-            <View style={[styles.footerBar, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
-                <TouchableOpacity 
-                    style={[styles.btnPremium, { backgroundColor: theme.accent, marginTop: 0, width: '100%' }]} 
-                    onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '' }); setShowFormDropdown(false); setShowFormSubDropdown(false); setModalVisible(true); }}
-                >
-                    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10}}>
-                        <MaterialCommunityIcons name="plus-circle" size={22} color={theme.isDark ? '#000' : '#FFF'} />
-                        <Text style={[styles.btnTextPremium, { color: theme.isDark ? '#000' : '#FFF' }]}>ADICIONAR EXERCÍCIO</Text>
-                    </View>
-                </TouchableOpacity>
+            <View style={{ width: '100%', alignItems: 'center' }}>
+                <View style={[styles.footerBar, { width: '100%', maxWidth: containerWidth, backgroundColor: theme.bg, borderTopColor: theme.border, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1 } : {}) }]}>
+                    <TouchableOpacity 
+                        style={[styles.btnPremium, { backgroundColor: theme.accent, marginTop: 0, width: '100%' }]} 
+                        onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '' }); setShowFormDropdown(false); setShowFormSubDropdown(false); setModalVisible(true); }}
+                    >
+                        <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10}}>
+                            <MaterialCommunityIcons name="plus-circle" size={22} color={theme.isDark ? '#000' : '#FFF'} />
+                            <Text style={[styles.btnTextPremium, { color: theme.isDark ? '#000' : '#FFF' }]}>ADICIONAR EXERCÍCIO</Text>
+                        </View>
+                    </TouchableOpacity>
+                </View>
             </View>
 
         </View>

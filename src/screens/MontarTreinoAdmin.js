@@ -53,6 +53,29 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [editingTabName, setEditingTabName] = useState(null);
     const [editingTabValue, setEditingTabValue] = useState('');
 
+    // 🔥 INJEÇÃO DE CSS: SCROLLBAR INVISÍVEL PARA WEB 🔥
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            const style = document.createElement('style');
+            style.id = 'hidden-scrollbar';
+            style.innerHTML = `
+                ::-webkit-scrollbar {
+                    width: 0px;
+                    background: transparent;
+                }
+                * {
+                    scrollbar-width: none; /* Firefox */
+                }
+            `;
+            document.head.appendChild(style);
+            
+            return () => {
+                const el = document.getElementById('hidden-scrollbar');
+                if (el) el.remove();
+            };
+        }
+    }, []);
+    
     useEffect(() => {
         if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
             const fetchDadosRaioX = async () => {
@@ -713,28 +736,38 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         return (
             <View style={rootStyle}>
                 <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
-                <View style={{
-                    width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg,
-                    borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, height: '100%', display: 'flex', flexDirection: 'column',
-                }}>
-                    <View style={[styles.header, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
-                        <View style={[styles.headerInner, { paddingTop: 20 }]}>
-                            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface }]}>
-                                <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
-                            </TouchableOpacity>
-                            <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
-                                {route.params?.isEditing ? 'Editar Rotina' : 'Nova Rotina'}
-                            </Text>
-                            <TouchableOpacity
-                                onPress={actions.salvarTreinoFinal} disabled={state.sending}
-                                style={[styles.saveBtn, { backgroundColor: state.sending ? theme.border : theme.accent }]}
-                            >
-                                {state.sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR</Text>}
-                            </TouchableOpacity>
-                        </View>
+                
+                {/* 1. HEADER FIXO NO TOPO (Pega de ponta a ponta, mas centraliza os botões em 480px) */}
+                <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', zIndex: 10 }}>
+                    <View style={[styles.headerInner, { paddingTop: 20, width: '100%', maxWidth: 480 }]}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface }]}>
+                            <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
+                        </TouchableOpacity>
+                        <Text style={[styles.headerTitle, { color: theme.text }]} numberOfLines={1}>
+                            {route.params?.isEditing ? 'Editar Rotina' : 'Nova Rotina'}
+                        </Text>
+                        <TouchableOpacity
+                            onPress={actions.salvarTreinoFinal} disabled={state.sending}
+                            style={[styles.saveBtn, { backgroundColor: state.sending ? theme.border : theme.accent }]}
+                        >
+                            {state.sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR</Text>}
+                        </TouchableOpacity>
                     </View>
+                </View>
 
-                    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={true} keyboardShouldPersistTaps="handled">
+                {/* 2. SCROLLVIEW NA LARGURA TOTAL DA TELA (Pega o scroll do mouse não importa onde ele esteja) */}
+                <ScrollView 
+                    style={{ flex: 1, width: '100%' }} 
+                    contentContainerStyle={{ alignItems: 'center' }} 
+                    showsVerticalScrollIndicator={false} 
+                    keyboardShouldPersistTaps="handled"
+                >
+                    {/* 3. CONTEÚDO RESTRITO AOS 480px NO MEIO DA TELA */}
+                    <View style={{ 
+                        width: '100%', maxWidth: 480, backgroundColor: theme.bg, 
+                        borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, 
+                        minHeight: '100%', paddingBottom: 40 
+                    }}>
                         {SharedHeader()}
                         {state.currentExercises.map((item, index) => (
                             <View key={item.tempId} style={{ width: '100%', paddingHorizontal: 16 }}>
@@ -751,8 +784,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                             </View>
                         ))}
                         {SharedFooter()}
-                    </ScrollView>
-                </View>
+                    </View>
+                </ScrollView>
                 <Modais />
             </View>
         );
