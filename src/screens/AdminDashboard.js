@@ -342,7 +342,6 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const renderDietFeedbackItem = ({ item }) => (
-      // 🔥 CORREÇÃO: flexDirction 'column' impede que o card estoure a tela no PWA 🔥
       <View style={[styles.feedCard, { flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.surface, borderColor: item.read ? theme.border : theme.accent, opacity: item.read ? 0.7 : 1, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
           <View style={{flexDirection:'row', justifyContent:'space-between', alignItems: 'center', width: '100%', marginBottom: 12}}>
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10}}>
@@ -430,26 +429,27 @@ export default function AdminDashboard({ navigation }) {
             </View>
           </View>
 
-          {/* 🔥 ABAS EM ESTILO PÍLULA (PILLS) 🔥 */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScrollContainer} style={styles.tabsWrapper}>
+          {/* 🔥 ABAS ORIGINAIS FIXAS 🔥 */}
+          <View style={styles.tabs}>
             {['ALUNOS', 'CHECKINS', 'FEED', 'GESTAO'].map(tab => {
                 const isActive = activeTab === tab;
                 const label = tab === 'GESTAO' ? 'SISTEMA' : tab === 'CHECKINS' ? 'AVALIAÇÕES' : tab;
                 return (
-                <TouchableOpacity 
-                    key={tab} 
-                    style={[styles.pillTab, isActive && { backgroundColor: theme.accent }]} 
-                    onPress={() => setActiveTab(tab)}
-                >
-                    <Text style={[styles.pillTabText, isActive ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>{label}</Text>
-                    {tab === 'CHECKINS' && totalAlerts > 0 && (
-                        <View style={[styles.badgeCount, isActive ? { backgroundColor: theme.isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)' } : { backgroundColor: '#FF3B30' }]}>
-                            <Text style={[styles.badgeText, isActive ? { color: theme.isDark ? '#000' : '#FFF' } : { color: '#FFF' }]}>{totalAlerts}</Text>
-                        </View>
-                    )}
-                </TouchableOpacity>
-            )})}
-          </ScrollView>
+                    <TouchableOpacity 
+                        key={tab} 
+                        style={[styles.tab, isActive && { borderBottomWidth: 3, borderBottomColor: theme.accent }]} 
+                        onPress={() => setActiveTab(tab)}
+                    >
+                        <Text style={[styles.tabText, isActive && { color: theme.text }]}>{label}</Text>
+                        {tab === 'CHECKINS' && totalAlerts > 0 && (
+                            <View style={styles.badgeCount}>
+                                <Text style={styles.badgeText}>{totalAlerts}</Text>
+                            </View>
+                        )}
+                    </TouchableOpacity>
+                );
+            })}
+          </View>
 
           {/* 🔥 TOGGLE SEGMENTADO DE ALUNOS (VISIBILIDADE 100% NO ESCURO) 🔥 */}
           {activeTab !== 'GESTAO' && (
@@ -705,10 +705,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 }, subtitle: { color: '#888', fontSize: 10, letterSpacing: 1.5, fontWeight: '800', marginTop: 2 },
   iconBtn: { padding: 8, borderRadius: 10 }, 
   
-  tabsWrapper: { maxHeight: 50, marginBottom: 15 },
-  tabsScrollContainer: { paddingHorizontal: 20, gap: 10, alignItems: 'center' },
-  pillTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 6 },
-  pillTabText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  // 🔥 ABAS FIXAS 🔥
+  tabs: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20, width: '100%', justifyContent: 'space-between' },
+  tab: { paddingBottom: 10, flexDirection:'row', alignItems:'center', gap: 5 },
+  tabText: { color: '#888', fontWeight: 'bold', fontSize: 12 },
   
   segmentedControl: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, padding: 4, borderRadius: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
@@ -718,7 +718,6 @@ const styles = StyleSheet.create({
   inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, padding: 14, borderRadius: 14, gap: 8 },
   inviteBtnText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
   
-  // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
   searchBar: { padding: 14, borderRadius: 12, marginBottom: 15, borderWidth: 1, outlineStyle: 'none', fontSize: 16 },
   filterSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
   filterSelectorVal: { fontSize: 12, fontWeight: '800' },
@@ -730,7 +729,6 @@ const styles = StyleSheet.create({
   subTabsContainer: { flexDirection: 'row', marginBottom: 15, gap: 10 },
   subTab: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' }, subTabText: { fontSize: 11, fontWeight: '800' },
   
-  // 🔥 CARDS DE FEED AGORA FUNCIONAM EM ROW COMO PADRÃO 🔥
   feedCard: { padding: 16, borderRadius: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1 },
   iconBox: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   feedUser: { fontWeight: '900', fontSize: 14 }, feedTime: { color: '#888', fontSize: 10, fontWeight:'700' }, feedAction: { color: '#888', fontSize: 13, marginTop: 4 }, checkinFeedback: { color: '#888', fontSize: 12, fontStyle:'italic', marginTop: 6 },
