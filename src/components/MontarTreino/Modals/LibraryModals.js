@@ -1,5 +1,5 @@
 // src/components/MontarTreino/Modals/LibraryModals.js
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Modal, FlatList, ScrollView, Platform, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
@@ -28,9 +28,11 @@ export default function LibraryModals({
     const fadeAnim = useRef(new Animated.Value(0)).current;
 
     const [selectedSubCat, setSelectedSubCat] = useState('Todos');
+    const [showSubCatDropdown, setShowSubCatDropdown] = useState(false);
 
     useEffect(() => {
         setSelectedSubCat('Todos');
+        setShowSubCatDropdown(false);
     }, [selectedCategory]);
 
     const triggerToast = (name) => {
@@ -49,10 +51,13 @@ export default function LibraryModals({
         triggerToast(item.name);
     };
 
-    const finalExercises = exerciciosFiltrados.filter(e => {
-        if (selectedSubCat === 'Todos') return true;
-        return e.subCategory === selectedSubCat;
-    });
+    // 🔥 CACHE DE PERFORMANCE: Só refiltra se mudar os dados ou a subcategoria 🔥
+    const finalExercises = useMemo(() => {
+        return exerciciosFiltrados.filter(e => {
+            if (selectedSubCat === 'Todos') return true;
+            return e.subCategory === selectedSubCat;
+        });
+    }, [exerciciosFiltrados, selectedSubCat]);
 
     return (
         <>
@@ -97,24 +102,63 @@ export default function LibraryModals({
                                 </View>
                             )}
 
+                            {/* 🔥 NOVO DROPDOWN SANFONA PARA SUBCATEGORIAS 🔥 */}
                             {selectedCategory !== 'TODOS' && subCategoriesMap[selectedCategory] && !showCatDropdown && (
-                                <View style={{ marginTop: 5 }}>
-                                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                                        {subCategoriesMap[selectedCategory].map(sub => {
-                                            const isSelected = selectedSubCat === sub;
-                                            return (
-                                                <TouchableOpacity 
-                                                    key={sub}
-                                                    style={[styles.subCatPill, { backgroundColor: isSelected ? theme.accent : theme.surface, borderColor: isSelected ? theme.accent : theme.border }]}
-                                                    onPress={() => setSelectedSubCat(sub)}
-                                                >
-                                                    <Text style={[styles.subCatPillText, { color: isSelected ? '#000' : theme.textSecondary, fontWeight: isSelected ? '900' : '600' }]}>
-                                                        {sub.toUpperCase()}
-                                                    </Text>
-                                                </TouchableOpacity>
-                                            );
-                                        })}
-                                    </ScrollView>
+                                <View style={{ marginBottom: 10, marginTop: 5 }}>
+                                    <TouchableOpacity 
+                                        style={[
+                                            styles.catSelector, 
+                                            { 
+                                                backgroundColor: theme.surface, 
+                                                borderColor: theme.border, 
+                                                paddingVertical: 12,
+                                                borderRadius: showSubCatDropdown ? 12 : 12,
+                                                borderBottomWidth: showSubCatDropdown ? 0 : 1,
+                                                borderBottomLeftRadius: showSubCatDropdown ? 0 : 12,
+                                                borderBottomRightRadius: showSubCatDropdown ? 0 : 12
+                                            }
+                                        ]}
+                                        onPress={() => setShowSubCatDropdown(!showSubCatDropdown)}
+                                    >
+                                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                            <MaterialCommunityIcons name="filter-variant" size={18} color={theme.accent} />
+                                            <Text style={[styles.catSelectorVal, { color: theme.text, fontSize: 13 }]}>
+                                                {selectedSubCat === 'Todos' ? 'TODAS AS SUBCATEGORIAS' : selectedSubCat.toUpperCase()}
+                                            </Text>
+                                        </View>
+                                        <MaterialCommunityIcons name={showSubCatDropdown ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
+                                    </TouchableOpacity>
+
+                                    {showSubCatDropdown && (
+                                        <View style={{ 
+                                            backgroundColor: theme.surface, borderWidth: 1, borderTopWidth: 0, 
+                                            borderColor: theme.border, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, 
+                                            padding: 8 
+                                        }}>
+                                            {subCategoriesMap[selectedCategory].map(sub => {
+                                                const isSelected = selectedSubCat === sub;
+                                                return (
+                                                    <TouchableOpacity 
+                                                        key={sub}
+                                                        style={{ 
+                                                            padding: 12, borderRadius: 8, 
+                                                            backgroundColor: isSelected ? theme.accent + '22' : 'transparent', 
+                                                            flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' 
+                                                        }}
+                                                        onPress={() => { 
+                                                            setSelectedSubCat(sub); 
+                                                            setShowSubCatDropdown(false); 
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: isSelected ? theme.accent : theme.text, fontWeight: isSelected ? 'bold' : '500', fontSize: 13 }}>
+                                                            {sub}
+                                                        </Text>
+                                                        {isSelected && <MaterialCommunityIcons name="check" size={16} color={theme.accent} />}
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+                                    )}
                                 </View>
                             )}
 
@@ -136,6 +180,13 @@ export default function LibraryModals({
                         data={finalExercises} 
                         keyExtractor={item => item.id} 
                         showsVerticalScrollIndicator={true}
+                        
+                        // 🔥 OTIMIZAÇÃO MÁXIMA DA LISTA 🔥
+                        initialNumToRender={8}
+                        maxToRenderPerBatch={8}
+                        windowSize={5}
+                        removeClippedSubviews={Platform.OS !== 'web'}
+
                         renderItem={({ item }) => {
                             let displayCat = item.category.toUpperCase();
                             if (item.subCategory && item.subCategory !== 'Geral') {
@@ -212,7 +263,10 @@ export default function LibraryModals({
 const styles = StyleSheet.create({
     headerTitle: { fontSize: 18, fontWeight: '900' },
     searchBox: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, height: 50, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
-    searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500', outlineStyle: 'none' },
+    
+    // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
+    searchInput: { flex: 1, marginLeft: 10, fontSize: 16, fontWeight: '500', outlineStyle: 'none' },
+    
     catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 12, borderWidth: 1 },
     catSelectorVal: { fontSize: 15, fontWeight: '800' },
     dropdownContainer: { position: 'absolute', top: 140, left: 20, right: 20, zIndex: 100, borderRadius: 12, borderWidth: 1, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4 },

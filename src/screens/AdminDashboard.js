@@ -223,10 +223,6 @@ export default function AdminDashboard({ navigation }) {
   
   const ownerKey = isAdriLogged ? 'ADRI' : 'PAULO';
   const partnerKey = isAdriLogged ? 'PAULO' : 'ADRI';
-  const ownerColor = isAdriLogged ? '#AF52DE' : theme.accent;
-  const partnerColor = isAdriLogged ? theme.accent : '#AF52DE';
-  const ownerTextColor = isAdriLogged ? '#FFF' : '#000';
-  const partnerTextColor = isAdriLogged ? '#000' : '#FFF';
 
   const userCoachMap = useMemo(() => {
       const map = {};
@@ -305,9 +301,8 @@ export default function AdminDashboard({ navigation }) {
       }
   };
 
-  const toggleDarkMode = (newValue) => {
-      if (newValue) { setSelectedColor('verde'); changeTheme(true, 'verde'); } 
-      else changeTheme(false, selectedColor);
+  const toggleDarkMode = () => {
+      changeTheme(!theme.isDark, selectedColor);
   };
 
   const selectThemeColor = (colorKey) => {
@@ -347,12 +342,13 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const renderDietFeedbackItem = ({ item }) => (
-      <View style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.read ? theme.border : theme.accent, opacity: item.read ? 0.6 : 1, flexDirection: 'column', alignItems: 'stretch' }]}>
+      // 🔥 CORREÇÃO: flexDirction 'column' impede que o card estoure a tela no PWA 🔥
+      <View style={[styles.feedCard, { flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.surface, borderColor: item.read ? theme.border : theme.accent, opacity: item.read ? 0.7 : 1, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
           <View style={{flexDirection:'row', justifyContent:'space-between', alignItems: 'center', width: '100%', marginBottom: 12}}>
-              <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+              <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10}}>
                   <View style={[styles.iconBox, { backgroundColor: item.read ? theme.bg : theme.accent + '22', marginRight: 0 }]}><MaterialCommunityIcons name="food-apple" size={20} color={item.read ? theme.textSecondary : theme.accent} /></View>
-                  <View>
-                      <Text style={[styles.feedUser, { color: theme.text }]}>{item.user?.name || "Aluno"}</Text>
+                  <View style={{ flexShrink: 1 }}>
+                      <Text style={[styles.feedUser, { color: theme.text }]} numberOfLines={1}>{item.user?.name || "Aluno"}</Text>
                       <Text style={styles.feedTime}>{new Date(item.createdAt).toLocaleDateString('pt-BR')} às {new Date(item.createdAt).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</Text>
                   </View>
               </View>
@@ -362,19 +358,19 @@ export default function AdminDashboard({ navigation }) {
               </View>
           </View>
 
-          <View style={{backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border, gap: 12}}>
-              <View><Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>1. SACIEDADE</Text><Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold'}}>{item.satiety || 'Não informou'}</Text></View>
-              {item.difficulty ? <View><Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>2. DIFICULDADE NA ROTINA</Text><Text style={{color: theme.text, fontSize: 13, fontStyle: 'italic'}}>"{item.difficulty}"</Text></View> : null}
-              {item.requestedChanges ? <View><Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>3. O QUE QUER MUDAR</Text><Text style={{color: theme.text, fontSize: 13, fontStyle: 'italic'}}>"{item.requestedChanges}"</Text></View> : null}
+          <View style={{backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border, gap: 12, overflow: 'hidden'}}>
+              <View style={{ flexShrink: 1 }}><Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>1. SACIEDADE</Text><Text style={{color: theme.text, fontSize: 13, fontWeight: 'bold', flexWrap: 'wrap'}}>{item.satiety || 'Não informou'}</Text></View>
+              {item.difficulty ? <View style={{ flexShrink: 1 }}><Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>2. DIFICULDADE NA ROTINA</Text><Text style={{color: theme.text, fontSize: 13, fontStyle: 'italic', flexWrap: 'wrap'}}>"{item.difficulty}"</Text></View> : null}
+              {item.requestedChanges ? <View style={{ flexShrink: 1 }}><Text style={{color: theme.accent, fontSize: 9, fontWeight: '900', letterSpacing: 1, marginBottom: 2}}>3. O QUE QUER MUDAR</Text><Text style={{color: theme.text, fontSize: 13, fontStyle: 'italic', flexWrap: 'wrap'}}>"{item.requestedChanges}"</Text></View> : null}
           </View>
       </View>
   );
 
   const renderCheckinItem = ({ item }) => (
-      <TouchableOpacity style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.coachFeedback ? theme.border : '#FF3B30' }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
+      <TouchableOpacity style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.coachFeedback ? theme.border : '#FF3B30', shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
           <View style={[styles.iconBox, { backgroundColor: 'rgba(50, 173, 230, 0.15)' }]}><MaterialCommunityIcons name="camera-account" size={20} color="#32ADE6" /></View>
           <View style={{flex: 1}}>
-              <View style={{flexDirection:'row', justifyContent:'space-between'}}><Text style={[styles.feedUser, { color: theme.text }]}>{item.user?.name || "Aluno"}</Text><Text style={styles.feedTime}>{new Date(item.date).toLocaleDateString('pt-BR')}</Text></View>
+              <View style={{flexDirection:'row', justifyContent:'space-between'}}><Text style={[styles.feedUser, { color: theme.text }]} numberOfLines={1}>{item.user?.name || "Aluno"}</Text><Text style={styles.feedTime}>{new Date(item.date).toLocaleDateString('pt-BR')}</Text></View>
               <Text style={styles.feedAction}>Check-in: <Text style={{color: theme.text, fontWeight:'bold'}}>{item.weight ? `${item.weight}kg` : 'Fotos'}</Text></Text>
               {item.feedback ? <Text numberOfLines={1} style={styles.checkinFeedback}>"{item.feedback}"</Text> : null}
               {!item.coachFeedback && <View style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#FF3B3022', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 4 }}><Text style={{ color: '#FF3B30', fontSize: 9, fontWeight: 'bold' }}>AGUARDANDO AVALIAÇÃO</Text></View>}
@@ -387,10 +383,10 @@ export default function AdminDashboard({ navigation }) {
       const date = new Date(item.date);
       const dayString = date.getDate() === new Date().getDate() ? `Hoje às ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : date.toLocaleDateString('pt-BR');
       return (
-        <View style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
             <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="check-bold" size={20} color={theme.accent} /></View>
             <View style={{flex: 1}}>
-                <View style={{flexDirection:'row', justifyContent:'space-between'}}><Text style={[styles.feedUser, { color: theme.text }]}>{item.user?.name || "Aluno"}</Text><Text style={styles.feedTime}>{dayString}</Text></View>
+                <View style={{flexDirection:'row', justifyContent:'space-between'}}><Text style={[styles.feedUser, { color: theme.text }]} numberOfLines={1}>{item.user?.name || "Aluno"}</Text><Text style={styles.feedTime}>{dayString}</Text></View>
                 <Text style={styles.feedAction}>Concluiu <Text style={{color: theme.accent, fontWeight:'bold'}}>{item.workoutName ? item.workoutName.toUpperCase() : "TREINO"}</Text></Text>
                 {item.progressions > 0 && <View style={[styles.progBadge, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="fire" size={12} color={theme.isDark ? '#000' : '#FFF'} /><Text style={[styles.progText, { color: theme.isDark ? '#000' : '#FFF' }]}>{item.progressions} PRs!</Text></View>}
             </View>
@@ -402,7 +398,7 @@ export default function AdminDashboard({ navigation }) {
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
-  const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
+  const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg, overflowX: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
   
   const unreadFeedbacksCount = filteredDiet.filter(f => !f.read).length;
   const unreadSurveysCount = filteredSurveys.filter(s => !s.readByAdmin).length;
@@ -412,46 +408,82 @@ export default function AdminDashboard({ navigation }) {
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, overflow: 'hidden', ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+          {/* 🔥 CABEÇALHO BLINDADO CONTRA VAZAMENTO 🔥 */}
           <View style={styles.header}>
-            {/* 🔥 AQUI TÁ O PULO DO GATO: flex: 1 faz o texto respeitar o espaço e não empurrar os botões */}
-            <View style={{ flex: 1, paddingRight: 10 }}>
-                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} adjustsFontSizeToFit>PAULO ADRIANO <Text style={{color: theme.accent}}>TEAM</Text></Text>
+            <View style={{ flex: 1, paddingRight: 10, overflow: 'hidden', minWidth: 0 }}>
+                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
+                    PAULO ADRIANO <Text style={{color: theme.accent}}>TEAM</Text>
+                </Text>
                 <Text style={styles.subtitle}>PAINEL ADMINISTRATIVO</Text>
             </View>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-                <TouchableOpacity onPress={() => toggleDarkMode(!theme.isDark)} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                <TouchableOpacity onPress={toggleDarkMode} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
                     <MaterialCommunityIcons name={theme.isDark ? "white-balance-sunny" : "moon-waning-crescent"} size={20} color={theme.text} />
                 </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => fetchData(true)} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}><MaterialCommunityIcons name="refresh" size={20} color={theme.accent} /></TouchableOpacity>
-                <TouchableOpacity onPress={handleLogout} style={[styles.logoutBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}><MaterialCommunityIcons name="logout" size={20} color="#FF4444" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => fetchData(true)} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                    <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleLogout} style={[styles.iconBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                    <MaterialCommunityIcons name="logout" size={20} color="#FF3B30" />
+                </TouchableOpacity>
             </View>
           </View>
 
-          <View style={styles.tabs}>
-            {['ALUNOS', 'CHECKINS', 'FEED', 'GESTAO'].map(tab => (
-                <TouchableOpacity key={tab} style={[styles.tab, activeTab===tab && { borderBottomWidth: 3, borderBottomColor: theme.accent }]} onPress={()=>setActiveTab(tab)}>
-                    <Text style={[styles.tabText, activeTab===tab && { color: theme.text }]}>{tab === 'GESTAO' ? 'SISTEMA' : tab === 'CHECKINS' ? 'AVALIAÇÕES' : tab}</Text>
-                    {tab === 'CHECKINS' && totalAlerts > 0 && <View style={styles.badgeCount}><Text style={styles.badgeText}>{totalAlerts}</Text></View>}
+          {/* 🔥 ABAS EM ESTILO PÍLULA (PILLS) 🔥 */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScrollContainer} style={styles.tabsWrapper}>
+            {['ALUNOS', 'CHECKINS', 'FEED', 'GESTAO'].map(tab => {
+                const isActive = activeTab === tab;
+                const label = tab === 'GESTAO' ? 'SISTEMA' : tab === 'CHECKINS' ? 'AVALIAÇÕES' : tab;
+                return (
+                <TouchableOpacity 
+                    key={tab} 
+                    style={[styles.pillTab, isActive && { backgroundColor: theme.accent }]} 
+                    onPress={() => setActiveTab(tab)}
+                >
+                    <Text style={[styles.pillTabText, isActive ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>{label}</Text>
+                    {tab === 'CHECKINS' && totalAlerts > 0 && (
+                        <View style={[styles.badgeCount, isActive ? { backgroundColor: theme.isDark ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.4)' } : { backgroundColor: '#FF3B30' }]}>
+                            <Text style={[styles.badgeText, isActive ? { color: theme.isDark ? '#000' : '#FFF' } : { color: '#FFF' }]}>{totalAlerts}</Text>
+                        </View>
+                    )}
                 </TouchableOpacity>
-            ))}
-          </View>
+            )})}
+          </ScrollView>
 
+          {/* 🔥 TOGGLE SEGMENTADO DE ALUNOS (VISIBILIDADE 100% NO ESCURO) 🔥 */}
           {activeTab !== 'GESTAO' && (
-              <View style={styles.coachFilterContainer}>
+              <View style={[styles.segmentedControl, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
                   <TouchableOpacity 
-                      style={[styles.coachFilterBtn, coachFilter === ownerKey ? { backgroundColor: ownerColor, borderColor: ownerColor } : { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                      style={[
+                          styles.segmentBtn, 
+                          coachFilter === ownerKey && { 
+                              backgroundColor: theme.surface, 
+                              shadowColor: theme.isDark ? 'transparent' : '#000', 
+                              shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2,
+                              borderWidth: 1,
+                              borderColor: theme.isDark ? theme.border : 'transparent'
+                          }
+                      ]} 
                       onPress={() => setCoachFilter(ownerKey)}
                   >
-                      <Text style={[styles.coachFilterText, coachFilter === ownerKey ? { color: ownerTextColor } : { color: theme.textSecondary }]}>MEUS ALUNOS</Text>
+                      <Text style={[styles.segmentText, { color: coachFilter === ownerKey ? theme.text : theme.textSecondary }]}>MEUS ALUNOS</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
-                      style={[styles.coachFilterBtn, coachFilter === partnerKey ? { backgroundColor: partnerColor, borderColor: partnerColor } : { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                      style={[
+                          styles.segmentBtn, 
+                          coachFilter === partnerKey && { 
+                              backgroundColor: theme.surface, 
+                              shadowColor: theme.isDark ? 'transparent' : '#000', 
+                              shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2,
+                              borderWidth: 1,
+                              borderColor: theme.isDark ? theme.border : 'transparent'
+                          }
+                      ]} 
                       onPress={() => setCoachFilter(partnerKey)}
                   >
-                      <Text style={[styles.coachFilterText, coachFilter === partnerKey ? { color: partnerTextColor } : { color: theme.textSecondary }]}>ALUNOS {partnerKey}</Text>
+                      <Text style={[styles.segmentText, { color: coachFilter === partnerKey ? theme.text : theme.textSecondary }]}>ALUNOS {partnerKey}</Text>
                   </TouchableOpacity>
               </View>
           )}
@@ -459,29 +491,36 @@ export default function AdminDashboard({ navigation }) {
           <View style={{ flex: 1 }}>
             {activeTab === 'ALUNOS' && (
                 <>
-                    <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: theme.accent }]} onPress={() => setInviteModalVisible(true)}>
-                        <MaterialCommunityIcons name="star-shooting" size={22} color={theme.isDark ? '#000' : '#FFF'} />
-                        <Text style={[styles.inviteBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR LINK (CADASTRO E PROPOSTA)</Text>
-                    </TouchableOpacity>
+                    <View style={{ paddingHorizontal: 20 }}>
+                        <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: theme.accent }]} onPress={() => setInviteModalVisible(true)}>
+                            <MaterialCommunityIcons name="star-shooting" size={18} color={theme.isDark ? '#000' : '#FFF'} />
+                            <Text style={[styles.inviteBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR LINK DE CADASTRO</Text>
+                        </TouchableOpacity>
 
-                    <TextInput style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, borderWidth: 1 }]} placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary} value={search} onChangeText={setSearch} />
+                        <TextInput style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary} value={search} onChangeText={setSearch} />
 
-                    <TouchableOpacity style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setFilterModalVisible(true)}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}><MaterialCommunityIcons name="filter-variant" size={20} color={theme.accent} /><Text style={[styles.filterSelectorVal, { color: theme.text }]}>FILTRAR STATUS: {filterOptions.find(f => f.id === statusFilter)?.label}</Text></View>
-                        <MaterialCommunityIcons name="chevron-down" size={22} color={theme.textSecondary} />
-                    </TouchableOpacity>
+                        <TouchableOpacity style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setFilterModalVisible(true)}>
+                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                <MaterialCommunityIcons name="filter-variant" size={18} color={theme.accent} />
+                                <Text style={[styles.filterSelectorVal, { color: theme.text }]}>STATUS: {filterOptions.find(f => f.id === statusFilter)?.label}</Text>
+                            </View>
+                            <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
+                        </TouchableOpacity>
 
-                    <View style={styles.subTabsContainer}>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('ATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({displayList.length})</Text></TouchableOpacity>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('INATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS</Text></TouchableOpacity>
+                        <View style={styles.subTabsContainer}>
+                            <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('ATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({displayList.length})</Text></TouchableOpacity>
+                            <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('INATIVOS')}><Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS</Text></TouchableOpacity>
+                        </View>
                     </View>
 
                     {loading ? (
                         <View style={{marginTop: 50}}><ActivityIndicator size="large" color={theme.accent} /></View>
                     ) : (
                         <FlatList 
-                            data={displayList.slice(0, visibleCount)} keyExtractor={item => item.id}
-                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} showsVerticalScrollIndicator={false}
+                            data={displayList.slice(0, visibleCount)} 
+                            keyExtractor={item => item.id}
+                            contentContainerStyle={{ paddingBottom: 150, paddingHorizontal: 20 }} 
+                            showsVerticalScrollIndicator={false}
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
                             renderItem={({item}) => <AdminStudentCard item={item} theme={theme} navigation={navigation} isHeadCoach={true} />}
                             ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado neste filtro.</Text>}
@@ -499,7 +538,7 @@ export default function AdminDashboard({ navigation }) {
 
             {activeTab === 'CHECKINS' && (
                 <View style={{ flex: 1 }}>
-                    <View style={styles.subTabsContainer}>
+                    <View style={[styles.subTabsContainer, { paddingHorizontal: 20 }]}>
                         <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AVALIACOES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AVALIACOES')}><Text style={[styles.subTabText, { color: subTabCheckins === 'AVALIACOES' ? theme.text : theme.textSecondary }]}>FOTOS ({filteredCheckins.length})</Text></TouchableOpacity>
                         <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AJUSTES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AJUSTES')}><Text style={[styles.subTabText, { color: subTabCheckins === 'AJUSTES' ? theme.text : theme.textSecondary }]}>DIETA ({unreadFeedbacksCount})</Text></TouchableOpacity>
                         <TouchableOpacity style={[styles.subTab, subTabCheckins === 'NPS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('NPS')}><Text style={[styles.subTabText, { color: subTabCheckins === 'NPS' ? theme.text : theme.textSecondary }]}>NPS ({unreadSurveysCount})</Text></TouchableOpacity>
@@ -519,11 +558,11 @@ export default function AdminDashboard({ navigation }) {
                                 showsVerticalScrollIndicator={false} 
                                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} 
                                 renderItem={renderCheckinItem} 
-                                ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in de avaliação pendente.</Text>} 
+                                ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in pendente.</Text>} 
                                 ListFooterComponent={
                                     visibleCountCheckins < filteredCheckins.length ? (
                                         <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountCheckins(prev => prev + 5)}>
-                                            <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS FOTOS</Text>
+                                            <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
                                         </TouchableOpacity>
                                     ) : null
                                 }
@@ -538,11 +577,11 @@ export default function AdminDashboard({ navigation }) {
                             showsVerticalScrollIndicator={false} 
                             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />} 
                             renderItem={renderDietFeedbackItem} 
-                            ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste de dieta.</Text>} 
+                            ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste.</Text>} 
                             ListFooterComponent={
                                 visibleCountDiet < filteredDiet.length ? (
                                     <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountDiet(prev => prev + 5)}>
-                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS PEDIDOS</Text>
+                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
                                     </TouchableOpacity>
                                 ) : null
                             }
@@ -560,7 +599,7 @@ export default function AdminDashboard({ navigation }) {
                             ListFooterComponent={
                                 visibleCountSurveys < filteredSurveys.length ? (
                                     <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountSurveys(prev => prev + 5)}>
-                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS NPS</Text>
+                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
                                     </TouchableOpacity>
                                 ) : null
                             }
@@ -581,7 +620,7 @@ export default function AdminDashboard({ navigation }) {
                     ListFooterComponent={
                         visibleCountFeed < filteredFeed.length ? (
                             <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountFeed(prev => prev + 10)}>
-                                <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS FEED</Text>
+                                <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
                             </TouchableOpacity>
                         ) : null
                     }
@@ -590,7 +629,7 @@ export default function AdminDashboard({ navigation }) {
 
             {activeTab === 'GESTAO' && (
                 <View style={{ flex: 1 }}>
-                    <View style={styles.subTabsContainer}>
+                    <View style={[styles.subTabsContainer, { paddingHorizontal: 20 }]}>
                         <TouchableOpacity style={[styles.subTab, subTabGestao === 'FERRAMENTAS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('FERRAMENTAS')}><Text style={[styles.subTabText, { color: subTabGestao === 'FERRAMENTAS' ? theme.text : theme.textSecondary }]}>TREINO E DIETA</Text></TouchableOpacity>
                         <TouchableOpacity style={[styles.subTab, subTabGestao === 'CONFIG' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('CONFIG')}><Text style={[styles.subTabText, { color: subTabGestao === 'CONFIG' ? theme.text : theme.textSecondary }]}>SISTEMA E AVISOS</Text></TouchableOpacity>
                     </View>
@@ -653,22 +692,8 @@ export default function AdminDashboard({ navigation }) {
           </TouchableOpacity>
       </Modal>
 
-      <AdminCheckinModal 
-          visible={checkinModalVisible} 
-          onClose={() => setCheckinModalVisible(false)} 
-          selectedCheckin={selectedCheckin} 
-          theme={theme} 
-          isResolving={isResolving} 
-          onResolve={handleResolveCheckin} 
-      />
-
-      <DisparoNPSModal 
-          visible={isNpsModalOpen} 
-          onClose={() => setIsNpsModalOpen(false)} 
-          alunos={alunosAtivos} 
-          theme={theme} 
-      />
-
+      <AdminCheckinModal visible={checkinModalVisible} onClose={() => setCheckinModalVisible(false)} selectedCheckin={selectedCheckin} theme={theme} isResolving={isResolving} onResolve={handleResolveCheckin} />
+      <DisparoNPSModal visible={isNpsModalOpen} onClose={() => setIsNpsModalOpen(false)} alunos={alunosAtivos} theme={theme} />
       <AdminInviteModal visible={inviteModalVisible} onClose={() => setInviteModalVisible(false)} adminEmail={adminEmail} theme={theme} />
       <SendNoticeModal visible={isNoticeModalOpen} onClose={() => setIsNoticeModalOpen(false)} alunos={alunosAtivos} adminId={adminId} theme={theme} />
     </RootComponent>
@@ -676,39 +701,48 @@ export default function AdminDashboard({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // 🔥 VOLTOU AO NORMAL (Como você pediu)
-  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
-  title: { fontSize: 22, fontWeight: '900' }, subtitle: { color: '#888', fontSize: 10, letterSpacing: 1, fontWeight: 'bold' },
-  logoutBtn: { padding: 10, borderRadius: 8, cursor: 'pointer' },
-  tabs: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20 },
-  tab: { marginRight: 20, paddingBottom: 10, flexDirection:'row', alignItems:'center', gap:5, cursor: 'pointer' },
-  tabText: { color: '#888', fontWeight: 'bold', fontSize: 12 },
-  badgeCount: { backgroundColor:'#FF3B30', paddingHorizontal:6, borderRadius:10, height:16, justifyContent:'center', marginLeft:5 }, badgeText: { color:'#FFF', fontSize:9, fontWeight:'bold' },
-  inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginHorizontal: 20, marginBottom: 15, padding: 15, borderRadius: 12, gap: 8 },
-  inviteBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 15, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  title: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 }, subtitle: { color: '#888', fontSize: 10, letterSpacing: 1.5, fontWeight: '800', marginTop: 2 },
+  iconBtn: { padding: 8, borderRadius: 10 }, 
   
-  coachFilterContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, gap: 10, backgroundColor: 'transparent' },
-  coachFilterBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  coachFilterText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+  tabsWrapper: { maxHeight: 50, marginBottom: 15 },
+  tabsScrollContainer: { paddingHorizontal: 20, gap: 10, alignItems: 'center' },
+  pillTab: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, gap: 6 },
+  pillTabText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  
+  segmentedControl: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, padding: 4, borderRadius: 12 },
+  segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
 
-  searchBar: { padding: 15, borderRadius: 12, marginBottom: 15, marginHorizontal: 20, outlineStyle: 'none' },
-  filterSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginHorizontal: 20, paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1, marginBottom: 15 },
-  filterSelectorVal: { fontSize: 13, fontWeight: '800' },
+  badgeCount: { paddingHorizontal:6, borderRadius:10, height:18, justifyContent:'center' }, badgeText: { fontSize:10, fontWeight:'900' },
+  inviteBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, padding: 14, borderRadius: 14, gap: 8 },
+  inviteBtnText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+  
+  // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
+  searchBar: { padding: 14, borderRadius: 12, marginBottom: 15, borderWidth: 1, outlineStyle: 'none', fontSize: 16 },
+  filterSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
+  filterSelectorVal: { fontSize: 12, fontWeight: '800' },
+  
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
   catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 10 }, catOptionText: { fontSize: 14, fontWeight: '600' }, modalTitle: { fontWeight: 'bold', fontSize: 16 },
-  subTabsContainer: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 15, gap: 10 },
-  subTab: { flex: 1, padding: 10, borderRadius: 8, borderWidth: 1, alignItems: 'center' }, subTabText: { fontSize: 12, fontWeight: 'bold' },
-  feedCard: { padding: 15, borderRadius: 15, marginBottom: 10, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1 },
-  iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  feedUser: { fontWeight: 'bold', fontSize: 14 }, feedTime: { color: '#888', fontSize: 10, fontWeight:'bold' }, feedAction: { color: '#888', fontSize: 13, marginTop: 2 }, checkinFeedback: { color: '#888', fontSize: 12, fontStyle:'italic', marginTop: 4 },
-  progBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 6, borderRadius: 4, marginTop: 6, gap: 4 }, progText: { fontSize: 9, fontWeight: 'bold' },
-  empty: { color: '#888', textAlign: 'center', marginTop: 50 },
-  gridGestao: { gap: 15 },
-  bigCard: { padding: 25, borderRadius: 20, borderWidth: 1, alignItems: 'center', cursor: 'pointer' }, iconCircle: { width: 70, height: 70, borderRadius: 35, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-  bigCardTitle: { fontSize: 18, fontWeight: '900', marginBottom: 5 }, bigCardDesc: { color: '#888', fontSize: 12, textAlign: 'center', paddingHorizontal: 20 },
-  cardHeaderSmall: { color:'#888', fontWeight:'bold', fontSize:12 }, colorCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 3 },
   
-  loadMoreBtn: { padding: 15, marginBottom: 20, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  subTabsContainer: { flexDirection: 'row', marginBottom: 15, gap: 10 },
+  subTab: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' }, subTabText: { fontSize: 11, fontWeight: '800' },
+  
+  // 🔥 CARDS DE FEED AGORA FUNCIONAM EM ROW COMO PADRÃO 🔥
+  feedCard: { padding: 16, borderRadius: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'flex-start', borderWidth: 1 },
+  iconBox: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  feedUser: { fontWeight: '900', fontSize: 14 }, feedTime: { color: '#888', fontSize: 10, fontWeight:'700' }, feedAction: { color: '#888', fontSize: 13, marginTop: 4 }, checkinFeedback: { color: '#888', fontSize: 12, fontStyle:'italic', marginTop: 6 },
+  progBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, marginTop: 8, gap: 4 }, progText: { fontSize: 10, fontWeight: '900' },
+  
+  empty: { color: '#888', textAlign: 'center', marginTop: 50, fontWeight: '600' },
+  
+  gridGestao: { gap: 15 },
+  bigCard: { padding: 24, borderRadius: 20, borderWidth: 1, alignItems: 'center', cursor: 'pointer' }, iconCircle: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+  bigCardTitle: { fontSize: 16, fontWeight: '900', marginBottom: 6, letterSpacing: 0.5 }, bigCardDesc: { color: '#888', fontSize: 12, textAlign: 'center', paddingHorizontal: 10, lineHeight: 18 },
+  cardHeaderSmall: { color:'#888', fontWeight:'900', fontSize:11, letterSpacing: 1 }, colorCircle: { width: 36, height: 36, borderRadius: 18, borderWidth: 3 },
+  
+  loadMoreBtn: { padding: 16, marginVertical: 20, borderRadius: 14, borderWidth: 1, alignItems: 'center' },
   loadMoreText: { fontWeight: '900', fontSize: 12, letterSpacing: 1 }
 });

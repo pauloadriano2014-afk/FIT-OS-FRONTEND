@@ -49,7 +49,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [anamneseData, setAnamneseData] = useState(null);
     const [isRaioxExpanded, setIsRaioxExpanded] = useState(false);
     
-    // 🔥 NOVOS ESTADOS PARA O DROPDOWN MODERNO 🔥
+    // 🔥 ESTADOS DO DROPDOWN MODERNO 🔥
     const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
     const [editingTabName, setEditingTabName] = useState(null);
     const [editingTabValue, setEditingTabValue] = useState('');
@@ -87,7 +87,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         }
     }, [aluno?.id, state.isTemplateMode, isRouteCorrupted]);
 
-    // ─── FUNÇÃO DE REORGANIZAR DIAS QUE HAVIA SUMIDO ───
     const moveTab = useCallback((tabName, direction) => {
         const tabs = [...state.workoutTabs];
         const idx = tabs.indexOf(tabName);
@@ -104,16 +103,34 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         setters.setExercisesByDay(updated);
     }, [state.exercisesByDay, state.selectedWorkoutTab]);
 
+    // 🔥 NOVA FUNÇÃO DE MOVER COM CONFIRMAÇÃO (ANTI-MISSCLICK) 🔥
     const moveExerciseWeb = useCallback((index, direction) => {
-        const exercises = [...state.currentExercises];
-        if (direction === 'up' && index > 0) {
-            [exercises[index - 1], exercises[index]] = [exercises[index], exercises[index - 1]];
-        } else if (direction === 'down' && index < exercises.length - 1) {
-            [exercises[index], exercises[index + 1]] = [exercises[index + 1], exercises[index]];
+        const confirmAndMove = () => {
+            const exercises = [...state.currentExercises];
+            if (direction === 'up' && index > 0) {
+                [exercises[index - 1], exercises[index]] = [exercises[index], exercises[index - 1]];
+            } else if (direction === 'down' && index < exercises.length - 1) {
+                [exercises[index], exercises[index + 1]] = [exercises[index + 1], exercises[index]];
+            }
+            const updated = { ...state.exercisesByDay, [state.selectedWorkoutTab]: exercises };
+            setters.setExercisesByDay(updated);
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(direction === 'up' ? "Mover exercício para CIMA?" : "Mover exercício para BAIXO?")) {
+                confirmAndMove();
+            }
+        } else {
+            Alert.alert(
+                "Trocar Ordem",
+                direction === 'up' ? "Deseja mover este exercício para cima na lista?" : "Deseja mover este exercício para baixo na lista?",
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Sim, mover", onPress: confirmAndMove }
+                ]
+            );
         }
-        const updated = { ...state.exercisesByDay, [state.selectedWorkoutTab]: exercises };
-        setters.setExercisesByDay(updated);
-    }, [state.currentExercises, state.exercisesByDay, state.selectedWorkoutTab]);
+    }, [state.currentExercises, state.exercisesByDay, state.selectedWorkoutTab, setters]);
 
     const confirmRenameTab = useCallback((oldName) => {
         const newName = editingTabValue.trim();
@@ -148,7 +165,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             if (state.selectedWorkoutTab === tabName) setters.setSelectedWorkoutTab(tabs[0]);
         };
 
-        // 🔥 Trava de segurança (Funciona na Web e no App)
         if (Platform.OS === 'web') {
             if (window.confirm(`Tem certeza que deseja excluir o dia "${tabName}"?\nTodos os exercícios dele serão perdidos.`)) {
                 executaExclusao();
@@ -166,7 +182,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     }, [state.workoutTabs, state.exercisesByDay, state.selectedWorkoutTab, setters]);
 
     const renderExercise = useCallback(({ item, drag, isActive, getIndex }) => {
-        const index = getIndex();
+        const index = getIndex ? getIndex() : state.currentExercises.findIndex(ex => ex.tempId === item.tempId);
         return (
             <View style={{ width: '100%', paddingHorizontal: 16 }}>
                 <ExerciseCardAdmin
@@ -207,7 +223,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     }, [theme, state, setters, actions, moveExerciseWeb]);
 
     const rootStyle = isWeb
-        ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden' }
+        ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflowX: 'hidden' } // Blindado contra vazamento lateral
         : { flex: 1, backgroundColor: theme.bg };
 
     if (isRouteCorrupted) {
@@ -240,7 +256,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const modalOptionsToShow = isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis;
     const modalTitleToShow = isCurrentCardio ? 'Intensidade' : 'Técnica';
 
-    // 🔥 NOVO SELETOR DE DIAS (DROPDOWN MODERNO) 🔥
     const DaySelector = () => (
         <View style={styles.daySelectorWrapper}>
             <TouchableOpacity
@@ -297,13 +312,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                     borderBottomWidth: tabIndex < state.workoutTabs.length - 1 ? 1 : 0,
                                 }]}
                             >
-                                {/* INDICADOR ATIVO */}
                                 <View style={[styles.dayActiveBar, { backgroundColor: isSelected ? theme.accent : 'transparent' }]} />
 
-                                {/* 🔥 ENVELOPAMOS O NOME E AS AÇÕES PARA FICAREM EM LINHAS SEPARADAS */}
                                 <View style={styles.dayContentWrapper}>
                                     
-                                    {/* LINHA 1: NOME OU INPUT */}
                                     {isEditing ? (
                                         <TextInput
                                             style={[styles.dayRenameInput, {
@@ -335,7 +347,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                         </TouchableOpacity>
                                     )}
 
-                                    {/* LINHA 2: AÇÕES MODERNAS COM BOTÕES PÍLULA */}
                                     <View style={styles.dayRowActions}>
                                         <View style={{ flexDirection: 'row', backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderRadius: 10, overflow: 'hidden' }}>
                                             <TouchableOpacity style={styles.actionPillIcon} onPress={() => moveTab(tab, 'up')} disabled={tabIndex === 0}>
@@ -561,7 +572,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 )}
             </View>
 
-            {/* AQUI ESTÁ O NOVO DROPDOWN NO LUGAR DOS BOTÕES */}
             <DaySelector />
 
             {state.currentExercises.length === 0 && (
@@ -807,7 +817,10 @@ const styles = StyleSheet.create({
 
     templateBox: { borderRadius: 18, padding: 16, marginBottom: 16 },
     sectionLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1.2, marginBottom: 10 },
-    templateNameInput: { padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 15, fontWeight: '700', outlineStyle: 'none' },
+    
+    // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
+    templateNameInput: { padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 16, fontWeight: '700', outlineStyle: 'none' },
+    
     tagRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     tag: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
     tagText: { fontSize: 12, fontWeight: '700' },
@@ -819,7 +832,6 @@ const styles = StyleSheet.create({
     utilBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 13, borderRadius: 12, borderWidth: 1, gap: 6 },
     utilBtnText: { fontWeight: '700', fontSize: 11 },
 
-    // ─── DAY SELECTOR (DROPDOWN MODERNO) ─────────────────────────────
     daySelectorWrapper: { marginBottom: 20 },
     daySelectorBtn: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 16, borderWidth: 1, gap: 12 },
     dayIconBox: { width: 36, height: 36, borderRadius: 11, justifyContent: 'center', alignItems: 'center' },
@@ -830,14 +842,15 @@ const styles = StyleSheet.create({
 
     dayDropdown: { marginTop: 8, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
     
-    // 🔥 ESTILOS NOVOS DO CARD DE 2 LINHAS 🔥
     dayRow: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 16, paddingHorizontal: 16, gap: 12 },
     dayActiveBar: { width: 3, height: 22, borderRadius: 2, marginTop: 2 },
     dayContentWrapper: { flex: 1, gap: 12 },
     dayNameBtn: { flexDirection: 'row', alignItems: 'center', gap: 8 },
     dayName: { fontSize: 16 },
     dayCount: { fontSize: 11, fontWeight: '600' },
-    dayRenameInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 15, fontWeight: '700', outlineStyle: 'none' },
+    
+    // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
+    dayRenameInput: { padding: 10, borderRadius: 8, borderWidth: 1, fontSize: 16, fontWeight: '700', outlineStyle: 'none' },
     
     dayRowActions: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
     actionPillBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, gap: 6 },
@@ -848,7 +861,6 @@ const styles = StyleSheet.create({
     addDayIconBox: { width: 30, height: 30, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
     addDayText: { fontSize: 13, fontWeight: '700' },
 
-    // ─── EMPTY STATE ────────────────────────────────────────────────
     emptyState: { alignItems: 'center', marginTop: 24, marginBottom: 24, padding: 36, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 20 },
     emptyIconBox: { borderRadius: 50, padding: 20, marginBottom: 16 },
     emptyTitle: { fontSize: 15, fontWeight: '700', marginBottom: 8 },

@@ -76,7 +76,7 @@ const BlockRow = ({
     bloco, bIndex, index, isCardio, theme, atualizarBloco, removerBloco, adicionarBloco,
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible, workoutModel,
     OPTIONS_SETS, OPTIONS_REPS, OPTIONS_REST, canRemove,
-    blocksLength // 🔥 ADICIONADO PARA CALCULAR O Z-INDEX DECRESCENTE
+    blocksLength
 }) => {
     const refSets = useRef(null);
     const refReps = useRef(null);
@@ -87,7 +87,7 @@ const BlockRow = ({
         <View style={[styles.blockRow, {
             backgroundColor: theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
             borderLeftColor: isCardio ? theme.accent : theme.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
-            zIndex: blocksLength - bIndex, // 🔥 O SEGREDO ESTÁ AQUI: O 1º bloco fica com zIndex maior que o 2º
+            zIndex: blocksLength - bIndex,
             position: 'relative'
         }]}>
             <HybridInput
@@ -239,7 +239,7 @@ export default function ExerciseCardAdmin({
             }),
         ]}>
 
-            {/* DRAG HANDLE */}
+            {/* DRAG HANDLE & WEB ARROWS (MODERNO) */}
             <View style={[styles.dragHandle, {
                 backgroundColor: isActive
                     ? theme.accent + '18'
@@ -249,26 +249,21 @@ export default function ExerciseCardAdmin({
                 {isWeb ? (
                     <View style={styles.webMoveRow}>
                         <Text style={[styles.dragHint, { color: theme.textSecondary }]}>#{index + 1}</Text>
-                        <View style={styles.webArrows}>
-                            <TouchableOpacity
+                        <View style={{ flexDirection: 'row', backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderRadius: 10, overflow: 'hidden' }}>
+                            <TouchableOpacity 
+                                style={[styles.webArrowBtn, { opacity: index === 0 ? 0.3 : 1 }]}
                                 onPress={() => moveExercise && moveExercise(index, 'up')}
-                                style={[styles.webArrowBtn, {
-                                    opacity: index === 0 ? 0.3 : 1,
-                                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                                }]}
                                 disabled={index === 0}
                             >
-                                <MaterialCommunityIcons name="chevron-up" size={16} color={theme.textSecondary} />
+                                <MaterialCommunityIcons name="arrow-up" size={16} color={theme.textSecondary} />
                             </TouchableOpacity>
-                            <TouchableOpacity
+                            <View style={{ width: 1, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }} />
+                            <TouchableOpacity 
+                                style={[styles.webArrowBtn, { opacity: index === currentExercisesLength - 1 ? 0.3 : 1 }]}
                                 onPress={() => moveExercise && moveExercise(index, 'down')}
-                                style={[styles.webArrowBtn, {
-                                    opacity: index === currentExercisesLength - 1 ? 0.3 : 1,
-                                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
-                                }]}
                                 disabled={index === currentExercisesLength - 1}
                             >
-                                <MaterialCommunityIcons name="chevron-down" size={16} color={theme.textSecondary} />
+                                <MaterialCommunityIcons name="arrow-down" size={16} color={theme.textSecondary} />
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -414,7 +409,7 @@ export default function ExerciseCardAdmin({
                             setIndexExercicioAtual={setIndexExercicioAtual} setIndexBlocoAtual={setIndexBlocoAtual}
                             setModalTecnicaVisible={setModalTecnicaVisible}
                             canRemove={item.blocks.length > 1}
-                            blocksLength={item.blocks.length} // 🔥 PASSAMOS O VALOR PARA CÁ
+                            blocksLength={item.blocks.length}
                         />
                     ))}
 
@@ -549,7 +544,7 @@ const styles = StyleSheet.create({
 
     // DRAG HANDLE
     dragHandle: {
-        height: 36,
+        height: 38,
         borderBottomWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
@@ -568,7 +563,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // WEB ARROWS
+    // WEB ARROWS (MODERNO E SUTIL)
     webMoveRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -576,14 +571,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 14,
         width: '100%',
     },
-    webArrows: {
-        flexDirection: 'row',
-        gap: 6,
-    },
     webArrowBtn: {
-        width: 26,
-        height: 26,
-        borderRadius: 6,
+        paddingHorizontal: 12,
+        paddingVertical: 4,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -756,15 +746,18 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         letterSpacing: 0.5,
     },
+    
+    // 🔥 BLINDAGEM DE ZOOM iOS 🔥
     miniInput: {
         padding: 8,
         borderRadius: 8,
-        fontSize: 15,
+        fontSize: 16, // A MÁGICA PRA NÃO DAR ZOOM NO IPHONE!
         textAlign: 'center',
         borderWidth: 1,
         fontWeight: '700',
         outlineStyle: 'none',
     },
+    
     techBox: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -868,11 +861,13 @@ const styles = StyleSheet.create({
     obsOptionText: {
         fontSize: 13,
     },
+    
+    // 🔥 BLINDAGEM DE ZOOM iOS 🔥
     obsInput: {
         padding: 12,
         borderRadius: 10,
         borderWidth: 1,
-        fontSize: 14,
+        fontSize: 16, // A MÁGICA PRA NÃO DAR ZOOM NO IPHONE!
         minHeight: 42,
         textAlignVertical: 'top',
         outlineStyle: 'none',

@@ -1,31 +1,31 @@
 // src/screens/BibliotecaAdmin.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
-  View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, 
-  Modal, Image, ActivityIndicator, Alert, KeyboardAvoidingView, 
-  Platform, ScrollView, useWindowDimensions, StatusBar, ImageBackground 
+    View, Text, StyleSheet, TouchableOpacity, FlatList, TextInput, 
+    Modal, Image, ActivityIndicator, Alert, KeyboardAvoidingView, 
+    Platform, ScrollView, useWindowDimensions, StatusBar, ImageBackground 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
-import { Video, ResizeMode } from 'expo-av'; 
 
 import { useTheme } from '../contexts/ThemeContext';
 import VideoPreviewModal from '../components/VideoPreviewModal';
+import SmartThumbnail from '../components/MontarTreino/SmartThumbnail';
 
 const categoryCovers = {
-  "Peito": "https://i.imgur.com/lQBvvJ9.jpeg",
-  "Costas": "https://i.imgur.com/pZKX9Iw.png",
-  "Pernas": "https://i.imgur.com/Mr6YnIv.jpeg",
-  "Ombros": "https://i.imgur.com/029r6Tt.jpeg",
-  "Bíceps": "https://i.imgur.com/JFOWsVj.jpeg",
-  "Tríceps": "https://i.imgur.com/fw0yC9n.jpeg",
-  "Abdômen": "https://i.imgur.com/U0yGzvA.jpeg",
-  "Cardio": "https://i.imgur.com/7j0z7bT.jpeg",
-  "Antebraço": "https://i.imgur.com/HzigSSQ.jpeg",
-  "Mobilidade": "https://i.imgur.com/t30EizZ.png",
-  "TODOS": "https://i.imgur.com/uL3pTeW.png"
+    "Peito": "https://i.imgur.com/lQBvvJ9.jpeg",
+    "Costas": "https://i.imgur.com/pZKX9Iw.png",
+    "Pernas": "https://i.imgur.com/Mr6YnIv.jpeg",
+    "Ombros": "https://i.imgur.com/029r6Tt.jpeg",
+    "Bíceps": "https://i.imgur.com/JFOWsVj.jpeg",
+    "Tríceps": "https://i.imgur.com/fw0yC9n.jpeg",
+    "Abdômen": "https://i.imgur.com/U0yGzvA.jpeg",
+    "Cardio": "https://i.imgur.com/7j0z7bT.jpeg",
+    "Antebraço": "https://i.imgur.com/HzigSSQ.jpeg",
+    "Mobilidade": "https://i.imgur.com/t30EizZ.png",
+    "TODOS": "https://i.imgur.com/uL3pTeW.png"
 };
 
 const SPACING = 15; 
@@ -35,7 +35,6 @@ const categories = [
     'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
 ];
 
-// 🔥 MAPA DE SUBCATEGORIAS ATUALIZADO 🔥
 const subCategoriesMap = {
     "Peito": ["Todos", "Superior", "Medial", "Inferior"],
     "Costas": ["Todos", "Puxadas", "Remadas", "Lombar"],
@@ -44,19 +43,7 @@ const subCategoriesMap = {
     "Abdômen": ["Todos", "Supra", "Infra", "Core", "Completo"]
 };
 
-const getThumbnailUrl = (url) => {
-    if (!url) return null;
-    if (url.includes('cloudflarestream.com')) {
-        return url.replace('/manifest/video.m3u8', '/thumbnails/thumbnail.jpg');
-    }
-    return null;
-};
-
 const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme }) => {
-    // Verifica se é Cloudflare (que tem a foto nativa) ou CloudFront (mp4)
-    const isCloudflare = item.videoUrl && item.videoUrl.includes('cloudflarestream.com');
-    const thumbCloudflare = isCloudflare ? item.videoUrl.replace('/manifest/video.m3u8', '/thumbnails/thumbnail.jpg') : null;
-
     let displayCat = item.category.toUpperCase();
     if (item.subCategory && item.subCategory !== 'Geral') {
         displayCat += ` • ${item.subCategory.toUpperCase()}`;
@@ -69,23 +56,16 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
             activeOpacity={0.7}
         >
             <View style={[styles.mfitThumbBox, { borderColor: theme.border, backgroundColor: theme.bg, position: 'relative', overflow: 'hidden' }]}>
-                {isCloudflare && thumbCloudflare ? (
-                    <Image source={{ uri: thumbCloudflare }} style={styles.mfitThumbImage} resizeMode="cover" />
-                ) : item.videoUrl ? (
-                    /* 🔥 O SEGREDO: Usa o próprio vídeo pausado no segundo 1 como miniatura! */
-                    <>
-                        {Platform.OS === 'web' ? (
-                            <video src={`${item.videoUrl}#t=1.0`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} preload="metadata" />
-                        ) : (
-                            <Video source={{ uri: item.videoUrl }} style={styles.mfitThumbImage} resizeMode={ResizeMode.COVER} shouldPlay={false} positionMillis={1000} />
-                        )}
-                        <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }]}>
-                            <MaterialCommunityIcons name="play-circle-outline" size={24} color="#FFF" />
-                        </View>
-                    </>
-                ) : (
-                    <MaterialCommunityIcons name="play-circle-outline" size={28} color={theme.accent} />
-                )}
+                
+                <SmartThumbnail 
+                    url={item.videoUrl} 
+                    style={StyleSheet.absoluteFillObject} 
+                    theme={theme} 
+                />
+
+                <View style={[StyleSheet.absoluteFill, { justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' }]}>
+                    <MaterialCommunityIcons name="play-circle-outline" size={24} color="#FFF" />
+                </View>
             </View>
 
             <View style={styles.mfitInfo}>
@@ -105,10 +85,6 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
     );
 }, (prev, next) => {
     return prev.item.id === next.item.id && 
-           prev.item.videoUrl === next.item.videoUrl && 
-           prev.item.name === next.item.name && 
-           prev.item.category === next.item.category && 
-           prev.item.subCategory === next.item.subCategory && 
            prev.width === next.width &&
            prev.theme === next.theme;
 });
@@ -129,6 +105,8 @@ export default function BibliotecaAdmin({ navigation }) {
   const [showFormDropdown, setShowFormDropdown] = useState(false);
   const [showFormSubDropdown, setShowFormSubDropdown] = useState(false); 
   const [videoModalVisible, setVideoModalVisible] = useState(false); 
+  
+  const [showSubCatDropdown, setShowSubCatDropdown] = useState(false);
 
   const [formExercise, setFormExercise] = useState({ 
       id: null, 
@@ -310,15 +288,17 @@ export default function BibliotecaAdmin({ navigation }) {
       setVideoModalVisible(true);
   }, []);
 
-  const filteredList = exercises.filter(e => {
-      const matchText = e.name.toLowerCase().includes(filterText.toLowerCase());
-      const matchCat = selectedCat === 'TODOS' || e.category === selectedCat;
-      const matchSubCat = (selectedCat === 'TODOS') || 
-                          (selectedSubCat === 'Todos') || 
-                          (e.subCategory === selectedSubCat);
-                          
-      return matchText && matchCat && matchSubCat;
-  });
+  const filteredList = useMemo(() => {
+      return exercises.filter(e => {
+          const matchText = e.name.toLowerCase().includes(filterText.toLowerCase());
+          const matchCat = selectedCat === 'TODOS' || e.category === selectedCat;
+          const matchSubCat = (selectedCat === 'TODOS') || 
+                              (selectedSubCat === 'Todos') || 
+                              (e.subCategory === selectedSubCat);
+                              
+          return matchText && matchCat && matchSubCat;
+      });
+  }, [exercises, filterText, selectedCat, selectedSubCat]);
 
   const RootComponent = isWeb ? View : SafeAreaView;
   const rootStyle = isWeb
@@ -332,40 +312,34 @@ export default function BibliotecaAdmin({ navigation }) {
         {isWeb && lateralSpace > 10 && (
             <View style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
                 <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
-                    <Image 
-                        source={require('../../assets/logo.png')} 
-                        style={{ width: '85%', height: '60%', resizeMode: 'contain' }}
-                    />
+                    <Image source={require('../../assets/logo.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
                 </View>
                 <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
-                    <Image 
-                        source={require('../../assets/logo.png')} 
-                        style={{ width: '85%', height: '60%', resizeMode: 'contain' }}
-                    />
+                    <Image source={require('../../assets/logo.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
                 </View>
             </View>
         )}
 
         <View style={{ 
-            flex: 1, 
-            width: isWeb ? '100%' : '100%', 
-            maxWidth: containerWidth, 
-            alignSelf: 'center', 
-            backgroundColor: theme.bg, 
-            ...(isWeb ? {
-                borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, overflow: 'hidden' 
-            } : {}) 
+            flex: 1, width: isWeb ? '100%' : '100%', maxWidth: containerWidth, 
+            alignSelf: 'center', backgroundColor: theme.bg, 
+            ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, overflow: 'hidden' } : {}) 
         }}>
             
             <FlatList
               key={`grid-${numColumns}`} 
               data={filteredList}
-              keyExtractor={item => item.id.toString()}
+              keyExtractor={item => String(item.id)}
               numColumns={numColumns}
               style={{ flex: 1, width: '100%' }}
               contentContainerStyle={{ width: '100%', paddingBottom: 30, paddingHorizontal: HORIZONTAL_PADDING, flexGrow: 1 }}
               columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
               showsVerticalScrollIndicator={true} 
+              
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS !== 'web'}
               
               ListHeaderComponent={
                 <View style={{ marginBottom: 10 }}>
@@ -407,22 +381,60 @@ export default function BibliotecaAdmin({ navigation }) {
 
                     {selectedCat !== 'TODOS' && subCategoriesMap[selectedCat] && (
                         <View style={{ marginBottom: 20 }}>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-                                {subCategoriesMap[selectedCat].map(sub => {
-                                    const isSelected = selectedSubCat === sub;
-                                    return (
-                                        <TouchableOpacity 
-                                            key={sub}
-                                            style={[styles.subCatPill, { backgroundColor: isSelected ? theme.accent : theme.surface, borderColor: isSelected ? theme.accent : theme.border }]}
-                                            onPress={() => setSelectedSubCat(sub)}
-                                        >
-                                            <Text style={[styles.subCatPillText, { color: isSelected ? '#000' : theme.textSecondary, fontWeight: isSelected ? '900' : '600' }]}>
-                                                {sub.toUpperCase()}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
-                            </ScrollView>
+                            <TouchableOpacity 
+                                style={[
+                                    styles.catSelector, 
+                                    { 
+                                        backgroundColor: theme.surface, 
+                                        borderColor: theme.border, 
+                                        paddingVertical: 12,
+                                        borderRadius: showSubCatDropdown ? 16 : 16,
+                                        borderBottomWidth: showSubCatDropdown ? 0 : 1,
+                                        borderBottomLeftRadius: showSubCatDropdown ? 0 : 16,
+                                        borderBottomRightRadius: showSubCatDropdown ? 0 : 16
+                                    }
+                                ]}
+                                onPress={() => setShowSubCatDropdown(!showSubCatDropdown)}
+                            >
+                                <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                    <MaterialCommunityIcons name="filter-variant" size={18} color={theme.accent} />
+                                    <Text style={[styles.catSelectorVal, { color: theme.text, fontSize: 13 }]}>
+                                        {selectedSubCat === 'Todos' ? 'TODAS AS SUBCATEGORIAS' : selectedSubCat.toUpperCase()}
+                                    </Text>
+                                </View>
+                                <MaterialCommunityIcons name={showSubCatDropdown ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
+                            </TouchableOpacity>
+
+                            {showSubCatDropdown && (
+                                <View style={{ 
+                                    backgroundColor: theme.surface, borderWidth: 1, borderTopWidth: 0, 
+                                    borderColor: theme.border, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, 
+                                    padding: 8 
+                                }}>
+                                    {subCategoriesMap[selectedCat].map(sub => {
+                                        const isSelected = selectedSubCat === sub;
+                                        return (
+                                            <TouchableOpacity 
+                                                key={sub}
+                                                style={{ 
+                                                    padding: 12, borderRadius: 8, 
+                                                    backgroundColor: isSelected ? theme.accent + '22' : 'transparent', 
+                                                    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' 
+                                                }}
+                                                onPress={() => { 
+                                                    setSelectedSubCat(sub); 
+                                                    setShowSubCatDropdown(false); 
+                                                }}
+                                            >
+                                                <Text style={{ color: isSelected ? theme.accent : theme.text, fontWeight: isSelected ? 'bold' : '500', fontSize: 13 }}>
+                                                    {sub}
+                                                </Text>
+                                                {isSelected && <MaterialCommunityIcons name="check" size={16} color={theme.accent} />}
+                                            </TouchableOpacity>
+                                        );
+                                    })}
+                                </View>
+                            )}
                         </View>
                     )}
 
@@ -638,25 +650,21 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: '#888', fontSize: 11, letterSpacing: 1, fontWeight: 'bold' },
   backBtn: { padding: 12, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   searchBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20, height: 55, borderRadius: 30, borderWidth: 1 },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 15, fontWeight: '500', outlineStyle: 'none' },
+  
+  // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 16, fontWeight: '500', outlineStyle: 'none' },
+  
   catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1 },
   catSelectorVal: { fontSize: 15, fontWeight: '800' },
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
-  catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12 },
-  catOptionText: { fontSize: 16, fontWeight: '600' },
+
   categoryCover: { height: 160, width: '100%', justifyContent: 'flex-end', overflow: 'hidden', elevation: 4 },
   coverOverlay: { backgroundColor: 'rgba(0,0,0,0.4)', padding: 20, height: '100%', justifyContent: 'flex-end', borderRadius: 24 },
   coverTitle: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: 1, marginBottom: 5 },
   coverBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   coverCount: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   
-  subCatPill: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
-  subCatPillText: { fontSize: 11, letterSpacing: 0.5 },
-
   mfitCard: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 16, borderWidth: 1, marginBottom: 12, elevation: 2 },
   mfitThumbBox: { width: 65, height: 65, borderRadius: 12, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', marginRight: 15 },
-  mfitThumbImage: { width: '100%', height: '100%' },
   mfitInfo: { flex: 1, justifyContent: 'center' },
   mfitTitle: { fontSize: 14, fontWeight: '900', flexWrap: 'wrap' },
   mfitCategory: { fontSize: 10, marginTop: 4, fontWeight: 'bold', textTransform: 'uppercase' },
@@ -665,10 +673,18 @@ const styles = StyleSheet.create({
 
   footerBar: { padding: 15, borderTopWidth: 1 },
 
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
+  catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12 },
+  catOptionText: { fontSize: 16, fontWeight: '600' },
+
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1, alignItems: 'center', paddingTop: Platform.OS === 'android' ? 20 : 20 },
   modalTitle: { fontSize: 18, fontWeight: '900' },
   inputLabelLabel: { fontSize: 11, fontWeight: '800', marginBottom: 10, letterSpacing: 1 },
-  modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 15, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
+  
+  // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
+  modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 16, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
+  
   uploadBtn: { padding: 18, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
   btnPremium: { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 10, elevation: 3 },
   btnTextPremium: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
