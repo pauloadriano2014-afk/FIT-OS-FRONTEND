@@ -45,32 +45,36 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     };
 
     const generatePropostaLink = () => {
-        const { teamName } = getCoachInfo();
-        const finalName = leadName.trim() || 'Novo Aluno';
+        const finalName = leadName.trim() || 'Atleta';
         const baseUrl = getBaseUrl();
         
         // Mantém a rota baseada no tipo selecionado
         const routeName = propostaType === 'START' ? 'PropostaStart' : 'Proposta';
         const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}`; 
         
-        const message = `Fala, ${finalName}! Tudo pronto para começarmos o seu processo.\n\nPara darmos o start, acesse o seu convite exclusivo abaixo, conheça a plataforma e destrave o seu acesso:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
+        // 🔥 COPY SPIN SELLING CORRIGIDA 🔥
+        const message = `Fala, ${finalName}! Tudo bem?\n\nConforme conversamos, preparei um material completo para você entender exatamente como a nossa metodologia funciona e como vamos trabalhar juntos para transformar o seu corpo, sem perder tempo com treinos e dietas que não dão resultado.\n\nAcesse o link abaixo para ver todos os detalhes da consultoria, os bônus que você tem direito e os valores:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start, se fizer sentido pra você. 💪🔥`;
+        
         openWhatsApp(message);
     };
 
     const generateCadastroLink = (planType) => {
         const { coachCode, teamName } = getCoachInfo();
         const baseUrl = getBaseUrl();
+        const finalName = leadName.trim() || 'Atleta';
         
         const inviteLink = `${baseUrl}/registro?coach=${coachCode}&plan=${planType}`; 
         
         let planNameStr = '';
         if (planType === 'ELITE') planNameStr = 'Consultoria Elite (Treino + Dieta)';
         else if (planType === 'PERFORMANCE') planNameStr = 'Consultoria Performance (Só Treino)';
-        else if (planType === 'LOW_COST') planNameStr = 'Plano Básico';
+        else if (planType === 'LOW_COST') planNameStr = 'Plano Start';
         else if (planType === 'FICHA_8S') planNameStr = 'Projeto de 8 Semanas';
         else planNameStr = 'Desafio 21 Dias';
 
-        const message = `Opa! Tudo pronto para começarmos o seu ${planNameStr}.\n\nPara darmos o start, acesse o link abaixo, instale o aplicativo oficial e faça o seu cadastro:\n\n${inviteLink}\n\nSeja bem-vindo(a) ${teamName}! 💪🔥`;
+        // 🔥 FLUXO PWA CORRIGIDO 🔥
+        const message = `Opa, ${finalName}! Chegou a hora de iniciarmos a sua ${planNameStr}.\n\nPara darmos o start oficial, acesse o link abaixo para criar a sua conta:\n\n🔗 ${inviteLink}\n\n📲 Após finalizar o cadastro, a própria página vai te mostrar o passo a passo bem simples para você instalar o aplicativo oficial direto no seu celular.\n\n🔑 Importante: Se o aplicativo pedir um Código de Convite no seu primeiro acesso, digite exatamente assim: *${coachCode}*\n\nFaça o seu cadastro por lá e me avise aqui para eu liberar o seu plano. Seja bem-vindo(a) ${teamName}! 💪🔥`;
+        
         openWhatsApp(message);
     };
 
@@ -161,6 +165,15 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                             <View style={styles.tabSection}>
                                 <Text style={[styles.sectionDesc, { color: theme.textSecondary, marginBottom: 15 }]}>Gera o link direto de cadastro no app. O aluno já entra com a conta configurada pro plano correto.</Text>
                                 
+                                <Text style={[styles.inputLabel, { color: theme.text, marginBottom: 10 }]}>NOME DO NOVO ALUNO (Opcional):</Text>
+                                <TextInput 
+                                    style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginBottom: 20 }]}
+                                    placeholder="Ex: João Silva"
+                                    placeholderTextColor={theme.textSecondary}
+                                    value={leadName}
+                                    onChangeText={setLeadName}
+                                />
+
                                 <View style={{ gap: 10 }}>
                                     <TouchableOpacity style={[styles.optionCard, {borderColor: '#FFCC00', backgroundColor: '#FFCC0011'}]} onPress={() => generateCadastroLink('ELITE')}>
                                         <View style={styles.optionLeft}>
@@ -187,7 +200,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     <TouchableOpacity style={[styles.optionCard, {borderColor: '#32ADE6', backgroundColor: '#32ADE611'}]} onPress={() => generateCadastroLink('LOW_COST')}>
                                         <View style={styles.optionLeft}>
                                             <MaterialCommunityIcons name="rocket-launch" size={24} color="#32ADE6" />
-                                            <Text style={[styles.optionText, { color: '#32ADE6' }]}>PLANO BÁSICO</Text>
+                                            <Text style={[styles.optionText, { color: '#32ADE6' }]}>PLANO START</Text>
                                         </View>
                                         <MaterialCommunityIcons name="whatsapp" size={20} color="#32ADE6" />
                                     </TouchableOpacity>

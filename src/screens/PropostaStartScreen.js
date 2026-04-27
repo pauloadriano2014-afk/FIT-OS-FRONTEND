@@ -18,7 +18,7 @@ const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 const { width } = Dimensions.get('window');
 
-// FAQ adaptado para o Downsell com Fila Standard
+// FAQ adaptado para o Downsell com Fila Standard - MANTIDO
 const faqList = [
     { q: "Para quem são os planos Start e Fichas?", a: "Para quem tem disciplina para treinar sozinho, mas cansou de seguir treinos genéricos entregues em papéis de academia. No nosso app, você tem a direção exata com a metodologia de um Campeão Natural." },
     { q: "Eu vou ter acompanhamento no WhatsApp?", a: "Sim! Você terá acesso ao nosso PA Coach AI 24h direto no app para tirar dúvidas sobre a metodologia instantaneamente. Além disso, o nosso suporte via WhatsApp fica disponível no formato 'Fila Standard' (onde a prioridade de resposta imediata é exclusiva dos alunos Elite VIP)." },
@@ -192,48 +192,48 @@ export default function PropostaStartScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* ARSENAL */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A TECNOLOGIA A SEU FAVOR</Text>
-                    <Text style={styles.sectionSub}>Conheça o seu aplicativo exclusivo.</Text>
+                    {/* ARSENAL - SPIN SELLING (Adaptado para o App) */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A RESPOSTA PARA SEUS PROBLEMAS</Text>
+                    <Text style={styles.sectionSub}>A tecnologia entregando o método que vai mudar o seu corpo.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="dumbbell" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>Execução Impecável</Text>
-                            <Text style={styles.arsenalDesc}>Vídeos de todos os exercícios da sua série, explicação da técnica e métodos de alta intensidade.</Text>
+                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="shield-check" size={32} color="#4DE38F" /></View>
+                            <Text style={styles.arsenalTitle}>Treino Seguro e Sem Dor</Text>
+                            <Text style={styles.arsenalDesc}>Chega de inventar no aparelho. O aplicativo traz vídeos detalhados de todos os exercícios da sua série, focados em hipertrofia e emagrecimento.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="camera-front-variant" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>Avaliações no App</Text>
-                            <Text style={styles.arsenalDesc}>Envie suas fotos e medidas pelo sistema para registrarmos o seu ponto de partida e a sua evolução.</Text>
+                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="trending-up" size={32} color="#4DE38F" /></View>
+                            <Text style={styles.arsenalTitle}>O Fim da Estagnação</Text>
+                            <Text style={styles.arsenalDesc}>O corpo parou de mudar? Você enviará suas fotos e medidas pelo app e nós ajustamos sua rota para voltar a crescer e queimar gordura.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="chat-processing-outline" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>PA Coach AI 24h</Text>
-                            <Text style={styles.arsenalDesc}>Tire dúvidas rápidas sobre a metodologia com o nosso assistente virtual treinado por mim, direto no app.</Text>
+                            <Text style={styles.arsenalTitle}>Você Nunca Estará Sozinho</Text>
+                            <Text style={styles.arsenalDesc}>Dúvida no meio do exercício? O nosso PA Coach AI 24h foi treinado por mim para tirar qualquer dúvida na hora, além do nosso suporte via Whatsapp.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="chart-areaspline" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>Painel Evolutivo</Text>
-                            <Text style={styles.arsenalDesc}>Gráficos de peso, medidas e histórico visual de todas as suas fotos para você acompanhar seu progresso.</Text>
+                            <Text style={styles.arsenalTitle}>Progresso Incontestável</Text>
+                            <Text style={styles.arsenalDesc}>Acompanhe cada quilo perdido e cada centímetro ganho no seu Painel Evolutivo. O seu histórico visual nunca mais será esquecido.</Text>
                         </View>
                     </ScrollView>
 
-                    {/* PROVA SOCIAL COMPLETA (12 CARDS) */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A METODOLOGIA FUNCIONA</Text>
-                    <Text style={styles.sectionSub}>Deslize para ver o que a disciplina somada à ciência pode fazer.</Text>
+                    {/* PROVA SOCIAL COMPLETA (12 CARDS) - SPIN SELLING */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A SUA DOR TEM SOLUÇÃO</Text>
+                    <Text style={styles.sectionSub}>Arraste e veja pessoas reais que superaram a estagnação, o sobrepeso e a frustração com o nosso método.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <ModernResultCard goal="🔥 DA FALTA DE TÔNUS À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
-                        <ModernResultCard goal="🏆 RECOMPOSIÇÃO CORPORAL E PERDA DE GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
-                        <ModernResultCard goal="❤️ SAÚDE E ESTÉTICA: VENCENDO A GORDURA VISCERAL (Allan)" montageUri={linksAlunos.allan_montagem} />
-                        <ModernResultCard goal="⏳ O FIM DO TREINO FOFO E A CINTURA FINA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
-                        <ModernResultCard goal="💪 TRANSFORMANDO OBESIDADE EM PERFORMANCE (Pedro)" montageUri={linksAlunos.pedro_montagem} />
-                        <ModernResultCard goal="⚡️ CORPO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
-                        <ModernResultCard goal="💣 MASSA MUSCULAR E DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
-                        <ModernResultCard goal="⏱️ CHOQUE DE REALIDADE EM APENAS 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
-                        <ModernResultCard goal="⚖️ COMPOSIÇÃO CORPORAL TOTALMENTE NOVA (Vane)" montageUri={linksAlunos.vane_montagem} />
-                        <ModernResultCard goal="🥊 ATACANDO A GORDURA ABDOMINAL (Bruno)" montageUri={linksAlunos.bruno_montagem} />
-                        <ModernResultCard goal="🔥 SILHUETA RENOVADA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
-                        <ModernResultCard goal="🏆 DA CONSTRUÇÃO AO PALCO COM SIMETRIA (Adri)" montageUri={linksAlunos.adri_montagem} />
+                        <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
+                        <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
+                        <ModernResultCard goal="❤️ DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
+                        <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
+                        <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
+                        <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
+                        <ModernResultCard goal="💣 VENCENDO A GENÉTICA: DE UM CORPO MAGRO A UMA DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
+                        <ModernResultCard goal="⏱️ A PROVA DE QUE NÃO PRECISA DEMORAR: CHOQUE VISUAL EM 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
+                        <ModernResultCard goal="⚖️ VENCENDO A LUTA CONTRA A BALANÇA: UM EMAGRECIMENTO REAL, VISÍVEL E DEFINITIVO (Vane)" montageUri={linksAlunos.vane_montagem} />
+                        <ModernResultCard goal="🥊 MUITO MAIS QUE QUILOS ELIMINADOS: O RESGATE ABSOLUTO DA AUTOESTIMA E QUALIDADE DE VIDA (Bruno)" montageUri={linksAlunos.bruno_montagem} />
+                        <ModernResultCard goal="🔥 O RESGATE DA AUTOESTIMA: SILHUETA NOVA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
+                        <ModernResultCard goal="🏆 QUEBRANDO PLATÔS: DO TREINO COMUM AO PADRÃO DE PALCO (Adri)" montageUri={linksAlunos.adri_montagem} />
                     </ScrollView>
 
                     {/* FEEDBACKS WHATSAPP COMPLETOS (7 CARDS) */}

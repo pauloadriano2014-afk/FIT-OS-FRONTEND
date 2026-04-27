@@ -20,6 +20,7 @@ const { width } = Dimensions.get('window');
 
 const faqList = [
     { q: "Para quem é a Consultoria Elite?", a: "Para quem cansou daqueles treinos genéricos entregues em papéis de academia e quer um acompanhamento real e tecnológico. No nosso app exclusivo, você tem vídeos demonstrativos de cada exercício e a direção exata do que fazer. Funciona perfeitamente para iniciantes que precisam do passo a passo desde o dia 1, e para avançados que estagnaram e precisam quebrar o platô." },
+    { q: "E se eu não tiver tempo para treinar todos os dias?", a: "A culpa de não ter resultados não é a falta de tempo, é a falta de estratégia. Se você só tem 3 dias na semana ou 45 minutos por dia, seu treino será cirurgicamente montado para hipertrofiar ou secar dentro dessa janela de tempo. O plano se adapta à sua vida, não o contrário." },
     { q: "Como funciona a análise de vídeo por IA?", a: "É simples: você grava 10 segundos da sua execução de um exercício direto no nosso App. Nossa Inteligência Artificial mapeia os seus ângulos biomecânicos e te dá o feedback na hora, corrigindo sua postura para evitar lesões e maximizar seus ganhos." },
     { q: "Vou ter que fazer dietas malucas e restritivas?", a: "De jeito nenhum. Se você escolher o plano Elite VIP, sua estratégia alimentar será 100% calculada para a sua rotina e preferências. Sem terrorismo nutricional. Você vai comer o que gosta, mas com as quantidades e os macros perfeitamente alinhados para o seu objetivo." },
     { q: "Em quanto tempo eu vejo resultados no meu corpo?", a: "A ciência não falha. Seguindo o arsenal que preparamos para você, nossos alunos costumam relatar mudanças visíveis no espelho e na balança logo nos primeiros 15 a 30 dias." },
@@ -196,57 +197,57 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* ARSENAL */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>O FIM DO TREINO ERRADO</Text>
-                    <Text style={styles.sectionSub}>Conheça o seu aplicativo exclusivo.</Text>
+                    {/* ARSENAL - SPIN SELLING */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A RESPOSTA PARA SEUS PROBLEMAS</Text>
+                    <Text style={styles.sectionSub}>Nós eliminamos as falhas que te impedem de chegar ao shape dos sonhos.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="camera-front-variant" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>Avaliações Quinzenais</Text>
-                            <Text style={styles.arsenalDesc}>Análise detalhada do seu físico a cada 15 dias com feedbacks e ajustes de rota diretos no App.</Text>
+                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="trending-up" size={32} color="#4DE38F" /></View>
+                            <Text style={styles.arsenalTitle}>O Fim da Estagnação</Text>
+                            <Text style={styles.arsenalDesc}>Cansou de treinar e não ver mudança? A cada 15 dias avaliamos o seu físico pelo app e ajustamos a rota antes que você desanime.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="dumbbell" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>Execução Impecável</Text>
-                            <Text style={styles.arsenalDesc}>Vídeos de todos os exercícios, explicação da técnica e métodos avançados para hipertrofia ou emagrecimento.</Text>
+                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="shield-check" size={32} color="#4DE38F" /></View>
+                            <Text style={styles.arsenalTitle}>Treino Seguro e Sem Dor</Text>
+                            <Text style={styles.arsenalDesc}>Chega de sentir dor no ombro ou lombar. Vídeos detalhados para você executar com perfeição e recrutar o músculo certo.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="weight-lifter" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>Calculadora de Carga (1RM)</Text>
-                            <Text style={styles.arsenalDesc}>O app calcula a carga exata que você deve levantar para garantir resultados e evitar platôs.</Text>
+                            <Text style={styles.arsenalTitle}>Adeus "Treino Fofo"</Text>
+                            <Text style={styles.arsenalDesc}>Nunca mais tente 'adivinhar' o peso. O app te diz a carga exata que você precisa levantar para obrigar o seu corpo a mudar.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="chat-processing-outline" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>PA Coach AI & Suporte</Text>
-                            <Text style={styles.arsenalDesc}>Tire dúvidas com o nosso bot 24h por dia ou chame direto no meu WhatsApp pelo App.</Text>
+                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="account-group" size={32} color="#4DE38F" /></View>
+                            <Text style={styles.arsenalTitle}>Você Não Estará Sozinho</Text>
+                            <Text style={styles.arsenalDesc}>Dúvida no meio da série? O bot 24h e o acesso ao meu WhatsApp garantem que você nunca fique perdido no processo.</Text>
                         </View>
                     </ScrollView>
 
-                    {/* IA HIGHLIGHT */}
+                    {/* IA HIGHLIGHT - SPIN SELLING */}
                     <View style={styles.aiHighlightSection}>
-                        <Text style={styles.sectionTitle}>A CIÊNCIA CORRIGINDO SEU MOVIMENTO</Text>
-                        <Text style={styles.sectionSub}>Análise Biomecânica Proprietária treinada pelo Paulo Adriano com a visão de 10 anos de experiência para avaliar sua execução em tempo real.</Text>
+                        <Text style={styles.sectionTitle}>NUNCA MAIS PERCA TEMPO (OU SE LESIONE) FAZENDO ERRADO</Text>
+                        <Text style={styles.sectionSub}>Gravar o seu exercício e ser corrigido na hora não é luxo, é segurança. A IA avalia seus ângulos para garantir que cada repetição dê resultado.</Text>
                         <View style={styles.videoContainer9x16}>
                             {renderYouTubeVideo(linksAlunos.ai_video_id, true)}
                         </View>
                     </View>
 
-                    {/* PROVA SOCIAL */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>RESULTADOS DOS ALUNOS</Text>
-                    <Text style={styles.sectionSub}>Deslize para ver o que a disciplina somada à ciência pode fazer.</Text>
+                    {/* PROVA SOCIAL - SPIN SELLING (LAPIDADO) */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A SUA DOR TEM SOLUÇÃO</Text>
+                    <Text style={styles.sectionSub}>Arraste e veja pessoas reais que superaram a estagnação, o sobrepeso e a frustração com o nosso método.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <ModernResultCard goal="🔥 DA FALTA DE TÔNUS À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
-                        <ModernResultCard goal="🏆 RECOMPOSIÇÃO CORPORAL E MUITA PERDA DE PESO E GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
-                        <ModernResultCard goal="❤️ SAÚDE E ESTÉTICA: VENCENDO A GORDURA VISCERAL (Allan)" montageUri={linksAlunos.allan_montagem} />
-                        <ModernResultCard goal="⏳ O FIM DO TREINO FOFO E A CINTURA FINA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
-                        <ModernResultCard goal="💪 TRANSFORMANDO OBESIDADE EM PERFORMANCE (Pedro)" montageUri={linksAlunos.pedro_montagem} />
-                        <ModernResultCard goal="⚡️ CORPO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
-                        <ModernResultCard goal="💣 MASSA MUSCULAR E DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
-                        <ModernResultCard goal="⏱️ CHOQUE DE REALIDADE EM APENAS 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
-                        <ModernResultCard goal="⚖️ COMPOSIÇÃO CORPORAL TOTALMENTE NOVA (Vane)" montageUri={linksAlunos.vane_montagem} />
-                        <ModernResultCard goal="🥊 ATACANDO A GORDURA ABDOMINAL (Bruno)" montageUri={linksAlunos.bruno_montagem} />
-                        <ModernResultCard goal="🔥 SILHUETA RENOVADA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
-                        <ModernResultCard goal="🏆 DA CONSTRUÇÃO AO PALCO COM SIMETRIA (Adri)" montageUri={linksAlunos.adri_montagem} />
+                        <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
+                        <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
+                        <ModernResultCard goal="🔥 DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
+                        <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
+                        <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
+                        <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
+                        <ModernResultCard goal="💣 VENCENDO A GENÉTICA: DE UM CORPO MAGRO A UMA DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
+                        <ModernResultCard goal="⏱️ A PROVA DE QUE NÃO PRECISA DEMORAR: CHOQUE VISUAL EM 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
+                        <ModernResultCard goal="⚖️ VENCENDO A LUTA CONTRA A BALANÇA: UM EMAGRECIMENTO REAL, VISÍVEL E DEFINITIVO (Vane)" montageUri={linksAlunos.vane_montagem} />
+                        <ModernResultCard goal="🥊 MUITO MAIS QUE QUILOS ELIMINADOS: O RESGATE ABSOLUTO DA AUTOESTIMA E QUALIDADE DE VIDA (Bruno)" montageUri={linksAlunos.bruno_montagem} />
+                        <ModernResultCard goal="🔥 O RESGATE DA AUTOESTIMA: SILHUETA NOVA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
+                        <ModernResultCard goal="🏆 QUEBRANDO PLATÔS: DO TREINO COMUM AO PADRÃO DE PALCO (Adri)" montageUri={linksAlunos.adri_montagem} />
                     </ScrollView>
 
                     {/* FEEDBACKS WHATSAPP */}
