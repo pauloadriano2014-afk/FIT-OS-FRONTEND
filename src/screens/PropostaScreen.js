@@ -1,3 +1,4 @@
+// src/screens/PropostaScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
@@ -19,21 +20,19 @@ const RootComponent = isWeb ? View : SafeAreaView;
 const { width } = Dimensions.get('window');
 
 const faqList = [
-    { q: "Para quem é a Consultoria Elite?", a: "Para quem cansou daqueles treinos genéricos entregues em papéis de academia e quer um acompanhamento real e tecnológico. No nosso app exclusivo, você tem vídeos demonstrativos de cada exercício e a direção exata do que fazer. Funciona perfeitamente para iniciantes que precisam do passo a passo desde o dia 1, e para avançados que estagnaram e precisam quebrar o platô." },
-    { q: "E se eu não tiver tempo para treinar todos os dias?", a: "A culpa de não ter resultados não é a falta de tempo, é a falta de estratégia. Se você só tem 3 dias na semana ou 45 minutos por dia, seu treino será cirurgicamente montado para hipertrofiar ou secar dentro dessa janela de tempo. O plano se adapta à sua vida, não o contrário." },
-    { q: "Como funciona a análise de vídeo por IA?", a: "É simples: você grava 10 segundos da sua execução de um exercício direto no nosso App. Nossa Inteligência Artificial mapeia os seus ângulos biomecânicos e te dá o feedback na hora, corrigindo sua postura para evitar lesões e maximizar seus ganhos." },
-    { q: "Vou ter que fazer dietas malucas e restritivas?", a: "De jeito nenhum. Se você escolher o plano Elite VIP, sua estratégia alimentar será 100% calculada para a sua rotina e preferências. Sem terrorismo nutricional. Você vai comer o que gosta, mas com as quantidades e os macros perfeitamente alinhados para o seu objetivo." },
-    { q: "Em quanto tempo eu vejo resultados no meu corpo?", a: "A ciência não falha. Seguindo o arsenal que preparamos para você, nossos alunos costumam relatar mudanças visíveis no espelho e na balança logo nos primeiros 15 a 30 dias." },
-    { q: "O suporte é com um robô ou diretamente com você?", a: "Os dois! Você terá o nosso bot (PA Coach AI) disponível 24h por dia para dúvidas rápidas dentro do App. Mas no plano Elite VIP, você tem acesso direto ao meu WhatsApp pessoal para ajustes finos, avaliações e acompanhamento lado a lado. Você nunca estará sozinho." }
+    { q: "Para quem é a Consultoria Elite?", a: "Funciona tanto pra quem está começando e não sabe por onde ir… quanto pra quem já treina mas não vê mais resultado. No nosso app exclusivo, você tem a direção exata do que fazer, sem treinos genéricos de papel." },
+    { q: "E se eu não tiver tempo para treinar todos os dias?", a: "A culpa de não ter resultados não é a falta de tempo, é a falta de estratégia. Se você só tem 3 dias na semana ou 45 minutos por dia, seu treino será cirurgicamente montado para hipertrofiar ou secar dentro dessa janela de tempo. O plano se adapta à sua rotina, não o contrário." },
+    { q: "Como funciona a análise de vídeo por IA?", a: "É simples: você grava 10 segundos da sua execução direto no App. O sistema avalia seus ângulos e te dá o feedback na hora. É o fim da dúvida se você está fazendo o movimento certo para o músculo crescer." },
+    { q: "Vou ter que fazer dietas malucas e restritivas?", a: "De jeito nenhum. No plano Elite VIP, sua estratégia será calculada para a sua realidade. Você vai comer o que gosta, mas com as quantidades perfeitas para destravar a queima de gordura e ganho de massa." },
+    { q: "Em quanto tempo eu vejo resultados no meu corpo?", a: "A ciência não falha. Nossos alunos, quando seguem a direção certa que entregamos, costumam relatar mudanças visíveis no espelho e na balança logo nas primeiras semanas." },
+    { q: "O suporte é com um robô ou diretamente com você?", a: "Os dois! Você tem o bot PA Coach AI 24h para dúvidas rápidas, e no plano Elite VIP, você tem acesso ao meu WhatsApp pessoal para ajustes, garantindo que você nunca fique travado no processo." }
 ];
 
 export default function PropostaScreen({ route }) {
-    // 🔥 FILTRO INTELIGENTE DE NOME (ANTI-ROBÔ)
     const rawName = route?.params?.nome?.trim() || '';
     const genericNames = ['novo aluno', 'nova aluna', 'aluno', 'aluna', 'teste', 'atleta', 'lead', 'cliente'];
     const isGeneric = !rawName || genericNames.includes(rawName.toLowerCase());
     
-    // Se for genérico, chama de ATLETA (unissex e forte). Se não, usa o nome real.
     const displayName = isGeneric ? 'ATLETA' : rawName.toUpperCase();
     const storageKeyName = isGeneric ? 'default_lead' : rawName.toLowerCase();
 
@@ -139,21 +138,21 @@ export default function PropostaScreen({ route }) {
             <View style={styles.webWrapper}>
                 <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     
-                    {/* HERO */}
+                    {/* HERO - SPIN SELLING 🔥 NÍVEL ELITE */}
                     <View style={styles.heroSection}>
                         <View style={styles.timerBadge}>
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
                             <Text style={styles.timerText}>ESTE LINK EXPIRA EM: {formatTime(timeLeft)}</Text>
                         </View>
                         <Text style={styles.heroGreeting}>FALA, {displayName}! ⚡</Text>
-                        <Text style={styles.heroTitle}>O SEU CONVITE EXCLUSIVO PARA A <Text style={{color: '#4DE38F'}}>CONSULTORIA ELITE</Text></Text>
-                        <Text style={styles.heroSub}>Você não está comprando uma "planilha de treino". Você está prestes a destravar uma experiência tecnológica de alta performance focada no seu resultado.</Text>
+                        <Text style={styles.heroTitle}>VOCÊ NÃO PRECISA DE MAIS UM TREINO... VOCÊ PRECISA DE <Text style={{color: '#4DE38F'}}>UM MÉTODO QUE FAÇA SEU CORPO RESPONDER</Text></Text>
+                        <Text style={styles.heroSub}>Se você já treina e mesmo assim não vê resultado, o problema não é a sua falta de esforço — é a falta de direção. E continuar assim só vai te fazer perder mais tempo e continuar sem resultado.</Text>
                     </View>
 
                     {/* VÍDEO PRINCIPAL */}
                     <View style={styles.videoSection}>
                         <Text style={styles.sectionTitle}>NÃO ACREDITE SÓ EM MIM</Text>
-                        <Text style={styles.sectionSub}>Veja quem já transformou o corpo e a rotina com o nosso método.</Text>
+                        <Text style={styles.sectionSub}>Veja quem já transformou o corpo e a rotina porque decidiu parar de tentar sozinho.</Text>
                         <View style={styles.videoContainer9x16}>
                             {renderYouTubeVideo('tvYMAVQpt8I', false)}
                         </View>
@@ -197,44 +196,44 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* ARSENAL - SPIN SELLING */}
+                    {/* ARSENAL */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A RESPOSTA PARA SEUS PROBLEMAS</Text>
-                    <Text style={styles.sectionSub}>Nós eliminamos as falhas que te impedem de chegar ao shape dos sonhos.</Text>
+                    <Text style={styles.sectionSub}>Nós eliminamos as falhas ocultas que te impedem de chegar ao shape dos sonhos.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="trending-up" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>O Fim da Estagnação</Text>
-                            <Text style={styles.arsenalDesc}>Cansou de treinar e não ver mudança? A cada 15 dias avaliamos o seu físico pelo app e ajustamos a rota antes que você desanime.</Text>
+                            <Text style={styles.arsenalDesc}>Seu corpo não trava — toda vez que o peso ou os músculos pararem de responder, nós ajustamos a estratégia antes que você desanime.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="shield-check" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>Treino Seguro e Sem Dor</Text>
-                            <Text style={styles.arsenalDesc}>Chega de sentir dor no ombro ou lombar. Vídeos detalhados para você executar com perfeição e recrutar o músculo certo.</Text>
+                            <Text style={styles.arsenalDesc}>Você finalmente vai sentir o músculo trabalhando — sem dor nas articulações e sem ficar perdido tentando lembrar como executar a série.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="weight-lifter" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>Adeus "Treino Fofo"</Text>
-                            <Text style={styles.arsenalDesc}>Nunca mais tente 'adivinhar' o peso. O app te diz a carga exata que você precisa levantar para obrigar o seu corpo a mudar.</Text>
+                            <Text style={styles.arsenalDesc}>Você para de treinar leve demais e começa a treinar com a intensidade calculada que realmente obriga o seu corpo a mudar.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="account-group" size={32} color="#4DE38F" /></View>
-                            <Text style={styles.arsenalTitle}>Você Não Estará Sozinho</Text>
-                            <Text style={styles.arsenalDesc}>Dúvida no meio da série? O bot 24h e o acesso ao meu WhatsApp garantem que você nunca fique perdido no processo.</Text>
+                            <Text style={styles.arsenalTitle}>Você Nunca Estará Sozinho</Text>
+                            <Text style={styles.arsenalDesc}>Você nunca mais fica perdido na academia. Tem uma dúvida? O suporte garante que você sempre saiba qual é o próximo passo.</Text>
                         </View>
                     </ScrollView>
 
-                    {/* IA HIGHLIGHT - SPIN SELLING */}
+                    {/* IA HIGHLIGHT - SPIN SELLING 🔥 REFINADO */}
                     <View style={styles.aiHighlightSection}>
-                        <Text style={styles.sectionTitle}>NUNCA MAIS PERCA TEMPO (OU SE LESIONE) FAZENDO ERRADO</Text>
-                        <Text style={styles.sectionSub}>Gravar o seu exercício e ser corrigido na hora não é luxo, é segurança. A IA avalia seus ângulos para garantir que cada repetição dê resultado.</Text>
+                        <Text style={styles.sectionTitle}>NUNCA MAIS DESPERDICE TEMPO FAZENDO ERRADO</Text>
+                        <Text style={styles.sectionSub}>A maioria das pessoas treina errado e nem percebe — por isso o corpo não muda. Aqui, cada repetição sua é ajustada para realmente gerar resultado — sem desperdiçar tempo e sem se machucar.</Text>
                         <View style={styles.videoContainer9x16}>
                             {renderYouTubeVideo(linksAlunos.ai_video_id, true)}
                         </View>
                     </View>
 
-                    {/* PROVA SOCIAL - SPIN SELLING (LAPIDADO) */}
+                    {/* PROVA SOCIAL - SPIN SELLING 🔥 REFINADO */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A SUA DOR TEM SOLUÇÃO</Text>
-                    <Text style={styles.sectionSub}>Arraste e veja pessoas reais que superaram a estagnação, o sobrepeso e a frustração com o nosso método.</Text>
+                    <Text style={styles.sectionSub}>Essas pessoas não tinham genética melhor... elas só pararam de tentar sozinhas. Arraste e veja quem superou a estagnação e o sobrepeso com o nosso método.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
                         <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
@@ -291,21 +290,24 @@ export default function PropostaScreen({ route }) {
                     <Text style={[styles.sectionTitle, {marginTop: 40, marginBottom: 20}]}>AINDA TEM DÚVIDAS?</Text>
                     <FaqAccordion faqs={faqList} />
 
-                    {/* ESCOLHA SEU PLANO */}
-                    <Text style={styles.sectionTitle}>ESCOLHA SEU ARSENAL</Text>
+                    {/* MOMENTO DE COLAPSO E ESCOLHA DE PLANOS 🔥 */}
+                    <Text style={[styles.sectionTitle, {marginTop: 10}]}>ESCOLHA SEU ARSENAL</Text>
+                    <Text style={styles.sectionSub}>Você pode continuar tentando sozinho, errando e perdendo tempo… ou pode finalmente seguir um método que faz seu corpo responder.</Text>
                     <View style={styles.plansContainer}>
+                        
                         {/* PERFORMANCE */}
                         <View style={[styles.planCard, { borderColor: '#333' }]}>
                             <Text style={[styles.planName, { color: '#FFF' }]}>PERFORMANCE</Text>
-                            <Text style={styles.planDesc}>O motor de arranque para o seu shape.</Text>
+                            <Text style={styles.planDesc}>O motor de arranque para mudar o seu shape.{"\n\n"}Se você já treina, mas sente que está fazendo tudo ‘meio no escuro’, esse é o ponto de virada.</Text>
+                            
                             <View style={styles.planItems}>
-                                <Text style={styles.planItem}>✓ Treinos em App com Vídeos e Técnicas</Text>
-                                <Text style={styles.planItem}>✓ Análise de Execução Biomecânica</Text>
-                                <Text style={styles.planItem}>✓ Avaliações Quinzenais via App</Text>
-                                <Text style={styles.planItem}>✓ Assistente PA Coach AI + Suporte Whats</Text>
-                                <Text style={styles.planItem}>✓ Calculadora de RM, Descanso e RPE</Text>
-                                <Text style={styles.planItem}>✓ PA Flix Básico</Text>
-                                <Text style={[styles.planItem, { color: '#666', textDecorationLine: 'line-through' }]}>✗ Estratégia Alimentar Personalizada</Text>
+                                <Text style={styles.planItem}>✓ Você sabe exatamente o que fazer em cada treino — sem dúvida, sem improviso</Text>
+                                <Text style={styles.planItem}>✓ Cada repetição passa a ter direção, corrigindo falhas e extraindo resultado real</Text>
+                                <Text style={styles.planItem}>✓ O resultado não para — toda vez que estagnar, ajustamos a rota antes</Text>
+                                <Text style={styles.planItem}>✓ O acompanhamento garante o seu próximo passo, para você nunca mais ficar perdido</Text>
+                                <Text style={styles.planItem}>✓ A carga certa destrava a hipertrofia, obrigando o seu músculo a crescer (sem achismos)</Text>
+                                <Text style={styles.planItem}>✓ Acesso ao PA Flix Básico (Dicas Ocultas)</Text>
+                                <Text style={[styles.planItem, { color: '#666', textDecorationLine: 'line-through' }]}>✗ Estratégia Alimentar Específica</Text>
                             </View>
                             
                             <View style={styles.bonusSection}>
@@ -321,8 +323,10 @@ export default function PropostaScreen({ route }) {
                                 <View style={styles.priceRow}><Text style={styles.pricePeriod}>Semestral</Text><Text style={styles.priceValue}>R$ 697</Text></View>
                                 <View style={styles.priceRow}><Text style={[styles.pricePeriod, {color: '#FFF'}]}>Anual</Text><Text style={[styles.priceValue, {color: '#FFF'}]}>R$ 1.197</Text></View>
                             </View>
+
+                            <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
                             <TouchableOpacity style={[styles.buyBtn, { backgroundColor: '#222', borderColor: '#444', borderWidth: 1 }]} onPress={() => handleWhatsAppCTA('Performance')}>
-                                <Text style={[styles.buyBtnText, { color: '#FFF' }]}>ESCOLHER PERFORMANCE</Text>
+                                <Text style={[styles.buyBtnText, { color: '#FFF' }]}>QUERO PARAR DE TREINAR NO ESCURO</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -330,15 +334,16 @@ export default function PropostaScreen({ route }) {
                         <Animated.View style={[styles.planCard, { borderColor: '#4DE38F', borderWidth: 2, transform: [{ scale: pulseAnim }] }]}>
                             <View style={styles.recommendedBadge}><Text style={styles.recommendedText}>EXPERIÊNCIA COMPLETA</Text></View>
                             <Text style={[styles.planName, { color: '#4DE38F' }]}>ELITE VIP</Text>
-                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Treino, dieta e suporte lado a lado.</Text>
+                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Para quem cansou de tentar, errar e continuar no mesmo corpo.{"\n\n"}Agora, se você quer acelerar o resultado e parar de perder tempo...</Text>
+                            
                             <View style={styles.planItems}>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Treinos em App com Vídeos e Técnicas</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Análise de Execução Biomecânica</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Avaliações Visuais Quinzenais</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Assistente PA Coach AI + Suporte Whats</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Calculadora de RM, Descanso e RPE</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ PA Flix Completo (Bônus Vip)</Text>
-                                <Text style={[styles.planItem, { color: '#4DE38F', fontWeight: 'bold' }]}>🔥 Estratégia Alimentar Específica</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A direção exata do que fazer em cada treino — sem dúvida, sem improviso</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Cada repetição passa a ter correção biomecânica, extraindo o máximo do músculo</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Seu corpo não trava — toda vez que estagnar, ajustamos a rota antes</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ O suporte lado a lado garante que você nunca mais se sinta sozinho no processo</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A intensidade certa para mudar o corpo, usando a ciência ao invés de adivinhar a carga</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Acesso livre ao PA Flix VIP (Todo o Arsenal)</Text>
+                                <Text style={[styles.planItem, { color: '#4DE38F', fontWeight: 'bold' }]}>🔥 O espelho começa a refletir a mudança, porque a alimentação e o treino finalmente estão alinhados</Text>
                             </View>
 
                             <View style={[styles.bonusSection, { borderColor: 'rgba(77, 227, 143, 0.2)' }]}>
@@ -354,10 +359,11 @@ export default function PropostaScreen({ route }) {
                                 <View style={styles.priceRow}><Text style={styles.pricePeriod}>Semestral</Text><Text style={styles.priceValue}>R$ 1.097</Text></View>
                                 <View style={styles.priceRow}><Text style={[styles.pricePeriod, {color: '#4DE38F'}]}>Anual</Text><Text style={[styles.priceValue, {color: '#4DE38F'}]}>R$ 1.890</Text></View>
                             </View>
+
+                            <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
                             <TouchableOpacity onPress={() => handleWhatsAppCTA('Elite VIP')}>
                                 <LinearGradient colors={['#4DE38F', '#2bb368']} style={styles.buyBtnGradient}>
-                                    <Text style={[styles.buyBtnText, { color: '#000' }]}>EU QUERO SER ELITE</Text>
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color="#000" style={{marginLeft: 8}} />
+                                    <Text style={[styles.buyBtnText, { color: '#000' }]}>QUERO VER RESULTADO DE VERDADE</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </Animated.View>
@@ -428,9 +434,13 @@ const styles = StyleSheet.create({
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#222', paddingBottom: 8 },
     pricePeriod: { color: '#888', fontSize: 14, fontWeight: '600' },
     priceValue: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+    
+    // 🔥 CLASSE NOVA: URGÊNCIA NOS PLANOS 🔥
+    urgencyText: { color: '#FF3B30', fontSize: 11, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, fontStyle: 'italic' },
+    
     buyBtn: { padding: 18, borderRadius: 16, alignItems: 'center' },
     buyBtnGradient: { padding: 18, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    buyBtnText: { fontWeight: '900', fontSize: 15, letterSpacing: 1 },
+    buyBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
     recommendedBadge: { position: 'absolute', top: -12, alignSelf: 'center', backgroundColor: '#4DE38F', paddingHorizontal: 15, paddingVertical: 4, borderRadius: 12 },
     recommendedText: { color: '#000', fontWeight: '900', fontSize: 10, letterSpacing: 1 },
 

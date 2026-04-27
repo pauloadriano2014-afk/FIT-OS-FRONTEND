@@ -1,3 +1,4 @@
+// src/screens/PropostaStartScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, ScrollView, TouchableOpacity, 
@@ -138,21 +139,21 @@ export default function PropostaStartScreen({ route }) {
             <View style={styles.webWrapper}>
                 <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     
-                    {/* HERO */}
+                    {/* HERO - SPIN SELLING 🔥 */}
                     <View style={styles.heroSection}>
                         <View style={styles.timerBadge}>
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
                             <Text style={styles.timerText}>ESTE LINK EXPIRA EM: {formatTime(timeLeft)}</Text>
                         </View>
                         <Text style={styles.heroGreeting}>FALA, {displayName}! ⚡</Text>
-                        <Text style={styles.heroTitle}>SUA CHANCE DE TREINAR COM A <Text style={{color: '#4DE38F'}}>NOSSA METODOLOGIA</Text></Text>
-                        <Text style={styles.heroSub}>O fim das fichas de papel da academia. Tenha acesso aos treinos, vídeos e o método que transforma corpos.</Text>
+                        <Text style={styles.heroTitle}>VOCÊ NÃO PRECISA DE MAIS UM TREINO... VOCÊ PRECISA DE <Text style={{color: '#4DE38F'}}>UM MÉTODO QUE FAÇA SEU CORPO RESPONDER</Text></Text>
+                        <Text style={styles.heroSub}>Se você já treina e mesmo assim não vê resultado, o problema não é a sua falta de esforço — é a falta de direção. E continuar assim só vai te fazer perder mais tempo e continuar sem resultado.</Text>
                     </View>
 
                     {/* VÍDEO PRINCIPAL */}
                     <View style={styles.videoSection}>
                         <Text style={styles.sectionTitle}>NÃO ACREDITE SÓ EM MIM</Text>
-                        <Text style={styles.sectionSub}>Veja quem já transformou o corpo e a rotina com o nosso método.</Text>
+                        <Text style={styles.sectionSub}>Veja quem já transformou o corpo e a rotina porque decidiu parar de tentar sozinho.</Text>
                         <View style={styles.videoContainer9x16}>
                             {renderYouTubeVideo('tvYMAVQpt8I', false)}
                         </View>
@@ -192,24 +193,24 @@ export default function PropostaStartScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* ARSENAL - SPIN SELLING (Adaptado para o App) */}
+                    {/* ARSENAL - SPIN SELLING 🔥 */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A RESPOSTA PARA SEUS PROBLEMAS</Text>
-                    <Text style={styles.sectionSub}>A tecnologia entregando o método que vai mudar o seu corpo.</Text>
+                    <Text style={styles.sectionSub}>Nós eliminamos as falhas ocultas que te impedem de chegar ao shape dos sonhos.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="shield-check" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>Treino Seguro e Sem Dor</Text>
-                            <Text style={styles.arsenalDesc}>Chega de inventar no aparelho. O aplicativo traz vídeos detalhados de todos os exercícios da sua série, focados em hipertrofia e emagrecimento.</Text>
+                            <Text style={styles.arsenalDesc}>Você finalmente vai sentir o músculo trabalhando — sem dor nas articulações e sem ficar perdido tentando lembrar como executar a série.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="trending-up" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>O Fim da Estagnação</Text>
-                            <Text style={styles.arsenalDesc}>O corpo parou de mudar? Você enviará suas fotos e medidas pelo app e nós ajustamos sua rota para voltar a crescer e queimar gordura.</Text>
+                            <Text style={styles.arsenalDesc}>Seu corpo não trava — toda vez que o peso ou os músculos pararem de responder, nós ajustamos a estratégia antes que você desanime.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="chat-processing-outline" size={32} color="#4DE38F" /></View>
                             <Text style={styles.arsenalTitle}>Você Nunca Estará Sozinho</Text>
-                            <Text style={styles.arsenalDesc}>Dúvida no meio do exercício? O nosso PA Coach AI 24h foi treinado por mim para tirar qualquer dúvida na hora, além do nosso suporte via Whatsapp.</Text>
+                            <Text style={styles.arsenalDesc}>Você nunca mais fica perdido na academia. Tem uma dúvida? O suporte garante que você sempre saiba qual é o próximo passo.</Text>
                         </View>
                         <View style={styles.arsenalCard}>
                             <View style={styles.featureIconBox}><MaterialCommunityIcons name="chart-areaspline" size={32} color="#4DE38F" /></View>
@@ -218,13 +219,22 @@ export default function PropostaStartScreen({ route }) {
                         </View>
                     </ScrollView>
 
-                    {/* PROVA SOCIAL COMPLETA (12 CARDS) - SPIN SELLING */}
+                    {/* IA HIGHLIGHT - SPIN SELLING 🔥 */}
+                    <View style={styles.aiHighlightSection}>
+                        <Text style={styles.sectionTitle}>NUNCA MAIS DESPERDICE TEMPO FAZENDO ERRADO</Text>
+                        <Text style={styles.sectionSub}>A maioria das pessoas treina errado e nem percebe — por isso o corpo não muda. Aqui, cada repetição sua é ajustada para realmente gerar resultado — sem desperdiçar tempo e sem se machucar.</Text>
+                        <View style={styles.videoContainer9x16}>
+                            {renderYouTubeVideo(linksAlunos.ai_video_id, true)}
+                        </View>
+                    </View>
+
+                    {/* PROVA SOCIAL COMPLETA (12 CARDS) - SPIN SELLING 🔥 */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A SUA DOR TEM SOLUÇÃO</Text>
-                    <Text style={styles.sectionSub}>Arraste e veja pessoas reais que superaram a estagnação, o sobrepeso e a frustração com o nosso método.</Text>
+                    <Text style={styles.sectionSub}>Essas pessoas não tinham genética melhor... elas só pararam de tentar sozinhas. Arraste e veja quem superou a estagnação e o sobrepeso com o nosso método.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
                         <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
                         <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
-                        <ModernResultCard goal="❤️ DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
+                        <ModernResultCard goal="🔥 DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
                         <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
                         <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
                         <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
@@ -257,21 +267,26 @@ export default function PropostaStartScreen({ route }) {
                     </ScrollView>
                     <Text style={styles.bonusLockedText}>🔒 Os e-books de Receitas, Guias de Hipertrofia e Audiobooks são exclusivos para assinantes dos planos Elite VIP e Performance.</Text>
 
-                    {/* ESCOLHA SEU PLANO */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>ESCOLHA SEU PLANO</Text>
+                    {/* MOMENTO DE COLAPSO ESPECÍFICO PARA O DOWNSELL 🔥 10/10 */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>SEU PONTO DE PARTIDA</Text>
+                    <Text style={styles.sectionSub}>
+                        Talvez agora não seja o momento de ir para o plano completo… mas isso não significa que você precisa continuar sem resultado.{"\n\n"}
+                        Você pode continuar treinando sem direção… ou pode começar agora, mesmo que não seja no plano completo. Você não precisa fazer perfeito... só precisa começar certo.
+                    </Text>
+                    
                     <View style={styles.plansContainer}>
                         
                         {/* FICHAS 8 SEMANAS */}
                         <View style={[styles.planCard, { borderColor: '#333' }]}>
                             <Text style={[styles.planName, { color: '#FFF' }]}>FICHA 8 SEMANAS</Text>
-                            <Text style={styles.planDesc}>Foco total. Um protocolo de 56 dias para o seu objetivo.</Text>
+                            <Text style={styles.planDesc}>Um plano direto ao ponto para você parar de treinar sem direção e começar a ver evolução em poucas semanas. Ideal pra quem quer resultado rápido sem complicação.</Text>
                             
                             <View style={styles.planItems}>
-                                <Text style={styles.planItem}>✓ Treinos no App com Vídeos e Técnicas</Text>
-                                <Text style={styles.planItem}>✓ PA Coach AI 24h (Tira-Dúvidas)</Text>
-                                <Text style={styles.planItem}>✓ Suporte Whats (Fila Standard)</Text>
-                                <Text style={styles.planItem}>✓ 1 Avaliação Inicial e 1 Final (Dia 56)</Text>
-                                <Text style={styles.planItem}>✓ Acesso ao E-book 5 Dicas</Text>
+                                <Text style={styles.planItem}>✓ A direção exata do que fazer em cada treino — sem dúvida, sem improviso</Text>
+                                <Text style={styles.planItem}>✓ Cada repetição passa a ter correção com nossos vídeos focados em hipertrofia</Text>
+                                <Text style={styles.planItem}>✓ Seu corpo será avaliado na largada (Dia 1) e na linha de chegada (Dia 56)</Text>
+                                <Text style={styles.planItem}>✓ O suporte tira as dúvidas rápidas, para você não ficar perdido no processo</Text>
+                                <Text style={styles.planItem}>✓ Acesso liberado ao E-book: 5 Dicas Infalíveis de Emagrecimento</Text>
                                 
                                 <Text style={[styles.planItem, { color: '#FF3B30', marginTop: 10 }]}>🔒 Recursos Premium Bloqueados:</Text>
                                 <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Análise Biomecânica de Vídeo</Text>
@@ -282,8 +297,9 @@ export default function PropostaStartScreen({ route }) {
                             <View style={styles.pricingGrid}>
                                 <View style={styles.priceRow}><Text style={[styles.pricePeriod, {color: '#FFF'}]}>Pagamento Único</Text><Text style={[styles.priceValue, {color: '#FFF'}]}>R$ 97,00</Text></View>
                             </View>
+                            <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
                             <TouchableOpacity style={[styles.buyBtn, { backgroundColor: '#222', borderColor: '#444', borderWidth: 1 }]} onPress={() => handleWhatsAppCTA('Ficha de 8 Semanas')}>
-                                <Text style={[styles.buyBtnText, { color: '#FFF' }]}>QUERO A FICHA</Text>
+                                <Text style={[styles.buyBtnText, { color: '#FFF' }]}>QUERO PARAR DE TREINAR SEM DIREÇÃO</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -291,14 +307,14 @@ export default function PropostaStartScreen({ route }) {
                         <Animated.View style={[styles.planCard, { borderColor: '#4DE38F', borderWidth: 2, transform: [{ scale: pulseAnim }] }]}>
                             <View style={styles.recommendedBadge}><Text style={styles.recommendedText}>MAIS VENDIDO</Text></View>
                             <Text style={[styles.planName, { color: '#4DE38F' }]}>PLANO START</Text>
-                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Treine com a metodologia o ano todo.</Text>
+                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Esse é o ponto de partida para você sair da estagnação, seguir o método e começar a ver resultado de verdade.{"\n\n"}E quando quiser acelerar ainda mais, você pode evoluir para o plano completo.</Text>
                             
                             <View style={styles.planItems}>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Treinos no App com Vídeos e Técnicas</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ PA Coach AI 24h (Tira-Dúvidas)</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Suporte Whats (Fila Standard)</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Avaliação Inicial + 1 a cada 30 dias</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Acesso ao E-book 5 Dicas</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A direção exata do que fazer em cada treino — sem dúvida, sem improviso</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ O resultado não para — avaliamos o seu físico a cada 30 dias para ajustar a rota</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ O suporte (Fila Standard) garante que você nunca mais se sinta sozinho no processo</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A intensidade certa para mudar o corpo usando nossos vídeos detalhados</Text>
+                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Acesso liberado ao E-book: 5 Dicas Infalíveis de Emagrecimento</Text>
                                 
                                 <Text style={[styles.planItem, { color: '#FF3B30', marginTop: 10 }]}>🔒 Recursos Premium Bloqueados:</Text>
                                 <Text style={[styles.planItem, { color: '#666' }]}>✗ Sem Análise Biomecânica de Vídeo</Text>
@@ -309,9 +325,10 @@ export default function PropostaStartScreen({ route }) {
                             <View style={styles.pricingGrid}>
                                 <View style={styles.priceRow}><Text style={[styles.pricePeriod, {color: '#4DE38F'}]}>Mensal</Text><Text style={[styles.priceValue, {color: '#4DE38F'}]}>R$ 69,90</Text></View>
                             </View>
+                            <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
                             <TouchableOpacity onPress={() => handleWhatsAppCTA('Plano Start')}>
                                 <LinearGradient colors={['#4DE38F', '#2bb368']} style={styles.buyBtnGradient}>
-                                    <Text style={[styles.buyBtnText, { color: '#000' }]}>COMEÇAR START</Text>
+                                    <Text style={[styles.buyBtnText, { color: '#000' }]}>QUERO COMEÇAR DO JEITO CERTO</Text>
                                 </LinearGradient>
                             </TouchableOpacity>
                         </Animated.View>
@@ -319,8 +336,14 @@ export default function PropostaStartScreen({ route }) {
 
                     <FaqAccordion faqs={faqList} />
 
+                    {/* 🔥 FECHAMENTO MATADOR 🔥 */}
+                    <Text style={styles.finalClosingText}>
+                        "A única diferença entre quem muda o corpo... e quem continua no mesmo lugar... é começar."
+                    </Text>
+
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
+                        <Text style={styles.footerSubText}>Página segura. Oferta com tempo limitado.</Text>
                     </View>
                 </ScrollView>
             </View>
@@ -369,8 +392,9 @@ const styles = StyleSheet.create({
     arsenalTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
     arsenalDesc: { color: '#888', fontSize: 13, lineHeight: 20 },
     carouselContainer: { paddingLeft: 0, paddingRight: 20, paddingBottom: 20 },
+    aiHighlightSection: { marginTop: 20, marginBottom: 40, paddingHorizontal: 15, paddingVertical: 30, backgroundColor: '#111', borderRadius: 24, borderWidth: 1, borderColor: '#4DE38F30' },
 
-    plansContainer: { gap: 25, marginTop: 10, marginBottom: 40 },
+    plansContainer: { gap: 25, marginTop: 10, marginBottom: 20 },
     planCard: { backgroundColor: '#161616', padding: 25, borderRadius: 24, borderWidth: 1, position: 'relative' },
     planName: { fontSize: 24, fontWeight: '900', letterSpacing: 1, marginBottom: 5, textAlign: 'center' },
     planDesc: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 25 },
@@ -380,9 +404,12 @@ const styles = StyleSheet.create({
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#222', paddingBottom: 8 },
     pricePeriod: { color: '#888', fontSize: 14, fontWeight: '600' },
     priceValue: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+    
+    urgencyText: { color: '#FF3B30', fontSize: 11, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, fontStyle: 'italic' },
+
     buyBtn: { padding: 18, borderRadius: 16, alignItems: 'center' },
     buyBtnGradient: { padding: 18, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    buyBtnText: { fontWeight: '900', fontSize: 15, letterSpacing: 1 },
+    buyBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
     recommendedBadge: { position: 'absolute', top: -12, alignSelf: 'center', backgroundColor: '#4DE38F', paddingHorizontal: 15, paddingVertical: 4, borderRadius: 12 },
     recommendedText: { color: '#000', fontWeight: '900', fontSize: 10, letterSpacing: 1 },
 
@@ -392,6 +419,10 @@ const styles = StyleSheet.create({
     expiredBtn: { backgroundColor: '#222', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: '#444' },
     expiredBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
-    footer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#222', paddingTop: 20 },
+    // 🔥 FRASE MATADORA ANTES DO RODAPÉ 🔥
+    finalClosingText: { color: '#4DE38F', fontSize: 18, fontWeight: '900', textAlign: 'center', marginTop: 40, marginBottom: 10, paddingHorizontal: 20, lineHeight: 26, fontStyle: 'italic' },
+
+    footer: { marginTop: 30, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#222', paddingTop: 20 },
     footerText: { color: '#666', fontWeight: '900', fontSize: 12, letterSpacing: 1 },
+    footerSubText: { color: '#444', fontSize: 10, marginTop: 5 }
 });
