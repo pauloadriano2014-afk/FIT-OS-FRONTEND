@@ -303,11 +303,11 @@ export default function PropostaStartScreen({ route }) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* PLANO START */}
+                        {/* PLANO START - COPY LAPIDADA 🔥 */}
                         <Animated.View style={[styles.planCard, { borderColor: '#4DE38F', borderWidth: 2, transform: [{ scale: pulseAnim }] }]}>
                             <View style={styles.recommendedBadge}><Text style={styles.recommendedText}>MAIS VENDIDO</Text></View>
                             <Text style={[styles.planName, { color: '#4DE38F' }]}>PLANO START</Text>
-                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Esse é o ponto de partida para você sair da estagnação, seguir o método e começar a ver resultado de verdade.{"\n\n"}E quando quiser acelerar ainda mais, você pode evoluir para o plano completo.</Text>
+                            <Text style={[styles.planDesc, { color: '#CCC' }]}>A porta de entrada ideal para você sair da estagnação e ver resultado de verdade. Aplique a metodologia hoje e evolua para a consultoria completa no seu próprio ritmo.</Text>
                             
                             <View style={styles.planItems}>
                                 <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A direção exata do que fazer em cada treino — sem dúvida, sem improviso</Text>
@@ -392,9 +392,8 @@ const styles = StyleSheet.create({
     arsenalTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
     arsenalDesc: { color: '#888', fontSize: 13, lineHeight: 20 },
     carouselContainer: { paddingLeft: 0, paddingRight: 20, paddingBottom: 20 },
-    aiHighlightSection: { marginTop: 20, marginBottom: 40, paddingHorizontal: 15, paddingVertical: 30, backgroundColor: '#111', borderRadius: 24, borderWidth: 1, borderColor: '#4DE38F30' },
 
-    plansContainer: { gap: 25, marginTop: 10, marginBottom: 20 },
+    plansContainer: { gap: 25, marginTop: 10, marginBottom: 40 },
     planCard: { backgroundColor: '#161616', padding: 25, borderRadius: 24, borderWidth: 1, position: 'relative' },
     planName: { fontSize: 24, fontWeight: '900', letterSpacing: 1, marginBottom: 5, textAlign: 'center' },
     planDesc: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 25 },
@@ -419,8 +418,8 @@ const styles = StyleSheet.create({
     expiredBtn: { backgroundColor: '#222', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: '#444' },
     expiredBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
-    // 🔥 FRASE MATADORA ANTES DO RODAPÉ 🔥
-    finalClosingText: { color: '#4DE38F', fontSize: 18, fontWeight: '900', textAlign: 'center', marginTop: 40, marginBottom: 10, paddingHorizontal: 20, lineHeight: 26, fontStyle: 'italic' },
+    // 🔥 ESTILO MATADOR PARA A FRASE DE FECHAMENTO 🔥
+    finalClosingText: { color: '#4DE38F', fontSize: 16, fontWeight: '900', textAlign: 'center', marginTop: 40, marginBottom: 10, paddingHorizontal: 20, lineHeight: 26, fontStyle: 'italic' },
 
     footer: { marginTop: 30, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#222', paddingTop: 20 },
     footerText: { color: '#666', fontWeight: '900', fontSize: 12, letterSpacing: 1 },

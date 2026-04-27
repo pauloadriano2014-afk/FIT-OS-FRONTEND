@@ -286,12 +286,8 @@ export default function PropostaScreen({ route }) {
                         <BonusCard uri={linksAlunos.audio_shape} title="Audiobook: Shape Natural" subtitle="Para ouvir a caminho do treino." isAudio={true} price="34,90" unlockText="A PARTIR DO SEMESTRAL" />
                     </ScrollView>
 
-                    {/* FAQ */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40, marginBottom: 20}]}>AINDA TEM DÚVIDAS?</Text>
-                    <FaqAccordion faqs={faqList} />
-
                     {/* MOMENTO DE COLAPSO E ESCOLHA DE PLANOS 🔥 */}
-                    <Text style={[styles.sectionTitle, {marginTop: 10}]}>ESCOLHA SEU ARSENAL</Text>
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>ESCOLHA SEU ARSENAL</Text>
                     <Text style={styles.sectionSub}>Você pode continuar tentando sozinho, errando e perdendo tempo… ou pode finalmente seguir um método que faz seu corpo responder.</Text>
                     <View style={styles.plansContainer}>
                         
@@ -334,7 +330,7 @@ export default function PropostaScreen({ route }) {
                         <Animated.View style={[styles.planCard, { borderColor: '#4DE38F', borderWidth: 2, transform: [{ scale: pulseAnim }] }]}>
                             <View style={styles.recommendedBadge}><Text style={styles.recommendedText}>EXPERIÊNCIA COMPLETA</Text></View>
                             <Text style={[styles.planName, { color: '#4DE38F' }]}>ELITE VIP</Text>
-                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Para quem cansou de tentar, errar e continuar no mesmo corpo.{"\n\n"}Agora, se você quer acelerar o resultado e parar de perder tempo...</Text>
+                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Para quem cansou de tentar, errar e continuar no mesmo corpo.{"\n\n"}O acompanhamento definitivo para você parar de perder tempo e acelerar o seu resultado.</Text>
                             
                             <View style={styles.planItems}>
                                 <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A direção exata do que fazer em cada treino — sem dúvida, sem improviso</Text>
@@ -368,6 +364,15 @@ export default function PropostaScreen({ route }) {
                             </TouchableOpacity>
                         </Animated.View>
                     </View>
+
+                    {/* FAQ DESCIDO PARA DEPOIS DA OFERTA 🔥 */}
+                    <Text style={[styles.sectionTitle, {marginTop: 20, marginBottom: 20}]}>AINDA TEM DÚVIDAS?</Text>
+                    <FaqAccordion faqs={faqList} />
+
+                    {/* 🔥 FECHAMENTO MATADOR 🔥 */}
+                    <Text style={styles.finalClosingText}>
+                        "A única diferença entre quem muda o corpo... e quem continua no mesmo lugar... é começar."
+                    </Text>
 
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
@@ -435,7 +440,6 @@ const styles = StyleSheet.create({
     pricePeriod: { color: '#888', fontSize: 14, fontWeight: '600' },
     priceValue: { color: '#FFF', fontSize: 16, fontWeight: '900' },
     
-    // 🔥 CLASSE NOVA: URGÊNCIA NOS PLANOS 🔥
     urgencyText: { color: '#FF3B30', fontSize: 11, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, fontStyle: 'italic' },
     
     buyBtn: { padding: 18, borderRadius: 16, alignItems: 'center' },
@@ -449,6 +453,9 @@ const styles = StyleSheet.create({
     expiredDesc: { color: '#888', fontSize: 15, textAlign: 'center', lineHeight: 24, marginBottom: 30 },
     expiredBtn: { backgroundColor: '#222', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: '#444' },
     expiredBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
+
+    // 🔥 FRASE MATADORA ANTES DO RODAPÉ 🔥
+    finalClosingText: { color: '#4DE38F', fontSize: 16, fontWeight: '900', textAlign: 'center', marginTop: 40, marginBottom: 10, paddingHorizontal: 20, lineHeight: 26, fontStyle: 'italic' },
 
     footer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#222', paddingTop: 20 },
     footerText: { color: '#666', fontWeight: '900', fontSize: 12, letterSpacing: 1 },
