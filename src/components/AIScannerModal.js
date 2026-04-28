@@ -62,11 +62,12 @@ export default function ScannerIA({ navigation, route }) {
   const openNativeCameraAndRecord = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true, 
-        videoMaxDuration: 7, // 🔥 TRAVA NATIVA: Máximo 7 segundos
-        quality: 0.4, // 🔥 Reduz a qualidade da gravação
-      });
+  mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+  allowsEditing: true, 
+  videoMaxDuration: 7, 
+  quality: 0.1, // 🔥 Baixamos pro mínimo
+  videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480, // 🔥 Força 480p
+});
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         uploadVideoForAnalysis(result.assets[0]);
@@ -79,11 +80,12 @@ export default function ScannerIA({ navigation, route }) {
   const pickFromGallery = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true, 
-        videoMaxDuration: 7, // 🔥 TRAVA NATIVA: Exige corte de até 7 segundos
-        quality: 0.4,
-      });
+  mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+  allowsEditing: true, 
+  videoMaxDuration: 7, 
+  quality: 0.1, // 🔥 Baixamos pro mínimo
+  videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480, // 🔥 Força 480p (Super leve)
+});
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         uploadVideoForAnalysis(result.assets[0]);
