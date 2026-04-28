@@ -21,12 +21,10 @@ const getElitePrompt = (exerciseName) => {
   const cleanName = exerciseName?.toLowerCase() || "";
   let eliteInjection = "";
 
-  // Se for Stiff ou Terra (Hinge Movements)
   if (cleanName.includes("stiff") || cleanName.includes("terra") || cleanName.includes("deadlift") || cleanName.includes("rdl")) {
       eliteInjection = " | REGRAS DO COACH: Seja extremamente rigoroso com o ângulo do joelho. O joelho deve ter apenas uma leve semi-flexão (destravado). Se o aluno flexionar muito os joelhos na descida, alerte o erro dizendo que ele está agachando em vez de fazer dobradiça de quadril. DICA RÁPIDA (HACK): 'Pense que você quer empurrar a parede atrás de você com o seu glúteo.'";
   }
   
-  // Se for Agachamento (Squat Movements)
   if (cleanName.includes("agachamento") || cleanName.includes("squat") || cleanName.includes("hack") || cleanName.includes("leg")) {
       eliteInjection = " | REGRAS DO COACH: Verifique a profundidade e o valgo dinâmico (joelho entrando). DICA RÁPIDA (HACK): 'Force os joelhos para fora como se fosse rasgar o chão ao meio.'";
   }
@@ -36,6 +34,12 @@ const getElitePrompt = (exerciseName) => {
 
 export default function ScannerIA({ navigation, route }) {
   const exerciseName = route?.params?.exName || "Exercício";
+  
+  // 🔥 PEGANDO O NOME DO ALUNO 🔥
+  // Verifique de onde você puxa o nome no seu app. Pode ser do route.params, ou do seu AuthContext.
+  // Coloquei "route?.params?.alunoName" como exemplo. Ajuste se necessário!
+  const alunoName = route?.params?.alunoName || "Aluno"; 
+
   const currentInstruction = getInstruction(exerciseName);
   
   const [loadingIA, setLoadingIA] = useState(false);
@@ -56,12 +60,11 @@ export default function ScannerIA({ navigation, route }) {
     }
   }, [loadingIA]);
 
-  // 🔥 OPÇÃO 1: GRAVAR AO VIVO (COM CORTE DE VOLTA)
   const openNativeCameraAndRecord = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true, // Voltou o corte (Mesmo com o bug chato da Apple ao vivo)
+        allowsEditing: true, 
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -72,12 +75,11 @@ export default function ScannerIA({ navigation, route }) {
     }
   };
 
-  // 🔥 OPÇÃO 2: PUXAR DA GALERIA (CORTE 100% PERFEITO NO IPHONE)
   const pickFromGallery = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true, // Na galeria, o corte do iOS nunca trava
+        allowsEditing: true, 
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -96,7 +98,6 @@ export default function ScannerIA({ navigation, route }) {
       let uploadResultStatus;
       let responseBody;
 
-      // 🔥 AQUI O PROMPT DE ELITE É INJETADO JUNTO COM O NOME
       const enhancedExerciseName = getElitePrompt(exerciseName);
 
       if (Platform.OS === 'web') {
@@ -113,6 +114,9 @@ export default function ScannerIA({ navigation, route }) {
         formData.append('video', videoBlob, 'video.mov');
         formData.append('exerciseName', enhancedExerciseName);
         formData.append('userLevel', 'Geral');
+        
+        // 🔥 INJEÇÃO 1: NOME DO ALUNO NO FORM DATA (PARA WEB)
+        formData.append('alunoName', alunoName);
 
         const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
           method: 'POST',
@@ -123,11 +127,16 @@ export default function ScannerIA({ navigation, route }) {
         responseBody = await response.text();
 
       } else {
+        // 🔥 INJEÇÃO 2: NOME DO ALUNO NO PARAMETERS DO NATIVO (PARA iOS/ANDROID)
         const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', asset.uri, {
           fieldName: 'video',
           httpMethod: 'POST',
           uploadType: 1, 
-          parameters: { 'exerciseName': enhancedExerciseName, 'userLevel': 'Geral' },
+          parameters: { 
+            'exerciseName': enhancedExerciseName, 
+            'userLevel': 'Geral',
+            'alunoName': alunoName // << AQUI!
+          },
         });
 
         uploadResultStatus = uploadResult.status;
@@ -151,7 +160,6 @@ export default function ScannerIA({ navigation, route }) {
              cleanMessage = responseBody.replace(/["{}]/g, ""); 
         }
         
-        // Remove barras escapadas caso venham da IA
         cleanMessage = cleanMessage.replace(/\\n/g, '\n').replace(/\\"/g, '"');
         setFeedbackData(cleanMessage);
       } else {
@@ -223,12 +231,10 @@ export default function ScannerIA({ navigation, route }) {
                                 <Text style={styles.instructionText}>{currentInstruction}</Text>
                             </View>
                             
-                            {/* 🔥 BOTÃO 1: CÂMERA AO VIVO */}
                             <TouchableOpacity style={styles.recordBtn} onPress={openNativeCameraAndRecord}>
                                 <Text style={styles.recordText}>📹 GRAVAR AGORA</Text>
                             </TouchableOpacity>
 
-                            {/* 🔥 BOTÃO 2: GALERIA (A SALVAÇÃO DO CORTE) */}
                             <TouchableOpacity style={styles.galleryBtn} onPress={pickFromGallery}>
                                 <Text style={styles.galleryText}>📂 ESCOLHER DA GALERIA</Text>
                             </TouchableOpacity>
