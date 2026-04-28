@@ -72,7 +72,8 @@
         {
           "cameraPermission": "Permitir acesso à câmera para check-in e scanner."
         }
-      ]
+      ],
+      "react-native-compressor"
     ],
     "extra": {
       "eas": {

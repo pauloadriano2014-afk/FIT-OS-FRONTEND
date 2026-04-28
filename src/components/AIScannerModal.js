@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, 
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { uploadAsync } from 'expo-file-system/legacy';
+import { Video } from 'react-native-compressor'; // 🔥 IMPORTAÇÃO DO COMPRESSOR
 
 const { height } = Dimensions.get('window');
 
@@ -36,8 +37,6 @@ export default function ScannerIA({ navigation, route }) {
   const exerciseName = route?.params?.exName || "Exercício";
   
   // 🔥 PEGANDO O NOME DO ALUNO 🔥
-  // Verifique de onde você puxa o nome no seu app. Pode ser do route.params, ou do seu AuthContext.
-  // Coloquei "route?.params?.alunoName" como exemplo. Ajuste se necessário!
   const alunoName = route?.params?.alunoName || "Aluno"; 
 
   const currentInstruction = getInstruction(exerciseName);
@@ -65,6 +64,8 @@ export default function ScannerIA({ navigation, route }) {
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         allowsEditing: true, 
+        videoMaxDuration: 7, // 🔥 TRAVA NATIVA: Máximo 7 segundos
+        quality: 0.4, // 🔥 Reduz a qualidade da gravação
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -80,6 +81,8 @@ export default function ScannerIA({ navigation, route }) {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Videos,
         allowsEditing: true, 
+        videoMaxDuration: 7, // 🔥 TRAVA NATIVA: Exige corte de até 7 segundos
+        quality: 0.4,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -97,8 +100,31 @@ export default function ScannerIA({ navigation, route }) {
 
       let uploadResultStatus;
       let responseBody;
+      let finalVideoUri = asset.uri;
 
       const enhancedExerciseName = getElitePrompt(exerciseName);
+
+      // 🔥 COMPRESSÃO PESADA (APENAS PARA DISPOSITIVOS MÓVEIS)
+      if (Platform.OS !== 'web') {
+        try {
+          console.log('Iniciando compressão do vídeo...');
+          const compressedUri = await Video.compress(
+            asset.uri,
+            {
+              compressionMethod: 'auto',
+              minimumFileSizeForCompress: 2, // Comprime apenas se passar de 2MB
+            },
+            (progress) => {
+              console.log('Progresso compressão: ', progress);
+            }
+          );
+          finalVideoUri = compressedUri;
+          console.log('Vídeo comprimido com sucesso. URI final: ', finalVideoUri);
+        } catch (compressError) {
+          console.error("Erro ao comprimir, enviando vídeo original: ", compressError);
+          finalVideoUri = asset.uri; // Fallback de segurança
+        }
+      }
 
       if (Platform.OS === 'web') {
         const formData = new FormData();
@@ -114,8 +140,6 @@ export default function ScannerIA({ navigation, route }) {
         formData.append('video', videoBlob, 'video.mov');
         formData.append('exerciseName', enhancedExerciseName);
         formData.append('userLevel', 'Geral');
-        
-        // 🔥 INJEÇÃO 1: NOME DO ALUNO NO FORM DATA (PARA WEB)
         formData.append('alunoName', alunoName);
 
         const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
@@ -127,15 +151,15 @@ export default function ScannerIA({ navigation, route }) {
         responseBody = await response.text();
 
       } else {
-        // 🔥 INJEÇÃO 2: NOME DO ALUNO NO PARAMETERS DO NATIVO (PARA iOS/ANDROID)
-        const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', asset.uri, {
+        // 🔥 UPLOAD NATIVO USANDO O VÍDEO COMPRIMIDO (finalVideoUri)
+        const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', finalVideoUri, {
           fieldName: 'video',
           httpMethod: 'POST',
           uploadType: 1, 
           parameters: { 
             'exerciseName': enhancedExerciseName, 
             'userLevel': 'Geral',
-            'alunoName': alunoName // << AQUI!
+            'alunoName': alunoName 
           },
         });
 
