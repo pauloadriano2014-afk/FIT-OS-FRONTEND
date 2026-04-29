@@ -415,9 +415,18 @@ export default function DayWorkoutScreen({ route, navigation }) {
     }
   };
 
+  // 🔥 A CIRURGIA ESTÁ AQUI: ADICIONADO alunoName: userData?.name 🔥
   const handleOpenIA = (item) => {
-      if (userPlan === 'PREMIUM') { try { navigation.navigate('ScannerIA', { exName: item.exercise?.name }); } catch (e) {} } 
-      else { openDynamicUpsell('ia'); }
+      if (userPlan === 'PREMIUM') { 
+          try { 
+              navigation.navigate('ScannerIA', { 
+                  exName: item.exercise?.name, 
+                  alunoName: userData?.name 
+              }); 
+          } catch (e) {} 
+      } else { 
+          openDynamicUpsell('ia'); 
+      }
   };
 
   const handleOpenCalc = () => {
