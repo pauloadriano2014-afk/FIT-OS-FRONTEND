@@ -9,30 +9,45 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
     const isWeb = Platform.OS === 'web';
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
-    // Recebe as configurações da tela anterior (ou valores padrão de segurança)
     const config = route.params?.config || { days: 4, objective: 'HIPERTROFIA', level: 'INTERMEDIÁRIO', time: 60 };
     
-    const daysArray = Array.from({ length: config.days }, (_, i) => String.fromCharCode(65 + i)); // Gera ['A', 'B', 'C', 'D']
+    const daysArray = Array.from({ length: config.days }, (_, i) => String.fromCharCode(65 + i)); 
     const [activeDay, setActiveDay] = useState(daysArray[0]);
 
-    // Estrutura de estado: { 'A': ['Peitoral', 'Tríceps'], 'B': ['Costas', 'Bíceps'] }
     const [structure, setStructure] = useState(
         daysArray.reduce((acc, day) => ({ ...acc, [day]: [] }), {})
     );
 
+    // 🔥 MAPA COMPLETO DE SUB-CATEGORIAS (IGUAL AO SEU BACKEND) 🔥
     const MUSCLE_GROUPS = [
-        { id: 'Quadríceps e Adutores', label: 'Quadríceps' },
-        { id: 'Posteriores', label: 'Posteriores' },
-        { id: 'Glúteos', label: 'Glúteos' },
-        { id: 'Panturrilha', label: 'Panturrilha' },
-        { id: 'Peitoral', label: 'Peitoral' },
-        { id: 'Costas', label: 'Costas' },
-        { id: 'Ombros', label: 'Ombros' },
-        { id: 'Trapézio', label: 'Trapézio' },
-        { id: 'Bíceps', label: 'Bíceps' },
-        { id: 'Tríceps', label: 'Tríceps' },
-        { id: 'Abdômen', label: 'Abdômen' },
-        { id: 'Cardio', label: 'Cardio Pós' }
+        { 
+            category: "PEITORAL", 
+            items: [{ id: 'Superior', label: 'Superior' }, { id: 'Medial', label: 'Medial' }, { id: 'Inferior', label: 'Inferior' }] 
+        },
+        { 
+            category: "COSTAS E LOMBAR", 
+            items: [{ id: 'Puxadas', label: 'Puxadas' }, { id: 'Remadas', label: 'Remadas' }, { id: 'Lombar', label: 'Lombar' }] 
+        },
+        { 
+            category: "PERNAS", 
+            items: [{ id: 'Quadríceps e Adutores', label: 'Quadríceps / Adutores' }, { id: 'Posteriores', label: 'Posteriores' }, { id: 'Glúteos', label: 'Glúteos' }, { id: 'Panturrilha', label: 'Panturrilhas' }, { id: 'Multiarticular', label: 'Agachamentos / Legs' }] 
+        },
+        { 
+            category: "OMBROS E TRAPÉZIO", 
+            items: [{ id: 'Frontal', label: 'Frontal' }, { id: 'Lateral', label: 'Lateral' }, { id: 'Posterior', label: 'Posterior de Ombro' }, { id: 'Trapézio', label: 'Trapézio' }, { id: 'Ombro Multiarticular', label: 'Desenvolvimentos' }] 
+        },
+        { 
+            category: "BRAÇOS", 
+            items: [{ id: 'Bíceps', label: 'Bíceps' }, { id: 'Tríceps', label: 'Tríceps' }, { id: 'Antebraço', label: 'Antebraço' }] 
+        },
+        { 
+            category: "CORE E ABDÔMEN", 
+            items: [{ id: 'Supra', label: 'Supra' }, { id: 'Infra', label: 'Infra' }, { id: 'Completo', label: 'Completo / Remador' }, { id: 'Core', label: 'Pranchas / Core' }] 
+        },
+        { 
+            category: "OUTROS", 
+            items: [{ id: 'Cardio Pós', label: 'Cardio Pós-Treino' }] 
+        }
     ];
 
     const toggleMuscle = (muscleId) => {
@@ -48,7 +63,8 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
 
     const handleNextStep = () => {
         console.log("ESTRUTURA MONTADA PELO COACH:", structure);
-        alert("Matriz pronta! O próximo e último passo é buscar no banco os exercícios exatos dessas tags.");
+        // 🔥 AQUI É A PONTE PARA A TELA FINAL QUE CRIAREMOS A SEGUIR 🔥
+        navigation.navigate('LaboratoryFinalScreen', { config, structure });
     };
 
     return (
@@ -59,11 +75,11 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                     
                     {/* CABEÇALHO */}
                     <View style={[styles.header, { borderBottomColor: theme.border }]}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
                         </TouchableOpacity>
                         <View style={{ alignItems: 'center' }}>
-                            <Text style={[styles.headerTitle, { color: theme.text }]}>MONTAGEM</Text>
+                            <Text style={[styles.headerTitle, { color: theme.text }]}>ESQUELETO</Text>
                             <Text style={[styles.headerSubtitle, { color: theme.accent }]}>{config.days} DIAS • {config.time} MIN</Text>
                         </View>
                         <View style={{ width: 40 }} />
@@ -78,10 +94,10 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                                 return (
                                     <TouchableOpacity 
                                         key={day} 
-                                        style={[styles.dayTab, { backgroundColor: theme.surface, borderColor: theme.border }, isActive && { backgroundColor: theme.accent, borderColor: theme.accent }]}
+                                        style={[styles.dayTab, { backgroundColor: theme.surface }, isActive && { backgroundColor: theme.accent }]}
                                         onPress={() => setActiveDay(day)}
                                     >
-                                        <Text style={[styles.dayTabText, { color: theme.textSecondary }, isActive && { color: theme.isDark ? '#000' : '#FFF', fontWeight: '900' }]}>DIA {day}</Text>
+                                        <Text style={[styles.dayTabText, { color: isActive ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }, isActive && { fontWeight: '900' }]}>DIA {day}</Text>
                                         {hasMuscles && (
                                             <View style={[styles.badge, isActive ? { backgroundColor: theme.isDark ? '#000' : '#FFF' } : { backgroundColor: theme.accent }]}>
                                                 <Text style={[styles.badgeText, isActive ? { color: theme.accent } : { color: theme.isDark ? '#000' : '#FFF' }]}>{structure[day].length}</Text>
@@ -93,39 +109,47 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         </ScrollView>
                     </View>
 
-                    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                        <View style={styles.infoBox}>
-                            <MaterialCommunityIcons name="information-outline" size={20} color={theme.textSecondary} />
-                            <Text style={[styles.infoText, { color: theme.textSecondary }]}>Selecione os grupos musculares que farão parte do <Text style={{color: theme.accent, fontWeight: 'bold'}}>TREINO {activeDay}</Text>.</Text>
-                        </View>
+                    {/* CONTEÚDO COM SCROLL BLINDADO */}
+                    <View style={{ flex: 1, overflow: 'hidden' }}>
+                        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                            <View style={[styles.infoBox, { backgroundColor: theme.surface }]}>
+                                <MaterialCommunityIcons name="information-outline" size={20} color={theme.textSecondary} />
+                                <Text style={[styles.infoText, { color: theme.textSecondary }]}>O que vamos treinar no <Text style={{color: theme.accent, fontWeight: 'bold'}}>DIA {activeDay}</Text>?</Text>
+                            </View>
 
-                        {/* GRID DE MÚSCULOS */}
-                        <View style={styles.grid}>
-                            {MUSCLE_GROUPS.map(muscle => {
-                                const isSelected = structure[activeDay].includes(muscle.id);
-                                return (
-                                    <TouchableOpacity 
-                                        key={muscle.id}
-                                        style={[styles.muscleCard, { backgroundColor: theme.surface, borderColor: theme.border }, isSelected && { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}
-                                        onPress={() => toggleMuscle(muscle.id)}
-                                    >
-                                        <View style={[styles.checkbox, { borderColor: theme.border }, isSelected && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-                                            {isSelected && <MaterialCommunityIcons name="check" size={14} color={theme.isDark ? '#000' : '#FFF'} />}
-                                        </View>
-                                        <Text style={[styles.muscleText, { color: theme.text }, isSelected && { color: theme.accent, fontWeight: 'bold' }]} numberOfLines={1} adjustsFontSizeToFit>{muscle.label}</Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
-                    </ScrollView>
+                            {/* CATEGORIAS E GRID DE MÚSCULOS */}
+                            {MUSCLE_GROUPS.map((group, index) => (
+                                <View key={index} style={styles.groupSection}>
+                                    <Text style={[styles.groupTitle, { color: theme.text }]}>{group.category}</Text>
+                                    <View style={styles.grid}>
+                                        {group.items.map(muscle => {
+                                            const isSelected = structure[activeDay].includes(muscle.id);
+                                            return (
+                                                <TouchableOpacity 
+                                                    key={muscle.id}
+                                                    style={[styles.muscleCard, { backgroundColor: theme.bg, borderColor: theme.border }, isSelected && { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}
+                                                    onPress={() => toggleMuscle(muscle.id)}
+                                                >
+                                                    <View style={[styles.checkbox, { borderColor: theme.border }, isSelected && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
+                                                        {isSelected && <MaterialCommunityIcons name="check" size={12} color={theme.isDark ? '#000' : '#FFF'} />}
+                                                    </View>
+                                                    <Text style={[styles.muscleText, { color: theme.text }, isSelected && { color: theme.accent, fontWeight: 'bold' }]} numberOfLines={2}>{muscle.label}</Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                </View>
+                            ))}
+                        </ScrollView>
+                    </View>
 
                     {/* BOTÃO DE AVANÇAR */}
-                    <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+                    <View style={[styles.footer, { backgroundColor: theme.bg }]}>
                         <TouchableOpacity 
                             style={[styles.actionButton, { backgroundColor: theme.accent }]}
                             onPress={handleNextStep}
                         >
-                            <Text style={[styles.actionButtonText, { color: theme.isDark ? '#000' : '#FFF' }]}>AVANÇAR PARA EXERCÍCIOS</Text>
+                            <Text style={[styles.actionButtonText, { color: theme.isDark ? '#000' : '#FFF' }]}>BUSCAR EXERCÍCIOS</Text>
                             <MaterialCommunityIcons name="arrow-right" size={22} color={theme.isDark ? '#000' : '#FFF'} />
                         </TouchableOpacity>
                     </View>
@@ -138,22 +162,24 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
     header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1 },
-    backButton: { padding: 8, borderRadius: 8, borderWidth: 1 },
-    headerTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 2 },
+    backButton: { padding: 8, borderRadius: 12 },
+    headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1.5 },
     headerSubtitle: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginTop: 2 },
     daysContainer: { paddingVertical: 15, borderBottomWidth: 1 },
-    dayTab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 20, borderWidth: 1, gap: 8 },
-    dayTabText: { fontSize: 13, fontWeight: 'bold' },
-    badge: { width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-    badgeText: { fontSize: 10, fontWeight: '900' },
-    scrollContent: { padding: 20, paddingBottom: 150 },
-    infoBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
+    dayTab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, gap: 8 },
+    dayTabText: { fontSize: 12, fontWeight: 'bold' },
+    badge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
+    badgeText: { fontSize: 9, fontWeight: '900' },
+    scrollContent: { padding: 20, paddingBottom: 150, flexGrow: 1 },
+    infoBox: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
     infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
+    groupSection: { marginBottom: 25 },
+    groupTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 10, opacity: 0.8 },
     grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
-    muscleCard: { width: '48%', flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, gap: 10 },
-    checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-    muscleText: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
-    footer: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 20, paddingVertical: 20, borderTopWidth: 1 },
-    actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 12, gap: 10 },
+    muscleCard: { width: '48%', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, gap: 10 },
+    checkbox: { width: 18, height: 18, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+    muscleText: { fontSize: 11, fontWeight: '600', flexShrink: 1 },
+    footer: { paddingHorizontal: 20, paddingVertical: 20 },
+    actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, gap: 10 },
     actionButtonText: { fontSize: 14, fontWeight: '900', letterSpacing: 1 }
 });
