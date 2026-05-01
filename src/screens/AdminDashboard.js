@@ -668,6 +668,15 @@ export default function AdminDashboard({ navigation }) {
                         <View style={[styles.gridGestao, { paddingHorizontal: 20 }]}>
                             {subTabGestao === 'FERRAMENTAS' && (
                                 <>
+                                    {/* 🔥 O SEU NOVO BOTÃO DE LABORATÓRIO 🔥 */}
+                                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 2 }]} onPress={() => navigation.navigate('LaboratoryScreen')}>
+                                        <View style={[styles.iconCircle, {backgroundColor: theme.accent + '22'}]}>
+                                            <MaterialCommunityIcons name="flask-outline" size={32} color={theme.accent} />
+                                        </View>
+                                        <Text style={[styles.bigCardTitle, { color: theme.accent }]}>PRESCRIÇÃO IA</Text>
+                                        <Text style={styles.bigCardDesc}>Laboratório inteligente para montagem de treinos com algoritmos.</Text>
+                                    </TouchableOpacity>
+
                                     <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}><View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} /></View><Text style={[styles.bigCardTitle, { color: theme.text }]}>EXERCÍCIOS</Text><Text style={styles.bigCardDesc}>Gerencie a biblioteca.</Text></TouchableOpacity>
                                     <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('GerenciarTemplates')}><View style={[styles.iconCircle, {backgroundColor: theme.accent}]}><MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} /></View><Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text><Text style={styles.bigCardDesc}>Crie fichas de treino padrão.</Text></TouchableOpacity>
                                     <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminDietLibraryScreen')}><View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="food-apple" size={32} color={theme.accent} /></View><Text style={[styles.bigCardTitle, { color: theme.text }]}>COFRE DE DIETAS</Text><Text style={styles.bigCardDesc}>Gerencie templates alimentares.</Text></TouchableOpacity>
