@@ -64,16 +64,64 @@ export default function LaboratoryScreen({ navigation }) {
         fetchStudents();
     }, []);
 
+    // 🔥 O EXTRATOR INTELIGENTE DA ANAMNESE 🔥
     const handleSelectStudent = (student) => {
         setSelectedStudent(student);
-        // Tenta inferir pelo que ele preencheu na Anamnese
-        if (student.goal && student.goal.toUpperCase().includes('EMAGRECIMENTO')) setObjective('EMAGRECIMENTO');
-        else setObjective('HIPERTROFIA');
         
-        setLevel('INTERMEDIÁRIO'); // Valor padrão
-        setTime(60);
-        setDays(4);
-        setSearchQuery('');
+        let foundObjective = 'HIPERTROFIA'; // Default
+        let foundLevel = 'INTERMEDIÁRIO';   // Default
+        let foundTime = 60;               // Default
+        let foundDays = 4;                // Default
+
+        // 1. Tenta pegar os dados básicos do Cadastro do Aluno (Tabela User)
+        const userGoal = (student.goal || student.dietGoal || '').toUpperCase();
+        if (userGoal.includes('EMAGRECIMENTO') || userGoal.includes('PERDA') || userGoal.includes('SECAR') || userGoal.includes('DEFINI')) foundObjective = 'EMAGRECIMENTO';
+        
+        const userLevel = (student.level || '').toUpperCase();
+        if (userLevel.includes('INICIANTE')) foundLevel = 'INICIANTE';
+        if (userLevel.includes('AVANÇADO') || userLevel.includes('AVANCADO')) foundLevel = 'AVANÇADO';
+
+        // 2. Se tiver Anamnese salva, ela é a nossa Fonte da Verdade Suprema!
+        if (student.anamneses && student.anamneses.length > 0) {
+            // Pega a primeira/última anamnese da lista
+            const anamnese = student.anamneses[0]; 
+            
+            // Analisa o Objetivo
+            const anamGoal = (anamnese.objetivo || '').toUpperCase();
+            if (anamGoal.includes('EMAGRECIMENTO') || anamGoal.includes('PERDA') || anamGoal.includes('DEFINIÇÃO')) {
+                foundObjective = 'EMAGRECIMENTO';
+            } else if (anamGoal.includes('HIPERTROFIA') || anamGoal.includes('GANHO') || anamGoal.includes('MASSA')) {
+                foundObjective = 'HIPERTROFIA';
+            }
+
+            // Analisa o Nível
+            const anamLevel = (anamnese.nivel || '').toUpperCase();
+            if (anamLevel.includes('INICIANTE')) foundLevel = 'INICIANTE';
+            else if (anamLevel.includes('AVANÇADO') || anamLevel.includes('AVANCADO')) foundLevel = 'AVANÇADO';
+            else if (anamLevel.includes('INTERMEDI')) foundLevel = 'INTERMEDIÁRIO';
+
+            // Analisa o Tempo Disponível (E ajusta pro valor mais próximo)
+            if (anamnese.tempoDisponivel) {
+                if (TIMES.includes(anamnese.tempoDisponivel)) {
+                    foundTime = anamnese.tempoDisponivel;
+                } else {
+                    // Ex: Se o aluno marcou 50, arredonda pra 45 ou 60
+                    foundTime = TIMES.reduce((prev, curr) => Math.abs(curr - anamnese.tempoDisponivel) < Math.abs(prev - anamnese.tempoDisponivel) ? curr : prev);
+                }
+            }
+
+            // Analisa Frequência (Dias na Semana)
+            if (anamnese.frequencia && DAYS.includes(anamnese.frequencia)) {
+                foundDays = anamnese.frequencia;
+            }
+        }
+
+        // Aplica todos os dados resgatados nos botões da tela
+        setObjective(foundObjective);
+        setLevel(foundLevel);
+        setTime(foundTime);
+        setDays(foundDays);
+        setSearchQuery(''); // Limpa a barra de pesquisa
     };
 
     const handleGenerateStructure = () => {
@@ -162,7 +210,7 @@ export default function LaboratoryScreen({ navigation }) {
                                     <View style={[styles.selectedStudentCard, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
                                         <View>
                                             <Text style={[styles.studentName, { color: theme.text }]}>{selectedStudent.name}</Text>
-                                            <Text style={[styles.studentDetail, { color: theme.accent }]}>Anamnese carregada com sucesso.</Text>
+                                            <Text style={[styles.studentDetail, { color: theme.accent }]}>Anamnese carregada e analisada.</Text>
                                         </View>
                                         <TouchableOpacity onPress={() => setSelectedStudent(null)} style={styles.clearButton}>
                                             <MaterialCommunityIcons name="close" size={18} color={theme.text} />
