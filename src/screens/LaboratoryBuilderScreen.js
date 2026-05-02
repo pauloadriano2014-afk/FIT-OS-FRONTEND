@@ -73,8 +73,13 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
         navigation.navigate('LaboratoryFinalScreen', { config, structure });
     };
 
+    // 🔥 AQUI ESTÁ A BLINDAGEM DO SCROLL (100vh para WEB) QUE SALVOU A TELA ANTERIOR 🔥
+    const rootStyle = isWeb 
+        ? { height: '100vh', width: '100%', backgroundColor: webOuterBg, overflow: 'hidden', display: 'flex', flexDirection: 'column' } 
+        : { flex: 1, backgroundColor: theme.bg };
+
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
+        <SafeAreaView style={rootStyle}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
             <View style={{ flex: 1, width: '100%', alignItems: 'center' }}>
                 <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
@@ -115,7 +120,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         </ScrollView>
                     </View>
 
-                    {/* SCROLL PRINCIPAL */}
+                    {/* SCROLL PRINCIPAL BLINDADO */}
                     <ScrollView 
                         style={{ flex: 1, width: '100%' }} 
                         contentContainerStyle={styles.scrollContent} 
@@ -174,7 +179,7 @@ const styles = StyleSheet.create({
     headerSubtitle: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginTop: 2 },
     
     daysContainer: { paddingVertical: 15, borderBottomWidth: 1 },
-    daysScrollContent: { paddingHorizontal: 20, gap: 10 }, // Espaçamento para os dias
+    daysScrollContent: { paddingHorizontal: 20, gap: 10 }, 
     dayTab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, gap: 8 },
     dayTabText: { fontSize: 12, fontWeight: 'bold' },
     badge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
@@ -198,7 +203,7 @@ const styles = StyleSheet.create({
         alignItems: 'center', 
         padding: 12, 
         borderRadius: 10, 
-        minHeight: 50, // Garante uma altura mínima para consistência
+        minHeight: 50, 
         gap: 10 
     },
     checkbox: { width: 18, height: 18, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
