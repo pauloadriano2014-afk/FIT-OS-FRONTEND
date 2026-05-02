@@ -1,38 +1,12 @@
 // src/screens/LaboratoryBuilderScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     View, Text, SafeAreaView, ScrollView, TouchableOpacity, 
     StyleSheet, StatusBar, Platform, TextInput, Modal 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-
-const EXERCISE_DB = {
-    'Superior': ['Supino articulado inclinado', 'Supino inclinado com barra', 'Supino inclinado c/halteres', 'Cross-over polia baixa'],
-    'Medial': ['Supino reto c/halteres', 'Supino reto c/barra', 'Supino articulado', 'Supino articulado neutro', 'Supino articulado MATRIX', 'Supino máquina', 'Supino no Smith', 'Crucifixo reto c/halteres', 'Voador frontal', 'Voador frontal Cimerian', 'Flexão de braços', 'Flexão com joelhos apoiados'],
-    'Inferior': ['Supino declinado c/halteres'],
-    'Puxadas': ['Puxada frente aberta', 'Puxada frente pegada aberta neutra', 'Puxada articulada', 'Puxada c/triângulo', 'Puxada supinada máquina', 'Puxada com barra neutra', 'Puxada máquina MATRIX', 'Puxada UNILATERAL', 'Barra fixa pegada aberta', 'Barra fixa neutra', 'Barra livre fechada', 'Pulldown com barra', 'Pulldown no cross barrinha', 'Graviton pegada neutra fechada', 'Graviton pegada aberta'],
-    'Remadas': ['Remada curvada c/barra', 'Remada curvada c/halteres', 'Remada curvada c/barra montada', 'Remada curvada no Smith', 'Remada curvada máquina', 'Serrote', 'Remada com halteres no banco', 'Remada articulada neutra', 'Remada articulada pronada', 'Remada articulada neutra MATRIX', 'Remada articulada pronada MATRIX', 'Remada articulada pronada UNILATERAL', 'Remada articulada neutra UNILATERAL', 'Remada máquina pegada neutra', 'Remada máquina supinada', 'Remada no cross', 'Remada baixa c/triângulo', 'Remada cavalinho c/triângulo', 'Remada T máquina', 'Voador invertido', 'Voador Inverso'],
-    'Lombar': ['Terra com barra', 'Terra no Smith', 'Lombar no banco romano'],
-    'Quadríceps e Adutores': ['Cadeira Extensora', 'Extensora', 'Cadeira adutora', 'Adução com caneleira deitada'],
-    'Posteriores': ['Mesa Flexora', 'Mesa flexora unilateral', 'Cadeira Flexora', 'Flexora unilateral', 'Flexão nórdica', 'Stiff c/halter', 'Stiff c/barra', 'Stiff com barra', 'Stiff no Smith', 'Stiff máquina', 'Good morning c/barra montada', 'Good morning no Smith'],
-    'Glúteos': ['Elevação pélvica c/barra', 'Elevação pélvica c/halter', 'Elevação pélvica máquina', 'Elevação pélvica no colchonete', 'Pelve máquina articulada', 'Pelve Hammer', 'Pelve MATRIX', 'Cadeira abdutora', 'Cadeira abdutora projetada', 'Abdutora máquina em pé', 'Abdutora articulada', 'Abdução em pé c/caneleira', 'Abdução em pé com caneleira', 'Abdução na polia com caneleira', 'Abdução no cross com caneleira variação', 'Abdução com caneleira deitada no colchonete', 'Glúteos 4 apoios com caneleira no colchonete', 'Glúteos no banco romano', 'Coice no cross', 'Coice 4 apoios com caneleira', 'Coice no cross com banco', 'Extensão de quadril cruzado no cross', 'Extensão de quadril no cross', 'Extensão de quadril no Cross com banco', 'Terra Sumô', 'Lev.Terra sumô', 'Extensão no cross'],
-    'Panturrilha': ['Panturrilha no Smith', 'Panturrilha máquina', 'Panturrilha no banco', 'Panturrilha no degrau'],
-    'Multiarticular': ['Agachamento Livre', 'Agachamento livre c/barra', 'Agachamento isométrico', 'Agachamento máquina', 'Agachamento frontal c/barra', 'Agachamento frontal no Smith', 'Agachamento frontal no Hack', 'Agachamento Hack CIMERIAN', 'Leg press 45°', 'Leg press 45º Unilateral', 'Leg press horizontal', 'Leg articulado', 'Agachamento sumô c/halter', 'Sumô c/anilha', 'Passada c/halteres', 'Passada c/barra', 'Passada sem peso', 'Passada c/agachamento barra', 'Afundo c/halteres', 'Afundo no Smith', 'Afundo no Hack', 'Afundo no step', 'Búlgaro c/halteres', 'Búlgaro no Smith', 'Búlgaro máquina', 'Búlgaro com apoio', 'Bulgaro Tronco Inclinado ', 'Pêndulo', 'Recuo no Smith'],
-    'Frontal': ['Elevação frontal c/halteres', 'Elevação frontal c/anilha', 'Elevação frontal no cross', 'Elevação frontal c/barra', 'Elevação frontal c/halteres neutra', 'Elevação frontal neutra sentado', 'Elevação frontal inclinado c/halteres', 'Elevação frontal unilateral', 'Elevação frontal e lateral', 'Frontal com anilha sentado'],
-    'Lateral': ['Elevação lateral c/halteres', 'Elevação lateral no cross', 'Elevação lateral sentado(a)', 'Elevação lateral sentado', 'Elevação lateral máquina em pé', 'Elevação lateral máquina sentado', 'Elevação lateral unilateral inclinado', 'Remada alta no cross'],
-    'Posterior': ['Posterior de ombros no cross', 'Posterior de ombros unilateral no cross', 'Posterior de ombros c/halteres'],
-    'Trapézio': ['Encolhimento c/halteres', 'Encolhimento no Smith', 'Encolhimento c/barra', 'Encolhimento máquina', 'Encolhimento no cross'],
-    'Ombro Multiarticular': ['Desenvolvimento c/halteres', 'Desenvolvimento c/halteres pegada neutra', 'Desenvolvimento Arnold', 'Desenvolvimento no Smith', 'Desenvolvimento articulado', 'Desenvolvimento máquina', 'Desenvolvimento máquina pegada neutra', 'Desenvolvimento no cross'],
-    'Bíceps': ['Rosca direta no cross', 'Rosca direta c/barra curvada', 'Rosca simultânea c/halteres', 'Rosca simultânea SENTADO', 'Bíceps scott máquina', 'Rosca Scott', 'Rosca Scott no cross', 'Rosca alternada c/halteres', 'Bíceps no cross', 'Bíceps no cross polia alta', 'Bíceps c/barra H', 'Bíceps concentrado unilateral', 'Bíceps máquina SMART', 'Bíceps máquina UNILATERAL', 'Bíceps máquina ALTERNADO', 'Rosca martelo', 'Rosca martelo barra H', 'Rosca inversa c/corda', 'Rosca inversa c/barra curvada'],
-    'Tríceps': ['Tríceps na corda', 'Tríceps corda na polia', 'Tríceps testa no cross', 'Tríceps testa c/halteres', 'Tríceps testa c/barra H', 'Tríceps francês', 'Tríceps Francês com HALTER', 'Tríceps francês no cross', 'Tríceps banco máquina', 'Tríceps banco máquina SMART', 'Tríceps banco Cimerian', 'Tríceps banco livre', 'Tríceps banco com as pernas estendidas', 'Tríceps banco com as pernas flexionadas', 'Tríceps no graviton', 'Tríceps no cross c/polia média', 'Tríceps no cross c/barrinha reta', 'Tríceps na paralela'],
-    'Antebraço': ['Extensão de punho', 'Flexão de punho', 'Antebraço em pé'],
-    'Supra': ['Abdominal máquina SMART', 'Abdominal máquina', 'Abdominal supra no banco declinado', 'Abs supra com carga no banco declinado', 'Abdominal crunch', 'Abdominal no cross em pé', 'Abdominal no cross ajoelhado', 'Abdominal no banco', 'Rodinha abdominal', 'Abdominal remador', 'Vacuum'],
-    'Infra': ['Abdominal infra na paralela estendido', 'Abdominal infra na paralela flexionado', 'Abdominal infra flexionado no banco', 'Abs infra no banco', 'Abdominal infra c/bola', 'Abdominal infra no espaldar', 'Abdominal crunch c/pernas apoiadas', 'Abdominal crunch c/pernas elevadas'],
-    'Completo': ['Abdominal canivete', 'Abdominal ball-pass'],
-    'Core': ['Prancha abdominal', 'Prancha lateral', 'Prancha com variação'],
-    'Cardio Pós': ['Correr na esteira', 'Andar na esteira', 'Bicicleta ergométrica', 'Escada ergométrica', 'Elíptico', 'Air Bike']
-};
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MUSCLE_GROUPS = [
     { category: "PEITORAL", items: [{ id: 'Superior', label: 'Superior', time: 10 }, { id: 'Medial', label: 'Medial', time: 10 }, { id: 'Inferior', label: 'Inferior', time: 10 }] },
@@ -58,7 +32,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
 
     const config = route.params?.config || { days: 5, objective: 'HIPERTROFIA', level: 'AVANÇADO', time: 60, gender: 'MASCULINO', limitations: [], template: null };
     
-    // 🔥 NOVO ESTADO: AMBIENTE DE TREINO 🔥
+    // 🔥 ESTADO DO AMBIENTE 🔥
     const [activeEnvironment, setActiveEnvironment] = useState(
         config.template?.includes('CASA') ? 'CASA' : 'ACADEMIA'
     );
@@ -70,27 +44,67 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
     const [dayModalVisible, setDayModalVisible] = useState(false);
     const [drawerMuscle, setDrawerMuscle] = useState(null);
 
-    const [structure, setStructure] = useState(
-        daysArray.reduce((acc, day) => ({ ...acc, [day]: [] }), {})
-    );
+    const [structure, setStructure] = useState(daysArray.reduce((acc, day) => ({ ...acc, [day]: [] }), {}));
+    const [fetchedExercises, setFetchedExercises] = useState([]);
 
-    // 🔥 FILTRO CORTA-GIRO: Remove máquinas dependendo do ambiente 🔥
-    const getFilteredOptions = (muscle) => {
-        const opts = EXERCISE_DB[muscle] || [];
-        if (activeEnvironment === 'ACADEMIA') return opts;
-        
-        let bans = [];
-        if (activeEnvironment === 'CASA') {
-            bans = ['smith', 'máquina', 'maquina', 'cross', 'polia', 'hack', 'leg ', 'cadeira', 'mesa', 'graviton', 'articulad', 'matrix', 'cimerian', 'hammer', 'scott', 'extensora', 'flexora', 'abdutora', 'adutora', 'pelve máquina', 'voador', 'ergométrica', 'elíptico', 'esteira', 'bike', 'pêndulo'];
-        } else if (activeEnvironment === 'CONDOMÍNIO') {
-            bans = ['matrix', 'cimerian', 'hammer', 'hack', 'graviton', 'articulad', 'pêndulo', 'scott'];
-        }
-
-        const filtered = opts.filter(o => !bans.some(ban => o.toLowerCase().includes(ban)));
-        return filtered.length > 0 ? filtered : opts; // Se cortar tudo, volta o original pra não quebrar o app
-    };
-
+    // 🔥 BUSCA OS EXERCÍCIOS DIRETOS DA BIBLIOTECA REAL 🔥
     useEffect(() => {
+        const fetchRealExercises = async () => {
+            const cached = await AsyncStorage.getItem('@global_exercises');
+            if (cached) setFetchedExercises(JSON.parse(cached));
+            
+            try {
+                const userJson = await AsyncStorage.getItem('user');
+                if (userJson) {
+                    const adminId = JSON.parse(userJson).id;
+                    const res = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${Date.now()}`);
+                    if (res.ok) {
+                        const data = await res.json();
+                        setFetchedExercises(data);
+                        AsyncStorage.setItem('@global_exercises', JSON.stringify(data));
+                    }
+                }
+            } catch(e) { console.log('Erro cache lab:', e); }
+        };
+        fetchRealExercises();
+    }, []);
+
+    // 🔥 O CÉREBRO: Constrói a lista dinamicamente filtrando pelas TAGS REAIS do BD 🔥
+    const dynamicExerciseDB = useMemo(() => {
+        const db = {};
+        MUSCLE_GROUPS.forEach(g => g.items.forEach(i => db[i.id] = []));
+
+        fetchedExercises.forEach(ex => {
+            // Filtro absoluto pela raiz!
+            const envs = ex.environments || ['ACADEMIA'];
+            if (!envs.includes(activeEnvironment)) return;
+
+            let targetId = null;
+            if (ex.category === 'Cardio') targetId = 'Cardio Pós';
+            else if (ex.category === 'Bíceps') targetId = 'Bíceps';
+            else if (ex.category === 'Tríceps') targetId = 'Tríceps';
+            else if (ex.category === 'Antebraço') targetId = 'Antebraço';
+            else if (ex.category === 'Peito') targetId = (ex.subCategory && ex.subCategory !== 'Geral' && ex.subCategory !== 'Todos') ? ex.subCategory : 'Medial';
+            else if (ex.category === 'Costas') targetId = (ex.subCategory && ex.subCategory !== 'Geral' && ex.subCategory !== 'Todos') ? ex.subCategory : 'Remadas';
+            else if (ex.category === 'Pernas') targetId = (ex.subCategory && ex.subCategory !== 'Geral' && ex.subCategory !== 'Todos') ? ex.subCategory : 'Multiarticular';
+            else if (ex.category === 'Abdômen') targetId = (ex.subCategory && ex.subCategory !== 'Geral' && ex.subCategory !== 'Todos') ? ex.subCategory : 'Supra';
+            else if (ex.category === 'Ombros') {
+                const sub = (ex.subCategory && ex.subCategory !== 'Geral' && ex.subCategory !== 'Todos') ? ex.subCategory : 'Multiarticular';
+                targetId = sub === 'Multiarticular' ? 'Ombro Multiarticular' : sub;
+            }
+
+            if (targetId && db[targetId]) {
+                db[targetId].push(ex.name);
+            }
+        });
+
+        return db;
+    }, [fetchedExercises, activeEnvironment]);
+
+    // 🔥 MOTOR DE INJEÇÃO 🔥
+    useEffect(() => {
+        if (fetchedExercises.length === 0) return; // Aguarda o banco carregar
+
         const generateAutoFill = () => {
             let autoStruct = daysArray.reduce((acc, day) => ({ ...acc, [day]: [] }), {});
             const t = config.template;
@@ -100,14 +114,16 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
             const getExercisesForDay = (musclesArray) => {
                 let used = new Set();
                 return musclesArray.map(m => {
-                    const opts = getFilteredOptions(m); // Puxa já filtrado pelo Ambiente!
+                    const opts = dynamicExerciseDB[m] || [];
                     const avail = opts.filter(o => !used.has(o));
-                    const chosen = avail.length > 0 ? avail[0] : (opts[0] || `Ex. de ${m}`);
+                    // Se não tiver exercício liberado pro ambiente (ex: Puxada em Casa e a base estiver vazia), coloca um Placeholder avisando
+                    const chosen = avail.length > 0 ? avail[0] : (opts[0] || `[Vazio] Ex. de ${m}`);
                     used.add(chosen);
                     return { tempId: Math.random().toString(), muscle: m, name: chosen };
                 });
             };
 
+            // ======= MATRIZES MASCULINAS =======
             if (t === 'MASC_EMAG_6X' && dCount >= 6) {
                 autoStruct['A'] = getExercisesForDay(['Quadríceps e Adutores', 'Multiarticular', 'Multiarticular', 'Quadríceps e Adutores', 'Panturrilha']); 
                 autoStruct['B'] = getExercisesForDay(['Superior', 'Medial', 'Inferior', 'Ombro Multiarticular', 'Frontal', 'Lateral', 'Tríceps']); 
@@ -134,6 +150,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 autoStruct['B'] = getExercisesForDay(['Superior', 'Medial', 'Inferior', 'Bíceps', 'Bíceps', 'Supra', 'Infra']); 
                 autoStruct['C'] = getExercisesForDay(['Puxadas', 'Remadas', 'Lombar', 'Ombro Multiarticular', 'Frontal', 'Lateral', 'Tríceps', 'Tríceps']); 
             }
+            // ======= MATRIZES FEMININAS =======
             else if (t === 'FEM_EMAG_6X' && dCount >= 6) {
                 autoStruct['A'] = getExercisesForDay(['Multiarticular', 'Multiarticular', 'Quadríceps e Adutores', 'Quadríceps e Adutores', 'Glúteos']); 
                 autoStruct['B'] = getExercisesForDay(['Puxadas', 'Remadas', 'Remadas', 'Ombro Multiarticular', 'Lateral', 'Bíceps']); 
@@ -160,6 +177,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 autoStruct['B'] = getExercisesForDay(['Puxadas', 'Remadas', 'Ombro Multiarticular', 'Bíceps', 'Supra', 'Infra']); 
                 autoStruct['C'] = getExercisesForDay(['Multiarticular', 'Quadríceps e Adutores', 'Posteriores', 'Glúteos', 'Glúteos']); 
             }
+            // ======= FALLBACK GENÉRICO =======
             else {
                 if (isFem) {
                     if (dCount === 3) {
@@ -202,7 +220,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
             setStructure(autoStruct);
         };
         generateAutoFill();
-    }, [config.days, config.gender, config.template, activeEnvironment]); // 🔥 Roda a IA de novo se você mudar o Ambiente 🔥
+    }, [config.days, config.gender, config.template, activeEnvironment, dynamicExerciseDB]);
 
     const checkLimitation = (muscleId) => {
         const lims = config.limitations?.join(' ').toLowerCase() || '';
@@ -309,7 +327,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* 🔥 SELETOR DE AMBIENTE DE TREINO 🔥 */}
                     <View style={[styles.envTabsContainer, { borderBottomColor: theme.border }]}>
                         {['ACADEMIA', 'CONDOMÍNIO', 'CASA'].map(env => (
                             <TouchableOpacity 
@@ -468,7 +485,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         </View>
 
                         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                            {getFilteredOptions(drawerMuscle).map((exName, i) => {
+                            {(dynamicExerciseDB[drawerMuscle] || []).map((exName, i) => {
                                 const isOptSelected = structure[activeDay].some(ex => ex.muscle === drawerMuscle && ex.name === exName);
                                 return (
                                     <TouchableOpacity 
@@ -491,6 +508,11 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                                     </TouchableOpacity>
                                 );
                             })}
+                            
+                            {/* 🔥 AVISO SE A LISTA FICAR VAZIA PARA O AMBIENTE ATUAL 🔥 */}
+                            {(dynamicExerciseDB[drawerMuscle] || []).length === 0 && (
+                                <Text style={{textAlign: 'center', marginTop: 40, color: theme.textSecondary}}>Nenhum exercício encontrado com a tag "{activeEnvironment}" para esse músculo.</Text>
+                            )}
                         </ScrollView>
                         
                         <View style={[styles.drawerFooter, { borderTopColor: theme.border }]}>
@@ -566,7 +588,6 @@ const styles = StyleSheet.create({
     headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1.5 },
     headerSubtitle: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginTop: 2 },
     
-    // 🔥 BOTÕES DE AMBIENTE DE TREINO 🔥
     envTabsContainer: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15, borderBottomWidth: 1 },
     envTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
 
