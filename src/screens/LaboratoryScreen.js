@@ -118,7 +118,9 @@ export default function LaboratoryScreen({ navigation }) {
         <SafeAreaView style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
             
+            {/* Este View precisa de flex: 1 para que seu filho (o View interno) possa se expandir */}
             <View style={{ flex: 1, width: '100%', alignItems: 'center' }}>
+                {/* Este View também precisa de flex: 1 para que o ScrollView possa ocupar o espaço restante */}
                 <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
                     
                     {/* CABEÇALHO */}
@@ -144,6 +146,7 @@ export default function LaboratoryScreen({ navigation }) {
                     </View>
 
                     {/* SCROLL PRINCIPAL */}
+                    {/* O ScrollView precisa de flex: 1 para ocupar o espaço restante entre o cabeçalho/tabs e o footer */}
                     <ScrollView 
                         style={{ flex: 1, width: '100%' }} 
                         contentContainerStyle={styles.scrollContent} 
