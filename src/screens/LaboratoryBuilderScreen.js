@@ -4,6 +4,14 @@ import { View, Text, SafeAreaView, ScrollView, TouchableOpacity, StyleSheet, Sta
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
+// Componente auxiliar para agrupar seções com um card visual
+const SectionCard = ({ children, title, theme }) => (
+    <View style={[styles.sectionCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        {title && <Text style={[styles.groupTitle, { color: theme.text }]}>{title}</Text>}
+        {children}
+    </View>
+);
+
 export default function LaboratoryBuilderScreen({ route, navigation }) {
     const { theme } = useTheme();
     const isWeb = Platform.OS === 'web';
@@ -85,20 +93,20 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
 
                     {/* TABS DOS DIAS DA SEMANA */}
                     <View style={[styles.daysContainer, { borderBottomColor: theme.border }]}>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.daysScrollContent}>
                             {daysArray.map(day => {
                                 const isActive = activeDay === day;
                                 const hasMuscles = structure[day].length > 0;
                                 return (
                                     <TouchableOpacity 
                                         key={day} 
-                                        style={[styles.dayTab, { backgroundColor: theme.surface }, isActive && { backgroundColor: theme.accent }]}
+                                        style={[styles.dayTab, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }, isActive && { backgroundColor: theme.accent, borderWidth: 0 }]}
                                         onPress={() => setActiveDay(day)}
                                     >
-                                        <Text style={[styles.dayTabText, { color: isActive ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }, isActive && { fontWeight: '900' }]}>DIA {day}</Text>
+                                        <Text style={[styles.dayTabText, { color: isActive ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>DIA {day}</Text>
                                         {hasMuscles && (
-                                            <View style={[styles.badge, isActive ? { backgroundColor: theme.isDark ? '#000' : '#FFF' } : { backgroundColor: theme.accent }]}>
-                                                <Text style={[styles.badgeText, isActive ? { color: theme.accent } : { color: theme.isDark ? '#000' : '#FFF' }]}>{structure[day].length}</Text>
+                                            <View style={[styles.badge, isActive ? { backgroundColor: theme.isDark ? '#000' : '#FFF' } : { backgroundColor: theme.surface }]}>
+                                                <Text style={[styles.badgeText, isActive ? { color: theme.accent } : { color: theme.text }]}>{structure[day].length}</Text>
                                             </View>
                                         )}
                                     </TouchableOpacity>
@@ -107,24 +115,27 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         </ScrollView>
                     </View>
 
-                    {/* 🔥 SCROLL BLINDADO COM FLEX 1 🔥 */}
-                    <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                        <View style={[styles.infoBox, { backgroundColor: theme.surface }]}>
+                    {/* SCROLL PRINCIPAL */}
+                    <ScrollView 
+                        style={{ flex: 1, width: '100%' }} 
+                        contentContainerStyle={styles.scrollContent} 
+                        showsVerticalScrollIndicator={false}
+                    >
+                        <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
                             <MaterialCommunityIcons name="information-outline" size={20} color={theme.textSecondary} />
                             <Text style={[styles.infoText, { color: theme.textSecondary }]}>O que vamos treinar no <Text style={{color: theme.accent, fontWeight: 'bold'}}>DIA {activeDay}</Text>?</Text>
                         </View>
 
                         {/* CATEGORIAS E GRID DE MÚSCULOS */}
                         {MUSCLE_GROUPS.map((group, index) => (
-                            <View key={index} style={styles.groupSection}>
-                                <Text style={[styles.groupTitle, { color: theme.text }]}>{group.category}</Text>
+                            <SectionCard key={index} title={group.category} theme={theme}>
                                 <View style={styles.grid}>
                                     {group.items.map(muscle => {
                                         const isSelected = structure[activeDay].includes(muscle.id);
                                         return (
                                             <TouchableOpacity 
                                                 key={muscle.id}
-                                                style={[styles.muscleCard, { backgroundColor: theme.bg, borderColor: theme.border }, isSelected && { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}
+                                                style={[styles.muscleCard, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, isSelected && { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}
                                                 onPress={() => toggleMuscle(muscle.id)}
                                             >
                                                 <View style={[styles.checkbox, { borderColor: theme.border }, isSelected && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
@@ -135,12 +146,12 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                                         );
                                     })}
                                 </View>
-                            </View>
+                            </SectionCard>
                         ))}
                     </ScrollView>
 
-                    {/* 🔥 BOTÃO DE AÇÃO FIXO NO FLUXO (SEM ABSOLUTE) 🔥 */}
-                    <View style={[styles.footer, { backgroundColor: theme.bg }]}>
+                    {/* BOTÃO DE AÇÃO FIXO NO FLUXO */}
+                    <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
                         <TouchableOpacity 
                             style={[styles.actionButton, { backgroundColor: theme.accent }]}
                             onPress={handleNextStep}
@@ -161,7 +172,9 @@ const styles = StyleSheet.create({
     backButton: { padding: 8, borderRadius: 12 },
     headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1.5 },
     headerSubtitle: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginTop: 2 },
+    
     daysContainer: { paddingVertical: 15, borderBottomWidth: 1 },
+    daysScrollContent: { paddingHorizontal: 20, gap: 10 }, // Espaçamento para os dias
     dayTab: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, gap: 8 },
     dayTabText: { fontSize: 12, fontWeight: 'bold' },
     badge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
@@ -172,14 +185,27 @@ const styles = StyleSheet.create({
     
     infoBox: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
     infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
-    groupSection: { marginBottom: 30 }, // Margem aumentada para separar bem os grupos
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' }, // Gap aumentado
-    muscleCard: { width: '48%', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, gap: 10 },
+    
+    sectionCard: { 
+        borderRadius: 12, padding: 15, marginBottom: 20, 
+        borderWidth: 1 
+    },
+    groupTitle: { fontSize: 11, fontWeight: '600', letterSpacing: 1, marginBottom: 12, opacity: 0.8 },
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' }, 
+    muscleCard: { 
+        width: '48%', 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        padding: 12, 
+        borderRadius: 10, 
+        minHeight: 50, // Garante uma altura mínima para consistência
+        gap: 10 
+    },
     checkbox: { width: 18, height: 18, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
     muscleText: { fontSize: 11, fontWeight: '600', flexShrink: 1 },
     
-    // FOOTER FIXO (SEM POSITION ABSOLUTE)
-    footer: { width: '100%', paddingHorizontal: 20, paddingVertical: 20, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
+    // FOOTER FIXO
+    footer: { width: '100%', paddingHorizontal: 20, paddingVertical: 20, borderTopWidth: 1 },
     actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, gap: 10 },
     actionButtonText: { fontSize: 14, fontWeight: '900', letterSpacing: 1 }
 });
