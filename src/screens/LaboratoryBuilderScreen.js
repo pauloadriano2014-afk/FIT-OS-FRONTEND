@@ -49,10 +49,10 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
             const dCount = config.days;
             const isFem = config.gender === 'FEMININO';
 
-            // ======= MATRIZES MASCULINAS (INJETANDO VOLUME MASSIVO) =======
+            // ======= MATRIZES MASCULINAS REAIS (INJETANDO VOLUME MASSIVO) =======
             if (t === 'MASC_EMAG_6X' && dCount >= 6) {
                 autoStruct['A'] = ['Quadríceps e Adutores', 'Multiarticular', 'Multiarticular', 'Quadríceps e Adutores', 'Panturrilha']; 
-                autoStruct['B'] = ['Medial', 'Medial', 'Inferior', 'Ombro Multiarticular', 'Frontal', 'Lateral', 'Tríceps']; 
+                autoStruct['B'] = ['Superior', 'Medial', 'Inferior', 'Ombro Multiarticular', 'Frontal', 'Lateral', 'Tríceps']; 
                 autoStruct['C'] = ['Puxadas', 'Remadas', 'Puxadas', 'Remadas', 'Bíceps', 'Bíceps', 'Supra', 'Infra']; 
                 autoStruct['D'] = ['Posteriores', 'Posteriores', 'Glúteos', 'Multiarticular', 'Panturrilha']; 
                 autoStruct['E'] = ['Superior', 'Medial', 'Inferior', 'Tríceps', 'Tríceps', 'Supra', 'Infra']; 
@@ -63,7 +63,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 autoStruct['B'] = ['Puxadas', 'Remadas', 'Puxadas', 'Remadas', 'Lombar', 'Antebraço'];
                 autoStruct['C'] = ['Quadríceps e Adutores', 'Multiarticular', 'Multiarticular', 'Glúteos', 'Panturrilha'];
                 autoStruct['D'] = ['Ombro Multiarticular', 'Frontal', 'Lateral', 'Posterior', 'Trapézio'];
-                autoStruct['E'] = ['Posteriores', 'Posteriores', 'Bíceps', 'Bíceps', 'Tríceps', 'Tríceps'];
+                autoStruct['E'] = ['Bíceps', 'Tríceps', 'Bíceps', 'Tríceps', 'Antebraço']; 
             }
             else if (t === 'MASC_HIPER_4X' && dCount === 4) {
                 autoStruct['A'] = ['Superior', 'Medial', 'Inferior', 'Ombro Multiarticular', 'Lateral', 'Bíceps', 'Bíceps'];
@@ -77,7 +77,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 autoStruct['C'] = ['Puxadas', 'Remadas', 'Lombar', 'Ombro Multiarticular', 'Frontal', 'Lateral', 'Tríceps', 'Tríceps']; 
             }
 
-            // ======= MATRIZES FEMININAS (INJETANDO VOLUME MASSIVO) =======
+            // ======= MATRIZES FEMININAS REAIS (INJETANDO VOLUME MASSIVO) =======
             else if (t === 'FEM_EMAG_6X' && dCount >= 6) {
                 autoStruct['A'] = ['Multiarticular', 'Multiarticular', 'Quadríceps e Adutores', 'Quadríceps e Adutores', 'Glúteos']; 
                 autoStruct['B'] = ['Puxadas', 'Remadas', 'Remadas', 'Ombro Multiarticular', 'Lateral', 'Bíceps']; 
@@ -105,7 +105,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 autoStruct['C'] = ['Multiarticular', 'Quadríceps e Adutores', 'Posteriores', 'Glúteos', 'Glúteos']; 
             }
             
-            // ======= FALLBACK GENÉRICO SEGURO DE ALTO VOLUME =======
+            // ======= FALLBACK GENÉRICO SEGURO (SE VOCÊ PUXAR DA ANAMNESE E NÃO ESCOLHER ATALHO) =======
             else {
                 if (isFem) {
                     if (dCount === 3) {
@@ -126,6 +126,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         if(dCount >= 6) autoStruct['F'] = ['Cardio Pós', 'Supra', 'Infra', 'Core', 'Completo']; 
                     }
                 } else {
+                    // 🔥 MASCULINO GENÉRICO CORRIGIDO (ZERO MISTURA DE MEMBROS SUPERIORES COM INFERIORES) 🔥
                     if (dCount === 3) {
                         autoStruct['A'] = ['Superior', 'Medial', 'Inferior', 'Ombro Multiarticular', 'Tríceps', 'Tríceps', 'Supra'];
                         autoStruct['B'] = ['Quadríceps e Adutores', 'Multiarticular', 'Multiarticular', 'Posteriores', 'Glúteos', 'Panturrilha'];
@@ -139,8 +140,12 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         autoStruct['A'] = ['Superior', 'Medial', 'Inferior', 'Supra', 'Infra', 'Completo']; 
                         autoStruct['B'] = ['Puxadas', 'Remadas', 'Remadas', 'Bíceps', 'Bíceps', 'Lombar']; 
                         autoStruct['C'] = ['Quadríceps e Adutores', 'Multiarticular', 'Multiarticular', 'Panturrilha']; 
-                        autoStruct['D'] = ['Ombro Multiarticular', 'Frontal', 'Lateral', 'Posterior', 'Trapézio']; 
-                        autoStruct['E'] = ['Posteriores', 'Posteriores', 'Glúteos', 'Tríceps', 'Tríceps']; 
+                        
+                        // 🔥 OMBROS E TRÍCEPS JUNTOS AQUI, LONGE DA PERNA! 🔥
+                        autoStruct['D'] = ['Ombro Multiarticular', 'Frontal', 'Lateral', 'Posterior', 'Trapézio', 'Tríceps', 'Tríceps']; 
+                        
+                        // 🔥 APENAS PERNAS (POSTERIOR) NO DIA E 🔥
+                        autoStruct['E'] = ['Posteriores', 'Posteriores', 'Glúteos', 'Panturrilha']; 
                         if(dCount >= 6) autoStruct['F'] = ['Cardio Pós', 'Supra', 'Infra', 'Completo', 'Core']; 
                     }
                 }
@@ -186,12 +191,37 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
         });
     };
 
+    const handleCopyDay = () => {
+        const currentIndex = daysArray.indexOf(activeDay);
+        if (currentIndex > 0) {
+            const prevDay = daysArray[currentIndex - 1];
+            setStructure(prev => ({ ...prev, [activeDay]: [...prev[prevDay]] }));
+        }
+        setOptionsModalVisible(false);
+    };
+
+    const handleClearDay = () => {
+        setStructure(prev => ({ ...prev, [activeDay]: [] }));
+        setOptionsModalVisible(false);
+    };
+
+    const handleSwapDay = (targetDay) => {
+        setStructure(prev => {
+            const newStruct = { ...prev };
+            const temp = newStruct[activeDay];
+            newStruct[activeDay] = newStruct[targetDay];
+            newStruct[targetDay] = temp;
+            return newStruct;
+        });
+        setOptionsModalVisible(false);
+    };
+
     const handleNextStep = () => {
         navigation.navigate('MontarTreinoAdmin', { 
             aluno: config.student,
             laboratoryConfig: config, 
             laboratoryStructure: structure,
-            isTemplateMode: config.mode === 'MATRIZ' // 🔥 O PULO DO GATO AQUI!
+            isTemplateMode: config.mode === 'MATRIZ' 
         });
     };
 
@@ -214,7 +244,9 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                             <Text style={[styles.headerTitle, { color: theme.text }]}>ESQUELETO</Text>
                             <Text style={[styles.headerSubtitle, { color: theme.accent }]}>{config.days} DIAS • {config.gender}</Text>
                         </View>
-                        <View style={{ width: 40 }} />
+                        <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.surface }]} onPress={() => setOptionsModalVisible(true)}>
+                            <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.text} />
+                        </TouchableOpacity>
                     </View>
 
                     <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: theme.border }}>
@@ -313,6 +345,36 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                                         <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>{structure[day].length} Músculos</Text>
                                     </View>
                                     {activeDay === day && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} />}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
+
+            <Modal visible={optionsModalVisible} transparent animationType="fade" onRequestClose={() => setOptionsModalVisible(false)}>
+                <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setOptionsModalVisible(false)}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        
+                        <Text style={[styles.modalTitle, { color: theme.text }]}>OPÇÕES (DIA {activeDay})</Text>
+                        <TouchableOpacity style={[styles.dropdownItem, { borderBottomColor: theme.border }]} onPress={handleClearDay}>
+                            <Text style={[styles.studentName, { color: '#FF3B30' }]}>Limpar Dia (Remover todos)</Text>
+                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                        </TouchableOpacity>
+
+                        <Text style={[styles.modalTitle, { color: theme.text, marginTop: 25, fontSize: 12 }]}>REORGANIZAR TREINO</Text>
+                        <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                            {daysArray.filter(d => d !== activeDay).map(targetDay => (
+                                <TouchableOpacity 
+                                    key={targetDay} 
+                                    style={[styles.dropdownItem, { borderBottomColor: theme.border }]} 
+                                    onPress={() => handleSwapDay(targetDay)}
+                                >
+                                    <View>
+                                        <Text style={[styles.studentName, { color: theme.text }]}>Trocar com o DIA {targetDay}</Text>
+                                        <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>Atualmente com {structure[targetDay].length} músculos</Text>
+                                    </View>
+                                    <MaterialCommunityIcons name="swap-horizontal" size={20} color={theme.accent} />
                                 </TouchableOpacity>
                             ))}
                         </ScrollView>
