@@ -4,10 +4,37 @@ import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 
-export const useMontarTreino = (route, navigation) => {
-    const { aluno, isTemplateMode, templateData, workoutToEdit, isEditing } = route.params || {};
+// 🔥 BANCO OFICIAL SINCRONIZADO COM O BANCO DE DADOS DO PAULO ADRIANO TEAM 🔥
+const EXERCISE_DB = {
+    'Superior': ['Supino articulado inclinado', 'Supino inclinado com barra', 'Supino inclinado c/halteres', 'Cross-over polia baixa'],
+    'Medial': ['Supino reto c/halteres', 'Supino reto c/barra', 'Supino articulado', 'Supino articulado neutro', 'Supino articulado MATRIX', 'Supino máquina', 'Supino no Smith', 'Crucifixo reto c/halteres', 'Voador frontal', 'Voador frontal Cimerian', 'Flexão de braços', 'Flexão com joelhos apoiados'],
+    'Inferior': ['Supino declinado c/halteres'],
+    'Puxadas': ['Puxada frente aberta', 'Puxada frente pegada aberta neutra', 'Puxada articulada', 'Puxada c/triângulo', 'Puxada supinada máquina', 'Puxada com barra neutra', 'Puxada máquina MATRIX', 'Puxada UNILATERAL', 'Barra fixa pegada aberta', 'Barra fixa neutra', 'Barra livre fechada', 'Pulldown com barra', 'Pulldown no cross barrinha', 'Graviton pegada neutra fechada', 'Graviton pegada aberta'],
+    'Remadas': ['Remada curvada c/barra', 'Remada curvada c/halteres', 'Remada curvada c/barra montada', 'Remada curvada no Smith', 'Remada curvada máquina', 'Serrote', 'Remada com halteres no banco', 'Remada articulada neutra', 'Remada articulada pronada', 'Remada articulada neutra MATRIX', 'Remada articulada pronada MATRIX', 'Remada articulada pronada UNILATERAL', 'Remada articulada neutra UNILATERAL', 'Remada máquina pegada neutra', 'Remada máquina supinada', 'Remada no cross', 'Remada baixa c/triângulo', 'Remada cavalinho c/triângulo', 'Remada T máquina', 'Voador invertido', 'Voador Inverso'],
+    'Lombar': ['Terra com barra', 'Terra no Smith', 'Lombar no banco romano'],
+    'Quadríceps e Adutores': ['Cadeira Extensora', 'Extensora', 'Cadeira adutora', 'Adução com caneleira deitada'],
+    'Posteriores': ['Mesa Flexora', 'Mesa flexora unilateral', 'Cadeira Flexora', 'Flexora unilateral', 'Flexão nórdica', 'Stiff c/halter', 'Stiff c/barra', 'Stiff com barra', 'Stiff no Smith', 'Stiff máquina', 'Good morning c/barra montada', 'Good morning no Smith'],
+    'Glúteos': ['Elevação pélvica c/barra', 'Elevação pélvica c/halter', 'Elevação pélvica máquina', 'Elevação pélvica no colchonete', 'Pelve máquina articulada', 'Pelve Hammer', 'Pelve MATRIX', 'Cadeira abdutora', 'Cadeira abdutora projetada', 'Abdutora máquina em pé', 'Abdutora articulada', 'Abdução em pé c/caneleira', 'Abdução em pé com caneleira', 'Abdução na polia com caneleira', 'Abdução no cross com caneleira variação', 'Abdução com caneleira deitada no colchonete', 'Glúteos 4 apoios com caneleira no colchonete', 'Glúteos no banco romano', 'Coice no cross', 'Coice 4 apoios com caneleira', 'Coice no cross com banco', 'Extensão de quadril cruzado no cross', 'Extensão de quadril no cross', 'Extensão de quadril no Cross com banco', 'Terra Sumô', 'Lev.Terra sumô', 'Extensão no cross'],
+    'Panturrilha': ['Panturrilha no Smith', 'Panturrilha máquina', 'Panturrilha no banco', 'Panturrilha no degrau'],
+    'Multiarticular': ['Agachamento Livre', 'Agachamento livre c/barra', 'Agachamento isométrico', 'Agachamento máquina', 'Agachamento frontal c/barra', 'Agachamento frontal no Smith', 'Agachamento frontal no Hack', 'Agachamento Hack CIMERIAN', 'Leg press 45°', 'Leg press 45º Unilateral', 'Leg press horizontal', 'Leg articulado', 'Agachamento sumô c/halter', 'Sumô c/anilha', 'Passada c/halteres', 'Passada c/barra', 'Passada sem peso', 'Passada c/agachamento barra', 'Afundo c/halteres', 'Afundo no Smith', 'Afundo no Hack', 'Afundo no step', 'Búlgaro c/halteres', 'Búlgaro no Smith', 'Búlgaro máquina', 'Búlgaro com apoio', 'Bulgaro Tronco Inclinado ', 'Pêndulo', 'Recuo no Smith'],
+    'Frontal': ['Elevação frontal c/halteres', 'Elevação frontal c/anilha', 'Elevação frontal no cross', 'Elevação frontal c/barra', 'Elevação frontal c/halteres neutra', 'Elevação frontal neutra sentado', 'Elevação frontal inclinado c/halteres', 'Elevação frontal unilateral', 'Elevação frontal e lateral', 'Frontal com anilha sentado'],
+    'Lateral': ['Elevação lateral c/halteres', 'Elevação lateral no cross', 'Elevação lateral sentado(a)', 'Elevação lateral sentado', 'Elevação lateral máquina em pé', 'Elevação lateral máquina sentado', 'Elevação lateral unilateral inclinado', 'Remada alta no cross'],
+    'Posterior': ['Posterior de ombros no cross', 'Posterior de ombros unilateral no cross', 'Posterior de ombros c/halteres'],
+    'Trapézio': ['Encolhimento c/halteres', 'Encolhimento no Smith', 'Encolhimento c/barra', 'Encolhimento máquina', 'Encolhimento no cross'],
+    'Ombro Multiarticular': ['Desenvolvimento c/halteres', 'Desenvolvimento c/halteres pegada neutra', 'Desenvolvimento Arnold', 'Desenvolvimento no Smith', 'Desenvolvimento articulado', 'Desenvolvimento máquina', 'Desenvolvimento máquina pegada neutra', 'Desenvolvimento no cross'],
+    'Bíceps': ['Rosca direta no cross', 'Rosca direta c/barra curvada', 'Rosca simultânea c/halteres', 'Rosca simultânea SENTADO', 'Bíceps scott máquina', 'Rosca Scott', 'Rosca Scott no cross', 'Rosca alternada c/halteres', 'Bíceps no cross', 'Bíceps no cross polia alta', 'Bíceps c/barra H', 'Bíceps concentrado unilateral', 'Bíceps máquina SMART', 'Bíceps máquina UNILATERAL', 'Bíceps máquina ALTERNADO', 'Rosca martelo', 'Rosca martelo barra H', 'Rosca inversa c/corda', 'Rosca inversa c/barra curvada'],
+    'Tríceps': ['Tríceps na corda', 'Tríceps corda na polia', 'Tríceps testa no cross', 'Tríceps testa c/halteres', 'Tríceps testa c/barra H', 'Tríceps francês', 'Tríceps Francês com HALTER', 'Tríceps francês no cross', 'Tríceps banco máquina', 'Tríceps banco máquina SMART', 'Tríceps banco Cimerian', 'Tríceps banco livre', 'Tríceps banco com as pernas estendidas', 'Tríceps banco com as pernas flexionadas', 'Tríceps no graviton', 'Tríceps no cross c/polia média', 'Tríceps no cross c/barrinha reta', 'Tríceps na paralela'],
+    'Antebraço': ['Extensão de punho', 'Flexão de punho', 'Antebraço em pé'],
+    'Supra': ['Abdominal máquina SMART', 'Abdominal máquina', 'Abdominal supra no banco declinado', 'Abs supra com carga no banco declinado', 'Abdominal crunch', 'Abdominal no cross em pé', 'Abdominal no cross ajoelhado', 'Abdominal no banco', 'Rodinha abdominal', 'Abdominal remador', 'Vacuum'],
+    'Infra': ['Abdominal infra na paralela estendido', 'Abdominal infra na paralela flexionado', 'Abdominal infra flexionado no banco', 'Abs infra no banco', 'Abdominal infra c/bola', 'Abdominal infra no espaldar', 'Abdominal crunch c/pernas apoiadas', 'Abdominal crunch c/pernas elevadas'],
+    'Completo': ['Abdominal canivete', 'Abdominal ball-pass'],
+    'Core': ['Prancha abdominal', 'Prancha lateral', 'Prancha com variação'],
+    'Cardio Pós': ['Correr na esteira', 'Andar na esteira', 'Bicicleta ergométrica', 'Escada ergométrica', 'Elíptico', 'Air Bike']
+};
 
-    // 🔥 CHAVE ÚNICA DO RASCUNHO (Auto-Save) 🔥
+export function useMontarTreino(route, navigation) {
+    const { aluno, isTemplateMode, templateData, workoutToEdit, isEditing, laboratoryStructure, laboratoryConfig } = route.params || {};
+
     const draftKey = workoutToEdit?.id ? `@draft_edit_${workoutToEdit.id}` : `@draft_new_${aluno?.id || 'template'}`;
 
     const [detalhes, setDetalhes] = useState({ anamnese: {} });
@@ -31,7 +58,6 @@ export const useMontarTreino = (route, navigation) => {
 
     const [workoutModel, setWorkoutModel] = useState('CARGA'); 
 
-    // 🔥 MOTOR DE PERIODIZAÇÃO 🔥
     const [intensityMultiplier, setIntensityMultiplier] = useState(1.0);
     const [intensityEndDate, setIntensityEndDate] = useState(null);
     const [showCalendarIntensity, setShowCalendarIntensity] = useState(false);
@@ -60,9 +86,8 @@ export const useMontarTreino = (route, navigation) => {
     const [targetIndexForSubstitute, setTargetIndexForSubstitute] = useState(null);
     const [searchText, setSearchText] = useState('');
     
-    // 🔥 CONTROLES DA BIBLIOTECA 🔥
     const [selectedCategory, setSelectedCategory] = useState('TODOS');
-    const [selectedSubCat, setSelectedSubCat] = useState('Todos'); // 🔥 ESTADO NOVO ADICIONADO 🔥
+    const [selectedSubCat, setSelectedSubCat] = useState('Todos');
     const [showCatDropdown, setShowCatDropdown] = useState(false); 
     
     const [indexExercicioAtual, setIndexExercicioAtual] = useState(null);
@@ -101,18 +126,12 @@ export const useMontarTreino = (route, navigation) => {
     
     const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
 
-    // 🔥 VIGIA E SALVA AUTOMATICAMENTE (Auto-Save) 🔥
     useEffect(() => {
         const autoSave = async () => {
             if (loading) return; 
-            
             const dataToSave = {
-                exercisesByDay,
-                workoutTabs,
-                customWorkoutName,
-                workoutModel,
-                intensityMultiplier,
-                intensityEndDate: intensityEndDate ? intensityEndDate.toISOString() : null,
+                exercisesByDay, workoutTabs, customWorkoutName, workoutModel,
+                intensityMultiplier, intensityEndDate: intensityEndDate ? intensityEndDate.toISOString() : null,
                 lastUpdated: new Date().getTime()
             };
             await AsyncStorage.setItem(draftKey, JSON.stringify(dataToSave));
@@ -121,21 +140,13 @@ export const useMontarTreino = (route, navigation) => {
     }, [exercisesByDay, workoutTabs, customWorkoutName, workoutModel, intensityMultiplier, intensityEndDate, loading]);
 
     useEffect(() => { 
-        if (!isEditing && !isTemplateMode) {
-            setExercisesByDay({ 'A': [] });
-            setWorkoutTabs(['A']);
-            setSelectedWorkoutTab('A');
-            setCustomWorkoutName('');
-            setStartDate(new Date());
-            setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
-            setIsArchived(false);
-            setWorkoutModel('CARGA'); 
-            
-            setIntensityMultiplier(1.0);
-            setIntensityEndDate(null);
+        if (!isEditing && !isTemplateMode && !laboratoryStructure) {
+            setExercisesByDay({ 'A': [] }); setWorkoutTabs(['A']); setSelectedWorkoutTab('A');
+            setCustomWorkoutName(''); setStartDate(new Date()); setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
+            setIsArchived(false); setWorkoutModel('CARGA'); setIntensityMultiplier(1.0); setIntensityEndDate(null);
         }
         fetchDados(); 
-    }, [isEditing, isTemplateMode]);
+    }, [isEditing, isTemplateMode, laboratoryStructure]);
 
     const fetchDados = async () => {
         setLoading(true);
@@ -154,25 +165,28 @@ export const useMontarTreino = (route, navigation) => {
                     fetch(`https://fitos-final.onrender.com/api/admin/collections?adminId=${currentAdminId}&t=${t}`),
                     fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${t}`)
                 ]);
-                
                 if (resCol.ok) setCollections(await resCol.json());
                 if (resTemp.ok) setTemplatesList(await resTemp.json());
             } catch(e) {}
 
+            let fetchedBib = [];
             const cachedEx = await AsyncStorage.getItem('@global_exercises');
             if (cachedEx) {
-                setBiblioteca(JSON.parse(cachedEx));
-                if (!aluno?.id) setLoading(false); 
+                fetchedBib = JSON.parse(cachedEx);
+                setBiblioteca(fetchedBib);
             }
 
-            fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${currentAdminId}&t=${t}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (Array.isArray(data)) {
-                        setBiblioteca(data);
-                        AsyncStorage.setItem('@global_exercises', JSON.stringify(data));
+            try {
+                const resEx = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${currentAdminId}&t=${t}`);
+                if (resEx.ok) {
+                    const dataEx = await resEx.json();
+                    if (Array.isArray(dataEx)) {
+                        fetchedBib = dataEx;
+                        setBiblioteca(dataEx);
+                        AsyncStorage.setItem('@global_exercises', JSON.stringify(dataEx));
                     }
-                }).catch(() => null);
+                }
+            } catch(e) {}
 
             if (aluno?.id) {
                 const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`);
@@ -183,16 +197,67 @@ export const useMontarTreino = (route, navigation) => {
                 }
             }
 
-            // Variável de controle para saber se carregamos um rascunho
             let draftLoaded = false;
 
-            if (isEditing && workoutToEdit) {
+            // 🔥 LABORATÓRIO INJETANDO A ESTRUTURA DIRETA NA SUA TELA 🔥
+            if (laboratoryStructure && Object.keys(laboratoryStructure).length > 0) {
+                const newExercisesByDay = {};
+                const tabs = Object.keys(laboratoryStructure);
+
+                const generateSmartBlocks = (muscle, level, isCardio) => {
+                    if (isCardio) return [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada', load: '' }];
+                    if (level === 'INICIANTE') {
+                        return [{ sets: '3', reps: '15', restTime: '60', technique: '', load: '' }];
+                    }
+                    let repsArray = level === 'AVANÇADO' ? ['15', '12', '10', '8'] : ['12', '12', '10', '10'];
+                    return repsArray.map((rep) => {
+                        return {
+                            sets: '1', reps: rep, restTime: '60', technique: '', load: ''
+                        };
+                    });
+                };
+
+                tabs.forEach(day => {
+                    let usedExercises = new Set();
+                    newExercisesByDay[day] = laboratoryStructure[day].map(muscleId => {
+                        let options = EXERCISE_DB[muscleId] || [];
+                        let available = options.filter(ex => !usedExercises.has(ex));
+                        let suggestedName = available.length > 0 ? available[0] : (options[0] || `Exercício para ${muscleId}`);
+                        usedExercises.add(suggestedName);
+
+                        // 🔥 A BUSCA EXATA QUE ACABA COM OS FANTASMAS 🔥
+                        const normalizedSuggested = suggestedName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                        const match = fetchedBib.find(b => b.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === normalizedSuggested);
+                        
+                        const isCardio = muscleId.toUpperCase() === 'CARDIO PÓS';
+                        const smartBlocks = generateSmartBlocks(muscleId, laboratoryConfig?.level, isCardio);
+
+                        return {
+                            exerciseId: match ? match.id : `custom_${Math.random()}`,
+                            title: match ? match.name : suggestedName,
+                            videoUrl: match ? match.videoUrl : '',
+                            category: match ? match.category : (isCardio ? 'Cardio' : ''),
+                            subCategory: match ? match.subCategory : '',
+                            observation: '',
+                            tempId: Math.random().toString(),
+                            substitute: null,
+                            blocks: smartBlocks
+                        };
+                    });
+                });
+
+                setExercisesByDay(newExercisesByDay);
+                setWorkoutTabs(tabs);
+                setSelectedWorkoutTab(tabs[0]);
+                setCustomWorkoutName(`${laboratoryConfig?.gender === 'FEMININO' ? 'Treino Feminino' : 'Treino Masculino'} - ${laboratoryConfig?.objective || 'Personalizado'}`);
+                
+                draftLoaded = true; 
+            }
+            else if (isEditing && workoutToEdit) {
                 setCustomWorkoutName(workoutToEdit.name);
                 setWorkoutModel(workoutToEdit.workoutModel || 'CARGA');
-                
                 setIntensityMultiplier(workoutToEdit.intensityMultiplier || 1.0);
                 if (workoutToEdit.intensityEndDate) setIntensityEndDate(new Date(workoutToEdit.intensityEndDate));
-
                 if (workoutToEdit.startDate) setStartDate(new Date(workoutToEdit.startDate));
                 if (workoutToEdit.endDate) {
                     const end = new Date(workoutToEdit.endDate);
@@ -201,18 +266,14 @@ export const useMontarTreino = (route, navigation) => {
                 }
                 processWorkoutDataToState(workoutToEdit.exercises);
 
-                // 🔥 O CAÇA FANTASMA: FORÇA A BUSCA DA INTENSIDADE REAL NO BANCO DE DADOS
                 try {
                     const resFresh = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno?.id}&workoutId=${workoutToEdit.id}&t=${t}`);
                     if (resFresh.ok) {
                         const freshWorkout = await resFresh.json();
                         if (freshWorkout && freshWorkout.id) {
                             setIntensityMultiplier(freshWorkout.intensityMultiplier || 1.0);
-                            if (freshWorkout.intensityEndDate) {
-                                setIntensityEndDate(new Date(freshWorkout.intensityEndDate));
-                            } else {
-                                setIntensityEndDate(null);
-                            }
+                            if (freshWorkout.intensityEndDate) setIntensityEndDate(new Date(freshWorkout.intensityEndDate));
+                            else setIntensityEndDate(null);
                             if (freshWorkout.workoutModel) setWorkoutModel(freshWorkout.workoutModel);
                         }
                     }
@@ -222,10 +283,7 @@ export const useMontarTreino = (route, navigation) => {
                 setCustomWorkoutName(templateData.name || '');
                 setTemplateGoalInput(templateData.goal || 'Hipertrofia');
                 setTemplateLevelInput(templateData.level || 'Intermediário');
-                
-                if (templateData.workoutModel) {
-                    setWorkoutModel(templateData.workoutModel);
-                }
+                if (templateData.workoutModel) setWorkoutModel(templateData.workoutModel);
 
                 try {
                     const parsed = typeof templateData.data === 'string' ? JSON.parse(templateData.data) : templateData.data;
@@ -238,33 +296,23 @@ export const useMontarTreino = (route, navigation) => {
                 } catch (e) { setExercisesByDay({'A': []}); }
             }
 
-            // 🔥 RECUPERAÇÃO DE RASCUNHO (Após carregar os dados oficiais) 🔥
-            const savedDraft = await AsyncStorage.getItem(draftKey);
-            if (savedDraft) {
-                try {
-                    const parsedDraft = JSON.parse(savedDraft);
-                    // Só sobrepõe se o rascunho for válido
-                    if (parsedDraft && parsedDraft.exercisesByDay) {
-                        setExercisesByDay(parsedDraft.exercisesByDay);
-                        if (parsedDraft.workoutTabs && parsedDraft.workoutTabs.length > 0) {
-                            setWorkoutTabs(parsedDraft.workoutTabs);
-                            setSelectedWorkoutTab(parsedDraft.workoutTabs[0]); 
+            if (!draftLoaded) {
+                const savedDraft = await AsyncStorage.getItem(draftKey);
+                if (savedDraft) {
+                    try {
+                        const parsedDraft = JSON.parse(savedDraft);
+                        if (parsedDraft && parsedDraft.exercisesByDay) {
+                            setExercisesByDay(parsedDraft.exercisesByDay);
+                            if (parsedDraft.workoutTabs && parsedDraft.workoutTabs.length > 0) {
+                                setWorkoutTabs(parsedDraft.workoutTabs);
+                                setSelectedWorkoutTab(parsedDraft.workoutTabs[0]); 
+                            }
+                            if (parsedDraft.customWorkoutName) setCustomWorkoutName(parsedDraft.customWorkoutName);
+                            if (parsedDraft.workoutModel) setWorkoutModel(parsedDraft.workoutModel);
+                            if (parsedDraft.intensityMultiplier) setIntensityMultiplier(parsedDraft.intensityMultiplier);
+                            if (parsedDraft.intensityEndDate) setIntensityEndDate(new Date(parsedDraft.intensityEndDate));
                         }
-                        if (parsedDraft.customWorkoutName) setCustomWorkoutName(parsedDraft.customWorkoutName);
-                        if (parsedDraft.workoutModel) setWorkoutModel(parsedDraft.workoutModel);
-                        if (parsedDraft.intensityMultiplier) setIntensityMultiplier(parsedDraft.intensityMultiplier);
-                        if (parsedDraft.intensityEndDate) setIntensityEndDate(new Date(parsedDraft.intensityEndDate));
-                        
-                        draftLoaded = true;
-                    }
-                } catch (e) {
-                    console.log("Erro ao carregar o rascunho", e);
-                }
-            }
-
-            if (draftLoaded) {
-                if (Platform.OS === 'web') {
-                    console.log("📝 Rascunho anterior recuperado com sucesso.");
+                    } catch (e) {}
                 }
             }
 
@@ -288,9 +336,7 @@ export const useMontarTreino = (route, navigation) => {
 
     const processWorkoutDataToState = (exercisesArray) => {
         if (!exercisesArray) return;
-
         const sortedArray = [...exercisesArray].sort((a, b) => (a.order || 0) - (b.order || 0));
-
         const groups = sortedArray.reduce((acc, item) => {
             const key = item.day || 'A';
             if (!acc[key]) acc[key] = [];
@@ -320,7 +366,7 @@ export const useMontarTreino = (route, navigation) => {
                 videoUrl: item.exercise?.videoUrl,
                 observation: realObs || '',
                 category: item.exercise?.category || '',
-                subCategory: item.exercise?.subCategory || '', // 🔥 MANTÉM A SUBCATEGORIA NA MEMÓRIA
+                subCategory: item.exercise?.subCategory || '', 
                 tempId: Math.random().toString(),
                 substitute: (item.substituteId && item.substitute) ? { id: item.substituteId, name: item.substitute.name, videoUrl: item.substitute.videoUrl } : null,
                 blocks: realBlocks 
@@ -519,9 +565,7 @@ export const useMontarTreino = (route, navigation) => {
             const injectLegoBlock = () => {
                 const exercisesToInject = parsed[templateTabs[0]] || [];
                 const currentExercises = exercisesByDay[selectedWorkoutTab] || [];
-                
                 const clonedExercises = exercisesToInject.map(ex => ({ ...ex, tempId: Math.random().toString() }));
-                
                 setExercisesByDay({
                     ...exercisesByDay,
                     [selectedWorkoutTab]: [...currentExercises, ...clonedExercises]
@@ -534,11 +578,9 @@ export const useMontarTreino = (route, navigation) => {
                 setSelectedWorkoutTab(templateTabs[0]);
                 setExercisesByDay(parsed);
                 if(!customWorkoutName) setCustomWorkoutName(template.name);
-                
                 if (template.workoutModel) {
                     setWorkoutModel(template.workoutModel);
                 }
-
                 setModalTemplatesVisible(false);
             };
 
@@ -610,7 +652,6 @@ export const useMontarTreino = (route, navigation) => {
         if (!saveTemplateName) return Alert.alert("Erro", "Dê um nome ao template.");
         try {
             const orderedExercisesByDay = {};
-            
             workoutTabs.forEach(tab => {
                 if (exercisesByDay[tab]) {
                     orderedExercisesByDay[tab] = exercisesByDay[tab].map(ex => {
@@ -647,15 +688,15 @@ export const useMontarTreino = (route, navigation) => {
       const initialBlocks = isCardio ? [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada' }] : [{ sets: '3', reps: '12', restTime: '60', technique: '' }];
 
       if (isSwapping && swapIndex !== null) {
-          currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category, subCategory: ex.subCategory }; // 🔥 Mantém a subCat
+          currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category, subCategory: ex.subCategory }; 
           setIsSwapping(false); setSwapIndex(null);
           setModalBuscaVisible(false); 
-          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); // 🔥 Reseta
+          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
       } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
           currentList[targetIndexForSubstitute].substitute = { id: ex.id, name: ex.name, videoUrl: ex.videoUrl };
           setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
           setModalBuscaVisible(false); 
-          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); // 🔥 Reseta
+          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
       } else {
           currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitute: null, category: ex.category, subCategory: ex.subCategory, blocks: initialBlocks });
       }
@@ -754,7 +795,6 @@ export const useMontarTreino = (route, navigation) => {
               });
               if (!res.ok) throw new Error("Erro");
               
-              // 🔥 LIMPA O RASCUNHO APÓS SALVAR
               await AsyncStorage.removeItem(draftKey);
               
               alertMsg("Sucesso", "Template atualizado na biblioteca!"); navigation.goBack();
@@ -820,7 +860,6 @@ export const useMontarTreino = (route, navigation) => {
         });
         if (!response.ok) throw new Error("Erro");
 
-        // 🔥 LIMPA O RASCUNHO DO APARELHO QUANDO SALVAR COM SUCESSO NO BANCO 🔥
         await AsyncStorage.removeItem(draftKey);
 
         alertMsg("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); navigation.goBack(); 
@@ -831,7 +870,6 @@ export const useMontarTreino = (route, navigation) => {
 
     const currentExercises = exercisesByDay[selectedWorkoutTab] || [];
     
-    // 🔥 FILTRO ATUALIZADO PARA RESPEITAR TAMBÉM A SUBCATEGORIA 🔥
     const exerciciosFiltrados = biblioteca.filter(e => {
         const matchesSearch = e.name.toLowerCase().includes(searchText.toLowerCase());
         const matchesCategory = selectedCategory === 'TODOS' || e.category === selectedCategory;
@@ -844,14 +882,14 @@ export const useMontarTreino = (route, navigation) => {
     return {
         state: {
             detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, 
-            selectedCategory, selectedSubCat, // 🔥 EXPOSTO PRO MODAL
+            selectedCategory, selectedSubCat, 
             showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab,
             workoutModel,
             intensityMultiplier, intensityEndDate, showCalendarIntensity 
         },
         setters: {
             setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, 
-            setSelectedCategory, setSelectedSubCat, // 🔥 EXPOSTO PRO MODAL
+            setSelectedCategory, setSelectedSubCat, 
             setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
             setWorkoutModel,
             setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
@@ -861,4 +899,4 @@ export const useMontarTreino = (route, navigation) => {
             handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab 
         }
     };
-};
+}

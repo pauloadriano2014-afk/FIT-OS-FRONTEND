@@ -49,8 +49,9 @@ import AdminDietLibraryScreen from './src/screens/AdminDietLibraryScreen';
 import AIScannerModal from './src/components/AIScannerModal';
 import LaboratoryScreen from './src/screens/LaboratoryScreen';
 
-// 🔥 A NOVA TELA SENDO IMPORTADA AQUI 🔥
+// 🔥 AS TELAS DO LABORATÓRIO SENDO IMPORTADAS AQUI 🔥
 import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen'; 
+import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -226,6 +227,7 @@ function RootNavigator() {
       {/* 🔥 TELAS DO LABORATÓRIO 🔥 */}
       <Stack.Screen name="LaboratoryScreen" component={LaboratoryScreen} />
       <Stack.Screen name="LaboratoryBuilderScreen" component={LaboratoryBuilderScreen} />
+      <Stack.Screen name="LaboratoryFinalScreen" component={LaboratoryFinalScreen} />
 
     </Stack.Navigator>
   );

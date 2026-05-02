@@ -28,7 +28,6 @@ export default function GerenciarTemplates({ navigation }) {
   const [modalMoveVisible, setModalMoveVisible] = useState(false); 
   const [templateToMove, setTemplateToMove] = useState(null);
 
-  // 🔥 ESTADOS DO NOVO SISTEMA DE VISUALIZAÇÃO E CLONAGEM 🔥
   const [modalPreviewVisible, setModalPreviewVisible] = useState(false);
   const [templateToPreview, setTemplateToPreview] = useState(null);
   const [isCloning, setIsCloning] = useState(false);
@@ -79,7 +78,7 @@ export default function GerenciarTemplates({ navigation }) {
   };
 
   const isOwner = (item) => {
-      const itemAdminId = item.adminId || item.coachId; // Garantia dupla dependendo de como salvou
+      const itemAdminId = item.adminId || item.coachId;
       if (isAdriLogged) {
           return itemAdminId === adminId;
       } else {
@@ -232,7 +231,6 @@ export default function GerenciarTemplates({ navigation }) {
 
   const goToEditor = (template = null) => {
       if (template && !isOwner(template)) {
-          // 🔥 AO INVÉS DE BLOQUEAR, ABRE O RAIO-X PARA CLONAGEM 🔥
           setTemplateToPreview(template);
           setModalPreviewVisible(true);
           return;
@@ -251,7 +249,6 @@ export default function GerenciarTemplates({ navigation }) {
       }
   };
 
-  // 🔥 FUNÇÃO PARA CLONAR O TREINO DA EQUIPE PARA A SUA BIBLIOTECA 🔥
   const handleCloneTemplate = async () => {
       setIsCloning(true);
       try {
@@ -263,15 +260,15 @@ export default function GerenciarTemplates({ navigation }) {
                   goal: templateToPreview.goal,
                   level: templateToPreview.level,
                   data: templateToPreview.data,
-                  adminId: adminId, // Salva com o seu ID
-                  collectionId: null // Salva avulso na raiz
+                  adminId: adminId,
+                  collectionId: null
               })
           });
           
           if (res.ok) {
               setModalPreviewVisible(false);
-              setLibFilter('MEUS'); // Muda de aba pra você ver a cópia
-              setSelectedCollection(null); // Sai da pasta da equipe
+              setLibFilter('MEUS'); 
+              setSelectedCollection(null); 
               fetchData();
               if (Platform.OS === 'web') window.alert("Treino importado com sucesso para seus Treinos Avulsos!");
               else Alert.alert("Sucesso", "Treino importado para a sua biblioteca avulsa.");
@@ -300,7 +297,6 @@ export default function GerenciarTemplates({ navigation }) {
       setModalColVisible(true);
   };
 
-  // 🔥 RENDERIZADOR DO RAIO-X DE TREINO (COM BLOCOS COMPLETOS E CARDIO) 🔥
   const renderPreviewRoutine = () => {
       if (!templateToPreview || !templateToPreview.data) return null;
       try {
@@ -320,7 +316,6 @@ export default function GerenciarTemplates({ navigation }) {
                           const exName = exercise.name || exercise.title || exercise.exerciseName || 'Exercício sem nome';
                           const isCardio = (exercise.category || '').toUpperCase() === 'CARDIO';
                           
-                          // 🔥 PUXA TODOS OS BLOCOS (OU CRIA UM FAKE SE FOR TREINO LEGADO)
                           let renderBlocks = [];
                           if (exercise.blocks && exercise.blocks.length > 0) {
                               renderBlocks = exercise.blocks;
@@ -492,7 +487,6 @@ export default function GerenciarTemplates({ navigation }) {
           )}
       </View>
 
-      {/* 🔥 MODAL DE VISUALIZAÇÃO E CLONAGEM (RAIO-X) 🔥 */}
       <Modal visible={modalPreviewVisible} transparent animationType="slide">
           <View style={styles.modalOverlayPreview}>
               <View style={[styles.modalContentPreview, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -603,9 +597,19 @@ export default function GerenciarTemplates({ navigation }) {
                             <MaterialCommunityIcons name="lightning-bolt" size={20} color="#FFF" />
                             <Text style={[styles.aiButtonText, { color: '#FFF' }]}>IMPORTAR ROTINA INTEIRA (PDF)</Text>
                         </TouchableOpacity>
+                        
                         <TouchableOpacity style={[styles.aiButtonSingle, { borderColor: selectedCollection ? selectedCollection.color : theme.accent }]} onPress={() => handleImportPDF('SINGLE')}>
                             <MaterialCommunityIcons name="magic-staff" size={20} color={selectedCollection ? selectedCollection.color : theme.accent} />
                             <Text style={[styles.aiButtonTextSingle, { color: selectedCollection ? selectedCollection.color : theme.accent }]}>IMPORTAR 1 TREINO AVULSO (PDF)</Text>
+                        </TouchableOpacity>
+
+                        {/* 🔥 O NOVO BOTÃO QUE CONECTA DIRETO NO MOTOR DO LABORATÓRIO 🔥 */}
+                        <TouchableOpacity style={[styles.aiButtonSingle, { borderColor: selectedCollection ? selectedCollection.color : theme.accent, backgroundColor: (selectedCollection ? selectedCollection.color : theme.accent) + '15' }]} onPress={() => {
+                            setModalTempVisible(false);
+                            navigation.navigate('LaboratoryScreen'); // Manda pro laboratório
+                        }}>
+                            <MaterialCommunityIcons name="flask" size={20} color={selectedCollection ? selectedCollection.color : theme.accent} />
+                            <Text style={[styles.aiButtonTextSingle, { color: selectedCollection ? selectedCollection.color : theme.accent }]}>GERAR MATRIZ NO LABORATÓRIO</Text>
                         </TouchableOpacity>
                     </View>
                 )}
