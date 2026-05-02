@@ -21,7 +21,7 @@ export default function LaboratoryScreen({ navigation }) {
     const [mode, setMode] = useState('MATRIZ'); 
     const [selectedStudent, setSelectedStudent] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [isDropdownOpen, setIsDropdownOpen] = useState(false); // 🔥 CONTROLE DO DROPDOWN
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const [students, setStudents] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -62,7 +62,7 @@ export default function LaboratoryScreen({ navigation }) {
 
     const handleSelectStudent = (student) => {
         setSelectedStudent(student);
-        setIsDropdownOpen(false); // Fecha o modal ao selecionar
+        setIsDropdownOpen(false); 
         
         let foundObjective = 'HIPERTROFIA'; 
         let foundLevel = 'INTERMEDIÁRIO';   
@@ -135,89 +135,87 @@ export default function LaboratoryScreen({ navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* CONTEÚDO COM SCROLL BLINDADO */}
-                    <View style={{ flex: 1, overflow: 'hidden' }}>
-                        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                            
-                            {/* MODO ALUNO: DROPDOWN DE SELEÇÃO */}
-                            {mode === 'ALUNO' && (
-                                <View style={styles.section}>
-                                    <Text style={[styles.sectionTitle, { color: theme.text }]}>ATLETA SELECIONADO</Text>
-                                    
-                                    {!selectedStudent ? (
-                                        <TouchableOpacity style={[styles.dropdownButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsDropdownOpen(true)}>
-                                            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Toque para selecionar um aluno...</Text>
-                                            <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <View style={[styles.selectedStudentCard, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
-                                            <View>
-                                                <Text style={[styles.studentName, { color: theme.text }]}>{selectedStudent.name}</Text>
-                                                <Text style={[styles.studentDetail, { color: theme.accent }]}>Anamnese importada com sucesso.</Text>
-                                            </View>
-                                            <TouchableOpacity onPress={() => setSelectedStudent(null)} style={styles.clearButton}>
-                                                <MaterialCommunityIcons name="close" size={18} color={theme.text} />
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-                                </View>
-                            )}
-
-                            {/* FILTROS MACRO */}
-                            <View style={[styles.section, (mode === 'ALUNO' && !selectedStudent) && { opacity: 0.3 }]} pointerEvents={(mode === 'ALUNO' && !selectedStudent) ? 'none' : 'auto'}>
+                    {/* 🔥 SCROLL BLINDADO COM FLEX 1 🔥 */}
+                    <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                        
+                        {/* MODO ALUNO: DROPDOWN DE SELEÇÃO */}
+                        {mode === 'ALUNO' && (
+                            <View style={styles.section}>
+                                <Text style={[styles.sectionTitle, { color: theme.text }]}>ATLETA SELECIONADO</Text>
                                 
-                                <Text style={[styles.sectionTitle, { color: theme.text }]}>OBJETIVO PRINCIPAL</Text>
-                                <View style={styles.rowGrid}>
-                                    {OBJECTIVES.map(obj => (
-                                        <TouchableOpacity key={obj} style={[styles.chip, { backgroundColor: theme.surface }, objective === obj && { backgroundColor: theme.accent }]} onPress={() => setObjective(obj)}>
-                                            <Text style={[styles.chipText, { color: theme.textSecondary }, objective === obj && { color: theme.isDark ? '#000' : '#FFF' }]}>{obj}</Text>
+                                {!selectedStudent ? (
+                                    <TouchableOpacity style={[styles.dropdownButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsDropdownOpen(true)}>
+                                        <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Toque para selecionar um aluno...</Text>
+                                        <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
+                                    </TouchableOpacity>
+                                ) : (
+                                    <View style={[styles.selectedStudentCard, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+                                        <View>
+                                            <Text style={[styles.studentName, { color: theme.text }]}>{selectedStudent.name}</Text>
+                                            <Text style={[styles.studentDetail, { color: theme.accent }]}>Anamnese importada com sucesso.</Text>
+                                        </View>
+                                        <TouchableOpacity onPress={() => setSelectedStudent(null)} style={styles.clearButton}>
+                                            <MaterialCommunityIcons name="close" size={18} color={theme.text} />
                                         </TouchableOpacity>
-                                    ))}
-                                </View>
+                                    </View>
+                                )}
+                            </View>
+                        )}
 
-                                <Text style={[styles.sectionTitle, { color: theme.text }]}>NÍVEL DE TREINAMENTO</Text>
-                                <View style={styles.rowGrid}>
-                                    {LEVELS.map(lvl => (
-                                        <TouchableOpacity key={lvl} style={[styles.chip, { backgroundColor: theme.surface }, level === lvl && { backgroundColor: theme.accent }]} onPress={() => setLevel(lvl)}>
-                                            <Text style={[styles.chipText, { color: theme.textSecondary }, level === lvl && { color: theme.isDark ? '#000' : '#FFF' }]}>{lvl}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                                <Text style={[styles.sectionTitle, { color: theme.text }]}>TEMPO POR SESSÃO (MIN)</Text>
-                                <View style={styles.rowGrid}>
-                                    {TIMES.map(t => (
-                                        <TouchableOpacity key={t} style={[styles.chip, { backgroundColor: theme.surface }, time === t && { backgroundColor: theme.accent }]} onPress={() => setTime(t)}>
-                                            <Text style={[styles.chipText, { color: theme.textSecondary }, time === t && { color: theme.isDark ? '#000' : '#FFF' }]}>{t}'</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
-                                <Text style={[styles.sectionTitle, { color: theme.text }]}>DIAS NA SEMANA</Text>
-                                <View style={styles.rowGrid}>
-                                    {DAYS.map(d => (
-                                        <TouchableOpacity key={d} style={[styles.chip, { backgroundColor: theme.surface }, days === d && { backgroundColor: theme.accent }]} onPress={() => setDays(d)}>
-                                            <Text style={[styles.chipText, { color: theme.textSecondary }, days === d && { color: theme.isDark ? '#000' : '#FFF' }]}>{d}X</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
+                        {/* FILTROS MACRO */}
+                        <View style={[styles.section, (mode === 'ALUNO' && !selectedStudent) && { opacity: 0.3 }]} pointerEvents={(mode === 'ALUNO' && !selectedStudent) ? 'none' : 'auto'}>
+                            
+                            <Text style={[styles.sectionTitle, { color: theme.text }]}>OBJETIVO PRINCIPAL</Text>
+                            <View style={styles.rowGrid}>
+                                {OBJECTIVES.map(obj => (
+                                    <TouchableOpacity key={obj} style={[styles.chip, { backgroundColor: theme.surface }, objective === obj && { backgroundColor: theme.accent }]} onPress={() => setObjective(obj)}>
+                                        <Text style={[styles.chipText, { color: theme.textSecondary }, objective === obj && { color: theme.isDark ? '#000' : '#FFF' }]}>{obj}</Text>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
 
-                            <View style={[styles.infoBox, { backgroundColor: theme.surface }]}>
-                                <MaterialCommunityIcons name="brain" size={20} color={theme.accent} />
-                                <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-                                    {objective === 'EMAGRECIMENTO' && time >= 60 
-                                        ? `200 kcal de Cardio Pós (Dias sem perna). Musculação: ~${time - 20} min.` 
-                                        : objective === 'HIPERTROFIA' 
-                                        ? 'Cardio Pós-Treino (200 kcal) distribuído em 3x na semana.'
-                                        : `Tempo curto (${time} min). Método Bi-set será priorizado.`}
-                                </Text>
+                            <Text style={[styles.sectionTitle, { color: theme.text }]}>NÍVEL DE TREINAMENTO</Text>
+                            <View style={styles.rowGrid}>
+                                {LEVELS.map(lvl => (
+                                    <TouchableOpacity key={lvl} style={[styles.chip, { backgroundColor: theme.surface }, level === lvl && { backgroundColor: theme.accent }]} onPress={() => setLevel(lvl)}>
+                                        <Text style={[styles.chipText, { color: theme.textSecondary }, level === lvl && { color: theme.isDark ? '#000' : '#FFF' }]}>{lvl}</Text>
+                                    </TouchableOpacity>
+                                ))}
                             </View>
-                        </ScrollView>
-                    </View>
 
-                    {/* BOTÃO DE AÇÃO PRINCIPAL */}
+                            <Text style={[styles.sectionTitle, { color: theme.text }]}>TEMPO POR SESSÃO (MIN)</Text>
+                            <View style={styles.rowGrid}>
+                                {TIMES.map(t => (
+                                    <TouchableOpacity key={t} style={[styles.chip, { backgroundColor: theme.surface }, time === t && { backgroundColor: theme.accent }]} onPress={() => setTime(t)}>
+                                        <Text style={[styles.chipText, { color: theme.textSecondary }, time === t && { color: theme.isDark ? '#000' : '#FFF' }]}>{t}'</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <Text style={[styles.sectionTitle, { color: theme.text }]}>DIAS NA SEMANA</Text>
+                            <View style={styles.rowGrid}>
+                                {DAYS.map(d => (
+                                    <TouchableOpacity key={d} style={[styles.chip, { backgroundColor: theme.surface }, days === d && { backgroundColor: theme.accent }]} onPress={() => setDays(d)}>
+                                        <Text style={[styles.chipText, { color: theme.textSecondary }, days === d && { color: theme.isDark ? '#000' : '#FFF' }]}>{d}X</Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                        </View>
+
+                        <View style={[styles.infoBox, { backgroundColor: theme.surface }]}>
+                            <MaterialCommunityIcons name="brain" size={20} color={theme.accent} />
+                            <Text style={[styles.infoText, { color: theme.textSecondary }]}>
+                                {objective === 'EMAGRECIMENTO' && time >= 60 
+                                    ? `200 kcal de Cardio Pós (Dias sem perna). Musculação: ~${time - 20} min.` 
+                                    : objective === 'HIPERTROFIA' 
+                                    ? 'Cardio Pós-Treino (200 kcal) distribuído em 3x na semana.'
+                                    : `Tempo curto (${time} min). Método Bi-set será priorizado.`}
+                            </Text>
+                        </View>
+                    </ScrollView>
+
+                    {/* 🔥 BOTÃO DE AÇÃO FIXO NO FLUXO (SEM ABSOLUTE) 🔥 */}
                     <View style={[styles.footer, { backgroundColor: theme.bg }]}>
                         <TouchableOpacity 
                             style={[styles.actionButton, { backgroundColor: theme.accent }, (mode === 'ALUNO' && !selectedStudent) && { backgroundColor: theme.surface, opacity: 0.5 }]}
@@ -232,7 +230,7 @@ export default function LaboratoryScreen({ navigation }) {
                 </View>
             </View>
 
-            {/* 🔥 MODAL DE DROPDOWN PARA ALUNOS 🔥 */}
+            {/* MODAL DE DROPDOWN PARA ALUNOS */}
             <Modal visible={isDropdownOpen} transparent animationType="fade" onRequestClose={() => setIsDropdownOpen(false)}>
                 <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setIsDropdownOpen(false)}>
                     <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -283,11 +281,14 @@ const styles = StyleSheet.create({
     tabContainer: { flexDirection: 'row', marginHorizontal: 20, marginTop: 20, borderRadius: 10, padding: 4 },
     tab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8 },
     tabText: { fontSize: 12, fontWeight: 'bold' },
-    scrollContent: { paddingHorizontal: 20, paddingBottom: 150, paddingTop: 20, flexGrow: 1 },
+    
+    // SCROLL COM ESPAÇAMENTO RESPIRÁVEL
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 20, flexGrow: 1 },
+    
     section: { marginBottom: 30 },
     sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 12, opacity: 0.8 },
-    rowGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-    chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20 }, // Estilo Pill (Pílula)
+    rowGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 }, // Gap aumentado para não amontoar
+    chip: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20 },
     chipText: { fontSize: 12, fontWeight: 'bold' },
     dropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1 },
     selectedStudentCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15, borderRadius: 12, borderWidth: 1 },
@@ -296,11 +297,12 @@ const styles = StyleSheet.create({
     clearButton: { padding: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
     infoBox: { flexDirection: 'row', padding: 15, borderRadius: 12, alignItems: 'center', gap: 12, marginBottom: 20 },
     infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
-    footer: { paddingHorizontal: 20, paddingVertical: 20 },
+    
+    // FOOTER FIXO (SEM POSITION ABSOLUTE)
+    footer: { width: '100%', paddingHorizontal: 20, paddingVertical: 20, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
     actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, gap: 10 },
     actionButtonText: { fontSize: 14, fontWeight: '900', letterSpacing: 1 },
     
-    // MODAL STYLES
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end', padding: 20 },
     modalContent: { width: '100%', maxWidth: 480, alignSelf: 'center', borderRadius: 24, padding: 20, borderWidth: 1 },
     modalTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 15, textAlign: 'center' },
