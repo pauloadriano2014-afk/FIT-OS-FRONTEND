@@ -143,7 +143,7 @@ export default function LaboratoryScreen({ navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* SCROLL BLINDADO COM FLEX 1 */}
+                    {/* SCROLL PRINCIPAL */}
                     <ScrollView 
                         style={{ flex: 1, width: '100%' }} 
                         contentContainerStyle={styles.scrollContent} 
@@ -225,7 +225,7 @@ export default function LaboratoryScreen({ navigation }) {
                         </View>
                     </ScrollView>
 
-                    {/* BOTÃO DE AÇÃO FIXO NO FLUXO (SEM ABSOLUTE) */}
+                    {/* BOTÃO DE AÇÃO FIXO NO FLUXO */}
                     <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
                         <TouchableOpacity 
                             style={[styles.actionButton, { backgroundColor: theme.accent }, (mode === 'ALUNO' && !selectedStudent) && { backgroundColor: theme.surface, opacity: 0.5 }]}
@@ -312,10 +312,10 @@ const styles = StyleSheet.create({
     studentName: { fontSize: 14, fontWeight: 'bold' },
     studentDetail: { fontSize: 11, marginTop: 4 },
     clearButton: { padding: 6, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 20 },
-    infoBox: { flexDirection: 'row', padding: 15, borderRadius: 12, alignItems: 'center', gap: 12, marginBottom: 20 },
+    infoBox: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
     infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
     
-    // FOOTER FIXO (SEM POSITION ABSOLUTE)
+    // FOOTER FIXO
     footer: { width: '100%', paddingHorizontal: 20, paddingVertical: 20, borderTopWidth: 1 },
     actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, gap: 10 },
     actionButtonText: { fontSize: 14, fontWeight: '900', letterSpacing: 1 },
