@@ -58,17 +58,37 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
 
     const config = route.params?.config || { days: 5, objective: 'HIPERTROFIA', level: 'AVANÇADO', time: 60, gender: 'MASCULINO', limitations: [], template: null };
     
+    // 🔥 NOVO ESTADO: AMBIENTE DE TREINO 🔥
+    const [activeEnvironment, setActiveEnvironment] = useState(
+        config.template?.includes('CASA') ? 'CASA' : 'ACADEMIA'
+    );
+
     const daysArray = Array.from({ length: config.days }, (_, i) => String.fromCharCode(65 + i)); 
     const [activeDay, setActiveDay] = useState(daysArray[0]);
     const [searchQuery, setSearchQuery] = useState('');
     const [optionsModalVisible, setOptionsModalVisible] = useState(false);
     const [dayModalVisible, setDayModalVisible] = useState(false);
-
     const [drawerMuscle, setDrawerMuscle] = useState(null);
 
     const [structure, setStructure] = useState(
         daysArray.reduce((acc, day) => ({ ...acc, [day]: [] }), {})
     );
+
+    // 🔥 FILTRO CORTA-GIRO: Remove máquinas dependendo do ambiente 🔥
+    const getFilteredOptions = (muscle) => {
+        const opts = EXERCISE_DB[muscle] || [];
+        if (activeEnvironment === 'ACADEMIA') return opts;
+        
+        let bans = [];
+        if (activeEnvironment === 'CASA') {
+            bans = ['smith', 'máquina', 'maquina', 'cross', 'polia', 'hack', 'leg ', 'cadeira', 'mesa', 'graviton', 'articulad', 'matrix', 'cimerian', 'hammer', 'scott', 'extensora', 'flexora', 'abdutora', 'adutora', 'pelve máquina', 'voador', 'ergométrica', 'elíptico', 'esteira', 'bike', 'pêndulo'];
+        } else if (activeEnvironment === 'CONDOMÍNIO') {
+            bans = ['matrix', 'cimerian', 'hammer', 'hack', 'graviton', 'articulad', 'pêndulo', 'scott'];
+        }
+
+        const filtered = opts.filter(o => !bans.some(ban => o.toLowerCase().includes(ban)));
+        return filtered.length > 0 ? filtered : opts; // Se cortar tudo, volta o original pra não quebrar o app
+    };
 
     useEffect(() => {
         const generateAutoFill = () => {
@@ -80,7 +100,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
             const getExercisesForDay = (musclesArray) => {
                 let used = new Set();
                 return musclesArray.map(m => {
-                    const opts = EXERCISE_DB[m] || [];
+                    const opts = getFilteredOptions(m); // Puxa já filtrado pelo Ambiente!
                     const avail = opts.filter(o => !used.has(o));
                     const chosen = avail.length > 0 ? avail[0] : (opts[0] || `Ex. de ${m}`);
                     used.add(chosen);
@@ -88,7 +108,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 });
             };
 
-            // ======= MATRIZES =======
             if (t === 'MASC_EMAG_6X' && dCount >= 6) {
                 autoStruct['A'] = getExercisesForDay(['Quadríceps e Adutores', 'Multiarticular', 'Multiarticular', 'Quadríceps e Adutores', 'Panturrilha']); 
                 autoStruct['B'] = getExercisesForDay(['Superior', 'Medial', 'Inferior', 'Ombro Multiarticular', 'Frontal', 'Lateral', 'Tríceps']); 
@@ -141,7 +160,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 autoStruct['B'] = getExercisesForDay(['Puxadas', 'Remadas', 'Ombro Multiarticular', 'Bíceps', 'Supra', 'Infra']); 
                 autoStruct['C'] = getExercisesForDay(['Multiarticular', 'Quadríceps e Adutores', 'Posteriores', 'Glúteos', 'Glúteos']); 
             }
-            // ======= FALLBACK =======
             else {
                 if (isFem) {
                     if (dCount === 3) {
@@ -184,7 +202,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
             setStructure(autoStruct);
         };
         generateAutoFill();
-    }, [config.days, config.gender, config.template]);
+    }, [config.days, config.gender, config.template, activeEnvironment]); // 🔥 Roda a IA de novo se você mudar o Ambiente 🔥
 
     const checkLimitation = (muscleId) => {
         const lims = config.limitations?.join(' ').toLowerCase() || '';
@@ -223,7 +241,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
         });
     };
 
-    // 🔥 NOVA FUNÇÃO: ORDENAR EXERCÍCIOS 🔥
     const moveExerciseInBuilder = (index, direction) => {
         setStructure(prev => {
             const dayExs = [...prev[activeDay]];
@@ -236,7 +253,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
         });
     };
 
-    // 🔥 NOVA FUNÇÃO: DELETAR EXERCÍCIO RÁPIDO 🔥
     const removeExerciseFromBuilder = (tempId) => {
         setStructure(prev => ({
             ...prev,
@@ -291,6 +307,31 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         <TouchableOpacity style={[styles.backButton, { backgroundColor: theme.surface }]} onPress={() => setOptionsModalVisible(true)}>
                             <MaterialCommunityIcons name="dots-vertical" size={24} color={theme.text} />
                         </TouchableOpacity>
+                    </View>
+
+                    {/* 🔥 SELETOR DE AMBIENTE DE TREINO 🔥 */}
+                    <View style={[styles.envTabsContainer, { borderBottomColor: theme.border }]}>
+                        {['ACADEMIA', 'CONDOMÍNIO', 'CASA'].map(env => (
+                            <TouchableOpacity 
+                                key={env} 
+                                style={[
+                                    styles.envTab, 
+                                    activeEnvironment === env 
+                                        ? { backgroundColor: theme.accent, borderColor: theme.accent } 
+                                        : { backgroundColor: theme.surface, borderColor: theme.border }
+                                ]} 
+                                onPress={() => setActiveEnvironment(env)}
+                            >
+                                <MaterialCommunityIcons 
+                                    name={env === 'CASA' ? 'home-outline' : env === 'CONDOMÍNIO' ? 'office-building' : 'dumbbell'} 
+                                    size={14} 
+                                    color={activeEnvironment === env ? '#000' : theme.textSecondary} 
+                                />
+                                <Text style={{color: activeEnvironment === env ? '#000' : theme.textSecondary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>
+                                    {env}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
                     </View>
 
                     <View style={{ padding: 20, borderBottomWidth: 1, borderBottomColor: theme.border }}>
@@ -371,7 +412,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                             );
                         })}
 
-                        {/* 🔥 SESSÃO NOVA: ORDEM DO TREINO (DRAG INLINE) 🔥 */}
                         {structure[activeDay].length > 0 && (
                             <View style={{ marginTop: 30, paddingTop: 20, borderTopWidth: 1, borderTopColor: theme.border }}>
                                 <Text style={[styles.sectionTitle, { color: theme.textSecondary, marginBottom: 15 }]}>ORDEM DO TREINO</Text>
@@ -416,7 +456,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 </View>
             </View>
 
-            {/* GAVETA LEVE */}
             <Modal visible={!!drawerMuscle} transparent animationType="slide" onRequestClose={() => setDrawerMuscle(null)}>
                 <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setDrawerMuscle(null)}>
                     <View style={[styles.drawerContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -429,7 +468,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         </View>
 
                         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
-                            {(EXERCISE_DB[drawerMuscle] || []).map((exName, i) => {
+                            {getFilteredOptions(drawerMuscle).map((exName, i) => {
                                 const isOptSelected = structure[activeDay].some(ex => ex.muscle === drawerMuscle && ex.name === exName);
                                 return (
                                     <TouchableOpacity 
@@ -526,6 +565,11 @@ const styles = StyleSheet.create({
     backButton: { padding: 8, borderRadius: 12 },
     headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1.5 },
     headerSubtitle: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1, marginTop: 2 },
+    
+    // 🔥 BOTÕES DE AMBIENTE DE TREINO 🔥
+    envTabsContainer: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 15, paddingBottom: 15, borderBottomWidth: 1 },
+    envTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+
     dayDropdownButton: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderRadius: 14, borderWidth: 1.5 },
     dayDropdownTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 1 },
     scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 20, flexGrow: 1 },
@@ -542,7 +586,6 @@ const styles = StyleSheet.create({
     badgeText: { fontSize: 10, fontWeight: '900' },
     muscleText: { fontSize: 11, fontWeight: '600', flexShrink: 1 },
     
-    // 🔥 ORDEM INLINE 🔥
     selectedExRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10 },
     selectedExInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1, paddingRight: 10 },
     selectedExNumber: { fontSize: 16, fontWeight: '900' },
@@ -560,7 +603,6 @@ const styles = StyleSheet.create({
     dropdownItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 18, borderBottomWidth: 1 },
     studentName: { fontSize: 14, fontWeight: 'bold' },
 
-    // GAVETA LEVE
     drawerContent: { width: '100%', maxWidth: 480, alignSelf: 'center', height: '80%', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, overflow: 'hidden' },
     drawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
     drawerTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 1 },
