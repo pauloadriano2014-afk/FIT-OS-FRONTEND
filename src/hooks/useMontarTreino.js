@@ -4,34 +4,6 @@ import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 
-// 🔥 BANCO OFICIAL SINCRONIZADO COM O BANCO DE DADOS DO PAULO ADRIANO TEAM 🔥
-const EXERCISE_DB = {
-    'Superior': ['Supino articulado inclinado', 'Supino inclinado com barra', 'Supino inclinado c/halteres', 'Cross-over polia baixa'],
-    'Medial': ['Supino reto c/halteres', 'Supino reto c/barra', 'Supino articulado', 'Supino articulado neutro', 'Supino articulado MATRIX', 'Supino máquina', 'Supino no Smith', 'Crucifixo reto c/halteres', 'Voador frontal', 'Voador frontal Cimerian', 'Flexão de braços', 'Flexão com joelhos apoiados'],
-    'Inferior': ['Supino declinado c/halteres'],
-    'Puxadas': ['Puxada frente aberta', 'Puxada frente pegada aberta neutra', 'Puxada articulada', 'Puxada c/triângulo', 'Puxada supinada máquina', 'Puxada com barra neutra', 'Puxada máquina MATRIX', 'Puxada UNILATERAL', 'Barra fixa pegada aberta', 'Barra fixa neutra', 'Barra livre fechada', 'Pulldown com barra', 'Pulldown no cross barrinha', 'Graviton pegada neutra fechada', 'Graviton pegada aberta'],
-    'Remadas': ['Remada curvada c/barra', 'Remada curvada c/halteres', 'Remada curvada c/barra montada', 'Remada curvada no Smith', 'Remada curvada máquina', 'Serrote', 'Remada com halteres no banco', 'Remada articulada neutra', 'Remada articulada pronada', 'Remada articulada neutra MATRIX', 'Remada articulada pronada MATRIX', 'Remada articulada pronada UNILATERAL', 'Remada articulada neutra UNILATERAL', 'Remada máquina pegada neutra', 'Remada máquina supinada', 'Remada no cross', 'Remada baixa c/triângulo', 'Remada cavalinho c/triângulo', 'Remada T máquina', 'Voador invertido', 'Voador Inverso'],
-    'Lombar': ['Terra com barra', 'Terra no Smith', 'Lombar no banco romano'],
-    'Quadríceps e Adutores': ['Cadeira Extensora', 'Extensora', 'Cadeira adutora', 'Adução com caneleira deitada'],
-    'Posteriores': ['Mesa Flexora', 'Mesa flexora unilateral', 'Cadeira Flexora', 'Flexora unilateral', 'Flexão nórdica', 'Stiff c/halter', 'Stiff c/barra', 'Stiff com barra', 'Stiff no Smith', 'Stiff máquina', 'Good morning c/barra montada', 'Good morning no Smith'],
-    'Glúteos': ['Elevação pélvica c/barra', 'Elevação pélvica c/halter', 'Elevação pélvica máquina', 'Elevação pélvica no colchonete', 'Pelve máquina articulada', 'Pelve Hammer', 'Pelve MATRIX', 'Cadeira abdutora', 'Cadeira abdutora projetada', 'Abdutora máquina em pé', 'Abdutora articulada', 'Abdução em pé c/caneleira', 'Abdução em pé com caneleira', 'Abdução na polia com caneleira', 'Abdução no cross com caneleira variação', 'Abdução com caneleira deitada no colchonete', 'Glúteos 4 apoios com caneleira no colchonete', 'Glúteos no banco romano', 'Coice no cross', 'Coice 4 apoios com caneleira', 'Coice no cross com banco', 'Extensão de quadril cruzado no cross', 'Extensão de quadril no cross', 'Extensão de quadril no Cross com banco', 'Terra Sumô', 'Lev.Terra sumô', 'Extensão no cross'],
-    'Panturrilha': ['Panturrilha no Smith', 'Panturrilha máquina', 'Panturrilha no banco', 'Panturrilha no degrau'],
-    'Multiarticular': ['Agachamento Livre', 'Agachamento livre c/barra', 'Agachamento isométrico', 'Agachamento máquina', 'Agachamento frontal c/barra', 'Agachamento frontal no Smith', 'Agachamento frontal no Hack', 'Agachamento Hack CIMERIAN', 'Leg press 45°', 'Leg press 45º Unilateral', 'Leg press horizontal', 'Leg articulado', 'Agachamento sumô c/halter', 'Sumô c/anilha', 'Passada c/halteres', 'Passada c/barra', 'Passada sem peso', 'Passada c/agachamento barra', 'Afundo c/halteres', 'Afundo no Smith', 'Afundo no Hack', 'Afundo no step', 'Búlgaro c/halteres', 'Búlgaro no Smith', 'Búlgaro máquina', 'Búlgaro com apoio', 'Bulgaro Tronco Inclinado ', 'Pêndulo', 'Recuo no Smith'],
-    'Frontal': ['Elevação frontal c/halteres', 'Elevação frontal c/anilha', 'Elevação frontal no cross', 'Elevação frontal c/barra', 'Elevação frontal c/halteres neutra', 'Elevação frontal neutra sentado', 'Elevação frontal inclinado c/halteres', 'Elevação frontal unilateral', 'Elevação frontal e lateral', 'Frontal com anilha sentado'],
-    'Lateral': ['Elevação lateral c/halteres', 'Elevação lateral no cross', 'Elevação lateral sentado(a)', 'Elevação lateral sentado', 'Elevação lateral máquina em pé', 'Elevação lateral máquina sentado', 'Elevação lateral unilateral inclinado', 'Remada alta no cross'],
-    'Posterior': ['Posterior de ombros no cross', 'Posterior de ombros unilateral no cross', 'Posterior de ombros c/halteres'],
-    'Trapézio': ['Encolhimento c/halteres', 'Encolhimento no Smith', 'Encolhimento c/barra', 'Encolhimento máquina', 'Encolhimento no cross'],
-    'Ombro Multiarticular': ['Desenvolvimento c/halteres', 'Desenvolvimento c/halteres pegada neutra', 'Desenvolvimento Arnold', 'Desenvolvimento no Smith', 'Desenvolvimento articulado', 'Desenvolvimento máquina', 'Desenvolvimento máquina pegada neutra', 'Desenvolvimento no cross'],
-    'Bíceps': ['Rosca direta no cross', 'Rosca direta c/barra curvada', 'Rosca simultânea c/halteres', 'Rosca simultânea SENTADO', 'Bíceps scott máquina', 'Rosca Scott', 'Rosca Scott no cross', 'Rosca alternada c/halteres', 'Bíceps no cross', 'Bíceps no cross polia alta', 'Bíceps c/barra H', 'Bíceps concentrado unilateral', 'Bíceps máquina SMART', 'Bíceps máquina UNILATERAL', 'Bíceps máquina ALTERNADO', 'Rosca martelo', 'Rosca martelo barra H', 'Rosca inversa c/corda', 'Rosca inversa c/barra curvada'],
-    'Tríceps': ['Tríceps na corda', 'Tríceps corda na polia', 'Tríceps testa no cross', 'Tríceps testa c/halteres', 'Tríceps testa c/barra H', 'Tríceps francês', 'Tríceps Francês com HALTER', 'Tríceps francês no cross', 'Tríceps banco máquina', 'Tríceps banco máquina SMART', 'Tríceps banco Cimerian', 'Tríceps banco livre', 'Tríceps banco com as pernas estendidas', 'Tríceps banco com as pernas flexionadas', 'Tríceps no graviton', 'Tríceps no cross c/polia média', 'Tríceps no cross c/barrinha reta', 'Tríceps na paralela'],
-    'Antebraço': ['Extensão de punho', 'Flexão de punho', 'Antebraço em pé'],
-    'Supra': ['Abdominal máquina SMART', 'Abdominal máquina', 'Abdominal supra no banco declinado', 'Abs supra com carga no banco declinado', 'Abdominal crunch', 'Abdominal no cross em pé', 'Abdominal no cross ajoelhado', 'Abdominal no banco', 'Rodinha abdominal', 'Abdominal remador', 'Vacuum'],
-    'Infra': ['Abdominal infra na paralela estendido', 'Abdominal infra na paralela flexionado', 'Abdominal infra flexionado no banco', 'Abs infra no banco', 'Abdominal infra c/bola', 'Abdominal infra no espaldar', 'Abdominal crunch c/pernas apoiadas', 'Abdominal crunch c/pernas elevadas'],
-    'Completo': ['Abdominal canivete', 'Abdominal ball-pass'],
-    'Core': ['Prancha abdominal', 'Prancha lateral', 'Prancha com variação'],
-    'Cardio Pós': ['Correr na esteira', 'Andar na esteira', 'Bicicleta ergométrica', 'Escada ergométrica', 'Elíptico', 'Air Bike']
-};
-
 export function useMontarTreino(route, navigation) {
     const { aluno, isTemplateMode, templateData, workoutToEdit, isEditing, laboratoryStructure, laboratoryConfig } = route.params || {};
 
@@ -199,7 +171,7 @@ export function useMontarTreino(route, navigation) {
 
             let draftLoaded = false;
 
-            // 🔥 LABORATÓRIO INJETANDO A ESTRUTURA DIRETA NA SUA TELA 🔥
+            // 🔥 LABORATÓRIO INJETANDO O EXERCÍCIO ESCOLHIDO NA GAVETA DIRETO PRA TELA 🔥
             if (laboratoryStructure && Object.keys(laboratoryStructure).length > 0) {
                 const newExercisesByDay = {};
                 const tabs = Object.keys(laboratoryStructure);
@@ -218,15 +190,13 @@ export function useMontarTreino(route, navigation) {
                 };
 
                 tabs.forEach(day => {
-                    let usedExercises = new Set();
-                    newExercisesByDay[day] = laboratoryStructure[day].map(muscleId => {
-                        let options = EXERCISE_DB[muscleId] || [];
-                        let available = options.filter(ex => !usedExercises.has(ex));
-                        let suggestedName = available.length > 0 ? available[0] : (options[0] || `Exercício para ${muscleId}`);
-                        usedExercises.add(suggestedName);
+                    // O Builder já te manda um objeto com: { tempId, muscle, name }
+                    newExercisesByDay[day] = laboratoryStructure[day].map(exItem => {
+                        
+                        const exactName = exItem.name;
+                        const muscleId = exItem.muscle;
 
-                        // 🔥 A BUSCA EXATA QUE ACABA COM OS FANTASMAS 🔥
-                        const normalizedSuggested = suggestedName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+                        const normalizedSuggested = exactName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
                         const match = fetchedBib.find(b => b.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === normalizedSuggested);
                         
                         const isCardio = muscleId.toUpperCase() === 'CARDIO PÓS';
@@ -234,7 +204,7 @@ export function useMontarTreino(route, navigation) {
 
                         return {
                             exerciseId: match ? match.id : `custom_${Math.random()}`,
-                            title: match ? match.name : suggestedName,
+                            title: match ? match.name : exactName,
                             videoUrl: match ? match.videoUrl : '',
                             category: match ? match.category : (isCardio ? 'Cardio' : ''),
                             subCategory: match ? match.subCategory : '',
@@ -253,6 +223,7 @@ export function useMontarTreino(route, navigation) {
                 
                 draftLoaded = true; 
             }
+            // MODO EDIÇÃO NORMAL
             else if (isEditing && workoutToEdit) {
                 setCustomWorkoutName(workoutToEdit.name);
                 setWorkoutModel(workoutToEdit.workoutModel || 'CARGA');
@@ -296,6 +267,7 @@ export function useMontarTreino(route, navigation) {
                 } catch (e) { setExercisesByDay({'A': []}); }
             }
 
+            // RECUPERAÇÃO DE RASCUNHO (Ignora se acabou de injetar da IA)
             if (!draftLoaded) {
                 const savedDraft = await AsyncStorage.getItem(draftKey);
                 if (savedDraft) {
