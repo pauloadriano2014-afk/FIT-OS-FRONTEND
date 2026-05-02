@@ -121,8 +121,8 @@ export default function LaboratoryScreen({ navigation }) {
             {/* Este View precisa de flex: 1 para que seu filho (o View interno) possa se expandir */}
             <View style={{ flex: 1, width: '100%', alignItems: 'center' }}>
                 {/* Este View também precisa de flex: 1 para que o ScrollView possa ocupar o espaço restante */}
-                {/* Adicionei flexDirection: 'column' para garantir que os filhos se empilhem verticalmente */}
-                <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, flexDirection: 'column', ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+                {/* Removi flexDirection: 'column' pois é o padrão e pode ter causado algum conflito */}
+                <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
                     
                     {/* CABEÇALHO */}
                     <View style={[styles.header, { borderBottomColor: theme.border }]}>
