@@ -49,7 +49,6 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
         displayCat += ` • ${item.subCategory.toUpperCase()}`;
     }
 
-    // Puxa as tags do banco, se não existir (exercícios antigos), assume ACADEMIA
     const envTags = item.environments || ['ACADEMIA'];
 
     return (
@@ -75,7 +74,6 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
                 <Text style={[styles.mfitTitle, { color: theme.text }]} numberOfLines={2}>{item.name}</Text>
                 <Text style={[styles.mfitCategory, { color: theme.textSecondary }]}>{displayCat}</Text>
                 
-                {/* 🔥 EXIBIÇÃO DAS TAGS DE AMBIENTE NO CARD 🔥 */}
                 <View style={styles.tagsContainer}>
                     {envTags.map(env => (
                         <View key={env} style={[styles.envBadge, { backgroundColor: theme.isDark ? '#2A2A2A' : '#EFEFEF' }]}>
@@ -98,7 +96,8 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
 }, (prev, next) => {
     return prev.item.id === next.item.id && 
            prev.width === next.width &&
-           prev.theme === next.theme;
+           prev.theme === next.theme &&
+           JSON.stringify(prev.item.environments) === JSON.stringify(next.item.environments);
 });
 
 export default function BibliotecaAdmin({ navigation }) {
@@ -120,7 +119,6 @@ export default function BibliotecaAdmin({ navigation }) {
   
   const [showSubCatDropdown, setShowSubCatDropdown] = useState(false);
 
-  // 🔥 ESTADO EXPANDIDO COM A NOVA ARRAY DE AMBIENTES 🔥
   const [formExercise, setFormExercise] = useState({ 
       id: null, 
       name: '', 
@@ -222,7 +220,11 @@ export default function BibliotecaAdmin({ navigation }) {
           const res = await fetch(url, { method: 'DELETE' });
           
           if (res.ok) {
-              setExercises(prev => prev.filter(item => item.id !== id));
+              setExercises(prev => {
+                  const filtered = prev.filter(item => item.id !== id);
+                  AsyncStorage.setItem('@global_exercises', JSON.stringify([...filtered].reverse()));
+                  return filtered;
+              });
           } else { 
               const errorData = await res.json();
               if (isWeb) window.alert(errorData.error || "Erro ao excluir.");
@@ -286,6 +288,7 @@ export default function BibliotecaAdmin({ navigation }) {
       }
   };
 
+  // 🔥 O SEGREDO DO SUCESSO: ATUALIZAÇÃO OTIMISTA 🔥
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
       if (formExercise.environments.length === 0) return Alert.alert("Atenção", "Selecione pelo menos um ambiente de treino (Academia, Condomínio ou Casa).");
@@ -297,16 +300,36 @@ export default function BibliotecaAdmin({ navigation }) {
           const adminId = JSON.parse(userJson).id;
 
           const payload = { ...formExercise, adminId: adminId };
+          const isEditing = !!formExercise.id;
 
           const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
-              method: !!formExercise.id ? 'PUT' : 'POST',
+              method: isEditing ? 'PUT' : 'POST',
               headers: {'Content-Type': 'application/json'},
               body: JSON.stringify(payload)
           });
           
           if (res.ok) {
+              const savedExerciseFromServer = await res.json(); // Pega a resposta fresca com o ID gerado (se for novo)
+              
+              // ⚡️ INJETA NA TELA NA HORA ⚡️
+              setExercises(prev => {
+                  let newList;
+                  if (isEditing) {
+                      newList = prev.map(ex => ex.id === savedExerciseFromServer.id ? savedExerciseFromServer : ex);
+                  } else {
+                      newList = [savedExerciseFromServer, ...prev]; // Joga pro topo da lista
+                  }
+                  
+                  // ⚡️ ATUALIZA O CACHE NA HORA PRA NÃO DAR "FLICKER" DE TELA ⚡️
+                  AsyncStorage.setItem('@global_exercises', JSON.stringify([...newList].reverse()));
+                  return newList;
+              });
+
               setModalVisible(false);
+              
+              // Deixa o fetch rodando no fundo de forma invisível só pra garantir
               fetchLibrary(); 
+              
               if(isWeb) window.alert("Exercício salvo com sucesso!");
               else Alert.alert("Sucesso", "Exercício salvo com sucesso!");
           } else { 
@@ -501,7 +524,7 @@ export default function BibliotecaAdmin({ navigation }) {
                           setFormExercise({
                               ...ex, 
                               subCategory: ex.subCategory || 'Geral',
-                              environments: ex.environments || ['ACADEMIA'] // Previne crash em treinos legados
+                              environments: ex.environments || ['ACADEMIA'] 
                           }); 
                           setShowFormDropdown(false); 
                           setShowFormSubDropdown(false);
@@ -643,7 +666,6 @@ export default function BibliotecaAdmin({ navigation }) {
                           </>
                       )}
 
-                      {/* 🔥 NOVA ÁREA: TAGS DE AMBIENTE DE TREINO 🔥 */}
                       <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>AMBIENTE DE TREINO (ONDE PODE SER FEITO?)</Text>
                       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 25 }}>
                           {['ACADEMIA', 'CONDOMÍNIO', 'CASA'].map(env => {
@@ -751,7 +773,6 @@ const styles = StyleSheet.create({
   mfitTitle: { fontSize: 14, fontWeight: '900', flexWrap: 'wrap' },
   mfitCategory: { fontSize: 10, marginTop: 4, fontWeight: 'bold', textTransform: 'uppercase' },
   
-  // 🔥 ESTILOS DAS TAGS 🔥
   tagsContainer: { flexDirection: 'row', gap: 4, marginTop: 6, flexWrap: 'wrap' },
   envBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
   envBadgeText: { fontSize: 8, fontWeight: 'bold', textTransform: 'uppercase' },
