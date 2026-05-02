@@ -18,7 +18,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
         daysArray.reduce((acc, day) => ({ ...acc, [day]: [] }), {})
     );
 
-    // 🔥 MAPA COMPLETO DE SUB-CATEGORIAS (IGUAL AO SEU BACKEND) 🔥
     const MUSCLE_GROUPS = [
         { 
             category: "PEITORAL", 
@@ -63,7 +62,6 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
 
     const handleNextStep = () => {
         console.log("ESTRUTURA MONTADA PELO COACH:", structure);
-        // 🔥 AQUI É A PONTE PARA A TELA FINAL QUE CRIAREMOS A SEGUIR 🔥
         navigation.navigate('LaboratoryFinalScreen', { config, structure });
     };
 
@@ -109,41 +107,39 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                         </ScrollView>
                     </View>
 
-                    {/* CONTEÚDO COM SCROLL BLINDADO */}
-                    <View style={{ flex: 1, overflow: 'hidden' }}>
-                        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                            <View style={[styles.infoBox, { backgroundColor: theme.surface }]}>
-                                <MaterialCommunityIcons name="information-outline" size={20} color={theme.textSecondary} />
-                                <Text style={[styles.infoText, { color: theme.textSecondary }]}>O que vamos treinar no <Text style={{color: theme.accent, fontWeight: 'bold'}}>DIA {activeDay}</Text>?</Text>
-                            </View>
+                    {/* 🔥 SCROLL BLINDADO COM FLEX 1 🔥 */}
+                    <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                        <View style={[styles.infoBox, { backgroundColor: theme.surface }]}>
+                            <MaterialCommunityIcons name="information-outline" size={20} color={theme.textSecondary} />
+                            <Text style={[styles.infoText, { color: theme.textSecondary }]}>O que vamos treinar no <Text style={{color: theme.accent, fontWeight: 'bold'}}>DIA {activeDay}</Text>?</Text>
+                        </View>
 
-                            {/* CATEGORIAS E GRID DE MÚSCULOS */}
-                            {MUSCLE_GROUPS.map((group, index) => (
-                                <View key={index} style={styles.groupSection}>
-                                    <Text style={[styles.groupTitle, { color: theme.text }]}>{group.category}</Text>
-                                    <View style={styles.grid}>
-                                        {group.items.map(muscle => {
-                                            const isSelected = structure[activeDay].includes(muscle.id);
-                                            return (
-                                                <TouchableOpacity 
-                                                    key={muscle.id}
-                                                    style={[styles.muscleCard, { backgroundColor: theme.bg, borderColor: theme.border }, isSelected && { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}
-                                                    onPress={() => toggleMuscle(muscle.id)}
-                                                >
-                                                    <View style={[styles.checkbox, { borderColor: theme.border }, isSelected && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-                                                        {isSelected && <MaterialCommunityIcons name="check" size={12} color={theme.isDark ? '#000' : '#FFF'} />}
-                                                    </View>
-                                                    <Text style={[styles.muscleText, { color: theme.text }, isSelected && { color: theme.accent, fontWeight: 'bold' }]} numberOfLines={2}>{muscle.label}</Text>
-                                                </TouchableOpacity>
-                                            );
-                                        })}
-                                    </View>
+                        {/* CATEGORIAS E GRID DE MÚSCULOS */}
+                        {MUSCLE_GROUPS.map((group, index) => (
+                            <View key={index} style={styles.groupSection}>
+                                <Text style={[styles.groupTitle, { color: theme.text }]}>{group.category}</Text>
+                                <View style={styles.grid}>
+                                    {group.items.map(muscle => {
+                                        const isSelected = structure[activeDay].includes(muscle.id);
+                                        return (
+                                            <TouchableOpacity 
+                                                key={muscle.id}
+                                                style={[styles.muscleCard, { backgroundColor: theme.bg, borderColor: theme.border }, isSelected && { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}
+                                                onPress={() => toggleMuscle(muscle.id)}
+                                            >
+                                                <View style={[styles.checkbox, { borderColor: theme.border }, isSelected && { backgroundColor: theme.accent, borderColor: theme.accent }]}>
+                                                    {isSelected && <MaterialCommunityIcons name="check" size={12} color={theme.isDark ? '#000' : '#FFF'} />}
+                                                </View>
+                                                <Text style={[styles.muscleText, { color: theme.text }, isSelected && { color: theme.accent, fontWeight: 'bold' }]} numberOfLines={2}>{muscle.label}</Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
-                            ))}
-                        </ScrollView>
-                    </View>
+                            </View>
+                        ))}
+                    </ScrollView>
 
-                    {/* BOTÃO DE AVANÇAR */}
+                    {/* 🔥 BOTÃO DE AÇÃO FIXO NO FLUXO (SEM ABSOLUTE) 🔥 */}
                     <View style={[styles.footer, { backgroundColor: theme.bg }]}>
                         <TouchableOpacity 
                             style={[styles.actionButton, { backgroundColor: theme.accent }]}
@@ -170,16 +166,20 @@ const styles = StyleSheet.create({
     dayTabText: { fontSize: 12, fontWeight: 'bold' },
     badge: { width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center' },
     badgeText: { fontSize: 9, fontWeight: '900' },
-    scrollContent: { padding: 20, paddingBottom: 150, flexGrow: 1 },
+    
+    // SCROLL COM ESPAÇAMENTO RESPIRÁVEL
+    scrollContent: { paddingHorizontal: 20, paddingBottom: 40, paddingTop: 20, flexGrow: 1 },
+    
     infoBox: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, marginBottom: 20, gap: 10 },
     infoText: { flex: 1, fontSize: 12, lineHeight: 18 },
-    groupSection: { marginBottom: 25 },
-    groupTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 10, opacity: 0.8 },
-    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
+    groupSection: { marginBottom: 30 }, // Margem aumentada para separar bem os grupos
+    grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between' }, // Gap aumentado
     muscleCard: { width: '48%', flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1, gap: 10 },
     checkbox: { width: 18, height: 18, borderRadius: 6, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
     muscleText: { fontSize: 11, fontWeight: '600', flexShrink: 1 },
-    footer: { paddingHorizontal: 20, paddingVertical: 20 },
+    
+    // FOOTER FIXO (SEM POSITION ABSOLUTE)
+    footer: { width: '100%', paddingHorizontal: 20, paddingVertical: 20, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)' },
     actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 14, gap: 10 },
     actionButtonText: { fontSize: 14, fontWeight: '900', letterSpacing: 1 }
 });
