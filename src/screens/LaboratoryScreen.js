@@ -28,7 +28,8 @@ export default function LaboratoryScreen({ navigation }) {
 
     const [mode, setMode] = useState('MATRIZ'); 
     const [selectedStudent, setSelectedStudent] = useState(null);
-    const [searchQuery, setSearchQuery] = '';
+    // 🔥 O ERRO DA TELA BRANCA TAVA AQUI. CORRIGIDO PARA useState('') 🔥
+    const [searchQuery, setSearchQuery] = useState('');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
     const [students, setStudents] = useState([]);
@@ -118,10 +119,7 @@ export default function LaboratoryScreen({ navigation }) {
         <SafeAreaView style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
             
-            {/* Este View precisa de flex: 1 para que seu filho (o View interno) possa se expandir */}
             <View style={{ flex: 1, width: '100%', alignItems: 'center' }}>
-                {/* Este View também precisa de flex: 1 para que o ScrollView possa ocupar o espaço restante */}
-                {/* Removi flexDirection: 'column' pois é o padrão e pode ter causado algum conflito */}
                 <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
                     
                     {/* CABEÇALHO */}
@@ -146,88 +144,89 @@ export default function LaboratoryScreen({ navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* SCROLL PRINCIPAL */}
-                    {/* O ScrollView precisa de flex: 1 para ocupar o espaço restante entre o cabeçalho/tabs e o footer */}
-                    <ScrollView 
-                        style={{ flex: 1, width: '100%' }} 
-                        contentContainerStyle={styles.scrollContent} 
-                        showsVerticalScrollIndicator={false}
-                    >
-                        
-                        {/* MODO ALUNO: DROPDOWN DE SELEÇÃO */}
-                        {mode === 'ALUNO' && (
-                            <SectionCard title="ATLETA SELECIONADO" theme={theme}>
-                                {!selectedStudent ? (
-                                    <TouchableOpacity style={[styles.dropdownButton, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => setIsDropdownOpen(true)}>
-                                        <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Toque para selecionar um aluno...</Text>
-                                        <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
-                                    </TouchableOpacity>
-                                ) : (
-                                    <View style={[styles.selectedStudentCard, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
-                                        <View>
-                                            <Text style={[styles.studentName, { color: theme.text }]}>{selectedStudent.name}</Text>
-                                            <Text style={[styles.studentDetail, { color: theme.accent }]}>Anamnese importada com sucesso.</Text>
-                                        </View>
-                                        <TouchableOpacity onPress={() => setSelectedStudent(null)} style={styles.clearButton}>
-                                            <MaterialCommunityIcons name="close" size={18} color={theme.text} />
+                    {/* 🔥 SCROLL BLINDADO DA WEB 🔥 */}
+                    <View style={{ flex: 1, width: '100%', overflow: 'hidden' }}>
+                        <ScrollView 
+                            style={{ flex: 1, width: '100%' }} 
+                            contentContainerStyle={styles.scrollContent} 
+                            showsVerticalScrollIndicator={false}
+                        >
+                            
+                            {/* MODO ALUNO: DROPDOWN DE SELEÇÃO */}
+                            {mode === 'ALUNO' && (
+                                <SectionCard title="ATLETA SELECIONADO" theme={theme}>
+                                    {!selectedStudent ? (
+                                        <TouchableOpacity style={[styles.dropdownButton, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => setIsDropdownOpen(true)}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Toque para selecionar um aluno...</Text>
+                                            <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
                                         </TouchableOpacity>
-                                    </View>
-                                )}
+                                    ) : (
+                                        <View style={[styles.selectedStudentCard, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+                                            <View>
+                                                <Text style={[styles.studentName, { color: theme.text }]}>{selectedStudent.name}</Text>
+                                                <Text style={[styles.studentDetail, { color: theme.accent }]}>Anamnese importada com sucesso.</Text>
+                                            </View>
+                                            <TouchableOpacity onPress={() => setSelectedStudent(null)} style={styles.clearButton}>
+                                                <MaterialCommunityIcons name="close" size={18} color={theme.text} />
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </SectionCard>
+                            )}
+
+                            {/* FILTROS MACRO */}
+                            <SectionCard title="OBJETIVO PRINCIPAL" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
+                                <View style={styles.rowGrid}>
+                                    {OBJECTIVES.map(obj => (
+                                        <TouchableOpacity key={obj} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, objective === obj && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setObjective(obj)}>
+                                            <Text style={[styles.chipText, { color: objective === obj ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>{obj}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
                             </SectionCard>
-                        )}
 
-                        {/* FILTROS MACRO */}
-                        <SectionCard title="OBJETIVO PRINCIPAL" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
-                            <View style={styles.rowGrid}>
-                                {OBJECTIVES.map(obj => (
-                                    <TouchableOpacity key={obj} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, objective === obj && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setObjective(obj)}>
-                                        <Text style={[styles.chipText, { color: objective === obj ? '#FFF' : theme.textSecondary }]}>{obj}</Text>
-                                    </TouchableOpacity>
-                                ))}
+                            <SectionCard title="NÍVEL DE TREINAMENTO" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
+                                <View style={styles.rowGrid}>
+                                    {LEVELS.map(lvl => (
+                                        <TouchableOpacity key={lvl} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, level === lvl && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setLevel(lvl)}>
+                                            <Text style={[styles.chipText, { color: level === lvl ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>{lvl}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </SectionCard>
+
+                            <SectionCard title="TEMPO POR SESSÃO (MIN)" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
+                                <View style={styles.rowGrid}>
+                                    {TIMES.map(t => (
+                                        <TouchableOpacity key={t} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, time === t && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setTime(t)}>
+                                            <Text style={[styles.chipText, { color: time === t ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>{t}'</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </SectionCard>
+
+                            <SectionCard title="DIAS NA SEMANA" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
+                                <View style={styles.rowGrid}>
+                                    {DAYS.map(d => (
+                                        <TouchableOpacity key={d} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, days === d && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setDays(d)}>
+                                            <Text style={[styles.chipText, { color: days === d ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>{d}X</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </SectionCard>
+
+                            <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
+                                <MaterialCommunityIcons name="information-outline" size={20} color={theme.accent} />
+                                <Text style={[styles.infoText, { color: theme.textSecondary }]}>
+                                    {objective === 'EMAGRECIMENTO' && time >= 60 
+                                        ? `200 kcal de Cardio Pós (Dias sem perna). Musculação: ~${time - 20} min.` 
+                                        : objective === 'HIPERTROFIA' 
+                                        ? 'Cardio Pós-Treino (200 kcal) distribuído em 3x na semana.'
+                                        : `Tempo curto (${time} min). Método Bi-set será priorizado.`}
+                                </Text>
                             </View>
-                        </SectionCard>
-
-                        <SectionCard title="NÍVEL DE TREINAMENTO" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
-                            <View style={styles.rowGrid}>
-                                {LEVELS.map(lvl => (
-                                    <TouchableOpacity key={lvl} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, level === lvl && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setLevel(lvl)}>
-                                        <Text style={[styles.chipText, { color: level === lvl ? '#FFF' : theme.textSecondary }]}>{lvl}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </SectionCard>
-
-                        <SectionCard title="TEMPO POR SESSÃO (MIN)" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
-                            <View style={styles.rowGrid}>
-                                {TIMES.map(t => (
-                                    <TouchableOpacity key={t} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, time === t && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setTime(t)}>
-                                        <Text style={[styles.chipText, { color: time === t ? '#FFF' : theme.textSecondary }]}>{t}'</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </SectionCard>
-
-                        <SectionCard title="DIAS NA SEMANA" theme={theme} isDisabled={mode === 'ALUNO' && !selectedStudent}>
-                            <View style={styles.rowGrid}>
-                                {DAYS.map(d => (
-                                    <TouchableOpacity key={d} style={[styles.chip, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }, days === d && { backgroundColor: theme.accent, borderWidth: 0 }]} onPress={() => setDays(d)}>
-                                        <Text style={[styles.chipText, { color: days === d ? '#FFF' : theme.textSecondary }]}>{d}X</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </SectionCard>
-
-                        <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
-                            <MaterialCommunityIcons name="information-outline" size={20} color={theme.accent} />
-                            <Text style={[styles.infoText, { color: theme.textSecondary }]}>
-                                {objective === 'EMAGRECIMENTO' && time >= 60 
-                                    ? `200 kcal de Cardio Pós (Dias sem perna). Musculação: ~${time - 20} min.` 
-                                    : objective === 'HIPERTROFIA' 
-                                    ? 'Cardio Pós-Treino (200 kcal) distribuído em 3x na semana.'
-                                    : `Tempo curto (${time} min). Método Bi-set será priorizado.`}
-                            </Text>
-                        </View>
-                    </ScrollView>
+                        </ScrollView>
+                    </View>
 
                     {/* BOTÃO DE AÇÃO FIXO NO FLUXO */}
                     <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
