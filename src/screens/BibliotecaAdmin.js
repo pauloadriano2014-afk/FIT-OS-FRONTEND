@@ -49,6 +49,9 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
         displayCat += ` • ${item.subCategory.toUpperCase()}`;
     }
 
+    // Puxa as tags do banco, se não existir (exercícios antigos), assume ACADEMIA
+    const envTags = item.environments || ['ACADEMIA'];
+
     return (
         <TouchableOpacity 
             style={[styles.mfitCard, { width: width, backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? '#000' : '#CCC' }]}
@@ -71,6 +74,15 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
             <View style={styles.mfitInfo}>
                 <Text style={[styles.mfitTitle, { color: theme.text }]} numberOfLines={2}>{item.name}</Text>
                 <Text style={[styles.mfitCategory, { color: theme.textSecondary }]}>{displayCat}</Text>
+                
+                {/* 🔥 EXIBIÇÃO DAS TAGS DE AMBIENTE NO CARD 🔥 */}
+                <View style={styles.tagsContainer}>
+                    {envTags.map(env => (
+                        <View key={env} style={[styles.envBadge, { backgroundColor: theme.isDark ? '#2A2A2A' : '#EFEFEF' }]}>
+                            <Text style={[styles.envBadgeText, { color: theme.textSecondary }]}>{env}</Text>
+                        </View>
+                    ))}
+                </View>
             </View>
 
             <View style={styles.mfitActionGroup}>
@@ -108,12 +120,14 @@ export default function BibliotecaAdmin({ navigation }) {
   
   const [showSubCatDropdown, setShowSubCatDropdown] = useState(false);
 
+  // 🔥 ESTADO EXPANDIDO COM A NOVA ARRAY DE AMBIENTES 🔥
   const [formExercise, setFormExercise] = useState({ 
       id: null, 
       name: '', 
       category: 'Peito', 
       subCategory: 'Geral',
-      videoUrl: '' 
+      videoUrl: '',
+      environments: ['ACADEMIA'] 
   });
   
   const [saving, setSaving] = useState(false);
@@ -123,7 +137,6 @@ export default function BibliotecaAdmin({ navigation }) {
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
-  // 🔥 INJEÇÃO DE CSS: SCROLLBAR INVISÍVEL PARA WEB 🔥
   useEffect(() => {
       if (Platform.OS === 'web') {
           const style = document.createElement('style');
@@ -275,6 +288,8 @@ export default function BibliotecaAdmin({ navigation }) {
 
   const handleSaveOrUpdate = async () => {
       if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
+      if (formExercise.environments.length === 0) return Alert.alert("Atenção", "Selecione pelo menos um ambiente de treino (Academia, Condomínio ou Casa).");
+
       setSaving(true);
       try {
           const userJson = await AsyncStorage.getItem('user');
@@ -343,7 +358,6 @@ export default function BibliotecaAdmin({ navigation }) {
             </View>
         )}
 
-        {/* MUDANÇA WEB: Width passou para 100% para pegar o scroll de fora e contentContainerStyle restringe pra tela ficar no centro */}
         <View style={{ 
             flex: 1, width: '100%', 
             alignSelf: 'center', backgroundColor: isWeb ? 'transparent' : theme.bg
@@ -355,10 +369,9 @@ export default function BibliotecaAdmin({ navigation }) {
               keyExtractor={item => String(item.id)}
               numColumns={numColumns}
               style={{ flex: 1, width: '100%' }}
-              // MUDANÇA: O container limita em containerWidth, e o alignSelf center joga no meio
               contentContainerStyle={{ width: '100%', maxWidth: containerWidth, alignSelf: 'center', backgroundColor: theme.bg, paddingBottom: 30, paddingHorizontal: HORIZONTAL_PADDING, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, overflow: 'hidden' } : {}) }}
               columnWrapperStyle={numColumns > 1 ? { gap: SPACING } : undefined} 
-              showsVerticalScrollIndicator={false} // ESCONDIDO NA PROPRIEDADE POR GARANTIA
+              showsVerticalScrollIndicator={false}
               
               initialNumToRender={8}
               maxToRenderPerBatch={8}
@@ -485,7 +498,11 @@ export default function BibliotecaAdmin({ navigation }) {
                       item={item} width={itemWidth} theme={theme}
                       onPress={openVideoPreview}
                       onEdit={(ex) => { 
-                          setFormExercise({...ex, subCategory: ex.subCategory || 'Geral'}); 
+                          setFormExercise({
+                              ...ex, 
+                              subCategory: ex.subCategory || 'Geral',
+                              environments: ex.environments || ['ACADEMIA'] // Previne crash em treinos legados
+                          }); 
                           setShowFormDropdown(false); 
                           setShowFormSubDropdown(false);
                           setModalVisible(true); 
@@ -500,7 +517,12 @@ export default function BibliotecaAdmin({ navigation }) {
                 <View style={[styles.footerBar, { width: '100%', maxWidth: containerWidth, backgroundColor: theme.bg, borderTopColor: theme.border, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1 } : {}) }]}>
                     <TouchableOpacity 
                         style={[styles.btnPremium, { backgroundColor: theme.accent, marginTop: 0, width: '100%' }]} 
-                        onPress={() => { setFormExercise({ id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '' }); setShowFormDropdown(false); setShowFormSubDropdown(false); setModalVisible(true); }}
+                        onPress={() => { 
+                            setFormExercise({ id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '', environments: ['ACADEMIA'] }); 
+                            setShowFormDropdown(false); 
+                            setShowFormSubDropdown(false); 
+                            setModalVisible(true); 
+                        }}
                     >
                         <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10}}>
                             <MaterialCommunityIcons name="plus-circle" size={22} color={theme.isDark ? '#000' : '#FFF'} />
@@ -620,6 +642,42 @@ export default function BibliotecaAdmin({ navigation }) {
                               )}
                           </>
                       )}
+
+                      {/* 🔥 NOVA ÁREA: TAGS DE AMBIENTE DE TREINO 🔥 */}
+                      <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>AMBIENTE DE TREINO (ONDE PODE SER FEITO?)</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 25 }}>
+                          {['ACADEMIA', 'CONDOMÍNIO', 'CASA'].map(env => {
+                              const isSelected = formExercise.environments.includes(env);
+                              return (
+                                  <TouchableOpacity
+                                      key={env}
+                                      style={[
+                                          styles.envChip,
+                                          { borderColor: theme.border, backgroundColor: theme.bg },
+                                          isSelected && { backgroundColor: theme.accent + '20', borderColor: theme.accent }
+                                      ]}
+                                      onPress={() => {
+                                          let newEnvs = [...formExercise.environments];
+                                          if (isSelected) {
+                                              newEnvs = newEnvs.filter(e => e !== env);
+                                          } else {
+                                              newEnvs.push(env);
+                                          }
+                                          setFormExercise({ ...formExercise, environments: newEnvs });
+                                      }}
+                                  >
+                                      <MaterialCommunityIcons
+                                          name={env === 'CASA' ? 'home-outline' : env === 'CONDOMÍNIO' ? 'office-building' : 'dumbbell'}
+                                          size={14}
+                                          color={isSelected ? theme.accent : theme.textSecondary}
+                                      />
+                                      <Text style={{ color: isSelected ? theme.accent : theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>
+                                          {env}
+                                      </Text>
+                                  </TouchableOpacity>
+                              );
+                          })}
+                      </View>
                       
                       <Text style={[styles.inputLabelLabel, { color: theme.textSecondary }]}>VÍDEO DO EXERCÍCIO</Text>
                       
@@ -676,8 +734,6 @@ const styles = StyleSheet.create({
   headerSubtitle: { color: '#888', fontSize: 11, letterSpacing: 1, fontWeight: 'bold' },
   backBtn: { padding: 12, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   searchBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20, height: 55, borderRadius: 30, borderWidth: 1 },
-  
-  // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
   searchInput: { flex: 1, marginLeft: 10, fontSize: 16, fontWeight: '500', outlineStyle: 'none' },
   
   catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderRadius: 16, borderWidth: 1 },
@@ -694,6 +750,13 @@ const styles = StyleSheet.create({
   mfitInfo: { flex: 1, justifyContent: 'center' },
   mfitTitle: { fontSize: 14, fontWeight: '900', flexWrap: 'wrap' },
   mfitCategory: { fontSize: 10, marginTop: 4, fontWeight: 'bold', textTransform: 'uppercase' },
+  
+  // 🔥 ESTILOS DAS TAGS 🔥
+  tagsContainer: { flexDirection: 'row', gap: 4, marginTop: 6, flexWrap: 'wrap' },
+  envBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
+  envBadgeText: { fontSize: 8, fontWeight: 'bold', textTransform: 'uppercase' },
+  envChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1 },
+
   mfitActionGroup: { flexDirection: 'row', alignItems: 'center', gap: 5, marginLeft: 10 },
   mfitActionBtn: { padding: 8, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
 
@@ -708,7 +771,6 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: '900' },
   inputLabelLabel: { fontSize: 11, fontWeight: '800', marginBottom: 10, letterSpacing: 1 },
   
-  // 🔥 BLINDAGEM DE FONT SIZE (EVITA ZOOM NO IOS) 🔥
   modalInputPremium: { borderRadius: 16, padding: 18, fontSize: 16, fontWeight: '500', borderWidth: 1, marginBottom: 25, outlineStyle: 'none' },
   
   uploadBtn: { padding: 18, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
