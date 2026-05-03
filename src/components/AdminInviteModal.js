@@ -62,10 +62,10 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
         const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}`; 
         
-        // 🔥 COPY DINÂMICA: Normal ou Dia das Mães 🔥
+        // 🔥 COPY DINÂMICA CORRIGIDA: Engloba Performance, Elite e a "Carona" 🔥
         let message = '';
         if (propostaType === 'ELITE' && isPromoMaes) {
-            message = `Fala, ${finalName}! Tudo bem?\n\nComo estamos no mês das mães, eu resolvi liberar uma condição exclusiva e super especial no meu plano de acompanhamento Elite (Treino + Dieta) para você dar esse presente a si mesma (ou para a sua mãe) e conquistar a melhor forma da sua vida.\n\nAcesse o link abaixo para ver todos os detalhes dessa oferta única e os bônus que preparei:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start. A promoção fica no ar por pouquíssimo tempo! 💖🔥`;
+            message = `Fala, ${finalName}! Tudo bem?\n\nNeste mês das mães, eu resolvi liberar uma condição inédita e super especial nos meus planos de acompanhamento (com opções de Apenas Treino ou Treino + Dieta).\n\nSeja para você dar esse presente a si mesma, presentear a sua mãe, ou até mesmo pegar carona nessa oportunidade para conquistar a melhor forma da sua vida.\n\nAcesse o link abaixo para ver todos os detalhes dessa oferta única e os bônus que preparei:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start. A promoção fica no ar por pouquíssimo tempo! 💖🔥`;
         } else {
             message = `Fala, ${finalName}! Tudo bem?\n\nConforme conversamos, preparei um material completo para você entender exatamente como a nossa metodologia funciona e como vamos trabalhar juntos para transformar o seu corpo, sem perder tempo com treinos e dietas que não dão resultado.\n\nAcesse o link abaixo para ver todos os detalhes da consultoria, os bônus que você tem direito e os valores:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start, se fizer sentido pra você. 💪🔥`;
         }
@@ -140,7 +140,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                         style={[styles.propostaTypeBtn, propostaType === 'ELITE' && { backgroundColor: '#FFCC00' }]}
                                         onPress={() => { setPropostaType('ELITE'); setIsPromoMaes(false); }}
                                     >
-                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'ELITE' ? '#000' : theme.textSecondary }]}>ELITE (HIGH-TICKET)</Text>
+                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'ELITE' ? '#000' : theme.textSecondary }]}>ELITE / PERFORMANCE</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity 
                                         style={[styles.propostaTypeBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
@@ -168,7 +168,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                 )}
 
                                 <Text style={{fontSize: 10, color: theme.textSecondary, marginBottom: 15, textAlign: 'center'}}>
-                                    {propostaType === 'ELITE' ? 'Consultoria Completa (Treino + Dieta)' : 'Plano de Entrada (Ficha de Treino)'}
+                                    {propostaType === 'ELITE' ? 'Página Principal (Treino + Dieta)' : 'Plano de Entrada (Ficha de Treino)'}
                                 </Text>
 
                                 <TouchableOpacity 
