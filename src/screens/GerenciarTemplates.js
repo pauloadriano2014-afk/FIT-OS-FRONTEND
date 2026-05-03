@@ -170,14 +170,16 @@ export default function GerenciarTemplates({ navigation }) {
           if (!response.ok) throw new Error(data.error || 'Erro na IA');
 
           setModalTempVisible(false);
+          
+          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA 🔥
           navigation.navigate('MontarTreinoAdmin', { 
               isTemplateMode: true, 
-              templateData: { 
+              templateData: JSON.stringify({ 
                   name: data.workoutName || (mode === 'FULL' ? "Nova Rotina Semanal" : "Novo Treino Avulso"), 
                   goal: newTempGoal, level: newTempLevel,
                   collectionId: selectedCollection?.id || null, 
                   data: JSON.stringify(data.exercisesByDay || { 'A': [] }) 
-              } 
+              }) 
           });
       } catch (error) {
           if (Platform.OS === 'web') window.alert("Não foi possível processar o PDF.");
@@ -238,12 +240,16 @@ export default function GerenciarTemplates({ navigation }) {
 
       setModalTempVisible(false);
       if (template) {
-          navigation.navigate('MontarTreinoAdmin', { isTemplateMode: true, templateData: template });
+          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA 🔥
+          navigation.navigate('MontarTreinoAdmin', { isTemplateMode: true, templateData: JSON.stringify(template) });
       } else {
           const finalName = newTempName.trim() ? newTempName : "Novo Template";
+          const newObj = { name: finalName, goal: newTempGoal, level: newTempLevel, collectionId: selectedCollection?.id || null, data: JSON.stringify({ 'A': [] }) };
+          
+          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA 🔥
           navigation.navigate('MontarTreinoAdmin', { 
               isTemplateMode: true, 
-              templateData: { name: finalName, goal: newTempGoal, level: newTempLevel, collectionId: selectedCollection?.id || null, data: JSON.stringify({ 'A': [] }) } 
+              templateData: JSON.stringify(newObj) 
           });
           setNewTempName('');
       }
@@ -319,6 +325,9 @@ export default function GerenciarTemplates({ navigation }) {
                           let renderBlocks = [];
                           if (exercise.blocks && exercise.blocks.length > 0) {
                               renderBlocks = exercise.blocks;
+                          } else if (exercise.series) {
+                              const [sets, reps] = exercise.series.split('/');
+                              renderBlocks = [{ sets: sets || '-', reps: reps || '-', technique: exercise.technique && exercise.technique !== 'NORMAL' ? exercise.technique : '' }];
                           } else if (exercise.sets && exercise.reps) {
                               renderBlocks = [{ sets: exercise.sets, reps: exercise.reps, technique: exercise.technique || '' }];
                           } else {
@@ -364,7 +373,7 @@ export default function GerenciarTemplates({ navigation }) {
 
   const displayedTemplates = selectedCollection 
       ? filteredTemplatesTotal.filter(t => t.collectionId === selectedCollection.id)
-      : filteredTemplatesTotal.filter(t => !t.collectionId); 
+      : filteredTemplatesTotal.filter(t => t.collectionId === null || t.collectionId === undefined || t.collectionId === ''); 
 
   return (
     <RootComponent style={isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg }}>
@@ -603,7 +612,6 @@ export default function GerenciarTemplates({ navigation }) {
                             <Text style={[styles.aiButtonTextSingle, { color: selectedCollection ? selectedCollection.color : theme.accent }]}>IMPORTAR 1 TREINO AVULSO (PDF)</Text>
                         </TouchableOpacity>
 
-                        {/* 🔥 O NOVO BOTÃO QUE CONECTA DIRETO NO MOTOR DO LABORATÓRIO 🔥 */}
                         <TouchableOpacity style={[styles.aiButtonSingle, { borderColor: selectedCollection ? selectedCollection.color : theme.accent, backgroundColor: (selectedCollection ? selectedCollection.color : theme.accent) + '15' }]} onPress={() => {
                             setModalTempVisible(false);
                             navigation.navigate('LaboratoryScreen'); // Manda pro laboratório

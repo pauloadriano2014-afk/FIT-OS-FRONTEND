@@ -26,7 +26,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
     let aluno = null;
+    let templateData = null;
     let isRouteCorrupted = false;
+    
+    // 🔥 O DESEMPACOTADOR BLINDADO ANTI-CORRUPÇÃO 🔥
     try {
         const alunoParam = route.params?.aluno;
         if (typeof alunoParam === 'string') {
@@ -38,11 +41,22 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         } else if (alunoParam) {
             aluno = alunoParam;
         }
+
+        const templateParam = route.params?.templateData;
+        if (typeof templateParam === 'string') {
+            if (templateParam.includes('[object Object]')) {
+                isRouteCorrupted = true;
+            } else {
+                templateData = JSON.parse(templateParam);
+            }
+        } else if (templateParam) {
+            templateData = templateParam;
+        }
     } catch (e) {
-        console.error('Erro ao decodificar aluno da rota:', e);
+        console.error('Erro ao decodificar params da rota:', e);
     }
 
-    const patchedRoute = { ...route, params: { ...route.params, aluno } };
+    const patchedRoute = { ...route, params: { ...route.params, aluno, templateData } };
     const controller = useMontarTreino(patchedRoute, navigation);
     const { state, setters, actions } = controller;
 
@@ -53,7 +67,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [editingTabName, setEditingTabName] = useState(null);
     const [editingTabValue, setEditingTabValue] = useState('');
 
-    // 🔥 INJEÇÃO DE CSS: SCROLLBAR INVISÍVEL PARA WEB 🔥
     useEffect(() => {
         if (Platform.OS === 'web') {
             const style = document.createElement('style');
@@ -202,7 +215,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         }
     }, [state.workoutTabs, state.exercisesByDay, state.selectedWorkoutTab, setters]);
 
-    // 🔥 FILTRO BLINDADO ANTI-CRASH 🔥
     const safeSetInitialCategoryFilter = (catName, subCatName) => {
         try {
             if (catName && setters.setSelectedCategory) {
@@ -266,9 +278,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     <MaterialCommunityIcons name="alert-decagram" size={48} color="#FF3B30" style={{ marginBottom: 16 }} />
                     <Text style={[styles.errorTitle, { color: theme.text }]}>Erro de rota</Text>
                     <Text style={[styles.errorDesc, { color: theme.textSecondary }]}>
-                        O objeto do aluno foi corrompido para{' '}
+                        Os dados do treino foram corrompidos pelo navegador para{' '}
                         <Text style={{ fontWeight: '800', color: '#FF3B30' }}>[object Object]</Text>.
-                        Volte e tente novamente.
+                        Isso acontece na versão Web ao abrir os treinos. Volte e clique novamente (O problema já foi resolvido).
                     </Text>
                     <TouchableOpacity style={[styles.errorBtn, { backgroundColor: theme.accent }]} onPress={() => navigation.goBack()}>
                         <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900' }}>Voltar</Text>
@@ -654,10 +666,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 modalBuscaVisible={state.modalBuscaVisible} setModalBuscaVisible={setters.setModalBuscaVisible}
                 searchText={state.searchText} setSearchText={setters.setSearchText}
                 selectedCategory={state.selectedCategory} setSelectedCategory={setters.setSelectedCategory}
-                
-                // 🔥 O LINK DA SUBCATEGORIA QUE ESTAVA FALTANDO AQUI! 🔥
                 selectedSubCat={state.selectedSubCat} setSelectedSubCat={setters.setSelectedSubCat} 
-                
                 showCatDropdown={state.showCatDropdown} setShowCatDropdown={setters.setShowCatDropdown}
                 categories={state.categories} exerciciosFiltrados={state.exerciciosFiltrados}
                 addExercicioManual={actions.addExercicioManual} isSwapping={state.isSwapping}
@@ -737,7 +746,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             <View style={rootStyle}>
                 <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
                 
-                {/* 1. HEADER FIXO NO TOPO (Pega de ponta a ponta, mas centraliza os botões em 480px) */}
                 <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', zIndex: 10 }}>
                     <View style={[styles.headerInner, { paddingTop: 20, width: '100%', maxWidth: 480 }]}>
                         <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface }]}>
@@ -755,14 +763,12 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* 2. SCROLLVIEW NA LARGURA TOTAL DA TELA (Pega o scroll do mouse não importa onde ele esteja) */}
                 <ScrollView 
                     style={{ flex: 1, width: '100%' }} 
                     contentContainerStyle={{ alignItems: 'center' }} 
                     showsVerticalScrollIndicator={false} 
                     keyboardShouldPersistTaps="handled"
                 >
-                    {/* 3. CONTEÚDO RESTRITO AOS 480px NO MEIO DA TELA */}
                     <View style={{ 
                         width: '100%', maxWidth: 480, backgroundColor: theme.bg, 
                         borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, 
