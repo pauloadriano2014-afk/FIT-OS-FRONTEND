@@ -20,6 +20,8 @@ export const linksAlunos = {
     bruno_montagem: 'https://i.imgur.com/Dbldkvn.png', 
     bruna_montagem: 'https://i.imgur.com/updhshZ.png',
     adri_montagem: 'https://i.imgur.com/nc3FNYN.png',
+    leticia_montagem: 'https://i.imgur.com/LzOosqR.png',
+    jessica_montagem: 'https://i.imgur.com/NCLaN73.png',
 
     // FEEDBACKS WHATSAPP
     feedback_paloma: 'https://i.imgur.com/Ln12MLc.png',

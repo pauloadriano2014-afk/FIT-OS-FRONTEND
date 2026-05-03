@@ -39,6 +39,8 @@ export default function PropostaMaesScreen({ route }) {
 
     const [timeLeft, setTimeLeft] = useState(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
+    
+    const [genderFilter, setGenderFilter] = useState('F'); 
 
     useEffect(() => {
         const calculateTimeLeft = () => {
@@ -219,22 +221,59 @@ export default function PropostaMaesScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* PROVA SOCIAL */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A SUA DOR TEM SOLUÇÃO</Text>
-                    <Text style={styles.sectionSub}>Essas pessoas não tinham genética melhor... elas só pararam de tentar sozinhas. Arraste e veja quem superou a estagnação com o nosso método.</Text>
+                    {/* PROVA SOCIAL COM FILTRO INTELIGENTE E SPIN MATADOR 🔥 */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>NÃO SOMOS TREINADORES DE TEORIA</Text>
+                    <Text style={styles.sectionSub}>
+                        Eu e a Adri vivemos a transformação na pele. Nós transformamos nossos próprios corpos, subimos nos palcos de fisiculturismo natural e validamos esse exato método em dezenas de alunos com resultados absurdos. Estes abaixo são <Text style={{fontWeight: 'bold', color: '#FFF'}}>apenas alguns</Text> deles.
+                    </Text>
+                    
+                    {/* A PERGUNTA DE FECHAMENTO SPIN */}
+                    <View style={styles.spinQuestionBox}>
+                        <MaterialCommunityIcons name="lightning-bolt" size={24} color={MAIN_COLOR} />
+                        <Text style={[styles.spinQuestionText, {color: MAIN_COLOR}]}>
+                            A pergunta é: se eu te entregar a direção exata, a dieta mastigada e o treino corrigido... você está disposto(a) a seguir o plano para ser o nosso próximo "Antes e Depois"?
+                        </Text>
+                    </View>
+                    
+                    {/* ABAS DO FILTRO */}
+                    <View style={{flexDirection: 'row', justifyContent: 'center', marginBottom: 20, gap: 10, paddingHorizontal: 20}}>
+                        <TouchableOpacity 
+                            style={[styles.genderTab, genderFilter === 'F' && {backgroundColor: MAIN_COLOR, borderColor: MAIN_COLOR}]}
+                            onPress={() => setGenderFilter('F')}
+                        >
+                            <Text style={[styles.genderTabText, genderFilter === 'F' && {color: '#FFF'}]}>👩 MULHERES</Text>
+                        </TouchableOpacity>
+                        
+                        <TouchableOpacity 
+                            style={[styles.genderTab, genderFilter === 'M' && {backgroundColor: '#32ADE6', borderColor: '#32ADE6'}]}
+                            onPress={() => setGenderFilter('M')}
+                        >
+                            <Text style={[styles.genderTabText, genderFilter === 'M' && {color: '#FFF'}]}>👨 HOMENS</Text>
+                        </TouchableOpacity>
+                    </View>
+
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
-                        <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
-                        <ModernResultCard goal="🔥 DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
-                        <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
-                        <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
-                        <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
-                        <ModernResultCard goal="💣 VENCENDO A GENÉTICA: DE UM CORPO MAGRO A UMA DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
-                        <ModernResultCard goal="⏱️ A PROVA DE QUE NÃO PRECISA DEMORAR: CHOQUE VISUAL EM 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
-                        <ModernResultCard goal="⚖️ VENCENDO A LUTA CONTRA A BALANÇA: UM EMAGRECIMENTO REAL, VISÍVEL E DEFINITIVO (Vane)" montageUri={linksAlunos.vane_montagem} />
-                        <ModernResultCard goal="🥊 MUITO MAIS QUE QUILOS ELIMINADOS: O RESGATE ABSOLUTO DA AUTOESTIMA E QUALIDADE DE VIDA (Bruno)" montageUri={linksAlunos.bruno_montagem} />
-                        <ModernResultCard goal="🔥 O RESGATE DA AUTOESTIMA: SILHUETA NOVA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
-                        <ModernResultCard goal="🏆 QUEBRANDO PLATÔS: DO TREINO COMUM AO PADRÃO DE PALCO (Adri)" montageUri={linksAlunos.adri_montagem} />
+                        {genderFilter === 'F' ? (
+                            <>
+                                <ModernResultCard goal="🔥 QUASE 20KG ELIMINADOS: DE 97KG PARA 77KG COM SAÚDE E CURVAS RECUPERADAS (Letícia - Aluna da Adri)" montageUri={linksAlunos.leticia_montagem} />
+                                <ModernResultCard goal="🍑 CORPO DESENHADO E GLÚTEO NA NUCA: HIPERTROFIA E DEFINIÇÃO REAL (Jéssica - Aluna da Adri)" montageUri={linksAlunos.jessica_montagem} />
+                                <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
+                                <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
+                                <ModernResultCard goal="⏱️ A PROVA DE QUE NÃO PRECISA DEMORAR: CHOQUE VISUAL EM 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
+                                <ModernResultCard goal="⚖️ VENCENDO A LUTA CONTRA A BALANÇA: UM EMAGRECIMENTO REAL, VISÍVEL E DEFINITIVO (Vane)" montageUri={linksAlunos.vane_montagem} />
+                                <ModernResultCard goal="🔥 O RESGATE DA AUTOESTIMA: SILHUETA NOVA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
+                                <ModernResultCard goal="🏆 QUEBRANDO PLATÔS: DO TREINO COMUM AO PADRÃO DE PALCO (Adri)" montageUri={linksAlunos.adri_montagem} />
+                            </>
+                        ) : (
+                            <>
+                                <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
+                                <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
+                                <ModernResultCard goal="🔥 DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
+                                <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
+                                <ModernResultCard goal="💣 VENCENDO A GENÉTICA: DE UM CORPO MAGRO A UMA DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
+                                <ModernResultCard goal="🥊 MUITO MAIS QUE QUILOS ELIMINADOS: O RESGATE ABSOLUTO DA AUTOESTIMA E QUALIDADE DE VIDA (Bruno)" montageUri={linksAlunos.bruno_montagem} />
+                            </>
+                        )}
                     </ScrollView>
 
                     {/* BÔNUS EXCLUSIVOS COM COR DINÂMICA 🔥 */}
@@ -434,7 +473,15 @@ const styles = StyleSheet.create({
     resultImageMentorContain: { width: '100%', height: '100%', resizeMode: 'contain', borderRadius: 14 }, 
 
     sectionTitle: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, marginBottom: 5 },
-    sectionSub: { color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 30, paddingHorizontal: 10 },
+    sectionSub: { color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 20, paddingHorizontal: 10 },
+    
+    spinQuestionBox: { backgroundColor: `${MAIN_COLOR}15`, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: `${MAIN_COLOR}30`, marginBottom: 30, flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 10 },
+    spinQuestionText: { flex: 1, fontSize: 13, fontWeight: 'bold', lineHeight: 20 },
+
+    // 🔥 ESTILOS DAS ABAS DE GÊNERO 🔥
+    genderTab: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#333', backgroundColor: '#111', alignItems: 'center' },
+    genderTabText: { color: '#888', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+
     arsenalCard: { width: width > 600 ? 250 : width * 0.7, backgroundColor: '#1A1A1A', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#2A2A2A', marginRight: 15, alignItems: 'flex-start' },
     featureIconBox: { width: 54, height: 54, borderRadius: 27, backgroundColor: `${MAIN_COLOR}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: `${MAIN_COLOR}30` },
     arsenalTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
