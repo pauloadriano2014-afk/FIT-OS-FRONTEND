@@ -9,8 +9,11 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const [activeTab, setActiveTab] = useState('PROPOSTA'); 
     const [leadName, setLeadName] = useState('');
     
-    // 🔥 UNIFICADO: Agora foca apenas em ELITE (High-Ticket) ou START (Downsell)
+    // Foca apenas em ELITE (High-Ticket) ou START (Downsell)
     const [propostaType, setPropostaType] = useState('ELITE'); 
+
+    // 🔥 NOVA CHAVE: Controle da Promoção Dia das Mães 🔥
+    const [isPromoMaes, setIsPromoMaes] = useState(false);
 
     const getCoachInfo = () => {
         let coachCode = 'PATEAM'; 
@@ -27,6 +30,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
         onClose(); 
         setLeadName(''); 
+        setIsPromoMaes(false); // Reseta a promo ao fechar
         
         Linking.canOpenURL(whatsappUrl).then(supported => {
             if (supported) Linking.openURL(whatsappUrl);
@@ -48,12 +52,23 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         const finalName = leadName.trim() || 'Atleta';
         const baseUrl = getBaseUrl();
         
-        // Mantém a rota baseada no tipo selecionado
-        const routeName = propostaType === 'START' ? 'PropostaStart' : 'Proposta';
+        // 🔥 CONTROLE DE ROTA INTELIGENTE 🔥
+        let routeName = 'Proposta';
+        if (propostaType === 'START') {
+            routeName = 'PropostaStart';
+        } else if (propostaType === 'ELITE' && isPromoMaes) {
+            routeName = 'PropostaMaes'; // Rota duplicada para a campanha
+        }
+
         const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}`; 
         
-        // 🔥 COPY SPIN SELLING CORRIGIDA 🔥
-        const message = `Fala, ${finalName}! Tudo bem?\n\nConforme conversamos, preparei um material completo para você entender exatamente como a nossa metodologia funciona e como vamos trabalhar juntos para transformar o seu corpo, sem perder tempo com treinos e dietas que não dão resultado.\n\nAcesse o link abaixo para ver todos os detalhes da consultoria, os bônus que você tem direito e os valores:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start, se fizer sentido pra você. 💪🔥`;
+        // 🔥 COPY DINÂMICA: Normal ou Dia das Mães 🔥
+        let message = '';
+        if (propostaType === 'ELITE' && isPromoMaes) {
+            message = `Fala, ${finalName}! Tudo bem?\n\nComo estamos no mês das mães, eu resolvi liberar uma condição exclusiva e super especial no meu plano de acompanhamento Elite (Treino + Dieta) para você dar esse presente a si mesma (ou para a sua mãe) e conquistar a melhor forma da sua vida.\n\nAcesse o link abaixo para ver todos os detalhes dessa oferta única e os bônus que preparei:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start. A promoção fica no ar por pouquíssimo tempo! 💖🔥`;
+        } else {
+            message = `Fala, ${finalName}! Tudo bem?\n\nConforme conversamos, preparei um material completo para você entender exatamente como a nossa metodologia funciona e como vamos trabalhar juntos para transformar o seu corpo, sem perder tempo com treinos e dietas que não dão resultado.\n\nAcesse o link abaixo para ver todos os detalhes da consultoria, os bônus que você tem direito e os valores:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start, se fizer sentido pra você. 💪🔥`;
+        }
         
         openWhatsApp(message);
     };
@@ -72,7 +87,6 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         else if (planType === 'FICHA_8S') planNameStr = 'Projeto de 8 Semanas';
         else planNameStr = 'Desafio 21 Dias';
 
-        // 🔥 FLUXO PWA CORRIGIDO 🔥
         const message = `Opa, ${finalName}! Chegou a hora de iniciarmos a sua ${planNameStr}.\n\nPara darmos o start oficial, acesse o link abaixo para criar a sua conta:\n\n🔗 ${inviteLink}\n\n📲 Após finalizar o cadastro, a própria página vai te mostrar o passo a passo bem simples para você instalar o aplicativo oficial direto no seu celular.\n\n🔑 Importante: Se o aplicativo pedir um Código de Convite no seu primeiro acesso, digite exatamente assim: *${coachCode}*\n\nFaça o seu cadastro por lá e me avise aqui para eu liberar o seu plano. Seja bem-vindo(a) ${teamName}! 💪🔥`;
         
         openWhatsApp(message);
@@ -124,39 +138,57 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                 <View style={[styles.propostaTypeContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
                                     <TouchableOpacity 
                                         style={[styles.propostaTypeBtn, propostaType === 'ELITE' && { backgroundColor: '#FFCC00' }]}
-                                        onPress={() => setPropostaType('ELITE')}
+                                        onPress={() => { setPropostaType('ELITE'); setIsPromoMaes(false); }}
                                     >
                                         <Text style={[styles.propostaTypeText, { color: propostaType === 'ELITE' ? '#000' : theme.textSecondary }]}>ELITE (HIGH-TICKET)</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity 
                                         style={[styles.propostaTypeBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
-                                        onPress={() => setPropostaType('START')}
+                                        onPress={() => { setPropostaType('START'); setIsPromoMaes(false); }}
                                     >
                                         <Text style={[styles.propostaTypeText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>START (DOWNSELL)</Text>
                                     </TouchableOpacity>
                                 </View>
+                                
+                                {/* 🔥 TOGGLE DE ATIVAÇÃO DA PROMOÇÃO DIA DAS MÃES 🔥 */}
+                                {propostaType === 'ELITE' && (
+                                    <TouchableOpacity 
+                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, paddingVertical: 8, backgroundColor: isPromoMaes ? '#E91E6315' : 'transparent', borderRadius: 8, borderWidth: isPromoMaes ? 1 : 0, borderColor: '#E91E6330' }}
+                                        onPress={() => setIsPromoMaes(!isPromoMaes)}
+                                    >
+                                        <MaterialCommunityIcons 
+                                            name={isPromoMaes ? "checkbox-marked" : "checkbox-blank-outline"} 
+                                            size={20} 
+                                            color={isPromoMaes ? '#E91E63' : theme.textSecondary} 
+                                        />
+                                        <Text style={{ marginLeft: 8, color: isPromoMaes ? '#E91E63' : theme.textSecondary, fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5 }}>
+                                            {isPromoMaes ? "💖 PROMOÇÃO DIA DAS MÃES ATIVADA" : "ATIVAR PROMOÇÃO DIA DAS MÃES"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+
                                 <Text style={{fontSize: 10, color: theme.textSecondary, marginBottom: 15, textAlign: 'center'}}>
                                     {propostaType === 'ELITE' ? 'Consultoria Completa (Treino + Dieta)' : 'Plano de Entrada (Ficha de Treino)'}
                                 </Text>
 
                                 <TouchableOpacity 
                                     style={[styles.optionCard, {
-                                        borderColor: propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6', 
-                                        backgroundColor: propostaType === 'ELITE' ? '#FFCC0011' : '#32ADE611', 
+                                        borderColor: isPromoMaes ? '#E91E63' : (propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6'), 
+                                        backgroundColor: isPromoMaes ? '#E91E6311' : (propostaType === 'ELITE' ? '#FFCC0011' : '#32ADE611'), 
                                     }]} 
                                     onPress={generatePropostaLink}
                                 >
                                     <View style={styles.optionLeft}>
                                         <MaterialCommunityIcons 
-                                            name={propostaType === 'ELITE' ? "crown" : "rocket-launch"} 
+                                            name={isPromoMaes ? "gift" : (propostaType === 'ELITE' ? "crown" : "rocket-launch")} 
                                             size={24} 
-                                            color={propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6'} 
+                                            color={isPromoMaes ? '#E91E63' : (propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6')} 
                                         />
-                                        <Text style={[styles.optionText, { color: propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6', fontWeight: '900' }]}>
-                                            ENVIAR PROPOSTA {propostaType}
+                                        <Text style={[styles.optionText, { color: isPromoMaes ? '#E91E63' : (propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6'), fontWeight: '900' }]}>
+                                            {isPromoMaes ? "ENVIAR OFERTA MÃES" : `ENVIAR PROPOSTA ${propostaType}`}
                                         </Text>
                                     </View>
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color={propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6'} />
+                                    <MaterialCommunityIcons name="whatsapp" size={20} color={isPromoMaes ? '#E91E63' : (propostaType === 'ELITE' ? '#FFCC00' : '#32ADE6')} />
                                 </TouchableOpacity>
                             </View>
                         )}

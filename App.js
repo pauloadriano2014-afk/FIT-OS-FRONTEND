@@ -20,6 +20,7 @@ import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
 import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
 import PropostaScreen from './src/screens/PropostaScreen';
 import PropostaStartScreen from './src/screens/PropostaStartScreen';
+import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -48,8 +49,6 @@ import AdminDietScreen from './src/screens/AdminDietScreen';
 import AdminDietLibraryScreen from './src/screens/AdminDietLibraryScreen';
 import AIScannerModal from './src/components/AIScannerModal';
 import LaboratoryScreen from './src/screens/LaboratoryScreen';
-
-// 🔥 AS TELAS DO LABORATÓRIO SENDO IMPORTADAS AQUI 🔥
 import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen'; 
 import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
 
@@ -199,6 +198,7 @@ function RootNavigator() {
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
       <Stack.Screen name="Proposta" component={PropostaScreen} />
       <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
+      <Stack.Screen name="PropostaMaes" component={PropostaMaesScreen} />
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
@@ -223,12 +223,9 @@ function RootNavigator() {
       <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} />
       <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} />
       <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} />
-      
-      {/* 🔥 TELAS DO LABORATÓRIO 🔥 */}
       <Stack.Screen name="LaboratoryScreen" component={LaboratoryScreen} />
       <Stack.Screen name="LaboratoryBuilderScreen" component={LaboratoryBuilderScreen} />
       <Stack.Screen name="LaboratoryFinalScreen" component={LaboratoryFinalScreen} />
-
     </Stack.Navigator>
   );
 }
@@ -245,6 +242,7 @@ const linking = {
       Install: { path: 'registro', parse: { coach: (coach) => coach, plan: (plan) => plan }, initialRouteName: 'Install' },
       Proposta: { path: 'Proposta', parse: { nome: (nome) => nome } },
       PropostaStart: { path: 'PropostaStart', parse: { nome: (nome) => nome } },
+      PropostaMaes: { path: 'PropostaMaes', parse: { nome: (nome) => nome } },
       AdminStudentCheckins: { path: 'admin-checkins' },
       AdminEvolution: { path: 'admin-evolution' },
       AdminAlunoOptions: { path: 'admin-aluno' },
