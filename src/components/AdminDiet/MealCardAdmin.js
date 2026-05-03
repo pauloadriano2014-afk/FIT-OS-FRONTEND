@@ -3,9 +3,9 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function MealCardAdmin({
-    meal, index, totalMeals, theme, toGrams, handleOpenNameSelect, handleOpenTimeSelect,
-    handleDeleteMeal, handleMoveMeal, handleUpdateFoodAmount, handleToggleUnit,
+export default function MealCardAdmin({ 
+    meal, index, totalMeals, theme, toGrams, handleOpenNameSelect, handleOpenTimeSelect, 
+    handleDeleteMeal, handleMoveMeal, handleUpdateFoodAmount, handleToggleUnit, 
     handleDeleteFood, handleOpenSearch, handleMealOptions, handleSwapBaseFood,
     handleUpdateMeal
 }) {
@@ -25,21 +25,37 @@ export default function MealCardAdmin({
 
     return (
         <View style={[styles.mealCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            
+            {/* 🔥 CABEÇALHO EM 2 ANDARES PARA NÃO ESPREMER O TEXTO 🔥 */}
+            <View style={[styles.mealHeader, { backgroundColor: theme.bg }]}>
+                
+                {/* LINHA 1: NOME (EDITÁVEL) E BOTÃO DA SANFONA */}
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <TouchableOpacity 
+                        style={{ flex: 1, paddingRight: 10 }} 
+                        onPress={() => handleOpenNameSelect(meal.id)}
+                        activeOpacity={0.7}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={[styles.mealName, { color: theme.text }]}>{meal.name?.toUpperCase()}</Text>
+                            <MaterialCommunityIcons name="pencil-outline" size={14} color={theme.textSecondary} />
+                        </View>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4}}>
+                            <MaterialCommunityIcons name="fire" size={14} color={theme.accent} />
+                            <Text style={[styles.mealKcal, { color: theme.accent }]}>{Math.round(mealKcal)} kcal total na refeição</Text>
+                        </View>
+                    </TouchableOpacity>
 
-            <TouchableOpacity
-                style={[styles.mealHeader, { backgroundColor: theme.bg }]}
-                activeOpacity={0.8}
-                onPress={() => setIsExpanded(!isExpanded)}
-            >
-                <View style={styles.mealInfoContainer}>
-                    <Text style={[styles.mealName, { color: theme.text }]}>{meal.name?.toUpperCase()}</Text>
-                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4}}>
-                        <MaterialCommunityIcons name="fire" size={12} color={theme.accent} />
-                        <Text style={[styles.mealKcal, { color: theme.accent }]}>{Math.round(mealKcal)} kcal total</Text>
-                    </View>
+                    <TouchableOpacity
+                        style={[styles.accordionBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        onPress={() => setIsExpanded(!isExpanded)}
+                    >
+                        <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                    </TouchableOpacity>
                 </View>
 
-                <View style={styles.mealActionsContainer}>
+                {/* LINHA 2: CONTROLES DE AÇÃO (RELÓGIO, SETAS, OPÇÕES, LIXEIRA) */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
                     <TouchableOpacity
                         style={[styles.timePill, { backgroundColor: theme.surface, borderColor: theme.accent }]}
                         onPress={() => handleOpenTimeSelect(meal.id)}
@@ -48,35 +64,36 @@ export default function MealCardAdmin({
                         <Text style={[styles.timePillText, { color: theme.text }]}>{meal.time || '--:--'}</Text>
                     </TouchableOpacity>
 
-                    <View style={styles.moveButtonsGroup}>
-                        <TouchableOpacity
-                            style={[styles.moveBtn, { opacity: index === 0 ? 0.3 : 1 }]}
-                            onPress={() => handleMoveMeal && handleMoveMeal(meal.id, 'up')}
-                            disabled={index === 0}
-                        >
-                            <MaterialCommunityIcons name="arrow-up" size={16} color={theme.textSecondary} />
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                        <View style={{ flexDirection: 'row', backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderRadius: 10, overflow: 'hidden' }}>
+                            <TouchableOpacity 
+                                style={[styles.moveBtn, { opacity: index === 0 ? 0.3 : 1 }]}
+                                onPress={() => handleMoveMeal && handleMoveMeal(meal.id, 'up')}
+                                disabled={index === 0}
+                            >
+                                <MaterialCommunityIcons name="arrow-up" size={16} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                            <View style={{ width: 1, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }} />
+                            <TouchableOpacity 
+                                style={[styles.moveBtn, { opacity: index === totalMeals - 1 ? 0.3 : 1 }]}
+                                onPress={() => handleMoveMeal && handleMoveMeal(meal.id, 'down')}
+                                disabled={index === totalMeals - 1}
+                            >
+                                <MaterialCommunityIcons name="arrow-down" size={16} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity onPress={() => handleMealOptions(meal.id, meal.name)} style={[styles.actionIconBtn, {backgroundColor: theme.surface, borderColor: theme.border}]}>
+                            <MaterialCommunityIcons name="dots-horizontal" size={18} color={theme.textSecondary} />
                         </TouchableOpacity>
-                        <View style={[styles.moveBtnDivider, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
-                        <TouchableOpacity
-                            style={[styles.moveBtn, { opacity: index === totalMeals - 1 ? 0.3 : 1 }]}
-                            onPress={() => handleMoveMeal && handleMoveMeal(meal.id, 'down')}
-                            disabled={index === totalMeals - 1}
-                        >
-                            <MaterialCommunityIcons name="arrow-down" size={16} color={theme.textSecondary} />
+
+                        <TouchableOpacity onPress={() => handleDeleteMeal(meal.id)} style={[styles.actionIconBtn, {backgroundColor: '#FF3B3015', borderColor: '#FF3B3050'}]}>
+                            <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
                         </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity onPress={() => handleMealOptions(meal.id, meal.name)} style={[styles.actionIconBtn, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                        <MaterialCommunityIcons name="dots-horizontal" size={18} color={theme.textSecondary} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={() => handleDeleteMeal(meal.id)} style={[styles.actionIconBtn, {backgroundColor: '#FF3B3015', borderColor: '#FF3B3050'}]}>
-                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
-                    </TouchableOpacity>
-
-                    <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} style={{marginLeft: 4}} />
                 </View>
-            </TouchableOpacity>
+
+            </View>
 
             <View style={[styles.mealDivider, { backgroundColor: theme.border }]} />
 
@@ -119,12 +136,12 @@ export default function MealCardAdmin({
                                             )}
 
                                             <View style={[
-                                                styles.foodRow,
-                                                isSub
-                                                    ? { backgroundColor: theme.bg, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: theme.border, borderStyle: 'dashed' }
-                                                    : { backgroundColor: theme.surface, borderRadius: 16, padding: 18, borderWidth: 2, borderColor: theme.accent, shadowColor: theme.accent, shadowOffset: {width: 0, height: 0}, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 }
+                                                styles.foodRow, 
+                                                isSub 
+                                                    ? { backgroundColor: theme.bg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border, borderStyle: 'dashed' } 
+                                                    : { backgroundColor: theme.surface, borderRadius: 16, padding: 16, borderWidth: 2, borderColor: theme.accent, shadowColor: theme.accent, shadowOffset: {width: 0, height: 0}, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 }
                                             ]}>
-
+                                                
                                                 {!isSub && (
                                                     <View style={[styles.baseBadge, { backgroundColor: theme.accent }]}>
                                                         <Text style={styles.baseBadgeText}>ALIMENTO BASE</Text>
@@ -169,26 +186,26 @@ export default function MealCardAdmin({
 
                                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
                                                     {!isSub && (
-                                                        <TouchableOpacity
-                                                            onPress={() => handleSwapBaseFood && handleSwapBaseFood(meal.id, food)}
+                                                        <TouchableOpacity 
+                                                            onPress={() => handleSwapBaseFood && handleSwapBaseFood(meal.id, food)} 
                                                             style={[styles.actionIconBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}
                                                         >
                                                             <MaterialCommunityIcons name="swap-horizontal" size={18} color={theme.text} />
                                                         </TouchableOpacity>
                                                     )}
-
-                                                    <TouchableOpacity
-                                                        onPress={() => handleDeleteFood(meal.id, food.uniqueId)}
+                                                    
+                                                    <TouchableOpacity 
+                                                        onPress={() => handleDeleteFood(meal.id, food.uniqueId)} 
                                                         style={[styles.actionIconBtn, { backgroundColor: '#FF3B3015', borderColor: '#FF3B3030' }]}
                                                     >
-                                                        <MaterialCommunityIcons
-                                                            name={isSub ? "close" : "trash-can-outline"}
-                                                            size={isSub ? 16 : 18}
-                                                            color="#FF3B30"
+                                                        <MaterialCommunityIcons 
+                                                            name={isSub ? "close" : "trash-can-outline"} 
+                                                            size={isSub ? 16 : 18} 
+                                                            color="#FF3B30" 
                                                         />
                                                     </TouchableOpacity>
                                                 </View>
-
+                                                
                                             </View>
                                         </React.Fragment>
                                     );
@@ -237,22 +254,16 @@ export default function MealCardAdmin({
 
 const styles = StyleSheet.create({
     mealCard: { borderRadius: 20, borderWidth: 1, marginBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
-    mealHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18 },
-    mealInfoContainer: { flex: 1 }, // Novo contêiner para nome e kcal
+    mealHeader: { padding: 18 },
+    accordionBtn: { padding: 6, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
     mealName: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
     mealKcal: { fontSize: 12, fontWeight: '800' },
-    mealActionsContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 }, // Ajustado o gap
-
     timePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
     timePillText: { fontSize: 13, fontWeight: '900' },
-
-    moveButtonsGroup: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.04)', borderRadius: 10, overflow: 'hidden' }, // Agrupamento para botões de mover
-    moveBtn: { paddingHorizontal: 10, paddingVertical: 8, justifyContent: 'center', alignItems: 'center' }, // Reduzido padding horizontal
-    moveBtnDivider: { width: 1 }, // Divisor entre botões de mover
-
+    moveBtn: { paddingHorizontal: 12, paddingVertical: 8, justifyContent: 'center', alignItems: 'center' },
     actionIconBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     mealDivider: { height: 1, width: '100%' },
-    groupBox: { marginHorizontal: 16, paddingBottom: 20 },
+    groupBox: { marginHorizontal: 16, paddingBottom: 16 },
     foodRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8, position: 'relative' },
     baseBadge: { position: 'absolute', top: -10, left: 16, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, zIndex: 10 },
     baseBadgeText: { fontSize: 8, fontWeight: '900', color: '#000', letterSpacing: 0.5 },
@@ -260,7 +271,7 @@ const styles = StyleSheet.create({
     foodKcal: { fontSize: 11, fontWeight: '800' },
     diffRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
     diffChip: { fontSize: 10, fontWeight: '800' },
-    amountBox: { flexDirection: 'row', alignItems: 'center', marginLeft: 8 },
+    amountBox: { flexDirection: 'row', alignItems: 'center', marginLeft: 4 },
     amountInput: { width: 56, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10, borderWidth: 1, textAlign: 'center', fontSize: 14, fontWeight: '800', outlineStyle: 'none' },
     unitBtn: { paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10, borderWidth: 1, marginLeft: 4, alignItems: 'center' },
     unitText: { fontSize: 10, fontWeight: '800' },
@@ -268,8 +279,9 @@ const styles = StyleSheet.create({
     ouLine: { flex: 1, height: 1 },
     ouBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderWidth: 1, marginHorizontal: 10 },
     ouText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    subBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginTop: 15 },
-    addFoodBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 0, marginBottom: 20, padding: 16, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed' },
+    subBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginTop: 12 },
+    subBtnText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+    addFoodBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 0, marginBottom: 16, padding: 16, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed' },
     addFoodText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
     notesContainer: { paddingHorizontal: 16, paddingBottom: 20 },
     notesLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
