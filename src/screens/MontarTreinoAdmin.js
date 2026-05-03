@@ -416,6 +416,16 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                             </Text>
                                         </TouchableOpacity>
 
+                                        {/* 🔥 AQUI ENTRA O BOTÃO DE DUPLICAR 🔥 */}
+                                        <TouchableOpacity
+                                            style={[styles.actionPillBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}
+                                            onPress={() => actions.duplicateTabInline(tab)}
+                                        >
+                                            <MaterialCommunityIcons name="content-copy" size={14} color={theme.textSecondary} />
+                                            <Text style={[styles.actionPillText, { color: theme.textSecondary }]}>DUPLICAR</Text>
+                                        </TouchableOpacity>
+                                        {/* 🔥 FIM DO BOTÃO DE DUPLICAR 🔥 */}
+
                                         <TouchableOpacity
                                             style={[styles.actionPillBtn, { backgroundColor: 'rgba(255,59,48,0.1)', opacity: state.workoutTabs.length <= 1 ? 0.3 : 1 }]}
                                             onPress={() => deleteTabInline(tab)}
@@ -617,7 +627,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 )}
             </View>
 
-            <DaySelector />
+            {DaySelector()}
 
             {state.currentExercises.length === 0 && (
                 <View style={[styles.emptyState, { borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
@@ -792,7 +802,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                         {SharedFooter()}
                     </View>
                 </ScrollView>
-                <Modais />
+                {Modais()}
             </View>
         );
     }
@@ -826,7 +836,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     />
                 </KeyboardAvoidingView>
             </View>
-            <Modais />
+            {Modais()}
         </SafeAreaViewContext>
     );
 }

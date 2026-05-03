@@ -171,10 +171,11 @@ export default function GerenciarTemplates({ navigation }) {
 
           setModalTempVisible(false);
           
-          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA 🔥
+          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA E GERANDO ID TEMPORÁRIO 🔥
           navigation.navigate('MontarTreinoAdmin', { 
               isTemplateMode: true, 
               templateData: JSON.stringify({ 
+                  id: 'temp_' + Date.now(), // 🔥 A MÁGICA: ID temporário exclusivo para limpar o cache!
                   name: data.workoutName || (mode === 'FULL' ? "Nova Rotina Semanal" : "Novo Treino Avulso"), 
                   goal: newTempGoal, level: newTempLevel,
                   collectionId: selectedCollection?.id || null, 
@@ -244,7 +245,14 @@ export default function GerenciarTemplates({ navigation }) {
           navigation.navigate('MontarTreinoAdmin', { isTemplateMode: true, templateData: JSON.stringify(template) });
       } else {
           const finalName = newTempName.trim() ? newTempName : "Novo Template";
-          const newObj = { name: finalName, goal: newTempGoal, level: newTempLevel, collectionId: selectedCollection?.id || null, data: JSON.stringify({ 'A': [] }) };
+          const newObj = { 
+              id: 'temp_' + Date.now(), // 🔥 A MÁGICA: ID temporário exclusivo para limpar o cache!
+              name: finalName, 
+              goal: newTempGoal, 
+              level: newTempLevel, 
+              collectionId: selectedCollection?.id || null, 
+              data: JSON.stringify({ 'A': [] }) 
+          };
           
           // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA 🔥
           navigation.navigate('MontarTreinoAdmin', { 
