@@ -1,11 +1,35 @@
 // src/components/MontarTreino/ExerciseCardAdmin.js
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ScaleDecorator } from 'react-native-draggable-flatlist';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import SmartThumbnail from './SmartThumbnail';
 
-const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, widthWeight = 1, keyboardType = 'default', onSubmitEditing, nextFocusRef, inputRef }) => {
+// 🔥 SCANNER INTELIGENTE DE EQUIPAMENTOS 🔥
+const getLoadCategoryKey = (name) => {
+    const n = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (n.includes('caneleira') || n.includes('gluteo 4')) return 'caneleira';
+    if (n.includes('halter') || n.includes('desenvolvimento') || n.includes('crucifixo') || n.includes('elevacao') || n.includes('rosca') || n.includes('triceps testa')) return 'halter';
+    if (n.includes('leg') || n.includes('hack') || n.includes('agachamento') || n.includes('supino') || n.includes('terra') || n.includes('remada curvada') || n.includes('articulad')) return 'barra_pesada';
+    if (n.includes('maquina') || n.includes('polia') || n.includes('cabo') || n.includes('cross') || n.includes('puxada') || n.includes('extensora') || n.includes('flexora') || n.includes('voador') || n.includes('peck') || n.includes('gluteo')) return 'maquina';
+    if (n.includes('prancha') || n.includes('abdominal') || n.includes('livre') || n.includes('flexao') || n.includes('barra fixa')) return 'peso_corporal';
+    return 'geral';
+};
+
+// KIT INICIAL DE CARGAS (Apenas na primeira vez)
+const getDefaultLoads = (key) => {
+    switch(key) {
+        case 'halter': return ['6kg', '8kg', '10kg', '12kg', '14kg', '16kg', '20kg'];
+        case 'maquina': return ['10kg', '15kg', '20kg', '25kg', '30kg', '40kg', '50kg', 'Zerar Máquina'];
+        case 'barra_pesada': return ['10kg/lado', '15kg/lado', '20kg/lado', '30kg/lado', '40kg/lado', '50kg/lado'];
+        case 'caneleira': return ['4kg', '6kg', '8kg', '10kg', '12kg'];
+        case 'peso_corporal': return ['Sem carga', 'Anilha 5kg', 'Anilha 10kg', 'Caneleira 2kg'];
+        default: return ['5kg', '10kg', '15kg', '20kg', '25kg', '30kg'];
+    }
+};
+
+const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, widthWeight = 1, keyboardType = 'default', onSubmitEditing, nextFocusRef, inputRef, onBlurAction, onDeleteOption }) => {
     const [showDropdown, setShowDropdown] = useState(false);
 
     return (
@@ -22,9 +46,13 @@ const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, wid
                 keyboardType={keyboardType}
                 onChangeText={(v) => { onChangeText(v); setShowDropdown(true); }}
                 onFocus={() => setShowDropdown(true)}
-                onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
+                onBlur={() => {
+                    setTimeout(() => setShowDropdown(false), 200);
+                    if (onBlurAction) onBlurAction(value);
+                }}
                 onSubmitEditing={() => {
                     setShowDropdown(false);
+                    if (onBlurAction) onBlurAction(value);
                     if (onSubmitEditing) onSubmitEditing();
                     else if (nextFocusRef?.current) nextFocusRef.current.focus();
                 }}
@@ -48,21 +76,33 @@ const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, wid
                                 );
                             }
                             return (
-                                <TouchableOpacity
-                                    key={`opt-${i}`}
-                                    style={[styles.hybridOption, {
-                                        borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                                    }]}
-                                    onPress={() => {
-                                        onChangeText(String(opt.val));
-                                        setShowDropdown(false);
-                                        if (nextFocusRef?.current) nextFocusRef.current.focus();
-                                    }}
-                                >
-                                    <Text style={[styles.hybridOptionText, { color: theme.text }]} numberOfLines={1}>
-                                        {opt.label}
-                                    </Text>
-                                </TouchableOpacity>
+                                <View key={`opt-${i}`} style={[styles.hybridOptionContainer, {
+                                    borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                                }]}>
+                                    <TouchableOpacity
+                                        style={styles.hybridOptionClick}
+                                        onPress={() => {
+                                            onChangeText(String(opt.val));
+                                            setShowDropdown(false);
+                                            if (onBlurAction) onBlurAction(String(opt.val));
+                                            if (nextFocusRef?.current) nextFocusRef.current.focus();
+                                        }}
+                                    >
+                                        <Text style={[styles.hybridOptionText, { color: theme.text }]} numberOfLines={1}>
+                                            {opt.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    
+                                    {/* 🔥 BOTÃO DE EXCLUIR CARGA DO CACHE 🔥 */}
+                                    {opt.isDeletable && onDeleteOption && (
+                                        <TouchableOpacity 
+                                            style={styles.hybridOptionDelete} 
+                                            onPress={() => onDeleteOption(opt.val)}
+                                        >
+                                            <MaterialCommunityIcons name="close-circle" size={16} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
                             );
                         })}
                     </ScrollView>
@@ -75,7 +115,7 @@ const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, wid
 const BlockRow = ({
     bloco, bIndex, index, isCardio, theme, atualizarBloco, removerBloco, adicionarBloco,
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible, workoutModel,
-    OPTIONS_SETS, OPTIONS_REPS, OPTIONS_REST, canRemove,
+    OPTIONS_SETS, OPTIONS_REPS, OPTIONS_REST, OPTIONS_LOAD, saveCustomLoad, removeCustomLoad, canRemove,
     blocksLength
 }) => {
     const refSets = useRef(null);
@@ -111,23 +151,23 @@ const BlockRow = ({
                 nextFocusRef={workoutModel === 'CARGA' && !isCardio ? refLoad : (!isCardio ? refRest : null)}
             />
             {workoutModel === 'CARGA' && !isCardio && (
-                <View style={styles.inputBox}>
-                    <Text style={[styles.miniLabel, { color: theme.accent }]}>ALVO / CARGA</Text>
-                    <TextInput
-                        ref={refLoad}
-                        style={[styles.miniInput, {
-                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                            color: theme.accent,
-                            borderColor: theme.accent + '60',
-                        }]}
-                        value={bloco.load || ''}
-                        keyboardType="default"
-                        placeholder="Ex: 15kg"
-                        placeholderTextColor={theme.textSecondary}
-                        onChangeText={(v) => atualizarBloco(index, bIndex, 'load', v)}
-                        onSubmitEditing={() => refRest.current?.focus()}
-                    />
-                </View>
+                <HybridInput
+                    inputRef={refLoad}
+                    label="ALVO / CARGA"
+                    value={bloco.load || ''}
+                    onChangeText={(v) => atualizarBloco(index, bIndex, 'load', v)}
+                    options={OPTIONS_LOAD}
+                    theme={theme}
+                    isCardio={false}
+                    keyboardType="default"
+                    nextFocusRef={refRest}
+                    onBlurAction={() => saveCustomLoad(bloco.load)}
+                    onDeleteOption={removeCustomLoad} // 🔥 PASSA A FUNÇÃO DE DELETAR 🔥
+                    onSubmitEditing={() => {
+                        saveCustomLoad(bloco.load);
+                        refRest.current?.focus();
+                    }}
+                />
             )}
             {!isCardio && (
                 <HybridInput
@@ -189,8 +229,55 @@ export default function ExerciseCardAdmin({
     const isGhost = String(item.exerciseId || '').startsWith('custom_');
     const isWeb = Platform.OS === 'web';
 
+    const exerciseName = item.exercise?.name || item.title || '';
+    const loadCategoryKey = getLoadCategoryKey(exerciseName);
+
     const [showObsDropdown, setShowObsDropdown] = useState(false);
     const [showPyramidDropdown, setShowPyramidDropdown] = useState(false);
+    
+    // 🔥 ESTADO ÚNICO DE CARGAS (A MEMÓRIA É 100% SUA) 🔥
+    const [activeLoads, setActiveLoads] = useState([]);
+
+    // CARREGA A MEMÓRIA OU INICIA O KIT PADRÃO
+    useEffect(() => {
+        const loadMemory = async () => {
+            try {
+                const saved = await AsyncStorage.getItem(`@loads_v2_${loadCategoryKey}`);
+                if (saved !== null) {
+                    setActiveLoads(JSON.parse(saved)); // Puxa o que você deixou
+                } else {
+                    setActiveLoads(getDefaultLoads(loadCategoryKey)); // Kit inicial se for a primeira vez
+                }
+            } catch(e) {}
+        };
+        loadMemory();
+    }, [loadCategoryKey]);
+
+    // SALVA CARGAS NOVAS NA MEMÓRIA
+    const saveCustomLoad = useCallback(async (newLoad) => {
+        if (!newLoad || String(newLoad).trim() === '') return;
+        const loadStr = String(newLoad).trim();
+
+        if (activeLoads.includes(loadStr)) return;
+
+        try {
+            const updated = [loadStr, ...activeLoads].slice(0, 20); // Limite de 20 cargas
+            setActiveLoads(updated);
+            await AsyncStorage.setItem(`@loads_v2_${loadCategoryKey}`, JSON.stringify(updated));
+        } catch(e) {}
+    }, [activeLoads, loadCategoryKey]);
+
+    // EXCLUI CARGAS DA MEMÓRIA
+    const removeCustomLoad = useCallback(async (loadToRemove) => {
+        const updated = activeLoads.filter(l => l !== loadToRemove);
+        setActiveLoads(updated);
+        try {
+            await AsyncStorage.setItem(`@loads_v2_${loadCategoryKey}`, JSON.stringify(updated));
+        } catch(e) {}
+    }, [activeLoads, loadCategoryKey]);
+
+    // PREPARA AS OPÇÕES DO DROPDOWN (Todas podem ser excluídas)
+    const OPTIONS_LOAD = activeLoads.map(l => ({ val: l, label: l, isDeletable: true }));
 
     const QUICK_OBS = [
         'Faça até a falha',
@@ -332,13 +419,12 @@ export default function ExerciseCardAdmin({
                             <TouchableOpacity
                                 onPress={() => {
                                     setIsSwapping(true); setSwapIndex(index);
-                                    // 🔥 CORREÇÃO: VERIFICA SE A FUNÇÃO EXISTE ANTES DE CHAMAR 🔥
                                     try {
-    if (item.category && setInitialCategoryFilter) {
-        setInitialCategoryFilter(item.category, item.subCategory);
-    }
-} catch(e) { console.log(e); }
-setModalBuscaVisible(true);
+                                        if (item.category && setInitialCategoryFilter) {
+                                            setInitialCategoryFilter(item.category, item.subCategory);
+                                        }
+                                    } catch(e) { console.log(e); }
+                                    setModalBuscaVisible(true);
                                 }}
                                 style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]}
                             >
@@ -357,7 +443,6 @@ setModalBuscaVisible(true);
                         <TouchableOpacity
                             onPress={() => {
                                 setIsSwapping(true); setSwapIndex(index);
-                                // 🔥 CORREÇÃO: VERIFICA SE A FUNÇÃO EXISTE ANTES DE CHAMAR 🔥
                                 if (item.category && typeof setInitialCategoryFilter === 'function') {
                                     setInitialCategoryFilter(item.category, item.subCategory);
                                 }
@@ -396,7 +481,6 @@ setModalBuscaVisible(true);
                         onPress={() => {
                             setIsSelectingSubstitute(true);
                             setTargetIndexForSubstitute(index);
-                            // 🔥 CORREÇÃO: VERIFICA SE A FUNÇÃO EXISTE ANTES DE CHAMAR 🔥
                             if (item.category && typeof setInitialCategoryFilter === 'function') {
                                 setInitialCategoryFilter(item.category, item.subCategory);
                             }
@@ -416,6 +500,7 @@ setModalBuscaVisible(true);
                             bloco={bloco} bIndex={bIndex} index={index}
                             isCardio={isCardio} theme={theme} workoutModel={workoutModel}
                             OPTIONS_SETS={OPTIONS_SETS} OPTIONS_REPS={OPTIONS_REPS} OPTIONS_REST={OPTIONS_REST}
+                            OPTIONS_LOAD={OPTIONS_LOAD} saveCustomLoad={saveCustomLoad} removeCustomLoad={removeCustomLoad}
                             atualizarBloco={atualizarBloco} removerBloco={removerBloco} adicionarBloco={adicionarBloco}
                             setIndexExercicioAtual={setIndexExercicioAtual} setIndexBlocoAtual={setIndexBlocoAtual}
                             setModalTecnicaVisible={setModalTecnicaVisible}
@@ -884,7 +969,7 @@ const styles = StyleSheet.create({
         outlineStyle: 'none',
     },
 
-    // DROPDOWN
+    // DROPDOWN DE OPÇÕES (MODIFICADO PARA TER O BOTÃO DE EXCLUIR)
     hybridDropdown: {
         position: 'absolute',
         top: 58,
@@ -900,9 +985,20 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.15,
         shadowRadius: 8,
     },
-    hybridOption: {
-        padding: 11,
+    hybridOptionContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
         borderBottomWidth: 1,
+    },
+    hybridOptionClick: {
+        flex: 1,
+        padding: 11,
+    },
+    hybridOptionDelete: {
+        padding: 11,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     hybridOptionText: {
         fontSize: 13,

@@ -63,6 +63,11 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [anamneseData, setAnamneseData] = useState(null);
     const [isRaioxExpanded, setIsRaioxExpanded] = useState(false);
     
+    // 🔥 ESTADO DO ALERTA MENSTRUAL 🔥
+    const [alunoIsMenstruating, setAlunoIsMenstruating] = useState(!!aluno?.isMenstruating);
+    const [dbDeloadSynced, setDbDeloadSynced] = useState(false);
+    const hasForcedDeload = useRef(false); // 🔥 O SEGREDO PARA VENCER A CORRIDA DO CACHE 🔥
+    
     const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
     const [editingTabName, setEditingTabName] = useState(null);
     const [editingTabValue, setEditingTabValue] = useState('');
@@ -89,12 +94,25 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         }
     }, []);
     
+    // 🔥 BUSCA OS DADOS FRESCOS DO BANCO DE DADOS 🔥
     useEffect(() => {
         if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
             const fetchDadosRaioX = async () => {
                 try {
                     const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
                     const freshUser = resUser.ok ? await resUser.json() : aluno;
+                    
+                    const taMenstruada = !!freshUser?.isMenstruating;
+                    setAlunoIsMenstruating(taMenstruada);
+
+                    const activeWorkout = freshUser?.workouts?.[0];
+                    const hasDeloadInDb = activeWorkout && activeWorkout.intensityMultiplier < 1;
+
+                    // Apenas sinalizamos que precisa de Deload. Quem vai aplicar é o useEffect abaixo.
+                    if (hasDeloadInDb || taMenstruada) {
+                        setDbDeloadSynced(true); 
+                    }
+
                     let foundAnamnese = null;
                     if (freshUser.goal || freshUser.level) {
                         let rawGoal = freshUser.goal || '';
@@ -121,6 +139,20 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             fetchDadosRaioX();
         }
     }, [aluno?.id, state.isTemplateMode, isRouteCorrupted]);
+
+    // 🔥 A MÁGICA PARA VENCER A CORRIDA DO CACHE 🔥
+    useEffect(() => {
+        // Espera o useMontarTreino terminar de carregar (loading falso)
+        if (!state.loading && dbDeloadSynced && !hasForcedDeload.current) {
+            hasForcedDeload.current = true; // Trava para executar só 1x e deixar você editar depois se quiser
+            try {
+                if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(0.8);
+                const deloadEnd = new Date();
+                deloadEnd.setDate(deloadEnd.getDate() + 5);
+                if (setters.setIntensityEndDate) setters.setIntensityEndDate(deloadEnd);
+            } catch (e) {}
+        }
+    }, [state.loading, dbDeloadSynced]);
 
     const moveTab = useCallback((tabName, direction) => {
         const tabs = [...state.workoutTabs];
@@ -537,6 +569,48 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                 </>
                             )}
                         </View>
+                    )}
+                </View>
+            )}
+
+            {/* 🔥 ALERTA INTELIGENTE DE CICLO MENSTRUAL E DELOAD 🔥 */}
+            {!state.isTemplateMode && alunoIsMenstruating && (
+                <View style={{ backgroundColor: (dbDeloadSynced || state.intensityMultiplier < 1) ? 'rgba(77, 227, 143, 0.1)' : 'rgba(255, 59, 48, 0.1)', borderColor: (dbDeloadSynced || state.intensityMultiplier < 1) ? '#4DE38F' : '#FF3B30', borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                        <MaterialCommunityIcons name={(dbDeloadSynced || state.intensityMultiplier < 1) ? "shield-check" : "water-alert"} size={22} color={(dbDeloadSynced || state.intensityMultiplier < 1) ? "#4DE38F" : "#FF3B30"} />
+                        <Text style={{ color: (dbDeloadSynced || state.intensityMultiplier < 1) ? "#4DE38F" : "#FF3B30", fontSize: 13, fontWeight: '900', letterSpacing: 0.5, marginLeft: 6 }}>
+                            {(dbDeloadSynced || state.intensityMultiplier < 1) ? 'DELOAD MENSTRUAL ATIVADO' : 'ALUNA EM PROTOCOLO MENSTRUAL'}
+                        </Text>
+                    </View>
+                    <Text style={{ color: theme.text, fontSize: 13, lineHeight: 18, marginBottom: (dbDeloadSynced || state.intensityMultiplier < 1) ? 8 : 14 }}>
+                        {(dbDeloadSynced || state.intensityMultiplier < 1) 
+                            ? 'O sistema detectou o ciclo e ativou o Deload de proteção (80%) automaticamente. O visual abaixo já está sincronizado.' 
+                            : 'A aluna sinalizou o ciclo. Para evitar lesões articulares e fadiga do SNC nesta fase, aplique o Deload.'}
+                    </Text>
+
+                    {(dbDeloadSynced || state.intensityMultiplier < 1) && (
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontStyle: 'italic', marginTop: 4 }}>
+                            *Aviso: Certifique-se de que a aba "Periodização" logo abaixo esteja marcada como "Deload" antes de apertar em SALVAR.
+                        </Text>
+                    )}
+
+                    {!(dbDeloadSynced || state.intensityMultiplier < 1) && (
+                        <TouchableOpacity 
+                            style={{ backgroundColor: '#FF3B30', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+                            onPress={() => {
+                                try {
+                                    if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(0.8);
+                                    const deloadEnd = new Date();
+                                    deloadEnd.setDate(deloadEnd.getDate() + 5);
+                                    if (setters.setIntensityEndDate) setters.setIntensityEndDate(deloadEnd);
+                                } catch (e) {}
+                                setDbDeloadSynced(true);
+                            }}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialCommunityIcons name="shield-alert" size={18} color="#FFF" style={{ marginRight: 6 }} />
+                            <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }}>FORÇAR DELOAD DE PROTEÇÃO (-20%)</Text>
+                        </TouchableOpacity>
                     )}
                 </View>
             )}

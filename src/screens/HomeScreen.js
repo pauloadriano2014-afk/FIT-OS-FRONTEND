@@ -53,6 +53,10 @@ export default function HomeScreen({ navigation }) {
   // 🔥 NOVO: Estado para a Pesquisa de NPS
   const [isSurveyVisible, setIsSurveyVisible] = useState(false);
 
+  // 🔥 ESTADOS DO CICLO MENSTRUAL 🔥
+  const [isMenstruating, setIsMenstruating] = useState(false);
+  const [togglingMenstrual, setTogglingMenstrual] = useState(false);
+
   const [isCheckinPending, setIsCheckinPending] = useState(false);
   const [isCheckinLate, setIsCheckinLate] = useState(false);
   const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
@@ -172,6 +176,11 @@ export default function HomeScreen({ navigation }) {
                     setXp(serverXP);
                     
                     fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
+
+                    // 🔥 CORREÇÃO DO F5: Puxa a "verdade absoluta" do banco de dados direto da rota do Admin
+                    // Se o directUserData tiver a info, ele tem prioridade máxima.
+                    const isAtiva = directUserData.isMenstruating !== undefined ? directUserData.isMenstruating : homeData.user?.isMenstruating;
+                    setIsMenstruating(!!isAtiva);
                     
                     const serverPlan = fetchedUser.plan || 'PREMIUM';
                     const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(serverPlan) ? serverPlan : 'PREMIUM';
@@ -276,6 +285,56 @@ export default function HomeScreen({ navigation }) {
     finally { setLoading(false); setRefreshing(false); }
   };
 
+  // 🔥 FUNÇÃO: ATIVAR/DESATIVAR CICLO MENSTRUAL 🔥
+  const toggleMenstrualCycle = async () => {
+      if (!userData?.id || togglingMenstrual) return;
+      setTogglingMenstrual(true);
+      
+      const newValue = !isMenstruating;
+      setIsMenstruating(newValue); 
+
+      // 1. SALVA NO CACHE IMEDIATAMENTE (Blinda o F5)
+      const cachedUser = { ...userData, isMenstruating: newValue, menstruationStartDate: newValue ? new Date().toISOString() : null };
+      await AsyncStorage.setItem('user', JSON.stringify(cachedUser));
+      setUserData(cachedUser);
+
+      try {
+          // 2. TENTA A ROTA COM ID NA URL
+          let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userData.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ 
+                  isMenstruating: newValue,
+                  menstruationStartDate: newValue ? new Date().toISOString() : null
+              })
+          });
+
+          // 3. SE DEU 404, TENTA A ROTA GENÉRICA COM ID NO BODY
+          if (!res.ok) {
+              res = await fetch('https://fitos-final.onrender.com/api/admin/user', {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                      id: userData.id, 
+                      isMenstruating: newValue,
+                      menstruationStartDate: newValue ? new Date().toISOString() : null
+                  })
+              });
+          }
+
+          if (newValue && res.ok) {
+              const title = "Sinalização Ativa 🩸";
+              const msg = "Seu Coach foi notificado. Pegue leve, beba água e se cuide nesses dias!";
+              if (Platform.OS === 'web') window.alert(title + "\n\n" + msg);
+              else Alert.alert(title, msg);
+          }
+      } catch (e) {
+          console.log("Erro de rede ao salvar:", e);
+      } finally {
+          setTogglingMenstrual(false);
+      }
+  };
+
   const handleReadNotice = async () => {
       if (activeNotice) { try { await AsyncStorage.setItem(`read_notice_${activeNotice.id}`, 'true'); } catch(e) {} }
       setNoticeModalVisible(false);
@@ -352,6 +411,13 @@ export default function HomeScreen({ navigation }) {
   const needsInitialPhoto = !hasSentInitialPhotos; 
   const photoModal = getPhotoModalContent();
 
+  // 🔥 IDENTIFICADOR DE GÊNERO BLINDADO (Bloqueia para homens) 🔥
+  const isFemale = 
+      String(userData?.gender).toUpperCase().trim() === 'FEMININO' || 
+      String(userData?.anamneses?.[0]?.genero).toUpperCase().trim() === 'FEMININO' || 
+      String(userData?.anamneses?.[0]?.gender).toUpperCase().trim() === 'FEMININO' ||
+      String(userData?.anamneses?.[0]?.sexo).toUpperCase().trim() === 'FEMININO';
+
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -378,6 +444,53 @@ export default function HomeScreen({ navigation }) {
                 <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
               </TouchableOpacity>
             </View>
+
+            {/* 🔥 BOTÃO DO CICLO MENSTRUAL (APENAS MULHERES) 🔥 */}
+            {isFemale && (
+                <View style={[styles.photoBanner, { backgroundColor: isMenstruating ? '#FF3B3015' : theme.surface, borderColor: isMenstruating ? '#FF3B30' : theme.border, padding: 16, marginTop: -10, marginBottom: 20, alignItems: 'center' }]}>
+                    
+                    {/* Ícone Redondo na Esquerda */}
+                    <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isMenstruating ? '#FF3B3033' : theme.accent + '15', justifyContent: 'center', alignItems: 'center' }}>
+                        <MaterialCommunityIcons name={isMenstruating ? "water" : "water-outline"} size={24} color={isMenstruating ? '#FF3B30' : theme.accent} />
+                    </View>
+                    
+                    {/* Textos no Meio */}
+                    <View style={{ flex: 1, marginLeft: 12, justifyContent: 'center' }}>
+                        <Text style={{ color: isMenstruating ? '#FF3B30' : theme.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }}>
+                            {isMenstruating ? 'DELOAD MENSTRUAL' : 'PROTOCOLO MENSTRUAL'}
+                        </Text>
+                        
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold', marginTop: 2, lineHeight: 14 }}>
+                            {isMenstruating ? 'Treino adaptado para proteção.' : 'Adapte a intensidade nestes dias.'}
+                        </Text>
+                        
+                        {/* Botão "Como Funciona" como um Link Elegante */}
+                        <TouchableOpacity 
+                            style={{ marginTop: 6 }}
+                            onPress={() => {
+                                const title = "A Ciência do Deload 🩸";
+                                const msg = "Durante o período menstrual, a queda hormonal afeta drasticamente sua força e recuperação muscular.\n\nAo sinalizar, o Coach recebe um alerta imediato e ajusta as cargas e o volume do seu treino (Deload).\n\nIsso protege suas articulações, evita frustrações e mantém seu progresso contínuo de forma inteligente!";
+                                if (Platform.OS === 'web') window.alert(title + "\n\n" + msg);
+                                else Alert.alert(title, msg);
+                            }}
+                        >
+                            <Text style={{ color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textDecorationLine: 'underline' }}>
+                                COMO FUNCIONA?
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                    
+                    {/* Toggle na Direita */}
+                    <TouchableOpacity onPress={toggleMenstrualCycle} disabled={togglingMenstrual} style={{ marginLeft: 5 }}>
+                        {togglingMenstrual ? (
+                            <ActivityIndicator size="small" color={isMenstruating ? '#FF3B30' : theme.textSecondary} />
+                        ) : (
+                            <MaterialCommunityIcons name={isMenstruating ? "toggle-switch" : "toggle-switch-off-outline"} size={48} color={isMenstruating ? '#FF3B30' : theme.textSecondary} />
+                        )}
+                    </TouchableOpacity>
+
+                </View>
+            )}
 
             {needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
                 <TouchableOpacity style={[styles.photoBanner, { backgroundColor: '#FF3B3015', borderColor: '#FF3B30', padding: 16 }]} onPress={() => setInitialPhotosModalVisible(true)} activeOpacity={0.8}>
