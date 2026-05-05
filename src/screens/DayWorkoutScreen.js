@@ -415,13 +415,17 @@ export default function DayWorkoutScreen({ route, navigation }) {
     }
   };
 
-  // 🔥 A CIRURGIA ESTÁ AQUI: ADICIONADO alunoName: userData?.name 🔥
+  // 🔥 A CIRURGIA ESTÁ AQUI: ADICIONADO alunoName e videoUrl (GABARITO DA CLOUDFLARE) 🔥
   const handleOpenIA = (item) => {
       if (userPlan === 'PREMIUM') { 
           try { 
+              // Puxa a URL do vídeo de onde quer que ela esteja salva no objeto
+              const refVideo = item.exercise?.videoUrl || item.videoUrl || '';
+              
               navigation.navigate('ScannerIA', { 
-                  exName: item.exercise?.name, 
-                  alunoName: userData?.name 
+                  exName: item.exercise?.name || item.title || 'Exercício', 
+                  alunoName: userData?.name,
+                  videoUrl: refVideo // Mandando o seu vídeo de gabarito para a IA!
               }); 
           } catch (e) {} 
       } else { 

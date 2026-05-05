@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, 
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { uploadAsync } from 'expo-file-system/legacy';
-import { Video } from 'react-native-compressor'; // 🔥 IMPORTAÇÃO DO COMPRESSOR
+import { Video } from 'react-native-compressor'; 
 
 const { height } = Dimensions.get('window');
 
@@ -35,9 +35,11 @@ const getElitePrompt = (exerciseName) => {
 
 export default function ScannerIA({ navigation, route }) {
   const exerciseName = route?.params?.exName || "Exercício";
-  
-  // 🔥 PEGANDO O NOME DO ALUNO 🔥
   const alunoName = route?.params?.alunoName || "Aluno"; 
+  
+  // 🔥 NOVO: PEGA O VÍDEO DO COACH DA ROTA (O GABARITO) 🔥
+  // Lembre-se de passar "videoUrl: exercicio.videoUrl" na hora de chamar navigation.navigate('ScannerIA', {...})
+  const referenceVideoUrl = route?.params?.videoUrl || ""; 
 
   const currentInstruction = getInstruction(exerciseName);
   
@@ -62,12 +64,12 @@ export default function ScannerIA({ navigation, route }) {
   const openNativeCameraAndRecord = async () => {
     try {
       const result = await ImagePicker.launchCameraAsync({
-  mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-  allowsEditing: true, 
-  videoMaxDuration: 7, 
-  quality: 0.1, // 🔥 Baixamos pro mínimo
-  videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480, // 🔥 Força 480p
-});
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true, 
+        videoMaxDuration: 7, 
+        quality: 0.1,
+        videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480,
+      });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         uploadVideoForAnalysis(result.assets[0]);
@@ -80,12 +82,12 @@ export default function ScannerIA({ navigation, route }) {
   const pickFromGallery = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-  mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-  allowsEditing: true, 
-  videoMaxDuration: 7, 
-  quality: 0.1, // 🔥 Baixamos pro mínimo
-  videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480, // 🔥 Força 480p (Super leve)
-});
+        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+        allowsEditing: true, 
+        videoMaxDuration: 7, 
+        quality: 0.1, 
+        videoExportPreset: ImagePicker.VideoExportPreset.H264_640x480, 
+      });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         uploadVideoForAnalysis(result.assets[0]);
@@ -114,7 +116,7 @@ export default function ScannerIA({ navigation, route }) {
             asset.uri,
             {
               compressionMethod: 'auto',
-              minimumFileSizeForCompress: 2, // Comprime apenas se passar de 2MB
+              minimumFileSizeForCompress: 2,
             },
             (progress) => {
               console.log('Progresso compressão: ', progress);
@@ -124,7 +126,7 @@ export default function ScannerIA({ navigation, route }) {
           console.log('Vídeo comprimido com sucesso. URI final: ', finalVideoUri);
         } catch (compressError) {
           console.error("Erro ao comprimir, enviando vídeo original: ", compressError);
-          finalVideoUri = asset.uri; // Fallback de segurança
+          finalVideoUri = asset.uri; 
         }
       }
 
@@ -143,6 +145,9 @@ export default function ScannerIA({ navigation, route }) {
         formData.append('exerciseName', enhancedExerciseName);
         formData.append('userLevel', 'Geral');
         formData.append('alunoName', alunoName);
+        
+        // 🔥 INJETA O GABARITO AQUI 🔥
+        formData.append('referenceVideoUrl', referenceVideoUrl);
 
         const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
           method: 'POST',
@@ -161,7 +166,8 @@ export default function ScannerIA({ navigation, route }) {
           parameters: { 
             'exerciseName': enhancedExerciseName, 
             'userLevel': 'Geral',
-            'alunoName': alunoName 
+            'alunoName': alunoName,
+            'referenceVideoUrl': referenceVideoUrl // 🔥 INJETA O GABARITO AQUI 🔥
           },
         });
 
