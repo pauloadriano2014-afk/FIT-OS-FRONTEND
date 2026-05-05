@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
   StatusBar, RefreshControl, ActivityIndicator, Alert, Platform, Modal,
-  Animated, Linking, Image, AppState // 🔥 IMPORT DO APPSTATE ADICIONADO AQUI
+  Animated, Linking, Image, AppState
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,7 +16,6 @@ import LevelUpModal from '../components/LevelUpModal';
 import HomeNoticeModal from '../components/HomeNoticeModal';
 import ChatAIAssistantModal from '../components/ChatAIAssistantModal';
 import DietGuideModal from '../components/DietGuideModal'; 
-// 🔥 Importações Modulares Novas
 import StudentReportModal from '../components/StudentReportModal';
 import InitialPhotosModal from '../components/InitialPhotosModal';
 import SatisfactionSurveyModal from '../components/SatisfactionSurveyModal';
@@ -50,10 +49,8 @@ export default function HomeScreen({ navigation }) {
   const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
   
-  // 🔥 NOVO: Estado para a Pesquisa de NPS
   const [isSurveyVisible, setIsSurveyVisible] = useState(false);
 
-  // 🔥 ESTADOS DO CICLO MENSTRUAL 🔥
   const [isMenstruating, setIsMenstruating] = useState(false);
   const [togglingMenstrual, setTogglingMenstrual] = useState(false);
 
@@ -64,7 +61,6 @@ export default function HomeScreen({ navigation }) {
   const [disableCheckIn, setDisableCheckIn] = useState(false); 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // 🔥 OUVINTE DE SEGUNDO PLANO (APPSTATE) 🔥
   const appState = useRef(AppState.currentState);
 
   const [pendingFeedback, setPendingFeedback] = useState(null);
@@ -98,11 +94,10 @@ export default function HomeScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => { loadHomeData(); }, []));
 
-  // 🔥 EFEITO QUE RECARREGA A HOME QUANDO O ALUNO VOLTA PRO APP 🔥
   useEffect(() => {
       const handleAppStateChange = (nextAppState) => {
           if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-              loadHomeData(); // Recarrega os dados silenciosamente
+              loadHomeData(); 
           }
           appState.current = nextAppState;
       };
@@ -123,6 +118,18 @@ export default function HomeScreen({ navigation }) {
           pulseAnim.setValue(1);
       }
   }, [isCheckinPending, pendingFeedback]);
+
+  // 🔥 O BOTÃO NUCLEAR (HARD RELOAD) 🔥
+  const handleHardReload = () => {
+      setLoading(true);
+      if (Platform.OS === 'web') {
+          // Mata o cache do PWA e força baixar o código novo do GitHub
+          window.location.reload(true);
+      } else {
+          // No app nativo, só recarrega a base de dados
+          loadHomeData();
+      }
+  };
 
   const loadHomeData = async () => {
     try {
@@ -193,7 +200,6 @@ export default function HomeScreen({ navigation }) {
                     
                     fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
 
-                    // 🔥 CORREÇÃO DO F5: Puxa a "verdade absoluta" do banco de dados direto da rota do Admin
                     const isAtiva = directUserData.isMenstruating !== undefined ? directUserData.isMenstruating : homeData.user?.isMenstruating;
                     setIsMenstruating(!!isAtiva);
                     
@@ -202,7 +208,6 @@ export default function HomeScreen({ navigation }) {
                     setUserPlan(finalPlan); 
                     setDisableCheckIn(!!fetchedUser.disableCheckIn); 
 
-                    // 🔥 INTELIGÊNCIA NPS: Verifica se o Admin solicitou o disparo da pesquisa
                     if (fetchedUser.npsRequested && !unreadFeedback) {
                         setTimeout(() => setIsSurveyVisible(true), 1000);
                     }
@@ -239,7 +244,6 @@ export default function HomeScreen({ navigation }) {
                         }
                     }
                     
-                    // 🔥 CORREÇÃO: ATUALIZA O CACHE E O ESTADO NA TELA! 🔥
                     await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
                     setUserData(fetchedUser); 
                 }
@@ -303,7 +307,6 @@ export default function HomeScreen({ navigation }) {
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  // 🔥 FUNÇÃO: ATIVAR/DESATIVAR CICLO MENSTRUAL 🔥
   const toggleMenstrualCycle = async () => {
       if (!userData?.id || togglingMenstrual) return;
       setTogglingMenstrual(true);
@@ -311,13 +314,11 @@ export default function HomeScreen({ navigation }) {
       const newValue = !isMenstruating;
       setIsMenstruating(newValue); 
 
-      // 1. SALVA NO CACHE IMEDIATAMENTE (Blinda o F5)
       const cachedUser = { ...userData, isMenstruating: newValue, menstruationStartDate: newValue ? new Date().toISOString() : null };
       await AsyncStorage.setItem('user', JSON.stringify(cachedUser));
       setUserData(cachedUser);
 
       try {
-          // 2. TENTA A ROTA COM ID NA URL
           let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userData.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
@@ -327,7 +328,6 @@ export default function HomeScreen({ navigation }) {
               })
           });
 
-          // 3. SE DEU 404, TENTA A ROTA GENÉRICA COM ID NO BODY
           if (!res.ok) {
               res = await fetch('https://fitos-final.onrender.com/api/admin/user', {
                   method: 'PUT',
@@ -429,7 +429,6 @@ export default function HomeScreen({ navigation }) {
   const needsInitialPhoto = !hasSentInitialPhotos; 
   const photoModal = getPhotoModalContent();
 
-  // 🔥 IDENTIFICADOR DE GÊNERO BLINDADO (Acha até se for só a letra "F") 🔥
   const g1 = String(userData?.gender).toUpperCase().trim();
   const g2 = String(userData?.anamneses?.[0]?.genero).toUpperCase().trim();
   const g3 = String(userData?.anamneses?.[0]?.gender).toUpperCase().trim();
@@ -460,31 +459,34 @@ export default function HomeScreen({ navigation }) {
                 </Text>
               </View>
               
-              <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border, flexShrink: 0 }]} onPress={() => setLevelModalVisible(true)}>
-                <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  {/* 🔥 BOTÃO DE RECARREGAR (SYNC NUCLEAR) 🔥 */}
+                  <TouchableOpacity 
+                      style={[styles.reloadBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                      onPress={handleHardReload}
+                  >
+                      <MaterialCommunityIcons name="refresh" size={20} color={theme.textSecondary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLevelModalVisible(true)}>
+                    <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
+                  </TouchableOpacity>
+              </View>
             </View>
 
-            {/* 🔥 BOTÃO DO CICLO MENSTRUAL (APENAS MULHERES) 🔥 */}
             {isFemale && (
                 <View style={[styles.photoBanner, { backgroundColor: isMenstruating ? '#FF3B3015' : theme.surface, borderColor: isMenstruating ? '#FF3B30' : theme.border, padding: 16, marginTop: -10, marginBottom: 20, alignItems: 'center' }]}>
-                    
-                    {/* Ícone Redondo na Esquerda */}
                     <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isMenstruating ? '#FF3B3033' : theme.accent + '15', justifyContent: 'center', alignItems: 'center' }}>
                         <MaterialCommunityIcons name={isMenstruating ? "water" : "water-outline"} size={24} color={isMenstruating ? '#FF3B30' : theme.accent} />
                     </View>
                     
-                    {/* Textos no Meio */}
                     <View style={{ flex: 1, marginLeft: 12, justifyContent: 'center' }}>
                         <Text style={{ color: isMenstruating ? '#FF3B30' : theme.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }}>
                             {isMenstruating ? 'DELOAD MENSTRUAL' : 'PROTOCOLO MENSTRUAL'}
                         </Text>
-                        
                         <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold', marginTop: 2, lineHeight: 14 }}>
                             {isMenstruating ? 'Treino adaptado para proteção.' : 'Adapte a intensidade nestes dias.'}
                         </Text>
-                        
-                        {/* Botão "Como Funciona" como um Link Elegante */}
                         <TouchableOpacity 
                             style={{ marginTop: 6 }}
                             onPress={() => {
@@ -500,7 +502,6 @@ export default function HomeScreen({ navigation }) {
                         </TouchableOpacity>
                     </View>
                     
-                    {/* Toggle na Direita */}
                     <TouchableOpacity onPress={toggleMenstrualCycle} disabled={togglingMenstrual} style={{ marginLeft: 5 }}>
                         {togglingMenstrual ? (
                             <ActivityIndicator size="small" color={isMenstruating ? '#FF3B30' : theme.textSecondary} />
@@ -508,7 +509,6 @@ export default function HomeScreen({ navigation }) {
                             <MaterialCommunityIcons name={isMenstruating ? "toggle-switch" : "toggle-switch-off-outline"} size={48} color={isMenstruating ? '#FF3B30' : theme.textSecondary} />
                         )}
                     </TouchableOpacity>
-
                 </View>
             )}
 
@@ -698,7 +698,6 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
       </View>
 
-      {/* 🔥 MODAIS MODULARIZADOS 🔥 */}
       <StudentReportModal 
           visible={feedbackModalVisible} 
           onClose={() => setFeedbackModalVisible(false)}
@@ -725,7 +724,6 @@ export default function HomeScreen({ navigation }) {
           isPremium={userPlan === 'PREMIUM' || userPlan === 'ELITE'} 
       />
 
-      {/* 🔥 MODAL DE UPSELL PARA FREE USERS */}
       <Modal visible={upsellModalVisible} transparent animationType="fade">
           <View style={styles.chatModalOverlay}>
               <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
@@ -753,6 +751,10 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
   greeting: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
   name: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
+  
+  // 🔥 NOVO ESTILO DO BOTÃO DE RECARREGAR 🔥
+  reloadBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  
   statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
   statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
   photoBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
