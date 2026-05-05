@@ -185,7 +185,7 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
 
                                 {/* 4. CHECK-IN E EVOLUÇÃO */}
                                 <View style={styles.questionBlock}>
-                                    <Text style={[styles.questionText, { color: theme.text }]}>4. Como avalia a dinâmica de Check-in (envio de fotos/peso, recebimento do meu laudo técnico no próprio app e o histórico de avaliações salvo na sua aba de Evolução)?</Text>
+                                    <Text style={[styles.questionText, { color: theme.text }]}>4. Como avalia a dinâmica de Check-in (envio de fotos/peso, recebimento do laudo técnico e histórico de Evolução)?</Text>
                                     <View style={styles.optionsRow}>
                                         {renderOption(checkinExperience, setCheckinExperience, 'PERFEITO', 'Excelente', 'target', '#4DE38F')}
                                         {renderOption(checkinExperience, setCheckinExperience, 'OK', 'Funciona bem', 'thumb-up', '#FFCC00')}
@@ -201,7 +201,7 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
 
                                 {/* 5. BIBLIOTECA (PA FLIX) */}
                                 <View style={styles.questionBlock}>
-                                    <Text style={[styles.questionText, { color: theme.text }]}>5. O que acha da nossa Biblioteca (PA Flix)? Lá ficam seus e-books/áudios e, em breve, teremos novas dicas e conteúdos para você.</Text>
+                                    <Text style={[styles.questionText, { color: theme.text }]}>5. O que acha da nossa Biblioteca (PA Flix)? Lá ficam seus e-books e áudios.</Text>
                                     <View style={styles.optionsRow}>
                                         {renderOption(libraryExperience, setLibraryExperience, 'EXCELENTE', 'Uso sempre', 'play-box-multiple', '#4DE38F')}
                                         {renderOption(libraryExperience, setLibraryExperience, 'BOM', 'Acesso às vezes', 'play-box-outline', '#FFCC00')}
@@ -228,7 +228,7 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
                                             <Text style={{color: '#4DE38F', fontSize: 14, fontWeight: '900', letterSpacing: 1}}>MÓDULO DE DIETA (ELITE)</Text>
                                         </View>
                                         
-                                        <Text style={[styles.questionText, { color: theme.text }]}>A separação dos dias de dieta de acordo com a sua rotina (dias de musculação, cardio, descanso) está funcionando bem?</Text>
+                                        <Text style={[styles.questionText, { color: theme.text }]}>A separação dos dias de dieta (musculação, cardio, descanso) está funcionando bem?</Text>
                                         <View style={[styles.optionsRow, {marginBottom: 15}]}>
                                             {renderOption(dietRoutine, setDietRoutine, 'PERFEITO', 'Está Perfeito', 'calendar-check', '#4DE38F')}
                                             {renderOption(dietRoutine, setDietRoutine, 'BOM', 'Funciona bem', 'calendar-blank', '#FFCC00')}
@@ -258,9 +258,9 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
                                         <TextInput style={[styles.input, { color: theme.text, borderColor: theme.border, backgroundColor: theme.bg }]} placeholder="Conta como está a sua adaptação..." placeholderTextColor={theme.textSecondary} multiline value={dietExperience} onChangeText={setDietExperience} />
                                     </View>
                                 )}
-
                             </ScrollView>
 
+                            {/* 🔥 FOOTER COM O BOTÃO DE RESPONDER DEPOIS 🔥 */}
                             <View style={styles.footer}>
                                 <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#4DE38F' }]} onPress={handleSubmit} disabled={isSubmitting}>
                                     {isSubmitting ? <ActivityIndicator color="#000" /> : (
@@ -269,6 +269,15 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
                                             <Text style={styles.submitText}>ENVIAR FEEDBACK</Text>
                                         </>
                                     )}
+                                </TouchableOpacity>
+
+                                {/* BOTÃO RESPONDER DEPOIS */}
+                                <TouchableOpacity 
+                                    style={[styles.laterBtn, { borderColor: theme.border }]} 
+                                    onPress={onClose} 
+                                    disabled={isSubmitting}
+                                >
+                                    <Text style={[styles.laterText, { color: theme.textSecondary }]}>RESPONDER DEPOIS</Text>
                                 </TouchableOpacity>
                             </View>
                         </>
@@ -293,9 +302,15 @@ const styles = StyleSheet.create({
     conditionalBox: { marginTop: 15, padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' },
     condText: { fontSize: 12, fontWeight: 'bold', marginBottom: 10 },
     input: { minHeight: 80, borderRadius: 12, borderWidth: 1, padding: 15, fontSize: 16, textAlignVertical: 'top' },
-    footer: { padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.2)' },
+    
+    // 🔥 AJUSTES NO FOOTER 🔥
+    footer: { padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.2)', gap: 12 },
     submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16, gap: 10 },
     submitText: { color: '#000', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
+    
+    laterBtn: { padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
+    laterText: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
+
     successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
     successTitle: { fontSize: 24, fontWeight: '900', marginTop: 20, marginBottom: 15, textAlign: 'center' },
     successDesc: { fontSize: 15, lineHeight: 24, textAlign: 'center', fontStyle: 'italic' },

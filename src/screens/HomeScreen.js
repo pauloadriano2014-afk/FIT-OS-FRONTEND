@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
   StatusBar, RefreshControl, ActivityIndicator, Alert, Platform, Modal,
-  Animated, Linking, Image
+  Animated, Linking, Image, AppState // 🔥 IMPORT DO APPSTATE ADICIONADO AQUI
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -64,6 +64,9 @@ export default function HomeScreen({ navigation }) {
   const [disableCheckIn, setDisableCheckIn] = useState(false); 
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
+  // 🔥 OUVINTE DE SEGUNDO PLANO (APPSTATE) 🔥
+  const appState = useRef(AppState.currentState);
+
   const [pendingFeedback, setPendingFeedback] = useState(null);
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
@@ -94,6 +97,19 @@ export default function HomeScreen({ navigation }) {
   const levelData = getLevelData(currentLevel);
 
   useFocusEffect(useCallback(() => { loadHomeData(); }, []));
+
+  // 🔥 EFEITO QUE RECARREGA A HOME QUANDO O ALUNO VOLTA PRO APP 🔥
+  useEffect(() => {
+      const handleAppStateChange = (nextAppState) => {
+          if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
+              loadHomeData(); // Recarrega os dados silenciosamente
+          }
+          appState.current = nextAppState;
+      };
+
+      const subscription = AppState.addEventListener('change', handleAppStateChange);
+      return () => subscription.remove();
+  }, []);
 
   useEffect(() => {
       if (isCheckinPending || pendingFeedback) {
