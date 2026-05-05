@@ -178,7 +178,6 @@ export default function HomeScreen({ navigation }) {
                     fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
 
                     // 🔥 CORREÇÃO DO F5: Puxa a "verdade absoluta" do banco de dados direto da rota do Admin
-                    // Se o directUserData tiver a info, ele tem prioridade máxima.
                     const isAtiva = directUserData.isMenstruating !== undefined ? directUserData.isMenstruating : homeData.user?.isMenstruating;
                     setIsMenstruating(!!isAtiva);
                     
@@ -223,7 +222,10 @@ export default function HomeScreen({ navigation }) {
                             setFichaExpiredModalVisible(true);
                         }
                     }
+                    
+                    // 🔥 CORREÇÃO: ATUALIZA O CACHE E O ESTADO NA TELA! 🔥
                     await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
+                    setUserData(fetchedUser); 
                 }
             }
 
@@ -411,12 +413,14 @@ export default function HomeScreen({ navigation }) {
   const needsInitialPhoto = !hasSentInitialPhotos; 
   const photoModal = getPhotoModalContent();
 
-  // 🔥 IDENTIFICADOR DE GÊNERO BLINDADO (Bloqueia para homens) 🔥
-  const isFemale = 
-      String(userData?.gender).toUpperCase().trim() === 'FEMININO' || 
-      String(userData?.anamneses?.[0]?.genero).toUpperCase().trim() === 'FEMININO' || 
-      String(userData?.anamneses?.[0]?.gender).toUpperCase().trim() === 'FEMININO' ||
-      String(userData?.anamneses?.[0]?.sexo).toUpperCase().trim() === 'FEMININO';
+  // 🔥 IDENTIFICADOR DE GÊNERO BLINDADO (Acha até se for só a letra "F") 🔥
+  const g1 = String(userData?.gender).toUpperCase().trim();
+  const g2 = String(userData?.anamneses?.[0]?.genero).toUpperCase().trim();
+  const g3 = String(userData?.anamneses?.[0]?.gender).toUpperCase().trim();
+  const g4 = String(userData?.anamneses?.[0]?.sexo).toUpperCase().trim();
+
+  const femaleKeywords = ['FEMININO', 'F', 'FEMALE', 'MULHER'];
+  const isFemale = femaleKeywords.includes(g1) || femaleKeywords.includes(g2) || femaleKeywords.includes(g3) || femaleKeywords.includes(g4);
 
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
