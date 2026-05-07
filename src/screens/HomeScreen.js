@@ -208,9 +208,13 @@ export default function HomeScreen({ navigation }) {
                     setUserPlan(finalPlan); 
                     setDisableCheckIn(!!fetchedUser.disableCheckIn); 
 
-                    if (fetchedUser.npsRequested && !unreadFeedback) {
-                        setTimeout(() => setIsSurveyVisible(true), 1000);
-                    }
+                    // 🔥 INTELIGÊNCIA NPS: Verifica se o Admin solicitou e se o Snooze expirou
+const snoozedDate = await AsyncStorage.getItem(`@nps_snooze_${fetchedUser.id}`);
+const todayStr = new Date().toISOString().split('T')[0];
+
+if (fetchedUser.npsRequested && !unreadFeedback && snoozedDate !== todayStr) {
+    setTimeout(() => setIsSurveyVisible(true), 1000);
+}
                     
                     if (finalPlan === 'FICHA_8S' || finalPlan === 'CHALLENGE_21' || finalPlan === 'LOW_COST') {
                         let startD = new Date(fetchedUser.createdAt || new Date());

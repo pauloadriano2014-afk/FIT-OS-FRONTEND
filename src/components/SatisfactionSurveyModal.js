@@ -91,6 +91,15 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
         }
     };
 
+    // 🔥 NOVA FUNÇÃO SONECA (SNOOZE) 🔥
+    const handleSnooze = async () => {
+        try {
+            const todayStr = new Date().toISOString().split('T')[0]; // Pega só a data de hoje (YYYY-MM-DD)
+            await AsyncStorage.setItem(`@nps_snooze_${userId}`, todayStr); // Salva que hoje já encheu o saco
+        } catch (e) {}
+        onClose();
+    };
+
     const renderOption = (state, setState, value, label, icon, color) => {
         const isSelected = state === value;
         return (
@@ -260,7 +269,6 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
                                 )}
                             </ScrollView>
 
-                            {/* 🔥 FOOTER COM O BOTÃO DE RESPONDER DEPOIS 🔥 */}
                             <View style={styles.footer}>
                                 <TouchableOpacity style={[styles.submitBtn, { backgroundColor: '#4DE38F' }]} onPress={handleSubmit} disabled={isSubmitting}>
                                     {isSubmitting ? <ActivityIndicator color="#000" /> : (
@@ -271,10 +279,10 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
                                     )}
                                 </TouchableOpacity>
 
-                                {/* BOTÃO RESPONDER DEPOIS */}
+                                {/* 🔥 BOTÃO AGORA ACIONA O SNOOZE 🔥 */}
                                 <TouchableOpacity 
                                     style={[styles.laterBtn, { borderColor: theme.border }]} 
-                                    onPress={onClose} 
+                                    onPress={handleSnooze} 
                                     disabled={isSubmitting}
                                 >
                                     <Text style={[styles.laterText, { color: theme.textSecondary }]}>RESPONDER DEPOIS</Text>
@@ -302,15 +310,11 @@ const styles = StyleSheet.create({
     conditionalBox: { marginTop: 15, padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' },
     condText: { fontSize: 12, fontWeight: 'bold', marginBottom: 10 },
     input: { minHeight: 80, borderRadius: 12, borderWidth: 1, padding: 15, fontSize: 16, textAlignVertical: 'top' },
-    
-    // 🔥 AJUSTES NO FOOTER 🔥
     footer: { padding: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.2)', gap: 12 },
     submitBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 16, gap: 10 },
     submitText: { color: '#000', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
-    
     laterBtn: { padding: 12, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
     laterText: { fontSize: 12, fontWeight: 'bold', letterSpacing: 0.5 },
-
     successContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 30 },
     successTitle: { fontSize: 24, fontWeight: '900', marginTop: 20, marginBottom: 15, textAlign: 'center' },
     successDesc: { fontSize: 15, lineHeight: 24, textAlign: 'center', fontStyle: 'italic' },
