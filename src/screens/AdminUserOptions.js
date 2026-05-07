@@ -112,8 +112,51 @@ export default function AdminUserOptions({ route, navigation }) {
         if (resWorkouts.ok) {
             const dataW = await resWorkouts.json();
             if (Array.isArray(dataW)) {
-                activeWk = dataW.filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-                archivedWk = dataW.filter(w => w.archived).sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
+                const now = new Date();
+                
+                // 🔥 FILTRO DE TREINOS COM INTELIGÊNCIA TEMPORAL 🔥
+                dataW.forEach(w => {
+                    if (w.archived) {
+                        archivedWk.push(w);
+                        return;
+                    }
+
+                    // Se não tem datas definidas, é ativo
+                    if (!w.startDate && !w.endDate) {
+                        activeWk.push(w);
+                        return;
+                    }
+
+                    // Lida com datas futuras (Só aparece a partir das 00:00 da StartDate)
+                    if (w.startDate) {
+                        const start = new Date(w.startDate);
+                        start.setHours(0, 0, 0, 0);
+                        if (now < start) {
+                            // Está no futuro, consideramos arquivado ou invisível no app do aluno
+                            archivedWk.push(w);
+                            return;
+                        }
+                    }
+
+                    // Lida com a data de término (Fica ativo até às 23:59:59 da EndDate)
+                    if (w.endDate) {
+                        const end = new Date(w.endDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (now > end) {
+                            // Já passou do vencimento, arquiva
+                            archivedWk.push(w);
+                            return;
+                        }
+                    }
+
+                    // Se passou por tudo, está ativo!
+                    activeWk.push(w);
+                });
+
+                // Ordena os ativos do mais recente para o mais antigo, e os arquivados pelo fim
+                activeWk.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+                archivedWk.sort((a,b) => new Date(b.endDate || b.createdAt) - new Date(a.endDate || a.createdAt));
+
                 setActiveWorkouts(activeWk);
                 setArchivedWorkouts(archivedWk);
                 AsyncStorage.setItem(`@user_options_cache_${aluno.id}`, JSON.stringify({ workouts: { active: activeWk, archived: archivedWk }, freshness: aluno }));
@@ -129,7 +172,7 @@ export default function AdminUserOptions({ route, navigation }) {
             setPhotoUrl(fresh.photoUrl);
             setIsActiveUser(fresh.active);
             setDietGoal(fresh.dietGoal || 'NONE');
-            setIsDietTabVisible(!!fresh.dietModule); // Atualiza status da dieta da nuvem
+            setIsDietTabVisible(!!fresh.dietModule); 
             
             const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S', 'ELITE', 'PERFORMANCE', 'PREMIUM'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
             setUserPlan(finalPlan);
@@ -645,7 +688,6 @@ export default function AdminUserOptions({ route, navigation }) {
                         {/* BOTÃO DA MESA DE OPERAÇÕES */}
                         <TouchableOpacity 
                             style={[styles.aiDietBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}
-                            // 🔥 CIRURGIA AQUI: Passamos o objeto (mesmo que quebre) E O ID LIMPO JUNTOS! 🔥
                             onPress={() => navigation.navigate('AdminDietScreen', { 
                                 aluno: freshAluno || aluno,
                                 alunoId: aluno.id 
