@@ -1,5 +1,5 @@
 // src/screens/GerenciarTemplates.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   View, Text, StyleSheet, FlatList, TouchableOpacity, SafeAreaView, 
   Modal, TextInput, Alert, ActivityIndicator, StatusBar, Platform, ScrollView,
@@ -12,6 +12,17 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
 const FOLDER_COLORS = ['#22c55e', '#3b82f6', '#ef4444', '#a855f7', '#f97316', '#ec4899', '#06b6d4', '#eab308', '#6366f1', '#888888'];
+
+// Função auxiliar para contar quantos dias (A, B, C...) o treino tem
+const countWorkoutDays = (workoutData) => {
+    if (!workoutData) return 0;
+    try {
+        const parsed = typeof workoutData === 'string' ? JSON.parse(workoutData) : workoutData;
+        return Object.keys(parsed).length;
+    } catch (e) {
+        return 0;
+    }
+};
 
 export default function GerenciarTemplates({ navigation }) {
   const { theme } = useTheme(); 
@@ -45,6 +56,14 @@ export default function GerenciarTemplates({ navigation }) {
   const [adminId, setAdminId] = useState(null);
   const [isAdriLogged, setIsAdriLogged] = useState(false);
   const [libFilter, setLibFilter] = useState('MEUS'); 
+
+  // 🔥 ESTADOS PARA OS FILTROS DE LISTA (RAIO-X) 🔥
+  const [filterGoal, setFilterGoal] = useState('TODOS');
+  const [filterLevel, setFilterLevel] = useState('TODOS');
+  
+  // 🔥 CONTROLE DOS DROPDOWNS 🔥
+  const [showGoalDrop, setShowGoalDrop] = useState(false);
+  const [showLevelDrop, setShowLevelDrop] = useState(false);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => { fetchData(); });
@@ -171,11 +190,10 @@ export default function GerenciarTemplates({ navigation }) {
 
           setModalTempVisible(false);
           
-          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA E GERANDO ID TEMPORÁRIO 🔥
           navigation.navigate('MontarTreinoAdmin', { 
               isTemplateMode: true, 
               templateData: JSON.stringify({ 
-                  id: 'temp_' + Date.now(), // 🔥 A MÁGICA: ID temporário exclusivo para limpar o cache!
+                  id: 'temp_' + Date.now(), 
                   name: data.workoutName || (mode === 'FULL' ? "Nova Rotina Semanal" : "Novo Treino Avulso"), 
                   goal: newTempGoal, level: newTempLevel,
                   collectionId: selectedCollection?.id || null, 
@@ -241,12 +259,11 @@ export default function GerenciarTemplates({ navigation }) {
 
       setModalTempVisible(false);
       if (template) {
-          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA 🔥
           navigation.navigate('MontarTreinoAdmin', { isTemplateMode: true, templateData: JSON.stringify(template) });
       } else {
           const finalName = newTempName.trim() ? newTempName : "Novo Template";
           const newObj = { 
-              id: 'temp_' + Date.now(), // 🔥 A MÁGICA: ID temporário exclusivo para limpar o cache!
+              id: 'temp_' + Date.now(), 
               name: finalName, 
               goal: newTempGoal, 
               level: newTempLevel, 
@@ -254,7 +271,6 @@ export default function GerenciarTemplates({ navigation }) {
               data: JSON.stringify({ 'A': [] }) 
           };
           
-          // 🔥 CORREÇÃO: EMPACOTANDO O DADO EM STRING ANTES DE MANDAR NA ROTA 🔥
           navigation.navigate('MontarTreinoAdmin', { 
               isTemplateMode: true, 
               templateData: JSON.stringify(newObj) 
@@ -309,6 +325,17 @@ export default function GerenciarTemplates({ navigation }) {
       setColColor(FOLDER_COLORS[0]);
       setEditingCollectionId(null);
       setModalColVisible(true);
+  };
+
+  const handleBack = () => {
+      if (selectedCollection) {
+          // Limpa os filtros ao sair da pasta para não esconder treinos avulsos
+          setFilterGoal('TODOS');
+          setFilterLevel('TODOS');
+          setSelectedCollection(null);
+      } else {
+          navigation.goBack();
+      }
   };
 
   const renderPreviewRoutine = () => {
@@ -379,9 +406,20 @@ export default function GerenciarTemplates({ navigation }) {
   const filteredCollections = collections.filter(c => libFilter === 'MEUS' ? isOwner(c) : !isOwner(c));
   const filteredTemplatesTotal = templates.filter(t => libFilter === 'MEUS' ? isOwner(t) : !isOwner(t));
 
-  const displayedTemplates = selectedCollection 
-      ? filteredTemplatesTotal.filter(t => t.collectionId === selectedCollection.id)
-      : filteredTemplatesTotal.filter(t => t.collectionId === null || t.collectionId === undefined || t.collectionId === ''); 
+  const displayedTemplates = useMemo(() => {
+      let list = selectedCollection 
+          ? filteredTemplatesTotal.filter(t => t.collectionId === selectedCollection.id)
+          : filteredTemplatesTotal.filter(t => !t.collectionId); 
+
+      if (filterGoal !== 'TODOS') {
+          list = list.filter(t => t.goal === filterGoal);
+      }
+      if (filterLevel !== 'TODOS') {
+          list = list.filter(t => t.level === filterLevel);
+      }
+
+      return list;
+  }, [filteredTemplatesTotal, selectedCollection, filterGoal, filterLevel]);
 
   return (
     <RootComponent style={isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg }}>
@@ -390,11 +428,11 @@ export default function GerenciarTemplates({ navigation }) {
       <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           
           <View style={[styles.header, { borderBottomColor: theme.border }]}>
-            <TouchableOpacity onPress={() => selectedCollection ? setSelectedCollection(null) : navigation.goBack()} style={styles.backBtn}>
+            <TouchableOpacity onPress={handleBack} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color={theme.text}/>
             </TouchableOpacity>
-            <View style={{ alignItems: 'center' }}>
-                <Text style={[styles.title, { color: theme.text }]}>
+            <View style={{ alignItems: 'center', flex: 1 }}>
+                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
                     {selectedCollection ? selectedCollection.name.toUpperCase() : "BIBLIOTECA VIP"}
                 </Text>
                 {selectedCollection && <Text style={{ color: selectedCollection.color, fontSize: 10, fontWeight: 'bold' }}>COLEÇÃO DE TREINOS</Text>}
@@ -417,6 +455,67 @@ export default function GerenciarTemplates({ navigation }) {
                   <TouchableOpacity style={[styles.coachFilterBtn, libFilter === 'EQUIPE' ? { backgroundColor: '#AF52DE', borderColor: '#AF52DE' } : { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLibFilter('EQUIPE')}>
                       <Text style={[styles.coachFilterText, libFilter === 'EQUIPE' ? { color: '#FFF' } : { color: theme.textSecondary }]}>EQUIPE</Text>
                   </TouchableOpacity>
+              </View>
+          )}
+
+          {/* 🔥 DROPDOWNS DE FILTRO (APARECEM APENAS DENTRO DAS PASTAS) 🔥 */}
+          {selectedCollection && !loading && (
+              <View style={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 5, flexDirection: 'row', gap: 12, zIndex: 10 }}>
+                  
+                  {/* Dropdown de Objetivo */}
+                  <View style={{ flex: 1 }}>
+                      <Text style={styles.filterLabel}>OBJETIVO ALVO</Text>
+                      <TouchableOpacity 
+                          style={[styles.dropdownBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                          onPress={() => { setShowGoalDrop(!showGoalDrop); setShowLevelDrop(false); }}
+                          activeOpacity={0.8}
+                      >
+                          <Text style={{color: theme.text, fontSize: 12, fontWeight: 'bold'}}>{filterGoal}</Text>
+                          <MaterialCommunityIcons name={showGoalDrop ? "chevron-up" : "chevron-down"} size={18} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                      
+                      {showGoalDrop && (
+                          <View style={[styles.dropdownListInline, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                              {['TODOS', 'Hipertrofia', 'Emagrecimento', 'Força'].map(g => (
+                                  <TouchableOpacity 
+                                      key={g} 
+                                      style={[styles.dropdownOption, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} 
+                                      onPress={() => { setFilterGoal(g); setShowGoalDrop(false); }}
+                                  >
+                                      <Text style={{color: filterGoal === g ? theme.accent : theme.text, fontWeight: filterGoal === g ? 'bold' : 'normal', fontSize: 12}}>{g}</Text>
+                                  </TouchableOpacity>
+                              ))}
+                          </View>
+                      )}
+                  </View>
+
+                  {/* Dropdown de Nível */}
+                  <View style={{ flex: 1 }}>
+                      <Text style={styles.filterLabel}>NÍVEL DO ATLETA</Text>
+                      <TouchableOpacity 
+                          style={[styles.dropdownBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
+                          onPress={() => { setShowLevelDrop(!showLevelDrop); setShowGoalDrop(false); }}
+                          activeOpacity={0.8}
+                      >
+                          <Text style={{color: theme.text, fontSize: 12, fontWeight: 'bold'}}>{filterLevel}</Text>
+                          <MaterialCommunityIcons name={showLevelDrop ? "chevron-up" : "chevron-down"} size={18} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                      
+                      {showLevelDrop && (
+                          <View style={[styles.dropdownListInline, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                              {['TODOS', 'Iniciante', 'Intermediário', 'Avançado'].map(l => (
+                                  <TouchableOpacity 
+                                      key={l} 
+                                      style={[styles.dropdownOption, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} 
+                                      onPress={() => { setFilterLevel(l); setShowLevelDrop(false); }}
+                                  >
+                                      <Text style={{color: filterLevel === l ? theme.accent : theme.text, fontWeight: filterLevel === l ? 'bold' : 'normal', fontSize: 12}}>{l}</Text>
+                                  </TouchableOpacity>
+                              ))}
+                          </View>
+                      )}
+                  </View>
+                  
               </View>
           )}
 
@@ -467,38 +566,49 @@ export default function GerenciarTemplates({ navigation }) {
                 {displayedTemplates.length === 0 ? (
                     <View style={styles.emptyBox}>
                         <MaterialCommunityIcons name="file-document-outline" size={40} color={theme.border} />
-                        <Text style={styles.emptyText}>Nenhum treino encontrado aqui.</Text>
+                        <Text style={styles.emptyText}>Nenhum treino encontrado com estes filtros.</Text>
                     </View>
                 ) : (
-                    displayedTemplates.map(item => (
-                        <View key={item.id} style={[styles.premiumCard, { backgroundColor: theme.surface, borderLeftColor: selectedCollection ? selectedCollection.color : theme.border }]}>
-                            <TouchableOpacity style={{flex:1, paddingVertical: 5}} onPress={() => goToEditor(item)}>
-                                <Text style={[styles.premiumCardTitle, { color: theme.text }]}>{item.name}</Text>
-                                <Text style={{fontSize: 11, color: theme.textSecondary, fontWeight: 'bold', marginTop: 4}}>{item.goal} • {item.level}</Text>
-                            </TouchableOpacity>
-                            
-                            {isOwner(item) ? (
-                                <View style={styles.premiumCardActions}>
-                                    <TouchableOpacity onPress={() => openMoveModal(item)} style={styles.actionBtn}>
-                                        <MaterialCommunityIcons name="folder-move-outline" size={22} color={theme.accent} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => goToEditor(item)} style={styles.actionBtn}>
-                                        <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.actionBtn}>
-                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
-                                    </TouchableOpacity>
-                                </View>
-                            ) : (
-                                <TouchableOpacity style={styles.premiumCardActions} onPress={() => goToEditor(item)}>
-                                    <View style={{backgroundColor: theme.bg, padding: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}}>
-                                        <MaterialCommunityIcons name="eye-outline" size={16} color={theme.textSecondary} />
-                                        <Text style={{fontSize: 10, fontWeight: 'bold', color: theme.textSecondary}}>VER</Text>
+                    displayedTemplates.map(item => {
+                        const daysCount = countWorkoutDays(item.data);
+
+                        return (
+                            <View key={item.id} style={[styles.premiumCard, { backgroundColor: theme.surface, borderLeftColor: selectedCollection ? selectedCollection.color : theme.border }]}>
+                                <TouchableOpacity style={{flex:1, paddingVertical: 5}} onPress={() => goToEditor(item)}>
+                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
+                                        {/* Tag de Dias na Semana */}
+                                        <View style={{backgroundColor: theme.accent + '25', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4}}>
+                                            <Text style={{fontSize: 9, fontWeight: '900', color: theme.accent}}>🗓️ {daysCount} DIA{daysCount !== 1 ? 'S' : ''}</Text>
+                                        </View>
+                                        <Text style={{fontSize: 11, color: theme.textSecondary, fontWeight: 'bold'}}>{item.goal} • {item.level}</Text>
                                     </View>
+                                    
+                                    <Text style={[styles.premiumCardTitle, { color: theme.text }]} numberOfLines={2}>{item.name}</Text>
                                 </TouchableOpacity>
-                            )}
-                        </View>
-                    ))
+                                
+                                {isOwner(item) ? (
+                                    <View style={styles.premiumCardActions}>
+                                        <TouchableOpacity onPress={() => openMoveModal(item)} style={styles.actionBtn}>
+                                            <MaterialCommunityIcons name="folder-move-outline" size={22} color={theme.accent} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => goToEditor(item)} style={styles.actionBtn}>
+                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => deleteTemplate(item.id)} style={styles.actionBtn}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : (
+                                    <TouchableOpacity style={styles.premiumCardActions} onPress={() => goToEditor(item)}>
+                                        <View style={{backgroundColor: theme.bg, padding: 8, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 5}}>
+                                            <MaterialCommunityIcons name="eye-outline" size={16} color={theme.textSecondary} />
+                                            <Text style={{fontSize: 10, fontWeight: 'bold', color: theme.textSecondary}}>VER</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+                            </View>
+                        );
+                    })
                 )}
             </ScrollView>
           )}
@@ -675,6 +785,12 @@ const styles = StyleSheet.create({
   coachFilterBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   coachFilterText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
   
+  // 🔥 ESTILOS DOS DROPDOWNS 🔥
+  filterLabel: { fontSize: 10, fontWeight: '900', color: '#888', marginBottom: 6, letterSpacing: 0.5 },
+  dropdownBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 10, borderWidth: 1 },
+  dropdownListInline: { marginTop: 6, borderRadius: 10, borderWidth: 1, overflow: 'hidden' },
+  dropdownOption: { padding: 12, borderBottomWidth: 1 },
+
   sectionTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 15, marginTop: 10 },
   
   collectionCard: { width: '48%', padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 15, alignItems: 'flex-start' },
