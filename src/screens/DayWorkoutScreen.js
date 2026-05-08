@@ -492,14 +492,16 @@ export default function DayWorkoutScreen({ route, navigation }) {
                     const val = userInputs[setKey];
                     if (val !== undefined && val !== null && val !== '') {
                         const cleanIndex = parseInt(setKey); 
-                        const repsVal = ex.blocks?.[0]?.reps || ex.reps || 10;
+                        
+                        // 🔥 O ASSASSINO MORREU AQUI! Pega a repetição do bloco exato da série.
+                        const repsVal = ex.blocks?.[cleanIndex]?.reps || ex.blocks?.[0]?.reps || ex.reps || 10;
 
                         let realWeightToSave = val;
                         if (isIntensityMaskActive && workoutModel === 'CARGA' && activeIntensityMultiplier !== 1.0) {
                              realWeightToSave = applyMaskToString(val, (1 / activeIntensityMultiplier));
                         }
 
-                        setsData.push({ index: isNaN(cleanIndex) ? 1 : cleanIndex, weight: realWeightToSave, reps: repsVal });
+                        setsData.push({ index: isNaN(cleanIndex) ? 1 : cleanIndex, weight: realWeightToSave, reps: String(repsVal) });
                     }
                 });
                 if (setsData.length > 0) exercisesDone.push({ exerciseId: ex.exerciseId, name: ex.exercise?.name || ex.name, sets: setsData });

@@ -16,6 +16,7 @@ import CustomCalendar from '../components/CustomCalendar';
 import LibraryModals from '../components/MontarTreino/Modals/LibraryModals';
 import TemplateAndCloneModals from '../components/MontarTreino/Modals/TemplateAndCloneModals';
 import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 ADICIONADO PARA O MAGIC SYNC
 
 const { width } = Dimensions.get('window');
 
@@ -66,11 +67,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     // 🔥 ESTADO DO ALERTA MENSTRUAL 🔥
     const [alunoIsMenstruating, setAlunoIsMenstruating] = useState(!!aluno?.isMenstruating);
     const [dbDeloadSynced, setDbDeloadSynced] = useState(false);
-    const hasForcedDeload = useRef(false); // 🔥 O SEGREDO PARA VENCER A CORRIDA DO CACHE 🔥
+    const hasForcedDeload = useRef(false);
     
     const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
     const [editingTabName, setEditingTabName] = useState(null);
     const [editingTabValue, setEditingTabValue] = useState('');
+
+    // 🔥 ESTADO PARA O MAGIC SYNC 🔥
+    const [isSyncingCargas, setIsSyncingCargas] = useState(false);
 
     useEffect(() => {
         if (Platform.OS === 'web') {
@@ -108,7 +112,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     const activeWorkout = freshUser?.workouts?.[0];
                     const hasDeloadInDb = activeWorkout && activeWorkout.intensityMultiplier < 1;
 
-                    // Apenas sinalizamos que precisa de Deload. Quem vai aplicar é o useEffect abaixo.
                     if (hasDeloadInDb || taMenstruada) {
                         setDbDeloadSynced(true); 
                     }
@@ -140,11 +143,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         }
     }, [aluno?.id, state.isTemplateMode, isRouteCorrupted]);
 
-    // 🔥 A MÁGICA PARA VENCER A CORRIDA DO CACHE 🔥
     useEffect(() => {
-        // Espera o useMontarTreino terminar de carregar (loading falso)
         if (!state.loading && dbDeloadSynced && !hasForcedDeload.current) {
-            hasForcedDeload.current = true; // Trava para executar só 1x e deixar você editar depois se quiser
+            hasForcedDeload.current = true;
             try {
                 if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(0.8);
                 const deloadEnd = new Date();
@@ -261,6 +262,86 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             }
         } catch (err) {
             console.log("Erro no filtro de categoria:", err);
+        }
+    };
+
+    // 🔥 O BOTÃO MÁGICO (PUXAR CARGAS DO ALUNO) 🔥
+    const handleMagicSync = async () => {
+        if (!aluno || !aluno.id) return;
+        setIsSyncingCargas(true);
+        
+        try {
+            // 🔥 CIRURGIA: Agora busca na rota de HISTÓRICO, onde as cargas reais moram!
+            const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${aluno.id}&t=${Date.now()}`);
+            if (!res.ok) throw new Error("Erro na API");
+            
+            const historyList = await res.json();
+            
+            if (!Array.isArray(historyList) || historyList.length === 0) {
+                alert("Nenhum histórico finalizado. O aluno precisa clicar em 'FINALIZAR TREINO' no app para enviar as cargas ao sistema.");
+                setIsSyncingCargas(false);
+                return;
+            }
+
+            // 🔥 Mapeia as cargas mais recentes de cada exercício 🔥
+            const historicoDePesos = {};
+            
+            // Lendo do mais antigo pro mais novo. O mais novo sobrescreve e fica como valor final!
+            [...historyList].reverse().forEach(hist => {
+                if (hist.details && Array.isArray(hist.details)) {
+                    hist.details.forEach(detail => {
+                        if (!historicoDePesos[detail.exerciseId]) {
+                            historicoDePesos[detail.exerciseId] = {};
+                        }
+                        // Salva o peso de acordo com o index (série)
+                        historicoDePesos[detail.exerciseId][detail.setNumber] = detail.weight;
+                    });
+                }
+            });
+
+            if (Object.keys(historicoDePesos).length === 0) {
+                alert("Nenhuma carga foi encontrada no histórico deste aluno.");
+                setIsSyncingCargas(false);
+                return;
+            }
+
+            const newExercisesByDay = { ...state.exercisesByDay };
+            const todayExercises = [...state.currentExercises];
+            let cargasPuxadas = 0;
+
+            const updatedTodayExercises = todayExercises.map(ex => {
+                if (ex.exerciseId && historicoDePesos[ex.exerciseId]) {
+                    const pesosDoAluno = historicoDePesos[ex.exerciseId]; 
+                    if (ex.blocks && ex.blocks.length > 0) {
+                        const newBlocks = ex.blocks.map((block, index) => {
+                            // Acha o peso exato daquela série
+                            const peso = pesosDoAluno[index] !== undefined ? pesosDoAluno[index] : pesosDoAluno[index + 1];
+                            if (peso !== undefined) {
+                                cargasPuxadas++;
+                                return { ...block, load: String(peso) };
+                            }
+                            return block;
+                        });
+                        return { ...ex, blocks: newBlocks };
+                    }
+                }
+                return ex;
+            });
+
+            newExercisesByDay[state.selectedWorkoutTab] = updatedTodayExercises;
+            setters.setExercisesByDay(newExercisesByDay);
+
+            if (cargasPuxadas > 0) {
+                if (Platform.OS === 'web') window.alert(`MAGIC SYNC:\n${cargasPuxadas} blocos preenchidos com o histórico do aluno!`);
+                else Alert.alert("MAGIC SYNC 🪄", `${cargasPuxadas} blocos preenchidos!`);
+            } else {
+                alert("O aluno ainda não preencheu cargas para os exercícios específicos DESTA ABA.");
+            }
+        } catch (e) {
+            console.log(e);
+            alert("Erro ao buscar histórico. Verifique a conexão.");
+        } finally {
+            setIsSyncingCargas(false);
         }
     };
 
@@ -448,7 +529,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                             </Text>
                                         </TouchableOpacity>
 
-                                        {/* 🔥 AQUI ENTRA O BOTÃO DE DUPLICAR 🔥 */}
                                         <TouchableOpacity
                                             style={[styles.actionPillBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}
                                             onPress={() => actions.duplicateTabInline(tab)}
@@ -456,7 +536,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                                             <MaterialCommunityIcons name="content-copy" size={14} color={theme.textSecondary} />
                                             <Text style={[styles.actionPillText, { color: theme.textSecondary }]}>DUPLICAR</Text>
                                         </TouchableOpacity>
-                                        {/* 🔥 FIM DO BOTÃO DE DUPLICAR 🔥 */}
 
                                         <TouchableOpacity
                                             style={[styles.actionPillBtn, { backgroundColor: 'rgba(255,59,48,0.1)', opacity: state.workoutTabs.length <= 1 ? 0.3 : 1 }]}
@@ -470,7 +549,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
                                 </View>
                             </View>
-                        );                    })}
+                        ); 
+                    })}
 
                     <TouchableOpacity
                         style={[styles.addDayBtn, { borderTopColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)' }]}
@@ -486,6 +566,26 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
             )}
+
+            {/* 🔥 BOTÃO DE PUXAR CARGAS FICA AQUI, LOGO ABAIXO DA ABA! 🔥 */}
+            {!state.isTemplateMode && state.currentExercises.length > 0 && (
+                <TouchableOpacity 
+                    style={[styles.magicSyncBtn, { backgroundColor: theme.surface, borderColor: theme.accent }]} 
+                    onPress={handleMagicSync}
+                    disabled={isSyncingCargas}
+                >
+                    {isSyncingCargas ? <ActivityIndicator size="small" color={theme.accent} /> : (
+                        <>
+                            <MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} />
+                            <View style={{flex: 1, marginLeft: 8}}>
+                                <Text style={[styles.magicSyncTitle, {color: theme.accent}]}>PUXAR CARGAS DO ALUNO</Text>
+                                <Text style={styles.magicSyncDesc}>Preenche o peso de todos os exercícios deste dia.</Text>
+                            </View>
+                        </>
+                    )}
+                </TouchableOpacity>
+            )}
+            
         </View>
     );
 
@@ -573,7 +673,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 </View>
             )}
 
-            {/* 🔥 ALERTA INTELIGENTE DE CICLO MENSTRUAL E DELOAD 🔥 */}
             {!state.isTemplateMode && alunoIsMenstruating && (
                 <View style={{ backgroundColor: (dbDeloadSynced || state.intensityMultiplier < 1) ? 'rgba(77, 227, 143, 0.1)' : 'rgba(255, 59, 48, 0.1)', borderColor: (dbDeloadSynced || state.intensityMultiplier < 1) ? '#4DE38F' : '#FF3B30', borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 16 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
@@ -1001,6 +1100,11 @@ const styles = StyleSheet.create({
     addMoreBtnText: { fontWeight: '700', fontSize: 13 },
     saveTemplateBtn: { padding: 15, borderRadius: 14, borderWidth: 1, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 },
     saveTemplateBtnText: { fontWeight: '700', fontSize: 13 },
+
+    // 🔥 ESTILO DO BOTÃO MAGIC SYNC 🔥
+    magicSyncBtn: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 10, marginBottom: 10 },
+    magicSyncTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+    magicSyncDesc: { fontSize: 10, color: '#888', marginTop: 2 },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
     modalBox: { borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, alignSelf: 'center' },
