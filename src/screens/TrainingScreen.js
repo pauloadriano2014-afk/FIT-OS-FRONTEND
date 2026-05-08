@@ -13,7 +13,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import WorkoutFolder from '../components/Training/WorkoutFolder';
 import CycleInfoModal from '../components/Training/CycleInfoModal'; 
 import MindsetModal from '../components/Training/MindsetModal'; 
-import MonthlyFrequencyModal from '../components/Training/MonthlyFrequencyModal'; // 🔥 NOVO MODAL MODULARIZADO!
+import MonthlyFrequencyModal from '../components/Training/MonthlyFrequencyModal';
 
 export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -30,9 +30,9 @@ export default function TrainingScreen({ navigation }) {
   // Estados dos Modais
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [mindsetModalVisible, setMindsetModalVisible] = useState(false);
-  const [monthlyModalVisible, setMonthlyModalVisible] = useState(false); // 🔥 ESTADO DO CALENDÁRIO MENSAL
+  const [monthlyModalVisible, setMonthlyModalVisible] = useState(false); 
 
-  const [fullHistory, setFullHistory] = useState([]); // 🔥 GUARDA O HISTÓRICO COMPLETO PARA O MÊS
+  const [fullHistory, setFullHistory] = useState([]); 
 
   const generateWeeklyView = (history = []) => {
       const today = new Date();
@@ -77,10 +77,30 @@ export default function TrainingScreen({ navigation }) {
       }
 
       const data = await response.json();
-      const today = new Date();
+      const now = new Date();
 
       if (response.ok && Array.isArray(data)) {
-        const activeList = data.filter(w => new Date(w.endDate) >= today && !w.archived);
+        
+        // 🔥 CIRURGIA DE INTELIGÊNCIA TEMPORAL (Gêmea da do Admin) 🔥
+        const activeList = data.filter(w => {
+            if (w.archived) return false;
+
+            // Filtro de Data de Início (Esconde treinos futuros)
+            if (w.startDate) {
+                const start = new Date(w.startDate);
+                start.setHours(0, 0, 0, 0);
+                if (now < start) return false;
+            }
+
+            // Filtro de Data de Fim (Mantém até às 23:59:59 do dia do vencimento)
+            if (w.endDate) {
+                const end = new Date(w.endDate);
+                end.setHours(23, 59, 59, 999);
+                if (now > end) return false;
+            }
+
+            return true;
+        });
 
         const processedPrograms = await Promise.all(activeList.map(async (workout) => {
             const localCompleted = await AsyncStorage.getItem(`@completed_days_${workout.id}`);
@@ -129,7 +149,7 @@ export default function TrainingScreen({ navigation }) {
       const historyData = await historyRes.json();
       if (Array.isArray(historyData)) {
           setWeeklyHistoryData(generateWeeklyView(historyData));
-          setFullHistory(historyData); // 🔥 SALVA O HISTÓRICO COMPLETO
+          setFullHistory(historyData); 
       }
 
     } catch (error) {
@@ -211,7 +231,6 @@ export default function TrainingScreen({ navigation }) {
                             ))}
                         </View>
 
-                        {/* 🔥 NOVO BOTÃO PARA ABRIR O CALENDÁRIO MENSAL */}
                         <TouchableOpacity 
                             style={[styles.monthlyBtn, { borderTopColor: theme.border }]}
                             onPress={() => setMonthlyModalVisible(true)}
@@ -338,7 +357,6 @@ const styles = StyleSheet.create({
   calendarDayTextMod: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
   calendarDotMod: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
 
-  // 🔥 Estilo do Botão do Calendário Mensal
   monthlyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 20, paddingTop: 15, borderTopWidth: 1 },
   monthlyBtnText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
 
