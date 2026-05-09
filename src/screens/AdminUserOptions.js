@@ -1,8 +1,9 @@
 // src/screens/AdminUserOptions.js
+
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
-    ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, Modal, TextInput
+    ActivityIndicator, StatusBar, Alert, Platform, Image, Switch
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
@@ -11,6 +12,10 @@ import { useTheme } from '../contexts/ThemeContext';
 
 import AdminUserWorkouts from '../components/AdminUserWorkouts';
 import AdminUserSystem from '../components/AdminUserSystem';
+
+// 🔥 AS IMPORTAÇÕES MODULARIZADAS DA ELITE 🔥
+import RaioxCargasModal from '../components/RaioxCargasModal';
+import { fetchAndProcessRaioxData } from '../utils/raioxUtils';
 
 const formatToBRDate = (isoString) => {
     if (!isoString) return '';
@@ -60,21 +65,9 @@ export default function AdminUserOptions({ route, navigation }) {
   const [userAccess, setUserAccess] = useState([]);
   const [loadingPaflix, setLoadingPaflix] = useState(false);
 
-  // 🔥 ESTADOS PARA O MODAL DO RAIO-X DE CARGAS (ATUALIZADOS) 🔥
+  // 🔥 CONTROLE MODULAR DO RAIO-X 🔥
   const [isCargasModalVisible, setIsCargasModalVisible] = useState(false);
   const [historicoDeCargasList, setHistoricoDeCargasList] = useState([]);
-  
-  const [raioxSearch, setRaioxSearch] = useState('');
-  const [raioxProgram, setRaioxProgram] = useState('TODOS');
-  const [raioxDay, setRaioxDay] = useState('TODOS');
-  const [showRaioxProgramDrop, setShowRaioxProgramDrop] = useState(false);
-  const [showRaioxDayDrop, setShowRaioxDayDrop] = useState(false);
-
-  // Controle de Dropdown dos exercícios (Acordeão)
-  const [expandedExercises, setExpandedExercises] = useState({});
-  const toggleAccordion = (exName) => {
-      setExpandedExercises(prev => ({ ...prev, [exName]: !prev[exName] }));
-  };
 
   useEffect(() => {
     const loadCache = async () => {
@@ -469,161 +462,11 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  // 🔥 LÓGICA DE EXTRAÇÃO E CRUZAMENTO (A CURA DO PASSADO E FUTURO) 🔥
-  const abrirModalRaioxCargas = async () => {
+  // 🔥 O NOVO ACIONADOR MODULAR DO RAIO-X 🔥
+  const handleAbrirRaioxCargas = async () => {
       setIsCargasModalVisible(true);
-      setRaioxSearch('');
-      setRaioxProgram('TODOS');
-      setRaioxDay('TODOS');
-      setExpandedExercises({}); 
-      
-      try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${aluno.id}&t=${Date.now()}`);
-          if (!res.ok) return;
-          const historyList = await res.json();
-
-          // 1. O MAPA DA MATRIZ: É ele quem salva a pátria dos treinos antigos!
-          let mapaMatriz = {};
-          let mapaExercicioDia = {};
-          let mapaExercicioPrograma = {};
-
-          const todosTreinos = [...activeWorkouts, ...archivedWorkouts];
-
-          todosTreinos.forEach(w => {
-              const programName = w.name;
-              if (w.exercises && Array.isArray(w.exercises)) {
-                  w.exercises.forEach(ex => {
-                      if (ex.exerciseId) {
-                          const exDay = ex.day || "Geral";
-                          
-                          // Salva a localização real do exercício na sua ficha (Ex: NPC? -> Quadz)
-                          mapaExercicioPrograma[ex.exerciseId] = programName;
-                          mapaExercicioDia[ex.exerciseId] = exDay;
-
-                          // Extrai reps e técnicas bloco a bloco (12, 10, 8)
-                          let blockIndex = 0;
-                          
-                          // Se você montou usando blocos novos
-                          if (ex.blocks && Array.isArray(ex.blocks) && ex.blocks.length > 0) {
-                              ex.blocks.forEach(blk => {
-                                  mapaMatriz[`${ex.exerciseId}_${blockIndex}`] = {
-                                      r: blk.reps || "12",
-                                      t: blk.technique || null
-                                  };
-                                  blockIndex++;
-                              });
-                          } else {
-                              // Se montou no formato antigo / JSON
-                              let parsedFromTech = false;
-                              if (typeof ex.technique === 'string' && ex.technique.includes('{')) {
-                                  try {
-                                      const parsed = JSON.parse(ex.technique);
-                                      const blocks = parsed.b || parsed.B;
-                                      if (blocks && Array.isArray(blocks)) {
-                                          blocks.forEach(blk => {
-                                              const sets = parseInt(blk.sets || blk.SETS) || 1;
-                                              const rArr = String(blk.reps || blk.REPS || "12").split(/[-/]/);
-                                              const tArr = String(blk.technique || blk.TECHNIQUE || "").split(/[-/]/);
-                                              for (let i = 0; i < sets; i++) {
-                                                  mapaMatriz[`${ex.exerciseId}_${blockIndex}`] = {
-                                                      r: rArr[i] || rArr[0],
-                                                      t: tArr[i] || tArr[0]
-                                                  };
-                                                  blockIndex++;
-                                              }
-                                          });
-                                          parsedFromTech = true;
-                                      }
-                                  } catch(e) {}
-                              }
-                              
-                              if (!parsedFromTech) {
-                                  const numSets = parseInt(ex.sets) || 3;
-                                  const rArr = String(ex.reps || "12").split(/[-/]/);
-                                  const tArr = String(ex.technique || "").split(/[-/]/);
-                                  for (let i = 0; i < numSets; i++) {
-                                      mapaMatriz[`${ex.exerciseId}_${blockIndex}`] = {
-                                          r: rArr[i] || rArr[0],
-                                          t: tArr[i] || tArr[0]
-                                      };
-                                      blockIndex++;
-                                  }
-                              }
-                          }
-                      }
-                  });
-              }
-          });
-
-          let listaPlana = [];
-          
-          if (Array.isArray(historyList)) {
-              historyList.forEach(hist => {
-                  const dataFormatada = new Date(hist.date).toLocaleDateString('pt-BR');
-
-                  if (hist.details && hist.details.length > 0) {
-                      let exMap = {};
-                      const detalhesOrdenados = [...hist.details].sort((a, b) => a.setNumber - b.setNumber);
-
-                      detalhesOrdenados.forEach((detail) => {
-                          const exId = detail.exerciseId;
-                          const chaveUnica = `${exId}-${hist.id}`;
-
-                          // 🔥 A MÁGICA: O Admin ignora o banco sujo e confia na Matriz!
-                          let resolvedProgram = mapaExercicioPrograma[exId] || hist.workoutName || hist.name || "Sem Programa";
-                          let resolvedDay = mapaExercicioDia[exId] || hist.name || "Treino Geral";
-
-                          // Formata se for apenas letra ("A" vira "TREINO A", mas "Quadz" fica "Quadz")
-                          if (resolvedDay.length === 1) resolvedDay = `TREINO ${resolvedDay.toUpperCase()}`;
-
-                          if (!exMap[chaveUnica]) {
-                              exMap[chaveUnica] = {
-                                  exerciseName: detail.exerciseName || "Exercício",
-                                  programName: resolvedProgram,
-                                  dayName: resolvedDay,
-                                  maxWeight: 0,
-                                  setsData: [],
-                                  contadorSeries: 0 
-                              };
-                          }
-                          
-                          const w = detail.weight || 0;
-                          if (w > exMap[chaveUnica].maxWeight) exMap[chaveUnica].maxWeight = w;
-                          
-                          const sIndex = exMap[chaveUnica].contadorSeries;
-                          exMap[chaveUnica].contadorSeries += 1; 
-
-                          // 🔥 Busca reps exatas (12, 10, 8) e técnica da Matriz!
-                          const infoMatriz = mapaMatriz[`${exId}_${sIndex}`] || {};
-                          let repExata = infoMatriz.r || detail.reps || "12";
-                          let techExata = infoMatriz.t || null;
-
-                          // Limpeza de segurança final
-                          if (typeof repExata === 'string' && repExata.includes('{')) repExata = "Falha";
-                          if (typeof techExata === 'string' && techExata.includes('{')) techExata = null;
-
-                          exMap[chaveUnica].setsData.push({
-                              setLabel: `S${sIndex + 1}`,
-                              weight: w,
-                              reps: repExata, 
-                              technique: techExata && techExata !== 'NORMAL' ? techExata : null
-                          });
-                      });
-
-                      Object.keys(exMap).forEach(chave => {
-                          const { contadorSeries, ...restoDoObjeto } = exMap[chave];
-                          listaPlana.push({ ...restoDoObjeto, dateObj: new Date(hist.date), dateFormatted: dataFormatada });
-                      });
-                  }
-              });
-          }
-
-          listaPlana.sort((a,b) => b.dateObj - a.dateObj);
-          setHistoricoDeCargasList(listaPlana);
-          
-      } catch (e) {
-          console.log("Erro", e);
-      }
+      const data = await fetchAndProcessRaioxData(aluno.id, activeWorkouts, archivedWorkouts);
+      setHistoricoDeCargasList(data);
   };
 
   const isWeb = Platform.OS === 'web';
@@ -703,7 +546,7 @@ export default function AdminUserOptions({ route, navigation }) {
                         {/* 🔥 BOTÃO RAIO-X DE CARGAS 🔥 */}
                         <TouchableOpacity 
                             style={[styles.cargasBtn, { backgroundColor: theme.surface, borderColor: theme.accent }]} 
-                            onPress={abrirModalRaioxCargas}
+                            onPress={handleAbrirRaioxCargas}
                         >
                             <View style={[styles.accessIconBox, {backgroundColor: theme.accent + '22'}]}>
                                 <MaterialCommunityIcons name="weight-lifter" size={20} color={theme.accent} />
@@ -842,7 +685,6 @@ export default function AdminUserOptions({ route, navigation }) {
                         <Text style={[styles.sectionLabel, {color: theme.accent}]}>LABORATÓRIO NUTRICIONAL (IA)</Text>
                         <Text style={[styles.sectionSubDesc, {marginBottom: 15}]}>Gerencie a visibilidade e a montagem do plano alimentar deste aluno.</Text>
 
-                        {/* 🔥 BOTÃO MANUAL PARA MOSTRAR/ESCONDER A MAÇÃ NO APP DO ALUNO 🔥 */}
                         <View style={[styles.accessCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 15 }]}>
                             <View style={[styles.accessIconBox, { backgroundColor: theme.bg }]}>
                                 <MaterialCommunityIcons name="food-apple" size={24} color={isDietTabVisible ? theme.accent : theme.textSecondary} />
@@ -859,7 +701,6 @@ export default function AdminUserOptions({ route, navigation }) {
                             />
                         </View>
 
-                        {/* BOTÃO DA MESA DE OPERAÇÕES */}
                         <TouchableOpacity 
                             style={[styles.aiDietBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}
                             onPress={() => navigation.navigate('AdminDietScreen', { 
@@ -921,7 +762,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
                         <View style={[styles.divider, { backgroundColor: theme.border }]} />
 
-                        {/* OUTROS CONTROLES DO SISTEMA */}
                         <AdminUserSystem 
                             theme={theme} navigation={navigation} aluno={aluno} userPlan={userPlan}
                             isActiveUser={isActiveUser} handleToggleStatus={handleToggleStatus}
@@ -936,203 +776,13 @@ export default function AdminUserOptions({ route, navigation }) {
             </ScrollView>
         </View>
 
-        {/* 🔥 MODAL DO RAIO-X: DROPDOWNS EM CASCATA E COMPARAÇÃO DE EVOLUÇÃO 🔥 */}
-        <Modal visible={isCargasModalVisible} transparent animationType="slide" onRequestClose={() => setIsCargasModalVisible(false)}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' }}>
-                <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', height: '85%', backgroundColor: theme.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: theme.border }}>
-                    
-                    {/* CABEÇALHO */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: theme.border }}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                            <MaterialCommunityIcons name="weight-lifter" size={24} color={theme.accent} />
-                            <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text, letterSpacing: 0.5 }}>RAIO-X DE CARGAS</Text>
-                        </View>
-                        <TouchableOpacity onPress={() => setIsCargasModalVisible(false)} style={{padding: 5}}>
-                            <MaterialCommunityIcons name="close" size={24} color={theme.text}/>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* FILTROS INTELIGENTES */}
-                    <View style={{ padding: 20, borderBottomWidth: 1, borderColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', zIndex: 10 }}>
-                        
-                        {/* BARRA DE PESQUISA */}
-                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.bg, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, marginBottom: 15 }}>
-                            <MaterialCommunityIcons name="magnify" size={20} color={theme.textSecondary} />
-                            <TextInput 
-                                style={{ flex: 1, paddingVertical: 12, paddingHorizontal: 8, color: theme.text, fontWeight: 'bold', outlineStyle: 'none' }}
-                                placeholder="Buscar exercício (Ex: Puxada)"
-                                placeholderTextColor={theme.textSecondary}
-                                value={raioxSearch}
-                                onChangeText={setRaioxSearch}
-                            />
-                            {raioxSearch.length > 0 && (
-                                <TouchableOpacity onPress={() => setRaioxSearch('')}>
-                                    <MaterialCommunityIcons name="close-circle" size={18} color={theme.textSecondary} />
-                                </TouchableOpacity>
-                            )}
-                        </View>
-
-                        {/* DROPDOWNS EM CASCATA: PERIODIZAÇÃO E DIA */}
-                        <View style={{ flexDirection: 'row', gap: 12 }}>
-                            {(() => {
-                                // 🔥 LÓGICA DA CASCATA: Calcula os programas e os dias disponíveis
-                                const programasDisponiveis = Array.from(new Set(historicoDeCargasList.map(i => i.programName))).sort();
-                                const diasDisponiveis = Array.from(new Set(historicoDeCargasList.filter(i => raioxProgram === 'TODOS' || i.programName === raioxProgram).map(i => i.dayName))).sort();
-
-                                return (
-                                    <>
-                                        {/* Dropdown 1: Periodização */}
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 10, fontWeight: '900', color: '#888', marginBottom: 6 }}>PERIODIZAÇÃO</Text>
-                                            <TouchableOpacity 
-                                                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}
-                                                onPress={() => { setShowRaioxProgramDrop(!showRaioxProgramDrop); setShowRaioxDayDrop(false); }}
-                                            >
-                                                <Text style={{color: theme.text, fontSize: 11, fontWeight: 'bold'}} numberOfLines={1}>{raioxProgram}</Text>
-                                                <MaterialCommunityIcons name={showRaioxProgramDrop ? "chevron-up" : "chevron-down"} size={16} color={theme.textSecondary} />
-                                            </TouchableOpacity>
-                                            
-                                            {showRaioxProgramDrop && (
-                                                <ScrollView style={{ position: 'absolute', top: 60, left: 0, right: 0, maxHeight: 200, backgroundColor: theme.surface, borderRadius: 10, borderWidth: 1, borderColor: theme.border, zIndex: 20 }}>
-                                                    <TouchableOpacity style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: theme.border }} onPress={() => { setRaioxProgram('TODOS'); setRaioxDay('TODOS'); setShowRaioxProgramDrop(false); }}>
-                                                        <Text style={{color: raioxProgram === 'TODOS' ? theme.accent : theme.text, fontWeight: 'bold', fontSize: 11}}>TODOS</Text>
-                                                    </TouchableOpacity>
-                                                    {programasDisponiveis.map(prog => (
-                                                        <TouchableOpacity key={prog} style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: theme.border }} onPress={() => { setRaioxProgram(prog); setRaioxDay('TODOS'); setShowRaioxProgramDrop(false); }}>
-                                                            <Text style={{color: raioxProgram === prog ? theme.accent : theme.text, fontWeight: raioxProgram === prog ? 'bold' : 'normal', fontSize: 11}}>{prog}</Text>
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </ScrollView>
-                                            )}
-                                        </View>
-
-                                        {/* Dropdown 2: Dia (Só mostra os dias do programa selecionado) */}
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={{ fontSize: 10, fontWeight: '900', color: '#888', marginBottom: 6 }}>DIA DE TREINO</Text>
-                                            <TouchableOpacity 
-                                                style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: theme.bg, borderRadius: 10, borderWidth: 1, borderColor: theme.border }}
-                                                onPress={() => { setShowRaioxDayDrop(!showRaioxDayDrop); setShowRaioxProgramDrop(false); }}
-                                            >
-                                                <Text style={{color: theme.text, fontSize: 11, fontWeight: 'bold'}} numberOfLines={1}>{raioxDay}</Text>
-                                                <MaterialCommunityIcons name={showRaioxDayDrop ? "chevron-up" : "chevron-down"} size={16} color={theme.textSecondary} />
-                                            </TouchableOpacity>
-                                            
-                                            {showRaioxDayDrop && (
-                                                <ScrollView style={{ position: 'absolute', top: 60, left: 0, right: 0, maxHeight: 200, backgroundColor: theme.surface, borderRadius: 10, borderWidth: 1, borderColor: theme.border, zIndex: 20 }}>
-                                                    <TouchableOpacity style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: theme.border }} onPress={() => { setRaioxDay('TODOS'); setShowRaioxDayDrop(false); }}>
-                                                        <Text style={{color: raioxDay === 'TODOS' ? theme.accent : theme.text, fontWeight: 'bold', fontSize: 11}}>TODOS</Text>
-                                                    </TouchableOpacity>
-                                                    {diasDisponiveis.map(dia => (
-                                                        <TouchableOpacity key={dia} style={{ padding: 12, borderBottomWidth: 1, borderBottomColor: theme.border }} onPress={() => { setRaioxDay(dia); setShowRaioxDayDrop(false); }}>
-                                                            <Text style={{color: raioxDay === dia ? theme.accent : theme.text, fontWeight: raioxDay === dia ? 'bold' : 'normal', fontSize: 11}}>{dia}</Text>
-                                                        </TouchableOpacity>
-                                                    ))}
-                                                </ScrollView>
-                                            )}
-                                        </View>
-                                    </>
-                                );
-                            })()}
-                        </View>
-                    </View>
-                    
-                    {/* LISTA E COMPARAÇÃO DE EVOLUÇÃO */}
-                    <ScrollView contentContainerStyle={{padding: 20}} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                        {(() => {
-                            let filtrados = historicoDeCargasList;
-                            
-                            if (raioxProgram !== 'TODOS') filtrados = filtrados.filter(i => i.programName === raioxProgram);
-                            if (raioxDay !== 'TODOS') filtrados = filtrados.filter(i => i.dayName === raioxDay);
-                            if (raioxSearch.trim() !== '') {
-                                const searchLower = raioxSearch.toLowerCase();
-                                filtrados = filtrados.filter(i => i.exerciseName.toLowerCase().includes(searchLower));
-                            }
-
-                            if (filtrados.length === 0) {
-                                return (
-                                    <View style={{ alignItems:'center', padding: 30, borderStyle:'dashed', borderWidth:1, borderColor: theme.border, borderRadius:10 }}>
-                                        <MaterialCommunityIcons name="text-box-search-outline" size={40} color={theme.textSecondary} style={{opacity: 0.5}} />
-                                        <Text style={{ color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 }}>Nenhuma carga encontrada para estes filtros.</Text>
-                                    </View>
-                                );
-                            }
-
-                            // Agrupa os itens pelo Nome do Exercício
-                            const agrupado = {};
-                            filtrados.forEach(item => {
-                                if (!agrupado[item.exerciseName]) agrupado[item.exerciseName] = [];
-                                agrupado[item.exerciseName].push(item);
-                            });
-
-                            return Object.keys(agrupado).sort().map((exName, index) => {
-                                const historyEntries = agrupado[exName];
-                                const pr = Math.max(...historyEntries.map(i => i.maxWeight));
-                                const isExpanded = !!expandedExercises[exName]; // Verifica se este exercício está aberto no acordeão!
-
-                                return (
-                                    <View key={index} style={{ marginBottom: 15, backgroundColor: theme.bg, borderRadius: 14, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' }}>
-                                        
-                                        {/* 🔥 BOTÃO DO ACORDEÃO 🔥 */}
-                                        <TouchableOpacity 
-                                            style={{ padding: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: isExpanded ? theme.surface : theme.bg }}
-                                            onPress={() => toggleAccordion(exName)}
-                                            activeOpacity={0.7}
-                                        >
-                                            <Text style={{ color: theme.accent, fontSize: 16, fontWeight: '900', flex: 1, paddingRight: 10 }}>{exName}</Text>
-                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                                <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: 'bold' }}>PR: {pr}kg</Text>
-                                                <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
-                                            </View>
-                                        </TouchableOpacity>
-                                        
-                                        {/* 🔥 CONTEÚDO EXPANDIDO (SÓ MOSTRA SE CLICAR) 🔥 */}
-                                        {isExpanded && (
-                                            <View style={{ padding: 18, borderTopWidth: 1, borderColor: theme.border }}>
-                                                {historyEntries.map((item, hIdx) => {
-                                                    const barWidth = pr > 0 ? Math.max(10, (item.maxWeight / pr) * 100) : 10;
-                                                    
-                                                    return (
-                                                        <View key={hIdx} style={{ marginBottom: hIdx === historyEntries.length - 1 ? 0 : 20 }}>
-                                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-                                                                <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>{item.dateFormatted} • {item.programName} ({item.dayName})</Text>
-                                                                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>Máx: {item.maxWeight}kg</Text>
-                                                            </View>
-                                                            
-                                                            <View style={{ height: 6, backgroundColor: theme.surface, borderRadius: 3, overflow: 'hidden', marginBottom: 10 }}>
-                                                                <View style={{ height: '100%', width: `${barWidth}%`, backgroundColor: theme.accent, borderRadius: 3 }} />
-                                                            </View>
-
-                                                            {/* BLOCOS DE SÉRIES COM TÉCNICAS E REPETIÇÕES EXATAS */}
-                                                            <View style={{ backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' }}>
-                                                                {item.setsData.map((setInfo, sIdx) => (
-                                                                    <View key={sIdx} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 10, borderBottomWidth: sIdx === item.setsData.length - 1 ? 0 : 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                                                            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900', width: 22 }}>{setInfo.setLabel}</Text>
-                                                                            <Text style={{ color: theme.text, fontSize: 13, fontWeight: 'bold' }}>{setInfo.weight}kg <Text style={{color: theme.textSecondary, fontWeight: 'normal'}}>x {setInfo.reps}</Text></Text>
-                                                                        </View>
-                                                                        
-                                                                        {/* BADGE DA TÉCNICA AVANÇADA! */}
-                                                                        {setInfo.technique && (
-                                                                            <View style={{ backgroundColor: theme.accent + '20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                                                                                <Text style={{ color: theme.accent, fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase' }}>{setInfo.technique.replace(/_/g, ' ')}</Text>
-                                                                            </View>
-                                                                        )}
-                                                                    </View>
-                                                                ))}
-                                                            </View>
-                                                        </View>
-                                                    );
-                                                })}
-                                            </View>
-                                        )}
-                                    </View>
-                                );
-                            });
-                        })()}
-                    </ScrollView>
-                </View>
-            </View>
-        </Modal>
+        {/* COMPONENTE MODULARIZADO DO RAIO-X */}
+        <RaioxCargasModal 
+            visible={isCargasModalVisible} 
+            onClose={() => setIsCargasModalVisible(false)} 
+            historicoDeCargasList={historicoDeCargasList} 
+            theme={theme} 
+        />
 
     </RootComponent>
   );
@@ -1176,8 +826,6 @@ const styles = StyleSheet.create({
   saveBtnLg: { borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
 
   aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1 },
-
-  // 🔥 ESTILO DO BOTÃO DE CARGAS 🔥
   cargasBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
 
   divider: { height:1, marginVertical:20 },
@@ -1185,16 +833,5 @@ const styles = StyleSheet.create({
   sectionSubDesc: { color: '#888', fontSize: 11, marginBottom: 15 },
   
   emptyBox: { alignItems:'center', padding: 30, borderStyle:'dashed', borderWidth:1, borderRadius:10, marginVertical: 10 },
-  emptyText: { color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 },
-
-  // 🔥 ESTILOS DO MODAL RAIO-X DE CARGAS 🔥
-  modalOverlayCargas: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-  modalContentCargas: { width: '100%', maxWidth: 600, alignSelf: 'center', height: '80%', borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderBottomWidth: 0 },
-  modalHeaderCargas: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
-  modalTitleCargas: { fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
-  cargaItem: { padding: 16, borderRadius: 14, borderWidth: 1, marginBottom: 12 },
-  cargaExName: { fontSize: 15, fontWeight: '900', marginBottom: 2 },
-  cargaWorkoutName: { fontSize: 11, fontWeight: 'bold', marginBottom: 10 },
-  cargaSeriesBox: { padding: 10, borderRadius: 8, borderWidth: 1 },
-  cargaSeriesText: { fontSize: 13, fontWeight: 'bold', lineHeight: 20 },
+  emptyText: { color: '#888', textAlign: 'center', fontStyle: 'italic', marginTop: 10 }
 });
