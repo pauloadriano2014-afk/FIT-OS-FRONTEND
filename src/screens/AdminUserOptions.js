@@ -13,7 +13,6 @@ import { useTheme } from '../contexts/ThemeContext';
 import AdminUserWorkouts from '../components/AdminUserWorkouts';
 import AdminUserSystem from '../components/AdminUserSystem';
 
-// 🔥 AS IMPORTAÇÕES MODULARIZADAS DA ELITE 🔥
 import RaioxCargasModal from '../components/RaioxCargasModal';
 import { fetchAndProcessRaioxData } from '../utils/raioxUtils';
 
@@ -65,9 +64,11 @@ export default function AdminUserOptions({ route, navigation }) {
   const [userAccess, setUserAccess] = useState([]);
   const [loadingPaflix, setLoadingPaflix] = useState(false);
 
-  // 🔥 CONTROLE MODULAR DO RAIO-X 🔥
   const [isCargasModalVisible, setIsCargasModalVisible] = useState(false);
   const [historicoDeCargasList, setHistoricoDeCargasList] = useState([]);
+
+  // 🔥 NOVO: ESTADO PARA OS ALERTAS DA IA 🔥
+  const [studentAlerts, setStudentAlerts] = useState([]);
 
   useEffect(() => {
     const loadCache = async () => {
@@ -107,11 +108,13 @@ export default function AdminUserOptions({ route, navigation }) {
 
     const t = Date.now();
     try {
-        const [resWorkouts, resUser, resPaflix, resAccess] = await Promise.all([
+        // 🔥 Adicionei a chamada para a nossa nova API de Alertas!
+        const [resWorkouts, resUser, resPaflix, resAccess, resAlerts] = await Promise.all([
             fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${t}`),
             fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`),
             fetch(`https://fitos-final.onrender.com/api/contents`),
-            fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`)
+            fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`),
+            fetch(`https://fitos-final.onrender.com/api/admin/alerts?userId=${aluno.id}&t=${t}`) // Rota que vamos criar no backend!
         ]);
 
         let activeWk = [];
@@ -202,6 +205,12 @@ export default function AdminUserOptions({ route, navigation }) {
         if (resAccess.ok) {
             const access = await resAccess.json();
             if (Array.isArray(access)) setUserAccess(access);
+        }
+
+        // 🔥 PROCESSA OS ALERTAS DA IA 🔥
+        if (resAlerts && resAlerts.ok) {
+            const alerts = await resAlerts.json();
+            if (Array.isArray(alerts)) setStudentAlerts(alerts);
         }
 
     } catch (error) { 
@@ -462,7 +471,21 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  // 🔥 O NOVO ACIONADOR MODULAR DO RAIO-X 🔥
+  // 🔥 MARCA O ALERTA COMO LIDO E ESCONDE DA TELA 🔥
+  const handleDismissAlert = async (alertId) => {
+      // Remove da tela imediatamente para a interface ficar fluida
+      setStudentAlerts(prev => prev.filter(a => a.id !== alertId));
+      try {
+          await fetch(`https://fitos-final.onrender.com/api/admin/alerts/${alertId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ isRead: true })
+          });
+      } catch (e) {
+          console.error("Falha ao dispensar alerta", e);
+      }
+  };
+
   const handleAbrirRaioxCargas = async () => {
       setIsCargasModalVisible(true);
       const data = await fetchAndProcessRaioxData(aluno.id, activeWorkouts, archivedWorkouts);
@@ -513,6 +536,37 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
+                {/* 🔥 CENTRAL DE INTELIGÊNCIA: ALERTAS DA IA 🔥 */}
+                {studentAlerts.length > 0 && (
+                    <View style={{ marginBottom: 25 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                            <MaterialCommunityIcons name="brain" size={18} color="#FF9500" />
+                            <Text style={{ color: '#FF9500', fontWeight: '900', fontSize: 12, letterSpacing: 1 }}>LABORATÓRIO DE IA (AVISOS)</Text>
+                        </View>
+                        
+                        {studentAlerts.map(alert => (
+                            <View key={alert.id} style={{ backgroundColor: theme.isDark ? '#2c1e0a' : '#fff5e6', borderWidth: 1, borderColor: '#FF9500', borderRadius: 12, padding: 15, marginBottom: 10 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 5 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                        <MaterialCommunityIcons name="alert-circle" size={16} color="#FF9500" />
+                                        <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 14 }}>{alert.title}</Text>
+                                    </View>
+                                    <TouchableOpacity onPress={() => handleDismissAlert(alert.id)}>
+                                        <MaterialCommunityIcons name="check-circle" size={20} color={theme.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
+                                <Text style={{ color: theme.text, fontSize: 13, marginBottom: 10 }}>
+                                    Foi detectada estagnação no exercício <Text style={{fontWeight: 'bold'}}>{alert.exerciseName}</Text>.
+                                </Text>
+                                <View style={{ backgroundColor: theme.surface, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                                    <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>SUGESTÃO DA IA:</Text>
+                                    <Text style={{ color: theme.text, fontSize: 12, fontStyle: 'italic' }}>"{alert.message}"</Text>
+                                </View>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
                 {/* CONTROLE DE SUPER-ABAS */}
                 <View style={[styles.superTabsContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <TouchableOpacity 
@@ -543,7 +597,6 @@ export default function AdminUserOptions({ route, navigation }) {
                 {superTab === 'treinos' && (
                     <View style={styles.tabContent}>
 
-                        {/* 🔥 BOTÃO RAIO-X DE CARGAS 🔥 */}
                         <TouchableOpacity 
                             style={[styles.cargasBtn, { backgroundColor: theme.surface, borderColor: theme.accent }]} 
                             onPress={handleAbrirRaioxCargas}
@@ -776,7 +829,6 @@ export default function AdminUserOptions({ route, navigation }) {
             </ScrollView>
         </View>
 
-        {/* COMPONENTE MODULARIZADO DO RAIO-X */}
         <RaioxCargasModal 
             visible={isCargasModalVisible} 
             onClose={() => setIsCargasModalVisible(false)} 
