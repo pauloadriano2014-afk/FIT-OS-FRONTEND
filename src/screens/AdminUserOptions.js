@@ -67,8 +67,9 @@ export default function AdminUserOptions({ route, navigation }) {
   const [isCargasModalVisible, setIsCargasModalVisible] = useState(false);
   const [historicoDeCargasList, setHistoricoDeCargasList] = useState([]);
 
-  // 🔥 NOVO: ESTADO PARA OS ALERTAS DA IA 🔥
+  // 🔥 ESTADOS PARA OS ALERTAS DA IA 🔥
   const [studentAlerts, setStudentAlerts] = useState([]);
+  const [isAlertsExpanded, setIsAlertsExpanded] = useState(false);
 
   useEffect(() => {
     const loadCache = async () => {
@@ -108,13 +109,12 @@ export default function AdminUserOptions({ route, navigation }) {
 
     const t = Date.now();
     try {
-        // 🔥 Adicionei a chamada para a nossa nova API de Alertas!
         const [resWorkouts, resUser, resPaflix, resAccess, resAlerts] = await Promise.all([
             fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${t}`),
             fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`),
             fetch(`https://fitos-final.onrender.com/api/contents`),
             fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`),
-            fetch(`https://fitos-final.onrender.com/api/admin/alerts?userId=${aluno.id}&t=${t}`) // Rota que vamos criar no backend!
+            fetch(`https://fitos-final.onrender.com/api/admin/alerts?userId=${aluno.id}&t=${t}`)
         ]);
 
         let activeWk = [];
@@ -207,7 +207,6 @@ export default function AdminUserOptions({ route, navigation }) {
             if (Array.isArray(access)) setUserAccess(access);
         }
 
-        // 🔥 PROCESSA OS ALERTAS DA IA 🔥
         if (resAlerts && resAlerts.ok) {
             const alerts = await resAlerts.json();
             if (Array.isArray(alerts)) setStudentAlerts(alerts);
@@ -471,9 +470,7 @@ export default function AdminUserOptions({ route, navigation }) {
       }
   };
 
-  // 🔥 MARCA O ALERTA COMO LIDO E ESCONDE DA TELA 🔥
   const handleDismissAlert = async (alertId) => {
-      // Remove da tela imediatamente para a interface ficar fluida
       setStudentAlerts(prev => prev.filter(a => a.id !== alertId));
       try {
           await fetch(`https://fitos-final.onrender.com/api/admin/alerts/${alertId}`, {
@@ -536,34 +533,50 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* 🔥 CENTRAL DE INTELIGÊNCIA: ALERTAS DA IA 🔥 */}
+                {/* 🔥 CENTRAL DE INTELIGÊNCIA: ALERTAS DA IA (AGORA EM ACORDEÃO ELITE) 🔥 */}
                 {studentAlerts.length > 0 && (
                     <View style={{ marginBottom: 25 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                            <MaterialCommunityIcons name="brain" size={18} color="#FF9500" />
-                            <Text style={{ color: '#FF9500', fontWeight: '900', fontSize: 12, letterSpacing: 1 }}>LABORATÓRIO DE IA (AVISOS)</Text>
-                        </View>
-                        
-                        {studentAlerts.map(alert => (
-                            <View key={alert.id} style={{ backgroundColor: theme.isDark ? '#2c1e0a' : '#fff5e6', borderWidth: 1, borderColor: '#FF9500', borderRadius: 12, padding: 15, marginBottom: 10 }}>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 5 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                                        <MaterialCommunityIcons name="alert-circle" size={16} color="#FF9500" />
-                                        <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 14 }}>{alert.title}</Text>
-                                    </View>
-                                    <TouchableOpacity onPress={() => handleDismissAlert(alert.id)}>
-                                        <MaterialCommunityIcons name="check-circle" size={20} color={theme.textSecondary} />
-                                    </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: theme.surface, borderWidth: 1, borderColor: isAlertsExpanded ? '#FF9500' : theme.border, borderRadius: 12, padding: 15, marginBottom: isAlertsExpanded ? 10 : 0 }}
+                            onPress={() => setIsAlertsExpanded(!isAlertsExpanded)}
+                            activeOpacity={0.8}
+                        >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                <View style={{ backgroundColor: '#FF9500' + '20', padding: 8, borderRadius: 8 }}>
+                                    <MaterialCommunityIcons name="brain" size={20} color="#FF9500" />
                                 </View>
-                                <Text style={{ color: theme.text, fontSize: 13, marginBottom: 10 }}>
-                                    Foi detectada estagnação no exercício <Text style={{fontWeight: 'bold'}}>{alert.exerciseName}</Text>.
-                                </Text>
-                                <View style={{ backgroundColor: theme.surface, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
-                                    <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>SUGESTÃO DA IA:</Text>
-                                    <Text style={{ color: theme.text, fontSize: 12, fontStyle: 'italic' }}>"{alert.message}"</Text>
+                                <View>
+                                    <Text style={{ color: '#FF9500', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>LABORATÓRIO DE IA</Text>
+                                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>{studentAlerts.length} aviso(s) de estagnação pendente(s)</Text>
                                 </View>
                             </View>
-                        ))}
+                            <MaterialCommunityIcons name={isAlertsExpanded ? "chevron-up" : "chevron-down"} size={24} color={theme.textSecondary} />
+                        </TouchableOpacity>
+
+                        {isAlertsExpanded && (
+                            <View style={{ gap: 10 }}>
+                                {studentAlerts.map(alert => (
+                                    <View key={alert.id} style={{ backgroundColor: theme.isDark ? '#2c1e0a' : '#fff5e6', borderWidth: 1, borderColor: '#FF9500', borderRadius: 12, padding: 15 }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                                                <MaterialCommunityIcons name="alert-circle" size={16} color="#FF9500" />
+                                                <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 14 }}>{alert.title}</Text>
+                                            </View>
+                                            <TouchableOpacity onPress={() => handleDismissAlert(alert.id)} style={{ padding: 4, backgroundColor: theme.surface, borderRadius: 6, borderWidth: 1, borderColor: theme.border }}>
+                                                <MaterialCommunityIcons name="check-bold" size={16} color={theme.accent} />
+                                            </TouchableOpacity>
+                                        </View>
+                                        <Text style={{ color: theme.text, fontSize: 13, marginBottom: 12 }}>
+                                            Foi detectada estagnação no exercício <Text style={{fontWeight: 'bold'}}>{alert.exerciseName}</Text>.
+                                        </Text>
+                                        <View style={{ backgroundColor: theme.surface, padding: 10, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', marginBottom: 4 }}>SUGESTÃO DA IA:</Text>
+                                            <Text style={{ color: theme.text, fontSize: 12, fontStyle: 'italic' }}>"{alert.message}"</Text>
+                                        </View>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
                     </View>
                 )}
 
