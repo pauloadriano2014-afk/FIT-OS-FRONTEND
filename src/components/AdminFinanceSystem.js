@@ -1,0 +1,657 @@
+// src/components/AdminFinanceSystem.js
+
+import React, { useState, useMemo, useEffect, createElement } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Linking, Image, ActivityIndicator, Alert, Modal, TextInput, Dimensions } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
+import * as ImagePicker from 'expo-image-picker';
+
+const MONTHS = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+
+const CATEGORIAS_OFFLINE = ['Consultoria Online', 'Personal Trainer', 'Assessoria de Corrida', 'Projeto Especial / Desafio', 'Plano Alimentar / Nutrição'];
+
+// 🔥 CALCULADORA DE DATAS HÍBRIDA 🔥
+const calcularProximaData = (dataBaseIso, tipoContrato) => {
+    const data = dataBaseIso ? new Date(dataBaseIso) : new Date();
+    let novaData = new Date(data.getTime());
+    
+    switch (tipoContrato) {
+        case 'Mensal': novaData.setMonth(novaData.getMonth() + 1); break;
+        case 'Trimestral': novaData.setMonth(novaData.getMonth() + 3); break;
+        case 'Semestral': novaData.setMonth(novaData.getMonth() + 6); break;
+        case 'Anual': novaData.setFullYear(novaData.getFullYear() + 1); break;
+        case 'Projeto 90 Dias': novaData.setDate(novaData.getDate() + 90); break;
+        case 'Ficha 8 Semanas': novaData.setDate(novaData.getDate() + 56); break;
+        default: novaData.setMonth(novaData.getMonth() + 1);
+    }
+    return novaData.toISOString();
+};
+
+export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogCoach, isWeb }) {
+    const { width } = Dimensions.get('window');
+    const isWebPC = Platform.OS === 'web' && width > 768;
+    const currentMonthIndex = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    // Estados de Filtro
+    const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
+    const [filterStatus, setFilterStatus] = useState('TODOS'); 
+    const [filterCategory, setFilterCategory] = useState('TODOS'); // 🔥 NOVO FILTRO 🔥
+    
+    // Lista Local de Alunos do App + Alunos Offline
+    const [localAlunos, setLocalAlunos] = useState([]);
+    const [offlineClients, setOfflineClients] = useState([]); // Lista dos alunos apenas do financeiro
+    const [loadingId, setLoadingId] = useState(null);
+
+    // Estados do Modal de Edição (Alunos do App)
+    const [editingAluno, setEditingAluno] = useState(null);
+    const [contractType, setContractType] = useState('Mensal');
+    const [contractValue, setContractValue] = useState('0');
+    const [paymentDueDate, setPaymentDueDate] = useState('');
+    const [nextWorkoutUpdate, setNextWorkoutUpdate] = useState('');
+    const [isSavingContract, setIsSavingContract] = useState(false);
+
+    // 🔥 ESTADOS DO MODAL "NOVO ALUNO OFFLINE" 🔥
+    const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+    const [newPhotoUrl, setNewPhotoUrl] = useState('');
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [newName, setNewName] = useState('');
+    const [newPhone, setNewPhone] = useState('');
+    const [newCategory, setNewCategory] = useState('Consultoria Online');
+    const [newDuration, setNewDuration] = useState('Mensal');
+    const [newValue, setNewValue] = useState('');
+    const [newStartDate, setNewStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [newDueDate, setNewDueDate] = useState('');
+    const [newUpdateDate, setNewUpdateDate] = useState('');
+    const [isSavingNew, setIsSavingNew] = useState(false);
+
+    useEffect(() => {
+        setLocalAlunos(alunos);
+        // Futuro: Aqui entra o fetch para puxar os alunos offline do banco de dados (GET /api/admin/finance-clients)
+    }, [alunos]);
+
+    // 1. Junta os alunos do app com os alunos offline e filtra pelo Coach
+    const todosAlunosFinanceiro = useMemo(() => {
+        const mix = [...localAlunos, ...offlineClients];
+        return mix.filter(a => getLogCoach(a) === coachFilter);
+    }, [localAlunos, offlineClients, coachFilter, getLogCoach]);
+
+    // 2. A MÁGICA FINANCEIRA DO MÊS SELECIONADO
+    const metrics = useMemo(() => {
+        let entrada = 0;
+        let pendente = 0;
+        let previsao = 0;
+
+        const endOfSelectedMonth = new Date(currentYear, selectedMonth + 1, 0);
+        endOfSelectedMonth.setHours(23, 59, 59, 999);
+
+        todosAlunosFinanceiro.forEach(aluno => {
+            const valor = parseFloat(aluno.contractValue) || 0;
+            previsao += valor;
+
+            if (aluno.paymentDueDate) {
+                const vencimento = new Date(aluno.paymentDueDate);
+                if (vencimento > endOfSelectedMonth) {
+                    entrada += valor;
+                } else {
+                    pendente += valor;
+                }
+            } else {
+                pendente += valor; // Sem data = pendente
+            }
+        });
+
+        return { entrada, pendente, previsao };
+    }, [todosAlunosFinanceiro, selectedMonth, currentYear]);
+
+    // 3. Monta a lista de alunos e aplica os filtros (Status + Categoria)
+    const studentList = useMemo(() => {
+        const endOfSelectedMonth = new Date(currentYear, selectedMonth + 1, 0);
+        endOfSelectedMonth.setHours(23, 59, 59, 999);
+
+        let list = todosAlunosFinanceiro.map(aluno => {
+            const isPaid = aluno.paymentDueDate ? new Date(aluno.paymentDueDate) > endOfSelectedMonth : false;
+            return { ...aluno, isPaid };
+        });
+
+        if (filterStatus === 'PAGOS') list = list.filter(a => a.isPaid);
+        if (filterStatus === 'PENDENTES') list = list.filter(a => !a.isPaid);
+
+        if (filterCategory !== 'TODOS') {
+            list = list.filter(a => (a.plan === filterCategory) || (a.isOffline && a.plan === filterCategory));
+        }
+
+        return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    }, [todosAlunosFinanceiro, selectedMonth, currentYear, filterStatus, filterCategory]);
+
+    // ==========================================
+    // FUNÇÕES DE AÇÃO RÁPIDA
+    // ==========================================
+    const handleRegistrarPagamentoRapido = async (aluno) => {
+        const confirmAction = async () => {
+            setLoadingId(aluno.id);
+            try {
+                const tipoContrato = aluno.contractType || 'Mensal';
+                const dataBase = aluno.paymentDueDate ? new Date(aluno.paymentDueDate) : new Date();
+                
+                let novaData = new Date(dataBase.getTime());
+                switch (tipoContrato) {
+                    case 'Mensal': novaData.setMonth(novaData.getMonth() + 1); break;
+                    case 'Trimestral': novaData.setMonth(novaData.getMonth() + 3); break;
+                    case 'Semestral': novaData.setMonth(novaData.getMonth() + 6); break;
+                    case 'Anual': novaData.setFullYear(novaData.getFullYear() + 1); break;
+                    case 'Projeto 90 Dias': novaData.setDate(novaData.getDate() + 90); break;
+                    case 'Ficha 8 Semanas': novaData.setDate(novaData.getDate() + 56); break;
+                    default: novaData.setMonth(novaData.getMonth() + 1);
+                }
+                const novaDataISO = novaData.toISOString();
+
+                // Se for aluno offline, atualiza na lista local (Futuro: Rota diferente no backend)
+                if (aluno.isOffline) {
+                    setOfflineClients(prev => prev.map(a => a.id === aluno.id ? { ...a, paymentDueDate: novaDataISO } : a));
+                    if (Platform.OS === 'web') window.alert("Sucesso!\n\nPagamento registrado e data de vencimento atualizada.");
+                    else Alert.alert("Sucesso", "Pagamento registrado e data de vencimento atualizada.");
+                } else {
+                    // Para alunos do app, chamar a API
+                    await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: aluno.id,
+                            contractType: tipoContrato,
+                            contractValue: aluno.contractValue,
+                            paymentDueDate: novaDataISO,
+                            nextWorkoutUpdate: aluno.nextWorkoutUpdate,
+                        }),
+                    });
+                    if (Platform.OS === 'web') window.alert("Sucesso!\n\nPagamento registrado e data de vencimento atualizada.");
+                    else Alert.alert("Sucesso", "Pagamento registrado e data de vencimento atualizada.");
+                }
+            } catch (error) {
+                console.error("Erro ao registrar pagamento:", error);
+                if (Platform.OS === 'web') window.alert("Erro ao registrar pagamento.");
+                else Alert.alert("Erro", "Não foi possível registrar o pagamento.");
+            } finally {
+                setLoadingId(null);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(`Confirmar pagamento para ${aluno.name}?`)) confirmAction();
+        } else {
+            Alert.alert("Confirmar Pagamento", `Deseja registrar o pagamento para ${aluno.name}?`, [
+                { text: "Cancelar" },
+                { text: "Sim", onPress: confirmAction }
+            ]);
+        }
+    };
+
+    const openWhatsApp = (phone, name) => {
+        const message = `Olá ${name}, tudo bem? Estou entrando em contato para...`;
+        const url = `whatsapp://send?phone=+55${phone.replace(/\D/g, '')}&text=${encodeURIComponent(message)}`;
+        Linking.openURL(url).catch(() => {
+            if (Platform.OS === 'web') window.alert("Por favor, instale o WhatsApp ou use um dispositivo móvel.");
+            else Alert.alert("Erro", "Não foi possível abrir o WhatsApp. Verifique se o aplicativo está instalado.");
+        });
+    };
+
+    // ==========================================
+    // MODAL DE EDIÇÃO DE CONTRATO
+    // ==========================================
+    const openEditModal = (aluno) => {
+        setEditingAluno(aluno);
+        setContractType(aluno.contractType || 'Mensal');
+        setContractValue(aluno.contractValue ? String(aluno.contractValue) : '0');
+        setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
+        setNextWorkoutUpdate(aluno.nextWorkoutUpdate ? aluno.nextWorkoutUpdate.split('T')[0] : '');
+    };
+
+    const closeEditModal = () => {
+        setEditingAluno(null);
+        setContractType('Mensal');
+        setContractValue('0');
+        setPaymentDueDate('');
+        setNextWorkoutUpdate('');
+    };
+
+    const handleSaveModalContract = async () => {
+        if (!editingAluno) return;
+
+        setIsSavingContract(true);
+        try {
+            const updatedData = {
+                userId: editingAluno.id,
+                contractType,
+                contractValue: parseFloat(contractValue),
+                paymentDueDate: paymentDueDate ? new Date(paymentDueDate).toISOString() : null,
+                nextWorkoutUpdate: nextWorkoutUpdate ? new Date(nextWorkoutUpdate).toISOString() : null,
+            };
+
+            // Se for aluno offline, atualiza na lista local (Futuro: Rota diferente no backend)
+            if (editingAluno.isOffline) {
+                setOfflineClients(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados do aluno offline atualizados.");
+                else Alert.alert("Sucesso", "Dados do aluno offline atualizados.");
+            } else {
+                // Para alunos do app, chamar a API
+                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedData),
+                });
+                if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados do contrato atualizados.");
+                else Alert.alert("Sucesso", "Dados do contrato atualizados.");
+            }
+            closeEditModal();
+        } catch (error) {
+            console.error("Erro ao salvar contrato:", error);
+            if (Platform.OS === 'web') window.alert("Erro ao salvar contrato.");
+            else Alert.alert("Erro", "Não foi possível salvar as alterações.");
+        } finally {
+            setIsSavingContract(false);
+        }
+    };
+
+    // ==========================================
+    // MODAL DE NOVO ALUNO OFFLINE
+    // ==========================================
+    const handlePickImage = async () => {
+        try {
+            setUploadingPhoto(true);
+            let result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.5,
+            });
+
+            if (!result.canceled) {
+                const uri = result.assets[0].uri;
+                // Futuro: Implementar upload para S3 ou similar
+                setNewPhotoUrl(uri);
+            }
+        } catch (error) {
+            console.error("Erro ao selecionar imagem:", error);
+            if (Platform.OS === 'web') window.alert("Erro ao selecionar imagem.");
+            else Alert.alert("Erro", "Não foi possível selecionar a imagem.");
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
+
+    const handleSaveNewOfflineClient = async () => {
+        if (!newName || !newPhone || !newValue || !newStartDate || !newDueDate) {
+            if (Platform.OS === 'web') window.alert("Por favor, preencha todos os campos obrigatórios.");
+            else Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios.");
+            return;
+        }
+
+        setIsSavingNew(true);
+        try {
+            const newClient = {
+                id: `offline_${Date.now()}`, // ID temporário para o cliente offline
+                name: newName,
+                phone: newPhone,
+                plan: newCategory,
+                contractType: newDuration,
+                contractValue: parseFloat(newValue),
+                paymentDueDate: new Date(newDueDate).toISOString(),
+                nextWorkoutUpdate: newUpdateDate ? new Date(newUpdateDate).toISOString() : null,
+                photoUrl: newPhotoUrl,
+                isOffline: true,
+                coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', // Ajustar conforme seu sistema de IDs de coach
+            };
+
+            setOfflineClients(prev => [...prev, newClient]);
+            if (Platform.OS === 'web') window.alert("Sucesso!\n\nNovo aluno offline cadastrado.");
+            else Alert.alert("Sucesso", "Novo aluno offline cadastrado.");
+            setIsAddModalVisible(false);
+            // Resetar campos
+            setNewName('');
+            setNewPhone('');
+            setNewCategory('Consultoria Online');
+            setNewDuration('Mensal');
+            setNewValue('');
+            setNewStartDate(new Date().toISOString().split('T')[0]);
+            setNewDueDate('');
+            setNewUpdateDate('');
+            setNewPhotoUrl('');
+        } catch (error) {
+            console.error("Erro ao cadastrar aluno offline:", error);
+            if (Platform.OS === 'web') window.alert("Erro ao cadastrar aluno offline.");
+            else Alert.alert("Erro", "Não foi possível cadastrar o aluno offline.");
+        } finally {
+            setIsSavingNew(false);
+        }
+    };
+
+    const formatCurrency = (value) => {
+        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+    };
+
+    const renderWebSelect = (value, onChange, options) => (
+        <View style={styles.webSelectWrapper(theme)}>
+            <select value={value} onChange={onChange} style={styles.webSelectInput(theme)}>
+                {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+            </select>
+            <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} style={styles.webSelectIcon} />
+        </View>
+    );
+
+    return (
+        <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 150 }}>
+            {/* Cabeçalho com Mês e Botão Novo Aluno */}
+            <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                     <View style={[styles.iconBox, {backgroundColor: theme.accent + '22', width: 44, height: 44, borderRadius: 22}]}>
+                        <MaterialCommunityIcons name="cash-multiple" size={22} color={theme.accent} />
+                    </View>
+                    <View>
+                        <Text style={[styles.mainLabel, { color: theme.text }]}>GESTÃO FINANCEIRA</Text>
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold', letterSpacing: 0.5 }}>{MONTHS[selectedMonth]} {currentYear}</Text>
+                    </View>
+                </View>
+                <TouchableOpacity style={[styles.addBtnModern, { backgroundColor: theme.accent }]} onPress={() => setIsAddModalVisible(true)}>
+                    <MaterialCommunityIcons name="account-plus" size={18} color="#FFF" />
+                    <Text style={[styles.addBtnText, { color: '#FFF' }]}>NOVO ALUNO OFFLINE</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Filtros */}
+            <View style={[styles.filterBar, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                <View style={[styles.filterGroup, isWebPC && { borderRightWidth: 1, borderRightColor: theme.border }]}>
+                    <Text style={styles.inputLabel}>MÊS</Text>
+                    {Platform.OS === 'web' ? renderWebSelect(selectedMonth, (e) => setSelectedMonth(Number(e.target.value)), MONTHS.map((m, i) => ({ value: i, label: m }))) : (
+                        <View style={styles.pickerWrapper}><Picker selectedValue={selectedMonth} onValueChange={setSelectedMonth} style={{ color: theme.text }} dropdownIconColor={theme.accent}>{MONTHS.map((m, i) => <Picker.Item key={i} label={m} value={i} />)}</Picker></View>
+                    )}
+                </View>
+
+                <View style={[styles.filterGroup, isWebPC && { borderRightWidth: 1, borderRightColor: theme.border }]}>
+                    <Text style={styles.inputLabel}>STATUS</Text>
+                    {Platform.OS === 'web' ? renderWebSelect(filterStatus, (e) => setFilterStatus(e.target.value), [{ value: 'TODOS', label: 'TODOS' }, { value: 'PAGOS', label: 'PAGOS' }, { value: 'PENDENTES', label: 'PENDENTES' }]) : (
+                        <View style={styles.pickerWrapper}><Picker selectedValue={filterStatus} onValueChange={setFilterStatus} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS" value="TODOS" /><Picker.Item label="PAGOS" value="PAGOS" /><Picker.Item label="PENDENTES" value="PENDENTES" /></Picker></View>
+                    )}
+                </View>
+
+                <View style={styles.filterGroup}>
+                    <Text style={styles.inputLabel}>CATEGORIA</Text>
+                    {Platform.OS === 'web' ? renderWebSelect(filterCategory, (e) => setFilterCategory(e.target.value), [{ value: 'TODOS', label: 'TODOS' }, ...CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))]) : (
+                        <View style={styles.pickerWrapper}><Picker selectedValue={filterCategory} onValueChange={setFilterCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS" value="TODOS" />{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>
+                    )}
+                </View>
+            </View>
+
+            {/* Métricas Financeiras */}
+            <View style={[styles.metricsRow, isWebPC && { flexDirection: 'row' }]}>
+                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                    <View style={styles.metricHeader}>
+                        <View style={[styles.iconBox, { backgroundColor: '#34C75922' }]}><MaterialCommunityIcons name="cash-check" size={18} color="#34C759" /></View>
+                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>ENTRADA</Text>
+                    </View>
+                    <Text style={[styles.metricValue, { color: '#34C759' }]}>{formatCurrency(metrics.entrada)}</Text>
+                </View>
+                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                    <View style={styles.metricHeader}>
+                        <View style={[styles.iconBox, { backgroundColor: '#FF3B3022' }]}><MaterialCommunityIcons name="cash-remove" size={18} color="#FF3B30" /></View>
+                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PENDENTE</Text>
+                    </View>
+                    <Text style={[styles.metricValue, { color: '#FF3B30' }]}>{formatCurrency(metrics.pendente)}</Text>
+                </View>
+                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                    <View style={styles.metricHeader}>
+                        <View style={[styles.iconBox, { backgroundColor: '#007AFF22' }]}><MaterialCommunityIcons name="cash-multiple" size={18} color="#007AFF" /></View>
+                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PREVISÃO</Text>
+                    </View>
+                    <Text style={[styles.metricValue, { color: '#007AFF' }]}>{formatCurrency(metrics.previsao)}</Text>
+                </View>
+            </View>
+
+            {/* Lista de Alunos */}
+            <View style={[styles.listContainer, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                {isWebPC && (
+                    <View style={[styles.listHeader, { borderBottomColor: theme.border }]}>
+                        <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 2 }]}>ALUNO E PLANO</Text>
+                        <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, width: 100, textAlign: 'center' }]}>STATUS</Text>
+                        <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 1, textAlign: 'right' }]}>AÇÕES RÁPIDAS</Text>
+                    </View>
+                )}
+
+                {studentList.map(aluno => (
+                    <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: isWebPC ? 'row' : 'column', alignItems: isWebPC ? 'center' : 'flex-start' }]}>
+                        <View style={{ flex: isWebPC ? 2 : 1, flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' }}>
+                            {aluno.photoUrl ? (
+                                <View style={[styles.avatar, { overflow: 'hidden' }]}>
+                                    {Platform.OS === 'web' ? <img src={aluno.photoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: aluno.photoUrl }} style={{ width: '100%', height: '100%' }} />}
+                                </View>
+                            ) : (
+                                <View style={[styles.avatarPlaceholder, { borderColor: theme.border }]}>
+                                    <MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} />
+                                </View>
+                            )}
+                            <View style={{ flex: 1 }}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                    <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
+                                    {aluno.isOffline && <MaterialCommunityIcons name="cloud-off-outline" size={12} color={theme.textSecondary} title="Aluno Offline" />}
+                                </View>
+                                <Text style={styles.studentPlan} numberOfLines={1}>{aluno.contractType || 'Mensal'} - {formatCurrency(aluno.contractValue || 0)}</Text>
+                            </View>
+                            {!isWebPC && (
+                                <View style={[styles.statusBadge, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022', marginLeft: 'auto' }]}>
+                                    <Text style={[styles.statusText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>{aluno.isPaid ? 'PAGO' : 'PENDENTE'}</Text>
+                                </View>
+                            )}
+                        </View>
+
+                        {isWebPC && (
+                            <View style={{ width: 100, alignItems: 'center' }}>
+                                <View style={[styles.statusBadge, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022' }]}>
+                                    <Text style={[styles.statusText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>{aluno.isPaid ? 'PAGO' : 'PENDENTE'}</Text>
+                                </View>
+                            </View>
+                        )}
+
+                        <View style={{ flex: isWebPC ? 1 : 0, width: isWebPC ? 'auto' : '100%', flexDirection: 'row', justifyContent: isWebPC ? 'flex-end' : 'space-between', alignItems: 'center', gap: 8, marginTop: isWebPC ? 0 : 15, paddingTop: isWebPC ? 0 : 10, borderTopWidth: isWebPC ? 0 : 1, borderTopColor: theme.border }}>
+                            {!isWebPC && <Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>Gerenciar:</Text>}
+                            <View style={{flexDirection: 'row', gap: 6, marginLeft: isWebPC ? 0 : 'auto'}}>
+                                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#32ADE622' }]} onPress={() => openEditModal(aluno)}>
+                                    <MaterialCommunityIcons name="pencil" size={16} color="#32ADE6" />
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#34C759', paddingHorizontal: 10, flexDirection: 'row', gap: 5, width: 'auto' }]} onPress={() => handleRegistrarPagamentoRapido(aluno)} disabled={loadingId === aluno.id}>
+                                    {loadingId === aluno.id ? <ActivityIndicator size="small" color="#FFF" /> : (
+                                        <><MaterialCommunityIcons name="cash-check" size={16} color="#FFF" /><Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>PAGO</Text></>
+                                    )}
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#25D36622' }]} onPress={() => openWhatsApp(aluno.phone, aluno.name)}>
+                                    <MaterialCommunityIcons name="whatsapp" size={18} color="#25D366" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                ))}
+
+                {studentList.length === 0 && (
+                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhum aluno encontrado neste filtro.</Text>
+                )}
+            </View>
+
+            {/* 🔥 MODAL DE EDIÇÃO DE CONTRATO 🔥 */}
+            <Modal visible={!!editingAluno} transparent animationType="fade" onRequestClose={closeEditModal}>
+                <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeEditModal}>
+                    <TouchableOpacity activeOpacity={1} style={[styles.modernModalContent, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+
+                        <View style={styles.modernModalHeader(theme)}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="pencil-lock" size={18} color={theme.accent} /></View>
+                                <View>
+                                    <Text style={[styles.modalTitle, {color: theme.text}]}>Atualizar Dados</Text>
+                                    <Text style={{color: theme.textSecondary, fontSize: 11}}>ID: {editingAluno?.id}</Text>
+                                    <Text style={{color: theme.textSecondary, fontSize: 11}}>{editingAluno?.name}</Text>
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={closeEditModal} style={styles.closeButton}><MaterialCommunityIcons name="close" size={26} color={theme.textSecondary} /></TouchableOpacity>
+                        </View>
+
+                        <View style={{ gap: 20 }}>
+                            <View style={styles.formRow(isWebPC)}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.inputLabel}>TIPO DE PLANO</Text>
+                                    {Platform.OS === 'web' ? renderWebSelect(contractType, (e) => setContractType(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' }, { value: 'Projeto 90 Dias', label: 'Projeto 90 Dias' }, { value: 'Ficha 8 Semanas', label: 'Ficha 8 Semanas' } ]) : (
+                                        <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                            <Picker selectedValue={contractType} onValueChange={setContractType} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /><Picker.Item label="Projeto 90 Dias" value="Projeto 90 Dias" /><Picker.Item label="Ficha 8 Semanas" value="Ficha 8 Semanas" /></Picker>
+                                        </View>
+                                    )}
+                                </View>
+
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.inputLabel}>VALOR (R$)</Text>
+                                    <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.accent, borderColor: theme.border, textAlign: 'center' }]} placeholder="0.00" placeholderTextColor={theme.textSecondary} value={contractValue} onChangeText={setContractValue} keyboardType="numeric" />
+                                </View>
+                            </View>
+
+                            <View>
+                                <Text style={styles.inputLabel}>PRÓXIMO VENCIMENTO</Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                    {Platform.OS === 'web' ? createElement('input', { type: 'date', value: paymentDueDate, onChange: (e) => setPaymentDueDate(e.target.value), style: styles.webDate(theme) }) : (
+                                        <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, flex: 1 }]} placeholder="AAAA-MM-DD" value={paymentDueDate} onChangeText={setPaymentDueDate} />
+                                    )}
+                                    <TouchableOpacity style={[styles.modernBtn, { backgroundColor: '#34C759' }]} onPress={() => setPaymentDueDate(calcularProximaData(paymentDueDate ? new Date(paymentDueDate).toISOString() : new Date().toISOString(), contractType).split('T')[0])}>
+                                        <MaterialCommunityIcons name="cash-plus" size={16} color="#FFF" />
+                                        <Text style={styles.modernBtnText}>💰 RENOVOU</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+
+                            {!editingAluno?.isOffline && (
+                                <View>
+                                    <Text style={styles.inputLabel}>ATUALIZAÇÃO DO TREINO</Text>
+                                    <Text style={{color: theme.textSecondary, fontSize: 10, marginBottom: 8, fontStyle: 'italic'}}>Preenchido automaticamente com a data final da ficha vigente do aluno.</Text>
+                                    {Platform.OS === 'web' ? createElement('input', { type: 'date', value: nextWorkoutUpdate, onChange: (e) => setNextWorkoutUpdate(e.target.value), style: styles.webDate(theme) }) : (
+                                        <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={nextWorkoutUpdate} onChangeText={setNextWorkoutUpdate} />
+                                    )}
+                                </View>
+                            )}
+
+                            <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: theme.accent, marginTop: 15, flexDirection: 'row', gap: 8, height: 54 }]} onPress={() => handleSaveModalContract()} disabled={isSavingContract}>
+                                {isSavingContract ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
+                                    <><MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} /><Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>SALVAR E FECHAR</Text></>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
+                </TouchableOpacity>
+            </Modal>
+
+            {/* 🔥 MODAL DE NOVO ALUNO OFFLINE MODERNIZADO 🔥 */}
+            <Modal visible={isAddModalVisible} transparent animationType="slide" onRequestClose={() => setIsAddModalVisible(false)}>
+                <View style={styles.modalBackdrop}>
+                    <ScrollView contentContainerStyle={{ paddingVertical: 40, alignItems: 'center' }} showsVerticalScrollIndicator={false} style={{ width: '100%' }}>
+                        <View style={[styles.addModalContent, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+
+                            <View style={styles.modernModalHeader(theme)}>
+                                <Text style={[styles.modalTitle, {color: theme.text}]}>Cadastrar Aluno Offline</Text>
+                                <TouchableOpacity onPress={() => setIsAddModalVisible(false)}><MaterialCommunityIcons name="close" size={26} color={theme.textSecondary} /></TouchableOpacity>
+                            </View>
+
+                            <View style={{ gap: 20 }}>
+                                <View style={styles.formRow(isWebPC)}>
+                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>NOME COMPLETO</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: Abner Kristopher" placeholderTextColor={theme.textSecondary} value={newName} onChangeText={setNewName} /></View>
+                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>CATEGORIA / PLANO</Text>{Platform.OS === 'web' ? renderWebSelect(newCategory, (e) => setNewCategory(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newCategory} onValueChange={setNewCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}>{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>}</View>
+                                </View>
+                                
+                                <View style={styles.formRow(isWebPC)}>
+                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>TELEFONE</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="41 9999-9999" placeholderTextColor={theme.textSecondary} value={newPhone} onChangeText={setNewPhone} keyboardType="numeric" /></View>
+                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>DURAÇÃO DO CONTRATO</Text>{Platform.OS === 'web' ? renderWebSelect(newDuration, (e) => setNewDuration(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' } ]) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newDuration} onValueChange={setNewDuration} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /></Picker></View>}</View>
+                                </View>
+                                
+                                <View><Text style={styles.inputLabel}>VALOR TOTAL (R$)</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: 149" placeholderTextColor={theme.textSecondary} value={newValue} onChangeText={setNewValue} keyboardType="numeric" /></View>
+                                
+                                <View style={styles.formRow(isWebPC)}>
+                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>DATA INÍCIO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newStartDate, onChange: (e) => setNewStartDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newStartDate} onChangeText={setNewStartDate} />}</View>
+                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>VENCIMENTO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newDueDate, onChange: (e) => setNewDueDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newDueDate} onChangeText={setNewDueDate} />}</View>
+                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>ATUALIZAÇÃO (OPCIONAL)</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newUpdateDate, onChange: (e) => setNewUpdateDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newUpdateDate} onChangeText={setNewUpdateDate} />}</View>
+                                </View>
+                                
+                                <View style={{ marginTop: 10 }}>
+                                    <Text style={[styles.inputLabel, { fontStyle: 'italic', color: theme.textSecondary }]}>MÍDIA / FOTO DE PERFIL</Text>
+                                    <View style={[styles.mediaBox, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                        {uploadingPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : newPhotoUrl ? <View style={styles.mediaPreviewAvatar}>{Platform.OS === 'web' ? <img src={newPhotoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: newPhotoUrl }} style={{ width: '100%', height: '100%' }} />}</View> : <View style={styles.mediaPlaceholder}><MaterialCommunityIcons name="account-circle" size={32} color={theme.textSecondary} /></View>}
+                                        <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: '#1C1C1E' }]} onPress={handlePickImage}><MaterialCommunityIcons name="upload" size={16} color="#FFF" /><Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5}}>SELECIONAR DA GALERIA</Text></TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: theme.accent, marginTop: 10, flexDirection: 'row', gap: 8, height: 54 }]} onPress={handleSaveNewOfflineClient} disabled={isSavingNew}>
+                                    {isSavingNew ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <><MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} /><Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>SALVAR DADOS CADASTRAIS</Text></>}
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </ScrollView>
+                </View>
+            </Modal>
+
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    headerCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 20, elevation: 2, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4, flexWrap: 'wrap', gap: 10 },
+    mainLabel: { fontWeight: '900', fontSize: 18, letterSpacing: -0.5, marginBottom: 0 },
+    addBtnModern: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 15, height: 40, borderRadius: 10, elevation: 3 },
+    addBtnText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+
+    filterBar: { flexDirection: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 'row' : 'column', borderRadius: 16, borderWidth: 1, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 0 : 15, marginBottom: 25, elevation: 1, overflow: 'hidden' },
+    filterGroup: { flex: 1, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 15 : 0, gap: 5, marginBottom: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 0 : 10 },
+    inputLabel: { color: '#888', fontSize: 10, fontWeight: '900', marginBottom: 6, letterSpacing: 1 },
+
+    webSelectWrapper: (theme) => ({ position: 'relative', width: '100%', borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface }),
+    webSelectInput: (theme) => ({ width: '100%', padding: '12px 35px 12px 12px', backgroundColor: 'transparent', color: theme.text, border: 'none', outline: 'none', fontWeight: 'bold', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontSize: '13px', appearance: 'none', '-webkit-appearance': 'none', '-moz-appearance': 'none', cursor: 'pointer' }),
+    webSelectIcon: { position: 'absolute', right: 10, top: '50%', marginTop: -10, pointerEvents: 'none' },
+    pickerWrapper: { borderRadius: 10, borderWidth: 1, borderColor: '#333', backgroundColor: '#1A1A1A', overflow: 'hidden' },
+
+    metricsRow: { gap: 15, marginBottom: 30 },
+    metricCard: { flex: 1, padding: 20, borderRadius: 16, borderWidth: 1, elevation: 2, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 },
+    metricHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
+    iconBox: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+    metricLabel: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+    metricValue: { fontSize: 26, fontWeight: '900', letterSpacing: -1 },
+
+    listContainer: { borderRadius: 16, borderWidth: 1, padding: 10, marginBottom: 50 },
+    listHeader: { flexDirection: 'row', padding: 15, borderBottomWidth: 1 },
+    listHeaderTitle: { flex: 1, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+
+    listItem: { padding: 15, borderBottomWidth: 1, gap: 0 },
+    avatar: { width: 40, height: 40, borderRadius: 20 },
+    avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+    studentName: { fontWeight: '900', fontSize: 13, marginBottom: 1 },
+    studentPlan: { color: '#888', fontSize: 11, fontWeight: 'bold' },
+
+    statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'center' },
+    statusText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+
+    actionBtn: { height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center', minWidth: 36 },
+    emptyText: { textAlign: 'center', padding: 30, fontStyle: 'italic', fontWeight: 'bold' },
+
+    // Modais Modernos
+    modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 20 : 10 },
+    modernModalContent: { width: '100%', maxWidth: 650, borderRadius: 24, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 30 : 20, borderWidth: 1, elevation: 10 },
+    modernModalHeader: (theme) => ({ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, borderBottomWidth: 1, borderColor: theme.border, paddingBottom: 15 }),
+    modalTitle: { fontWeight: '900', fontSize: 18, letterSpacing: -0.5 },
+
+    addModalContent: { width: '100%', maxWidth: 800, alignSelf: 'center', borderRadius: 24, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 30 : 20, borderWidth: 1 },
+    cardTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
+
+    formRow: (isDesktop) => ({ flexDirection: isDesktop ? 'row' : 'column', gap: 15 }),
+    inputLarge: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, fontWeight: 'bold' },
+
+    webDate: (theme) => ({ width: '100%', padding: '14px', borderRadius: '12px', border: `1px solid ${theme.border}`, backgroundColor: theme.surface, color: theme.text, outline: 'none', fontSize: '14px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontWeight: 'bold', boxSizing: 'border-box' }),
+
+    modernBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, height: 48, borderRadius: 12, elevation: 3 },
+    modernBtnText: { color: '#FFF', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+
+    saveBtnLg: { height: 54, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
+    pickerContainer: { borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+
+    mediaBox: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', gap: 15 },
+    mediaPreviewAvatar: { width: 48, height: 48, borderRadius: 8, overflow: 'hidden' },
+    mediaPlaceholder: { width: 48, height: 48, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.05)', justifyContent: 'center', alignItems: 'center' },
+    uploadBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 15, paddingVertical: 12, borderRadius: 8, elevation: 2 },
+});

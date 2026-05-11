@@ -22,6 +22,50 @@ const getDirectImageUrl = (url) => {
     return url;
 };
 
+// 🔥 FUNÇÃO DE DISPARO DE NOTIFICAÇÃO (EXPO PUSH) 🔥
+const sendPushNotification = async (title, body, adminId) => {
+    try {
+        // 1. Puxa os pushTokens dos alunos ativos ligados ao admin
+        const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
+        const data = await res.json();
+        const activeUsers = data.activeUsers || [];
+        
+        const tokens = activeUsers
+            .map(user => user.pushToken)
+            .filter(token => typeof token === 'string' && token.startsWith('ExponentPushToken'));
+
+        if (tokens.length === 0) {
+            console.log('Nenhum aluno com Push Token válido encontrado.');
+            return;
+        }
+
+        // 2. Monta o pacote de mensagens (chunking recomendado pelo Expo)
+        const messages = tokens.map(token => ({
+            to: token,
+            sound: 'default',
+            title: title,
+            body: body,
+            data: { screen: 'Biblioteca' }, // Direciona para a biblioteca ao clicar
+        }));
+
+        // 3. Dispara para o servidor do Expo
+        await fetch('https://exp.host/--/api/v2/push/send', {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Accept-encoding': 'gzip, deflate',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(messages),
+        });
+        
+        console.log(`Notificações enviadas para ${tokens.length} alunos.`);
+    } catch (error) {
+        console.error('Erro ao enviar Push Notification:', error);
+    }
+};
+
+
 export default function AdminAddContent({ navigation }) {
     const { theme } = useTheme();
 
@@ -42,7 +86,7 @@ export default function AdminAddContent({ navigation }) {
     
     const [uploadingMedia, setUploadingMedia] = useState(false); 
     const [uploadingIndex, setUploadingIndex] = useState(null);
-    const [uploadingThumb, setUploadingThumb] = useState(false); // 🔥 ESTADO PARA A CAPA
+    const [uploadingThumb, setUploadingThumb] = useState(false); 
 
     const [accessModalVisible, setAccessModalVisible] = useState(false);
     const [selectedContentForAccess, setSelectedContentForAccess] = useState(null);
@@ -350,6 +394,7 @@ export default function AdminAddContent({ navigation }) {
         }
     };
 
+    // 🔥 SALVAMENTO E DISPARO DE NOTIFICAÇÃO PUSH 🔥
     const handleSave = async () => {
         if (!form.title || !form.thumbUrl) {
             return Alert.alert("Erro", "Preencha Título e faça o upload da Capa.");
@@ -397,6 +442,16 @@ export default function AdminAddContent({ navigation }) {
             if (res.ok) {
                 Alert.alert("Sucesso", `Conteúdo ${editingId ? 'atualizado' : 'publicado'} com sucesso!`);
                 setViewMode('list'); 
+
+                // 🔔 DISPARA NOTIFICAÇÃO PUSH SE FOR UM NOVO CONTEÚDO 🔔
+                if (!editingId && !form.isVIP) { // Se não for VIP ou edição, avisa a galera
+                    const tipoFormatado = contentType === 'ebook' ? 'E-book' : contentType === 'audio' ? 'Áudio' : 'Vídeo';
+                    await sendPushNotification(
+                        `🎬 Novo ${tipoFormatado} Disponível!`,
+                        `${form.title} acabou de chegar na Biblioteca. Assista agora!`,
+                        adminId
+                    );
+                }
             } else {
                 Alert.alert("Erro", "Falha ao processar os dados.");
             }
@@ -602,7 +657,7 @@ export default function AdminAddContent({ navigation }) {
                                             )}
 
                                             <Text style={[styles.label, { color: theme.accent }]}>
-                                                {contentType === 'ebook' ? "LINK DO ARQUIVO PDF" : "OU COLE O LINK DO VÍDEO (.mp4)"}
+                                                {contentType === 'ebook' ? "LINK DO ARQUIVO PDF" : "OU COLE O LINK DO YOUTUBE/VÍDEO (.mp4)"}
                                             </Text>
                                             <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.contentUrl} onChangeText={t=>setForm({...form, contentUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
                                             
