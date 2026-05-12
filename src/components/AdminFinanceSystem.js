@@ -1,7 +1,7 @@
 // src/components/AdminFinanceSystem.js
 
 import React, { useState, useMemo, useEffect, createElement } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, Image, ActivityIndicator, Alert, Modal, TextInput, ScrollView, useWindowDimensions, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, Image, ActivityIndicator, Alert, Modal, TextInput, ScrollView, useWindowDimensions, Dimensions, Switch } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -10,7 +10,7 @@ const MONTHS = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JUL
 
 const CATEGORIAS_OFFLINE = ['Consultoria Online', 'Personal Trainer', 'Assessoria de Corrida', 'Projeto Especial / Desafio', 'Plano Alimentar / Nutrição'];
 
-// 🔥 MOTOR DE DATAS: AVANÇAR E RETROCEDER 🔥
+// 🔥 MOTOR DE DATAS 🔥
 const calcularProximaData = (dataBaseIso, tipoContrato) => {
     const data = dataBaseIso ? new Date(dataBaseIso) : new Date();
     let novaData = new Date(data.getTime());
@@ -41,7 +41,6 @@ const calcularDataAnterior = (dataBaseIso, tipoContrato) => {
     return novaData.toISOString();
 };
 
-// 🔥 STATUS DOS DIAS PARA VENCIMENTO 🔥
 const getDueDateStatus = (isoDate, theme) => {
     if (!isoDate) return { days: 0, color: theme.textSecondary, label: 'SEM DATA', border: theme.border };
     const target = new Date(isoDate);
@@ -51,20 +50,19 @@ const getDueDateStatus = (isoDate, theme) => {
     
     const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 3600 * 24));
     
-    if (diffDays < 0) return { days: diffDays, color: theme.isDark ? '#FFF' : '#000', label: 'VENCIDO', border: theme.isDark ? '#555' : '#333' }; // Preto/Escuro
-    if (diffDays <= 3) return { days: diffDays, color: '#FF3B30', label: 'URGENTE', border: '#FF3B30' }; // Vermelho
-    if (diffDays <= 10) return { days: diffDays, color: '#FF9500', label: 'ATENÇÃO', border: '#FF9500' }; // Laranja
-    return { days: diffDays, color: '#34C759', label: 'NO PRAZO', border: '#34C759' }; // Verde
+    if (diffDays < 0) return { days: diffDays, color: theme.isDark ? '#FFF' : '#000', label: 'VENCIDO', border: theme.isDark ? '#555' : '#333' }; 
+    if (diffDays <= 3) return { days: diffDays, color: '#FF3B30', label: 'URGENTE', border: '#FF3B30' }; 
+    if (diffDays <= 10) return { days: diffDays, color: '#FF9500', label: 'ATENÇÃO', border: '#FF9500' }; 
+    return { days: diffDays, color: '#34C759', label: 'NO PRAZO', border: '#34C759' }; 
 };
 
-// 🔥 BLINDAGEM DE FUSO HORÁRIO (Fix do dia anterior) 🔥
 const forceMiddayUTC = (dateStr) => {
     if (!dateStr) return null;
     if (dateStr.includes('T')) return dateStr;
     return `${dateStr}T12:00:00Z`;
 };
 
-export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogCoach, isWeb }) {
+export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogCoach }) {
     const { width } = useWindowDimensions();
     const isWebPC = Platform.OS === 'web' && width > 768;
     
@@ -73,22 +71,25 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     
     // Filtros
     const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
-    const [filterStatus, setFilterStatus] = useState('TODOS'); 
+    const [filterStatus, setFilterStatus] = useState('ATIVOS'); // 🔥 Padrão é mostrar só os ativos
     const [filterCategory, setFilterCategory] = useState('TODOS'); 
-    const [filterPrazo, setFilterPrazo] = useState('TODOS'); // 🔥 NOVO FILTRO DE PRAZO
+    const [filterPrazo, setFilterPrazo] = useState('TODOS'); 
     const [searchQuery, setSearchQuery] = useState(''); 
     
     const [localAlunos, setLocalAlunos] = useState([]);
     const [offlineClients, setOfflineClients] = useState([]); 
     const [loadingId, setLoadingId] = useState(null);
 
+    // Edição Modal
     const [editingAluno, setEditingAluno] = useState(null);
     const [contractType, setContractType] = useState('Mensal');
     const [contractValue, setContractValue] = useState('0');
     const [paymentDueDate, setPaymentDueDate] = useState('');
     const [financeCategoryEdit, setFinanceCategoryEdit] = useState('Consultoria Online');
+    const [isFinanceActiveEdit, setIsFinanceActiveEdit] = useState(true); // 🔥 NOVO ESTADO
     const [isSavingContract, setIsSavingContract] = useState(false);
 
+    // Novo Aluno
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
     const [newPhotoUrl, setNewPhotoUrl] = useState('');
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -109,10 +110,12 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         const mix = [...localAlunos, ...offlineClients];
         return mix.filter(a => getLogCoach(a) === coachFilter).map(aluno => ({
             ...aluno,
-            financeCategory: aluno.financeCategory || (aluno.isOffline ? aluno.plan : 'Consultoria Online')
+            financeCategory: aluno.financeCategory || (aluno.isOffline ? aluno.plan : 'Consultoria Online'),
+            isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true
         }));
     }, [localAlunos, offlineClients, coachFilter, getLogCoach]);
 
+    // 🔥 MÁTRICAS COM CONGELAMENTO 🔥
     const metrics = useMemo(() => {
         let entrada = 0;
         let pendente = 0;
@@ -123,17 +126,18 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
         todosAlunosFinanceiro.forEach(aluno => {
             const valor = parseFloat(aluno.contractValue) || 0;
-            previsao += valor;
+            const isPaid = aluno.paymentDueDate ? new Date(aluno.paymentDueDate) > endOfSelectedMonth : false;
 
-            if (aluno.paymentDueDate) {
-                const vencimento = new Date(aluno.paymentDueDate);
-                if (vencimento > endOfSelectedMonth) {
-                    entrada += valor;
-                } else {
-                    pendente += valor;
-                }
+            // Se está pago, a grana entrou (inativo ou ativo).
+            if (isPaid) {
+                entrada += valor;
+                previsao += valor;
             } else {
-                pendente += valor; 
+                // Se NÃO está pago e está ATIVO, cobra. Se não, não entra na previsão.
+                if (aluno.isFinanceActive) {
+                    pendente += valor;
+                    previsao += valor;
+                }
             }
         });
 
@@ -149,14 +153,14 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             return { ...aluno, isPaid };
         });
 
-        if (filterStatus === 'PAGOS') list = list.filter(a => a.isPaid);
-        if (filterStatus === 'PENDENTES') list = list.filter(a => !a.isPaid);
+        // 🔥 LÓGICA DO NOVO FILTRO 🔥
+        if (filterStatus === 'ATIVOS') list = list.filter(a => a.isFinanceActive);
+        if (filterStatus === 'INATIVOS') list = list.filter(a => !a.isFinanceActive);
+        if (filterStatus === 'PAGOS') list = list.filter(a => a.isPaid && a.isFinanceActive);
+        if (filterStatus === 'PENDENTES') list = list.filter(a => !a.isPaid && a.isFinanceActive);
 
-        if (filterCategory !== 'TODOS') {
-            list = list.filter(a => a.financeCategory === filterCategory);
-        }
+        if (filterCategory !== 'TODOS') list = list.filter(a => a.financeCategory === filterCategory);
 
-        // 🔥 FILTRO DE PRAZO 🔥
         if (filterPrazo !== 'TODOS') {
             list = list.filter(a => {
                 if (!a.paymentDueDate) return false;
@@ -177,9 +181,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [todosAlunosFinanceiro, selectedMonth, currentYear, filterStatus, filterCategory, filterPrazo, searchQuery, theme]);
 
-    // ==========================================
-    // TOGGLE PAGAMENTO (AVANÇA OU ESTORNA A DATA)
-    // ==========================================
     const handleTogglePagamento = async (aluno) => {
         const isCurrentlyPaid = aluno.isPaid;
         const msg = isCurrentlyPaid 
@@ -208,7 +209,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                             contractType: tipoContrato,
                             contractValue: parseFloat(aluno.contractValue) || 0,
                             paymentDueDate: novaDataISO,
-                            financeCategory: aluno.financeCategory || 'Consultoria Online'
+                            financeCategory: aluno.financeCategory || 'Consultoria Online',
+                            isFinanceActive: aluno.isFinanceActive
                         }),
                     });
                     
@@ -249,9 +251,9 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setEditingAluno(aluno);
         setContractType(aluno.contractType || 'Mensal');
         setContractValue(aluno.contractValue ? String(aluno.contractValue) : '0');
-        // Extrai a data local formatada sem quebrar fuso
         setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
         setFinanceCategoryEdit(aluno.financeCategory || 'Consultoria Online');
+        setIsFinanceActiveEdit(aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true);
     };
 
     const closeEditModal = () => {
@@ -260,6 +262,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setContractValue('0');
         setPaymentDueDate('');
         setFinanceCategoryEdit('Consultoria Online');
+        setIsFinanceActiveEdit(true);
     };
 
     const handleSaveModalContract = async () => {
@@ -275,6 +278,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 contractValue: parsedValue,
                 paymentDueDate: safeIsoDate,
                 financeCategory: financeCategoryEdit, 
+                isFinanceActive: isFinanceActiveEdit
             };
 
             if (editingAluno.isOffline) {
@@ -329,6 +333,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 paymentDueDate: forceMiddayUTC(newDueDate),
                 photoUrl: newPhotoUrl,
                 isOffline: true,
+                isFinanceActive: true,
                 coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', 
             };
             setOfflineClients(prev => [...prev, newClient]);
@@ -380,7 +385,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 onChangeText={setSearchQuery} 
             />
 
-            {/* 🔥 BARRA DE FILTROS COM A NOVA OPÇÃO DE PRAZO 🔥 */}
             <View style={[styles.filterBar, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flexDirection: isWebPC ? 'row' : 'column', padding: isWebPC ? 0 : 15 }]}>
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
                     <Text style={styles.inputLabel}>MÊS</Text>
@@ -389,10 +393,11 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     )}
                 </View>
 
+                {/* 🔥 FILTRO STATUS MENSAL ATUALIZADO 🔥 */}
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
-                    <Text style={styles.inputLabel}>STATUS MENSAL</Text>
-                    {Platform.OS === 'web' ? renderWebSelect(filterStatus, (e) => setFilterStatus(e.target.value), [{ value: 'TODOS', label: 'TODOS' }, { value: 'PAGOS', label: 'PAGOS' }, { value: 'PENDENTES', label: 'PENDENTES' }]) : (
-                        <View style={styles.pickerWrapper}><Picker selectedValue={filterStatus} onValueChange={setFilterStatus} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS" value="TODOS" /><Picker.Item label="PAGOS" value="PAGOS" /><Picker.Item label="PENDENTES" value="PENDENTES" /></Picker></View>
+                    <Text style={styles.inputLabel}>STATUS DO ALUNO</Text>
+                    {Platform.OS === 'web' ? renderWebSelect(filterStatus, (e) => setFilterStatus(e.target.value), [{ value: 'ATIVOS', label: 'TODOS ATIVOS' }, { value: 'INATIVOS', label: 'INATIVOS' }, { value: 'PAGOS', label: 'PAGOS' }, { value: 'PENDENTES', label: 'PENDENTES' }]) : (
+                        <View style={styles.pickerWrapper}><Picker selectedValue={filterStatus} onValueChange={setFilterStatus} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS ATIVOS" value="ATIVOS" /><Picker.Item label="INATIVOS" value="INATIVOS" /><Picker.Item label="PAGOS" value="PAGOS" /><Picker.Item label="PENDENTES" value="PENDENTES" /></Picker></View>
                     )}
                 </View>
 
@@ -422,7 +427,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }]}>
                     <View style={styles.metricHeader}>
                         <View style={[styles.iconBox, { backgroundColor: '#FF3B3022' }]}><MaterialCommunityIcons name="cash-remove" size={18} color="#FF3B30" /></View>
-                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PENDENTE NO MÊS</Text>
+                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PENDENTE (ATIVOS)</Text>
                     </View>
                     <Text style={[styles.metricValue, { color: '#FF3B30' }]}>{formatCurrency(metrics.pendente)}</Text>
                 </View>
@@ -447,9 +452,10 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
                 {studentList.map(aluno => {
                     const dueStatus = getDueDateStatus(aluno.paymentDueDate, theme);
+                    const isInactive = !aluno.isFinanceActive;
 
                     return isWebPC ? (
-                        <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: 'row', alignItems: 'center' }]}>
+                        <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: 'row', alignItems: 'center', opacity: isInactive ? 0.5 : 1 }]}>
                             <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                 {aluno.photoUrl ? (
                                     <View style={[styles.avatar, { overflow: 'hidden' }]}><Image source={{ uri: aluno.photoUrl }} style={{ width: '100%', height: '100%' }} /></View>
@@ -458,15 +464,15 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 )}
                                 <View style={{ flex: 1 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                                        <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
+                                        <Text style={[styles.studentName, { color: theme.text }, isInactive && { textDecorationLine: 'line-through' }]} numberOfLines={1}>{aluno.name}</Text>
                                         {aluno.isOffline && <MaterialCommunityIcons name="cloud-off-outline" size={12} color={theme.textSecondary} title="Aluno Offline" />}
+                                        {isInactive && <MaterialCommunityIcons name="power-plug-off" size={12} color="#FF3B30" title="Inativo" />}
                                     </View>
                                     <Text style={styles.studentPlan} numberOfLines={1}>
                                         {aluno.financeCategory || 'Consultoria Online'} - {formatCurrency(aluno.contractValue || 0)}
                                     </Text>
                                     
-                                    {/* 🔥 BADGE ELEGANTE DE DIAS PARA O VENCIMENTO (PC) 🔥 */}
-                                    {aluno.paymentDueDate && (
+                                    {aluno.paymentDueDate && !isInactive && (
                                         <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15' }]}>
                                             <MaterialCommunityIcons name="calendar-clock" size={12} color={dueStatus.color} />
                                             <Text style={{color: dueStatus.color, fontSize: 9, fontWeight: '900', marginLeft: 4}}>
@@ -478,8 +484,10 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                             </View>
 
                             <View style={{ width: 140, alignItems: 'center' }}>
-                                <View style={[styles.statusBadge, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022' }]}>
-                                    <Text style={[styles.statusText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>{aluno.isPaid ? 'PAGO NO MÊS' : 'PENDENTE NO MÊS'}</Text>
+                                <View style={[styles.statusBadge, { backgroundColor: isInactive ? theme.bg : (aluno.isPaid ? '#34C75922' : '#FF3B3022') }]}>
+                                    <Text style={[styles.statusText, { color: isInactive ? theme.textSecondary : (aluno.isPaid ? '#34C759' : '#FF3B30') }]}>
+                                        {isInactive ? 'INATIVO' : (aluno.isPaid ? 'PAGO NO MÊS' : 'PENDENTE NO MÊS')}
+                                    </Text>
                                 </View>
                             </View>
 
@@ -488,16 +496,15 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                     <MaterialCommunityIcons name="pencil" size={16} color="#32ADE6" />
                                 </TouchableOpacity>
                                 
-                                {/* 🔥 O BOTÃO TOGGLE (VERDE E VERMELHO) 🔥 */}
                                 <TouchableOpacity 
-                                    style={[styles.actionBtn, { backgroundColor: aluno.isPaid ? '#FF3B30' : '#34C759', paddingHorizontal: 10, flexDirection: 'row', gap: 5, width: 'auto' }]} 
+                                    style={[styles.actionBtn, { backgroundColor: aluno.isPaid ? theme.bg : '#34C759', borderColor: aluno.isPaid ? theme.border : '#34C759', borderWidth: 1, paddingHorizontal: 10, flexDirection: 'row', gap: 5, width: 'auto' }]} 
                                     onPress={() => handleTogglePagamento(aluno)} 
-                                    disabled={loadingId === aluno.id}
+                                    disabled={loadingId === aluno.id || isInactive}
                                 >
                                     {loadingId === aluno.id ? <ActivityIndicator size="small" color="#FFF" /> : (
                                         <>
-                                            <MaterialCommunityIcons name={aluno.isPaid ? "undo-variant" : "cash-check"} size={16} color="#FFF" />
-                                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>{aluno.isPaid ? 'ESTORNAR' : 'PAGO'}</Text>
+                                            <MaterialCommunityIcons name={aluno.isPaid ? "undo-variant" : "cash-check"} size={16} color={aluno.isPaid ? theme.textSecondary : '#FFF'} />
+                                            <Text style={{ color: aluno.isPaid ? theme.textSecondary : '#FFF', fontSize: 11, fontWeight: 'bold' }}>{aluno.isPaid ? 'ESTORNAR' : 'PAGO'}</Text>
                                         </>
                                     )}
                                 </TouchableOpacity>
@@ -508,46 +515,46 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                             </View>
                         </View>
                     ) : (
-                        // ==========================================
-                        // RENDERIZAÇÃO PARA CELULAR (CARTÃO MODERNO COM DIAS)
-                        // ==========================================
-                        <View key={aluno.id} style={[styles.mobileCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                        <View key={aluno.id} style={[styles.mobileCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', opacity: isInactive ? 0.6 : 1 }]}>
                             <View style={styles.mobileCardHeader}>
                                 {aluno.photoUrl ? (
                                     <Image source={{ uri: aluno.photoUrl }} style={styles.mobileAvatar} />
                                 ) : (
-                                    <View style={[styles.mobileAvatarPlaceholder, { borderColor: theme.border }]}>
-                                        <MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} />
-                                    </View>
+                                    <View style={[styles.mobileAvatarPlaceholder, { borderColor: theme.border }]}><MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} /></View>
                                 )}
                                 <View style={styles.mobileCardInfo}>
-                                    <Text style={[styles.mobileStudentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
+                                    <Text style={[styles.mobileStudentName, { color: theme.text }, isInactive && { textDecorationLine: 'line-through' }]} numberOfLines={1}>{aluno.name}</Text>
                                     <Text style={styles.mobileStudentCategory}>{aluno.financeCategory || 'Consultoria Online'}</Text>
                                     
-                                    {/* 🔥 BADGE ELEGANTE DE DIAS PARA O VENCIMENTO (MOBILE) 🔥 */}
-                                    {aluno.paymentDueDate && (
-                                        <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15', alignSelf: 'flex-start' }]}>
+                                    {aluno.paymentDueDate && !isInactive && (
+                                        <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15' }]}>
                                             <MaterialCommunityIcons name="calendar-clock" size={12} color={dueStatus.color} />
                                             <Text style={{color: dueStatus.color, fontSize: 9, fontWeight: '900', marginLeft: 4}}>
                                                 {dueStatus.days < 0 ? `VENCIDO HÁ ${Math.abs(dueStatus.days)} DIAS` : dueStatus.days === 0 ? 'VENCE HOJE' : `VENCE EM ${dueStatus.days} DIAS`}
                                             </Text>
                                         </View>
                                     )}
+                                    {isInactive && (
+                                        <View style={[styles.dueDateBadge, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                                            <MaterialCommunityIcons name="power-plug-off" size={12} color={theme.textSecondary} />
+                                            <Text style={{color: theme.textSecondary, fontSize: 9, fontWeight: '900', marginLeft: 4}}>ALUNO INATIVO</Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
 
-                            <View style={[styles.mobileFinanceBanner, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022' }]}>
-                                <MaterialCommunityIcons name="wallet-outline" size={16} color={aluno.isPaid ? '#34C759' : '#FF3B30'} />
-                                <Text style={[styles.mobileFinanceBannerText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>
-                                    {aluno.isPaid ? 'MÊS PAGO' : 'MÊS PENDENTE'} • {formatCurrency(aluno.contractValue || 0)}
+                            <View style={[styles.mobileFinanceBanner, { backgroundColor: isInactive ? theme.bg : (aluno.isPaid ? '#34C75922' : '#FF3B3022') }]}>
+                                <MaterialCommunityIcons name="wallet-outline" size={16} color={isInactive ? theme.textSecondary : (aluno.isPaid ? '#34C759' : '#FF3B30')} />
+                                <Text style={[styles.mobileFinanceBannerText, { color: isInactive ? theme.textSecondary : (aluno.isPaid ? '#34C759' : '#FF3B30') }]}>
+                                    {isInactive ? 'INATIVO NO MÊS' : (aluno.isPaid ? 'MÊS PAGO' : 'MÊS PENDENTE')} • {formatCurrency(aluno.contractValue || 0)}
                                 </Text>
                             </View>
 
                             <View style={styles.mobileActionRow}>
                                 <TouchableOpacity 
-                                    style={[styles.mobileBtnHalf, { backgroundColor: aluno.isPaid ? theme.surface : theme.accent, borderColor: aluno.isPaid ? theme.border : theme.accent, borderWidth: 1 }]} 
+                                    style={[styles.mobileBtnHalf, { backgroundColor: aluno.isPaid ? theme.bg : theme.accent, borderColor: aluno.isPaid ? theme.border : theme.accent, borderWidth: 1 }]} 
                                     onPress={() => handleTogglePagamento(aluno)} 
-                                    disabled={loadingId === aluno.id}
+                                    disabled={loadingId === aluno.id || isInactive}
                                 >
                                     {loadingId === aluno.id ? <ActivityIndicator size="small" color={aluno.isPaid ? theme.text : '#FFF'} /> : (
                                         <>
@@ -594,6 +601,18 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         </View>
 
                         <View style={{ gap: 20 }}>
+                            {/* 🔥 SWITCH DE ATIVAR/INATIVAR ALUNO NO FINANCEIRO 🔥 */}
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: isFinanceActiveEdit ? theme.accent : theme.border, backgroundColor: isFinanceActiveEdit ? theme.accent + '15' : theme.surface }}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={{ color: isFinanceActiveEdit ? theme.text : '#FF3B30', fontWeight: 'bold', fontSize: 13 }}>
+                                        {isFinanceActiveEdit ? "Aluno Ativo no Financeiro" : "Aluno Inativo no Financeiro"}
+                                    </Text>
+                                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>
+                                        {isFinanceActiveEdit ? "Os valores pendentes entrarão na previsão do mês." : "O valor deste aluno foi congelado e não entrará mais na previsão."}
+                                    </Text>
+                                </View>
+                                <Switch value={isFinanceActiveEdit} onValueChange={setIsFinanceActiveEdit} trackColor={{ false: theme.border, true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : '#FFF'} />
+                            </View>
 
                             <View style={styles.formRow(isWebPC)}>
                                 <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
