@@ -10,11 +10,10 @@ const MONTHS = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JUL
 
 const CATEGORIAS_OFFLINE = ['Consultoria Online', 'Personal Trainer', 'Assessoria de Corrida', 'Projeto Especial / Desafio', 'Plano Alimentar / Nutrição'];
 
-// 🔥 CALCULADORA DE DATAS HÍBRIDA 🔥
+// 🔥 MOTOR DE DATAS: AVANÇAR E RETROCEDER 🔥
 const calcularProximaData = (dataBaseIso, tipoContrato) => {
     const data = dataBaseIso ? new Date(dataBaseIso) : new Date();
     let novaData = new Date(data.getTime());
-    
     switch (tipoContrato) {
         case 'Mensal': novaData.setMonth(novaData.getMonth() + 1); break;
         case 'Trimestral': novaData.setMonth(novaData.getMonth() + 3); break;
@@ -27,6 +26,44 @@ const calcularProximaData = (dataBaseIso, tipoContrato) => {
     return novaData.toISOString();
 };
 
+const calcularDataAnterior = (dataBaseIso, tipoContrato) => {
+    const data = dataBaseIso ? new Date(dataBaseIso) : new Date();
+    let novaData = new Date(data.getTime());
+    switch (tipoContrato) {
+        case 'Mensal': novaData.setMonth(novaData.getMonth() - 1); break;
+        case 'Trimestral': novaData.setMonth(novaData.getMonth() - 3); break;
+        case 'Semestral': novaData.setMonth(novaData.getMonth() - 6); break;
+        case 'Anual': novaData.setFullYear(novaData.getFullYear() - 1); break;
+        case 'Projeto 90 Dias': novaData.setDate(novaData.getDate() - 90); break;
+        case 'Ficha 8 Semanas': novaData.setDate(novaData.getDate() - 56); break;
+        default: novaData.setMonth(novaData.getMonth() - 1);
+    }
+    return novaData.toISOString();
+};
+
+// 🔥 STATUS DOS DIAS PARA VENCIMENTO 🔥
+const getDueDateStatus = (isoDate, theme) => {
+    if (!isoDate) return { days: 0, color: theme.textSecondary, label: 'SEM DATA', border: theme.border };
+    const target = new Date(isoDate);
+    const today = new Date();
+    target.setHours(0,0,0,0);
+    today.setHours(0,0,0,0);
+    
+    const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 3600 * 24));
+    
+    if (diffDays < 0) return { days: diffDays, color: theme.isDark ? '#FFF' : '#000', label: 'VENCIDO', border: theme.isDark ? '#555' : '#333' }; // Preto/Escuro
+    if (diffDays <= 3) return { days: diffDays, color: '#FF3B30', label: 'URGENTE', border: '#FF3B30' }; // Vermelho
+    if (diffDays <= 10) return { days: diffDays, color: '#FF9500', label: 'ATENÇÃO', border: '#FF9500' }; // Laranja
+    return { days: diffDays, color: '#34C759', label: 'NO PRAZO', border: '#34C759' }; // Verde
+};
+
+// 🔥 BLINDAGEM DE FUSO HORÁRIO (Fix do dia anterior) 🔥
+const forceMiddayUTC = (dateStr) => {
+    if (!dateStr) return null;
+    if (dateStr.includes('T')) return dateStr;
+    return `${dateStr}T12:00:00Z`;
+};
+
 export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogCoach, isWeb }) {
     const { width } = useWindowDimensions();
     const isWebPC = Platform.OS === 'web' && width > 768;
@@ -34,26 +71,24 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const currentMonthIndex = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
-    // Estados de Filtro
+    // Filtros
     const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
     const [filterStatus, setFilterStatus] = useState('TODOS'); 
     const [filterCategory, setFilterCategory] = useState('TODOS'); 
+    const [filterPrazo, setFilterPrazo] = useState('TODOS'); // 🔥 NOVO FILTRO DE PRAZO
     const [searchQuery, setSearchQuery] = useState(''); 
     
-    // Lista Local de Alunos do App + Alunos Offline
     const [localAlunos, setLocalAlunos] = useState([]);
     const [offlineClients, setOfflineClients] = useState([]); 
     const [loadingId, setLoadingId] = useState(null);
 
-    // Estados do Modal de Edição (Alunos do App)
     const [editingAluno, setEditingAluno] = useState(null);
     const [contractType, setContractType] = useState('Mensal');
     const [contractValue, setContractValue] = useState('0');
     const [paymentDueDate, setPaymentDueDate] = useState('');
-    const [nextWorkoutUpdate, setNextWorkoutUpdate] = useState('');
+    const [financeCategoryEdit, setFinanceCategoryEdit] = useState('Consultoria Online');
     const [isSavingContract, setIsSavingContract] = useState(false);
 
-    // Estados do Modal "NOVO ALUNO OFFLINE" 
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
     const [newPhotoUrl, setNewPhotoUrl] = useState('');
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -64,20 +99,20 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [newValue, setNewValue] = useState('');
     const [newStartDate, setNewStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [newDueDate, setNewDueDate] = useState('');
-    const [newUpdateDate, setNewUpdateDate] = useState('');
     const [isSavingNew, setIsSavingNew] = useState(false);
 
     useEffect(() => {
         setLocalAlunos(alunos);
     }, [alunos]);
 
-    // 1. Junta os alunos do app com os alunos offline e filtra pelo Coach
     const todosAlunosFinanceiro = useMemo(() => {
         const mix = [...localAlunos, ...offlineClients];
-        return mix.filter(a => getLogCoach(a) === coachFilter);
+        return mix.filter(a => getLogCoach(a) === coachFilter).map(aluno => ({
+            ...aluno,
+            financeCategory: aluno.financeCategory || (aluno.isOffline ? aluno.plan : 'Consultoria Online')
+        }));
     }, [localAlunos, offlineClients, coachFilter, getLogCoach]);
 
-    // 2. A MÁGICA FINANCEIRA DO MÊS SELECIONADO
     const metrics = useMemo(() => {
         let entrada = 0;
         let pendente = 0;
@@ -105,7 +140,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         return { entrada, pendente, previsao };
     }, [todosAlunosFinanceiro, selectedMonth, currentYear]);
 
-    // 3. Monta a lista de alunos e aplica os filtros (Status + Categoria + Busca)
     const studentList = useMemo(() => {
         const endOfSelectedMonth = new Date(currentYear, selectedMonth + 1, 0);
         endOfSelectedMonth.setHours(23, 59, 59, 999);
@@ -119,7 +153,20 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         if (filterStatus === 'PENDENTES') list = list.filter(a => !a.isPaid);
 
         if (filterCategory !== 'TODOS') {
-            list = list.filter(a => (a.plan === filterCategory) || (a.isOffline && a.plan === filterCategory));
+            list = list.filter(a => a.financeCategory === filterCategory);
+        }
+
+        // 🔥 FILTRO DE PRAZO 🔥
+        if (filterPrazo !== 'TODOS') {
+            list = list.filter(a => {
+                if (!a.paymentDueDate) return false;
+                const status = getDueDateStatus(a.paymentDueDate, theme);
+                if (filterPrazo === 'VENCIDOS') return status.days < 0;
+                if (filterPrazo === 'ALERTA_3D') return status.days >= 0 && status.days <= 3;
+                if (filterPrazo === 'ATENCAO_10D') return status.days >= 4 && status.days <= 10;
+                if (filterPrazo === 'NO_PRAZO') return status.days > 10;
+                return true;
+            });
         }
 
         if (searchQuery.trim() !== '') {
@@ -128,34 +175,30 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         }
 
         return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [todosAlunosFinanceiro, selectedMonth, currentYear, filterStatus, filterCategory, searchQuery]);
+    }, [todosAlunosFinanceiro, selectedMonth, currentYear, filterStatus, filterCategory, filterPrazo, searchQuery, theme]);
 
     // ==========================================
-    // FUNÇÕES DE AÇÃO RÁPIDA
+    // TOGGLE PAGAMENTO (AVANÇA OU ESTORNA A DATA)
     // ==========================================
-    const handleRegistrarPagamentoRapido = async (aluno) => {
+    const handleTogglePagamento = async (aluno) => {
+        const isCurrentlyPaid = aluno.isPaid;
+        const msg = isCurrentlyPaid 
+            ? `Deseja CANCELAR o pagamento de ${aluno.name} e RETROCEDER a data de vencimento?` 
+            : `Deseja REGISTRAR o pagamento de ${aluno.name} e AVANÇAR a data de vencimento?`;
+
         const confirmAction = async () => {
             setLoadingId(aluno.id);
             try {
                 const tipoContrato = aluno.contractType || 'Mensal';
-                const dataBase = aluno.paymentDueDate ? new Date(aluno.paymentDueDate) : new Date();
+                const dataBase = aluno.paymentDueDate ? aluno.paymentDueDate : new Date().toISOString();
                 
-                let novaData = new Date(dataBase.getTime());
-                switch (tipoContrato) {
-                    case 'Mensal': novaData.setMonth(novaData.getMonth() + 1); break;
-                    case 'Trimestral': novaData.setMonth(novaData.getMonth() + 3); break;
-                    case 'Semestral': novaData.setMonth(novaData.getMonth() + 6); break;
-                    case 'Anual': novaData.setFullYear(novaData.getFullYear() + 1); break;
-                    case 'Projeto 90 Dias': novaData.setDate(novaData.getDate() + 90); break;
-                    case 'Ficha 8 Semanas': novaData.setDate(novaData.getDate() + 56); break;
-                    default: novaData.setMonth(novaData.getMonth() + 1);
-                }
-                const novaDataISO = novaData.toISOString();
+                const novaDataISO = isCurrentlyPaid 
+                    ? calcularDataAnterior(dataBase, tipoContrato) 
+                    : calcularProximaData(dataBase, tipoContrato);
 
                 if (aluno.isOffline) {
                     setOfflineClients(prev => prev.map(a => a.id === aluno.id ? { ...a, paymentDueDate: novaDataISO } : a));
-                    if (Platform.OS === 'web') window.alert("Sucesso!\n\nPagamento registrado e data de vencimento atualizada.");
-                    else Alert.alert("Sucesso", "Pagamento registrado e data de vencimento atualizada.");
+                    if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
                 } else {
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
                         method: 'POST',
@@ -163,52 +206,52 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         body: JSON.stringify({
                             userId: aluno.id,
                             contractType: tipoContrato,
-                            contractValue: aluno.contractValue,
+                            contractValue: parseFloat(aluno.contractValue) || 0,
                             paymentDueDate: novaDataISO,
-                            nextWorkoutUpdate: aluno.nextWorkoutUpdate,
+                            financeCategory: aluno.financeCategory || 'Consultoria Online'
                         }),
                     });
-                    if (Platform.OS === 'web') window.alert("Sucesso!\n\nPagamento registrado e data de vencimento atualizada.");
-                    else Alert.alert("Sucesso", "Pagamento registrado e data de vencimento atualizada.");
+                    
+                    setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, paymentDueDate: novaDataISO } : a));
+                    
+                    if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
                 }
             } catch (error) {
-                console.error("Erro ao registrar pagamento:", error);
-                if (Platform.OS === 'web') window.alert("Erro ao registrar pagamento.");
-                else Alert.alert("Erro", "Não foi possível registrar o pagamento.");
+                console.error("Erro ao processar pagamento:", error);
+                if (Platform.OS === 'web') window.alert("Erro ao processar.");
+                else Alert.alert("Erro", "Não foi possível processar.");
             } finally {
                 setLoadingId(null);
             }
         };
 
         if (Platform.OS === 'web') {
-            if (window.confirm(`Confirmar pagamento para ${aluno.name}?`)) confirmAction();
+            if (window.confirm(msg)) confirmAction();
         } else {
-            Alert.alert("Confirmar Pagamento", `Deseja registrar o pagamento para ${aluno.name}?`, [
-                { text: "Cancelar" },
-                { text: "Sim", onPress: confirmAction }
+            Alert.alert(isCurrentlyPaid ? "Estornar Pagamento" : "Confirmar Pagamento", msg, [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Sim", style: isCurrentlyPaid ? 'destructive' : 'default', onPress: confirmAction }
             ]);
         }
     };
 
     const openWhatsApp = (phone, name) => {
         if (!phone) return;
-        const message = `Olá ${name}, tudo bem? Estou entrando em contato para...`;
+        const message = `Olá ${name}, tudo bem? Estou entrando em contato para falar sobre sua consultoria...`;
         const url = `whatsapp://send?phone=+55${phone.replace(/\D/g, '')}&text=${encodeURIComponent(message)}`;
         Linking.openURL(url).catch(() => {
             if (Platform.OS === 'web') window.alert("Por favor, instale o WhatsApp ou use um dispositivo móvel.");
-            else Alert.alert("Erro", "Não foi possível abrir o WhatsApp. Verifique se o aplicativo está instalado.");
+            else Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
         });
     };
 
-    // ==========================================
-    // MODAL DE EDIÇÃO DE CONTRATO
-    // ==========================================
     const openEditModal = (aluno) => {
         setEditingAluno(aluno);
         setContractType(aluno.contractType || 'Mensal');
         setContractValue(aluno.contractValue ? String(aluno.contractValue) : '0');
+        // Extrai a data local formatada sem quebrar fuso
         setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
-        setNextWorkoutUpdate(aluno.nextWorkoutUpdate ? aluno.nextWorkoutUpdate.split('T')[0] : '');
+        setFinanceCategoryEdit(aluno.financeCategory || 'Consultoria Online');
     };
 
     const closeEditModal = () => {
@@ -216,66 +259,52 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setContractType('Mensal');
         setContractValue('0');
         setPaymentDueDate('');
-        setNextWorkoutUpdate('');
+        setFinanceCategoryEdit('Consultoria Online');
     };
 
     const handleSaveModalContract = async () => {
         if (!editingAluno) return;
-
         setIsSavingContract(true);
         try {
+            const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
+            const safeIsoDate = forceMiddayUTC(paymentDueDate);
+
             const updatedData = {
                 userId: editingAluno.id,
                 contractType,
-                contractValue: parseFloat(contractValue),
-                paymentDueDate: paymentDueDate ? new Date(paymentDueDate).toISOString() : null,
-                nextWorkoutUpdate: nextWorkoutUpdate ? new Date(nextWorkoutUpdate).toISOString() : null,
+                contractValue: parsedValue,
+                paymentDueDate: safeIsoDate,
+                financeCategory: financeCategoryEdit, 
             };
 
             if (editingAluno.isOffline) {
                 setOfflineClients(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
-                if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados do aluno offline atualizados.");
-                else Alert.alert("Sucesso", "Dados do aluno offline atualizados.");
+                if (Platform.OS === 'web') window.alert("Sucesso!");
             } else {
-                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                const response = await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(updatedData),
                 });
-                if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados do contrato atualizados.");
-                else Alert.alert("Sucesso", "Dados do contrato atualizados.");
+                if (!response.ok) throw new Error("Falha");
+                setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                if (Platform.OS === 'web') window.alert("Contrato atualizado.");
             }
             closeEditModal();
         } catch (error) {
-            console.error("Erro ao salvar contrato:", error);
-            if (Platform.OS === 'web') window.alert("Erro ao salvar contrato.");
-            else Alert.alert("Erro", "Não foi possível salvar as alterações.");
+            if (Platform.OS === 'web') window.alert("Erro ao salvar.");
         } finally {
             setIsSavingContract(false);
         }
     };
 
-    // ==========================================
-    // MODAL DE NOVO ALUNO OFFLINE
-    // ==========================================
     const handlePickImage = async () => {
         try {
             setUploadingPhoto(true);
-            let result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.5,
-            });
-
-            if (!result.canceled) {
-                const uri = result.assets[0].uri;
-                setNewPhotoUrl(uri);
-            }
+            let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.5 });
+            if (!result.canceled) setNewPhotoUrl(result.assets[0].uri);
         } catch (error) {
-            console.error("Erro ao selecionar imagem:", error);
-            if (Platform.OS === 'web') window.alert("Erro ao selecionar imagem.");
-            else Alert.alert("Erro", "Não foi possível selecionar a imagem.");
+            console.error(error);
         } finally {
             setUploadingPhoto(false);
         }
@@ -283,53 +312,38 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
     const handleSaveNewOfflineClient = async () => {
         if (!newName || !newPhone || !newValue || !newStartDate || !newDueDate) {
-            if (Platform.OS === 'web') window.alert("Por favor, preencha todos os campos obrigatórios.");
-            else Alert.alert("Erro", "Por favor, preencha todos os campos obrigatórios.");
+            if (Platform.OS === 'web') window.alert("Preencha todos os campos obrigatórios.");
             return;
         }
-
         setIsSavingNew(true);
         try {
+            const parsedOfflineValue = parseFloat(String(newValue).replace(',', '.')) || 0;
             const newClient = {
                 id: `offline_${Date.now()}`, 
                 name: newName,
                 phone: newPhone,
                 plan: newCategory,
+                financeCategory: newCategory,
                 contractType: newDuration,
-                contractValue: parseFloat(newValue),
-                paymentDueDate: new Date(newDueDate).toISOString(),
-                nextWorkoutUpdate: newUpdateDate ? new Date(newUpdateDate).toISOString() : null,
+                contractValue: parsedOfflineValue,
+                paymentDueDate: forceMiddayUTC(newDueDate),
                 photoUrl: newPhotoUrl,
                 isOffline: true,
                 coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', 
             };
-
             setOfflineClients(prev => [...prev, newClient]);
-            if (Platform.OS === 'web') window.alert("Sucesso!\n\nNovo aluno offline cadastrado.");
-            else Alert.alert("Sucesso", "Novo aluno offline cadastrado.");
+            if (Platform.OS === 'web') window.alert("Aluno offline cadastrado.");
             setIsAddModalVisible(false);
-            
-            setNewName('');
-            setNewPhone('');
-            setNewCategory('Consultoria Online');
-            setNewDuration('Mensal');
-            setNewValue('');
-            setNewStartDate(new Date().toISOString().split('T')[0]);
-            setNewDueDate('');
-            setNewUpdateDate('');
-            setNewPhotoUrl('');
+            setNewName(''); setNewPhone(''); setNewCategory('Consultoria Online'); setNewDuration('Mensal'); setNewValue('');
+            setNewStartDate(new Date().toISOString().split('T')[0]); setNewDueDate(''); setNewPhotoUrl('');
         } catch (error) {
-            console.error("Erro ao cadastrar aluno offline:", error);
-            if (Platform.OS === 'web') window.alert("Erro ao cadastrar aluno offline.");
-            else Alert.alert("Erro", "Não foi possível cadastrar o aluno offline.");
+            console.error(error);
         } finally {
             setIsSavingNew(false);
         }
     };
 
-    const formatCurrency = (value) => {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
-    };
+    const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 
     const renderWebSelect = (value, onChange, options) => (
         <View style={styles.webSelectWrapper(theme)}>
@@ -342,7 +356,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
     return (
         <View style={{ flex: 1, paddingHorizontal: 20 }}>
-            {/* Cabeçalho com Mês e Botão Novo Aluno */}
             <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
                      <View style={[styles.iconBox, {backgroundColor: theme.accent + '22', width: 44, height: 44, borderRadius: 22}]}>
@@ -359,7 +372,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 </TouchableOpacity>
             </View>
 
-            {/* Barra de Busca */}
             <TextInput 
                 style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
                 placeholder="Buscar aluno pelo nome..." 
@@ -368,9 +380,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 onChangeText={setSearchQuery} 
             />
 
-            {/* Filtros */}
+            {/* 🔥 BARRA DE FILTROS COM A NOVA OPÇÃO DE PRAZO 🔥 */}
             <View style={[styles.filterBar, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flexDirection: isWebPC ? 'row' : 'column', padding: isWebPC ? 0 : 15 }]}>
-                
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
                     <Text style={styles.inputLabel}>MÊS</Text>
                     {Platform.OS === 'web' ? renderWebSelect(selectedMonth, (e) => setSelectedMonth(Number(e.target.value)), MONTHS.map((m, i) => ({ value: i, label: m }))) : (
@@ -379,89 +390,96 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 </View>
 
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
-                    <Text style={styles.inputLabel}>STATUS</Text>
+                    <Text style={styles.inputLabel}>STATUS MENSAL</Text>
                     {Platform.OS === 'web' ? renderWebSelect(filterStatus, (e) => setFilterStatus(e.target.value), [{ value: 'TODOS', label: 'TODOS' }, { value: 'PAGOS', label: 'PAGOS' }, { value: 'PENDENTES', label: 'PENDENTES' }]) : (
                         <View style={styles.pickerWrapper}><Picker selectedValue={filterStatus} onValueChange={setFilterStatus} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS" value="TODOS" /><Picker.Item label="PAGOS" value="PAGOS" /><Picker.Item label="PENDENTES" value="PENDENTES" /></Picker></View>
                     )}
                 </View>
 
+                <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
+                    <Text style={styles.inputLabel}>VENCIMENTO</Text>
+                    {Platform.OS === 'web' ? renderWebSelect(filterPrazo, (e) => setFilterPrazo(e.target.value), [{ value: 'TODOS', label: 'QUALQUER DATA' }, { value: 'VENCIDOS', label: 'VENCIDOS (< 0 dias)' }, { value: 'ALERTA_3D', label: 'URGENTE (0 a 3 dias)' }, { value: 'ATENCAO_10D', label: 'ATENÇÃO (4 a 10 dias)' }, { value: 'NO_PRAZO', label: 'NO PRAZO (> 10 dias)' }]) : (
+                        <View style={styles.pickerWrapper}><Picker selectedValue={filterPrazo} onValueChange={setFilterPrazo} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="QUALQUER DATA" value="TODOS" /><Picker.Item label="VENCIDOS (< 0 dias)" value="VENCIDOS" /><Picker.Item label="URGENTE (0 a 3 dias)" value="ALERTA_3D" /><Picker.Item label="ATENÇÃO (4 a 10 dias)" value="ATENCAO_10D" /><Picker.Item label="NO PRAZO (> 10 dias)" value="NO_PRAZO" /></Picker></View>
+                    )}
+                </View>
+
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1 } : {}]}>
                     <Text style={styles.inputLabel}>CATEGORIA</Text>
-                    {Platform.OS === 'web' ? renderWebSelect(filterCategory, (e) => setFilterCategory(e.target.value), [{ value: 'TODOS', label: 'TODOS' }, ...CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))]) : (
-                        <View style={styles.pickerWrapper}><Picker selectedValue={filterCategory} onValueChange={setFilterCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS" value="TODOS" />{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>
+                    {Platform.OS === 'web' ? renderWebSelect(filterCategory, (e) => setFilterCategory(e.target.value), [{ value: 'TODOS', label: 'TODAS' }, ...CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))]) : (
+                        <View style={styles.pickerWrapper}><Picker selectedValue={filterCategory} onValueChange={setFilterCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODAS" value="TODOS" />{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>
                     )}
                 </View>
             </View>
 
-            {/* Métricas Financeiras */}
             <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15, marginBottom: 30 }}>
                 <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }]}>
                     <View style={styles.metricHeader}>
                         <View style={[styles.iconBox, { backgroundColor: '#34C75922' }]}><MaterialCommunityIcons name="cash-check" size={18} color="#34C759" /></View>
-                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>ENTRADA</Text>
+                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>ENTRADA DO MÊS</Text>
                     </View>
                     <Text style={[styles.metricValue, { color: '#34C759' }]}>{formatCurrency(metrics.entrada)}</Text>
                 </View>
                 <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }]}>
                     <View style={styles.metricHeader}>
                         <View style={[styles.iconBox, { backgroundColor: '#FF3B3022' }]}><MaterialCommunityIcons name="cash-remove" size={18} color="#FF3B30" /></View>
-                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PENDENTE</Text>
+                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PENDENTE NO MÊS</Text>
                     </View>
                     <Text style={[styles.metricValue, { color: '#FF3B30' }]}>{formatCurrency(metrics.pendente)}</Text>
                 </View>
                 <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }]}>
                     <View style={styles.metricHeader}>
                         <View style={[styles.iconBox, { backgroundColor: '#007AFF22' }]}><MaterialCommunityIcons name="cash-multiple" size={18} color="#007AFF" /></View>
-                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PREVISÃO</Text>
+                        <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PREVISÃO TOTAL</Text>
                     </View>
                     <Text style={[styles.metricValue, { color: '#007AFF' }]}>{formatCurrency(metrics.previsao)}</Text>
                 </View>
             </View>
 
-            {/* 🔥 LISTA DE ALUNOS (PC = TABELA | CELULAR = CARD DE ELITE) 🔥 */}
-            <View style={[
-                styles.listContainer, 
-                isWebPC 
-                    ? { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }
-                    : { backgroundColor: 'transparent', borderWidth: 0, padding: 0, elevation: 0, shadowOpacity: 0 } // No celular, tira a caixa externa
-            ]}>
+            <View style={[styles.listContainer, isWebPC ? { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' } : { backgroundColor: 'transparent', borderWidth: 0, padding: 0, elevation: 0, shadowOpacity: 0 } ]}>
                 
                 {isWebPC && (
                     <View style={[styles.listHeader, { borderBottomColor: theme.border }]}>
                         <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 2 }]}>ALUNO E PLANO</Text>
-                        <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, width: 100, textAlign: 'center' }]}>STATUS</Text>
+                        <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, width: 140, textAlign: 'center' }]}>STATUS</Text>
                         <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 1, textAlign: 'right' }]}>AÇÕES RÁPIDAS</Text>
                     </View>
                 )}
 
-                {studentList.map(aluno => (
-                    isWebPC ? (
-                        // ==========================================
-                        // RENDERIZAÇÃO PARA PC (TABELA COMPACTA)
-                        // ==========================================
+                {studentList.map(aluno => {
+                    const dueStatus = getDueDateStatus(aluno.paymentDueDate, theme);
+
+                    return isWebPC ? (
                         <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: 'row', alignItems: 'center' }]}>
                             <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                 {aluno.photoUrl ? (
-                                    <View style={[styles.avatar, { overflow: 'hidden' }]}>
-                                        {Platform.OS === 'web' ? <img src={aluno.photoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: aluno.photoUrl }} style={{ width: '100%', height: '100%' }} />}
-                                    </View>
+                                    <View style={[styles.avatar, { overflow: 'hidden' }]}><Image source={{ uri: aluno.photoUrl }} style={{ width: '100%', height: '100%' }} /></View>
                                 ) : (
-                                    <View style={[styles.avatarPlaceholder, { borderColor: theme.border }]}>
-                                        <MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} />
-                                    </View>
+                                    <View style={[styles.avatarPlaceholder, { borderColor: theme.border }]}><MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} /></View>
                                 )}
                                 <View style={{ flex: 1 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                                         <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
                                         {aluno.isOffline && <MaterialCommunityIcons name="cloud-off-outline" size={12} color={theme.textSecondary} title="Aluno Offline" />}
                                     </View>
-                                    <Text style={styles.studentPlan} numberOfLines={1}>{aluno.contractType || 'Mensal'} - {formatCurrency(aluno.contractValue || 0)}</Text>
+                                    <Text style={styles.studentPlan} numberOfLines={1}>
+                                        {aluno.financeCategory || 'Consultoria Online'} - {formatCurrency(aluno.contractValue || 0)}
+                                    </Text>
+                                    
+                                    {/* 🔥 BADGE ELEGANTE DE DIAS PARA O VENCIMENTO (PC) 🔥 */}
+                                    {aluno.paymentDueDate && (
+                                        <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15' }]}>
+                                            <MaterialCommunityIcons name="calendar-clock" size={12} color={dueStatus.color} />
+                                            <Text style={{color: dueStatus.color, fontSize: 9, fontWeight: '900', marginLeft: 4}}>
+                                                {dueStatus.days < 0 ? `VENCIDO HÁ ${Math.abs(dueStatus.days)} DIAS` : dueStatus.days === 0 ? 'VENCE HOJE' : `VENCE EM ${dueStatus.days} DIAS`}
+                                            </Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
 
-                            <View style={{ width: 100, alignItems: 'center' }}>
+                            <View style={{ width: 140, alignItems: 'center' }}>
                                 <View style={[styles.statusBadge, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022' }]}>
-                                    <Text style={[styles.statusText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>{aluno.isPaid ? 'PAGO' : 'PENDENTE'}</Text>
+                                    <Text style={[styles.statusText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>{aluno.isPaid ? 'PAGO NO MÊS' : 'PENDENTE NO MÊS'}</Text>
                                 </View>
                             </View>
 
@@ -469,11 +487,21 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#32ADE622' }]} onPress={() => openEditModal(aluno)}>
                                     <MaterialCommunityIcons name="pencil" size={16} color="#32ADE6" />
                                 </TouchableOpacity>
-                                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#34C759', paddingHorizontal: 10, flexDirection: 'row', gap: 5, width: 'auto' }]} onPress={() => handleRegistrarPagamentoRapido(aluno)} disabled={loadingId === aluno.id}>
+                                
+                                {/* 🔥 O BOTÃO TOGGLE (VERDE E VERMELHO) 🔥 */}
+                                <TouchableOpacity 
+                                    style={[styles.actionBtn, { backgroundColor: aluno.isPaid ? '#FF3B30' : '#34C759', paddingHorizontal: 10, flexDirection: 'row', gap: 5, width: 'auto' }]} 
+                                    onPress={() => handleTogglePagamento(aluno)} 
+                                    disabled={loadingId === aluno.id}
+                                >
                                     {loadingId === aluno.id ? <ActivityIndicator size="small" color="#FFF" /> : (
-                                        <><MaterialCommunityIcons name="cash-check" size={16} color="#FFF" /><Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>PAGO</Text></>
+                                        <>
+                                            <MaterialCommunityIcons name={aluno.isPaid ? "undo-variant" : "cash-check"} size={16} color="#FFF" />
+                                            <Text style={{ color: '#FFF', fontSize: 11, fontWeight: 'bold' }}>{aluno.isPaid ? 'ESTORNAR' : 'PAGO'}</Text>
+                                        </>
                                     )}
                                 </TouchableOpacity>
+
                                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#25D36622' }]} onPress={() => openWhatsApp(aluno.phone, aluno.name)}>
                                     <MaterialCommunityIcons name="whatsapp" size={18} color="#25D366" />
                                 </TouchableOpacity>
@@ -481,10 +509,9 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         </View>
                     ) : (
                         // ==========================================
-                        // RENDERIZAÇÃO PARA CELULAR (CARTÃO MODERNO)
+                        // RENDERIZAÇÃO PARA CELULAR (CARTÃO MODERNO COM DIAS)
                         // ==========================================
                         <View key={aluno.id} style={[styles.mobileCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
-                            {/* Cabeçalho do Cartão */}
                             <View style={styles.mobileCardHeader}>
                                 {aluno.photoUrl ? (
                                     <Image source={{ uri: aluno.photoUrl }} style={styles.mobileAvatar} />
@@ -495,74 +522,58 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 )}
                                 <View style={styles.mobileCardInfo}>
                                     <Text style={[styles.mobileStudentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
-                                    <Text style={styles.mobileStudentCategory}>{aluno.plan || 'CONSULTORIA ONLINE'}</Text>
+                                    <Text style={styles.mobileStudentCategory}>{aluno.financeCategory || 'Consultoria Online'}</Text>
+                                    
+                                    {/* 🔥 BADGE ELEGANTE DE DIAS PARA O VENCIMENTO (MOBILE) 🔥 */}
+                                    {aluno.paymentDueDate && (
+                                        <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15', alignSelf: 'flex-start' }]}>
+                                            <MaterialCommunityIcons name="calendar-clock" size={12} color={dueStatus.color} />
+                                            <Text style={{color: dueStatus.color, fontSize: 9, fontWeight: '900', marginLeft: 4}}>
+                                                {dueStatus.days < 0 ? `VENCIDO HÁ ${Math.abs(dueStatus.days)} DIAS` : dueStatus.days === 0 ? 'VENCE HOJE' : `VENCE EM ${dueStatus.days} DIAS`}
+                                            </Text>
+                                        </View>
+                                    )}
                                 </View>
                             </View>
 
-                            {/* Tags de Data e Status Offline */}
-                            <View style={styles.mobileBadgesRow}>
-                                <View style={[styles.mobileBadgeDark, { backgroundColor: theme.isDark ? '#333' : '#111' }]}>
-                                    <MaterialCommunityIcons name="calendar-clock" size={12} color="#FFF" />
-                                    <Text style={styles.mobileBadgeDarkText}>VENC: {aluno.paymentDueDate ? new Date(aluno.paymentDueDate).toLocaleDateString('pt-BR') : 'N/A'}</Text>
-                                </View>
-                                {aluno.isOffline && (
-                                    <View style={[styles.mobileBadgeDark, { backgroundColor: theme.isDark ? '#333' : '#111' }]}>
-                                        <MaterialCommunityIcons name="cloud-off-outline" size={12} color="#FFF" />
-                                        <Text style={styles.mobileBadgeDarkText}>OFFLINE</Text>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* Tarja de Pagamento Larga (Idêntica ao Print) */}
                             <View style={[styles.mobileFinanceBanner, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022' }]}>
                                 <MaterialCommunityIcons name="wallet-outline" size={16} color={aluno.isPaid ? '#34C759' : '#FF3B30'} />
                                 <Text style={[styles.mobileFinanceBannerText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>
-                                    {aluno.isPaid ? 'PAGO' : 'PENDENTE'} • {formatCurrency(aluno.contractValue || 0)}
+                                    {aluno.isPaid ? 'MÊS PAGO' : 'MÊS PENDENTE'} • {formatCurrency(aluno.contractValue || 0)}
                                 </Text>
                             </View>
 
-                            {/* Botões Lado a Lado */}
                             <View style={styles.mobileActionRow}>
                                 <TouchableOpacity 
-                                    style={[styles.mobileBtnHalf, { 
-                                        backgroundColor: aluno.isPaid ? theme.surface : theme.accent, 
-                                        borderColor: aluno.isPaid ? theme.border : theme.accent, 
-                                        borderWidth: 1 
-                                    }]} 
-                                    onPress={() => handleRegistrarPagamentoRapido(aluno)} 
+                                    style={[styles.mobileBtnHalf, { backgroundColor: aluno.isPaid ? theme.surface : theme.accent, borderColor: aluno.isPaid ? theme.border : theme.accent, borderWidth: 1 }]} 
+                                    onPress={() => handleTogglePagamento(aluno)} 
                                     disabled={loadingId === aluno.id}
                                 >
                                     {loadingId === aluno.id ? <ActivityIndicator size="small" color={aluno.isPaid ? theme.text : '#FFF'} /> : (
                                         <>
-                                            <MaterialCommunityIcons name="cash-check" size={16} color={aluno.isPaid ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
+                                            <MaterialCommunityIcons name={aluno.isPaid ? "undo-variant" : "cash-check"} size={16} color={aluno.isPaid ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
                                             <Text style={[styles.mobileBtnHalfText, { color: aluno.isPaid ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                                                {aluno.isPaid ? 'RENOVAR' : 'MARCAR PAGO'}
+                                                {aluno.isPaid ? 'ESTORNAR DATA' : 'MARCAR PAGO'}
                                             </Text>
                                         </>
                                     )}
                                 </TouchableOpacity>
 
-                                <TouchableOpacity 
-                                    style={[styles.mobileBtnHalf, { backgroundColor: theme.isDark ? '#222' : '#111' }]} 
-                                    onPress={() => openEditModal(aluno)}
-                                >
+                                <TouchableOpacity style={[styles.mobileBtnHalf, { backgroundColor: theme.isDark ? '#222' : '#111' }]} onPress={() => openEditModal(aluno)}>
                                     <MaterialCommunityIcons name="pencil" size={16} color="#FFF" />
                                     <Text style={[styles.mobileBtnHalfText, { color: '#FFF' }]}>EDITAR</Text>
                                 </TouchableOpacity>
                             </View>
 
-                            {/* Botão de WhatsApp Largo Embaixo */}
                             <TouchableOpacity style={styles.mobileBtnWhatsApp} onPress={() => openWhatsApp(aluno.phone, aluno.name)}>
                                 <MaterialCommunityIcons name="whatsapp" size={18} color="#FFF" />
                                 <Text style={styles.mobileBtnWhatsAppText}>WHATSAPP (MSG)</Text>
                             </TouchableOpacity>
                         </View>
                     )
-                ))}
+                })}
 
-                {studentList.length === 0 && (
-                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhum aluno encontrado neste filtro.</Text>
-                )}
+                {studentList.length === 0 && <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhum aluno encontrado neste filtro.</Text>}
             </View>
 
             {/* 🔥 MODAL DE EDIÇÃO DE CONTRATO 🔥 */}
@@ -583,9 +594,23 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         </View>
 
                         <View style={{ gap: 20 }}>
+
+                            <View style={styles.formRow(isWebPC)}>
+                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                    <Text style={styles.inputLabel}>CATEGORIA NO FINANCEIRO</Text>
+                                    {Platform.OS === 'web' ? renderWebSelect(financeCategoryEdit, (e) => setFinanceCategoryEdit(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : (
+                                        <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                            <Picker selectedValue={financeCategoryEdit} onValueChange={setFinanceCategoryEdit} style={{ color: theme.text }} dropdownIconColor={theme.accent}>
+                                                {CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}
+                                            </Picker>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+
                             <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
                                 <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
-                                    <Text style={styles.inputLabel}>TIPO DE PLANO</Text>
+                                    <Text style={styles.inputLabel}>DURAÇÃO (TIPO DE PLANO)</Text>
                                     {Platform.OS === 'web' ? renderWebSelect(contractType, (e) => setContractType(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' }, { value: 'Projeto 90 Dias', label: 'Projeto 90 Dias' }, { value: 'Ficha 8 Semanas', label: 'Ficha 8 Semanas' } ]) : (
                                         <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
                                             <Picker selectedValue={contractType} onValueChange={setContractType} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /><Picker.Item label="Projeto 90 Dias" value="Projeto 90 Dias" /><Picker.Item label="Ficha 8 Semanas" value="Ficha 8 Semanas" /></Picker>
@@ -605,22 +630,12 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                     {Platform.OS === 'web' ? createElement('input', { type: 'date', value: paymentDueDate, onChange: (e) => setPaymentDueDate(e.target.value), style: styles.webDate(theme) }) : (
                                         <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, flex: 1 }]} placeholder="AAAA-MM-DD" value={paymentDueDate} onChangeText={setPaymentDueDate} />
                                     )}
-                                    <TouchableOpacity style={[styles.modernBtn, { backgroundColor: '#34C759' }]} onPress={() => setPaymentDueDate(calcularProximaData(paymentDueDate ? new Date(paymentDueDate).toISOString() : new Date().toISOString(), contractType).split('T')[0])}>
+                                    <TouchableOpacity style={[styles.modernBtn, { backgroundColor: '#34C759' }]} onPress={() => setPaymentDueDate(calcularProximaData(paymentDueDate ? forceMiddayUTC(paymentDueDate) : new Date().toISOString(), contractType).split('T')[0])}>
                                         <MaterialCommunityIcons name="cash-plus" size={16} color="#FFF" />
                                         <Text style={styles.modernBtnText}>💰 RENOVOU</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
-
-                            {!editingAluno?.isOffline && (
-                                <View>
-                                    <Text style={styles.inputLabel}>ATUALIZAÇÃO DO TREINO</Text>
-                                    <Text style={{color: theme.textSecondary, fontSize: 10, marginBottom: 8, fontStyle: 'italic'}}>Preenchido automaticamente com a data final da ficha vigente do aluno.</Text>
-                                    {Platform.OS === 'web' ? createElement('input', { type: 'date', value: nextWorkoutUpdate, onChange: (e) => setNextWorkoutUpdate(e.target.value), style: styles.webDate(theme) }) : (
-                                        <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={nextWorkoutUpdate} onChangeText={setNextWorkoutUpdate} />
-                                    )}
-                                </View>
-                            )}
 
                             <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: theme.accent, marginTop: 15, flexDirection: 'row', gap: 8, height: 54 }]} onPress={() => handleSaveModalContract()} disabled={isSavingContract}>
                                 {isSavingContract ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
@@ -646,7 +661,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                             <View style={{ gap: 20 }}>
                                 <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
                                     <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>NOME COMPLETO</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: Abner Kristopher" placeholderTextColor={theme.textSecondary} value={newName} onChangeText={setNewName} /></View>
-                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>CATEGORIA / PLANO</Text>{Platform.OS === 'web' ? renderWebSelect(newCategory, (e) => setNewCategory(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newCategory} onValueChange={setNewCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}>{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>}</View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>CATEGORIA NO FINANCEIRO</Text>{Platform.OS === 'web' ? renderWebSelect(newCategory, (e) => setNewCategory(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newCategory} onValueChange={setNewCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}>{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>}</View>
                                 </View>
                                 
                                 <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
@@ -654,12 +669,11 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                     <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>DURAÇÃO DO CONTRATO</Text>{Platform.OS === 'web' ? renderWebSelect(newDuration, (e) => setNewDuration(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' } ]) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newDuration} onValueChange={setNewDuration} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /></Picker></View>}</View>
                                 </View>
                                 
-                                <View><Text style={styles.inputLabel}>VALOR TOTAL (R$)</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: 149" placeholderTextColor={theme.textSecondary} value={newValue} onChangeText={setNewValue} keyboardType="numeric" /></View>
+                                <View><Text style={styles.inputLabel}>VALOR TOTAL (R$)</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: 149,90" placeholderTextColor={theme.textSecondary} value={newValue} onChangeText={setNewValue} keyboardType="numeric" /></View>
                                 
                                 <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
                                     <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>DATA INÍCIO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newStartDate, onChange: (e) => setNewStartDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newStartDate} onChangeText={setNewStartDate} />}</View>
                                     <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>VENCIMENTO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newDueDate, onChange: (e) => setNewDueDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newDueDate} onChangeText={setNewDueDate} />}</View>
-                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>ATUALIZAÇÃO (OPCIONAL)</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newUpdateDate, onChange: (e) => setNewUpdateDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newUpdateDate} onChangeText={setNewUpdateDate} />}</View>
                                 </View>
                                 
                                 <View style={{ marginTop: 10 }}>
@@ -691,7 +705,6 @@ const styles = StyleSheet.create({
 
     searchBar: { padding: 14, borderRadius: 12, marginBottom: 20, borderWidth: 1, outlineStyle: 'none', fontSize: 14, fontWeight: 'bold' },
 
-    // 🔥 FILTROS 🔥
     filterBar: { borderRadius: 16, borderWidth: 1, marginBottom: 25, elevation: 1, overflow: 'hidden' },
     inputLabel: { color: '#888', fontSize: 10, fontWeight: '900', marginBottom: 6, letterSpacing: 1 },
 
@@ -700,7 +713,6 @@ const styles = StyleSheet.create({
     webSelectIcon: { position: 'absolute', right: 10, top: '50%', marginTop: -10, pointerEvents: 'none' },
     pickerWrapper: { borderRadius: 10, borderWidth: 1, borderColor: '#333', backgroundColor: '#1A1A1A', overflow: 'hidden' },
 
-    // 🔥 MÉTRICAS 🔥
     metricCard: { padding: 20, borderRadius: 16, borderWidth: 1, elevation: 2, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 },
     metricHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
     iconBox: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
@@ -712,7 +724,18 @@ const styles = StyleSheet.create({
     listHeaderTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
     listItem: { padding: 15, borderBottomWidth: 1, gap: 0 },
 
-    // 🔥 NOVOS ESTILOS PARA OS CARTÕES DO CELULAR 🔥
+    dueDateBadge: { 
+        flexDirection: 'row', 
+        alignItems: 'center', 
+        paddingHorizontal: 12, 
+        paddingVertical: 6, 
+        borderRadius: 20, 
+        borderWidth: 1, 
+        marginTop: 8,
+        alignSelf: 'flex-start', // 🔥 TRAVA O ESTICAMENTO AQUI 🔥
+        shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 
+    },
+
     mobileCard: { borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, elevation: 3, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 6 },
     mobileCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
     mobileAvatar: { width: 48, height: 48, borderRadius: 24 },
@@ -731,7 +754,6 @@ const styles = StyleSheet.create({
     mobileBtnWhatsApp: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', paddingVertical: 14, borderRadius: 12, gap: 8 },
     mobileBtnWhatsAppText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
 
-    // Estilos Antigos (PC)
     avatar: { width: 40, height: 40, borderRadius: 20 },
     avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
     studentName: { fontWeight: '900', fontSize: 13, marginBottom: 1 },
@@ -741,7 +763,8 @@ const styles = StyleSheet.create({
     actionBtn: { height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center', minWidth: 36 },
     emptyText: { textAlign: 'center', padding: 30, fontStyle: 'italic', fontWeight: 'bold' },
 
-    // Modais Modernos
+    formRow: (isDesktop) => ({ flexDirection: isDesktop ? 'row' : 'column', gap: 15 }),
+    
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 20 : 10 },
     modernModalContent: { width: '100%', maxWidth: 650, borderRadius: 24, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 30 : 20, borderWidth: 1, elevation: 10 },
     modernModalHeader: (theme) => ({ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, borderBottomWidth: 1, borderColor: theme.border, paddingBottom: 15 }),
