@@ -197,8 +197,15 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     ? calcularDataAnterior(dataBase, tipoContrato) 
                     : calcularProximaData(dataBase, tipoContrato);
 
+                const updatedData = { paymentDueDate: novaDataISO };
+
+                // 🔥 O TRUQUE: Atualiza o filho e a memória do Pai 🔥
+                setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
+                const parentRef = alunos.find(a => a.id === aluno.id);
+                if (parentRef) Object.assign(parentRef, updatedData);
+
                 if (aluno.isOffline) {
-                    setOfflineClients(prev => prev.map(a => a.id === aluno.id ? { ...a, paymentDueDate: novaDataISO } : a));
+                    setOfflineClients(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
                     if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
                 } else {
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
@@ -210,18 +217,14 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                             contractValue: parseFloat(aluno.contractValue) || 0,
                             paymentDueDate: novaDataISO,
                             financeCategory: aluno.financeCategory || 'Consultoria Online',
-                            isFinanceActive: aluno.isFinanceActive
+                            isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true
                         }),
                     });
-                    
-                    setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, paymentDueDate: novaDataISO } : a));
-                    
                     if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
                 }
             } catch (error) {
                 console.error("Erro ao processar pagamento:", error);
                 if (Platform.OS === 'web') window.alert("Erro ao processar.");
-                else Alert.alert("Erro", "Não foi possível processar.");
             } finally {
                 setLoadingId(null);
             }
@@ -230,7 +233,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         if (Platform.OS === 'web') {
             if (window.confirm(msg)) confirmAction();
         } else {
-            Alert.alert(isCurrentlyPaid ? "Estornar Pagamento" : "Confirmar Pagamento", msg, [
+            Alert.alert(isCurrentlyPaid ? "Estornar" : "Confirmar", msg, [
                 { text: "Cancelar", style: "cancel" },
                 { text: "Sim", style: isCurrentlyPaid ? 'destructive' : 'default', onPress: confirmAction }
             ]);
@@ -251,6 +254,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setEditingAluno(aluno);
         setContractType(aluno.contractType || 'Mensal');
         setContractValue(aluno.contractValue ? String(aluno.contractValue) : '0');
+        // Extrai a data local formatada sem quebrar fuso
         setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
         setFinanceCategoryEdit(aluno.financeCategory || 'Consultoria Online');
         setIsFinanceActiveEdit(aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true);
@@ -281,6 +285,11 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 isFinanceActive: isFinanceActiveEdit
             };
 
+            // 🔥 O TRUQUE: Atualiza o filho e a memória do Pai 🔥
+            setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+            const parentRef = alunos.find(a => a.id === editingAluno.id);
+            if (parentRef) Object.assign(parentRef, updatedData);
+
             if (editingAluno.isOffline) {
                 setOfflineClients(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
                 if (Platform.OS === 'web') window.alert("Sucesso!");
@@ -291,7 +300,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     body: JSON.stringify(updatedData),
                 });
                 if (!response.ok) throw new Error("Falha");
-                setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
                 if (Platform.OS === 'web') window.alert("Contrato atualizado.");
             }
             closeEditModal();
@@ -299,6 +307,60 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             if (Platform.OS === 'web') window.alert("Erro ao salvar.");
         } finally {
             setIsSavingContract(false);
+        }
+    };
+
+    // 🔥 NOVA FUNÇÃO: REVERTER PAGAMENTO 🔥
+    const handleReverterPagamento = async () => {
+        if (!editingAluno) return;
+
+        const confirmRevert = async () => {
+            setIsSavingContract(true);
+            try {
+                const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
+
+                const updatedData = {
+                    userId: editingAluno.id,
+                    contractType,
+                    contractValue: parsedValue,
+                    paymentDueDate: null, 
+                    financeCategory: financeCategoryEdit, 
+                    isFinanceActive: isFinanceActiveEdit
+                };
+
+                // 🔥 O TRUQUE: Atualiza o filho e a memória do Pai 🔥
+                setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                const parentRef = alunos.find(a => a.id === editingAluno.id);
+                if (parentRef) Object.assign(parentRef, updatedData);
+
+                if (editingAluno.isOffline) {
+                    setOfflineClients(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                    if (Platform.OS === 'web') window.alert("Pagamento Revertido!");
+                } else {
+                    const response = await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedData),
+                    });
+                    if (!response.ok) throw new Error("Falha na resposta do servidor");
+                    if (Platform.OS === 'web') window.alert("Pagamento Revertido!");
+                }
+                closeEditModal();
+            } catch (error) {
+                console.error("Erro ao reverter contrato:", error);
+                if (Platform.OS === 'web') window.alert("Erro ao reverter o pagamento.");
+            } finally {
+                setIsSavingContract(false);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(`Tem certeza que deseja REVERTER o pagamento e marcá-lo como PENDENTE?`)) confirmRevert();
+        } else {
+            Alert.alert("Reverter Pagamento", `Tem certeza que deseja REVERTER o pagamento?`, [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Sim", style: 'destructive', onPress: confirmRevert }
+            ]);
         }
     };
 
@@ -660,6 +722,12 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 {isSavingContract ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
                                     <><MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} /><Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>SALVAR E FECHAR</Text></>
                                 )}
+                            </TouchableOpacity>
+
+                            {/* 🔥 NOVO BOTÃO DE REVERTER PAGAMENTO 🔥 */}
+                            <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: 'transparent', borderColor: '#FF3B30', borderWidth: 1, marginTop: 10, flexDirection: 'row', gap: 8, height: 54 }]} onPress={handleReverterPagamento} disabled={isSavingContract}>
+                                <MaterialCommunityIcons name="undo-variant" size={20} color="#FF3B30" />
+                                <Text style={{color: '#FF3B30', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>REVERTER PAGAMENTO</Text>
                             </TouchableOpacity>
                         </View>
                     </TouchableOpacity>
