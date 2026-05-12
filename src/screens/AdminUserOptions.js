@@ -3,7 +3,7 @@
 import React, { useState, useEffect, createElement } from 'react';
 import { 
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, 
-    ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, Dimensions, TextInput
+    ActivityIndicator, StatusBar, Alert, Platform, Image, Switch, Dimensions, TextInput, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
@@ -29,8 +29,14 @@ const DIET_OPTIONS = [
     { id: 'HYPERTROPHY_F', label: '🍑 Volume Muscular (Mulher)', desc: 'Foco em perna/glúteo (1500 a 2000 kcal)' }
 ];
 
-// 🔥 AS 6 ABAS DE ELITE (FINANCEIRO REMOVIDO) 🔥
-const TABS = ['RESUMO', 'TREINOS', 'AVALIACOES', 'DIETA_IA', 'ACESSOS', 'SISTEMA'];
+const MENU_TABS = [
+    { id: 'RESUMO', label: 'VISÃO GERAL', icon: 'view-dashboard' },
+    { id: 'TREINOS', label: 'TREINOS', icon: 'weight-lifter' },
+    { id: 'AVALIACOES', label: 'AVALIAÇÕES', icon: 'camera-front-variant' },
+    { id: 'DIETA_IA', label: 'NUTRIÇÃO & IA', icon: 'food-apple' },
+    { id: 'ACESSOS', label: 'PLANOS E BÔNUS', icon: 'key-star' },
+    { id: 'SISTEMA', label: 'SISTEMA & RISCO', icon: 'cog' }
+];
 
 export default function AdminUserOptions({ route, navigation }) {
   const { aluno } = route.params;
@@ -46,6 +52,7 @@ export default function AdminUserOptions({ route, navigation }) {
   const [archivedWorkouts, setArchivedWorkouts] = useState([]);
   
   const [activeTab, setActiveTab] = useState('RESUMO'); 
+  const [isMenuVisible, setIsMenuVisible] = useState(false);
   const [workoutTab, setWorkoutTab] = useState('active'); 
   
   const [isActiveUser, setIsActiveUser] = useState(aluno.active); 
@@ -361,7 +368,7 @@ export default function AdminUserOptions({ route, navigation }) {
                                     <Text style={{color: isActiveUser ? '#34C759' : '#FF3B30', fontSize: 10, fontWeight: 'bold'}}>{isActiveUser ? 'ATIVO' : 'BLOQUEADO'}</Text>
                                 </View>
                                 <View style={[styles.miniBadge, { backgroundColor: theme.accent + '22', borderColor: theme.accent }]}>
-                                    <Text style={{color: theme.accent, fontSize: 10, fontWeight: 'bold'}}>{freshAluno.currentXP || 0} XP</Text>
+                                    <Text style={{color: theme.accent, fontSize: 10, fontWeight: 'bold'}}>{freshAluno?.currentXP || 0} XP</Text>
                                 </View>
                             </View>
                         </View>
@@ -401,31 +408,32 @@ export default function AdminUserOptions({ route, navigation }) {
                         </View>
                     )}
 
-                    {/* 🔥 O DASHBOARD DO ALUNO 🔥 */}
+                    {/* 🔥 DASHBOARD DO ALUNO (BLINDADO - SEM FLEX INVISÍVEL) 🔥 */}
                     <Text style={[styles.sectionLabel, { marginTop: 10 }]}>DASHBOARD DO ALUNO</Text>
-                    <View style={{ flexDirection: isWebPC ? 'row' : 'column', flexWrap: 'wrap', gap: 15 }}>
+                    <View style={{ flexDirection: isWebPC ? 'row' : 'column', flexWrap: isWebPC ? 'wrap' : 'nowrap', gap: 15, width: '100%' }}>
                         
                         {/* TREINO ATUAL */}
-                        <View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: theme.border, width: isWebPC ? '48%' : '100%' }]}>
                             <View style={styles.dashCardHeader}>
                                 <View style={[styles.iconBoxSmall, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="weight-lifter" size={16} color={theme.accent}/></View>
                                 <Text style={[styles.dashCardTitle, { color: theme.text }]}>TREINO ATUAL</Text>
                             </View>
                             {activeWorkouts.length > 0 ? (
-                                <View>
+                                <View style={{ marginBottom: 15 }}>
                                     <Text style={[styles.dashCardValue, { color: theme.accent }]} numberOfLines={1}>{activeWorkouts[0].name}</Text>
                                     <Text style={styles.dashCardSub}>Início: {activeWorkouts[0].startDate ? formatToBRDate(activeWorkouts[0].startDate) : 'Não definido'}</Text>
                                 </View>
                             ) : (
-                                <Text style={styles.dashCardSub}>Nenhum treino ativo no momento.</Text>
+                                <Text style={[styles.dashCardSub, { marginBottom: 15 }]}>Nenhum treino ativo no momento.</Text>
                             )}
+                            <View style={{ flex: 1 }} />
                             <TouchableOpacity style={[styles.dashBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => setActiveTab('TREINOS')}>
                                 <Text style={{ color: theme.text, fontSize: 11, fontWeight: 'bold' }}>ACESSAR TREINOS</Text>
                             </TouchableOpacity>
                         </View>
 
                         {/* AVALIAÇÕES E RAIO-X */}
-                        <View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: theme.border, width: isWebPC ? '48%' : '100%' }]}>
                             <View style={styles.dashCardHeader}>
                                 <View style={[styles.iconBoxSmall, { backgroundColor: '#34C75922' }]}><MaterialCommunityIcons name="camera-front-variant" size={16} color="#34C759"/></View>
                                 <Text style={[styles.dashCardTitle, { color: theme.text }]}>AVALIAÇÕES</Text>
@@ -440,16 +448,20 @@ export default function AdminUserOptions({ route, navigation }) {
                                     <Text style={{ color: theme.text, fontSize: 12, fontWeight: 'bold' }}>Raio-X de Cargas</Text>
                                 </TouchableOpacity>
                             </View>
+                            <View style={{ flex: 1 }} />
                         </View>
 
                         {/* NUTRIÇÃO */}
-                        <View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: theme.border, width: isWebPC ? '48%' : '100%' }]}>
                             <View style={styles.dashCardHeader}>
                                 <View style={[styles.iconBoxSmall, { backgroundColor: '#FF3B3022' }]}><MaterialCommunityIcons name="food-apple" size={16} color="#FF3B30"/></View>
                                 <Text style={[styles.dashCardTitle, { color: theme.text }]}>NUTRIÇÃO</Text>
                             </View>
-                            <Text style={[styles.dashCardValue, { color: theme.text }]}>{isDietTabVisible ? 'Aba Liberada' : 'Aba Oculta'}</Text>
-                            <Text style={styles.dashCardSub} numberOfLines={1}>Base: {DIET_OPTIONS.find(o => o.id === dietGoal)?.label || 'Personalizada'}</Text>
+                            <View style={{ marginBottom: 15 }}>
+                                <Text style={[styles.dashCardValue, { color: theme.text }]}>{isDietTabVisible ? 'Aba Liberada' : 'Aba Oculta'}</Text>
+                                <Text style={styles.dashCardSub} numberOfLines={1}>Base: {DIET_OPTIONS.find(o => o.id === dietGoal)?.label || 'Personalizada'}</Text>
+                            </View>
+                            <View style={{ flex: 1 }} />
                             <TouchableOpacity style={[styles.dashBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => setActiveTab('DIETA_IA')}>
                                 <Text style={{ color: theme.text, fontSize: 11, fontWeight: 'bold' }}>GERENCIAR DIETA</Text>
                             </TouchableOpacity>
@@ -626,19 +638,16 @@ export default function AdminUserOptions({ route, navigation }) {
                   </View>
 
                   <View style={{ gap: 10 }}>
-                      {TABS.map(tab => {
-                          const isActive = activeTab === tab;
-                          const icon = tab === 'RESUMO' ? 'view-dashboard' : tab === 'TREINOS' ? 'weight-lifter' : tab === 'AVALIACOES' ? 'camera-front-variant' : tab === 'DIETA_IA' ? 'food-apple' : tab === 'ACESSOS' ? 'key-star' : 'cog';
-                          const label = tab === 'RESUMO' ? 'Visão Geral' : tab === 'TREINOS' ? 'Treinos' : tab === 'AVALIACOES' ? 'Avaliações' : tab === 'DIETA_IA' ? 'Nutrição & IA' : tab === 'ACESSOS' ? 'Planos e Bônus' : 'Sistema & Risco';
-                          
+                      {MENU_TABS.map(tabObj => {
+                          const isActive = activeTab === tabObj.id;
                           return (
                               <TouchableOpacity 
-                                  key={tab} 
+                                  key={tabObj.id} 
                                   style={[styles.sidebarBtn, isActive && { backgroundColor: theme.accent + '22', borderColor: theme.accent, borderWidth: 1 }]} 
-                                  onPress={() => setActiveTab(tab)}
+                                  onPress={() => setActiveTab(tabObj.id)}
                               >
-                                  <MaterialCommunityIcons name={icon} size={20} color={isActive ? theme.accent : theme.textSecondary} />
-                                  <Text style={[styles.sidebarBtnText, { color: isActive ? theme.accent : theme.textSecondary }]}>{label}</Text>
+                                  <MaterialCommunityIcons name={tabObj.icon} size={20} color={isActive ? theme.accent : theme.textSecondary} />
+                                  <Text style={[styles.sidebarBtnText, { color: isActive ? theme.accent : theme.textSecondary }]}>{tabObj.label}</Text>
                               </TouchableOpacity>
                           );
                       })}
@@ -659,6 +668,7 @@ export default function AdminUserOptions({ route, navigation }) {
   }
 
   const RootComponent = Platform.OS === 'web' ? View : SafeAreaView;
+  const currentTabObj = MENU_TABS.find(t => t.id === activeTab) || MENU_TABS[0];
   
   return (
     <RootComponent style={{ height: Platform.OS === 'web' ? '100vh' : '100%', width: '100%', backgroundColor: theme.bg }}>
@@ -672,23 +682,43 @@ export default function AdminUserOptions({ route, navigation }) {
             <TouchableOpacity onPress={fetchAllData} style={{ padding: 8 }}><MaterialCommunityIcons name="refresh" size={24} color={theme.accent}/></TouchableOpacity>
         </View>
 
-        <View style={{ borderBottomWidth: 1, borderColor: theme.border, backgroundColor: theme.surface }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 15, gap: 15 }}>
-                {TABS.map(tab => {
-                    const isActive = activeTab === tab;
-                    const label = tab === 'RESUMO' ? 'VISÃO GERAL' : tab === 'TREINOS' ? 'TREINOS' : tab === 'AVALIACOES' ? 'AVALIAÇÕES' : tab === 'DIETA_IA' ? 'NUTRIÇÃO & IA' : tab === 'ACESSOS' ? 'PLANOS E BÔNUS' : 'SISTEMA & RISCO';
-                    return (
-                        <TouchableOpacity key={tab} onPress={() => setActiveTab(tab)} style={{ paddingBottom: 5, borderBottomWidth: isActive ? 2 : 0, borderBottomColor: theme.accent }}>
-                            <Text style={{ color: isActive ? theme.accent : theme.textSecondary, fontWeight: 'bold', fontSize: 12 }}>{label}</Text>
-                        </TouchableOpacity>
-                    );
-                })}
-            </ScrollView>
+        <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+            <TouchableOpacity style={[styles.menuSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsMenuVisible(true)}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={[styles.menuIconBox, { backgroundColor: theme.accent + '22' }]}>
+                        <MaterialCommunityIcons name={currentTabObj.icon} size={20} color={theme.accent} />
+                    </View>
+                    <Text style={[styles.menuSelectorText, { color: theme.text }]}>{currentTabObj.label}</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-down" size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
         </View>
 
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{padding: 20, paddingBottom: 150}} showsVerticalScrollIndicator={false}>
             {renderContent()}
         </ScrollView>
+
+        <Modal visible={isMenuVisible} transparent animationType="fade" onRequestClose={() => setIsMenuVisible(false)}>
+            <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setIsMenuVisible(false)}>
+                <View style={[styles.menuModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    {MENU_TABS.map((t, index) => (
+                        <TouchableOpacity 
+                            key={t.id} 
+                            style={[
+                                styles.menuOptionBtn, 
+                                { borderBottomColor: index === MENU_TABS.length - 1 ? 'transparent' : theme.border },
+                                activeTab === t.id && { backgroundColor: theme.accent + '15' }
+                            ]} 
+                            onPress={() => { setActiveTab(t.id); setIsMenuVisible(false); }}
+                        >
+                            <MaterialCommunityIcons name={t.icon} size={22} color={activeTab === t.id ? theme.accent : theme.textSecondary} />
+                            <Text style={[styles.menuOptionText, { color: activeTab === t.id ? theme.accent : theme.text }]}>{t.label}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </TouchableOpacity>
+        </Modal>
+
         <RaioxCargasModal visible={isCargasModalVisible} onClose={() => setIsCargasModalVisible(false)} historicoDeCargasList={historicoDeCargasList} theme={theme} />
     </RootComponent>
   );
@@ -697,6 +727,14 @@ export default function AdminUserOptions({ route, navigation }) {
 const styles = StyleSheet.create({
   header: { flexDirection:'row', justifyContent:'space-between', paddingHorizontal:20, paddingBottom: 20, paddingTop: Platform.OS === 'android' ? 10 : 20, alignItems:'center', borderBottomWidth:1 },
   headerTitle: { fontWeight:'900', fontSize:16 },
+  
+  menuSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, paddingRight: 15, borderRadius: 16, borderWidth: 1 },
+  menuIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  menuSelectorText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  menuModalContent: { width: '90%', maxWidth: 400, borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  menuOptionBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, gap: 15 },
+  menuOptionText: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   
   profileHeader: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 16, marginBottom: 20, borderWidth: 1 },
   avatarContainer: { position: 'relative', marginRight: 15 },
@@ -721,12 +759,13 @@ const styles = StyleSheet.create({
   aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 15 },
   cargasBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
 
-  dashCard: { flexGrow: 1, flexBasis: '48%', minWidth: 280, padding: 20, borderRadius: 16, borderWidth: 1, justifyContent: 'space-between' },
+  // 🔥 ESTILO BLINDADO (SEM FLEX QUE COLAPSA ALTURA) 🔥
+  dashCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 15 },
   dashCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
   dashCardTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
   dashCardValue: { fontSize: 16, fontWeight: '900', marginBottom: 4 },
-  dashCardSub: { color: '#888', fontSize: 11, fontWeight: 'bold', marginBottom: 15 },
-  dashBtn: { padding: 12, borderRadius: 8, borderWidth: 1, alignItems: 'center', marginTop: 'auto' },
+  dashCardSub: { color: '#888', fontSize: 11, fontWeight: 'bold' },
+  dashBtn: { padding: 12, borderRadius: 8, borderWidth: 1, alignItems: 'center', marginTop: 15 },
   dashActionBtn: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, gap: 10 },
 
   plansContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
@@ -743,5 +782,8 @@ const styles = StyleSheet.create({
   saveBtnLg: { borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
 
   sidebarBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
-  sidebarBtnText: { fontSize: 14, fontWeight: 'bold' }
+  sidebarBtnText: { fontSize: 14, fontWeight: 'bold' },
+  
+  emptyBox: { padding: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: 16, borderStyle: 'dashed' },
+  emptyText: { color: '#888', marginTop: 10, fontWeight: 'bold', fontSize: 12 }
 });

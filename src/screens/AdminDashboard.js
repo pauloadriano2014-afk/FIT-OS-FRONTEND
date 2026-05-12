@@ -1,6 +1,8 @@
+// src/screens/AdminDashboard.js
+
 import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { 
-    View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, 
+    View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, 
     TextInput, StatusBar, RefreshControl, Modal, ScrollView, Alert, Platform, Switch, Dimensions 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
@@ -22,6 +24,15 @@ import AdminFinanceSystem from '../components/AdminFinanceSystem';
 
 const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
 
+// 🔥 MENU DROPDOWN MODERNO 🔥
+const MENU_TABS = [
+    { id: 'ALUNOS', label: 'GERENCIAR ALUNOS', icon: 'account-group' },
+    { id: 'FINANCAS', label: 'GESTÃO FINANCEIRA', icon: 'cash-multiple' },
+    { id: 'CHECKINS', label: 'AVALIAÇÕES E FOTOS', icon: 'camera-timer' },
+    { id: 'FEED', label: 'FEED DE ATIVIDADES', icon: 'history' },
+    { id: 'GESTAO', label: 'SISTEMA E CONFIGURAÇÕES', icon: 'cog' }
+];
+
 export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
 
@@ -32,6 +43,8 @@ export default function AdminDashboard({ navigation }) {
   const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
 
   const [activeTab, setActiveTab] = useState('ALUNOS'); 
+  const [isMenuVisible, setIsMenuVisible] = useState(false); // Estado do Menu Dropdown
+
   const [alunosAtivos, setAlunosAtivos] = useState([]);
   const [alunosInativos, setAlunosInativos] = useState([]);
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
@@ -85,22 +98,6 @@ export default function AdminDashboard({ navigation }) {
     { id: 'PLAN_LOW_COST', label: 'SÓ LOW COST', icon: 'rocket-launch', color: '#32ADE6' },
     { id: 'PLAN_CHALLENGE_21', label: 'SÓ DESAFIO 21D', icon: 'fire', color: '#FF9500' }
   ];
-
-  useEffect(() => {
-      if (Platform.OS === 'web') {
-          const style = document.createElement('style');
-          style.id = 'hidden-scrollbar-dashboard';
-          style.innerHTML = `
-              ::-webkit-scrollbar { width: 0px; background: transparent; }
-              * { scrollbar-width: none; }
-          `;
-          document.head.appendChild(style);
-          return () => {
-              const el = document.getElementById('hidden-scrollbar-dashboard');
-              if (el) el.remove();
-          };
-      }
-  }, []);
 
   useFocusEffect(useCallback(() => { fetchData(false); }, []));
 
@@ -362,8 +359,8 @@ export default function AdminDashboard({ navigation }) {
       }
   };
 
-  const renderDietFeedbackItem = ({ item }) => (
-      <View style={[styles.feedCard, { flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.surface, borderColor: item.read ? theme.border : theme.accent, opacity: item.read ? 0.7 : 1, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
+  const renderDietFeedbackItem = (item) => (
+      <View key={item.id} style={[styles.feedCard, { flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.surface, borderColor: item.read ? theme.border : theme.accent, opacity: item.read ? 0.7 : 1, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
           <View style={{flexDirection:'row', justifyContent:'space-between', alignItems: 'center', width: '100%', marginBottom: 12}}>
               <View style={{flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, paddingRight: 10}}>
                   <View style={[styles.iconBox, { backgroundColor: item.read ? theme.bg : theme.accent + '22', marginRight: 0 }]}>
@@ -409,8 +406,8 @@ export default function AdminDashboard({ navigation }) {
       </View>
   );
 
-  const renderCheckinItem = ({ item }) => (
-      <TouchableOpacity style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.coachFeedback ? theme.border : '#FF3B30', shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
+  const renderCheckinItem = (item) => (
+      <TouchableOpacity key={item.id} style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: item.coachFeedback ? theme.border : '#FF3B30', shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]} onPress={() => { setSelectedCheckin(item); setCheckinModalVisible(true); }}>
           <View style={[styles.iconBox, { backgroundColor: 'rgba(50, 173, 230, 0.15)' }]}>
               <MaterialCommunityIcons name="camera-account" size={20} color="#32ADE6" />
           </View>
@@ -431,11 +428,11 @@ export default function AdminDashboard({ navigation }) {
       </TouchableOpacity>
   );
 
-  const renderFeedItem = ({ item }) => {
+  const renderFeedItem = (item) => {
       const date = new Date(item.date);
       const dayString = date.getDate() === new Date().getDate() ? `Hoje às ${date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : date.toLocaleDateString('pt-BR');
       return (
-        <View style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
+        <View key={item.id} style={[styles.feedCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
             <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}>
                 <MaterialCommunityIcons name="check-bold" size={20} color={theme.accent} />
             </View>
@@ -459,23 +456,29 @@ export default function AdminDashboard({ navigation }) {
       );
   };
 
-  const isWeb = Platform.OS === 'web';
-  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
-  const RootComponent = isWeb ? View : SafeAreaView;
-
-  const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg, overflowX: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
-
   const unreadFeedbacksCount = filteredDiet.filter(f => !f.read).length;
   const unreadSurveysCount = filteredSurveys.filter(s => !s.readByAdmin).length;
   const totalAlerts = filteredCheckins.length + unreadFeedbacksCount + unreadSurveysCount;
+
+  const currentTabObj = MENU_TABS.find(t => t.id === activeTab) || MENU_TABS[0];
+  const isWeb = Platform.OS === 'web';
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+  const RootComponent = isWeb ? View : SafeAreaView;
+  const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
 
   return (
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
 
-      <View style={{ flex: 1, width: '100%', alignItems: 'center', backgroundColor: isWeb ? 'transparent' : theme.bg }}>
-
-          <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders }}>
+      {/* 🔥 O MOTOR DE SCROLL CENTRAL ÚNICO (Adeus FlatList aninhada) 🔥 */}
+      <ScrollView 
+          style={{ flex: 1, width: '100%', backgroundColor: isWeb ? 'transparent' : theme.bg }} 
+          contentContainerStyle={{ alignItems: 'center', paddingBottom: 150 }} 
+          showsVerticalScrollIndicator={false}
+          refreshControl={activeTab !== 'FINANCAS' ? <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} /> : undefined}
+      >
+          <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, minHeight: '100%' }}>
+              
               <View style={styles.header}>
                 <View style={{ flex: 1, paddingRight: 10, overflow: 'hidden', minWidth: 0 }}>
                     <Text style={[styles.title, { color: theme.text }]} numberOfLines={1} ellipsizeMode="tail">
@@ -496,39 +499,30 @@ export default function AdminDashboard({ navigation }) {
                 </View>
               </View>
 
-              <View style={styles.tabsContainer}>
-                {['ALUNOS', 'FINANCAS', 'CHECKINS', 'FEED', 'GESTAO'].map(tab => {
-                    const isActive = activeTab === tab;
-                    const label = tab === 'GESTAO' ? 'SISTEMA' : tab === 'CHECKINS' ? 'AVALIAÇÕES' : tab === 'FINANCAS' ? 'FINANÇAS' : tab;
-                    return (
-                        <TouchableOpacity 
-                            key={tab} 
-                            style={[styles.tab, isActive && { borderBottomWidth: 3, borderBottomColor: theme.accent }]} 
-                            onPress={() => setActiveTab(tab)}
-                        >
-                            <Text style={[styles.tabText, isActive && { color: theme.text }]}>{label}</Text>
-                            {tab === 'CHECKINS' && totalAlerts > 0 && (
-                                <View style={[styles.badgeCount, { backgroundColor: isActive ? (theme.isDark ? '#333' : '#E5E5EA') : '#FF3B30' }]}>
-                                    <Text style={[styles.badgeText, { color: isActive ? (theme.isDark ? '#FFF' : '#000') : '#FFF' }]}>{totalAlerts}</Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    );
-                })}
-              </View>
+              {/* 🔥 DROPDOWN DE MENU (SUBSTITUI AS ABAS HORIZONTAIS) 🔥 */}
+              <TouchableOpacity style={[styles.menuSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsMenuVisible(true)}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                      <View style={[styles.menuIconBox, { backgroundColor: theme.accent + '22' }]}>
+                          <MaterialCommunityIcons name={currentTabObj.icon} size={20} color={theme.accent} />
+                      </View>
+                      <Text style={[styles.menuSelectorText, { color: theme.text }]}>{currentTabObj.label}</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      {currentTabObj.id === 'CHECKINS' && totalAlerts > 0 && (
+                          <View style={[styles.badgeCount, { backgroundColor: '#FF3B30' }]}>
+                              <Text style={[styles.badgeText, { color: '#FFF' }]}>{totalAlerts}</Text>
+                          </View>
+                      )}
+                      <MaterialCommunityIcons name="chevron-down" size={24} color={theme.textSecondary} />
+                  </View>
+              </TouchableOpacity>
 
               {activeTab !== 'GESTAO' && activeTab !== 'FINANCAS' && (
                   <View style={[styles.segmentedControl, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
                       <TouchableOpacity 
                           style={[
                               styles.segmentBtn, 
-                              coachFilter === ownerKey && { 
-                                  backgroundColor: theme.surface, 
-                                  shadowColor: theme.isDark ? 'transparent' : '#000', 
-                                  shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2,
-                                  borderWidth: 1,
-                                  borderColor: theme.isDark ? theme.border : 'transparent'
-                              }
+                              coachFilter === ownerKey && { backgroundColor: theme.surface, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, borderWidth: 1, borderColor: theme.isDark ? theme.border : 'transparent'}
                           ]} 
                           onPress={() => setCoachFilter(ownerKey)}
                       >
@@ -538,13 +532,7 @@ export default function AdminDashboard({ navigation }) {
                       <TouchableOpacity 
                           style={[
                               styles.segmentBtn, 
-                              coachFilter === partnerKey && { 
-                                  backgroundColor: theme.surface, 
-                                  shadowColor: theme.isDark ? 'transparent' : '#000', 
-                                  shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2,
-                                  borderWidth: 1,
-                                  borderColor: theme.isDark ? theme.border : 'transparent'
-                              }
+                              coachFilter === partnerKey && { backgroundColor: theme.surface, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, borderWidth: 1, borderColor: theme.isDark ? theme.border : 'transparent'}
                           ]} 
                           onPress={() => setCoachFilter(partnerKey)}
                       >
@@ -552,279 +540,286 @@ export default function AdminDashboard({ navigation }) {
                       </TouchableOpacity>
                   </View>
               )}
+
+              {loading ? (
+                  <View style={{marginTop: 50}}><ActivityIndicator size="large" color={theme.accent} /></View>
+              ) : (
+                  <View style={{ width: '100%' }}>
+                      
+                      {/* ==== CONTEÚDO ALUNOS ==== */}
+                      {activeTab === 'ALUNOS' && (
+                          <>
+                              <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: theme.accent }]} onPress={() => setInviteModalVisible(true)}>
+                                  <MaterialCommunityIcons name="star-shooting" size={18} color={theme.isDark ? '#000' : '#FFF'} />
+                                  <Text style={[styles.inviteBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR LINK DE CADASTRO</Text>
+                              </TouchableOpacity>
+
+                              <TextInput style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary} value={search} onChangeText={setSearch} />
+
+                              <TouchableOpacity style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setFilterModalVisible(true)}>
+                                  <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                                      <MaterialCommunityIcons name="filter-variant" size={18} color={theme.accent} />
+                                      <Text style={[styles.filterSelectorVal, { color: theme.text }]}>STATUS: {filterOptions.find(f => f.id === statusFilter)?.label}</Text>
+                                  </View>
+                                  <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
+                              </TouchableOpacity>
+
+                              <View style={styles.subTabsContainer}>
+                                  <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('ATIVOS')}>
+                                      <Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({displayList.length})</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('INATIVOS')}>
+                                      <Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS</Text>
+                                  </TouchableOpacity>
+                              </View>
+
+                              {displayList.length === 0 ? (
+                                  <Text style={styles.empty}>Nenhum aluno encontrado neste filtro.</Text>
+                              ) : (
+                                  displayList.slice(0, visibleCount).map(item => (
+                                      <View key={item.id} style={{ width: '100%', marginBottom: 15 }}>
+                                          <AdminStudentCard item={item} theme={theme} navigation={navigation} isHeadCoach={true} />
+                                      </View>
+                                  ))
+                              )}
+
+                              {visibleCount < displayList.length && (
+                                  <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCount(p => p + 15)}>
+                                      <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
+                                  </TouchableOpacity>
+                              )}
+                          </>
+                      )}
+
+                      {/* ==== CONTEÚDO CHECKINS ==== */}
+                      {activeTab === 'CHECKINS' && (
+                          <>
+                              <View style={styles.subTabsContainer}>
+                                  <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AVALIACOES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AVALIACOES')}>
+                                      <Text style={[styles.subTabText, { color: subTabCheckins === 'AVALIACOES' ? theme.text : theme.textSecondary }]}>FOTOS ({filteredCheckins.length})</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AJUSTES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AJUSTES')}>
+                                      <Text style={[styles.subTabText, { color: subTabCheckins === 'AJUSTES' ? theme.text : theme.textSecondary }]}>DIETA ({unreadFeedbacksCount})</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity style={[styles.subTab, subTabCheckins === 'NPS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('NPS')}>
+                                      <Text style={[styles.subTabText, { color: subTabCheckins === 'NPS' ? theme.text : theme.textSecondary }]}>NPS ({unreadSurveysCount})</Text>
+                                  </TouchableOpacity>
+                              </View>
+
+                              {subTabCheckins === 'AVALIACOES' && ((coachFilter === 'ADRI' && !isAdriLogged) || (coachFilter === 'PAULO' && isAdriLogged)) ? (
+                                  <View style={{ marginTop: 50, alignItems: 'center', paddingHorizontal: 40, paddingBottom: 50 }}>
+                                      <MaterialCommunityIcons name="lock" size={48} color={theme.border} />
+                                      <Text style={[styles.empty, { marginTop: 15 }]}>Fotos restritas apenas para a Coach responsável pelo plano.</Text>
+                                  </View>
+                              ) : (
+                                  <>
+                                      {subTabCheckins === 'AVALIACOES' && (
+                                          filteredCheckins.length === 0 ? <Text style={styles.empty}>Nenhum check-in pendente.</Text> :
+                                          filteredCheckins.slice(0, visibleCountCheckins).map(item => renderCheckinItem(item))
+                                      )}
+                                      {subTabCheckins === 'AJUSTES' && (
+                                          filteredDiet.length === 0 ? <Text style={styles.empty}>Nenhuma solicitação de ajuste.</Text> :
+                                          filteredDiet.slice(0, visibleCountDiet).map(item => renderDietFeedbackItem(item))
+                                      )}
+                                      {subTabCheckins === 'NPS' && (
+                                          filteredSurveys.length === 0 ? <Text style={styles.empty}>Nenhuma pesquisa recebida.</Text> :
+                                          filteredSurveys.slice(0, visibleCountSurveys).map(item => (
+                                              <View key={item.id} style={{ marginBottom: 15 }}>
+                                                  <AdminSurveyCard item={item} theme={theme} onMarkRead={handleMarkSurveyRead} />
+                                              </View>
+                                          ))
+                                      )}
+
+                                      {/* Load Mores Checkins */}
+                                      {subTabCheckins === 'AVALIACOES' && visibleCountCheckins < filteredCheckins.length && (
+                                          <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountCheckins(p => p + 5)}>
+                                              <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
+                                          </TouchableOpacity>
+                                      )}
+                                      {subTabCheckins === 'AJUSTES' && visibleCountDiet < filteredDiet.length && (
+                                          <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountDiet(p => p + 5)}>
+                                              <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
+                                          </TouchableOpacity>
+                                      )}
+                                      {subTabCheckins === 'NPS' && visibleCountSurveys < filteredSurveys.length && (
+                                          <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountSurveys(p => p + 5)}>
+                                              <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
+                                          </TouchableOpacity>
+                                      )}
+                                  </>
+                              )}
+                          </>
+                      )}
+
+                      {/* ==== CONTEÚDO FEED ==== */}
+                      {activeTab === 'FEED' && (
+                          <>
+                              {filteredFeed.length === 0 ? <Text style={styles.empty}>Nada recente.</Text> :
+                                  filteredFeed.slice(0, visibleCountFeed).map(item => renderFeedItem(item))
+                              }
+                              {visibleCountFeed < filteredFeed.length && (
+                                  <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountFeed(p => p + 10)}>
+                                      <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
+                                  </TouchableOpacity>
+                              )}
+                          </>
+                      )}
+
+                      {/* ==== CONTEÚDO FINANÇAS ==== */}
+                      {activeTab === 'FINANCAS' && (
+                          <View style={{ marginHorizontal: -20, marginTop: -10 }}>
+                              {/* AdminFinanceSystem já é renderizado ocupando todo o espaço */}
+                              <AdminFinanceSystem theme={theme} alunos={alunosAtivos} coachFilter={coachFilter} getLogCoach={getLogCoach} isWeb={isWebPC} />
+                          </View>
+                      )}
+
+                      {/* ==== CONTEÚDO GESTÃO ==== */}
+                      {activeTab === 'GESTAO' && (
+                          <View style={styles.gridGestao}>
+                              <View style={styles.subTabsContainer}>
+                                  <TouchableOpacity style={[styles.subTab, subTabGestao === 'FERRAMENTAS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('FERRAMENTAS')}>
+                                      <Text style={[styles.subTabText, { color: subTabGestao === 'FERRAMENTAS' ? theme.text : theme.textSecondary }]}>TREINO E DIETA</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity style={[styles.subTab, subTabGestao === 'CONFIG' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('CONFIG')}>
+                                      <Text style={[styles.subTabText, { color: subTabGestao === 'CONFIG' ? theme.text : theme.textSecondary }]}>SISTEMA E AVISOS</Text>
+                                  </TouchableOpacity>
+                              </View>
+
+                              {subTabGestao === 'FERRAMENTAS' && (
+                                  <>
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 2 }]} onPress={() => navigation.navigate('LaboratoryScreen')}>
+                                          <View style={[styles.iconCircle, {backgroundColor: theme.accent + '22'}]}>
+                                              <MaterialCommunityIcons name="flask-outline" size={32} color={theme.accent} />
+                                          </View>
+                                          <Text style={[styles.bigCardTitle, { color: theme.accent }]}>PRESCRIÇÃO IA</Text>
+                                          <Text style={styles.bigCardDesc}>Laboratório inteligente para montagem de treinos com algoritmos.</Text>
+                                      </TouchableOpacity>
+
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
+                                          <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}>
+                                              <MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} />
+                                          </View>
+                                          <Text style={[styles.bigCardTitle, { color: theme.text }]}>EXERCÍCIOS</Text>
+                                          <Text style={styles.bigCardDesc}>Gerencie a biblioteca.</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('GerenciarTemplates')}>
+                                          <View style={[styles.iconCircle, {backgroundColor: theme.accent}]}>
+                                              <MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} />
+                                          </View>
+                                          <Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text>
+                                          <Text style={styles.bigCardDesc}>Crie fichas de treino padrão.</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminDietLibraryScreen')}>
+                                          <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}>
+                                              <MaterialCommunityIcons name="food-apple" size={32} color={theme.accent} />
+                                          </View>
+                                          <Text style={[styles.bigCardTitle, { color: theme.text }]}>COFRE DE DIETAS</Text>
+                                          <Text style={styles.bigCardDesc}>Gerencie templates alimentares.</Text>
+                                      </TouchableOpacity>
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} onPress={() => navigation.navigate('AdminIALabScreen')}>
+                                          <View style={[styles.iconCircle, {backgroundColor: '#4DE38F22'}]}>
+                                              <MaterialCommunityIcons name="brain" size={32} color="#4DE38F" />
+                                          </View>
+                                          <Text style={[styles.bigCardTitle, { color: '#4DE38F' }]}>LABORATÓRIO IA</Text>
+                                          <Text style={styles.bigCardDesc}>Análise avulsa de fotos e shape.</Text>
+                                      </TouchableOpacity>
+                                      <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                          <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:15}}>
+                                              <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
+                                              <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
+                                          </View>
+                                          {[...alunosAtivos].sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
+                                              <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
+                                                  <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name || 'Aluno'}</Text>
+                                                  <Text style={{color: theme.accent, fontWeight:'900'}}>{a.currentXP || 0} XP</Text>
+                                              </View>
+                                          ))}
+                                      </View>
+                                  </>
+                              )}
+                              {subTabGestao === 'CONFIG' && (
+                                  <>
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>
+                                          <View style={[styles.iconCircle, {backgroundColor: '#BF5AF2'}]}>
+                                              <MaterialCommunityIcons name="video-plus" size={32} color="#FFF" />
+                                          </View>
+                                          <Text style={[styles.bigCardTitle, {color: '#BF5AF2'}]}>PA FLIX ADMIN</Text>
+                                          <Text style={styles.bigCardDesc}>Adicionar novos conteúdos e vídeos.</Text>
+                                      </TouchableOpacity>
+
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} onPress={() => setIsNpsModalOpen(true)}>
+                                          <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
+                                              <MaterialCommunityIcons name="star-face" size={24} color="#4DE38F" />
+                                              <Text style={[styles.bigCardTitle, {marginBottom:0, color:'#4DE38F'}]}>PESQUISA NPS</Text>
+                                          </View>
+                                          <Text style={[styles.bigCardDesc, {marginTop:5}]}>Selecione alunos e dispare a pesquisa de satisfação no aplicativo deles.</Text>
+                                      </TouchableOpacity>
+
+                                      <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setIsNoticeModalOpen(true)}>
+                                          <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
+                                              <MaterialCommunityIcons name="bullhorn" size={24} color="#32ADE6" />
+                                              <Text style={[styles.bigCardTitle, {marginBottom:0, color:'#32ADE6'}]}>ENVIAR AVISO</Text>
+                                          </View>
+                                          <Text style={[styles.bigCardDesc, {marginTop:5}]}>Notifique todos ou um aluno específico.</Text>
+                                      </TouchableOpacity>
+                                      <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
+                                          <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
+                                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 15, width: '100%' }}>
+                                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                                  <MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} />
+                                                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text>
+                                              </View>
+                                              <Switch value={theme.isDark} onValueChange={toggleDarkMode} trackColor={{ false: '#ccc', true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')} />
+                                          </View>
+                                          {!theme.isDark && (
+                                              <View style={{ width: '100%' }}>
+                                                  <Text style={[styles.cardHeaderSmall, { marginBottom: 10, marginTop: 5 }]}>COR DE DESTAQUE</Text>
+                                                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
+                                                      <TouchableOpacity onPress={() => selectThemeColor('verde')} style={[styles.colorCircle, { backgroundColor: '#99CC00', borderColor: selectedColor === 'verde' ? theme.text : 'transparent' }]} />
+                                                      <TouchableOpacity onPress={() => selectThemeColor('rosa')} style={[styles.colorCircle, { backgroundColor: '#FF2D55', borderColor: selectedColor === 'rosa' ? theme.text : 'transparent' }]} />
+                                                      <TouchableOpacity onPress={() => selectThemeColor('roxo')} style={[styles.colorCircle, { backgroundColor: '#AF52DE', borderColor: selectedColor === 'roxo' ? theme.text : 'transparent' }]} />
+                                                      <TouchableOpacity onPress={() => selectThemeColor('azul')} style={[styles.colorCircle, { backgroundColor: '#007AFF', borderColor: selectedColor === 'azul' ? theme.text : 'transparent' }]} />
+                                                      <TouchableOpacity onPress={() => selectThemeColor('vermelho')} style={[styles.colorCircle, { backgroundColor: '#FF3B30', borderColor: selectedColor === 'vermelho' ? theme.text : 'transparent' }]} />
+                                                  </View>
+                                              </View>
+                                          )}
+                                      </View>
+                                  </>
+                              )}
+                          </View>
+                      )}
+
+                  </View>
+              )}
           </View>
+      </ScrollView>
 
-          {/* Conteúdo das abas, agora com o AdminFinanceSystem integrado */}
-          <ScrollView 
-              style={{ flex: 1, width: '100%' }} 
-              contentContainerStyle={{ alignItems: 'center', paddingBottom: 150 }} 
-              showsVerticalScrollIndicator={false}
-              refreshControl={activeTab !== 'FINANCAS' && <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} />}
-          >
-            <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: activeTab === 'FINANCAS' ? 0 : 20 }}>
-            {activeTab === 'ALUNOS' && (
-                <>
-                    <TouchableOpacity style={[styles.inviteBtn, { backgroundColor: theme.accent }]} onPress={() => setInviteModalVisible(true)}>
-                        <MaterialCommunityIcons name="star-shooting" size={18} color={theme.isDark ? '#000' : '#FFF'} />
-                        <Text style={[styles.inviteBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR LINK DE CADASTRO</Text>
-                    </TouchableOpacity>
-
-                    <TextInput style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary} value={search} onChangeText={setSearch} />
-
-                    <TouchableOpacity style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setFilterModalVisible(true)}>
-                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                            <MaterialCommunityIcons name="filter-variant" size={18} color={theme.accent} />
-                            <Text style={[styles.filterSelectorVal, { color: theme.text }]}>STATUS: {filterOptions.find(f => f.id === statusFilter)?.label}</Text>
-                        </View>
-                        <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
-                    </TouchableOpacity>
-
-                    <View style={styles.subTabsContainer}>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'ATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('ATIVOS')}>
-                            <Text style={[styles.subTabText, { color: subTabAlunos === 'ATIVOS' ? theme.text : theme.textSecondary }]}>ATIVOS ({displayList.length})</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.subTab, subTabAlunos === 'INATIVOS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => switchSubTab('INATIVOS')}>
-                            <Text style={[styles.subTabText, { color: subTabAlunos === 'INATIVOS' ? '#FF4444' : theme.textSecondary }]}>INATIVOS</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {loading ? (
-                        <View style={{marginTop: 50}}><ActivityIndicator size="large" color={theme.accent} /></View>
-                    ) : (
-                        <FlatList 
-                            data={displayList.slice(0, visibleCount)} 
-                            keyExtractor={item => item.id}
-                            renderItem={({item}) => <AdminStudentCard item={item} theme={theme} navigation={navigation} isHeadCoach={true} />}
-                            ListEmptyComponent={<Text style={styles.empty}>Nenhum aluno encontrado neste filtro.</Text>}
-                            ListFooterComponent={
-                                visibleCount < displayList.length ? (
-                                    <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCount(prev => prev + 15)}>
-                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
-                                    </TouchableOpacity>
-                                ) : null
-                            }
-                            scrollEnabled={false} // Desabilita o scroll da FlatList interna para que a ScrollView externa controle
-                        />
-                    )}
-                </>
-            )}
-
-            {activeTab === 'FINANCAS' && (
-                <AdminFinanceSystem 
-                    theme={theme} 
-                    alunos={alunosAtivos} 
-                    coachFilter={coachFilter} 
-                    getLogCoach={getLogCoach} 
-                    isWeb={isWeb}
-                />
-            )}
-
-            {activeTab === 'CHECKINS' && (
-                <>
-                    <View style={styles.subTabsContainer}>
-                        <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AVALIACOES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AVALIACOES')}>
-                            <Text style={[styles.subTabText, { color: subTabCheckins === 'AVALIACOES' ? theme.text : theme.textSecondary }]}>FOTOS ({filteredCheckins.length})</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.subTab, subTabCheckins === 'AJUSTES' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('AJUSTES')}>
-                            <Text style={[styles.subTabText, { color: subTabCheckins === 'AJUSTES' ? theme.text : theme.textSecondary }]}>DIETA ({unreadFeedbacksCount})</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.subTab, subTabCheckins === 'NPS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabCheckins('NPS')}>
-                            <Text style={[styles.subTabText, { color: subTabCheckins === 'NPS' ? theme.text : theme.textSecondary }]}>NPS ({unreadSurveysCount})</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {subTabCheckins === 'AVALIACOES' && (
-                        (coachFilter === 'ADRI' && !isAdriLogged) || (coachFilter === 'PAULO' && isAdriLogged) ? (
-                            <View style={{ marginTop: 50, alignItems: 'center', paddingHorizontal: 40 }}>
-                                <MaterialCommunityIcons name="lock" size={48} color={theme.border} />
-                                <Text style={[styles.empty, { marginTop: 15 }]}>Fotos restritas apenas para a Coach responsável pelo plano.</Text>
-                            </View>
-                        ) : (
-                            <FlatList 
-                                data={filteredCheckins.slice(0, visibleCountCheckins)} 
-                                keyExtractor={item => item.id} 
-                                renderItem={renderCheckinItem} 
-                                ListEmptyComponent={<Text style={styles.empty}>Nenhum check-in pendente.</Text>} 
-                                ListFooterComponent={
-                                    visibleCountCheckins < filteredCheckins.length ? (
-                                        <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountCheckins(prev => prev + 5)}>
-                                            <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
-                                        </TouchableOpacity>
-                                    ) : null
-                                }
-                                scrollEnabled={false}
-                            />
-                        )
-                    )}
-                    {subTabCheckins === 'AJUSTES' && (
-                        <FlatList 
-                            data={filteredDiet.slice(0, visibleCountDiet)} 
-                            keyExtractor={item => item.id} 
-                            renderItem={renderDietFeedbackItem} 
-                            ListEmptyComponent={<Text style={styles.empty}>Nenhuma solicitação de ajuste.</Text>} 
-                            ListFooterComponent={
-                                visibleCountDiet < filteredDiet.length ? (
-                                    <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountDiet(prev => prev + 5)}>
-                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
-                                    </TouchableOpacity>
-                                ) : null
-                            }
-                            scrollEnabled={false}
-                        />
-                    )}
-                    {subTabCheckins === 'NPS' && (
-                        <FlatList 
-                            data={filteredSurveys.slice(0, visibleCountSurveys)} 
-                            keyExtractor={item => item.id} 
-                            renderItem={({item}) => <AdminSurveyCard item={item} theme={theme} onMarkRead={handleMarkSurveyRead} />} 
-                            ListEmptyComponent={<Text style={styles.empty}>Nenhuma pesquisa recebida.</Text>} 
-                            ListFooterComponent={
-                                visibleCountSurveys < filteredSurveys.length ? (
-                                    <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountSurveys(prev => prev + 5)}>
-                                        <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
-                                    </TouchableOpacity>
-                                ) : null
-                            }
-                            scrollEnabled={false}
-                        />
-                    )}
-                </>
-            )}
-
-            {activeTab === 'FEED' && (
-                <FlatList 
-                    data={filteredFeed.slice(0, visibleCountFeed)} 
-                    keyExtractor={item => item.id} 
-                    renderItem={renderFeedItem} 
-                    ListEmptyComponent={<Text style={styles.empty}>Nada recente.</Text>} 
-                    ListFooterComponent={
-                        visibleCountFeed < filteredFeed.length ? (
-                            <TouchableOpacity style={[styles.loadMoreBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} onPress={() => setVisibleCountFeed(prev => prev + 10)}>
-                                <Text style={[styles.loadMoreText, { color: theme.accent }]}>CARREGAR MAIS</Text>
-                            </TouchableOpacity>
-                        ) : null
-                    }
-                    scrollEnabled={false}
-                />
-            )}
-
-            {activeTab === 'GESTAO' && (
-                <View style={styles.gridGestao}>
-                    <View style={styles.subTabsContainer}>
-                        <TouchableOpacity style={[styles.subTab, subTabGestao === 'FERRAMENTAS' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('FERRAMENTAS')}>
-                            <Text style={[styles.subTabText, { color: subTabGestao === 'FERRAMENTAS' ? theme.text : theme.textSecondary }]}>TREINO E DIETA</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={[styles.subTab, subTabGestao === 'CONFIG' ? { backgroundColor: theme.surface, borderColor: theme.border } : { borderColor: 'transparent' }]} onPress={() => setSubTabGestao('CONFIG')}>
-                            <Text style={[styles.subTabText, { color: subTabGestao === 'CONFIG' ? theme.text : theme.textSecondary }]}>SISTEMA E AVISOS</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {subTabGestao === 'FERRAMENTAS' && (
-                        <>
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 2 }]} onPress={() => navigation.navigate('LaboratoryScreen')}>
-                                <View style={[styles.iconCircle, {backgroundColor: theme.accent + '22'}]}>
-                                    <MaterialCommunityIcons name="flask-outline" size={32} color={theme.accent} />
-                                </View>
-                                <Text style={[styles.bigCardTitle, { color: theme.accent }]}>PRESCRIÇÃO IA</Text>
-                                <Text style={styles.bigCardDesc}>Laboratório inteligente para montagem de treinos com algoritmos.</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
-                                <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}>
-                                    <MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} />
-                                </View>
-                                <Text style={[styles.bigCardTitle, { color: theme.text }]}>EXERCÍCIOS</Text>
-                                <Text style={styles.bigCardDesc}>Gerencie a biblioteca.</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('GerenciarTemplates')}>
-                                <View style={[styles.iconCircle, {backgroundColor: theme.accent}]}>
-                                    <MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} />
-                                </View>
-                                <Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text>
-                                <Text style={styles.bigCardDesc}>Crie fichas de treino padrão.</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminDietLibraryScreen')}>
-                                <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}>
-                                    <MaterialCommunityIcons name="food-apple" size={32} color={theme.accent} />
-                                </View>
-                                <Text style={[styles.bigCardTitle, { color: theme.text }]}>COFRE DE DIETAS</Text>
-                                <Text style={styles.bigCardDesc}>Gerencie templates alimentares.</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} onPress={() => navigation.navigate('AdminIALabScreen')}>
-                                <View style={[styles.iconCircle, {backgroundColor: '#4DE38F22'}]}>
-                                    <MaterialCommunityIcons name="brain" size={32} color="#4DE38F" />
-                                </View>
-                                <Text style={[styles.bigCardTitle, { color: '#4DE38F' }]}>LABORATÓRIO IA</Text>
-                                <Text style={styles.bigCardDesc}>Análise avulsa de fotos e shape.</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:15}}>
-                                    <Text style={styles.cardHeaderSmall}>RANKING DE XP</Text>
-                                    <MaterialCommunityIcons name="trophy" size={20} color="#FFD700" />
-                                </View>
-                                {[...alunosAtivos].sort((a,b) => (b.currentXP||0) - (a.currentXP||0)).slice(0, 3).map((a, i) => (
-                                    <View key={a.id} style={{flexDirection:'row', justifyContent:'space-between', width:'100%', marginBottom:8, borderBottomWidth:1, borderBottomColor: theme.border, paddingBottom:5}}>
-                                        <Text style={{color: theme.text, fontWeight:'bold'}}>{i+1}. {a.name || 'Aluno'}</Text>
-                                        <Text style={{color: theme.accent, fontWeight:'900'}}>{a.currentXP || 0} XP</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </>
-                    )}
-                    {subTabGestao === 'CONFIG' && (
-                        <>
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>
-                                <View style={[styles.iconCircle, {backgroundColor: '#BF5AF2'}]}>
-                                    <MaterialCommunityIcons name="video-plus" size={32} color="#FFF" />
-                                </View>
-                                <Text style={[styles.bigCardTitle, {color: '#BF5AF2'}]}>PA FLIX ADMIN</Text>
-                                <Text style={styles.bigCardDesc}>Adicionar novos conteúdos e vídeos.</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#4DE38F', borderWidth: 2 }]} onPress={() => setIsNpsModalOpen(true)}>
-                                <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
-                                    <MaterialCommunityIcons name="star-face" size={24} color="#4DE38F" />
-                                    <Text style={[styles.bigCardTitle, {marginBottom:0, color:'#4DE38F'}]}>PESQUISA NPS</Text>
-                                </View>
-                                <Text style={[styles.bigCardDesc, {marginTop:5}]}>Selecione alunos e dispare a pesquisa de satisfação no aplicativo deles.</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#32ADE6' }]} onPress={() => setIsNoticeModalOpen(true)}>
-                                <View style={{flexDirection:'row', alignItems:'center', gap:10}}>
-                                    <MaterialCommunityIcons name="bullhorn" size={24} color="#32ADE6" />
-                                    <Text style={[styles.bigCardTitle, {marginBottom:0, color:'#32ADE6'}]}>ENVIAR AVISO</Text>
-                                </View>
-                                <Text style={[styles.bigCardDesc, {marginTop:5}]}>Notifique todos ou um aluno específico.</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
-                                <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
-                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 15, width: '100%' }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                        <MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} />
-                                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text>
-                                    </View>
-                                    <Switch value={theme.isDark} onValueChange={toggleDarkMode} trackColor={{ false: '#ccc', true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')} />
-                                </View>
-                                {!theme.isDark && (
-                                    <View style={{ width: '100%' }}>
-                                        <Text style={[styles.cardHeaderSmall, { marginBottom: 10, marginTop: 5 }]}>COR DE DESTAQUE</Text>
-                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 10 }}>
-                                            <TouchableOpacity onPress={() => selectThemeColor('verde')} style={[styles.colorCircle, { backgroundColor: '#99CC00', borderColor: selectedColor === 'verde' ? theme.text : 'transparent' }]} />
-                                            <TouchableOpacity onPress={() => selectThemeColor('rosa')} style={[styles.colorCircle, { backgroundColor: '#FF2D55', borderColor: selectedColor === 'rosa' ? theme.text : 'transparent' }]} />
-                                            <TouchableOpacity onPress={() => selectThemeColor('roxo')} style={[styles.colorCircle, { backgroundColor: '#AF52DE', borderColor: selectedColor === 'roxo' ? theme.text : 'transparent' }]} />
-                                            <TouchableOpacity onPress={() => selectThemeColor('azul')} style={[styles.colorCircle, { backgroundColor: '#007AFF', borderColor: selectedColor === 'azul' ? theme.text : 'transparent' }]} />
-                                            <TouchableOpacity onPress={() => selectThemeColor('vermelho')} style={[styles.colorCircle, { backgroundColor: '#FF3B30', borderColor: selectedColor === 'vermelho' ? theme.text : 'transparent' }]} />
-                                        </View>
-                                    </View>
-                                )}
-                            </View>
-                        </>
-                    )}
-                </View>
-            )}
-            </View>
-          </ScrollView>
-      </View>
+      {/* 🔥 MODAL DO MENU DROPDOWN 🔥 */}
+      <Modal visible={isMenuVisible} transparent animationType="fade" onRequestClose={() => setIsMenuVisible(false)}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setIsMenuVisible(false)}>
+              <View style={[styles.menuModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  {MENU_TABS.map((t, index) => (
+                      <TouchableOpacity 
+                          key={t.id} 
+                          style={[
+                              styles.menuOptionBtn, 
+                              { borderBottomColor: index === MENU_TABS.length - 1 ? 'transparent' : theme.border },
+                              activeTab === t.id && { backgroundColor: theme.accent + '15' }
+                          ]} 
+                          onPress={() => { setActiveTab(t.id); setIsMenuVisible(false); }}
+                      >
+                          <MaterialCommunityIcons name={t.icon} size={22} color={activeTab === t.id ? theme.accent : theme.textSecondary} />
+                          <Text style={[styles.menuOptionText, { color: activeTab === t.id ? theme.accent : theme.text }]}>{t.label}</Text>
+                          {t.id === 'CHECKINS' && totalAlerts > 0 && (
+                              <View style={[styles.badgeCount, { backgroundColor: '#FF3B30', marginLeft: 'auto' }]}>
+                                  <Text style={[styles.badgeText, { color: '#FFF' }]}>{totalAlerts}</Text>
+                              </View>
+                          )}
+                      </TouchableOpacity>
+                  ))}
+              </View>
+          </TouchableOpacity>
+      </Modal>
 
       <Modal visible={filterModalVisible} transparent animationType="fade" onRequestClose={() => setFilterModalVisible(false)}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setFilterModalVisible(false)}>
@@ -854,19 +849,23 @@ export default function AdminDashboard({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
+  header: { paddingTop: Platform.OS === 'android' ? 30 : 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
   title: { fontSize: 26, fontWeight: '900', letterSpacing: -0.5 }, 
   subtitle: { color: '#888', fontSize: 10, letterSpacing: 1.5, fontWeight: '800', marginTop: 2 },
   iconBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' }, 
 
-  tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 20, width: '100%', gap: 20, flexWrap: 'wrap' },
-  tab: { paddingBottom: 8, flexDirection:'row', alignItems:'center', gap: 6 },
-  tabText: { color: '#888', fontWeight: 'bold', fontSize: 12, letterSpacing: 0.5 },
+  // Estilos do Menu Dropdown
+  menuSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, paddingRight: 15, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
+  menuIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  menuSelectorText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  menuModalContent: { width: '90%', maxWidth: 400, borderRadius: 20, borderWidth: 1, overflow: 'hidden' },
+  menuOptionBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderBottomWidth: 1, gap: 15 },
+  menuOptionText: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
 
   badgeCount: { paddingHorizontal: 6, borderRadius: 10, height: 20, minWidth: 20, justifyContent: 'center', alignItems: 'center' }, 
   badgeText: { fontSize: 10, fontWeight: '900' },
 
-  segmentedControl: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, padding: 4, borderRadius: 12 },
+  segmentedControl: { flexDirection: 'row', marginBottom: 20, padding: 4, borderRadius: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
 

@@ -1,7 +1,7 @@
 // src/components/AdminFinanceSystem.js
 
 import React, { useState, useMemo, useEffect, createElement } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Platform, Linking, Image, ActivityIndicator, Alert, Modal, TextInput, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, Image, ActivityIndicator, Alert, Modal, TextInput, ScrollView, useWindowDimensions, Dimensions } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
@@ -28,19 +28,21 @@ const calcularProximaData = (dataBaseIso, tipoContrato) => {
 };
 
 export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogCoach, isWeb }) {
-    const { width } = Dimensions.get('window');
+    const { width } = useWindowDimensions();
     const isWebPC = Platform.OS === 'web' && width > 768;
+    
     const currentMonthIndex = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     
     // Estados de Filtro
     const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
     const [filterStatus, setFilterStatus] = useState('TODOS'); 
-    const [filterCategory, setFilterCategory] = useState('TODOS'); // 🔥 NOVO FILTRO 🔥
+    const [filterCategory, setFilterCategory] = useState('TODOS'); 
+    const [searchQuery, setSearchQuery] = useState(''); 
     
     // Lista Local de Alunos do App + Alunos Offline
     const [localAlunos, setLocalAlunos] = useState([]);
-    const [offlineClients, setOfflineClients] = useState([]); // Lista dos alunos apenas do financeiro
+    const [offlineClients, setOfflineClients] = useState([]); 
     const [loadingId, setLoadingId] = useState(null);
 
     // Estados do Modal de Edição (Alunos do App)
@@ -51,7 +53,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [nextWorkoutUpdate, setNextWorkoutUpdate] = useState('');
     const [isSavingContract, setIsSavingContract] = useState(false);
 
-    // 🔥 ESTADOS DO MODAL "NOVO ALUNO OFFLINE" 🔥
+    // Estados do Modal "NOVO ALUNO OFFLINE" 
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
     const [newPhotoUrl, setNewPhotoUrl] = useState('');
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -67,7 +69,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
     useEffect(() => {
         setLocalAlunos(alunos);
-        // Futuro: Aqui entra o fetch para puxar os alunos offline do banco de dados (GET /api/admin/finance-clients)
     }, [alunos]);
 
     // 1. Junta os alunos do app com os alunos offline e filtra pelo Coach
@@ -97,14 +98,14 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     pendente += valor;
                 }
             } else {
-                pendente += valor; // Sem data = pendente
+                pendente += valor; 
             }
         });
 
         return { entrada, pendente, previsao };
     }, [todosAlunosFinanceiro, selectedMonth, currentYear]);
 
-    // 3. Monta a lista de alunos e aplica os filtros (Status + Categoria)
+    // 3. Monta a lista de alunos e aplica os filtros (Status + Categoria + Busca)
     const studentList = useMemo(() => {
         const endOfSelectedMonth = new Date(currentYear, selectedMonth + 1, 0);
         endOfSelectedMonth.setHours(23, 59, 59, 999);
@@ -121,8 +122,13 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             list = list.filter(a => (a.plan === filterCategory) || (a.isOffline && a.plan === filterCategory));
         }
 
+        if (searchQuery.trim() !== '') {
+            const term = searchQuery.toLowerCase();
+            list = list.filter(a => (a.name || '').toLowerCase().includes(term));
+        }
+
         return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [todosAlunosFinanceiro, selectedMonth, currentYear, filterStatus, filterCategory]);
+    }, [todosAlunosFinanceiro, selectedMonth, currentYear, filterStatus, filterCategory, searchQuery]);
 
     // ==========================================
     // FUNÇÕES DE AÇÃO RÁPIDA
@@ -146,13 +152,11 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 }
                 const novaDataISO = novaData.toISOString();
 
-                // Se for aluno offline, atualiza na lista local (Futuro: Rota diferente no backend)
                 if (aluno.isOffline) {
                     setOfflineClients(prev => prev.map(a => a.id === aluno.id ? { ...a, paymentDueDate: novaDataISO } : a));
                     if (Platform.OS === 'web') window.alert("Sucesso!\n\nPagamento registrado e data de vencimento atualizada.");
                     else Alert.alert("Sucesso", "Pagamento registrado e data de vencimento atualizada.");
                 } else {
-                    // Para alunos do app, chamar a API
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -187,6 +191,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     };
 
     const openWhatsApp = (phone, name) => {
+        if (!phone) return;
         const message = `Olá ${name}, tudo bem? Estou entrando em contato para...`;
         const url = `whatsapp://send?phone=+55${phone.replace(/\D/g, '')}&text=${encodeURIComponent(message)}`;
         Linking.openURL(url).catch(() => {
@@ -227,13 +232,11 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 nextWorkoutUpdate: nextWorkoutUpdate ? new Date(nextWorkoutUpdate).toISOString() : null,
             };
 
-            // Se for aluno offline, atualiza na lista local (Futuro: Rota diferente no backend)
             if (editingAluno.isOffline) {
                 setOfflineClients(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
                 if (Platform.OS === 'web') window.alert("Sucesso!\n\nDados do aluno offline atualizados.");
                 else Alert.alert("Sucesso", "Dados do aluno offline atualizados.");
             } else {
-                // Para alunos do app, chamar a API
                 await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -267,7 +270,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
             if (!result.canceled) {
                 const uri = result.assets[0].uri;
-                // Futuro: Implementar upload para S3 ou similar
                 setNewPhotoUrl(uri);
             }
         } catch (error) {
@@ -289,7 +291,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setIsSavingNew(true);
         try {
             const newClient = {
-                id: `offline_${Date.now()}`, // ID temporário para o cliente offline
+                id: `offline_${Date.now()}`, 
                 name: newName,
                 phone: newPhone,
                 plan: newCategory,
@@ -299,14 +301,14 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 nextWorkoutUpdate: newUpdateDate ? new Date(newUpdateDate).toISOString() : null,
                 photoUrl: newPhotoUrl,
                 isOffline: true,
-                coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', // Ajustar conforme seu sistema de IDs de coach
+                coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', 
             };
 
             setOfflineClients(prev => [...prev, newClient]);
             if (Platform.OS === 'web') window.alert("Sucesso!\n\nNovo aluno offline cadastrado.");
             else Alert.alert("Sucesso", "Novo aluno offline cadastrado.");
             setIsAddModalVisible(false);
-            // Resetar campos
+            
             setNewName('');
             setNewPhone('');
             setNewCategory('Consultoria Online');
@@ -339,7 +341,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     );
 
     return (
-        <View style={{ flex: 1, paddingHorizontal: 20, paddingBottom: 150 }}>
+        <View style={{ flex: 1, paddingHorizontal: 20 }}>
             {/* Cabeçalho com Mês e Botão Novo Aluno */}
             <View style={[styles.headerCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
@@ -357,23 +359,33 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 </TouchableOpacity>
             </View>
 
+            {/* Barra de Busca */}
+            <TextInput 
+                style={[styles.searchBar, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                placeholder="Buscar aluno pelo nome..." 
+                placeholderTextColor={theme.textSecondary} 
+                value={searchQuery} 
+                onChangeText={setSearchQuery} 
+            />
+
             {/* Filtros */}
-            <View style={[styles.filterBar, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
-                <View style={[styles.filterGroup, isWebPC && { borderRightWidth: 1, borderRightColor: theme.border }]}>
+            <View style={[styles.filterBar, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flexDirection: isWebPC ? 'row' : 'column', padding: isWebPC ? 0 : 15 }]}>
+                
+                <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
                     <Text style={styles.inputLabel}>MÊS</Text>
                     {Platform.OS === 'web' ? renderWebSelect(selectedMonth, (e) => setSelectedMonth(Number(e.target.value)), MONTHS.map((m, i) => ({ value: i, label: m }))) : (
                         <View style={styles.pickerWrapper}><Picker selectedValue={selectedMonth} onValueChange={setSelectedMonth} style={{ color: theme.text }} dropdownIconColor={theme.accent}>{MONTHS.map((m, i) => <Picker.Item key={i} label={m} value={i} />)}</Picker></View>
                     )}
                 </View>
 
-                <View style={[styles.filterGroup, isWebPC && { borderRightWidth: 1, borderRightColor: theme.border }]}>
+                <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
                     <Text style={styles.inputLabel}>STATUS</Text>
                     {Platform.OS === 'web' ? renderWebSelect(filterStatus, (e) => setFilterStatus(e.target.value), [{ value: 'TODOS', label: 'TODOS' }, { value: 'PAGOS', label: 'PAGOS' }, { value: 'PENDENTES', label: 'PENDENTES' }]) : (
                         <View style={styles.pickerWrapper}><Picker selectedValue={filterStatus} onValueChange={setFilterStatus} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS" value="TODOS" /><Picker.Item label="PAGOS" value="PAGOS" /><Picker.Item label="PENDENTES" value="PENDENTES" /></Picker></View>
                     )}
                 </View>
 
-                <View style={styles.filterGroup}>
+                <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1 } : {}]}>
                     <Text style={styles.inputLabel}>CATEGORIA</Text>
                     {Platform.OS === 'web' ? renderWebSelect(filterCategory, (e) => setFilterCategory(e.target.value), [{ value: 'TODOS', label: 'TODOS' }, ...CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))]) : (
                         <View style={styles.pickerWrapper}><Picker selectedValue={filterCategory} onValueChange={setFilterCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="TODOS" value="TODOS" />{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>
@@ -382,22 +394,22 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             </View>
 
             {/* Métricas Financeiras */}
-            <View style={[styles.metricsRow, isWebPC && { flexDirection: 'row' }]}>
-                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+            <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15, marginBottom: 30 }}>
+                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }]}>
                     <View style={styles.metricHeader}>
                         <View style={[styles.iconBox, { backgroundColor: '#34C75922' }]}><MaterialCommunityIcons name="cash-check" size={18} color="#34C759" /></View>
                         <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>ENTRADA</Text>
                     </View>
                     <Text style={[styles.metricValue, { color: '#34C759' }]}>{formatCurrency(metrics.entrada)}</Text>
                 </View>
-                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }]}>
                     <View style={styles.metricHeader}>
                         <View style={[styles.iconBox, { backgroundColor: '#FF3B3022' }]}><MaterialCommunityIcons name="cash-remove" size={18} color="#FF3B30" /></View>
                         <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PENDENTE</Text>
                     </View>
                     <Text style={[styles.metricValue, { color: '#FF3B30' }]}>{formatCurrency(metrics.pendente)}</Text>
                 </View>
-                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                <View style={[styles.metricCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }]}>
                     <View style={styles.metricHeader}>
                         <View style={[styles.iconBox, { backgroundColor: '#007AFF22' }]}><MaterialCommunityIcons name="cash-multiple" size={18} color="#007AFF" /></View>
                         <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>PREVISÃO</Text>
@@ -406,8 +418,14 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 </View>
             </View>
 
-            {/* Lista de Alunos */}
-            <View style={[styles.listContainer, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+            {/* 🔥 LISTA DE ALUNOS (PC = TABELA | CELULAR = CARD DE ELITE) 🔥 */}
+            <View style={[
+                styles.listContainer, 
+                isWebPC 
+                    ? { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }
+                    : { backgroundColor: 'transparent', borderWidth: 0, padding: 0, elevation: 0, shadowOpacity: 0 } // No celular, tira a caixa externa
+            ]}>
+                
                 {isWebPC && (
                     <View style={[styles.listHeader, { borderBottomColor: theme.border }]}>
                         <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 2 }]}>ALUNO E PLANO</Text>
@@ -417,42 +435,37 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 )}
 
                 {studentList.map(aluno => (
-                    <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: isWebPC ? 'row' : 'column', alignItems: isWebPC ? 'center' : 'flex-start' }]}>
-                        <View style={{ flex: isWebPC ? 2 : 1, flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%' }}>
-                            {aluno.photoUrl ? (
-                                <View style={[styles.avatar, { overflow: 'hidden' }]}>
-                                    {Platform.OS === 'web' ? <img src={aluno.photoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: aluno.photoUrl }} style={{ width: '100%', height: '100%' }} />}
+                    isWebPC ? (
+                        // ==========================================
+                        // RENDERIZAÇÃO PARA PC (TABELA COMPACTA)
+                        // ==========================================
+                        <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: 'row', alignItems: 'center' }]}>
+                            <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                {aluno.photoUrl ? (
+                                    <View style={[styles.avatar, { overflow: 'hidden' }]}>
+                                        {Platform.OS === 'web' ? <img src={aluno.photoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: aluno.photoUrl }} style={{ width: '100%', height: '100%' }} />}
+                                    </View>
+                                ) : (
+                                    <View style={[styles.avatarPlaceholder, { borderColor: theme.border }]}>
+                                        <MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} />
+                                    </View>
+                                )}
+                                <View style={{ flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                        <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
+                                        {aluno.isOffline && <MaterialCommunityIcons name="cloud-off-outline" size={12} color={theme.textSecondary} title="Aluno Offline" />}
+                                    </View>
+                                    <Text style={styles.studentPlan} numberOfLines={1}>{aluno.contractType || 'Mensal'} - {formatCurrency(aluno.contractValue || 0)}</Text>
                                 </View>
-                            ) : (
-                                <View style={[styles.avatarPlaceholder, { borderColor: theme.border }]}>
-                                    <MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} />
-                                </View>
-                            )}
-                            <View style={{ flex: 1 }}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                                    <Text style={[styles.studentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
-                                    {aluno.isOffline && <MaterialCommunityIcons name="cloud-off-outline" size={12} color={theme.textSecondary} title="Aluno Offline" />}
-                                </View>
-                                <Text style={styles.studentPlan} numberOfLines={1}>{aluno.contractType || 'Mensal'} - {formatCurrency(aluno.contractValue || 0)}</Text>
                             </View>
-                            {!isWebPC && (
-                                <View style={[styles.statusBadge, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022', marginLeft: 'auto' }]}>
-                                    <Text style={[styles.statusText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>{aluno.isPaid ? 'PAGO' : 'PENDENTE'}</Text>
-                                </View>
-                            )}
-                        </View>
 
-                        {isWebPC && (
                             <View style={{ width: 100, alignItems: 'center' }}>
                                 <View style={[styles.statusBadge, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022' }]}>
                                     <Text style={[styles.statusText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>{aluno.isPaid ? 'PAGO' : 'PENDENTE'}</Text>
                                 </View>
                             </View>
-                        )}
 
-                        <View style={{ flex: isWebPC ? 1 : 0, width: isWebPC ? 'auto' : '100%', flexDirection: 'row', justifyContent: isWebPC ? 'flex-end' : 'space-between', alignItems: 'center', gap: 8, marginTop: isWebPC ? 0 : 15, paddingTop: isWebPC ? 0 : 10, borderTopWidth: isWebPC ? 0 : 1, borderTopColor: theme.border }}>
-                            {!isWebPC && <Text style={{color: theme.textSecondary, fontSize: 11, fontWeight: 'bold'}}>Gerenciar:</Text>}
-                            <View style={{flexDirection: 'row', gap: 6, marginLeft: isWebPC ? 0 : 'auto'}}>
+                            <View style={{ flex: 1, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
                                 <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#32ADE622' }]} onPress={() => openEditModal(aluno)}>
                                     <MaterialCommunityIcons name="pencil" size={16} color="#32ADE6" />
                                 </TouchableOpacity>
@@ -466,7 +479,85 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 </TouchableOpacity>
                             </View>
                         </View>
-                    </View>
+                    ) : (
+                        // ==========================================
+                        // RENDERIZAÇÃO PARA CELULAR (CARTÃO MODERNO)
+                        // ==========================================
+                        <View key={aluno.id} style={[styles.mobileCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000' }]}>
+                            {/* Cabeçalho do Cartão */}
+                            <View style={styles.mobileCardHeader}>
+                                {aluno.photoUrl ? (
+                                    <Image source={{ uri: aluno.photoUrl }} style={styles.mobileAvatar} />
+                                ) : (
+                                    <View style={[styles.mobileAvatarPlaceholder, { borderColor: theme.border }]}>
+                                        <MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} />
+                                    </View>
+                                )}
+                                <View style={styles.mobileCardInfo}>
+                                    <Text style={[styles.mobileStudentName, { color: theme.text }]} numberOfLines={1}>{aluno.name}</Text>
+                                    <Text style={styles.mobileStudentCategory}>{aluno.plan || 'CONSULTORIA ONLINE'}</Text>
+                                </View>
+                            </View>
+
+                            {/* Tags de Data e Status Offline */}
+                            <View style={styles.mobileBadgesRow}>
+                                <View style={[styles.mobileBadgeDark, { backgroundColor: theme.isDark ? '#333' : '#111' }]}>
+                                    <MaterialCommunityIcons name="calendar-clock" size={12} color="#FFF" />
+                                    <Text style={styles.mobileBadgeDarkText}>VENC: {aluno.paymentDueDate ? new Date(aluno.paymentDueDate).toLocaleDateString('pt-BR') : 'N/A'}</Text>
+                                </View>
+                                {aluno.isOffline && (
+                                    <View style={[styles.mobileBadgeDark, { backgroundColor: theme.isDark ? '#333' : '#111' }]}>
+                                        <MaterialCommunityIcons name="cloud-off-outline" size={12} color="#FFF" />
+                                        <Text style={styles.mobileBadgeDarkText}>OFFLINE</Text>
+                                    </View>
+                                )}
+                            </View>
+
+                            {/* Tarja de Pagamento Larga (Idêntica ao Print) */}
+                            <View style={[styles.mobileFinanceBanner, { backgroundColor: aluno.isPaid ? '#34C75922' : '#FF3B3022' }]}>
+                                <MaterialCommunityIcons name="wallet-outline" size={16} color={aluno.isPaid ? '#34C759' : '#FF3B30'} />
+                                <Text style={[styles.mobileFinanceBannerText, { color: aluno.isPaid ? '#34C759' : '#FF3B30' }]}>
+                                    {aluno.isPaid ? 'PAGO' : 'PENDENTE'} • {formatCurrency(aluno.contractValue || 0)}
+                                </Text>
+                            </View>
+
+                            {/* Botões Lado a Lado */}
+                            <View style={styles.mobileActionRow}>
+                                <TouchableOpacity 
+                                    style={[styles.mobileBtnHalf, { 
+                                        backgroundColor: aluno.isPaid ? theme.surface : theme.accent, 
+                                        borderColor: aluno.isPaid ? theme.border : theme.accent, 
+                                        borderWidth: 1 
+                                    }]} 
+                                    onPress={() => handleRegistrarPagamentoRapido(aluno)} 
+                                    disabled={loadingId === aluno.id}
+                                >
+                                    {loadingId === aluno.id ? <ActivityIndicator size="small" color={aluno.isPaid ? theme.text : '#FFF'} /> : (
+                                        <>
+                                            <MaterialCommunityIcons name="cash-check" size={16} color={aluno.isPaid ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF')} />
+                                            <Text style={[styles.mobileBtnHalfText, { color: aluno.isPaid ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
+                                                {aluno.isPaid ? 'RENOVAR' : 'MARCAR PAGO'}
+                                            </Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity 
+                                    style={[styles.mobileBtnHalf, { backgroundColor: theme.isDark ? '#222' : '#111' }]} 
+                                    onPress={() => openEditModal(aluno)}
+                                >
+                                    <MaterialCommunityIcons name="pencil" size={16} color="#FFF" />
+                                    <Text style={[styles.mobileBtnHalfText, { color: '#FFF' }]}>EDITAR</Text>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Botão de WhatsApp Largo Embaixo */}
+                            <TouchableOpacity style={styles.mobileBtnWhatsApp} onPress={() => openWhatsApp(aluno.phone, aluno.name)}>
+                                <MaterialCommunityIcons name="whatsapp" size={18} color="#FFF" />
+                                <Text style={styles.mobileBtnWhatsAppText}>WHATSAPP (MSG)</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )
                 ))}
 
                 {studentList.length === 0 && (
@@ -492,8 +583,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         </View>
 
                         <View style={{ gap: 20 }}>
-                            <View style={styles.formRow(isWebPC)}>
-                                <View style={{ flex: 1 }}>
+                            <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
+                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
                                     <Text style={styles.inputLabel}>TIPO DE PLANO</Text>
                                     {Platform.OS === 'web' ? renderWebSelect(contractType, (e) => setContractType(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' }, { value: 'Projeto 90 Dias', label: 'Projeto 90 Dias' }, { value: 'Ficha 8 Semanas', label: 'Ficha 8 Semanas' } ]) : (
                                         <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
@@ -502,7 +593,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                     )}
                                 </View>
 
-                                <View style={{ flex: 1 }}>
+                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
                                     <Text style={styles.inputLabel}>VALOR (R$)</Text>
                                     <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.accent, borderColor: theme.border, textAlign: 'center' }]} placeholder="0.00" placeholderTextColor={theme.textSecondary} value={contractValue} onChangeText={setContractValue} keyboardType="numeric" />
                                 </View>
@@ -553,22 +644,22 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                             </View>
 
                             <View style={{ gap: 20 }}>
-                                <View style={styles.formRow(isWebPC)}>
-                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>NOME COMPLETO</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: Abner Kristopher" placeholderTextColor={theme.textSecondary} value={newName} onChangeText={setNewName} /></View>
-                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>CATEGORIA / PLANO</Text>{Platform.OS === 'web' ? renderWebSelect(newCategory, (e) => setNewCategory(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newCategory} onValueChange={setNewCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}>{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>}</View>
+                                <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>NOME COMPLETO</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: Abner Kristopher" placeholderTextColor={theme.textSecondary} value={newName} onChangeText={setNewName} /></View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>CATEGORIA / PLANO</Text>{Platform.OS === 'web' ? renderWebSelect(newCategory, (e) => setNewCategory(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newCategory} onValueChange={setNewCategory} style={{ color: theme.text }} dropdownIconColor={theme.accent}>{CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}</Picker></View>}</View>
                                 </View>
                                 
-                                <View style={styles.formRow(isWebPC)}>
-                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>TELEFONE</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="41 9999-9999" placeholderTextColor={theme.textSecondary} value={newPhone} onChangeText={setNewPhone} keyboardType="numeric" /></View>
-                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>DURAÇÃO DO CONTRATO</Text>{Platform.OS === 'web' ? renderWebSelect(newDuration, (e) => setNewDuration(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' } ]) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newDuration} onValueChange={setNewDuration} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /></Picker></View>}</View>
+                                <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>TELEFONE</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="41 9999-9999" placeholderTextColor={theme.textSecondary} value={newPhone} onChangeText={setNewPhone} keyboardType="numeric" /></View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>DURAÇÃO DO CONTRATO</Text>{Platform.OS === 'web' ? renderWebSelect(newDuration, (e) => setNewDuration(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' } ]) : <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}><Picker selectedValue={newDuration} onValueChange={setNewDuration} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /></Picker></View>}</View>
                                 </View>
                                 
                                 <View><Text style={styles.inputLabel}>VALOR TOTAL (R$)</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: 149" placeholderTextColor={theme.textSecondary} value={newValue} onChangeText={setNewValue} keyboardType="numeric" /></View>
                                 
-                                <View style={styles.formRow(isWebPC)}>
-                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>DATA INÍCIO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newStartDate, onChange: (e) => setNewStartDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newStartDate} onChangeText={setNewStartDate} />}</View>
-                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>VENCIMENTO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newDueDate, onChange: (e) => setNewDueDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newDueDate} onChangeText={setNewDueDate} />}</View>
-                                    <View style={{ flex: 1 }}><Text style={styles.inputLabel}>ATUALIZAÇÃO (OPCIONAL)</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newUpdateDate, onChange: (e) => setNewUpdateDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newUpdateDate} onChangeText={setNewUpdateDate} />}</View>
+                                <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>DATA INÍCIO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newStartDate, onChange: (e) => setNewStartDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newStartDate} onChangeText={setNewStartDate} />}</View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>VENCIMENTO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newDueDate, onChange: (e) => setNewDueDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newDueDate} onChangeText={setNewDueDate} />}</View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>ATUALIZAÇÃO (OPCIONAL)</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newUpdateDate, onChange: (e) => setNewUpdateDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newUpdateDate} onChangeText={setNewUpdateDate} />}</View>
                                 </View>
                                 
                                 <View style={{ marginTop: 10 }}>
@@ -598,8 +689,10 @@ const styles = StyleSheet.create({
     addBtnModern: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 15, height: 40, borderRadius: 10, elevation: 3 },
     addBtnText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
 
-    filterBar: { flexDirection: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 'row' : 'column', borderRadius: 16, borderWidth: 1, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 0 : 15, marginBottom: 25, elevation: 1, overflow: 'hidden' },
-    filterGroup: { flex: 1, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 15 : 0, gap: 5, marginBottom: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 0 : 10 },
+    searchBar: { padding: 14, borderRadius: 12, marginBottom: 20, borderWidth: 1, outlineStyle: 'none', fontSize: 14, fontWeight: 'bold' },
+
+    // 🔥 FILTROS 🔥
+    filterBar: { borderRadius: 16, borderWidth: 1, marginBottom: 25, elevation: 1, overflow: 'hidden' },
     inputLabel: { color: '#888', fontSize: 10, fontWeight: '900', marginBottom: 6, letterSpacing: 1 },
 
     webSelectWrapper: (theme) => ({ position: 'relative', width: '100%', borderRadius: 10, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface }),
@@ -607,8 +700,8 @@ const styles = StyleSheet.create({
     webSelectIcon: { position: 'absolute', right: 10, top: '50%', marginTop: -10, pointerEvents: 'none' },
     pickerWrapper: { borderRadius: 10, borderWidth: 1, borderColor: '#333', backgroundColor: '#1A1A1A', overflow: 'hidden' },
 
-    metricsRow: { gap: 15, marginBottom: 30 },
-    metricCard: { flex: 1, padding: 20, borderRadius: 16, borderWidth: 1, elevation: 2, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 },
+    // 🔥 MÉTRICAS 🔥
+    metricCard: { padding: 20, borderRadius: 16, borderWidth: 1, elevation: 2, shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 },
     metricHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
     iconBox: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
     metricLabel: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
@@ -616,17 +709,35 @@ const styles = StyleSheet.create({
 
     listContainer: { borderRadius: 16, borderWidth: 1, padding: 10, marginBottom: 50 },
     listHeader: { flexDirection: 'row', padding: 15, borderBottomWidth: 1 },
-    listHeaderTitle: { flex: 1, fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-
+    listHeaderTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
     listItem: { padding: 15, borderBottomWidth: 1, gap: 0 },
+
+    // 🔥 NOVOS ESTILOS PARA OS CARTÕES DO CELULAR 🔥
+    mobileCard: { borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, elevation: 3, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 6 },
+    mobileCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
+    mobileAvatar: { width: 48, height: 48, borderRadius: 24 },
+    mobileAvatarPlaceholder: { width: 48, height: 48, borderRadius: 24, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+    mobileCardInfo: { flex: 1, marginLeft: 15 },
+    mobileStudentName: { fontSize: 16, fontWeight: '900', textTransform: 'uppercase' },
+    mobileStudentCategory: { color: '#888', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 2 },
+    mobileBadgesRow: { flexDirection: 'row', gap: 10, marginBottom: 15 },
+    mobileBadgeDark: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, gap: 5 },
+    mobileBadgeDarkText: { color: '#FFF', fontSize: 10, fontWeight: 'bold', letterSpacing: 0.5 },
+    mobileFinanceBanner: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 12, marginBottom: 15, gap: 8 },
+    mobileFinanceBannerText: { fontSize: 13, fontWeight: '900', letterSpacing: 1 },
+    mobileActionRow: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+    mobileBtnHalf: { flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 14, borderRadius: 12, gap: 6 },
+    mobileBtnHalfText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+    mobileBtnWhatsApp: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: '#25D366', paddingVertical: 14, borderRadius: 12, gap: 8 },
+    mobileBtnWhatsAppText: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+
+    // Estilos Antigos (PC)
     avatar: { width: 40, height: 40, borderRadius: 20 },
     avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
     studentName: { fontWeight: '900', fontSize: 13, marginBottom: 1 },
     studentPlan: { color: '#888', fontSize: 11, fontWeight: 'bold' },
-
     statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, alignSelf: 'center' },
     statusText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-
     actionBtn: { height: 36, borderRadius: 8, justifyContent: 'center', alignItems: 'center', minWidth: 36 },
     emptyText: { textAlign: 'center', padding: 30, fontStyle: 'italic', fontWeight: 'bold' },
 
@@ -639,7 +750,6 @@ const styles = StyleSheet.create({
     addModalContent: { width: '100%', maxWidth: 800, alignSelf: 'center', borderRadius: 24, padding: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 30 : 20, borderWidth: 1 },
     cardTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
 
-    formRow: (isDesktop) => ({ flexDirection: isDesktop ? 'row' : 'column', gap: 15 }),
     inputLarge: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, fontWeight: 'bold' },
 
     webDate: (theme) => ({ width: '100%', padding: '14px', borderRadius: '12px', border: `1px solid ${theme.border}`, backgroundColor: theme.surface, color: theme.text, outline: 'none', fontSize: '14px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontWeight: 'bold', boxSizing: 'border-box' }),
