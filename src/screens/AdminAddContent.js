@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, 
-    Alert, ActivityIndicator, Switch, Platform, FlatList, StatusBar, Modal 
+    Alert, ActivityIndicator, Switch, Platform, FlatList, StatusBar, Modal, KeyboardAvoidingView 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -25,7 +25,6 @@ const getDirectImageUrl = (url) => {
 // 🔥 FUNÇÃO DE DISPARO DE NOTIFICAÇÃO (EXPO PUSH) 🔥
 const sendPushNotification = async (title, body, adminId) => {
     try {
-        // 1. Puxa os pushTokens dos alunos ativos ligados ao admin
         const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
         const data = await res.json();
         const activeUsers = data.activeUsers || [];
@@ -39,16 +38,14 @@ const sendPushNotification = async (title, body, adminId) => {
             return;
         }
 
-        // 2. Monta o pacote de mensagens (chunking recomendado pelo Expo)
         const messages = tokens.map(token => ({
             to: token,
             sound: 'default',
             title: title,
             body: body,
-            data: { screen: 'Biblioteca' }, // Direciona para a biblioteca ao clicar
+            data: { screen: 'Biblioteca' }, 
         }));
 
-        // 3. Dispara para o servidor do Expo
         await fetch('https://exp.host/--/api/v2/push/send', {
             method: 'POST',
             headers: {
@@ -64,7 +61,6 @@ const sendPushNotification = async (title, body, adminId) => {
         console.error('Erro ao enviar Push Notification:', error);
     }
 };
-
 
 export default function AdminAddContent({ navigation }) {
     const { theme } = useTheme();
@@ -93,6 +89,15 @@ export default function AdminAddContent({ navigation }) {
     const [allStudents, setAllStudents] = useState([]);
     const [contentAccessList, setContentAccessList] = useState([]);
     const [loadingAccess, setLoadingAccess] = useState(false);
+
+    // 🔥 NOVOS ESTADOS PARA MODERAÇÃO DE COMENTÁRIOS DO ADMIN 🔥
+    const [commentsModalVisible, setCommentsModalVisible] = useState(false);
+    const [activeComments, setActiveComments] = useState([]);
+    const [adminNewComment, setAdminNewComment] = useState('');
+    const [activeVideoId, setActiveVideoId] = useState(null);
+    const [activeVideoTitle, setActiveVideoTitle] = useState('');
+    const [sendingAdminComment, setSendingAdminComment] = useState(false);
+    const [loadingAdminComments, setLoadingAdminComments] = useState(false);
 
     useEffect(() => {
         if (viewMode === 'list') {
@@ -167,6 +172,69 @@ export default function AdminAddContent({ navigation }) {
             if (currentValue) setContentAccessList(prev => [...prev, userId]);
             else setContentAccessList(prev => prev.filter(id => id !== userId));
             Alert.alert("Erro", "Falha de conexão com o servidor.");
+        }
+    };
+
+    // 🔥 PAINEL DE MODERAÇÃO DE COMENTÁRIOS 🔥
+    const openAdminComments = async (item) => {
+        setActiveVideoId(item.id);
+        setActiveVideoTitle(item.title);
+        setCommentsModalVisible(true);
+        fetchAdminComments(item.id);
+    };
+
+    const fetchAdminComments = async (id) => {
+        setLoadingAdminComments(true);
+        try {
+            const res = await fetch(`https://fitos-final.onrender.com/api/contents/${id}/comments`);
+            if (res.ok) setActiveComments(await res.json());
+        } catch (e) {
+            console.log(e);
+        } finally {
+            setLoadingAdminComments(false);
+        }
+    };
+
+    const handleSendAdminComment = async () => {
+        if (!adminNewComment.trim() || !activeVideoId) return;
+        setSendingAdminComment(true);
+        try {
+            const userJson = await AsyncStorage.getItem('user');
+            const adminId = userJson ? JSON.parse(userJson).id : '';
+
+            const res = await fetch('https://fitos-final.onrender.com/api/contents/comments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: adminId, contentId: activeVideoId, text: adminNewComment })
+            });
+            if (res.ok) {
+                setAdminNewComment('');
+                fetchAdminComments(activeVideoId);
+            }
+        } catch (e) {
+            console.log("Erro ao comentar", e);
+        } finally {
+            setSendingAdminComment(false);
+        }
+    };
+
+    const handleDeleteAdminComment = async (commentId) => {
+        const confirmDelete = async () => {
+            try {
+                const res = await fetch(`https://fitos-final.onrender.com/api/contents/comments/${commentId}`, { method: 'DELETE' });
+                if (res.ok) fetchAdminComments(activeVideoId);
+            } catch (error) {
+                console.log(error);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm("Deseja apagar este comentário definitivamente?")) confirmDelete();
+        } else {
+            Alert.alert("Excluir", "Deseja apagar este comentário definitivamente?", [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Sim", style: "destructive", onPress: confirmDelete }
+            ]);
         }
     };
 
@@ -394,7 +462,6 @@ export default function AdminAddContent({ navigation }) {
         }
     };
 
-    // 🔥 SALVAMENTO E DISPARO DE NOTIFICAÇÃO PUSH 🔥
     const handleSave = async () => {
         if (!form.title || !form.thumbUrl) {
             return Alert.alert("Erro", "Preencha Título e faça o upload da Capa.");
@@ -444,7 +511,7 @@ export default function AdminAddContent({ navigation }) {
                 setViewMode('list'); 
 
                 // 🔔 DISPARA NOTIFICAÇÃO PUSH SE FOR UM NOVO CONTEÚDO 🔔
-                if (!editingId && !form.isVIP) { // Se não for VIP ou edição, avisa a galera
+                if (!editingId && !form.isVIP) { 
                     const tipoFormatado = contentType === 'ebook' ? 'E-book' : contentType === 'audio' ? 'Áudio' : 'Vídeo';
                     await sendPushNotification(
                         `🎬 Novo ${tipoFormatado} Disponível!`,
@@ -485,6 +552,11 @@ export default function AdminAddContent({ navigation }) {
                 </View>
 
                 <View style={styles.listActions}>
+                    {/* 🔥 BOTÃO DE MODERAR COMENTÁRIOS 🔥 */}
+                    <TouchableOpacity onPress={() => openAdminComments(item)} style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+                        <MaterialCommunityIcons name="comment-text-multiple-outline" size={20} color={theme.textSecondary} />
+                    </TouchableOpacity>
+
                     {item.isVIP && (
                         <TouchableOpacity onPress={() => handleOpenAccessModal(item)} style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: '#FFCC00', borderWidth: 1 }]}>
                             <MaterialCommunityIcons name="key-variant" size={20} color="#FFCC00" />
@@ -610,7 +682,6 @@ export default function AdminAddContent({ navigation }) {
                                     <Text style={[styles.label, { color: theme.accent }]}>CATEGORIA</Text>
                                     <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.category} onChangeText={t=>setForm({...form, category:t.toUpperCase()})} placeholderTextColor={theme.textSecondary}/>
 
-                                    {/* 🔥 BOTÃO DE UPLOAD DA CAPA */}
                                     <Text style={[styles.label, { color: theme.accent }]}>CAPA DO CONTEÚDO (Thumbnail)</Text>
                                     <TouchableOpacity 
                                         style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15', padding: 12 }]} 
@@ -781,6 +852,82 @@ export default function AdminAddContent({ navigation }) {
                     </View>
                 </View>
             </Modal>
+
+            {/* 🔥 MODAL DE MODERAÇÃO DE COMENTÁRIOS DO ADMIN 🔥 */}
+            <Modal visible={commentsModalVisible} animationType="slide" transparent>
+                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border, height: '85%' }]}>
+                        
+                        <View style={[styles.modalHeader, { borderBottomColor: theme.border, backgroundColor: theme.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
+                            <View style={{flex: 1}}>
+                                <Text style={[styles.modalTitle, { color: theme.text }]}>Moderar Comentários</Text>
+                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>{activeVideoTitle}</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setCommentsModalVisible(false)} style={{ padding: 5 }}>
+                                <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary}/>
+                            </TouchableOpacity>
+                        </View>
+                        
+                        {loadingAdminComments ? (
+                            <View style={{ padding: 40, alignItems: 'center' }}>
+                                <ActivityIndicator size="large" color={theme.accent} />
+                            </View>
+                        ) : (
+                            <FlatList 
+                                data={activeComments}
+                                keyExtractor={item => item.id}
+                                contentContainerStyle={{ padding: 20 }}
+                                renderItem={({ item }) => {
+                                    const isAdminComment = item.user?.role === 'ADMIN';
+                                    return (
+                                        <View style={{ marginBottom: 15, backgroundColor: isAdminComment ? theme.accent + '11' : theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: isAdminComment ? theme.accent : theme.border }}>
+                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                                                    <MaterialCommunityIcons name={isAdminComment ? "shield-star" : "account-circle"} size={18} color={isAdminComment ? '#FFCC00' : theme.textSecondary} style={{marginRight: 6}} />
+                                                    <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 13 }}>
+                                                        {item.user?.name || 'Aluno'} 
+                                                        {isAdminComment && <Text style={{color: '#FFCC00', fontSize: 11}}> [COACH]</Text>}
+                                                    </Text>
+                                                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginLeft: 8 }}>
+                                                        {new Date(item.createdAt).toLocaleDateString('pt-BR')}
+                                                    </Text>
+                                                </View>
+                                                
+                                                <TouchableOpacity onPress={() => handleDeleteAdminComment(item.id)} style={{ padding: 4 }}>
+                                                    <MaterialCommunityIcons name="trash-can" size={18} color="#FF3B30" />
+                                                </TouchableOpacity>
+                                            </View>
+                                            <Text style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 20 }}>{item.text}</Text>
+                                        </View>
+                                    );
+                                }}
+                                ListEmptyComponent={
+                                    <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 20 }}>Esta aula ainda não possui comentários.</Text>
+                                }
+                            />
+                        )}
+
+                        <View style={{ flexDirection: 'row', padding: 15, borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.bg, alignItems: 'flex-end' }}>
+                            <TextInput 
+                                style={[styles.input, { flex: 1, color: theme.text, backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 20, minHeight: 45, maxHeight: 100, paddingTop: 12, paddingBottom: 12 }]} 
+                                placeholder="Responder como COACH..." 
+                                placeholderTextColor={theme.textSecondary}
+                                value={adminNewComment}
+                                onChangeText={setAdminNewComment}
+                                multiline
+                            />
+                            <TouchableOpacity 
+                                style={{ width: 45, height: 45, borderRadius: 22.5, backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center', marginLeft: 10, opacity: adminNewComment.trim() ? 1 : 0.5 }}
+                                onPress={handleSendAdminComment}
+                                disabled={!adminNewComment.trim() || sendingAdminComment}
+                            >
+                                {sendingAdminComment ? <ActivityIndicator size="small" color={theme.isDark ? '#000' : '#FFF'} /> : <MaterialCommunityIcons name="send" size={18} color={theme.isDark ? '#000' : '#FFF'} />}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
         </RootComponent>
     );
 }
@@ -788,11 +935,9 @@ export default function AdminAddContent({ navigation }) {
 const styles = StyleSheet.create({
     header: { paddingTop: Platform.OS === 'android' ? 10 : 0, paddingHorizontal: 20, paddingBottom: 20, flexDirection:'row', justifyContent:'space-between', alignItems:'center' },
     title: { fontSize: 20, fontWeight: '900' },
-    
     tabsRow: { flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 15, gap: 10, borderBottomWidth: 1 },
     mainTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8, borderWidth: 1 },
     mainTabText: { fontWeight: '900', fontSize: 12 },
-
     listItemCard: { flexDirection: 'row', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, alignItems: 'center' },
     listThumb: { width: 50, height: 70, borderRadius: 8 },
     listInfo: { flex: 1, marginLeft: 15, justifyContent: 'center' },
@@ -802,28 +947,22 @@ const styles = StyleSheet.create({
     listTagText: { fontSize: 9, fontWeight: '900' },
     listActions: { flexDirection: 'row', gap: 10, marginLeft: 10 },
     actionBtn: { padding: 8, borderRadius: 8 },
-
     typeSelector: { flexDirection: 'row', padding: 10, borderBottomWidth: 1 },
     typeTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 6 },
     typeText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-
     formContainer: { width: '100%', paddingTop: 5 },
     label: { fontSize: 10, fontWeight: 'bold', marginTop: 15, marginBottom: 5, letterSpacing: 1, textTransform: 'uppercase' },
     input: { padding: 15, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
-    
     chapterBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
     chapterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
     inputChapter: { padding: 12, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
     addChapterBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', marginBottom: 10 },
-
     vipContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, marginTop: 20, borderWidth: 1 },
     vipDesc: { fontSize: 10, marginTop: 2 },
-
     btn: { padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 35, elevation: 3 },
     btnText: { fontWeight: '900', fontSize: 15, letterSpacing: 1 },
-
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-    modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%', borderWidth: 1, width: '100%', maxWidth: 480, alignSelf: 'center', flex: 1 },
+    modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', borderWidth: 1, width: '100%', maxWidth: 480, alignSelf: 'center', flex: 1 },
     modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
     modalTitle: { fontWeight: '900', fontSize: 16, letterSpacing: 1 },
     studentAccessRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1 },

@@ -29,10 +29,8 @@ export default function BibliotecaScreen({ navigation, route }) {
   const [accessIds, setAccessIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🔥 ESTADO DA PORTARIA
   const [userPlan, setUserPlan] = useState('PREMIUM');
 
-  // 🔥 MODAL DE UPSELL DO PA FLIX 🔥
   const [upsellModalVisible, setUpsellModalVisible] = useState(false);
   const [upsellContent, setUpsellContent] = useState(null);
 
@@ -54,20 +52,12 @@ export default function BibliotecaScreen({ navigation, route }) {
 
           if (!user) return;
 
-          // Lê o plano e aplica a Blindagem de Legado
           const dbPlan = user.plan || 'PREMIUM';
           const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
           setUserPlan(resolvedPlan);
 
-          // 🔥 CORREÇÃO DE HERANÇA DA BIBLIOTECA 🔥
-          // Para que os alunos da Adri ou de qualquer sub-coach vejam os seus conteúdos,
-          // forçamos a busca a olhar para o seu adminId (o mestre) caso não traga os da Adri.
-          // Como o endpoint /api/contents pode estar filtrando no banco de dados,
-          // passamos o adminId para a busca puxar de todos os administradores ligados à consultoria.
+          let targetAdminId = user.adminId; 
           
-          let targetAdminId = user.adminId; // ID do admin que o aluno pertence (ex: Adri)
-          const adminMestreId = 'cm1ab2c3'; // Se tiver o seu ID de Admin mestre, pode colocar aqui no futuro.
-
           const [resContents, resAccess] = await Promise.all([
               fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&adminId=${targetAdminId}&global=true&t=${Date.now()}`),
               fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}&t=${Date.now()}`)
@@ -93,16 +83,15 @@ export default function BibliotecaScreen({ navigation, route }) {
       const bloqueados = [];
 
       contents.forEach(c => {
-          // 🔥 A LÓGICA DA VITRINE: Se for Premium, destranca tudo VIP. Se não for, verifica se o Coach liberou a exceção.
           let isLocked = false;
           
           if (c.isVIP) {
               if (userPlan === 'PREMIUM') {
-                  isLocked = false; // Premium passa reto
+                  isLocked = false; 
               } else if (accessIds.includes(c.id)) {
-                  isLocked = false; // O Coach liberou só esse material na mão para ele
+                  isLocked = false; 
               } else {
-                  isLocked = true; // Tranca na vitrine
+                  isLocked = true; 
               }
           }
           
@@ -144,7 +133,8 @@ export default function BibliotecaScreen({ navigation, route }) {
           if (item.type === 'ebook') {
               navigation.navigate('PDFViewer', { url: item.url, title: item.title });
           } else if (item.type === 'video') {
-              navigation.navigate('VideoPlayer', { url: item.url, title: item.title });
+              // 🔥 O SEGREDO AQUI: PASSANDO O CONTENT ID PARA O VIDEO PLAYER 🔥
+              navigation.navigate('VideoPlayer', { url: item.url, title: item.title, contentId: item.id });
           } else if (item.type === 'audio') {
               try {
                   const parsedChapters = JSON.parse(item.url);
@@ -315,7 +305,6 @@ export default function BibliotecaScreen({ navigation, route }) {
                     </View>
                 )}
 
-                {/* 🔥 A VITRINE DE VIDRO (OS MATERIAIS TRANCADOS) */}
                 {bloqueados.length > 0 && (
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: theme.text }]}>CONTEÚDO VIP (BLOQUEADO)</Text>
@@ -412,8 +401,6 @@ const styles = StyleSheet.create({
   progressText: { fontSize: 10, fontWeight: 'bold', marginLeft: 8 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100, paddingHorizontal: 20 },
   emptyText: { textAlign: 'center', marginTop: 15, fontWeight: 'bold' },
-
-  // 🔥 ESTILOS DO MODAL DE UPSELL 🔥
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
   upsellCard: { width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
   upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },

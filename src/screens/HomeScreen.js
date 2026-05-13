@@ -3,12 +3,13 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
     StatusBar, RefreshControl, ActivityIndicator, Alert, Platform, Modal,
-    Animated, Linking, Image, AppState
+    Animated, Linking, AppState, TextInput, FlatList
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Image } from 'expo-image';
 
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -70,7 +71,7 @@ export default function HomeScreen({ navigation }) {
     const [activeNotice, setActiveNotice] = useState(null);
     const [noticeModalVisible, setNoticeModalVisible] = useState(false);
     
-    // 🔥 ESTADOS DA NOTIFICAÇÃO DE VÍDEO NOVO 🔥
+    // 🔥 ESTADOS DO AVISO DE VÍDEO NOVO (HOME) 🔥
     const [newVideoContent, setNewVideoContent] = useState(null);
     const [showVideoAlert, setShowVideoAlert] = useState(false);
 
@@ -134,9 +135,9 @@ export default function HomeScreen({ navigation }) {
     };
 
     const handleDismissVideoAlert = async () => {
-        if (newVideoContent) {
+        if (newVideoContent && userData?.id) {
             try {
-                await AsyncStorage.setItem(`read_video_${newVideoContent.id}`, 'true');
+                await AsyncStorage.setItem(`video_lido_${userData.id}_${newVideoContent.id}`, 'true');
                 setShowVideoAlert(false);
             } catch (e) {
                 console.log("Erro ao esconder banner de vídeo", e);
@@ -167,12 +168,14 @@ export default function HomeScreen({ navigation }) {
 
           try {
               const t = Date.now();
+              const fetchCoachId = user.coachId || '';
+
               const [homeRes, checkinRes, noticeRes, resUserDirect, resContents] = await Promise.all([
                   fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
                   fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
                   fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
                   fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`),
-                  fetch(`https://fitos-final.onrender.com/api/contents?adminId=${user.adminId || 'master'}&t=${t}`) // 🔥 BUSCA CONTEÚDOS RECENTES
+                  fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`)
               ]);
 
               let fetchedUser = { ...user };
@@ -180,21 +183,26 @@ export default function HomeScreen({ navigation }) {
               let checkinsData = [];
               let unreadFeedback = null;
 
-              // 🔥 LÓGICA DO VÍDEO NOVO 🔥
               if (resContents.ok) {
                   const dataContents = await resContents.json();
                   if (Array.isArray(dataContents) && dataContents.length > 0) {
-                      const latestContent = dataContents.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-                      // Verifica se o vídeo tem menos de 7 dias
-                      const createdDate = new Date(latestContent.createdAt);
-                      const diffTime = Math.abs(new Date() - createdDate);
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      const now = new Date();
                       
-                      if (diffDays <= 7) {
-                          const hasReadVideo = await AsyncStorage.getItem(`read_video_${latestContent.id}`);
+                      const recentContents = dataContents
+                          .filter(c => {
+                              if (c.isVIP) return false; 
+                              const diffTime = Math.abs(now - new Date(c.createdAt));
+                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                              return diffDays <= 7;
+                          })
+                          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+                      for (let content of recentContents) {
+                          const hasReadVideo = await AsyncStorage.getItem(`video_lido_${user.id}_${content.id}`);
                           if (!hasReadVideo) {
-                              setNewVideoContent(latestContent);
+                              setNewVideoContent(content);
                               setShowVideoAlert(true);
+                              break; 
                           }
                       }
                   }
@@ -510,24 +518,52 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </View>
 
-              {/* 🔥 BANNER RADAR DE VÍDEO NOVO 🔥 */}
+              {/* 🔥 BANNER LIMPO: APENAS AVISO CINEMATOGRÁFICO 🔥 */}
               {showVideoAlert && newVideoContent && (
                   <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%', marginBottom: 15 }}>
-                      <TouchableOpacity 
-                          style={[styles.photoBanner, { backgroundColor: theme.accent + '22', borderColor: theme.accent, padding: 16 }]} 
-                          onPress={() => {
-                              handleDismissVideoAlert();
-                              navigation.navigate('Biblioteca'); // Manda para PA Flix
-                          }} 
-                          activeOpacity={0.8}
-                      >
-                          <MaterialCommunityIcons name="play-box-multiple" size={26} color={theme.accent} />
-                          <View style={{flex: 1, marginLeft: 10}}>
-                              <Text style={{color: theme.text, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>NOVA AULA NO PA FLIX</Text>
-                              <Text style={{color: theme.accent, fontSize: 14, fontWeight: 'bold'}} numberOfLines={2}>{newVideoContent.title}</Text>
-                          </View>
-                          <MaterialCommunityIcons name="chevron-right" size={20} color={theme.accent} />
-                      </TouchableOpacity>
+                      <View style={[styles.newVideoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                          <TouchableOpacity 
+                            style={styles.newVideoImageContainer} 
+                            activeOpacity={0.9} 
+                            onPress={() => {
+                                handleDismissVideoAlert();
+                                navigation.navigate('Biblioteca'); // Direto pro PA FLIX!
+                            }}
+                          >
+                              <Image 
+                                  source={{ uri: newVideoContent.thumbUrl || 'https://via.placeholder.com/600x338' }} 
+                                  style={styles.newVideoThumb} 
+                                  contentFit="cover" 
+                              />
+                              <View style={styles.newVideoOverlay}>
+                                  <View style={styles.newVideoPlayBtn}>
+                                      <MaterialCommunityIcons name="play" size={32} color="#FFF" />
+                                  </View>
+                              </View>
+                              <View style={styles.newVideoTag}>
+                                  <Text style={styles.newVideoTagText}>NOVA AULA NO PA FLIX</Text>
+                              </View>
+                              
+                              <TouchableOpacity style={styles.newVideoCloseTop} onPress={handleDismissVideoAlert}>
+                                  <MaterialCommunityIcons name="close" size={16} color="#FFF" />
+                              </TouchableOpacity>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity 
+                            style={styles.newVideoFooter}
+                            activeOpacity={0.8}
+                            onPress={() => {
+                                handleDismissVideoAlert();
+                                navigation.navigate('Biblioteca');
+                            }}
+                          >
+                              <View style={{flex: 1}}>
+                                  <Text style={[styles.newVideoTitle, { color: theme.text }]} numberOfLines={2}>{newVideoContent.title}</Text>
+                                  <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Categoria: {newVideoContent.category}</Text>
+                              </View>
+                              <MaterialCommunityIcons name="chevron-right" size={24} color={theme.accent} />
+                          </TouchableOpacity>
+                      </View>
                   </Animated.View>
               )}
 
@@ -813,6 +849,19 @@ const styles = StyleSheet.create({
     
     statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
     statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
+    
+    // 🔥 ESTILOS DO BANNER DE VÍDEO (APENAS AVISO LIMPO) 🔥
+    newVideoCard: { borderRadius: 20, borderWidth: 1, overflow: 'hidden', elevation: 4, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 8 },
+    newVideoImageContainer: { width: '100%', aspectRatio: 16/9, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+    newVideoThumb: { width: '100%', height: '100%', position: 'absolute' },
+    newVideoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
+    newVideoPlayBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+    newVideoTag: { position: 'absolute', top: 15, left: 15, backgroundColor: '#FF3B30', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+    newVideoTagText: { color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    newVideoCloseTop: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.5)', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+    newVideoFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15 },
+    newVideoTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
+
     photoBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
     xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
     levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
