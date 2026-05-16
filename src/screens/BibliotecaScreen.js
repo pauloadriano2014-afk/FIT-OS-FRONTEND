@@ -1,8 +1,8 @@
 // src/screens/BibliotecaScreen.js
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  StatusBar, Platform, Alert, ActivityIndicator, Linking, Modal
+  StatusBar, Platform, Alert, ActivityIndicator, Linking, Modal, Animated, Pressable
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { Image } from 'expo-image';
+import { Picker } from '@react-native-picker/picker';
 
 const getDirectImageUrl = (url) => {
     if (!url) return null;
@@ -20,6 +21,97 @@ const getDirectImageUrl = (url) => {
         }
     }
     return url;
+};
+
+// 🔥 EXTRATOR DE ID DO YOUTUBE PARA PUXAR A CAPA AUTOMÁTICA 🔥
+const getYouTubeId = (str) => {
+    if (!str) return null;
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/i;
+    const match = str.match(regExp);
+    return match ? match[1] : null;
+};
+
+// 🔥 COMPONENTE DO CARD ANIMADO (EFEITO ZOOM) 🔥
+const AnimatedCard = ({ item, isLarge, isTop10, index, onPress, theme }) => {
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+
+    const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.95, useNativeDriver: true }).start();
+    const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+
+    const cardWidth = isLarge ? 160 : 140;
+    const cardHeight = isLarge ? 220 : 180;
+    let vipLabel = item.type === 'ebook' ? "E-BOOK VIP" : (item.type === 'audio' ? "AUDIOBOOK VIP" : "AULA VIP");
+
+    return (
+        <Pressable 
+            onPress={() => onPress(item)} 
+            onPressIn={handlePressIn} 
+            onPressOut={handlePressOut}
+            style={{ marginRight: 15, flexDirection: 'row', alignItems: 'flex-end', position: 'relative' }}
+        >
+            {/* NÚMERO GIGANTE PARA A SEÇÃO TOP 10 - Fica atrás do card e à esquerda */}
+            {isTop10 && (
+                <Text style={[styles.top10Number, { color: theme.bg, textShadowColor: theme.accent }]}>
+                    {index + 1}
+                </Text>
+            )}
+
+            <Animated.View style={[
+                styles.cardImageWrapper, 
+                { 
+                    width: cardWidth, height: cardHeight, 
+                    borderColor: item.locked ? theme.border : theme.accent, 
+                    borderWidth: item.locked ? 1 : 1.5, 
+                    transform: [{ scale: scaleAnim }], 
+                    marginLeft: isTop10 ? 40 : 0, 
+                    zIndex: 2 
+                }
+            ]}>
+                <Image source={item.image} style={StyleSheet.absoluteFillObject} contentFit="cover" transition={200} cachePolicy="disk" priority="high" />
+                
+                <LinearGradient colors={['transparent', 'rgba(0,0,0,0.95)']} style={[styles.cardGradient, { opacity: item.locked ? 0.9 : 1 }]}>
+                    {item.type === 'audio' && !item.locked && (
+                        <View style={styles.audioIconWrapper}><MaterialCommunityIcons name="headphones" size={20} color="#FFF" /></View>
+                    )}
+                    {item.type === 'video' && !item.locked && (
+                        <View style={styles.audioIconWrapper}><MaterialCommunityIcons name="play-circle" size={24} color="#FFF" /></View>
+                    )}
+
+                    {item.locked ? (
+                        <View style={styles.lockedCenter}>
+                            <MaterialCommunityIcons name="lock" size={32} color="#FFCC00" />
+                            {item.type === 'video' && <Text style={styles.lockedTitle} numberOfLines={2}>{item.title}</Text>}
+                            <Text style={[styles.lockedSub, { color: '#FFCC00', fontWeight: 'bold' }]}>{vipLabel}</Text>
+                        </View>
+                    ) : (
+                        <View style={styles.unlockedBottom}>
+                            {item.type === 'video' && (
+                                <View style={{ width: '100%', alignItems: 'center', zIndex: 10 }}>
+                                    <Text style={[styles.cardTitle, { color: theme.accent }]} numberOfLines={2}>{item.title}</Text>
+                                    {item.subtitle ? <Text style={styles.cardSub} numberOfLines={1}>{item.subtitle}</Text> : null}
+                                </View>
+                            )}
+                            {item.type === 'ebook' ? (
+                                <View style={[styles.actionBtn, { backgroundColor: '#FFF' }]}><Text style={[styles.actionBtnText, { color: '#000' }]}>Ler Agora</Text></View>
+                            ) : item.type === 'video' ? (
+                                <View style={styles.invisibleSpacer} />
+                            ) : (
+                                <View style={[styles.actionBtn, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="headphones" size={14} color="#000" /><Text style={[styles.actionBtnText, { color: '#000', marginLeft: 4 }]}>Ouvir</Text></View>
+                            )}
+                        </View>
+                    )}
+                </LinearGradient>
+                {item.progress > 0 && !item.locked && item.type === 'ebook' && (
+                    <View style={styles.progressContainer}>
+                        <View style={[styles.progressBarBg, { backgroundColor: theme.border }]}>
+                            <View style={[styles.progressBarFill, { width: `${item.progress}%`, backgroundColor: theme.accent }]} />
+                        </View>
+                        <Text style={[styles.progressText, { color: theme.textSecondary }]}>{item.progress}%</Text>
+                    </View>
+                )}
+            </Animated.View>
+        </Pressable>
+    );
 };
 
 export default function BibliotecaScreen({ navigation, route }) {
@@ -33,6 +125,8 @@ export default function BibliotecaScreen({ navigation, route }) {
 
   const [upsellModalVisible, setUpsellModalVisible] = useState(false);
   const [upsellContent, setUpsellContent] = useState(null);
+
+  const [activeFilter, setActiveFilter] = useState('Tudo');
 
   const isWeb = Platform.OS === 'web';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -77,10 +171,10 @@ export default function BibliotecaScreen({ navigation, route }) {
   };
 
   const processContents = () => {
-      const ebooks = [];
-      const audios = [];
-      const videos = []; 
+      // 🔥 AGRUPAMENTO 100% DINÂMICO (Baseado no BD) 🔥
+      const grouped = {};
       const bloqueados = [];
+      const allVideos = [];
 
       contents.forEach(c => {
           let isLocked = false;
@@ -95,12 +189,30 @@ export default function BibliotecaScreen({ navigation, route }) {
               }
           }
           
+          // CAPAS INTELIGENTES DO YOUTUBE
+          let finalThumb = getDirectImageUrl(c.thumbUrl);
+          const rawVideoUrl = c.type === 'video' ? c.videoUrl : '';
+          
+          if (!finalThumb && rawVideoUrl && (rawVideoUrl.includes('youtube') || rawVideoUrl.includes('youtu.be'))) {
+              const ytId = getYouTubeId(rawVideoUrl);
+              if (ytId) {
+                  finalThumb = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+              }
+          }
+          
+          if (!finalThumb) {
+              finalThumb = 'https://via.placeholder.com/400x600/111111/CCFF00?text=PA+TEAM';
+          }
+
           const mappedItem = {
+              ...c,
               id: c.id,
               title: c.title,
+              subtitle: c.subtitle, 
               type: c.type || 'video',
+              category: c.category || 'Outros',
               locked: isLocked,
-              image: getDirectImageUrl(c.thumbUrl) || 'https://via.placeholder.com/400x600/111111/CCFF00?text=PA+TEAM',
+              image: finalThumb,
               url: c.type === 'ebook' ? c.pdfUrl : (c.type === 'audio' ? c.audioUrl : c.videoUrl),
               progress: 0,
               thumbUrlOriginal: c.thumbUrl 
@@ -108,19 +220,37 @@ export default function BibliotecaScreen({ navigation, route }) {
 
           if (isLocked) {
               bloqueados.push(mappedItem);
-          } else if (mappedItem.type === 'ebook') {
-              ebooks.push(mappedItem);
-          } else if (mappedItem.type === 'audio') {
-              audios.push(mappedItem);
           } else {
-              videos.push(mappedItem); 
+              const catName = mappedItem.category;
+              if (!grouped[catName]) {
+                  grouped[catName] = [];
+              }
+              grouped[catName].push(mappedItem);
+              
+              if (mappedItem.type === 'video') {
+                  allVideos.push(mappedItem);
+              }
           }
       });
 
-      return { ebooks, audios, videos, bloqueados };
+      // Top 10 mais engajados
+      const top10Items = [...allVideos]
+          .sort((a, b) => {
+              const aScore = (a._count?.likes || 0) + (a._count?.comments || 0);
+              const bScore = (b._count?.likes || 0) + (b._count?.comments || 0);
+              return bScore - aScore;
+          })
+          .slice(0, 10);
+
+      const heroItem = top10Items.length > 0 ? top10Items[0] : (allVideos.length > 0 ? allVideos[0] : null);
+
+      return { grouped, bloqueados, top10Items, heroItem };
   };
 
-  const { ebooks, audios, videos, bloqueados } = processContents();
+  const { grouped, bloqueados, top10Items, heroItem } = processContents();
+  
+  // 🔥 FILTROS DINÂMICOS BASEADOS NO QUE EXISTE NO BD 🔥
+  const availableFilters = ['Tudo', ...Object.keys(grouped)];
 
   const handlePressItem = (item) => {
       if (item.locked) {
@@ -133,7 +263,6 @@ export default function BibliotecaScreen({ navigation, route }) {
           if (item.type === 'ebook') {
               navigation.navigate('PDFViewer', { url: item.url, title: item.title });
           } else if (item.type === 'video') {
-              // 🔥 O SEGREDO AQUI: PASSANDO O CONTENT ID PARA O VIDEO PLAYER 🔥
               navigation.navigate('VideoPlayer', { url: item.url, title: item.title, contentId: item.id });
           } else if (item.type === 'audio') {
               try {
@@ -165,95 +294,6 @@ export default function BibliotecaScreen({ navigation, route }) {
       }
   };
 
-  const renderCard = (item, isLarge = false) => {
-      const cardWidth = isLarge ? 160 : 130;
-      const cardHeight = isLarge ? 220 : 180;
-
-      let vipLabel = "CONTEÚDO VIP";
-      if (item.type === 'ebook') vipLabel = "E-BOOK VIP";
-      if (item.type === 'audio') vipLabel = "AUDIOBOOK VIP";
-      if (item.type === 'video') vipLabel = "AULA VIP";
-
-      return (
-          <TouchableOpacity 
-              key={item.id} 
-              activeOpacity={0.8} 
-              onPress={() => handlePressItem(item)}
-              style={[styles.cardContainer, { width: cardWidth }]}
-          >
-              <View style={[styles.cardImageWrapper, { height: cardHeight, borderColor: item.locked ? theme.border : theme.accent, borderWidth: item.locked ? 1 : 2 }]}>
-                  
-                  <Image 
-                    source={item.image}
-                    style={StyleSheet.absoluteFillObject} 
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="disk" 
-                    priority="high" 
-                  />
-
-                  <LinearGradient
-                      colors={['transparent', 'rgba(0,0,0,0.95)']}
-                      style={[styles.cardGradient, { opacity: item.locked ? 0.9 : 1 }]}
-                  >
-                      {item.type === 'audio' && !item.locked && (
-                          <View style={styles.audioIconWrapper}>
-                              <MaterialCommunityIcons name="headphones" size={20} color="#FFF" />
-                          </View>
-                      )}
-                      
-                      {item.type === 'video' && !item.locked && (
-                          <View style={styles.audioIconWrapper}>
-                              <MaterialCommunityIcons name="play-circle" size={20} color="#FFF" />
-                          </View>
-                      )}
-
-                      {item.locked ? (
-                          <View style={styles.lockedCenter}>
-                              <MaterialCommunityIcons name="lock" size={32} color="#FFCC00" />
-                              {item.type === 'video' && (
-                                  <Text style={styles.lockedTitle} numberOfLines={2}>{item.title}</Text>
-                              )}
-                              <Text style={[styles.lockedSub, { color: '#FFCC00', fontWeight: 'bold' }]}>{vipLabel}</Text>
-                          </View>
-                      ) : (
-                          <View style={styles.unlockedBottom}>
-                              {item.type === 'video' && (
-                                  <Text style={[styles.cardTitle, { color: theme.accent }]} numberOfLines={3}>{item.title}</Text>
-                              )}
-                              
-                              {item.type === 'ebook' ? (
-                                  <View style={[styles.actionBtn, { backgroundColor: '#FFF' }]}>
-                                      <Text style={[styles.actionBtnText, { color: '#000' }]}>Ler Agora</Text>
-                                  </View>
-                              ) : item.type === 'video' ? (
-                                  <View style={[styles.actionBtn, { backgroundColor: theme.accent }]}>
-                                      <MaterialCommunityIcons name="play" size={16} color="#000" />
-                                      <Text style={[styles.actionBtnText, { color: '#000', marginLeft: 4 }]}>Assistir</Text>
-                                  </View>
-                              ) : (
-                                  <View style={[styles.actionBtn, { backgroundColor: theme.accent }]}>
-                                      <MaterialCommunityIcons name="headphones" size={14} color="#000" />
-                                      <Text style={[styles.actionBtnText, { color: '#000', marginLeft: 4 }]}>Ouvir</Text>
-                                  </View>
-                              )}
-                          </View>
-                      )}
-                  </LinearGradient>
-              </View>
-
-              {!item.locked && item.type === 'ebook' && item.progress > 0 && (
-                  <View style={styles.progressContainer}>
-                      <View style={[styles.progressBarBg, { backgroundColor: theme.border }]}>
-                          <View style={[styles.progressBarFill, { width: `${item.progress}%`, backgroundColor: theme.accent }]} />
-                      </View>
-                      <Text style={[styles.progressText, { color: theme.textSecondary }]}>{item.progress}%</Text>
-                  </View>
-              )}
-          </TouchableOpacity>
-      );
-  };
-
   return (
     <RootComponent style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -262,11 +302,39 @@ export default function BibliotecaScreen({ navigation, route }) {
         
         <View style={[styles.header, { borderBottomColor: theme.border }]}>
             <View>
-                <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>TEAM</Text>
-                <Text style={[styles.headerTitle, { color: theme.text }]}>PAULO ADRIANO</Text>
+                <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>PA</Text>
+                <Text style={[styles.headerTitle, { color: theme.text }]}>TEAM</Text>
             </View>
             <MaterialCommunityIcons name="play-box-multiple" size={28} color={theme.textSecondary} />
         </View>
+
+        {/* 🔥 DROPDOWN MODERNO E EM CAIXA ALTA 🔥 */}
+        {availableFilters.length > 1 && (
+            <View style={{ paddingHorizontal: 20, paddingTop: 15 }}>
+                {Platform.OS === 'web' ? (
+                    <View style={[styles.pickerContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <select 
+                            value={activeFilter} 
+                            onChange={(e) => setActiveFilter(e.target.value)} 
+                            style={{ width: '100%', padding: 12, backgroundColor: 'transparent', color: theme.text, border: 'none', outline: 'none', fontSize: 13, fontWeight: 'bold' }}
+                        >
+                            {availableFilters.map(c => <option key={c} value={c} style={{ color: '#000' }}>{c.toUpperCase()}</option>)}
+                        </select>
+                    </View>
+                ) : (
+                    <View style={[styles.pickerContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <Picker 
+                            selectedValue={activeFilter} 
+                            onValueChange={(val) => setActiveFilter(val)} 
+                            style={{ color: theme.text }} 
+                            dropdownIconColor={theme.accent}
+                        >
+                            {availableFilters.map(c => <Picker.Item key={c} label={c.toUpperCase()} value={c} />)}
+                        </Picker>
+                    </View>
+                )}
+            </View>
+        )}
 
         {loading ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -276,42 +344,60 @@ export default function BibliotecaScreen({ navigation, route }) {
         ) : (
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
                 
-                {ebooks.length > 0 && (
+                {/* 🔥 HERO BANNER GIGANTE 🔥 */}
+                {heroItem && activeFilter === 'Tudo' && (
+                    <View style={styles.heroContainer}>
+                        <Image source={heroItem.image} style={StyleSheet.absoluteFillObject} contentFit="cover" transition={300} priority="high" />
+                        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.5)', theme.bg]} style={styles.heroGradient}>
+                            <View style={styles.heroContentBox}>
+                                <Text style={[styles.heroTag, { backgroundColor: theme.accent }]}>EM DESTAQUE</Text>
+                                <Text style={styles.heroTitle} numberOfLines={2}>{heroItem.title}</Text>
+                                {heroItem.subtitle ? <Text style={styles.heroSubtitle} numberOfLines={2}>{heroItem.subtitle}</Text> : null}
+                                
+                                <TouchableOpacity style={[styles.heroBtnMain, { backgroundColor: theme.accent }]} onPress={() => handlePressItem(heroItem)}>
+                                    <MaterialCommunityIcons name="play" size={24} color="#000" />
+                                    <Text style={[styles.heroBtnMainText, { color: '#000' }]}>Assistir</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </LinearGradient>
+                    </View>
+                )}
+
+                {/* 🔥 SEÇÃO TOP 10 EM ALTA 🔥 */}
+                {top10Items.length > 0 && activeFilter === 'Tudo' && (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionMainTitle, { color: theme.text }]}>MEUS E-BOOKS</Text>
-                        <Text style={[styles.sectionSubTitle, { color: theme.textSecondary }]}>MATERIAIS DE APOIO LIBERADOS</Text>
-                        
+                        <Text style={[styles.sectionMainTitle, { color: theme.text }]}>TOP 10 NO PA FLIX</Text>
+                        <Text style={[styles.sectionSubTitle, { color: theme.textSecondary }]}>OS VÍDEOS MAIS ASSISTIDOS E COMENTADOS</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                            {ebooks.map(item => renderCard(item, true))}
+                            {top10Items.map((item, index) => <AnimatedCard key={`top-${item.id}`} item={item} isLarge={false} isTop10={true} index={index} onPress={handlePressItem} theme={theme} />)}
                         </ScrollView>
                     </View>
                 )}
 
-                {videos.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.text }]}>AULAS E MASTERCLASSES</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                            {videos.map(item => renderCard(item, false))}
-                        </ScrollView>
-                    </View>
-                )}
+                {/* 🔥 PRATELEIRAS DINÂMICAS DO BANCO DE DADOS 🔥 */}
+                {Object.keys(grouped).filter(cat => activeFilter === 'Tudo' || activeFilter === cat).map((categoriaName) => {
+                    const groupItems = grouped[categoriaName];
+                    const isLargeFormat = groupItems[0]?.type === 'ebook' || groupItems[0]?.type === 'audio';
+                    
+                    return (
+                        <View key={categoriaName} style={styles.section}>
+                            <Text style={[styles.sectionMainTitle, { color: theme.text, textTransform: 'uppercase' }]}>{categoriaName.toUpperCase()}</Text>
+                            
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                                {groupItems.map(item => <AnimatedCard key={item.id} item={item} isLarge={isLargeFormat} isTop10={false} onPress={handlePressItem} theme={theme} />)}
+                            </ScrollView>
+                        </View>
+                    );
+                })}
 
-                {audios.length > 0 && (
-                    <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: theme.text }]}>AUDIOBOOKS</Text>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                            {audios.map(item => renderCard(item, false))}
-                        </ScrollView>
-                    </View>
-                )}
-
-                {bloqueados.length > 0 && (
+                {/* 🔥 A VITRINE DE VIDRO (OS MATERIAIS TRANCADOS) */}
+                {bloqueados.length > 0 && activeFilter === 'Tudo' && (
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: theme.text }]}>CONTEÚDO VIP (BLOQUEADO)</Text>
                         <Text style={[styles.sectionSubTitle, { color: theme.textSecondary, marginBottom: 15, marginTop: -5 }]}>Apenas Consultoria Premium ou Venda Avulsa</Text>
                         
                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                            {bloqueados.map(item => renderCard(item, false))}
+                            {bloqueados.map(item => <AnimatedCard key={item.id} item={item} isLarge={item.type === 'ebook'} isTop10={false} onPress={handlePressItem} theme={theme} />)}
                         </ScrollView>
                     </View>
                 )}
@@ -326,7 +412,6 @@ export default function BibliotecaScreen({ navigation, route }) {
             </ScrollView>
         )}
 
-        {/* 🔥 MODAL DE UPSELL DO PA FLIX 🔥 */}
         <Modal visible={upsellModalVisible} transparent animationType="fade">
             <View style={styles.modalOverlay}>
                 <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FFCC00' }]}>
@@ -379,22 +464,39 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, borderBottomWidth: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 15 : 15 },
   headerSubtitle: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
   headerTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 0.5 },
+  
+  pickerContainer: { borderRadius: 12, borderWidth: 1, overflow: 'hidden', marginBottom: 5 },
+  
+  heroContainer: { width: '100%', height: 450, position: 'relative', marginTop: 15 },
+  heroGradient: { flex: 1, justifyContent: 'flex-end', padding: 20 },
+  heroContentBox: { alignItems: 'center', paddingBottom: 10 },
+  heroTag: { color: '#000', fontSize: 10, fontWeight: '900', letterSpacing: 2, marginBottom: 8, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  heroTitle: { color: '#FFF', fontSize: 28, fontWeight: '900', textAlign: 'center', textShadowColor: 'rgba(0,0,0,0.9)', textShadowRadius: 10, marginBottom: 5 },
+  heroSubtitle: { color: '#CCC', fontSize: 14, fontWeight: 'bold', textAlign: 'center', marginBottom: 20, textShadowColor: 'rgba(0,0,0,0.9)', textShadowRadius: 10 },
+  heroBtnMain: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 35, borderRadius: 12, elevation: 5, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.3, shadowRadius: 5 },
+  heroBtnMainText: { fontWeight: '900', fontSize: 15, marginLeft: 6 },
+
   section: { marginTop: 25 },
   sectionMainTitle: { fontSize: 22, fontWeight: '900', paddingHorizontal: 20, marginBottom: 5 },
   sectionTitle: { fontSize: 16, fontWeight: '900', paddingHorizontal: 20, marginBottom: 15 },
   sectionSubTitle: { fontSize: 11, fontWeight: 'bold', paddingHorizontal: 20, marginBottom: 15, textTransform: 'uppercase' },
   carouselContainer: { paddingHorizontal: 15, paddingBottom: 10, gap: 15 },
-  cardContainer: { marginRight: 5 },
+  
   cardImageWrapper: { borderRadius: 12, overflow: 'hidden', backgroundColor: '#111', position: 'relative' },
   cardGradient: { flex: 1, justifyContent: 'space-between', padding: 12 },
   audioIconWrapper: { alignSelf: 'flex-end', backgroundColor: 'rgba(0,0,0,0.5)', padding: 4, borderRadius: 12 },
   unlockedBottom: { marginTop: 'auto', alignItems: 'center' },
-  cardTitle: { fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: 10, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
+  cardTitle: { fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: 2, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
+  cardSub: { fontSize: 10, color: '#CCC', fontWeight: 'bold', textAlign: 'center', marginBottom: 5, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
   actionBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 6, paddingHorizontal: 16, borderRadius: 20 },
   actionBtnText: { fontSize: 12, fontWeight: '900' },
+  invisibleSpacer: { height: 10 },
   lockedCenter: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   lockedTitle: { color: '#FFF', fontSize: 12, fontWeight: '900', textAlign: 'center', marginTop: 10, marginBottom: 5, textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 },
   lockedSub: { fontSize: 10, textAlign: 'center', marginTop: 2 },
+  
+  top10Number: { position: 'absolute', left: -5, bottom: -15, fontSize: 90, fontWeight: '900', zIndex: 1, textShadowRadius: 2, textShadowOffset: {width: 1, height: 1} },
+
   progressContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingHorizontal: 5 },
   progressBarBg: { flex: 1, height: 4, borderRadius: 2 },
   progressBarFill: { height: '100%', borderRadius: 2 },

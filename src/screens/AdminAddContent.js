@@ -1,65 +1,38 @@
 // src/screens/AdminAddContent.js
 import React, { useState, useEffect } from 'react';
 import { 
-    View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, 
-    Alert, ActivityIndicator, Switch, Platform, FlatList, StatusBar, Modal, KeyboardAvoidingView 
+    View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Platform, FlatList, StatusBar 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
-import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker'; 
 
-const getDirectImageUrl = (url) => {
-    if (!url) return null;
-    if (url.includes('drive.google.com')) {
-        const match = url.match(/[-\w]{25,}/);
-        if (match && match[0]) {
-            return `https://drive.google.com/thumbnail?id=${match[0]}&sz=w1000`;
-        }
-    }
-    return url;
-};
+// 🔥 COMPONENTES MODULARIZADOS 🔥
+import VideoCommentsModal from '../components/MontarTreino/Modals/VideoCommentsModal';
+import VideoAccessModal from '../components/MontarTreino/Modals/VideoAccessModal';
+import VideoUploadForm from '../components/MontarTreino/VideoUploadForm';
+import VideoListCard from '../components/MontarTreino/VideoListCard';
 
-// 🔥 FUNÇÃO DE DISPARO DE NOTIFICAÇÃO (EXPO PUSH) 🔥
 const sendPushNotification = async (title, body, adminId) => {
     try {
         const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
         const data = await res.json();
-        const activeUsers = data.activeUsers || [];
-        
-        const tokens = activeUsers
-            .map(user => user.pushToken)
-            .filter(token => typeof token === 'string' && token.startsWith('ExponentPushToken'));
+        const tokens = (data.activeUsers || []).map(u => u.pushToken).filter(t => typeof t === 'string' && t.startsWith('ExponentPushToken'));
 
-        if (tokens.length === 0) {
-            console.log('Nenhum aluno com Push Token válido encontrado.');
-            return;
-        }
+        if (tokens.length === 0) return;
 
         const messages = tokens.map(token => ({
-            to: token,
-            sound: 'default',
-            title: title,
-            body: body,
-            data: { screen: 'Biblioteca' }, 
+            to: token, sound: 'default', title: title, body: body, data: { screen: 'Biblioteca' }, 
         }));
 
         await fetch('https://exp.host/--/api/v2/push/send', {
             method: 'POST',
-            headers: {
-                Accept: 'application/json',
-                'Accept-encoding': 'gzip, deflate',
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Accept': 'application/json', 'Accept-encoding': 'gzip, deflate', 'Content-Type': 'application/json' },
             body: JSON.stringify(messages),
         });
-        
-        console.log(`Notificações enviadas para ${tokens.length} alunos.`);
-    } catch (error) {
-        console.error('Erro ao enviar Push Notification:', error);
-    }
+    } catch (error) { console.error('Erro Push Notification:', error); }
 };
 
 export default function AdminAddContent({ navigation }) {
@@ -69,28 +42,24 @@ export default function AdminAddContent({ navigation }) {
     const [contents, setContents] = useState([]);
     const [loadingData, setLoadingData] = useState(false);
 
+    // Estados do Formulário
     const [editingId, setEditingId] = useState(null); 
     const [contentType, setContentType] = useState('video'); 
-    
     const [audioChapters, setAudioChapters] = useState([{ title: '', url: '' }]);
-
-    const [form, setForm] = useState({ 
-        title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false 
-    });
-    
+    const [form, setForm] = useState({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false });
     const [loadingAction, setLoadingAction] = useState(false);
-    
     const [uploadingMedia, setUploadingMedia] = useState(false); 
     const [uploadingIndex, setUploadingIndex] = useState(null);
     const [uploadingThumb, setUploadingThumb] = useState(false); 
 
+    // Estados do Modal de Acesso VIP
     const [accessModalVisible, setAccessModalVisible] = useState(false);
     const [selectedContentForAccess, setSelectedContentForAccess] = useState(null);
     const [allStudents, setAllStudents] = useState([]);
     const [contentAccessList, setContentAccessList] = useState([]);
     const [loadingAccess, setLoadingAccess] = useState(false);
 
-    // 🔥 NOVOS ESTADOS PARA MODERAÇÃO DE COMENTÁRIOS DO ADMIN 🔥
+    // Estados do Modal de Comentários
     const [commentsModalVisible, setCommentsModalVisible] = useState(false);
     const [activeComments, setActiveComments] = useState([]);
     const [adminNewComment, setAdminNewComment] = useState('');
@@ -98,46 +67,32 @@ export default function AdminAddContent({ navigation }) {
     const [activeVideoTitle, setActiveVideoTitle] = useState('');
     const [sendingAdminComment, setSendingAdminComment] = useState(false);
     const [loadingAdminComments, setLoadingAdminComments] = useState(false);
+    const [replyingTo, setReplyingTo] = useState(null);
+    const [replyingName, setReplyingName] = useState('');
 
     useEffect(() => {
-        if (viewMode === 'list') {
-            fetchContents();
-        }
+        if (viewMode === 'list') fetchContents();
     }, [viewMode]);
 
     const fetchContents = async () => {
         setLoadingData(true);
         try {
             const userJson = await AsyncStorage.getItem('user');
-            let adminId = '';
-            if (userJson) {
-                const userObj = JSON.parse(userJson);
-                adminId = userObj.id; 
-            }
-
+            const adminId = userJson ? JSON.parse(userJson).id : '';
             const res = await fetch(`https://fitos-final.onrender.com/api/contents?adminId=${adminId}&t=${Date.now()}`);
             const data = await res.json();
             if (Array.isArray(data)) setContents(data);
-        } catch (e) {
-            console.log("Erro ao buscar conteúdos", e);
-        } finally {
-            setLoadingData(false);
-        }
+        } catch (e) { console.log(e); } finally { setLoadingData(false); }
     };
 
+    // FUNÇÕES DO ACESSO VIP
     const handleOpenAccessModal = async (content) => {
         setSelectedContentForAccess(content);
         setAccessModalVisible(true);
         setLoadingAccess(true);
-
         try {
             const userJson = await AsyncStorage.getItem('user');
-            let adminId = '';
-            if (userJson) {
-                const userObj = JSON.parse(userJson);
-                adminId = userObj.id; 
-            }
-
+            const adminId = userJson ? JSON.parse(userJson).id : '';
             const resStudents = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
             const dataStudents = await resStudents.json();
             if (dataStudents.users) setAllStudents(dataStudents.users);
@@ -145,37 +100,25 @@ export default function AdminAddContent({ navigation }) {
             const resAccess = await fetch(`https://fitos-final.onrender.com/api/contents/${content.id}/access`);
             const dataAccess = await resAccess.json();
             if (Array.isArray(dataAccess)) setContentAccessList(dataAccess);
-            
-        } catch (e) {
-            Alert.alert("Erro", "Não foi possível carregar a lista de alunos.");
-        } finally {
-            setLoadingAccess(false);
-        }
+        } catch (e) { Alert.alert("Erro", "Falha ao carregar alunos."); } finally { setLoadingAccess(false); }
     };
 
     const toggleStudentAccess = async (userId, currentValue) => {
         const newValue = !currentValue;
-        
-        if (newValue) {
-            setContentAccessList(prev => [...prev, userId]);
-        } else {
-            setContentAccessList(prev => prev.filter(id => id !== userId));
-        }
+        if (newValue) setContentAccessList(prev => [...prev, userId]);
+        else setContentAccessList(prev => prev.filter(id => id !== userId));
 
         try {
             await fetch(`https://fitos-final.onrender.com/api/contents/${selectedContentForAccess.id}/access`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, hasAccess: newValue })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, hasAccess: newValue })
             });
         } catch (error) {
             if (currentValue) setContentAccessList(prev => [...prev, userId]);
             else setContentAccessList(prev => prev.filter(id => id !== userId));
-            Alert.alert("Erro", "Falha de conexão com o servidor.");
         }
     };
 
-    // 🔥 PAINEL DE MODERAÇÃO DE COMENTÁRIOS 🔥
+    // FUNÇÕES DE COMENTÁRIOS
     const openAdminComments = async (item) => {
         setActiveVideoId(item.id);
         setActiveVideoTitle(item.title);
@@ -188,11 +131,7 @@ export default function AdminAddContent({ navigation }) {
         try {
             const res = await fetch(`https://fitos-final.onrender.com/api/contents/${id}/comments`);
             if (res.ok) setActiveComments(await res.json());
-        } catch (e) {
-            console.log(e);
-        } finally {
-            setLoadingAdminComments(false);
-        }
+        } catch (e) {} finally { setLoadingAdminComments(false); }
     };
 
     const handleSendAdminComment = async () => {
@@ -202,20 +141,20 @@ export default function AdminAddContent({ navigation }) {
             const userJson = await AsyncStorage.getItem('user');
             const adminId = userJson ? JSON.parse(userJson).id : '';
 
+            const payload = { userId: adminId, contentId: activeVideoId, text: adminNewComment };
+            if (replyingTo) payload.parentId = replyingTo;
+
             const res = await fetch('https://fitos-final.onrender.com/api/contents/comments', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: adminId, contentId: activeVideoId, text: adminNewComment })
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
+
             if (res.ok) {
                 setAdminNewComment('');
+                setReplyingTo(null);
+                setReplyingName('');
                 fetchAdminComments(activeVideoId);
             }
-        } catch (e) {
-            console.log("Erro ao comentar", e);
-        } finally {
-            setSendingAdminComment(false);
-        }
+        } catch (e) {} finally { setSendingAdminComment(false); }
     };
 
     const handleDeleteAdminComment = async (commentId) => {
@@ -223,53 +162,28 @@ export default function AdminAddContent({ navigation }) {
             try {
                 const res = await fetch(`https://fitos-final.onrender.com/api/contents/comments/${commentId}`, { method: 'DELETE' });
                 if (res.ok) fetchAdminComments(activeVideoId);
-            } catch (error) {
-                console.log(error);
-            }
+            } catch (error) {}
         };
-
-        if (Platform.OS === 'web') {
-            if (window.confirm("Deseja apagar este comentário definitivamente?")) confirmDelete();
-        } else {
-            Alert.alert("Excluir", "Deseja apagar este comentário definitivamente?", [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Sim", style: "destructive", onPress: confirmDelete }
-            ]);
-        }
+        if (Platform.OS === 'web') { if (window.confirm("Apagar comentário?")) confirmDelete(); } 
+        else Alert.alert("Excluir", "Apagar comentário?", [{ text: "Cancelar", style: "cancel" }, { text: "Sim", style: "destructive", onPress: confirmDelete }]);
     };
 
+    const startReply = (commentId, userName) => { setReplyingTo(commentId); setReplyingName(userName); };
+    const cancelReply = () => { setReplyingTo(null); setReplyingName(''); setAdminNewComment(''); };
+
+    // FUNÇÕES DO FORMULÁRIO (CRUD)
     const handleAddNew = () => {
-        setEditingId(null);
-        setContentType('video');
-        setAudioChapters([{ title: '', url: '' }]);
+        setEditingId(null); setContentType('video'); setAudioChapters([{ title: '', url: '' }]);
         setForm({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false });
         setViewMode('form');
     };
 
     const handleEdit = (item) => {
-        setEditingId(item.id);
-        setContentType(item.type || 'video');
-        
+        setEditingId(item.id); setContentType(item.type || 'video');
         if (item.type === 'audio' && item.audioUrl) {
-            try {
-                const parsedChapters = JSON.parse(item.audioUrl);
-                setAudioChapters(Array.isArray(parsedChapters) ? parsedChapters : [{ title: '', url: item.audioUrl }]);
-            } catch (e) {
-                setAudioChapters([{ title: '', url: item.audioUrl }]);
-            }
-        } else {
-            setAudioChapters([{ title: '', url: '' }]);
-        }
-
-        setForm({
-            title: item.title || '',
-            subtitle: item.subtitle || '',
-            category: item.category || 'GERAL',
-            contentUrl: item.pdfUrl || item.videoUrl || '', 
-            thumbUrl: item.thumbUrl || '',
-            duration: item.duration || '',
-            isVIP: item.isVIP || false
-        });
+            try { setAudioChapters(JSON.parse(item.audioUrl)); } catch (e) { setAudioChapters([{ title: '', url: item.audioUrl }]); }
+        } else setAudioChapters([{ title: '', url: '' }]);
+        setForm({ title: item.title || '', subtitle: item.subtitle || '', category: item.category || 'GERAL', contentUrl: item.pdfUrl || item.videoUrl || '', thumbUrl: item.thumbUrl || '', duration: item.duration || '', isVIP: item.isVIP || false });
         setViewMode('form');
     };
 
@@ -277,656 +191,154 @@ export default function AdminAddContent({ navigation }) {
         const confirmDelete = async () => {
             try {
                 const res = await fetch(`https://fitos-final.onrender.com/api/contents/${id}`, { method: 'DELETE' });
-                if (res.ok) {
-                    if (isWeb) window.alert("Conteúdo excluído com sucesso.");
-                    else Alert.alert("Excluído", "Conteúdo removido.");
-                    fetchContents(); 
-                }
-            } catch (e) {
-                if (isWeb) window.alert("Erro ao excluir.");
-                else Alert.alert("Erro", "Falha ao excluir o conteúdo.");
-            }
+                if (res.ok) { if (isWeb) window.alert("Excluído."); else Alert.alert("Excluído."); fetchContents(); }
+            } catch (e) {}
         };
-
-        if (isWeb) {
-            if (window.confirm(`Tem certeza que deseja apagar "${title}"? Isso removerá o conteúdo do aplicativo de todos os alunos.`)) confirmDelete();
-        } else {
-            Alert.alert("Excluir Conteúdo", `Tem certeza que deseja apagar "${title}"?`, [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Sim, Excluir", style: 'destructive', onPress: confirmDelete }
-            ]);
-        }
+        if (isWeb) { if (window.confirm(`Apagar "${title}"?`)) confirmDelete(); } 
+        else Alert.alert("Excluir Conteúdo", `Apagar "${title}"?`, [{ text: "Cancelar", style: "cancel" }, { text: "Sim", style: 'destructive', onPress: confirmDelete }]);
     };
 
-    const addChapter = () => {
-        setAudioChapters([...audioChapters, { title: '', url: '' }]);
-    };
-
+    const addChapter = () => setAudioChapters([...audioChapters, { title: '', url: '' }]);
     const removeChapter = (index) => {
-        if (audioChapters.length > 1) {
-            const newChapters = [...audioChapters];
-            newChapters.splice(index, 1);
-            setAudioChapters(newChapters);
-        }
+        if (audioChapters.length > 1) { const newChapters = [...audioChapters]; newChapters.splice(index, 1); setAudioChapters(newChapters); }
     };
-
     const updateChapter = (index, field, value) => {
-        const newChapters = [...audioChapters];
-        newChapters[index][field] = value;
-        setAudioChapters(newChapters);
+        const newChapters = [...audioChapters]; newChapters[index][field] = value; setAudioChapters(newChapters);
     };
 
-    // 🔥 MÁQUINA DE UPLOAD DE CAPAS (IMAGENS)
     const handleUploadThumb = async () => {
         try {
-            const result = await DocumentPicker.getDocumentAsync({ 
-                type: 'image/*', 
-                copyToCacheDirectory: true 
-            });
-            
+            const result = await DocumentPicker.getDocumentAsync({ type: 'image/*', copyToCacheDirectory: true });
             if (result.canceled) return;
-
             const fileToUpload = result.assets[0];
-            const fileName = fileToUpload.name.toLowerCase();
-            const isValidFormat = fileName.match(/\.(jpg|jpeg|png|webp)$/i);
-
-            if (!isValidFormat) {
-                if(isWeb) window.alert("Formato Inválido. Use imagens JPG, PNG ou WEBP.");
-                else Alert.alert("Formato Inválido", "Use imagens JPG, PNG ou WEBP.");
-                return; 
-            }
-
+            if (!fileToUpload.name.toLowerCase().match(/\.(jpg|jpeg|png|webp)$/i)) return Alert.alert("Inválido", "Use JPG, PNG ou WEBP.");
+            
             setUploadingThumb(true);
             const formData = new FormData();
-
             if (Platform.OS === 'web') {
                 const res = await fetch(fileToUpload.uri);
                 const blob = await res.blob();
                 formData.append('file', blob, fileToUpload.name);
-            } else {
-                formData.append('file', {
-                    uri: fileToUpload.uri,
-                    name: fileToUpload.name || 'capa.jpg',
-                    type: fileToUpload.mimeType || 'image/jpeg'
-                });
-            }
+            } else formData.append('file', { uri: fileToUpload.uri, name: fileToUpload.name || 'capa.jpg', type: fileToUpload.mimeType || 'image/jpeg' });
 
-            const response = await fetch('https://fitos-final.onrender.com/api/upload-image', {
-                method: 'POST',
-                body: formData,
-                headers: { 'Accept': 'application/json' }
-            });
-
+            const response = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' }});
             const data = await response.json();
-            
-            if (response.ok && data.imageUrl) {
-                setForm({ ...form, thumbUrl: data.imageUrl });
-            } else {
-                throw new Error(data.error || 'Erro no envio da imagem.');
-            }
-
-        } catch (error) {
-            console.error("Erro Upload Capa:", error);
-            if(isWeb) window.alert("Falha ao subir capa: " + error.message);
-            else Alert.alert("Erro de Upload", "Falha ao subir a capa: " + error.message);
-        } finally {
-            setUploadingThumb(false);
-        }
+            if (response.ok && data.imageUrl) setForm({ ...form, thumbUrl: data.imageUrl });
+            else throw new Error(data.error);
+        } catch (error) {} finally { setUploadingThumb(false); }
     };
 
-    // 🔥 MÁQUINA DE UPLOAD DE ÁUDIO/VÍDEO
     const handleUploadMedia = async (chapterIndex = null) => {
         try {
             const isAudioUpload = contentType === 'audio' && chapterIndex !== null;
-            
-            const result = await DocumentPicker.getDocumentAsync({ 
-                type: isAudioUpload ? 'audio/*' : 'video/*', 
-                copyToCacheDirectory: true 
-            });
-            
+            const result = await DocumentPicker.getDocumentAsync({ type: isAudioUpload ? 'audio/*' : 'video/*', copyToCacheDirectory: true });
             if (result.canceled) return;
-  
             const fileToUpload = result.assets[0];
             const fileName = fileToUpload.name.toLowerCase();
-            
-            let isValidFormat = false;
-            if (isAudioUpload) {
-                isValidFormat = fileName.match(/\.(mp3|wav|m4a|aac)$/i);
-            } else {
-                isValidFormat = fileName.match(/\.(mp4|mov|avi)$/i);
-            }
+            let isValidFormat = isAudioUpload ? fileName.match(/\.(mp3|wav|m4a|aac)$/i) : fileName.match(/\.(mp4|mov|avi)$/i);
+            if (!isValidFormat) return Alert.alert("Inválido", isAudioUpload ? "Envie áudios." : "Envie vídeos.");
   
-            if (!isValidFormat) {
-                const msg = isAudioUpload 
-                    ? "Por favor, envie arquivos de áudio válidos (.mp3, .wav, .m4a)." 
-                    : "Por favor, envie apenas vídeos no formato MP4, MOV ou AVI.";
-                
-                if(isWeb) window.alert(msg);
-                else Alert.alert("Formato Inválido", msg);
-                return; 
-            }
-  
-            setUploadingMedia(true);
-            setUploadingIndex(chapterIndex);
-
+            setUploadingMedia(true); setUploadingIndex(chapterIndex);
             const formData = new FormData();
-  
             if (Platform.OS === 'web') {
                 const res = await fetch(fileToUpload.uri);
                 const blob = await res.blob();
                 formData.append('file', blob, fileToUpload.name);
-            } else {
-                formData.append('file', {
-                    uri: fileToUpload.uri,
-                    name: fileToUpload.name || (isAudioUpload ? 'audio_aula.mp3' : 'video_aula.mp4'),
-                    type: fileToUpload.mimeType || (isAudioUpload ? 'audio/mpeg' : 'video/mp4')
-                });
-            }
+            } else formData.append('file', { uri: fileToUpload.uri, name: fileToUpload.name || (isAudioUpload ? 'audio.mp3' : 'video.mp4'), type: fileToUpload.mimeType || (isAudioUpload ? 'audio/mpeg' : 'video/mp4') });
             
-            let mediaTitle = form.title || 'Nova Aula PA FLIX';
-            if (isAudioUpload && audioChapters[chapterIndex].title) {
-                mediaTitle = audioChapters[chapterIndex].title;
-            }
+            let mediaTitle = form.title || 'Nova Aula';
+            if (isAudioUpload && audioChapters[chapterIndex].title) mediaTitle = audioChapters[chapterIndex].title;
             formData.append('title', mediaTitle);
   
-            const response = await fetch('https://fitos-final.onrender.com/api/upload', {
-                method: 'POST',
-                body: formData,
-                headers: { 'Accept': 'application/json' }
-            });
-  
+            const response = await fetch('https://fitos-final.onrender.com/api/upload', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' }});
             const data = await response.json();
             
             if (response.ok && data.videoUrl) {
                 if (isAudioUpload) {
-                    const newChapters = [...audioChapters];
-                    newChapters[chapterIndex].url = data.videoUrl;
-                    setAudioChapters(newChapters);
-                } else {
-                    setForm({ ...form, contentUrl: data.videoUrl }); 
-                }
-                
-                if(isWeb) window.alert("Mídia enviada para a Nuvem! A Bunny.net está processando.");
-                else Alert.alert("Sucesso", "Mídia enviada para a Nuvem! A Bunny.net está processando.");
-            } else {
-                throw new Error(data.error || 'Erro no envio.');
-            }
-  
-        } catch (error) {
-            console.error("Erro Upload Bunny:", error);
-            if(isWeb) window.alert("Falha ao subir arquivo: " + error.message);
-            else Alert.alert("Erro de Upload", "Falha ao subir arquivo: " + error.message);
-        } finally {
-            setUploadingMedia(false);
-            setUploadingIndex(null);
-        }
+                    const newChapters = [...audioChapters]; newChapters[chapterIndex].url = data.videoUrl; setAudioChapters(newChapters);
+                } else setForm({ ...form, contentUrl: data.videoUrl }); 
+                if(isWeb) window.alert("Sucesso!"); else Alert.alert("Sucesso", "Enviado.");
+            } else throw new Error(data.error);
+        } catch (error) {} finally { setUploadingMedia(false); setUploadingIndex(null); }
     };
 
     const handleSave = async () => {
-        if (!form.title || !form.thumbUrl) {
-            return Alert.alert("Erro", "Preencha Título e faça o upload da Capa.");
-        }
-
-        if (contentType !== 'audio' && !form.contentUrl) {
-            return Alert.alert("Erro", "Preencha o Link do Conteúdo (ou faça o Upload).");
-        }
-
-        if (contentType === 'audio') {
-            const hasEmptyChapter = audioChapters.some(c => !c.url.trim());
-            if (hasEmptyChapter) return Alert.alert("Erro", "Preencha o link (ou faça upload) de todos os capítulos de áudio.");
-        }
+        if (!form.title || !form.thumbUrl) return Alert.alert("Erro", "Preencha Título e Capa.");
+        if (contentType !== 'audio' && !form.contentUrl) return Alert.alert("Erro", "Preencha Link.");
+        if (contentType === 'audio' && audioChapters.some(c => !c.url.trim())) return Alert.alert("Erro", "Preencha capítulos.");
 
         setLoadingAction(true);
         try {
             const userJson = await AsyncStorage.getItem('user');
-            let adminId = '';
-            if (userJson) {
-                const userObj = JSON.parse(userJson);
-                adminId = userObj.id; 
-            }
+            const adminId = userJson ? JSON.parse(userJson).id : '';
 
             const payload = {
-                title: form.title, subtitle: form.subtitle, category: form.category,
-                thumbUrl: form.thumbUrl, duration: form.duration, type: contentType, isVIP: form.isVIP,
+                title: form.title, subtitle: form.subtitle, category: form.category, thumbUrl: form.thumbUrl, duration: form.duration, type: contentType, isVIP: form.isVIP,
                 videoUrl: contentType === 'video' ? form.contentUrl : null,
                 pdfUrl: contentType === 'ebook' ? form.contentUrl : null,
                 audioUrl: contentType === 'audio' ? JSON.stringify(audioChapters) : null,
                 adminId: adminId 
             };
 
-            const url = editingId 
-                ? `https://fitos-final.onrender.com/api/contents/${editingId}` 
-                : 'https://fitos-final.onrender.com/api/contents'; 
-
+            const url = editingId ? `https://fitos-final.onrender.com/api/contents/${editingId}` : 'https://fitos-final.onrender.com/api/contents'; 
             const method = editingId ? 'PATCH' : 'POST';
 
-            const res = await fetch(url, {
-                method: method,
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
+            const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
 
             if (res.ok) {
-                Alert.alert("Sucesso", `Conteúdo ${editingId ? 'atualizado' : 'publicado'} com sucesso!`);
-                setViewMode('list'); 
-
-                // 🔔 DISPARA NOTIFICAÇÃO PUSH SE FOR UM NOVO CONTEÚDO 🔔
-                if (!editingId && !form.isVIP) { 
-                    const tipoFormatado = contentType === 'ebook' ? 'E-book' : contentType === 'audio' ? 'Áudio' : 'Vídeo';
-                    await sendPushNotification(
-                        `🎬 Novo ${tipoFormatado} Disponível!`,
-                        `${form.title} acabou de chegar na Biblioteca. Assista agora!`,
-                        adminId
-                    );
-                }
-            } else {
-                Alert.alert("Erro", "Falha ao processar os dados.");
-            }
-        } catch (error) {
-            Alert.alert("Erro", "Verifique sua conexão de internet.");
-        } finally {
-            setLoadingAction(false);
-        }
-    };
-
-    const renderContentItem = ({ item }) => {
-        const iconName = item.type === 'ebook' ? 'book-open-variant' : (item.type === 'audio' ? 'headphones' : 'video');
-        
-        return (
-            <View style={[styles.listItemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                
-                <Image 
-                    source={getDirectImageUrl(item.thumbUrl) || 'https://via.placeholder.com/100'}
-                    style={[styles.listThumb, { borderColor: theme.border, borderWidth: 1 }]} 
-                    contentFit="cover"
-                    transition={200}
-                    cachePolicy="disk" 
-                />
-                
-                <View style={styles.listInfo}>
-                    <Text style={[styles.listTitle, { color: theme.text }]} numberOfLines={2}>{item.title}</Text>
-                    <View style={styles.listTagsRow}>
-                        <View style={[styles.listTag, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name={iconName} size={10} color={theme.isDark ? '#000' : '#FFF'} /><Text style={[styles.listTagText, { color: theme.isDark ? '#000' : '#FFF' }]}>{item.type?.toUpperCase() || 'VIDEO'}</Text></View>
-                        {item.isVIP && <View style={[styles.listTag, { backgroundColor: '#FFCC00' }]}><MaterialCommunityIcons name="lock" size={10} color="#000" /><Text style={[styles.listTagText, { color: '#000' }]}>VIP</Text></View>}
-                    </View>
-                </View>
-
-                <View style={styles.listActions}>
-                    {/* 🔥 BOTÃO DE MODERAR COMENTÁRIOS 🔥 */}
-                    <TouchableOpacity onPress={() => openAdminComments(item)} style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-                        <MaterialCommunityIcons name="comment-text-multiple-outline" size={20} color={theme.textSecondary} />
-                    </TouchableOpacity>
-
-                    {item.isVIP && (
-                        <TouchableOpacity onPress={() => handleOpenAccessModal(item)} style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: '#FFCC00', borderWidth: 1 }]}>
-                            <MaterialCommunityIcons name="key-variant" size={20} color="#FFCC00" />
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity onPress={() => handleEdit(item)} style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-                        <MaterialCommunityIcons name="pencil" size={20} color="#32ADE6" />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(item.id, item.title)} style={[styles.actionBtn, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-                        <MaterialCommunityIcons name="trash-can" size={20} color="#FF3B30" />
-                    </TouchableOpacity>
-                </View>
-            </View>
-        );
-    };
-
-    const renderStudentAccessItem = ({ item }) => {
-        const hasAccess = contentAccessList.includes(item.id);
-        
-        return (
-            <View style={[styles.studentAccessRow, { borderBottomColor: theme.border }]}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    <View style={[styles.studentAvatar, { backgroundColor: theme.border }]}>
-                        <Text style={{ color: theme.text, fontWeight: 'bold' }}>{item.name.charAt(0).toUpperCase()}</Text>
-                    </View>
-                    <View>
-                        <Text style={[styles.studentName, { color: theme.text }]}>{item.name}</Text>
-                        <Text style={styles.studentEmail}>{item.email}</Text>
-                    </View>
-                </View>
-                <Switch 
-                    value={hasAccess} 
-                    onValueChange={() => toggleStudentAccess(item.id, hasAccess)} 
-                    trackColor={{ false: theme.border, true: theme.accent }}
-                    thumbColor={Platform.OS === 'ios' ? '#FFF' : (hasAccess ? (theme.isDark ? '#000' : '#FFF') : '#f4f3f4')}
-                />
-            </View>
-        );
+                Alert.alert("Sucesso", "Salvo."); setViewMode('list'); 
+                if (!editingId && !form.isVIP) await sendPushNotification("Novo Conteúdo!", form.title, adminId);
+            } else Alert.alert("Erro", "Falha ao salvar.");
+        } catch (error) {} finally { setLoadingAction(false); }
     };
 
     const isWeb = Platform.OS === 'web';
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
-
     const RootComponent = isWeb ? View : SafeAreaView;
-    const rootStyle = isWeb
-      ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
-      : { flex: 1, backgroundColor: theme.bg };
 
     return (
-        <RootComponent style={rootStyle}>
+        <RootComponent style={isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg }}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
-            
             <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
-                
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 5 }}>
-                        <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/>
-                    </TouchableOpacity>
-                    <Text style={[styles.title, { color: theme.text }]}>GERENCIAR <Text style={{color: theme.accent}}>PA FLIX</Text></Text>
-                    <View style={{width: 24}}/>
+                    <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 5 }}><MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/></TouchableOpacity>
+                    <Text style={[styles.title, { color: theme.text }]}>GERENCIAR <Text style={{color: theme.accent}}>PA FLIX</Text></Text><View style={{width: 24}}/>
                 </View>
 
                 <View style={[styles.tabsRow, { borderBottomColor: theme.border }]}>
-                    <TouchableOpacity style={[styles.mainTab, { backgroundColor: theme.surface, borderColor: theme.border }, viewMode === 'list' && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={() => setViewMode('list')}>
-                        <MaterialCommunityIcons name="format-list-bulleted" size={18} color={viewMode === 'list' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
-                        <Text style={[styles.mainTabText, { color: theme.textSecondary }, viewMode === 'list' && { color: theme.isDark ? '#000' : '#FFF' }]}>CONTEÚDOS</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.mainTab, { backgroundColor: theme.surface, borderColor: theme.border }, viewMode === 'form' && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={handleAddNew}>
-                        <MaterialCommunityIcons name="plus-circle" size={18} color={viewMode === 'form' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
-                        <Text style={[styles.mainTabText, { color: theme.textSecondary }, viewMode === 'form' && { color: theme.isDark ? '#000' : '#FFF' }]}>NOVO</Text>
-                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.mainTab, { backgroundColor: theme.surface, borderColor: theme.border }, viewMode === 'list' && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={() => setViewMode('list')}><MaterialCommunityIcons name="format-list-bulleted" size={18} color={viewMode === 'list' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} /><Text style={[styles.mainTabText, { color: theme.textSecondary }, viewMode === 'list' && { color: theme.isDark ? '#000' : '#FFF' }]}>CONTEÚDOS</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.mainTab, { backgroundColor: theme.surface, borderColor: theme.border }, viewMode === 'form' && { backgroundColor: theme.accent, borderColor: theme.accent }]} onPress={handleAddNew}><MaterialCommunityIcons name="plus-circle" size={18} color={viewMode === 'form' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} /><Text style={[styles.mainTabText, { color: theme.textSecondary }, viewMode === 'form' && { color: theme.isDark ? '#000' : '#FFF' }]}>NOVO</Text></TouchableOpacity>
                 </View>
 
                 <View style={{ flex: 1 }}>
                     {viewMode === 'list' && (
-                        <>
-                            {loadingData ? (
-                                <ActivityIndicator color={theme.accent} size="large" style={{ marginTop: 50 }} />
-                            ) : (
-                                <FlatList 
-                                    data={contents}
-                                    keyExtractor={item => item.id}
-                                    contentContainerStyle={{ padding: 20, paddingBottom: 150 }}
-                                    showsVerticalScrollIndicator={false}
-                                    renderItem={renderContentItem}
-                                    ListEmptyComponent={
-                                        <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 50 }}>Nenhum conteúdo cadastrado.</Text>
-                                    }
-                                />
-                            )}
-                        </>
+                        loadingData ? <ActivityIndicator color={theme.accent} size="large" style={{ marginTop: 50 }} /> : (
+                            <FlatList 
+                                data={contents} 
+                                keyExtractor={item => item.id} 
+                                contentContainerStyle={{ padding: 20, paddingBottom: 150 }} 
+                                showsVerticalScrollIndicator={false} 
+                                renderItem={({ item }) => <VideoListCard item={item} theme={theme} openAdminComments={openAdminComments} handleOpenAccessModal={handleOpenAccessModal} handleEdit={handleEdit} handleDelete={handleDelete} />} 
+                                ListEmptyComponent={<Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 50 }}>Nenhum conteúdo.</Text>} 
+                            />
+                        )
                     )}
 
                     {viewMode === 'form' && (
-                        <View style={{ flex: 1 }}>
-                            <View style={[styles.typeSelector, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-                                <TouchableOpacity style={[styles.typeTab, contentType === 'video' && { backgroundColor: theme.accent }]} onPress={() => setContentType('video')}>
-                                    <MaterialCommunityIcons name="video" size={16} color={contentType === 'video' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
-                                    <Text style={[styles.typeText, { color: theme.textSecondary }, contentType === 'video' && { color: theme.isDark ? '#000' : '#FFF' }]}>VÍDEO</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.typeTab, contentType === 'ebook' && { backgroundColor: theme.accent }]} onPress={() => setContentType('ebook')}>
-                                    <MaterialCommunityIcons name="book-open-variant" size={16} color={contentType === 'ebook' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
-                                    <Text style={[styles.typeText, { color: theme.textSecondary }, contentType === 'ebook' && { color: theme.isDark ? '#000' : '#FFF' }]}>E-BOOK</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity style={[styles.typeTab, contentType === 'audio' && { backgroundColor: theme.accent }]} onPress={() => setContentType('audio')}>
-                                    <MaterialCommunityIcons name="headphones" size={16} color={contentType === 'audio' ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
-                                    <Text style={[styles.typeText, { color: theme.textSecondary }, contentType === 'audio' && { color: theme.isDark ? '#000' : '#FFF' }]}>ÁUDIO</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <ScrollView 
-                                style={{ flex: 1 }} 
-                                contentContainerStyle={{ flexGrow: 1, paddingBottom: 150, paddingHorizontal: 20 }} 
-                                showsVerticalScrollIndicator={false}
-                            >
-                                <View style={styles.formContainer}>
-                                    <Text style={[styles.label, { color: theme.accent }]}>TÍTULO DO {contentType.toUpperCase()}</Text>
-                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.title} onChangeText={t=>setForm({...form, title:t})} placeholderTextColor={theme.textSecondary}/>
-
-                                    <Text style={[styles.label, { color: theme.accent }]}>SUBTÍTULO</Text>
-                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.subtitle} onChangeText={t=>setForm({...form, subtitle:t})} placeholderTextColor={theme.textSecondary}/>
-
-                                    <Text style={[styles.label, { color: theme.accent }]}>CATEGORIA</Text>
-                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.category} onChangeText={t=>setForm({...form, category:t.toUpperCase()})} placeholderTextColor={theme.textSecondary}/>
-
-                                    <Text style={[styles.label, { color: theme.accent }]}>CAPA DO CONTEÚDO (Thumbnail)</Text>
-                                    <TouchableOpacity 
-                                        style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15', padding: 12 }]} 
-                                        onPress={handleUploadThumb}
-                                        disabled={uploadingThumb}
-                                    >
-                                        {uploadingThumb ? (
-                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                <ActivityIndicator color={theme.accent} size="small" />
-                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO IMAGEM...</Text>
-                                            </View>
-                                        ) : (
-                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                <MaterialCommunityIcons name="image-plus" size={24} color={theme.accent} />
-                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>FAZER UPLOAD DA CAPA (JPG/PNG)</Text>
-                                            </View>
-                                        )}
-                                    </TouchableOpacity>
-                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, marginTop: 10 }]} value={form.thumbUrl} onChangeText={t=>setForm({...form, thumbUrl:t})} placeholder="Ou cole o link da imagem..." placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
-
-                                    {contentType !== 'audio' && (
-                                        <>
-                                            {contentType === 'video' && (
-                                                <>
-                                                    <Text style={[styles.label, { color: theme.accent, marginTop: 15 }]}>VÍDEO DA AULA</Text>
-                                                    <TouchableOpacity 
-                                                        style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} 
-                                                        onPress={() => handleUploadMedia(null)}
-                                                        disabled={uploadingMedia}
-                                                    >
-                                                        {uploadingMedia ? (
-                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                                <ActivityIndicator color={theme.accent} size="small" />
-                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO PARA A NUVEM...</Text>
-                                                            </View>
-                                                        ) : (
-                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                                <MaterialCommunityIcons name="cloud-upload" size={24} color={theme.accent} />
-                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>FAZER UPLOAD DE VÍDEO</Text>
-                                                            </View>
-                                                        )}
-                                                    </TouchableOpacity>
-                                                </>
-                                            )}
-
-                                            <Text style={[styles.label, { color: theme.accent }]}>
-                                                {contentType === 'ebook' ? "LINK DO ARQUIVO PDF" : "OU COLE O LINK DO YOUTUBE/VÍDEO (.mp4)"}
-                                            </Text>
-                                            <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.contentUrl} onChangeText={t=>setForm({...form, contentUrl:t})} placeholderTextColor={theme.textSecondary} autoCapitalize='none'/>
-                                            
-                                            {contentType === 'video' && (
-                                                <>
-                                                    <Text style={[styles.label, { color: theme.accent }]}>DURAÇÃO (Ex: 12 min)</Text>
-                                                    <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} value={form.duration} onChangeText={t=>setForm({...form, duration:t})} placeholderTextColor={theme.textSecondary}/>
-                                                </>
-                                            )}
-                                        </>
-                                    )}
-
-                                    {contentType === 'audio' && (
-                                        <View style={{ marginTop: 20 }}>
-                                            <Text style={[styles.label, { color: theme.accent, fontSize: 14 }]}>CAPÍTULOS DO AUDIOBOOK</Text>
-                                            
-                                            {audioChapters.map((chapter, index) => (
-                                                <View key={index} style={[styles.chapterBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                                    <View style={styles.chapterHeader}>
-                                                        <Text style={{ color: theme.text, fontWeight: 'bold' }}>Faixa {index + 1}</Text>
-                                                        {audioChapters.length > 1 && (
-                                                            <TouchableOpacity onPress={() => removeChapter(index)}>
-                                                                <MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" />
-                                                            </TouchableOpacity>
-                                                        )}
-                                                    </View>
-                                                    
-                                                    <TextInput 
-                                                        style={[styles.inputChapter, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} 
-                                                        value={chapter.title} 
-                                                        onChangeText={(t) => updateChapter(index, 'title', t)} 
-                                                        placeholder="Ex: 01 - Introdução" placeholderTextColor={theme.textSecondary}
-                                                    />
-
-                                                    <TouchableOpacity 
-                                                        style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15', marginTop: 15, padding: 12 }]} 
-                                                        onPress={() => handleUploadMedia(index)}
-                                                        disabled={uploadingMedia}
-                                                    >
-                                                        {uploadingMedia && uploadingIndex === index ? (
-                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                                <ActivityIndicator color={theme.accent} size="small" />
-                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO ÁUDIO...</Text>
-                                                            </View>
-                                                        ) : (
-                                                            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                                                <MaterialCommunityIcons name="cloud-upload" size={20} color={theme.accent} />
-                                                                <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>UPLOAD DE ÁUDIO (.MP3)</Text>
-                                                            </View>
-                                                        )}
-                                                    </TouchableOpacity>
-
-                                                    <TextInput 
-                                                        style={[styles.inputChapter, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 10 }]} 
-                                                        value={chapter.url} 
-                                                        onChangeText={(t) => updateChapter(index, 'url', t)} 
-                                                        placeholder="Ou cole o link do áudio..." placeholderTextColor={theme.textSecondary} autoCapitalize='none'
-                                                    />
-                                                </View>
-                                            ))}
-
-                                            <TouchableOpacity onPress={addChapter} style={[styles.addChapterBtn, { borderColor: theme.accent }]}>
-                                                <MaterialCommunityIcons name="plus" size={20} color={theme.accent} />
-                                                <Text style={{ color: theme.accent, fontWeight: 'bold', marginLeft: 5 }}>ADICIONAR CAPÍTULO</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    )}
-
-                                    <View style={[styles.vipContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                        <View style={{flex:1, marginRight:10}}>
-                                            <Text style={[styles.label, { marginTop: 0, fontSize: 12, color: form.isVIP ? theme.accent : theme.textSecondary }]}>ACESSO VIP? 🔒</Text>
-                                            <Text style={[styles.vipDesc, { color: theme.textSecondary }]}>Se ativado, apenas alunos com permissão VIP verão este conteúdo.</Text>
-                                        </View>
-                                        <Switch
-                                            trackColor={{ false: theme.border, true: theme.accent }}
-                                            thumbColor={Platform.OS === 'ios' ? '#FFF' : (form.isVIP ? (theme.isDark ? '#000' : '#FFF') : '#f4f3f4')}
-                                            onValueChange={(val) => setForm({...form, isVIP: val})}
-                                            value={form.isVIP}
-                                        />
-                                    </View>
-
-                                    <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSave} disabled={loadingAction || uploadingMedia || uploadingThumb}>
-                                        {loadingAction ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'}/> : <Text style={[styles.btnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{editingId ? 'SALVAR ALTERAÇÕES' : 'PUBLICAR CONTEÚDO'}</Text>}
-                                    </TouchableOpacity>
-                                    <View style={{height: 60}}/>
-                                </View>
-                            </ScrollView>
-                        </View>
+                        <VideoUploadForm 
+                            theme={theme} contentType={contentType} setContentType={setContentType} form={form} setForm={setForm}
+                            handleUploadThumb={handleUploadThumb} uploadingThumb={uploadingThumb} handleUploadMedia={handleUploadMedia}
+                            uploadingMedia={uploadingMedia} uploadingIndex={uploadingIndex} audioChapters={audioChapters}
+                            addChapter={addChapter} removeChapter={removeChapter} updateChapter={updateChapter} handleSave={handleSave}
+                            loadingAction={loadingAction} editingId={editingId}
+                        />
                     )}
                 </View>
             </View>
 
-            <Modal visible={accessModalVisible} animationType="slide" transparent>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                            <View>
-                                <Text style={[styles.modalTitle, { color: theme.text }]}>LIBERAR ACESSO VIP</Text>
-                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>{selectedContentForAccess?.title}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setAccessModalVisible(false)} style={{ padding: 5 }}>
-                                <MaterialCommunityIcons name="close" size={24} color={theme.text}/>
-                            </TouchableOpacity>
-                        </View>
-                        
-                        {loadingAccess ? (
-                            <View style={{ padding: 40, alignItems: 'center' }}>
-                                <ActivityIndicator size="large" color={theme.accent} />
-                            </View>
-                        ) : (
-                            <FlatList 
-                                data={allStudents}
-                                keyExtractor={item => item.id}
-                                renderItem={renderStudentAccessItem}
-                                contentContainerStyle={{ paddingBottom: 20 }}
-                                ListEmptyComponent={
-                                    <Text style={{ color: theme.textSecondary, textAlign: 'center', padding: 20 }}>Nenhum aluno encontrado no sistema.</Text>
-                                }
-                            />
-                        )}
-                    </View>
-                </View>
-            </Modal>
-
-            {/* 🔥 MODAL DE MODERAÇÃO DE COMENTÁRIOS DO ADMIN 🔥 */}
-            <Modal visible={commentsModalVisible} animationType="slide" transparent>
-                <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { backgroundColor: theme.surface, borderColor: theme.border, height: '85%' }]}>
-                        
-                        <View style={[styles.modalHeader, { borderBottomColor: theme.border, backgroundColor: theme.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 }]}>
-                            <View style={{flex: 1}}>
-                                <Text style={[styles.modalTitle, { color: theme.text }]}>Moderar Comentários</Text>
-                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: 'bold' }} numberOfLines={1}>{activeVideoTitle}</Text>
-                            </View>
-                            <TouchableOpacity onPress={() => setCommentsModalVisible(false)} style={{ padding: 5 }}>
-                                <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary}/>
-                            </TouchableOpacity>
-                        </View>
-                        
-                        {loadingAdminComments ? (
-                            <View style={{ padding: 40, alignItems: 'center' }}>
-                                <ActivityIndicator size="large" color={theme.accent} />
-                            </View>
-                        ) : (
-                            <FlatList 
-                                data={activeComments}
-                                keyExtractor={item => item.id}
-                                contentContainerStyle={{ padding: 20 }}
-                                renderItem={({ item }) => {
-                                    const isAdminComment = item.user?.role === 'ADMIN';
-                                    return (
-                                        <View style={{ marginBottom: 15, backgroundColor: isAdminComment ? theme.accent + '11' : theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: isAdminComment ? theme.accent : theme.border }}>
-                                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                                                    <MaterialCommunityIcons name={isAdminComment ? "shield-star" : "account-circle"} size={18} color={isAdminComment ? '#FFCC00' : theme.textSecondary} style={{marginRight: 6}} />
-                                                    <Text style={{ color: theme.text, fontWeight: 'bold', fontSize: 13 }}>
-                                                        {item.user?.name || 'Aluno'} 
-                                                        {isAdminComment && <Text style={{color: '#FFCC00', fontSize: 11}}> [COACH]</Text>}
-                                                    </Text>
-                                                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginLeft: 8 }}>
-                                                        {new Date(item.createdAt).toLocaleDateString('pt-BR')}
-                                                    </Text>
-                                                </View>
-                                                
-                                                <TouchableOpacity onPress={() => handleDeleteAdminComment(item.id)} style={{ padding: 4 }}>
-                                                    <MaterialCommunityIcons name="trash-can" size={18} color="#FF3B30" />
-                                                </TouchableOpacity>
-                                            </View>
-                                            <Text style={{ color: theme.textSecondary, fontSize: 14, lineHeight: 20 }}>{item.text}</Text>
-                                        </View>
-                                    );
-                                }}
-                                ListEmptyComponent={
-                                    <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 20 }}>Esta aula ainda não possui comentários.</Text>
-                                }
-                            />
-                        )}
-
-                        <View style={{ flexDirection: 'row', padding: 15, borderTopWidth: 1, borderTopColor: theme.border, backgroundColor: theme.bg, alignItems: 'flex-end' }}>
-                            <TextInput 
-                                style={[styles.input, { flex: 1, color: theme.text, backgroundColor: theme.surface, borderColor: theme.border, borderRadius: 20, minHeight: 45, maxHeight: 100, paddingTop: 12, paddingBottom: 12 }]} 
-                                placeholder="Responder como COACH..." 
-                                placeholderTextColor={theme.textSecondary}
-                                value={adminNewComment}
-                                onChangeText={setAdminNewComment}
-                                multiline
-                            />
-                            <TouchableOpacity 
-                                style={{ width: 45, height: 45, borderRadius: 22.5, backgroundColor: theme.accent, justifyContent: 'center', alignItems: 'center', marginLeft: 10, opacity: adminNewComment.trim() ? 1 : 0.5 }}
-                                onPress={handleSendAdminComment}
-                                disabled={!adminNewComment.trim() || sendingAdminComment}
-                            >
-                                {sendingAdminComment ? <ActivityIndicator size="small" color={theme.isDark ? '#000' : '#FFF'} /> : <MaterialCommunityIcons name="send" size={18} color={theme.isDark ? '#000' : '#FFF'} />}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </KeyboardAvoidingView>
-            </Modal>
+            <VideoAccessModal visible={accessModalVisible} onClose={() => setAccessModalVisible(false)} theme={theme} selectedContent={selectedContentForAccess} loadingAccess={loadingAccess} allStudents={allStudents} contentAccessList={contentAccessList} toggleStudentAccess={toggleStudentAccess} />
+            
+            <VideoCommentsModal visible={commentsModalVisible} onClose={() => setCommentsModalVisible(false)} theme={theme} activeVideoTitle={activeVideoTitle} loadingAdminComments={loadingAdminComments} activeComments={activeComments} handleDeleteAdminComment={handleDeleteAdminComment} adminNewComment={adminNewComment} setAdminNewComment={setAdminNewComment} handleSendAdminComment={handleSendAdminComment} sendingAdminComment={sendingAdminComment} replyingTo={replyingTo} replyingName={replyingName} cancelReply={cancelReply} startReply={startReply} />
 
         </RootComponent>
     );
@@ -937,37 +349,5 @@ const styles = StyleSheet.create({
     title: { fontSize: 20, fontWeight: '900' },
     tabsRow: { flexDirection: 'row', paddingHorizontal: 20, paddingBottom: 15, gap: 10, borderBottomWidth: 1 },
     mainTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 8, borderWidth: 1 },
-    mainTabText: { fontWeight: '900', fontSize: 12 },
-    listItemCard: { flexDirection: 'row', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, alignItems: 'center' },
-    listThumb: { width: 50, height: 70, borderRadius: 8 },
-    listInfo: { flex: 1, marginLeft: 15, justifyContent: 'center' },
-    listTitle: { fontWeight: 'bold', fontSize: 14, marginBottom: 6 },
-    listTagsRow: { flexDirection: 'row', gap: 6 },
-    listTag: { flexDirection: 'row', paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, alignItems: 'center', gap: 4 },
-    listTagText: { fontSize: 9, fontWeight: '900' },
-    listActions: { flexDirection: 'row', gap: 10, marginLeft: 10 },
-    actionBtn: { padding: 8, borderRadius: 8 },
-    typeSelector: { flexDirection: 'row', padding: 10, borderBottomWidth: 1 },
-    typeTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, gap: 6 },
-    typeText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-    formContainer: { width: '100%', paddingTop: 5 },
-    label: { fontSize: 10, fontWeight: 'bold', marginTop: 15, marginBottom: 5, letterSpacing: 1, textTransform: 'uppercase' },
-    input: { padding: 15, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
-    chapterBox: { padding: 15, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
-    chapterHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    inputChapter: { padding: 12, borderRadius: 8, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
-    addChapterBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', marginBottom: 10 },
-    vipContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, marginTop: 20, borderWidth: 1 },
-    vipDesc: { fontSize: 10, marginTop: 2 },
-    btn: { padding: 18, borderRadius: 12, alignItems: 'center', marginTop: 35, elevation: 3 },
-    btnText: { fontWeight: '900', fontSize: 15, letterSpacing: 1 },
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-    modalContent: { borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '90%', borderWidth: 1, width: '100%', maxWidth: 480, alignSelf: 'center', flex: 1 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
-    modalTitle: { fontWeight: '900', fontSize: 16, letterSpacing: 1 },
-    studentAccessRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1 },
-    studentAvatar: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-    studentName: { fontWeight: 'bold', fontSize: 14 },
-    studentEmail: { color: '#888', fontSize: 12 },
-    uploadBtn: { padding: 18, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }
+    mainTabText: { fontWeight: '900', fontSize: 12 }
 });
