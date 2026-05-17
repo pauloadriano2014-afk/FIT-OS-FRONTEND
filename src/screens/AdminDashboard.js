@@ -24,26 +24,26 @@ import AdminFinanceSystem from '../components/AdminFinanceSystem';
 
 const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
 
-// 🔥 MENU DROPDOWN MODERNO 🔥
+// 🔥 MENU MODERNO (COM LABELS CURTAS PARA O PC) 🔥
 const MENU_TABS = [
-    { id: 'ALUNOS', label: 'GERENCIAR ALUNOS', icon: 'account-group' },
-    { id: 'FINANCAS', label: 'GESTÃO FINANCEIRA', icon: 'cash-multiple' },
-    { id: 'CHECKINS', label: 'AVALIAÇÕES E FOTOS', icon: 'camera-timer' },
-    { id: 'FEED', label: 'FEED DE ATIVIDADES', icon: 'history' },
-    { id: 'GESTAO', label: 'SISTEMA E CONFIGURAÇÕES', icon: 'cog' }
+    { id: 'ALUNOS', label: 'GERENCIAR ALUNOS', shortLabel: 'ALUNOS', icon: 'account-group' },
+    { id: 'FINANCAS', label: 'GESTÃO FINANCEIRA', shortLabel: 'FINANÇAS', icon: 'cash-multiple' },
+    { id: 'CHECKINS', label: 'AVALIAÇÕES E FOTOS', shortLabel: 'AVALIAÇÕES', icon: 'camera-timer' },
+    { id: 'FEED', label: 'FEED DE ATIVIDADES', shortLabel: 'FEED', icon: 'history' },
+    { id: 'GESTAO', label: 'SISTEMA E CONFIGURAÇÕES', shortLabel: 'SISTEMA', icon: 'cog' }
 ];
 
 export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
 
-  // 🔥 LÓGICA DE LARGURA RESPONSIVA (SaaS ELITE) 🔥
+  // 🔥 LÓGICA DE LARGURA RESPONSIVA E DETECÇÃO DE PC 🔥
   const { width: windowWidth } = Dimensions.get('window');
   const isWebPC = Platform.OS === 'web' && windowWidth > 768;
   const containerMaxWidth = isWebPC ? 960 : '100%'; 
   const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
 
   const [activeTab, setActiveTab] = useState('ALUNOS'); 
-  const [isMenuVisible, setIsMenuVisible] = useState(false); // Estado do Menu Dropdown
+  const [isMenuVisible, setIsMenuVisible] = useState(false); 
 
   const [alunosAtivos, setAlunosAtivos] = useState([]);
   const [alunosInativos, setAlunosInativos] = useState([]);
@@ -470,7 +470,6 @@ export default function AdminDashboard({ navigation }) {
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
 
-      {/* 🔥 O MOTOR DE SCROLL CENTRAL ÚNICO (Adeus FlatList aninhada) 🔥 */}
       <ScrollView 
           style={{ flex: 1, width: '100%', backgroundColor: isWeb ? 'transparent' : theme.bg }} 
           contentContainerStyle={{ alignItems: 'center', paddingBottom: 150 }} 
@@ -499,23 +498,48 @@ export default function AdminDashboard({ navigation }) {
                 </View>
               </View>
 
-              {/* 🔥 DROPDOWN DE MENU (SUBSTITUI AS ABAS HORIZONTAIS) 🔥 */}
-              <TouchableOpacity style={[styles.menuSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsMenuVisible(true)}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                      <View style={[styles.menuIconBox, { backgroundColor: theme.accent + '22' }]}>
-                          <MaterialCommunityIcons name={currentTabObj.icon} size={20} color={theme.accent} />
-                      </View>
-                      <Text style={[styles.menuSelectorText, { color: theme.text }]}>{currentTabObj.label}</Text>
+              {/* 🔥 CONTROLE DE NAVEGAÇÃO: WEB vs CELULAR 🔥 */}
+              {isWebPC ? (
+                  <View style={[styles.webTabsContainer, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]}>
+                      {MENU_TABS.map((t) => {
+                          const isActive = activeTab === t.id;
+                          return (
+                              <TouchableOpacity 
+                                  key={t.id} 
+                                  style={[styles.webTabBtn, isActive && { borderBottomColor: theme.accent }]}
+                                  onPress={() => setActiveTab(t.id)}
+                              >
+                                  <MaterialCommunityIcons name={t.icon} size={18} color={isActive ? theme.accent : theme.textSecondary} />
+                                  <Text style={[styles.webTabText, { color: isActive ? theme.text : theme.textSecondary, fontWeight: isActive ? '900' : '700' }]}>
+                                      {t.shortLabel}
+                                  </Text>
+                                  {t.id === 'CHECKINS' && totalAlerts > 0 && (
+                                      <View style={[styles.badgeCountWeb, { backgroundColor: '#FF3B30' }]}>
+                                          <Text style={[styles.badgeTextWeb, { color: '#FFF' }]}>{totalAlerts}</Text>
+                                      </View>
+                                  )}
+                              </TouchableOpacity>
+                          );
+                      })}
                   </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                      {currentTabObj.id === 'CHECKINS' && totalAlerts > 0 && (
-                          <View style={[styles.badgeCount, { backgroundColor: '#FF3B30' }]}>
-                              <Text style={[styles.badgeText, { color: '#FFF' }]}>{totalAlerts}</Text>
+              ) : (
+                  <TouchableOpacity style={[styles.menuSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setIsMenuVisible(true)}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                          <View style={[styles.menuIconBox, { backgroundColor: theme.accent + '22' }]}>
+                              <MaterialCommunityIcons name={currentTabObj.icon} size={20} color={theme.accent} />
                           </View>
-                      )}
-                      <MaterialCommunityIcons name="chevron-down" size={24} color={theme.textSecondary} />
-                  </View>
-              </TouchableOpacity>
+                          <Text style={[styles.menuSelectorText, { color: theme.text }]}>{currentTabObj.label}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          {currentTabObj.id === 'CHECKINS' && totalAlerts > 0 && (
+                              <View style={[styles.badgeCount, { backgroundColor: '#FF3B30' }]}>
+                                  <Text style={[styles.badgeText, { color: '#FFF' }]}>{totalAlerts}</Text>
+                              </View>
+                          )}
+                          <MaterialCommunityIcons name="chevron-down" size={24} color={theme.textSecondary} />
+                      </View>
+                  </TouchableOpacity>
+              )}
 
               {activeTab !== 'GESTAO' && activeTab !== 'FINANCAS' && (
                   <View style={[styles.segmentedControl, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
@@ -668,7 +692,6 @@ export default function AdminDashboard({ navigation }) {
                       {/* ==== CONTEÚDO FINANÇAS ==== */}
                       {activeTab === 'FINANCAS' && (
                           <View style={{ marginHorizontal: -20, marginTop: -10 }}>
-                              {/* AdminFinanceSystem já é renderizado ocupando todo o espaço */}
                               <AdminFinanceSystem theme={theme} alunos={alunosAtivos} coachFilter={coachFilter} getLogCoach={getLogCoach} isWeb={isWebPC} />
                           </View>
                       )}
@@ -794,7 +817,7 @@ export default function AdminDashboard({ navigation }) {
           </View>
       </ScrollView>
 
-      {/* 🔥 MODAL DO MENU DROPDOWN 🔥 */}
+      {/* 🔥 MODAL DO MENU DROPDOWN (SÓ APARECE NO CELULAR) 🔥 */}
       <Modal visible={isMenuVisible} transparent animationType="fade" onRequestClose={() => setIsMenuVisible(false)}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setIsMenuVisible(false)}>
               <View style={[styles.menuModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -854,7 +877,14 @@ const styles = StyleSheet.create({
   subtitle: { color: '#888', fontSize: 10, letterSpacing: 1.5, fontWeight: '800', marginTop: 2 },
   iconBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' }, 
 
-  // Estilos do Menu Dropdown
+  // 🔥 ESTILOS DAS ABAS HORIZONTAIS NO PC (ÍCONES + NEON) 🔥
+  webTabsContainer: { flexDirection: 'row', borderBottomWidth: 1, marginBottom: 20, gap: 25, paddingHorizontal: 5 },
+  webTabBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: 'transparent', gap: 6 },
+  webTabText: { fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' },
+  badgeCountWeb: { paddingHorizontal: 6, borderRadius: 10, height: 20, minWidth: 20, justifyContent: 'center', alignItems: 'center', marginLeft: 2 },
+  badgeTextWeb: { fontSize: 10, fontWeight: '900' },
+
+  // Estilos do Menu Dropdown no Celular
   menuSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, paddingRight: 15, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
   menuIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   menuSelectorText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
