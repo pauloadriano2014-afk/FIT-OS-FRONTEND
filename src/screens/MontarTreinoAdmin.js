@@ -16,14 +16,20 @@ import CustomCalendar from '../components/CustomCalendar';
 import LibraryModals from '../components/MontarTreino/Modals/LibraryModals';
 import TemplateAndCloneModals from '../components/MontarTreino/Modals/TemplateAndCloneModals';
 import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 ADICIONADO PARA O MAGIC SYNC
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 
 const { width } = Dimensions.get('window');
 
 export default function MontarTreinoAdmin({ route, navigation }) {
     const { theme } = useTheme();
     const previewVideoRef = useRef(null);
+
+    // 🔥 LÓGICA DE LARGURA RESPONSIVA IGUAL AO ADMINDASHBOARD 🔥
+    const { width: windowWidth } = Dimensions.get('window');
+    const isWebPC = Platform.OS === 'web' && windowWidth > 768;
     const isWeb = Platform.OS === 'web';
+    const containerMaxWidth = isWebPC ? 960 : '100%'; 
+    const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
     let aluno = null;
@@ -271,7 +277,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         setIsSyncingCargas(true);
         
         try {
-            // 🔥 CIRURGIA: Agora busca na rota de HISTÓRICO, onde as cargas reais moram!
             const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${aluno.id}&t=${Date.now()}`);
             if (!res.ok) throw new Error("Erro na API");
             
@@ -283,17 +288,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 return;
             }
 
-            // 🔥 Mapeia as cargas mais recentes de cada exercício 🔥
             const historicoDePesos = {};
             
-            // Lendo do mais antigo pro mais novo. O mais novo sobrescreve e fica como valor final!
             [...historyList].reverse().forEach(hist => {
                 if (hist.details && Array.isArray(hist.details)) {
                     hist.details.forEach(detail => {
                         if (!historicoDePesos[detail.exerciseId]) {
                             historicoDePesos[detail.exerciseId] = {};
                         }
-                        // Salva o peso de acordo com o index (série)
                         historicoDePesos[detail.exerciseId][detail.setNumber] = detail.weight;
                     });
                 }
@@ -314,7 +316,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     const pesosDoAluno = historicoDePesos[ex.exerciseId]; 
                     if (ex.blocks && ex.blocks.length > 0) {
                         const newBlocks = ex.blocks.map((block, index) => {
-                            // Acha o peso exato daquela série
                             const peso = pesosDoAluno[index] !== undefined ? pesosDoAluno[index] : pesosDoAluno[index + 1];
                             if (peso !== undefined) {
                                 cargasPuxadas++;
@@ -929,8 +930,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             <View style={rootStyle}>
                 <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
                 
+                {/* HEADER FIXO NO TOPO */}
                 <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', zIndex: 10 }}>
-                    <View style={[styles.headerInner, { paddingTop: 20, width: '100%', maxWidth: 480 }]}>
+                    <View style={[styles.headerInner, { paddingTop: 20, width: '100%', maxWidth: containerMaxWidth }]}>
                         <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface }]}>
                             <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
                         </TouchableOpacity>
@@ -946,15 +948,16 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     </View>
                 </View>
 
+                {/* SCROLLVIEW CENTRALIZADO COM MAX-WIDTH */}
                 <ScrollView 
-                    style={{ flex: 1, width: '100%' }} 
+                    style={{ flex: 1, width: '100%', backgroundColor: isWeb ? 'transparent' : theme.bg }} 
                     contentContainerStyle={{ alignItems: 'center' }} 
                     showsVerticalScrollIndicator={false} 
                     keyboardShouldPersistTaps="handled"
                 >
                     <View style={{ 
-                        width: '100%', maxWidth: 480, backgroundColor: theme.bg, 
-                        borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, 
+                        width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, 
+                        ...containerBorders, 
                         minHeight: '100%', paddingBottom: 40 
                     }}>
                         {SharedHeader()}
