@@ -229,13 +229,17 @@ export default function RaioxCargasModal({ visible, onClose, historicoDeCargasLi
                                                 {historyEntries.map((item, hIdx) => {
                                                     return (
                                                         <View key={hIdx} style={{ marginBottom: hIdx === historyEntries.length - 1 ? 0 : 20, backgroundColor: theme.bg, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}>
+                                                            
+                                                            {/* 🔥 CORREÇÃO DE OURO: flexShrink: 0 NO RPE, flex: 1 NO TEXTO. VAZAMENTO OBLITERADO 🔥 */}
                                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' }}>
-                                                                <View>
+                                                                <View style={{ flex: 1, paddingRight: 12 }}>
                                                                     <Text style={{ color: theme.text, fontSize: 13, fontWeight: 'bold' }}>{item.dateFormatted}</Text>
-                                                                    <Text style={{ color: theme.textSecondary, fontSize: 11 }}>{item.programName} ({item.dayName})</Text>
+                                                                    <Text style={{ color: theme.textSecondary, fontSize: 11 }} numberOfLines={1} ellipsizeMode="tail">
+                                                                        {item.programName} ({item.dayName})
+                                                                    </Text>
                                                                 </View>
                                                                 
-                                                                <View style={{ backgroundColor: getRpeColor(item.rpe) + '20', borderWidth: 1, borderColor: getRpeColor(item.rpe), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                                                <View style={{ flexShrink: 0, backgroundColor: getRpeColor(item.rpe) + '20', borderWidth: 1, borderColor: getRpeColor(item.rpe), paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                                                                     <MaterialCommunityIcons name="fire" size={12} color={getRpeColor(item.rpe)} />
                                                                     <Text style={{ color: getRpeColor(item.rpe), fontSize: 10, fontWeight: '900' }}>RPE: {item.rpe || '?'}</Text>
                                                                 </View>
@@ -260,7 +264,6 @@ export default function RaioxCargasModal({ visible, onClose, historicoDeCargasLi
                                                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' }}>
                                                                             <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900', width: 22 }}>{setInfo.setLabel}</Text>
                                                                             
-                                                                            {/* 🔥 A MÁGICA DA RENDERIZAÇÃO DO DROP-SET NA TELA 🔥 */}
                                                                             {setInfo.rawWeights.map((wVal, i) => (
                                                                                 <React.Fragment key={i}>
                                                                                     {i > 0 && <Text style={{color: theme.accent, fontWeight: 'bold', fontSize: 11}}> ➔ Drop: </Text>}
