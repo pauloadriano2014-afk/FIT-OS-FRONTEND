@@ -64,9 +64,8 @@ export default function CheckInScreen({ navigation }) {
                       return;
                   }
 
-                  // 🔥 AQUI ESTÁ A CORREÇÃO DA PORTA OBRIGATÓRIA 🔥
                   if (!hasPhotosInDb) {
-                      setIsLocked(false); // DESTRAVADO para a foto obrigatória
+                      setIsLocked(false); 
                       return;
                   }
 

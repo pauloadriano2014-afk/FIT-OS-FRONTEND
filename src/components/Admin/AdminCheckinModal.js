@@ -36,13 +36,34 @@ export default function AdminCheckinModal({ visible, onClose, selectedCheckin, t
                             <View style={[styles.infoBox, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={styles.infoLabel}>DATA</Text><Text style={[styles.infoValue, { color: theme.text }]}>{new Date(selectedCheckin?.date).toLocaleDateString()}</Text></View>
                             <View style={[styles.infoBox, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={styles.infoLabel}>PESO</Text><Text style={[styles.infoValue, { color: theme.text }]}>{selectedCheckin?.weight} kg</Text></View>
                         </View>
+                        
+                        {/* 🔥 SELO DE MARKETING ADICIONADO AQUI 🔥 */}
+                        <View style={{ marginBottom: 20, paddingTop: 15, borderTopWidth: 1, borderTopColor: theme.border }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                <MaterialCommunityIcons 
+                                    name={selectedCheckin?.allowMarketing ? "check-decagram" : "shield-lock"} 
+                                    size={18} 
+                                    color={selectedCheckin?.allowMarketing ? theme.accent : "#FF3B30"} 
+                                />
+                                <Text style={{ 
+                                    color: selectedCheckin?.allowMarketing ? theme.accent : "#FF3B30", 
+                                    fontSize: 11, 
+                                    fontWeight: '900' 
+                                }}>
+                                    {selectedCheckin?.allowMarketing 
+                                        ? "USO PARA INSTAGRAM: AUTORIZADO" 
+                                        : "USO PARA INSTAGRAM: NEGADO (SIGILO)"}
+                                </Text>
+                            </View>
+                        </View>
+
                         {selectedCheckin?.feedback && (
                             <View style={[styles.feedbackBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                                 <Text style={styles.infoLabel}>FEEDBACK DO ALUNO</Text>
                                 <Text style={[styles.feedbackText, { color: theme.text }]}>"{selectedCheckin.feedback}"</Text>
                             </View>
                         )}
-                        <Text style={[styles.infoLabel, {marginTop:20, marginBottom:10}]}>FOTOS</Text>
+                        <Text style={[styles.infoLabel, {marginTop:20, marginBottom:10}]}>FOTOS OBRIGATÓRIAS</Text>
                         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                             {selectedCheckin?.photoFront && (
                                 <View style={styles.photoContainer}>
@@ -72,6 +93,24 @@ export default function AdminCheckinModal({ visible, onClose, selectedCheckin, t
                                 </View>
                             )}
                         </ScrollView>
+
+                        {/* FOTOS EXTRAS (SE HOUVER) */}
+                        {selectedCheckin?.extraPhotos && selectedCheckin.extraPhotos.length > 0 && (
+                            <>
+                                <Text style={[styles.infoLabel, {marginTop:20, marginBottom:10}]}>FOTOS EXTRAS</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                                    {selectedCheckin.extraPhotos.map((uri, idx) => (
+                                        <View key={idx} style={styles.photoContainer}>
+                                            <Image source={{uri: uri}} style={[styles.photo, { borderColor: theme.border }]} />
+                                            <TouchableOpacity style={[styles.downloadBtn, { backgroundColor: theme.bg, borderColor: theme.border }]} onPress={() => handleDownloadPhoto(uri, `EXTRA_${idx + 1}`)}>
+                                                <MaterialCommunityIcons name="download" size={16} color={theme.text} />
+                                                <Text style={[styles.downloadText, { color: theme.text }]}>BAIXAR</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </>
+                        )}
 
                         {!selectedCheckin?.coachFeedback && (
                             <TouchableOpacity 
