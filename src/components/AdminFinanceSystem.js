@@ -50,9 +50,9 @@ const getDueDateStatus = (isoDate, theme) => {
     
     const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 3600 * 24));
     
-    if (diffDays < 0) return { days: diffDays, color: theme.isDark ? '#FFF' : '#000', label: 'VENCIDO', border: theme.isDark ? '#555' : '#333' }; 
+    if (diffDays <= 0) return { days: diffDays, color: theme.isDark ? '#FFF' : '#000', label: 'VENCIDO', border: theme.isDark ? '#555' : '#333' }; 
     if (diffDays <= 3) return { days: diffDays, color: '#FF3B30', label: 'URGENTE', border: '#FF3B30' }; 
-    if (diffDays <= 10) return { days: diffDays, color: '#FF9500', label: 'ATENÇÃO', border: '#FF9500' }; 
+    if (diffDays <= 7) return { days: diffDays, color: '#FF9500', label: 'ATENÇÃO', border: '#FF9500' }; 
     return { days: diffDays, color: '#34C759', label: 'NO PRAZO', border: '#34C759' }; 
 };
 
@@ -165,10 +165,10 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             list = list.filter(a => {
                 if (!a.paymentDueDate) return false;
                 const status = getDueDateStatus(a.paymentDueDate, theme);
-                if (filterPrazo === 'VENCIDOS') return status.days < 0;
-                if (filterPrazo === 'ALERTA_3D') return status.days >= 0 && status.days <= 3;
-                if (filterPrazo === 'ATENCAO_10D') return status.days >= 4 && status.days <= 10;
-                if (filterPrazo === 'NO_PRAZO') return status.days > 10;
+                if (filterPrazo === 'VENCIDOS') return status.days <= 0;
+                if (filterPrazo === 'ALERTA_3D') return status.days > 0 && status.days <= 3;
+                if (filterPrazo === 'ATENCAO_7D') return status.days >= 4 && status.days <= 7;
+                if (filterPrazo === 'NO_PRAZO') return status.days > 7;
                 return true;
             });
         }
@@ -455,7 +455,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     )}
                 </View>
 
-                {/* 🔥 FILTRO STATUS MENSAL ATUALIZADO 🔥 */}
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
                     <Text style={styles.inputLabel}>STATUS DO ALUNO</Text>
                     {Platform.OS === 'web' ? renderWebSelect(filterStatus, (e) => setFilterStatus(e.target.value), [{ value: 'ATIVOS', label: 'TODOS ATIVOS' }, { value: 'INATIVOS', label: 'INATIVOS' }, { value: 'PAGOS', label: 'PAGOS' }, { value: 'PENDENTES', label: 'PENDENTES' }]) : (
@@ -463,10 +462,11 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     )}
                 </View>
 
+                {/* 🔥 FILTRO VENCIMENTO COM A NOVA RÉGUA 🔥 */}
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
                     <Text style={styles.inputLabel}>VENCIMENTO</Text>
-                    {Platform.OS === 'web' ? renderWebSelect(filterPrazo, (e) => setFilterPrazo(e.target.value), [{ value: 'TODOS', label: 'QUALQUER DATA' }, { value: 'VENCIDOS', label: 'VENCIDOS (< 0 dias)' }, { value: 'ALERTA_3D', label: 'URGENTE (0 a 3 dias)' }, { value: 'ATENCAO_10D', label: 'ATENÇÃO (4 a 10 dias)' }, { value: 'NO_PRAZO', label: 'NO PRAZO (> 10 dias)' }]) : (
-                        <View style={styles.pickerWrapper}><Picker selectedValue={filterPrazo} onValueChange={setFilterPrazo} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="QUALQUER DATA" value="TODOS" /><Picker.Item label="VENCIDOS (< 0 dias)" value="VENCIDOS" /><Picker.Item label="URGENTE (0 a 3 dias)" value="ALERTA_3D" /><Picker.Item label="ATENÇÃO (4 a 10 dias)" value="ATENCAO_10D" /><Picker.Item label="NO PRAZO (> 10 dias)" value="NO_PRAZO" /></Picker></View>
+                    {Platform.OS === 'web' ? renderWebSelect(filterPrazo, (e) => setFilterPrazo(e.target.value), [{ value: 'TODOS', label: 'QUALQUER DATA' }, { value: 'VENCIDOS', label: 'VENCIDO OU BLOQUEADO (0 dias)' }, { value: 'ALERTA_3D', label: 'URGENTE (1 a 3 dias)' }, { value: 'ATENCAO_7D', label: 'RENOVAÇÃO (4 a 7 dias)' }, { value: 'NO_PRAZO', label: 'NO PRAZO (> 7 dias)' }]) : (
+                        <View style={styles.pickerWrapper}><Picker selectedValue={filterPrazo} onValueChange={setFilterPrazo} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="QUALQUER DATA" value="TODOS" /><Picker.Item label="VENCIDO OU BLOQUEADO (0 dias)" value="VENCIDOS" /><Picker.Item label="URGENTE (1 a 3 dias)" value="ALERTA_3D" /><Picker.Item label="RENOVAÇÃO (4 a 7 dias)" value="ATENCAO_7D" /><Picker.Item label="NO PRAZO (> 7 dias)" value="NO_PRAZO" /></Picker></View>
                     )}
                 </View>
 
@@ -507,7 +507,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 {isWebPC && (
                     <View style={[styles.listHeader, { borderBottomColor: theme.border }]}>
                         <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 2 }]}>ALUNO E PLANO</Text>
-                        <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, width: 140, textAlign: 'center' }]}>STATUS</Text>
+                        <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, width: 150, textAlign: 'center' }]}>STATUS</Text>
                         <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 1, textAlign: 'right' }]}>AÇÕES RÁPIDAS</Text>
                     </View>
                 )}
@@ -536,16 +536,20 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                     
                                     {aluno.paymentDueDate && !isInactive && (
                                         <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15' }]}>
-                                            <MaterialCommunityIcons name="calendar-clock" size={12} color={dueStatus.color} />
+                                            <MaterialCommunityIcons name={dueStatus.days <= 0 ? "lock" : "calendar-clock"} size={12} color={dueStatus.color} />
                                             <Text style={{color: dueStatus.color, fontSize: 9, fontWeight: '900', marginLeft: 4}}>
-                                                {dueStatus.days < 0 ? `VENCIDO HÁ ${Math.abs(dueStatus.days)} DIAS` : dueStatus.days === 0 ? 'VENCE HOJE' : `VENCE EM ${dueStatus.days} DIAS`}
+                                                {dueStatus.days < 0 
+                                                    ? `BLOQUEADO (VENCIDO HÁ ${Math.abs(dueStatus.days)} DIAS)` 
+                                                    : dueStatus.days === 0 
+                                                        ? 'BLOQUEADO HOJE' 
+                                                        : `VENCE EM ${dueStatus.days} DIAS`}
                                             </Text>
                                         </View>
                                     )}
                                 </View>
                             </View>
 
-                            <View style={{ width: 140, alignItems: 'center' }}>
+                            <View style={{ width: 150, alignItems: 'center' }}>
                                 <View style={[styles.statusBadge, { backgroundColor: isInactive ? theme.bg : (aluno.isPaid ? '#34C75922' : '#FF3B3022') }]}>
                                     <Text style={[styles.statusText, { color: isInactive ? theme.textSecondary : (aluno.isPaid ? '#34C759' : '#FF3B30') }]}>
                                         {isInactive ? 'INATIVO' : (aluno.isPaid ? 'PAGO NO MÊS' : 'PENDENTE NO MÊS')}
@@ -590,9 +594,13 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                     
                                     {aluno.paymentDueDate && !isInactive && (
                                         <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15' }]}>
-                                            <MaterialCommunityIcons name="calendar-clock" size={12} color={dueStatus.color} />
+                                            <MaterialCommunityIcons name={dueStatus.days <= 0 ? "lock" : "calendar-clock"} size={12} color={dueStatus.color} />
                                             <Text style={{color: dueStatus.color, fontSize: 9, fontWeight: '900', marginLeft: 4}}>
-                                                {dueStatus.days < 0 ? `VENCIDO HÁ ${Math.abs(dueStatus.days)} DIAS` : dueStatus.days === 0 ? 'VENCE HOJE' : `VENCE EM ${dueStatus.days} DIAS`}
+                                                {dueStatus.days < 0 
+                                                    ? `BLOQUEADO (VENCIDO HÁ ${Math.abs(dueStatus.days)} DIAS)` 
+                                                    : dueStatus.days === 0 
+                                                        ? 'BLOQUEADO HOJE' 
+                                                        : `VENCE EM ${dueStatus.days} DIAS`}
                                             </Text>
                                         </View>
                                     )}
@@ -663,7 +671,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         </View>
 
                         <View style={{ gap: 20 }}>
-                            {/* 🔥 SWITCH DE ATIVAR/INATIVAR ALUNO NO FINANCEIRO 🔥 */}
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: isFinanceActiveEdit ? theme.accent : theme.border, backgroundColor: isFinanceActiveEdit ? theme.accent + '15' : theme.surface }}>
                                 <View style={{ flex: 1 }}>
                                     <Text style={{ color: isFinanceActiveEdit ? theme.text : '#FF3B30', fontWeight: 'bold', fontSize: 13 }}>
@@ -724,7 +731,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 )}
                             </TouchableOpacity>
 
-                            {/* 🔥 NOVO BOTÃO DE REVERTER PAGAMENTO 🔥 */}
                             <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: 'transparent', borderColor: '#FF3B30', borderWidth: 1, marginTop: 10, flexDirection: 'row', gap: 8, height: 54 }]} onPress={handleReverterPagamento} disabled={isSavingContract}>
                                 <MaterialCommunityIcons name="undo-variant" size={20} color="#FF3B30" />
                                 <Text style={{color: '#FF3B30', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>REVERTER PAGAMENTO</Text>
@@ -819,7 +825,7 @@ const styles = StyleSheet.create({
         borderRadius: 20, 
         borderWidth: 1, 
         marginTop: 8,
-        alignSelf: 'flex-start', // 🔥 TRAVA O ESTICAMENTO AQUI 🔥
+        alignSelf: 'flex-start',
         shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 
     },
 

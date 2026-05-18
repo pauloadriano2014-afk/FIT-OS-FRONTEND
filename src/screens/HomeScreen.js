@@ -60,8 +60,13 @@ export default function HomeScreen({ navigation }) {
     const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
     const [isEliteAwaitingCoach, setIsEliteAwaitingCoach] = useState(false); 
     const [disableCheckIn, setDisableCheckIn] = useState(false); 
-    const pulseAnim = useRef(new Animated.Value(1)).current;
 
+    // 🔥 ESTADOS DO FINANCEIRO (MENSALIDADE) 🔥
+    const [daysToPay, setDaysToPay] = useState(null);
+    const [isFinanceLocked, setIsFinanceLocked] = useState(false);
+    const [financeModalVisible, setFinanceModalVisible] = useState(false);
+
+    const pulseAnim = useRef(new Animated.Value(1)).current;
     const appState = useRef(AppState.currentState);
 
     const [pendingFeedback, setPendingFeedback] = useState(null);
@@ -112,7 +117,7 @@ export default function HomeScreen({ navigation }) {
     }, []);
 
     useEffect(() => {
-        if (isCheckinPending || pendingFeedback || showVideoAlert) {
+        if (isCheckinPending || pendingFeedback || showVideoAlert || (daysToPay !== null && daysToPay <= 3)) {
             Animated.loop(
                 Animated.sequence([
                     Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
@@ -122,7 +127,7 @@ export default function HomeScreen({ navigation }) {
         } else {
             pulseAnim.setValue(1);
         }
-    }, [isCheckinPending, pendingFeedback, showVideoAlert]);
+    }, [isCheckinPending, pendingFeedback, showVideoAlert, daysToPay]);
 
     const handleHardReload = () => {
         setLoading(true);
@@ -241,6 +246,20 @@ export default function HomeScreen({ navigation }) {
                       
                       fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
 
+                      // 🔥 LÓGICA FINANCEIRA APLICADA 🔥
+                      if (fetchedUser.paymentDueDate && fetchedUser.isFinanceActive !== false) {
+                          const pDate = new Date(fetchedUser.paymentDueDate);
+                          pDate.setHours(0,0,0,0);
+                          const todayD = new Date(); todayD.setHours(0,0,0,0);
+                          const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
+                          
+                          setDaysToPay(diffFinanceDays);
+                          setIsFinanceLocked(diffFinanceDays <= 0);
+                      } else {
+                          setDaysToPay(null);
+                          setIsFinanceLocked(false);
+                      }
+
                       const isAtiva = directUserData.isMenstruating !== undefined ? directUserData.isMenstruating : homeData.user?.isMenstruating;
                       setIsMenstruating(!!isAtiva);
                       
@@ -351,7 +370,6 @@ export default function HomeScreen({ navigation }) {
       finally { setLoading(false); setRefreshing(false); }
     };
 
-    // 🔥 CIRURGIA DE NOTIFICAÇÃO DO ADMIN APLICADA AQUI 🔥
     const toggleMenstrualCycle = async () => {
         if (!userData?.id || togglingMenstrual) return;
         setTogglingMenstrual(true);
@@ -386,7 +404,6 @@ export default function HomeScreen({ navigation }) {
             }
 
             if (res.ok) {
-                // Notificação disparada pro celular do admin!
                 try {
                     const fetchCoachId = userData.coachId || '';
                     if (fetchCoachId) {
@@ -499,6 +516,8 @@ export default function HomeScreen({ navigation }) {
     const needsInitialPhoto = !hasSentInitialPhotos; 
     const photoModal = getPhotoModalContent();
 
+    const isBlockedTotal = isFichaExpired || isWaitingStart || needsInitialPhoto || isFinanceLocked;
+
     const g1 = String(userData?.gender).toUpperCase().trim();
     const g2 = String(userData?.anamneses?.[0]?.genero).toUpperCase().trim();
     const g3 = String(userData?.anamneses?.[0]?.gender).toUpperCase().trim();
@@ -542,6 +561,28 @@ export default function HomeScreen({ navigation }) {
                     </TouchableOpacity>
                 </View>
               </View>
+
+              {/* 🔥 BANNER FINANCEIRO 🔥 */}
+              {daysToPay !== null && daysToPay <= 7 && !disableCheckIn && (
+                  <TouchableOpacity 
+                      style={[styles.photoBanner, { backgroundColor: daysToPay <= 3 ? '#FF3B3015' : '#FF950015', borderColor: daysToPay <= 3 ? '#FF3B30' : '#FF9500', padding: 16 }]} 
+                      onPress={() => { if(daysToPay <= 0) setFinanceModalVisible(true); }}
+                      activeOpacity={0.9}
+                  >
+                      <MaterialCommunityIcons name={daysToPay <= 0 ? "lock" : "alert"} size={22} color={daysToPay <= 3 ? '#FF3B30' : '#FF9500'} />
+                      <View style={{flex: 1, marginLeft: 5}}>
+                          <Text style={{color: daysToPay <= 3 ? '#FF3B30' : '#FF9500', fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>
+                              {daysToPay <= 0 ? 'ACESSO SUSPENSO:' : (daysToPay <= 3 ? 'VENCIMENTO URGENTE:' : 'RENOVAÇÃO PRÓXIMA:')}
+                          </Text>
+                          <Text style={{color: daysToPay <= 3 ? '#FF3B30' : '#FF9500', fontSize: 13, fontWeight: 'bold'}}>
+                              {daysToPay <= 0 
+                                  ? 'O seu plano está expirado. Regularize para liberar o treino.' 
+                                  : `Seu plano vence em ${daysToPay} dia${daysToPay > 1 ? 's' : ''}.`}
+                          </Text>
+                      </View>
+                      {daysToPay <= 0 && <MaterialCommunityIcons name="chevron-right" size={20} color="#FF3B30" />}
+                  </TouchableOpacity>
+              )}
 
               {showVideoAlert && newVideoContent && (
                   <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%', marginBottom: 15 }}>
@@ -735,14 +776,15 @@ export default function HomeScreen({ navigation }) {
                       style={[
                           styles.mainActionBtn, 
                           { 
-                              backgroundColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.surface : theme.accent, 
-                              shadowColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? '#000' : theme.accent,
-                              borderWidth: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? 1 : 0,
-                              borderColor: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.border : 'transparent'
+                              backgroundColor: isBlockedTotal ? theme.surface : theme.accent, 
+                              shadowColor: isBlockedTotal ? '#000' : theme.accent,
+                              borderWidth: isBlockedTotal ? 1 : 0,
+                              borderColor: isBlockedTotal ? (isFinanceLocked ? '#FF3B30' : theme.border) : 'transparent'
                           }
                       ]} 
                       onPress={() => { 
-                          if (isFichaExpired) setFichaExpiredModalVisible(true);
+                          if (isFinanceLocked) setFinanceModalVisible(true);
+                          else if (isFichaExpired) setFichaExpiredModalVisible(true);
                           else if (isWaitingStart) Alert.alert("Aguarde", `Seu treino será liberado em ${daysToStart} dias.`);
                           else if (needsInitialPhoto) setInitialPhotosModalVisible(true);
                           else navigation.navigate('Treinos'); 
@@ -750,15 +792,15 @@ export default function HomeScreen({ navigation }) {
                       activeOpacity={0.9}
                   >
                       <View>
-                          <Text style={[styles.actionLabel, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                              {isFichaExpired ? 'CICLO ENCERRADO' : (isWaitingStart ? 'STATUS ATUAL' : (needsInitialPhoto ? 'FOTOS PENDENTES' : 'SEU OBJETIVO DE HOJE'))}
+                          <Text style={[styles.actionLabel, { color: isBlockedTotal ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
+                              {isFinanceLocked ? 'ASSINATURA VENCIDA' : (isFichaExpired ? 'CICLO ENCERRADO' : (isWaitingStart ? 'STATUS ATUAL' : (needsInitialPhoto ? 'FOTOS PENDENTES' : 'SEU OBJETIVO DE HOJE')))}
                           </Text>
-                          <Text style={[styles.actionTitle, { color: (isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.text : (theme.isDark ? '#000' : '#FFF') }]}>
-                              {isFichaExpired ? 'PRÓXIMOS PASSOS' : (isWaitingStart ? 'AGUARDANDO DATA' : (needsInitialPhoto ? 'ENVIO OBRIGATÓRIO' : 'INICIAR TREINO'))}
+                          <Text style={[styles.actionTitle, { color: isBlockedTotal ? (isFinanceLocked ? '#FF3B30' : theme.text) : (theme.isDark ? '#000' : '#FFF') }]}>
+                              {isFinanceLocked ? 'ACESSO BLOQUEADO' : (isFichaExpired ? 'PRÓXIMOS PASSOS' : (isWaitingStart ? 'AGUARDANDO DATA' : (needsInitialPhoto ? 'ENVIO OBRIGATÓRIO' : 'INICIAR TREINO')))}
                           </Text>
                       </View>
-                      <View style={[styles.iconCircle, (isFichaExpired || isWaitingStart || needsInitialPhoto) && {backgroundColor: theme.bg}]}>
-                          <MaterialCommunityIcons name={isWaitingStart ? "clock-outline" : (isFichaExpired ? "whatsapp" : (needsInitialPhoto ? "camera-timer" : "dumbbell"))} size={28} color={(isFichaExpired || isWaitingStart || needsInitialPhoto) ? theme.accent : (theme.isDark ? '#000' : '#FFF')} />
+                      <View style={[styles.iconCircle, isBlockedTotal && {backgroundColor: isFinanceLocked ? '#FF3B3015' : theme.bg}]}>
+                          <MaterialCommunityIcons name={isFinanceLocked ? "lock" : (isWaitingStart ? "clock-outline" : (isFichaExpired ? "whatsapp" : (needsInitialPhoto ? "camera-timer" : "dumbbell")))} size={28} color={isBlockedTotal ? (isFinanceLocked ? '#FF3B30' : theme.accent) : (theme.isDark ? '#000' : '#FFF')} />
                       </View>
                   </TouchableOpacity>
               )}
@@ -814,6 +856,31 @@ export default function HomeScreen({ navigation }) {
               </LinearGradient>
             </TouchableOpacity>
         </View>
+
+        {/* 🔥 MODAL DE BLOQUEIO FINANCEIRO 🔥 */}
+        {isFinanceLocked && (
+            <Modal visible={financeModalVisible} transparent animationType="fade" onRequestClose={() => setFinanceModalVisible(false)}>
+                <View style={styles.chatModalOverlay}>
+                    <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
+                        <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}>
+                            <MaterialCommunityIcons name="lock-alert" size={36} color="#FF3B30" />
+                        </View>
+                        <Text style={[styles.upsellTitle, { color: theme.text }]}>ACESSO BLOQUEADO</Text>
+                        <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>
+                            O seu plano venceu e o acesso à área de treinos foi suspenso temporariamente. 
+                            {'\n\n'}Se você já realizou o pagamento, desconsidere e aguarde a baixa no sistema. Caso precise renegociar, fale com o Coach!
+                        </Text>
+                        <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#25D366', marginBottom: 10 }]} onPress={() => { Linking.openURL("https://wa.me/5541997991346?text=Coach, preciso falar sobre a renovação do meu plano!"); }}>
+                            <Text style={[styles.upsellBtnText, { color: '#FFF' }]}>FALAR COM O COACH</Text>
+                            <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, shadowOpacity: 0, elevation: 0 }]} onPress={() => setFinanceModalVisible(false)}>
+                            <Text style={[styles.upsellBtnText, { color: theme.text }]}>FECHAR</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        )}
 
         <StudentReportModal 
             visible={feedbackModalVisible} 

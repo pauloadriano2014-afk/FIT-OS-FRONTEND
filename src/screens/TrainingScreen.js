@@ -2,7 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { 
   View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  StatusBar, Alert, ActivityIndicator, RefreshControl, Platform, Modal
+  StatusBar, Alert, ActivityIndicator, RefreshControl, Platform, Modal, Linking
 } from 'react-native';
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,6 +27,9 @@ export default function TrainingScreen({ navigation }) {
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
   const [pendingWorkoutNav, setPendingWorkoutNav] = useState(null);
   
+  // 🔥 ESTADO DE BLOQUEIO FINANCEIRO 🔥
+  const [isFinanceLocked, setIsFinanceLocked] = useState(false);
+
   // Estados dos Modais
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [mindsetModalVisible, setMindsetModalVisible] = useState(false);
@@ -64,6 +67,20 @@ export default function TrainingScreen({ navigation }) {
       const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
       setUserPlan(resolvedPlan);
 
+      // 🔥 CHECAGEM FINANCEIRA IMEDIATA 🔥
+      if (user.paymentDueDate && user.isFinanceActive !== false) {
+          const pDate = new Date(user.paymentDueDate);
+          pDate.setHours(0,0,0,0);
+          const todayD = new Date(); todayD.setHours(0,0,0,0);
+          const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
+          
+          if (diffFinanceDays <= 0) {
+              setIsFinanceLocked(true);
+              setLoading(false);
+              return; // Trava a execução, nem carrega os treinos.
+          }
+      }
+
       const [response, historyRes, checkinRes] = await Promise.all([
           fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`),
           fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`),
@@ -81,18 +98,16 @@ export default function TrainingScreen({ navigation }) {
 
       if (response.ok && Array.isArray(data)) {
         
-        // 🔥 CIRURGIA DE INTELIGÊNCIA TEMPORAL (Gêmea da do Admin) 🔥
+        // 🔥 CIRURGIA DE INTELIGÊNCIA TEMPORAL 🔥
         const activeList = data.filter(w => {
             if (w.archived) return false;
 
-            // Filtro de Data de Início (Esconde treinos futuros)
             if (w.startDate) {
                 const start = new Date(w.startDate);
                 start.setHours(0, 0, 0, 0);
                 if (now < start) return false;
             }
 
-            // Filtro de Data de Fim (Mantém até às 23:59:59 do dia do vencimento)
             if (w.endDate) {
                 const end = new Date(w.endDate);
                 end.setHours(23, 59, 59, 999);
@@ -191,6 +206,27 @@ export default function TrainingScreen({ navigation }) {
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
+
+  // 🔥 TELA DE BLOQUEIO FINANCEIRO NA ÁREA DE TREINOS 🔥
+  if (!loading && isFinanceLocked) {
+      return (
+          <RootComponent style={[styles.centeredFinanceBlock, { backgroundColor: theme.bg }]}>
+              <MaterialCommunityIcons name="lock-alert" size={70} color="#FF3B30" style={{marginBottom: 20}} />
+              <Text style={[styles.stateTitleFinance, { color: theme.text }]}>ACESSO BLOQUEADO</Text>
+              <Text style={[styles.stateDescFinance, { color: theme.textSecondary, marginBottom: 30 }]}>
+                  O seu plano venceu e o acesso à rotina de treinos foi suspenso temporariamente. 
+                  {"\n\n"}Fale com o Coach para realizar a renovação e liberar o sistema.
+              </Text>
+              <TouchableOpacity 
+                  style={{ backgroundColor: '#25D366', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }} 
+                  onPress={() => Linking.openURL("https://wa.me/5541997991346?text=Coach, preciso falar sobre a renovação do meu plano!")}
+              >
+                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>FALAR COM O COACH</Text>
+                  <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
+              </TouchableOpacity>
+          </RootComponent>
+      );
+  }
 
   if (loading && !refreshing) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
 
@@ -365,5 +401,9 @@ const styles = StyleSheet.create({
 
   guideBtn: { flex: 1, padding: 15, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   guideIconBox: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  guideBtnText: { fontSize: 11, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, lineHeight: 16 }
+  guideBtnText: { fontSize: 11, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, lineHeight: 16 },
+
+  centeredFinanceBlock: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+  stateTitleFinance: { fontSize: 20, fontWeight: '900', letterSpacing: 1, marginBottom: 8 },
+  stateDescFinance: { fontSize: 13, textAlign: 'center', paddingHorizontal: 20, lineHeight: 20 },
 });

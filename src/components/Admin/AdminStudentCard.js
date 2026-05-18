@@ -14,9 +14,11 @@ export default function AdminStudentCard({ item, theme, navigation }) {
     const badge = getPlanBadge(dbPlan);
     const pendingCount = item._count?.checkIns || 0;
     
-    // 🔥 VARIÁVEL PARA LER O STATUS MENSTRUAL 🔥
+    // 🔥 VARIÁVEIS DOS GATILHOS DE INTENSIDADE E CICLO 🔥
     const isMenstruating = item.isMenstruating || false;
-    const hasDeload = activeWorkout && activeWorkout.intensityMultiplier < 1;
+    const intensityMultiplier = activeWorkout?.intensityMultiplier || 1;
+    const hasDeload = intensityMultiplier < 1;
+    const hasChoque = intensityMultiplier > 1;
 
     const handleCobrarWhatsApp = (e) => {
         e.stopPropagation(); 
@@ -70,8 +72,24 @@ export default function AdminStudentCard({ item, theme, navigation }) {
                         <View style={[styles.badgeBase, { backgroundColor: hasDeload ? '#4DE38F22' : '#FF3B3022', borderColor: hasDeload ? '#4DE38F' : '#FF3B30', borderWidth: 1 }]}>
                             <MaterialCommunityIcons name={hasDeload ? "shield-check" : "water-alert"} size={10} color={hasDeload ? "#4DE38F" : "#FF3B30"} />
                             <Text style={[styles.badgeText, { color: hasDeload ? "#4DE38F" : "#FF3B30" }]}>
-                                {hasDeload ? 'DELOAD ATIVO' : 'PROTOCOLO MENSTRUAL'}
+                                {hasDeload ? 'DELOAD MENSTRUAL' : 'PROTOCOLO MENSTRUAL'}
                             </Text>
+                        </View>
+                    )}
+
+                    {/* 🔥 SELO DO DELOAD NORMAL (ATIVADO PELO COACH) 🔥 */}
+                    {!isMenstruating && hasDeload && (
+                        <View style={[styles.badgeBase, { backgroundColor: '#32ADE622', borderColor: '#32ADE6', borderWidth: 1 }]}>
+                            <MaterialCommunityIcons name="shield-half-full" size={10} color="#32ADE6" />
+                            <Text style={[styles.badgeText, { color: '#32ADE6' }]}>DELOAD ATIVO</Text>
+                        </View>
+                    )}
+
+                    {/* 🔥 SELO DA SEMANA DE CHOQUE 🔥 */}
+                    {hasChoque && (
+                        <View style={[styles.badgeBase, { backgroundColor: '#FF950022', borderColor: '#FF9500', borderWidth: 1 }]}>
+                            <MaterialCommunityIcons name="lightning-bolt" size={10} color="#FF9500" />
+                            <Text style={[styles.badgeText, { color: '#FF9500' }]}>SEMANA DE CHOQUE</Text>
                         </View>
                     )}
 

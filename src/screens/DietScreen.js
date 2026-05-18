@@ -448,6 +448,9 @@ export default function DietScreen({ route }) {
     const [user, setUser] = useState(null);
     const [accessDenied, setAccessDenied] = useState(false);
     
+    // 🔥 ESTADO DE BLOQUEIO FINANCEIRO 🔥
+    const [isFinanceLocked, setIsFinanceLocked] = useState(false);
+    
     const [activeTab, setActiveTab] = useState('DIETA'); 
     const [activeDayType, setActiveDayType] = useState('TREINO'); 
 
@@ -477,6 +480,20 @@ export default function DietScreen({ route }) {
                 const isElite = u.plan === 'ELITE' || u.plan === 'VIP';
                 if (!u.dietModule && !isElite) { setAccessDenied(true); setLoading(false); return; }
                 
+                // 🔥 CHECAGEM FINANCEIRA 🔥
+                if (u.paymentDueDate && u.isFinanceActive !== false) {
+                    const pDate = new Date(u.paymentDueDate);
+                    pDate.setHours(0,0,0,0);
+                    const todayD = new Date(); todayD.setHours(0,0,0,0);
+                    const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
+                    
+                    if (diffFinanceDays <= 0) {
+                        setIsFinanceLocked(true);
+                        setLoading(false);
+                        return; // Para a execução, ele não vai carregar a dieta.
+                    }
+                }
+
                 fetchDiet(u.id);
             } catch (e) {
                 setLoading(false);
@@ -578,6 +595,27 @@ export default function DietScreen({ route }) {
         if (checkedShoppingItems.includes(itemName)) setCheckedShoppingItems(checkedShoppingItems.filter(i => i !== itemName));
         else setCheckedShoppingItems([...checkedShoppingItems, itemName]);
     };
+
+    // 🔥 TELA DE BLOQUEIO FINANCEIRO NA DIETA 🔥
+    if (!loading && isFinanceLocked) {
+        return (
+            <RootComponent style={[styles.centered, { backgroundColor: theme.bg }]}>
+                <MaterialCommunityIcons name="lock-alert" size={70} color="#FF3B30" style={{marginBottom: 20}} />
+                <Text style={[styles.stateTitle, { color: theme.text }]}>ACESSO BLOQUEADO</Text>
+                <Text style={[styles.stateDesc, { color: theme.textSecondary, marginBottom: 30 }]}>
+                    O seu plano venceu e o acesso ao Cardápio foi suspenso temporariamente. 
+                    {"\n\n"}Fale com o Coach para realizar a renovação e liberar o sistema.
+                </Text>
+                <TouchableOpacity 
+                    style={{ backgroundColor: '#25D366', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }} 
+                    onPress={() => Linking.openURL("https://wa.me/5541997991346?text=Coach, preciso falar sobre a renovação do meu plano!")}
+                >
+                    <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>FALAR COM O COACH</Text>
+                    <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
+                </TouchableOpacity>
+            </RootComponent>
+        );
+    }
 
     if (!loading && accessDenied) {
         return (

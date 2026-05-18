@@ -155,7 +155,7 @@ export default function ProfileScreen({ route }) {
   const executeLogout = async () => {
       try {
           await AsyncStorage.multiRemove(['user', 'token', 'app_theme']); 
-          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+          navigation.reset({ index: 0, Math: 0, routes: [{ name: 'Login' }] });
       } catch (e) { Alert.alert("Erro", "Falha ao sair."); }
   };
 
@@ -185,7 +185,6 @@ export default function ProfileScreen({ route }) {
       changeTheme(theme.isDark, colorKey);
   };
 
-  // 🔥 Tradutor Visual de Planos
   const getDisplayPlan = () => {
       const dbPlan = userData?.plan || 'PREMIUM';
       switch(dbPlan) {
@@ -196,7 +195,6 @@ export default function ProfileScreen({ route }) {
       }
   };
 
-  // 🔥 Lógica da "Gaiola" PWA
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -207,8 +205,7 @@ export default function ProfileScreen({ route }) {
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      {/* 🔥 GAIOLA (AQUI ESTÁ O SEGREDO DO SCROLL FUNCIONAR NO WEB E MOBILE) */}
-      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <ScrollView 
             contentContainerStyle={styles.scrollContent} 
             showsVerticalScrollIndicator={false}
@@ -271,6 +268,7 @@ export default function ProfileScreen({ route }) {
                 )}
             </View>
 
+            {/* 🔥 CARD DE PLANO COM DATA DE VENCIMENTO 🔥 */}
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: displayPlan.name === 'ELITE' ? theme.accent : theme.border }]}>
                 <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:10}}>
                     <Text style={styles.cardTitle}>PLANO ATUAL</Text>
@@ -278,6 +276,13 @@ export default function ProfileScreen({ route }) {
                 </View>
                 <Text style={[styles.planName, { color: theme.text }]}>{displayPlan.name}</Text>
                 <Text style={styles.planDesc}>{displayPlan.desc}</Text>
+
+                <View style={{ marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>PRÓXIMO VENCIMENTO:</Text>
+                    <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>
+                        {userData?.paymentDueDate ? new Date(userData.paymentDueDate).toLocaleDateString('pt-BR') : 'A DEFINIR'}
+                    </Text>
+                </View>
             </View>
 
             <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
@@ -321,7 +326,7 @@ export default function ProfileScreen({ route }) {
               <Text style={styles.logoutBtnText}>SAIR DA CONTA</Text>
             </TouchableOpacity>
 
-            <Text style={styles.version}>Versão 2.1.0 • FIT OS App</Text>
+            <Text style={styles.version}>Versão 2.1.0 • PA TEAM App</Text>
 
           </ScrollView>
       </View>
