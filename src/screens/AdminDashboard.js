@@ -22,7 +22,7 @@ import AdminSurveyCard from '../components/Admin/AdminSurveyCard';
 
 import AdminFinanceSystem from '../components/AdminFinanceSystem'; 
 
-const ADRI_COACH_ID = 'adri_coach_id_placeholder'; 
+const ADRI_COACH_ID = 'b7c0c181-41fd-4156-b8fe-963a267759a3'; 
 
 // 🔥 MENU MODERNO (COM LABELS CURTAS PARA O PC) 🔥
 const MENU_TABS = [
@@ -33,10 +33,34 @@ const MENU_TABS = [
     { id: 'GESTAO', label: 'SISTEMA E CONFIGURAÇÕES', shortLabel: 'SISTEMA', icon: 'cog' }
 ];
 
+// 🔥 CATEGORIAS DE FILTROS 3D 🔥
+const OPT_STATUS = [
+    { id: 'TODOS', label: 'Todos' },
+    { id: 'PENDENTES', label: 'Avaliação Pendente' },
+    { id: 'ATRASADOS', label: 'Atrasados (Treino/Foto)' },
+    { id: 'ALERTA', label: 'Alerta (Vence 7D)' },
+    { id: 'OK', label: 'No Prazo' },
+    { id: 'SEM_TREINO', label: 'Sem Treino' }
+];
+
+const OPT_INTENSIDADE = [
+    { id: 'TODOS', label: 'Todas' },
+    { id: 'CHOQUE', label: 'Semana de Choque' },
+    { id: 'DELOAD', label: 'Deload Ativo / Menstrual' }
+];
+
+const OPT_PLANOS = [
+    { id: 'TODOS', label: 'Todos' },
+    { id: 'PLAN_ELITE', label: 'Elite' },
+    { id: 'PLAN_PERFORMANCE', label: 'Performance' },
+    { id: 'PLAN_FICHA_8S', label: 'Ficha 8S' },
+    { id: 'PLAN_LOW_COST', label: 'Low Cost' },
+    { id: 'PLAN_CHALLENGE_21', label: 'Desafio 21D' }
+];
+
 export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
 
-  // 🔥 LÓGICA DE LARGURA RESPONSIVA E DETECÇÃO DE PC 🔥
   const { width: windowWidth } = Dimensions.get('window');
   const isWebPC = Platform.OS === 'web' && windowWidth > 768;
   const containerMaxWidth = isWebPC ? 960 : '100%'; 
@@ -56,7 +80,12 @@ export default function AdminDashboard({ navigation }) {
   const [surveys, setSurveys] = useState([]); 
   const [subTabGestao, setSubTabGestao] = useState('FERRAMENTAS'); 
 
-  const [statusFilter, setStatusFilter] = useState('TODOS'); 
+  // 🔥 NOVOS ESTADOS MULTI-FILTRO 🔥
+  const [filterStatus, setFilterStatus] = useState('TODOS');
+  const [filterIntensidade, setFilterIntensidade] = useState('TODOS');
+  const [filterPlano, setFilterPlano] = useState('TODOS');
+  const [filterStep, setFilterStep] = useState(1);
+
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   const [feed, setFeed] = useState([]); 
@@ -86,19 +115,6 @@ export default function AdminDashboard({ navigation }) {
 
   const isFirstLoadRef = useRef(true); 
 
-  const filterOptions = [
-    { id: 'TODOS', label: 'TODOS OS ALUNOS', icon: 'account-group', color: theme.text },
-    { id: 'PENDENTES', label: 'AVALIAÇÃO PENDENTE', icon: 'alert-circle', color: '#FF3B30' },
-    { id: 'ATRASADOS', label: 'ATRASADOS (TREINO/FOTO)', icon: 'alert-circle', color: '#FF3B30' },
-    { id: 'ALERTA', label: 'ALERTA (VENCE EM 7D)', icon: 'clock-fast', color: '#FFCC00' },
-    { id: 'OK', label: 'NO PRAZO', icon: 'check-circle', color: '#34C759' },
-    { id: 'SEM_TREINO', label: 'SEM TREINO', icon: 'calendar-blank', color: theme.textSecondary },
-    { id: 'PLAN_PREMIUM', label: 'SÓ PREMIUM', icon: 'crown', color: '#FFCC00' },
-    { id: 'PLAN_FICHA_8S', label: 'SÓ FICHA 8 SEMANAS', icon: 'lightning-bolt', color: '#AF52DE' },
-    { id: 'PLAN_LOW_COST', label: 'SÓ LOW COST', icon: 'rocket-launch', color: '#32ADE6' },
-    { id: 'PLAN_CHALLENGE_21', label: 'SÓ DESAFIO 21D', icon: 'fire', color: '#FF9500' }
-  ];
-
   useFocusEffect(useCallback(() => { fetchData(false); }, []));
 
   useEffect(() => { 
@@ -107,7 +123,7 @@ export default function AdminDashboard({ navigation }) {
       setVisibleCountDiet(5);
       setVisibleCountSurveys(5);
       setVisibleCountFeed(10);
-  }, [subTabAlunos, subTabCheckins, activeTab, search, statusFilter, coachFilter]);
+  }, [subTabAlunos, subTabCheckins, activeTab, search, filterStatus, filterIntensidade, filterPlano, coachFilter]);
 
   const fetchData = async (isManualRefresh = false) => {
     try {
@@ -261,30 +277,59 @@ export default function AdminDashboard({ navigation }) {
       }
   }, [userCoachMap, adminId, isAdriLogged]);
 
+  // 🔥 CÁLCULO DE FILTROS ATIVOS PARA EXIBIÇÃO NO BOTÃO 🔥
+  let activeFiltersCount = 0;
+  if (filterStatus !== 'TODOS') activeFiltersCount++;
+  if (filterIntensidade !== 'TODOS') activeFiltersCount++;
+  if (filterPlano !== 'TODOS') activeFiltersCount++;
+
+  // 🔥 LÓGICA REFINADA DE MÚLTIPLA ESCOLHA (CRUZAMENTO DE DADOS) 🔥
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
 
       list = list.filter(a => getLogCoach(a) === coachFilter); 
 
-      if (statusFilter !== 'TODOS') {
+      // 1. Aplica Filtro de Planos
+      if (filterPlano !== 'TODOS') {
+          const targetPlan = filterPlano.replace('PLAN_', '');
           list = list.filter(a => {
-              if (statusFilter.startsWith('PLAN_')) {
-                  const targetPlan = statusFilter.replace('PLAN_', '');
-                  const currentPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(a.plan) ? a.plan : 'PREMIUM';
-                  return currentPlan === targetPlan;
-              }
-              if (statusFilter === 'PENDENTES') return (a._count?.checkIns || 0) > 0;
-              const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
-
-              if (statusFilter === 'ATRASADOS') return getCheckinStatus(a) || (getExpirationStatus(activeWorkout)?.cat === 'ATRASADOS');
-              if (!activeWorkout) return statusFilter === 'SEM_TREINO';
-
-              return getExpirationStatus(activeWorkout)?.cat === statusFilter;
+              let currentPlan = String(a.plan || 'ELITE').toUpperCase();
+              if (['VIP', 'PREMIUM'].includes(currentPlan)) currentPlan = 'ELITE';
+              return currentPlan === targetPlan;
           });
       }
+
+      // 2. Aplica Filtro de Intensidade (Choque / Deload)
+      if (filterIntensidade !== 'TODOS') {
+          list = list.filter(a => {
+              const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
+              if (filterIntensidade === 'DELOAD') {
+                  const mult = activeWorkout?.intensityMultiplier || 1;
+                  return mult < 1 || a.isMenstruating;
+              }
+              if (filterIntensidade === 'CHOQUE') {
+                  const mult = activeWorkout?.intensityMultiplier || 1;
+                  return mult > 1;
+              }
+              return true;
+          });
+      }
+
+      // 3. Aplica Filtro de Status
+      if (filterStatus !== 'TODOS') {
+          list = list.filter(a => {
+              if (filterStatus === 'PENDENTES') return (a._count?.checkIns || 0) > 0;
+              const activeWorkout = (a.workouts && a.workouts.length > 0) ? a.workouts[0] : null;
+              if (filterStatus === 'ATRASADOS') return getCheckinStatus(a) || (getExpirationStatus(activeWorkout)?.cat === 'ATRASADOS');
+              if (!activeWorkout) return filterStatus === 'SEM_TREINO';
+              
+              return getExpirationStatus(activeWorkout)?.cat === filterStatus;
+          });
+      }
+
       return list;
-  }, [alunosAtivos, alunosInativos, subTabAlunos, search, statusFilter, coachFilter, getLogCoach]);
+  }, [alunosAtivos, alunosInativos, subTabAlunos, search, filterStatus, filterIntensidade, filterPlano, coachFilter, getLogCoach]);
 
   const filteredFeed = useMemo(() => feed.filter(item => getLogCoach(item) === coachFilter), [feed, coachFilter, getLogCoach]);
   const filteredDiet = useMemo(() => dietFeedbacks.filter(item => getLogCoach(item) === coachFilter), [dietFeedbacks, coachFilter, getLogCoach]);
@@ -358,6 +403,30 @@ export default function AdminDashboard({ navigation }) {
           Alert.alert("Remover Alerta", "Marcar como 'Avaliado' para remover o aviso vermelho?", [ { text: "Cancelar", style: "cancel" }, { text: "Sim", onPress: confirmAction } ]);
       }
   };
+
+  // 🔥 Componente de Pílulas Reutilizável 🔥
+  const FilterPillGroup = ({ title, options, selected, onSelect }) => (
+      <View style={{ marginBottom: 20 }}>
+          <Text style={{ fontSize: 11, fontWeight: '900', color: theme.textSecondary, marginBottom: 10, letterSpacing: 1 }}>{title}</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {options.map(opt => {
+                  const isSelected = selected === opt.id;
+                  return (
+                      <TouchableOpacity 
+                          key={opt.id} 
+                          onPress={() => onSelect(opt.id)}
+                          style={[
+                              styles.filterPill, 
+                              { borderColor: isSelected ? theme.accent : theme.border, backgroundColor: isSelected ? theme.accent + '22' : 'transparent' }
+                          ]}
+                      >
+                          <Text style={[styles.filterPillText, { color: isSelected ? theme.accent : theme.text }]}>{opt.label}</Text>
+                      </TouchableOpacity>
+                  )
+              })}
+          </View>
+      </View>
+  );
 
   const renderDietFeedbackItem = (item) => (
       <View key={item.id} style={[styles.feedCard, { flexDirection: 'column', alignItems: 'stretch', backgroundColor: theme.surface, borderColor: item.read ? theme.border : theme.accent, opacity: item.read ? 0.7 : 1, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.05, shadowRadius: 4 }]}>
@@ -583,7 +652,9 @@ export default function AdminDashboard({ navigation }) {
                               <TouchableOpacity style={[styles.filterSelector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setFilterModalVisible(true)}>
                                   <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                                       <MaterialCommunityIcons name="filter-variant" size={18} color={theme.accent} />
-                                      <Text style={[styles.filterSelectorVal, { color: theme.text }]}>STATUS: {filterOptions.find(f => f.id === statusFilter)?.label}</Text>
+                                      <Text style={[styles.filterSelectorVal, { color: theme.text }]}>
+                                          FILTROS ATIVOS: {activeFiltersCount === 0 ? 'Nenhum' : activeFiltersCount}
+                                      </Text>
                                   </View>
                                   <MaterialCommunityIcons name="chevron-down" size={20} color={theme.textSecondary} />
                               </TouchableOpacity>
@@ -844,23 +915,87 @@ export default function AdminDashboard({ navigation }) {
           </TouchableOpacity>
       </Modal>
 
+      {/* 🔥 MODAL DE FILTROS (ESTILO WIZARD / CASCATA) 🔥 */}
       <Modal visible={filterModalVisible} transparent animationType="fade" onRequestClose={() => setFilterModalVisible(false)}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setFilterModalVisible(false)}>
+          <View style={styles.modalBackdropFiltro}>
               <View style={[styles.catModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 20, textAlign: 'center' }]}>FILTRAR STATUS</Text>
-                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                      {filterOptions.map(opt => (
-                          <TouchableOpacity key={opt.id} style={[styles.catOption, statusFilter === opt.id && { backgroundColor: theme.accent + '22' }]} onPress={() => { setStatusFilter(opt.id); setFilterModalVisible(false); }}>
-                              <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                                  <MaterialCommunityIcons name={opt.icon} size={20} color={opt.color} />
-                                  <Text style={[styles.catOptionText, { color: theme.text }, statusFilter === opt.id && { color: theme.accent, fontWeight: '800' }]}>{opt.label}</Text>
-                              </View>
-                              {statusFilter === opt.id && <MaterialCommunityIcons name="check-decagram" size={20} color={theme.accent} />}
+                  
+                  {/* CABEÇALHO DO WIZARD */}
+                  <View style={styles.wizardHeader}>
+                      <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                          <TouchableOpacity 
+                              onPress={() => filterStep > 1 ? setFilterStep(filterStep - 1) : setFilterModalVisible(false)}
+                              style={[styles.wizardBackBtn, { backgroundColor: theme.bg }]}
+                          >
+                              <MaterialCommunityIcons name={filterStep > 1 ? "arrow-left" : "close"} size={20} color={theme.text} />
+                          </TouchableOpacity>
+                          <View>
+                              <Text style={[styles.wizardStepText, { color: theme.accent }]}>PASSO {filterStep} DE 3</Text>
+                              <Text style={[styles.wizardTitle, { color: theme.text }]}>
+                                  {filterStep === 1 ? 'Qual o Status?' : filterStep === 2 ? 'Qual a Intensidade?' : 'Qual o Plano?'}
+                              </Text>
+                          </View>
+                      </View>
+                      <TouchableOpacity onPress={() => { setFilterStatus('TODOS'); setFilterIntensidade('TODOS'); setFilterPlano('TODOS'); setFilterStep(1); setFilterModalVisible(false); }}>
+                          <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: '900'}}>RESETAR</Text>
+                      </TouchableOpacity>
+                  </View>
+
+                  <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                      
+                      {/* PASSO 1: STATUS */}
+                      {filterStep === 1 && OPT_STATUS.map((opt) => (
+                          <TouchableOpacity 
+                            key={opt.id} 
+                            style={[styles.wizardOption, { backgroundColor: theme.bg, borderColor: filterStatus === opt.id ? theme.accent : theme.border }]} 
+                            onPress={() => { setFilterStatus(opt.id); setFilterStep(2); }}
+                          >
+                              <Text style={[styles.wizardOptionText, { color: filterStatus === opt.id ? theme.accent : theme.text }]}>{opt.label.toUpperCase()}</Text>
+                              <MaterialCommunityIcons name={filterStatus === opt.id ? "check-circle" : "chevron-right"} size={20} color={filterStatus === opt.id ? theme.accent : theme.border} />
                           </TouchableOpacity>
                       ))}
+
+                      {/* PASSO 2: INTENSIDADE */}
+                      {filterStep === 2 && OPT_INTENSIDADE.map((opt) => (
+                          <TouchableOpacity 
+                            key={opt.id} 
+                            style={[styles.wizardOption, { backgroundColor: theme.bg, borderColor: filterIntensidade === opt.id ? theme.accent : theme.border }]} 
+                            onPress={() => { setFilterIntensidade(opt.id); setFilterStep(3); }}
+                          >
+                              <Text style={[styles.wizardOptionText, { color: filterIntensidade === opt.id ? theme.accent : theme.text }]}>{opt.label.toUpperCase()}</Text>
+                              <MaterialCommunityIcons name={filterIntensidade === opt.id ? "check-circle" : "chevron-right"} size={20} color={filterIntensidade === opt.id ? theme.accent : theme.border} />
+                          </TouchableOpacity>
+                      ))}
+
+                      {/* PASSO 3: PLANOS */}
+                      {filterStep === 3 && OPT_PLANOS.map((opt) => (
+                          <TouchableOpacity 
+                            key={opt.id} 
+                            style={[styles.wizardOption, { backgroundColor: theme.bg, borderColor: filterPlano === opt.id ? theme.accent : theme.border }]} 
+                            onPress={() => { 
+                                setFilterPlano(opt.id); 
+                                setFilterModalVisible(false); 
+                                setFilterStep(1); // Volta pro 1 pro próximo uso
+                            }}
+                          >
+                              <Text style={[styles.wizardOptionText, { color: filterPlano === opt.id ? theme.accent : theme.text }]}>{opt.label.toUpperCase()}</Text>
+                              <MaterialCommunityIcons name={filterPlano === opt.id ? "check-bold" : "chevron-right"} size={20} color={filterPlano === opt.id ? theme.accent : theme.border} />
+                          </TouchableOpacity>
+                      ))}
+
                   </ScrollView>
+
+                  {/* INDICADOR DE PROGRESSO (BOLINHAS) */}
+                  <View style={styles.wizardProgress}>
+                      <View style={[styles.progressDot, { backgroundColor: filterStep >= 1 ? theme.accent : theme.border }]} />
+                      <View style={[styles.progressLine, { backgroundColor: filterStep >= 2 ? theme.accent : theme.border }]} />
+                      <View style={[styles.progressDot, { backgroundColor: filterStep >= 2 ? theme.accent : theme.border }]} />
+                      <View style={[styles.progressLine, { backgroundColor: filterStep >= 3 ? theme.accent : theme.border }]} />
+                      <View style={[styles.progressDot, { backgroundColor: filterStep >= 3 ? theme.accent : theme.border }]} />
+                  </View>
+
               </View>
-          </TouchableOpacity>
+          </View>
       </Modal>
 
       <AdminCheckinModal visible={checkinModalVisible} onClose={() => setCheckinModalVisible(false)} selectedCheckin={selectedCheckin} theme={theme} isResolving={isResolving} onResolve={handleResolveCheckin} />
@@ -877,14 +1012,12 @@ const styles = StyleSheet.create({
   subtitle: { color: '#888', fontSize: 10, letterSpacing: 1.5, fontWeight: '800', marginTop: 2 },
   iconBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' }, 
 
-  // 🔥 ESTILOS DAS ABAS HORIZONTAIS NO PC (ÍCONES + NEON) 🔥
   webTabsContainer: { flexDirection: 'row', borderBottomWidth: 1, marginBottom: 20, gap: 25, paddingHorizontal: 5 },
   webTabBtn: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 3, borderBottomColor: 'transparent', gap: 6 },
   webTabText: { fontSize: 13, letterSpacing: 0.5, textTransform: 'uppercase' },
   badgeCountWeb: { paddingHorizontal: 6, borderRadius: 10, height: 20, minWidth: 20, justifyContent: 'center', alignItems: 'center', marginLeft: 2 },
   badgeTextWeb: { fontSize: 10, fontWeight: '900' },
 
-  // Estilos do Menu Dropdown no Celular
   menuSelector: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, paddingRight: 15, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
   menuIconBox: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   menuSelectorText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
@@ -906,9 +1039,18 @@ const styles = StyleSheet.create({
   filterSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
   filterSelectorVal: { fontSize: 12, fontWeight: '800' },
 
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  catModalContent: { width: '100%', maxWidth: 360, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '80%' },
-  catOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, marginBottom: 10 }, catOptionText: { fontSize: 14, fontWeight: '600' }, modalTitle: { fontWeight: 'bold', fontSize: 16 },
+  // 🔥 Estilos do Wizard de Filtros 🔥
+  modalBackdropFiltro: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', padding: 20 },
+  catModalContent: { width: '100%', maxWidth: 450, alignSelf: 'center', borderRadius: 24, padding: 25, borderWidth: 1, maxHeight: '80%' },
+  wizardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25 },
+  wizardBackBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(128,128,128,0.2)' },
+  wizardStepText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+  wizardTitle: { fontSize: 18, fontWeight: '900', marginTop: 2 },
+  wizardOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderRadius: 16, marginBottom: 10, borderWidth: 2 },
+  wizardOptionText: { fontSize: 13, fontWeight: '800', letterSpacing: 0.5 },
+  wizardProgress: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  progressDot: { width: 10, height: 10, borderRadius: 5 },
+  progressLine: { width: 30, height: 2, marginHorizontal: 5 },
 
   subTabsContainer: { flexDirection: 'row', marginBottom: 15, gap: 10 },
   subTab: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' }, subTabText: { fontSize: 11, fontWeight: '800' },
