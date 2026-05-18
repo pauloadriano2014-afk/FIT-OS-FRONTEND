@@ -10,7 +10,7 @@ export default function AdminStudentCard({ item, theme, navigation }) {
     const isCheckinLate = getCheckinStatus(item); 
     const primeiraLetra = item.name ? item.name.charAt(0).toUpperCase() : 'A';
     
-    const dbPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(item.plan) ? item.plan : 'PREMIUM';
+    const dbPlan = item.plan || 'PREMIUM';
     const badge = getPlanBadge(dbPlan);
     const pendingCount = item._count?.checkIns || 0;
     

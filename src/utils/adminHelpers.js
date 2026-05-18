@@ -40,10 +40,20 @@ export const getCheckinStatus = (aluno) => {
 };
 
 export const getPlanBadge = (plan) => {
-    switch(plan) {
+    const planUpper = String(plan || 'ELITE').toUpperCase();
+    
+    switch(planUpper) {
         case 'LOW_COST': return { text: 'LOW COST', color: '#32ADE6', icon: 'rocket-launch' };
         case 'CHALLENGE_21': return { text: 'DESAFIO 21D', color: '#FF9500', icon: 'fire' };
         case 'FICHA_8S': return { text: 'FICHA 8S', color: '#AF52DE', icon: 'lightning-bolt' };
-        default: return { text: 'PREMIUM', color: '#FFCC00', icon: 'crown' };
+        case 'PERFORMANCE': return { text: 'PERFORMANCE', color: '#007AFF', icon: 'arm-flex' }; 
+        
+        // 🔥 RENOVAÇÃO VISUAL SINCRO: PREMIUM AGORA EXIBE COMO ELITE 🔥
+        case 'ELITE':
+        case 'VIP':
+        case 'PREMIUM': 
+            return { text: 'ELITE', color: '#FFCC00', icon: 'crown' };
+            
+        default: return { text: planUpper, color: '#888', icon: 'star' };
     }
 };

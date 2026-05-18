@@ -155,7 +155,7 @@ export default function ProfileScreen({ route }) {
   const executeLogout = async () => {
       try {
           await AsyncStorage.multiRemove(['user', 'token', 'app_theme']); 
-          navigation.reset({ index: 0, Math: 0, routes: [{ name: 'Login' }] });
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
       } catch (e) { Alert.alert("Erro", "Falha ao sair."); }
   };
 
@@ -185,13 +185,19 @@ export default function ProfileScreen({ route }) {
       changeTheme(theme.isDark, colorKey);
   };
 
+  // 🔥 Tradutor Visual de Planos (ATUALIZADO COM PERFORMANCE) 🔥
   const getDisplayPlan = () => {
-      const dbPlan = userData?.plan || 'PREMIUM';
+      const dbPlan = String(userData?.plan || 'PREMIUM').toUpperCase();
       switch(dbPlan) {
           case 'LOW_COST': return { name: 'PLANO BÁSICO', icon: 'rocket-launch', desc: 'Funcionalidades básicas.' };
           case 'CHALLENGE_21': return { name: 'DESAFIO 21 DIAS', icon: 'fire', desc: 'Protocolo de 21 dias.' };
           case 'FICHA_8S': return { name: 'FICHA 8 SEMANAS', icon: 'lightning-bolt', desc: 'Protocolo de 8 semanas.' };
-          default: return { name: 'ELITE', icon: 'crown', desc: 'Acesso total a treinos e suporte.' };
+          case 'PERFORMANCE': return { name: 'PERFORMANCE', icon: 'arm-flex', desc: 'Foco exclusivo em treinamentos.' };
+          case 'ELITE':
+          case 'VIP':
+          case 'PREMIUM':
+               return { name: 'ELITE', icon: 'crown', desc: 'Acesso total a treinos e suporte.' };
+          default: return { name: dbPlan, icon: 'star', desc: 'Plano Personalizado.' };
       }
   };
 
@@ -205,7 +211,7 @@ export default function ProfileScreen({ route }) {
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
       
-      <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
           <ScrollView 
             contentContainerStyle={styles.scrollContent} 
             showsVerticalScrollIndicator={false}

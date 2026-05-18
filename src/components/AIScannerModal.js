@@ -1,9 +1,12 @@
+// src/screens/ScannerIA.js
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Dimensions, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, ActivityIndicator, Dimensions, Platform, StatusBar, Modal } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { uploadAsync } from 'expo-file-system/legacy';
 import { Video } from 'react-native-compressor'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { height } = Dimensions.get('window');
 
@@ -38,7 +41,6 @@ export default function ScannerIA({ navigation, route }) {
   const alunoName = route?.params?.alunoName || "Aluno"; 
   
   // 🔥 NOVO: PEGA O VÍDEO DO COACH DA ROTA (O GABARITO) 🔥
-  // Lembre-se de passar "videoUrl: exercicio.videoUrl" na hora de chamar navigation.navigate('ScannerIA', {...})
   const referenceVideoUrl = route?.params?.videoUrl || ""; 
 
   const currentInstruction = getInstruction(exerciseName);
@@ -46,6 +48,28 @@ export default function ScannerIA({ navigation, route }) {
   const [loadingIA, setLoadingIA] = useState(false);
   const [feedbackData, setFeedbackData] = useState(null); 
   const scanAnim = useRef(new Animated.Value(0)).current;
+
+  // 🔥 ESTADOS DE CHECAGEM DO PLANO 🔥
+  const [userPlan, setUserPlan] = useState(null);
+  const [checkingPlan, setCheckingPlan] = useState(true);
+
+  // Busca o plano do usuário no AsyncStorage ao abrir a tela
+  useEffect(() => {
+      const fetchUserPlan = async () => {
+          try {
+              const storedUser = await AsyncStorage.getItem('user');
+              if (storedUser) {
+                  const user = JSON.parse(storedUser);
+                  setUserPlan(user.plan || 'PREMIUM'); 
+              }
+          } catch (e) {
+              console.log("Erro ao buscar plano do usuário no ScannerIA", e);
+          } finally {
+              setCheckingPlan(false);
+          }
+      };
+      fetchUserPlan();
+  }, []);
 
   useEffect(() => {
     if (loadingIA) {
@@ -146,7 +170,6 @@ export default function ScannerIA({ navigation, route }) {
         formData.append('userLevel', 'Geral');
         formData.append('alunoName', alunoName);
         
-        // 🔥 INJETA O GABARITO AQUI 🔥
         formData.append('referenceVideoUrl', referenceVideoUrl);
 
         const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
@@ -158,7 +181,6 @@ export default function ScannerIA({ navigation, route }) {
         responseBody = await response.text();
 
       } else {
-        // 🔥 UPLOAD NATIVO USANDO O VÍDEO COMPRIMIDO (finalVideoUri)
         const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', finalVideoUri, {
           fieldName: 'video',
           httpMethod: 'POST',
@@ -167,7 +189,7 @@ export default function ScannerIA({ navigation, route }) {
             'exerciseName': enhancedExerciseName, 
             'userLevel': 'Geral',
             'alunoName': alunoName,
-            'referenceVideoUrl': referenceVideoUrl // 🔥 INJETA O GABARITO AQUI 🔥
+            'referenceVideoUrl': referenceVideoUrl 
           },
         });
 
@@ -217,6 +239,19 @@ export default function ScannerIA({ navigation, route }) {
     ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#222' } : {})
   };
 
+  if (checkingPlan) {
+      return (
+          <RootComponent style={rootStyle}>
+              <StatusBar barStyle="light-content" backgroundColor="#000" />
+              <View style={[mobileVirtualStyle, { justifyContent: 'center', alignItems: 'center' }]}>
+                  <ActivityIndicator size="large" color="#CCFF00" />
+              </View>
+          </RootComponent>
+      );
+  }
+
+  const isAuthorizedPlan = userPlan === 'ELITE' || userPlan === 'PREMIUM';
+
   return (
     <RootComponent style={rootStyle}>
         <StatusBar barStyle="light-content" backgroundColor="#000" />
@@ -231,8 +266,9 @@ export default function ScannerIA({ navigation, route }) {
                     <View style={{width: 50}} /> 
                 </View>
 
-                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
                     
+                    {/* 🔥 CONTEÚDO ORIGINAL RENDERIZADO NO FUNDO DO CARD 🔥 */}
                     {loadingIA && (
                         <View style={styles.processingContainer}>
                             <Animated.View style={[styles.laserLine, { transform: [{ translateY }] }]} />
@@ -279,6 +315,27 @@ export default function ScannerIA({ navigation, route }) {
                         </>
                     )}
 
+                    {/* 🔥 MODAL DE BLOQUEIO PARA ALUNOS NÃO AUTORIZADOS 🔥 */}
+                    <Modal visible={!isAuthorizedPlan} transparent animationType="fade">
+                        <View style={styles.modalOverlayLock}>
+                            <View style={styles.modalCardLock}>
+                                <View style={styles.iconCircleLock}>
+                                    <MaterialCommunityIcons name="lock" size={32} color="#FF3B30" />
+                                </View>
+                                <Text style={styles.modalTitleLock}>ÁREA RESTRITA</Text>
+                                <Text style={styles.modalDescLock}>
+    O recurso de Inteligência Artificial para análise biomecânica e correção postural de vídeos é exclusivo para <Text style={{ color: '#CCFF00', fontWeight: 'bold' }}>alunos</Text> da <Text style={{ color: '#CCFF00', fontWeight: 'bold' }}>Consultoria Elite</Text>.
+</Text>
+                                <TouchableOpacity 
+                                    style={styles.modalBtnLock}
+                                    onPress={() => navigation.goBack()}
+                                >
+                                    <Text style={styles.modalBtnTextLock}>VOLTAR</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </Modal>
+
                 </View>
             </View>
         </View>
@@ -302,5 +359,14 @@ const styles = StyleSheet.create({
   processingContainer: { flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#222' },
   laserLine: { position: 'absolute', top: 0, left: 0, right: 0, height: 3, backgroundColor: '#CCFF00', shadowColor: '#CCFF00', shadowOpacity: 1, shadowRadius: 15 },
   warningBox: { backgroundColor: 'rgba(255, 59, 48, 0.1)', padding: 15, borderRadius: 12, marginTop: 5, borderWidth: 1, borderColor: 'rgba(255, 59, 48, 0.3)', width: '100%' },
-  warningText: { color: '#FF3B30', fontSize: 12, textAlign: 'center', fontWeight: 'bold', lineHeight: 18 }
+  warningText: { color: '#FF3B30', fontSize: 12, textAlign: 'center', fontWeight: 'bold', lineHeight: 18 },
+
+  // 🔥 Estilos do Modal de Bloqueio 🔥
+  modalOverlayLock: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalCardLock: { width: '100%', maxWidth: 400, backgroundColor: '#111', padding: 30, borderRadius: 24, borderWidth: 2, borderColor: '#FF3B30', alignItems: 'center' },
+  iconCircleLock: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#FF3B3022', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  modalTitleLock: { fontSize: 22, fontWeight: '900', color: '#FFF', letterSpacing: 1, marginBottom: 15, textAlign: 'center' },
+  modalDescLock: { fontSize: 14, color: '#aaa', textAlign: 'center', lineHeight: 22, marginBottom: 25 },
+  modalBtnLock: { width: '100%', backgroundColor: '#FF3B30', paddingVertical: 16, borderRadius: 14, alignItems: 'center' },
+  modalBtnTextLock: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }
 });

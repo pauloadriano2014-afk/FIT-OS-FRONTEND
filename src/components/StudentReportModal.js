@@ -12,7 +12,7 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
     const currentCoachId = coachId || pendingFeedback?.coachId || pendingFeedback?.user?.coachId;
     const coachEmail = pendingFeedback?.coach?.email || '';
     
-    // Validação tripla para garantir que a assinatura Team Kern apareça sempre que for ela
+    // Validação tripla para garantir a assinatura correta
     const isAdri = currentCoachId === ADRI_COACH_ID || 
                    coachEmail.toLowerCase() === 'adri.personal@hotmail.com' ||
                    pendingFeedback?.coachFeedback?.includes('Coach Adri Kern');
@@ -110,26 +110,30 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                             })}
                         </View>
                         
-                        {/* 🔥 ASSINATURA DINÂMICA (PAULO vs ADRI) 🔥 */}
-                        {isAdri ? (
-                            <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#AF52DE', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                                <Image source={require('../../assets/TEAMKERN.jpg')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#AF52DE' }} />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>ADRI KERN</Text>
-                                    <Text style={[styles.coachTitle, { color: '#AF52DE', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & POSING COACH</Text>
-                                </View>
-                                <MaterialCommunityIcons name="star-check" size={32} color="#AF52DE" />
-                            </View>
-                        ) : (
-                            <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: '#333', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                        {/* 🔥 ASSINATURA CONSOLIDADA PA ELITE TEAM 🔥 */}
+                        <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: isAdri ? '#AF52DE' : '#4DE38F', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+                            
+                            {/* FOTO DA ESQUERDA: Adri usa a logo PA Elite, Paulo usa a foto de perfil dele */}
+                            {isAdri ? (
+                                <Image source={require('../../assets/paelite.jpg')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#AF52DE' }} />
+                            ) : (
                                 <Image source={require('../../assets/paulo-foto-perfil.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
-                                <View style={{ flex: 1 }}>
-                                    <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>PAULO ADRIANO</Text>
-                                    <Text style={[styles.coachTitle, { color: '#AAA', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>COACH & TREINADOR ELITE</Text>
-                                </View>
-                                <Image source={require('../../assets/logo-pa.png')} style={{ width: 45, height: 45 }} resizeMode="contain" />
+                            )}
+                            
+                            <View style={{ flex: 1 }}>
+                                <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>{isAdri ? 'ADRI KERN' : 'PAULO ADRIANO'}</Text>
+                                <Text style={[styles.coachTitle, { color: isAdri ? '#AF52DE' : '#4DE38F', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>
+                                    {isAdri ? 'POSING COACH | PA ELITE TEAM' : 'HEAD COACH | PA ELITE TEAM'}
+                                </Text>
                             </View>
-                        )}
+                            
+                            {/* LOGO DA DIREITA: Mantendo a sua logo-pa.png intacta! */}
+                            {isAdri ? (
+                                <MaterialCommunityIcons name="star-check" size={32} color="#AF52DE" />
+                            ) : (
+                                <Image source={require('../../assets/logo-pa.png')} style={{ width: 45, height: 45 }} resizeMode="contain" />
+                            )}
+                        </View>
 
                         <TouchableOpacity 
                             style={[styles.upsellBtn, {backgroundColor: isAdri ? '#AF52DE' : '#4DE38F', marginTop: 30, marginBottom: 20}]} 

@@ -246,7 +246,7 @@ export default function HomeScreen({ navigation }) {
                       
                       fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
 
-                      // 🔥 LÓGICA FINANCEIRA APLICADA 🔥
+                      // 🔥 LÓGICA FINANCEIRA CONFIGURADA 🔥
                       if (fetchedUser.paymentDueDate && fetchedUser.isFinanceActive !== false) {
                           const pDate = new Date(fetchedUser.paymentDueDate);
                           pDate.setHours(0,0,0,0);
@@ -518,6 +518,11 @@ export default function HomeScreen({ navigation }) {
 
     const isBlockedTotal = isFichaExpired || isWaitingStart || needsInitialPhoto || isFinanceLocked;
 
+    // Cole o ID exato da Adri aqui dentro das aspas (você acha isso no painel Admin)
+    const isAdriCoach = userData?.coachId === 'b7c0c181-41fd-4156-b8fe-963a267759a3'; 
+    const coachNameLabel = isAdriCoach ? 'A ADRI' : 'O PAULO';
+    const coachWhatsappNumber = isAdriCoach ? '554198465582' : '5541997991346';
+
     const g1 = String(userData?.gender).toUpperCase().trim();
     const g2 = String(userData?.anamneses?.[0]?.genero).toUpperCase().trim();
     const g3 = String(userData?.anamneses?.[0]?.gender).toUpperCase().trim();
@@ -562,7 +567,7 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </View>
 
-              {/* 🔥 BANNER FINANCEIRO 🔥 */}
+              {/* 🔥 BANNER FINANCEIRO DYNAMIC 🔥 */}
               {daysToPay !== null && daysToPay <= 7 && !disableCheckIn && (
                   <TouchableOpacity 
                       style={[styles.photoBanner, { backgroundColor: daysToPay <= 3 ? '#FF3B3015' : '#FF950015', borderColor: daysToPay <= 3 ? '#FF3B30' : '#FF9500', padding: 16 }]} 
@@ -592,7 +597,7 @@ export default function HomeScreen({ navigation }) {
                             activeOpacity={0.9} 
                             onPress={() => {
                                 handleDismissVideoAlert();
-                                navigation.navigate('Biblioteca'); // Direto pro PA FLIX!
+                                navigation.navigate('Biblioteca'); 
                             }}
                           >
                               <Image 
@@ -857,7 +862,7 @@ export default function HomeScreen({ navigation }) {
             </TouchableOpacity>
         </View>
 
-        {/* 🔥 MODAL DE BLOQUEIO FINANCEIRO 🔥 */}
+        {/* 🔥 MODAL DE BLOQUEIO FINANCEIRO COM BOX PIX SELECIONÁVEL E DINÂMICA DE REDIRECIONAMENTO CORES SINCRO 🔥 */}
         {isFinanceLocked && (
             <Modal visible={financeModalVisible} transparent animationType="fade" onRequestClose={() => setFinanceModalVisible(false)}>
                 <View style={styles.chatModalOverlay}>
@@ -865,17 +870,39 @@ export default function HomeScreen({ navigation }) {
                         <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}>
                             <MaterialCommunityIcons name="lock-alert" size={36} color="#FF3B30" />
                         </View>
-                        <Text style={[styles.upsellTitle, { color: theme.text }]}>ACESSO BLOQUEADO</Text>
-                        <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>
-                            O seu plano venceu e o acesso à área de treinos foi suspenso temporariamente. 
-                            {'\n\n'}Se você já realizou o pagamento, desconsidere e aguarde a baixa no sistema. Caso precise renegociar, fale com o Coach!
+                        <Text style={[styles.upsellTitle, { color: theme.text }]}>ACESSO SUSPENSO</Text>
+                        
+                        <Text style={[styles.upsellDesc, { color: theme.textSecondary, marginBottom: 15 }]}>
+                            O seu plano venceu e o acesso à área de treinos foi suspenso temporariamente.
+                            {'\n\n'}Se você já realizou a transferência, desconsidere este aviso enquanto o sistema computa a baixa automaticamente.
                         </Text>
-                        <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: '#25D366', marginBottom: 10 }]} onPress={() => { Linking.openURL("https://wa.me/5541997991346?text=Coach, preciso falar sobre a renovação do meu plano!"); }}>
-                            <Text style={[styles.upsellBtnText, { color: '#FFF' }]}>FALAR COM O COACH</Text>
+
+                        {/* 🔥 BOX EXCLUSIVO DE PAGAMENTO VIA PIX MÓVEL - SELECIONÁVEL 🔥 */}
+                        <View style={{ width: '100%', backgroundColor: theme.isDark ? '#111' : '#F2F2F7', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.border, marginBottom: 15, alignItems: 'center' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                <MaterialCommunityIcons name="qrcode" size={16} color={theme.accent} />
+                                <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 }}>PAGAMENTO IMEDIATO VIA PIX</Text>
+                            </View>
+                            <Text selectable={true} style={{ color: theme.text, fontSize: 14, fontWeight: '900', letterSpacing: 0.2 }}>42.942.651/000140</Text>
+                            <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700', marginTop: 3 }}>PA ELITE TEAM LTDA</Text>
+                        </View>
+
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, textAlign: 'center', marginBottom: 20, paddingHorizontal: 5, lineHeight: 16 }}>
+                            *Caso prefira realizar o pagamento através de um <Text style={{ fontWeight: 'bold', color: theme.text }}>Link de Pagamento</Text> de cartão, entre em contato com seu responsável abaixo para receber uma fatura atualizada.
+                        </Text>
+
+                        <TouchableOpacity 
+                            style={[styles.upsellBtn, { backgroundColor: '#25D366', marginBottom: 10 }]} 
+                            onPress={() => { 
+        Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Acabei de verificar o painel e preciso falar sobre a renovação da minha assinatura!")}`); 
+    }}
+                        >
+                            <Text style={[styles.upsellBtnText, { color: '#FFF' }]}>FALAR COM {coachNameLabel}</Text>
                             <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
                         </TouchableOpacity>
+
                         <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, shadowOpacity: 0, elevation: 0 }]} onPress={() => setFinanceModalVisible(false)}>
-                            <Text style={[styles.upsellBtnText, { color: theme.text }]}>FECHAR</Text>
+                            <Text style={[styles.upsellBtnText, { color: theme.text }]}>FECHAR PAINEL</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -916,7 +943,16 @@ export default function HomeScreen({ navigation }) {
                     <Text style={[styles.upsellTitle, { color: theme.text }]}>FUNCIONALIDADE ELITE</Text>
                     <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>O recurso de <Text style={{color: theme.accent, fontWeight: 'bold'}}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Elite.</Text>
                     <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text></View></View>
-                    <TouchableOpacity style={styles.upsellBtn} onPress={() => { setUpsellModalVisible(false); Linking.openURL("https://wa.me/5541997991346?text=Coach, quero ser Elite!"); }}><Text style={styles.upsellBtnText}>SER ELITE AGORA</Text><MaterialCommunityIcons name="whatsapp" size={20} color="#000" style={{marginLeft: 8}}/></TouchableOpacity>
+                    <TouchableOpacity 
+                        style={styles.upsellBtn} 
+                        onPress={() => { 
+        setUpsellModalVisible(false); 
+        Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Coach, quero subir de nível e migrar meu plano para a Consultoria Elite!")}`); 
+    }}
+                    >
+                        <Text style={styles.upsellBtnText}>SER ELITE AGORA</Text>
+                        <MaterialCommunityIcons name="whatsapp" size={20} color="#000" style={{marginLeft: 8}}/>
+                    </TouchableOpacity>
                 </View>
             </View>
         </Modal>
