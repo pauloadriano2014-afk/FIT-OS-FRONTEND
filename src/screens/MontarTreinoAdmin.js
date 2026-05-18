@@ -70,9 +70,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [anamneseData, setAnamneseData] = useState(null);
     const [isRaioxExpanded, setIsRaioxExpanded] = useState(false);
     
-    // 🔥 ESTADO DO ALERTA MENSTRUAL 🔥
+    // 🔥 ESTADO DO ALERTA MENSTRUAL E CANCELAMENTO 🔥
     const [alunoIsMenstruating, setAlunoIsMenstruating] = useState(!!aluno?.isMenstruating);
     const [dbDeloadSynced, setDbDeloadSynced] = useState(false);
+    const [isCancelingDeload, setIsCancelingDeload] = useState(false);
     const hasForcedDeload = useRef(false);
     
     const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
@@ -160,6 +161,43 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             } catch (e) {}
         }
     }, [state.loading, dbDeloadSynced]);
+
+    // 🔥 FUNÇÃO NOVA: CANCELAR O DELOAD 🔥
+    const handleCancelDeload = async () => {
+        setIsCancelingDeload(true);
+        try {
+            // 1. Zera a variável visual do treino atual para 1.0 (100% intensidade)
+            if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(1.0);
+            if (setters.setIntensityEndDate) setters.setIntensityEndDate(null);
+
+            // 2. Atualiza o banco de dados desativando o ciclo menstrual
+            let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ isMenstruating: false, menstruationStartDate: null })
+            });
+
+            if (!res.ok) {
+                res = await fetch('https://fitos-final.onrender.com/api/admin/user', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: aluno.id, isMenstruating: false, menstruationStartDate: null })
+                });
+            }
+
+            // 3. Atualiza os estados para remover a caixa vermelha da tela imediatamente
+            setAlunoIsMenstruating(false);
+            setDbDeloadSynced(false);
+            hasForcedDeload.current = false;
+            
+        } catch (error) {
+            console.log("Erro ao cancelar deload:", error);
+            if(Platform.OS === 'web') window.alert("Erro de conexão. Tente novamente.");
+            else Alert.alert("Erro", "Falha de conexão. Tente novamente.");
+        } finally {
+            setIsCancelingDeload(false);
+        }
+    };
 
     const moveTab = useCallback((tabName, direction) => {
         const tabs = [...state.workoutTabs];
@@ -694,9 +732,24 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                         </Text>
                     )}
 
+                    {/* 🔥 BOTÃO DE CANCELAR O DELOAD 🔥 */}
+                    <TouchableOpacity 
+                        style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}
+                        onPress={handleCancelDeload}
+                        disabled={isCancelingDeload}
+                        activeOpacity={0.8}
+                    >
+                        {isCancelingDeload ? <ActivityIndicator size="small" color={theme.textSecondary} /> : (
+                            <>
+                                <MaterialCommunityIcons name="close-circle-outline" size={18} color={theme.textSecondary} style={{ marginRight: 6 }} />
+                                <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }}>DESATIVAR / CANCELAR DELOAD</Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
+
                     {!(dbDeloadSynced || state.intensityMultiplier < 1) && (
                         <TouchableOpacity 
-                            style={{ backgroundColor: '#FF3B30', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}
+                            style={{ backgroundColor: '#FF3B30', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 10 }}
                             onPress={() => {
                                 try {
                                     if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(0.8);

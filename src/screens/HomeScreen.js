@@ -71,7 +71,6 @@ export default function HomeScreen({ navigation }) {
     const [activeNotice, setActiveNotice] = useState(null);
     const [noticeModalVisible, setNoticeModalVisible] = useState(false);
     
-    // 🔥 ESTADOS DO AVISO DE VÍDEO NOVO (HOME) 🔥
     const [newVideoContent, setNewVideoContent] = useState(null);
     const [showVideoAlert, setShowVideoAlert] = useState(false);
 
@@ -352,6 +351,7 @@ export default function HomeScreen({ navigation }) {
       finally { setLoading(false); setRefreshing(false); }
     };
 
+    // 🔥 CIRURGIA DE NOTIFICAÇÃO DO ADMIN APLICADA AQUI 🔥
     const toggleMenstrualCycle = async () => {
         if (!userData?.id || togglingMenstrual) return;
         setTogglingMenstrual(true);
@@ -385,11 +385,36 @@ export default function HomeScreen({ navigation }) {
                 });
             }
 
-            if (newValue && res.ok) {
-                const title = "Sinalização Ativa 🩸";
-                const msg = "Seu Coach foi notificado. Pegue leve, beba água e se cuide nesses dias!";
-                if (Platform.OS === 'web') window.alert(title + "\n\n" + msg);
-                else Alert.alert(title, msg);
+            if (res.ok) {
+                // Notificação disparada pro celular do admin!
+                try {
+                    const fetchCoachId = userData.coachId || '';
+                    if (fetchCoachId) {
+                        const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}`);
+                        if (adminRes.ok) {
+                            const adminData = await adminRes.json();
+                            if (adminData.pushToken) {
+                                await fetch('https://exp.host/--/api/v2/push/send', {
+                                    method: 'POST',
+                                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        to: adminData.pushToken,
+                                        sound: 'default',
+                                        title: newValue ? '🩸 Alerta Menstrual!' : '✅ Fim do Protocolo Menstrual',
+                                        body: newValue ? `A aluna ${userData.name} sinalizou o protocolo. Reajuste ou ative o Deload se necessário.` : `A aluna ${userData.name} encerrou o período.`,
+                                    }),
+                                });
+                            }
+                        }
+                    }
+                } catch(e) { console.log("Erro na notificação Push:", e); }
+
+                if (newValue) {
+                    const title = "Sinalização Ativa 🩸";
+                    const msg = "Seu Coach foi notificado. Pegue leve, beba água e se cuide nesses dias!";
+                    if (Platform.OS === 'web') window.alert(title + "\n\n" + msg);
+                    else Alert.alert(title, msg);
+                }
             }
         } catch (e) {
             console.log("Erro de rede ao salvar:", e);
@@ -518,7 +543,6 @@ export default function HomeScreen({ navigation }) {
                 </View>
               </View>
 
-              {/* 🔥 BANNER LIMPO: APENAS AVISO CINEMATOGRÁFICO 🔥 */}
               {showVideoAlert && newVideoContent && (
                   <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%', marginBottom: 15 }}>
                       <View style={[styles.newVideoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -850,7 +874,6 @@ const styles = StyleSheet.create({
     statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
     statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
     
-    // 🔥 ESTILOS DO BANNER DE VÍDEO (APENAS AVISO LIMPO) 🔥
     newVideoCard: { borderRadius: 20, borderWidth: 1, overflow: 'hidden', elevation: 4, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 8 },
     newVideoImageContainer: { width: '100%', aspectRatio: 16/9, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
     newVideoThumb: { width: '100%', height: '100%', position: 'absolute' },

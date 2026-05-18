@@ -13,6 +13,10 @@ export default function AdminStudentCard({ item, theme, navigation }) {
     const dbPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(item.plan) ? item.plan : 'PREMIUM';
     const badge = getPlanBadge(dbPlan);
     const pendingCount = item._count?.checkIns || 0;
+    
+    // 🔥 VARIÁVEL PARA LER O STATUS MENSTRUAL 🔥
+    const isMenstruating = item.isMenstruating || false;
+    const hasDeload = activeWorkout && activeWorkout.intensityMultiplier < 1;
 
     const handleCobrarWhatsApp = (e) => {
         e.stopPropagation(); 
@@ -60,6 +64,16 @@ export default function AdminStudentCard({ item, theme, navigation }) {
                         <MaterialCommunityIcons name={badge.icon} size={10} color={badge.color} />
                         <Text style={[styles.badgeText, { color: badge.color }]}>{badge.text}</Text>
                     </View>
+
+                    {/* 🔥 SELO DO DELOAD MENSTRUAL 🔥 */}
+                    {isMenstruating && (
+                        <View style={[styles.badgeBase, { backgroundColor: hasDeload ? '#4DE38F22' : '#FF3B3022', borderColor: hasDeload ? '#4DE38F' : '#FF3B30', borderWidth: 1 }]}>
+                            <MaterialCommunityIcons name={hasDeload ? "shield-check" : "water-alert"} size={10} color={hasDeload ? "#4DE38F" : "#FF3B30"} />
+                            <Text style={[styles.badgeText, { color: hasDeload ? "#4DE38F" : "#FF3B30" }]}>
+                                {hasDeload ? 'DELOAD ATIVO' : 'PROTOCOLO MENSTRUAL'}
+                            </Text>
+                        </View>
+                    )}
 
                     {pendingCount > 0 && (
                         <View style={[styles.badgeBase, { backgroundColor: '#FF3B3022' }]}>
