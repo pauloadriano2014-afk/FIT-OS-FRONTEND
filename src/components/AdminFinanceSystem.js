@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, Image, Act
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 IMPORT ADICIONADO 🔥
 
 const MONTHS = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 
@@ -71,7 +72,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     
     // Filtros
     const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
-    const [filterStatus, setFilterStatus] = useState('ATIVOS'); // 🔥 Padrão é mostrar só os ativos
+    const [filterStatus, setFilterStatus] = useState('ATIVOS'); 
     const [filterCategory, setFilterCategory] = useState('TODOS'); 
     const [filterPrazo, setFilterPrazo] = useState('TODOS'); 
     const [searchQuery, setSearchQuery] = useState(''); 
@@ -84,9 +85,10 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [editingAluno, setEditingAluno] = useState(null);
     const [contractType, setContractType] = useState('Mensal');
     const [contractValue, setContractValue] = useState('0');
+    const [startDateEdit, setStartDateEdit] = useState(''); 
     const [paymentDueDate, setPaymentDueDate] = useState('');
     const [financeCategoryEdit, setFinanceCategoryEdit] = useState('Consultoria Online');
-    const [isFinanceActiveEdit, setIsFinanceActiveEdit] = useState(true); // 🔥 NOVO ESTADO
+    const [isFinanceActiveEdit, setIsFinanceActiveEdit] = useState(true);
     const [isSavingContract, setIsSavingContract] = useState(false);
 
     // Novo Aluno
@@ -106,16 +108,29 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setLocalAlunos(alunos);
     }, [alunos]);
 
+    // 🔥 CARREGA ALUNOS OFFLINE DO CACHE ASSIM QUE A TELA ABRE 🔥
+    useEffect(() => {
+        const loadOfflineClients = async () => {
+            try {
+                const saved = await AsyncStorage.getItem('@offline_clients');
+                if (saved) setOfflineClients(JSON.parse(saved));
+            } catch (e) { console.error("Erro ao carregar offline", e); }
+        };
+        loadOfflineClients();
+    }, []);
+
     const todosAlunosFinanceiro = useMemo(() => {
         const mix = [...localAlunos, ...offlineClients];
-        return mix.filter(a => getLogCoach(a) === coachFilter).map(aluno => ({
+        return mix.filter(a => {
+            if (a.isOffline) return a.assignedCoach === coachFilter;
+            return getLogCoach(a) === coachFilter;
+        }).map(aluno => ({
             ...aluno,
             financeCategory: aluno.financeCategory || (aluno.isOffline ? aluno.plan : 'Consultoria Online'),
             isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true
         }));
     }, [localAlunos, offlineClients, coachFilter, getLogCoach]);
 
-    // 🔥 MÁTRICAS COM CONGELAMENTO 🔥
     const metrics = useMemo(() => {
         let entrada = 0;
         let pendente = 0;
@@ -128,12 +143,10 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             const valor = parseFloat(aluno.contractValue) || 0;
             const isPaid = aluno.paymentDueDate ? new Date(aluno.paymentDueDate) > endOfSelectedMonth : false;
 
-            // Se está pago, a grana entrou (inativo ou ativo).
             if (isPaid) {
                 entrada += valor;
                 previsao += valor;
             } else {
-                // Se NÃO está pago e está ATIVO, cobra. Se não, não entra na previsão.
                 if (aluno.isFinanceActive) {
                     pendente += valor;
                     previsao += valor;
@@ -153,7 +166,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             return { ...aluno, isPaid };
         });
 
-        // 🔥 LÓGICA DO NOVO FILTRO 🔥
         if (filterStatus === 'ATIVOS') list = list.filter(a => a.isFinanceActive);
         if (filterStatus === 'INATIVOS') list = list.filter(a => !a.isFinanceActive);
         if (filterStatus === 'PAGOS') list = list.filter(a => a.isPaid && a.isFinanceActive);
@@ -199,13 +211,14 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
                 const updatedData = { paymentDueDate: novaDataISO };
 
-                // 🔥 O TRUQUE: Atualiza o filho e a memória do Pai 🔥
                 setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
                 const parentRef = alunos.find(a => a.id === aluno.id);
                 if (parentRef) Object.assign(parentRef, updatedData);
 
                 if (aluno.isOffline) {
-                    setOfflineClients(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
+                    const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
+                    setOfflineClients(newList);
+                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE 🔥
                     if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
                 } else {
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
@@ -254,7 +267,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setEditingAluno(aluno);
         setContractType(aluno.contractType || 'Mensal');
         setContractValue(aluno.contractValue ? String(aluno.contractValue) : '0');
-        // Extrai a data local formatada sem quebrar fuso
+        setStartDateEdit(aluno.startDate ? aluno.startDate.split('T')[0] : (aluno.createdAt ? new Date(aluno.createdAt).toISOString().split('T')[0] : ''));
         setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
         setFinanceCategoryEdit(aluno.financeCategory || 'Consultoria Online');
         setIsFinanceActiveEdit(aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true);
@@ -264,6 +277,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setEditingAluno(null);
         setContractType('Mensal');
         setContractValue('0');
+        setStartDateEdit('');
         setPaymentDueDate('');
         setFinanceCategoryEdit('Consultoria Online');
         setIsFinanceActiveEdit(true);
@@ -275,23 +289,26 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         try {
             const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
             const safeIsoDate = forceMiddayUTC(paymentDueDate);
+            const safeStartIsoDate = forceMiddayUTC(startDateEdit);
 
             const updatedData = {
                 userId: editingAluno.id,
                 contractType,
                 contractValue: parsedValue,
                 paymentDueDate: safeIsoDate,
+                startDate: safeStartIsoDate, 
                 financeCategory: financeCategoryEdit, 
                 isFinanceActive: isFinanceActiveEdit
             };
 
-            // 🔥 O TRUQUE: Atualiza o filho e a memória do Pai 🔥
             setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
             const parentRef = alunos.find(a => a.id === editingAluno.id);
             if (parentRef) Object.assign(parentRef, updatedData);
 
             if (editingAluno.isOffline) {
-                setOfflineClients(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
+                setOfflineClients(newList);
+                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE 🔥
                 if (Platform.OS === 'web') window.alert("Sucesso!");
             } else {
                 const response = await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
@@ -310,7 +327,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         }
     };
 
-    // 🔥 NOVA FUNÇÃO: REVERTER PAGAMENTO 🔥
     const handleReverterPagamento = async () => {
         if (!editingAluno) return;
 
@@ -318,23 +334,26 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             setIsSavingContract(true);
             try {
                 const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
+                const safeStartIsoDate = forceMiddayUTC(startDateEdit);
 
                 const updatedData = {
                     userId: editingAluno.id,
                     contractType,
                     contractValue: parsedValue,
                     paymentDueDate: null, 
+                    startDate: safeStartIsoDate,
                     financeCategory: financeCategoryEdit, 
                     isFinanceActive: isFinanceActiveEdit
                 };
 
-                // 🔥 O TRUQUE: Atualiza o filho e a memória do Pai 🔥
                 setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
                 const parentRef = alunos.find(a => a.id === editingAluno.id);
                 if (parentRef) Object.assign(parentRef, updatedData);
 
                 if (editingAluno.isOffline) {
-                    setOfflineClients(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                    const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
+                    setOfflineClients(newList);
+                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE 🔥
                     if (Platform.OS === 'web') window.alert("Pagamento Revertido!");
                 } else {
                     const response = await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
@@ -392,14 +411,20 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 financeCategory: newCategory,
                 contractType: newDuration,
                 contractValue: parsedOfflineValue,
+                startDate: forceMiddayUTC(newStartDate), 
                 paymentDueDate: forceMiddayUTC(newDueDate),
                 photoUrl: newPhotoUrl,
                 isOffline: true,
                 isFinanceActive: true,
+                assignedCoach: coachFilter, // Atribui à aba de quem criou
                 coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', 
             };
-            setOfflineClients(prev => [...prev, newClient]);
-            if (Platform.OS === 'web') window.alert("Aluno offline cadastrado.");
+            
+            const newList = [...offlineClients, newClient];
+            setOfflineClients(newList);
+            await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE PARA NÃO SUMIR 🔥
+
+            if (Platform.OS === 'web') window.alert("Aluno offline cadastrado com sucesso.");
             setIsAddModalVisible(false);
             setNewName(''); setNewPhone(''); setNewCategory('Consultoria Online'); setNewDuration('Mensal'); setNewValue('');
             setNewStartDate(new Date().toISOString().split('T')[0]); setNewDueDate(''); setNewPhotoUrl('');
@@ -462,7 +487,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     )}
                 </View>
 
-                {/* 🔥 FILTRO VENCIMENTO COM A NOVA RÉGUA 🔥 */}
                 <View style={[{ padding: isWebPC ? 15 : 0 }, isWebPC ? { flex: 1, borderRightWidth: 1, borderRightColor: theme.border } : { marginBottom: 15 }]}>
                     <Text style={styles.inputLabel}>VENCIMENTO</Text>
                     {Platform.OS === 'web' ? renderWebSelect(filterPrazo, (e) => setFilterPrazo(e.target.value), [{ value: 'TODOS', label: 'QUALQUER DATA' }, { value: 'VENCIDOS', label: 'VENCIDO OU BLOQUEADO (0 dias)' }, { value: 'ALERTA_3D', label: 'URGENTE (1 a 3 dias)' }, { value: 'ATENCAO_7D', label: 'RENOVAÇÃO (4 a 7 dias)' }, { value: 'NO_PRAZO', label: 'NO PRAZO (> 7 dias)' }]) : (
@@ -712,16 +736,26 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 </View>
                             </View>
 
-                            <View>
-                                <Text style={styles.inputLabel}>PRÓXIMO VENCIMENTO</Text>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                    {Platform.OS === 'web' ? createElement('input', { type: 'date', value: paymentDueDate, onChange: (e) => setPaymentDueDate(e.target.value), style: styles.webDate(theme) }) : (
-                                        <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, flex: 1 }]} placeholder="AAAA-MM-DD" value={paymentDueDate} onChangeText={setPaymentDueDate} />
+                            {/* 🔥 ADIÇÃO DA DATA DE INÍCIO NO MODAL 🔥 */}
+                            <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
+                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                    <Text style={styles.inputLabel}>DATA DE INÍCIO</Text>
+                                    {/* 🔥 CORREÇÃO DO ERRO DA TELA BRANCA AQUI (style sem array) 🔥 */}
+                                    {Platform.OS === 'web' ? createElement('input', { type: 'date', value: startDateEdit, onChange: (e) => setStartDateEdit(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : (
+                                        <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={startDateEdit} onChangeText={setStartDateEdit} />
                                     )}
-                                    <TouchableOpacity style={[styles.modernBtn, { backgroundColor: '#34C759' }]} onPress={() => setPaymentDueDate(calcularProximaData(paymentDueDate ? forceMiddayUTC(paymentDueDate) : new Date().toISOString(), contractType).split('T')[0])}>
-                                        <MaterialCommunityIcons name="cash-plus" size={16} color="#FFF" />
-                                        <Text style={styles.modernBtnText}>💰 RENOVOU</Text>
-                                    </TouchableOpacity>
+                                </View>
+                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                    <Text style={styles.inputLabel}>PRÓXIMO VENCIMENTO</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                        {Platform.OS === 'web' ? createElement('input', { type: 'date', value: paymentDueDate, onChange: (e) => setPaymentDueDate(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : (
+                                            <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, flex: 1 }]} placeholder="AAAA-MM-DD" value={paymentDueDate} onChangeText={setPaymentDueDate} />
+                                        )}
+                                        <TouchableOpacity style={[styles.modernBtn, { backgroundColor: '#34C759' }]} onPress={() => setPaymentDueDate(calcularProximaData(paymentDueDate ? forceMiddayUTC(paymentDueDate) : new Date().toISOString(), contractType).split('T')[0])}>
+                                            <MaterialCommunityIcons name="cash-plus" size={16} color="#FFF" />
+                                            <Text style={styles.modernBtnText}>💰 RENOVOU</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
                             </View>
 
@@ -765,8 +799,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 <View><Text style={styles.inputLabel}>VALOR TOTAL (R$)</Text><TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="Ex: 149,90" placeholderTextColor={theme.textSecondary} value={newValue} onChangeText={setNewValue} keyboardType="numeric" /></View>
                                 
                                 <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
-                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>DATA INÍCIO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newStartDate, onChange: (e) => setNewStartDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newStartDate} onChangeText={setNewStartDate} />}</View>
-                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>VENCIMENTO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newDueDate, onChange: (e) => setNewDueDate(e.target.value), style: styles.webDate(theme) }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newDueDate} onChangeText={setNewDueDate} />}</View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>DATA INÍCIO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newStartDate, onChange: (e) => setNewStartDate(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newStartDate} onChangeText={setNewStartDate} />}</View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}><Text style={styles.inputLabel}>VENCIMENTO</Text>{Platform.OS === 'web' ? createElement('input', { type: 'date', value: newDueDate, onChange: (e) => setNewDueDate(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={newDueDate} onChangeText={setNewDueDate} />}</View>
                                 </View>
                                 
                                 <View style={{ marginTop: 10 }}>
