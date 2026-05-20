@@ -5,7 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Platform, Linking, Image, Act
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 IMPORT ADICIONADO 🔥
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MONTHS = ['JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 
@@ -89,6 +89,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [paymentDueDate, setPaymentDueDate] = useState('');
     const [financeCategoryEdit, setFinanceCategoryEdit] = useState('Consultoria Online');
     const [isFinanceActiveEdit, setIsFinanceActiveEdit] = useState(true);
+    const [editPhotoUrl, setEditPhotoUrl] = useState(''); // 🔥 NOVO ESTADO FOTO EDIÇÃO
+    const [isUploadingEditPhoto, setIsUploadingEditPhoto] = useState(false); // 🔥 NOVO ESTADO FOTO EDIÇÃO
     const [isSavingContract, setIsSavingContract] = useState(false);
 
     // Novo Aluno
@@ -218,7 +220,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 if (aluno.isOffline) {
                     const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
                     setOfflineClients(newList);
-                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE 🔥
+                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
                     if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
                 } else {
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
@@ -271,6 +273,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
         setFinanceCategoryEdit(aluno.financeCategory || 'Consultoria Online');
         setIsFinanceActiveEdit(aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true);
+        setEditPhotoUrl(aluno.photoUrl || ''); // 🔥 PUXA A FOTO ATUAL PARA EDIÇÃO
     };
 
     const closeEditModal = () => {
@@ -281,6 +284,47 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setPaymentDueDate('');
         setFinanceCategoryEdit('Consultoria Online');
         setIsFinanceActiveEdit(true);
+        setEditPhotoUrl('');
+    };
+
+    // 🔥 FUNÇÃO DE UPLOAD PARA EDIÇÃO (BASE64) 🔥
+    const handlePickEditImage = async () => {
+        try {
+            let result = await ImagePicker.launchImageLibraryAsync({ 
+                mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+                allowsEditing: true, 
+                aspect: [1, 1], 
+                quality: 0.5 
+            });
+            
+            if (!result.canceled && result.assets[0].uri) {
+                setIsUploadingEditPhoto(true);
+                
+                // 🔥 SEU CÓDIGO DE UPLOAD PARA O R2 AQUI 🔥
+                const uri = result.assets[0].uri;
+                const formData = new FormData();
+                formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
+
+                // AJUSTE PARA A SUA ROTA DE UPLOAD REAL:
+                const response = await fetch('https://fitos-final.onrender.com/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setEditPhotoUrl(data.url); // Salva apenas o Link público do Cloudflare R2!
+                } else {
+                    throw new Error("Falha no upload para o R2");
+                }
+            }
+        } catch (error) {
+            console.error("Erro no upload da foto:", error);
+            if (Platform.OS === 'web') window.alert("Erro ao fazer upload da imagem.");
+        } finally {
+            setIsUploadingEditPhoto(false);
+        }
     };
 
     const handleSaveModalContract = async () => {
@@ -298,7 +342,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 paymentDueDate: safeIsoDate,
                 startDate: safeStartIsoDate, 
                 financeCategory: financeCategoryEdit, 
-                isFinanceActive: isFinanceActiveEdit
+                isFinanceActive: isFinanceActiveEdit,
+                ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {}) // 🔥 INJETA A FOTO SE FOR OFFLINE
             };
 
             setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
@@ -308,7 +353,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             if (editingAluno.isOffline) {
                 const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
                 setOfflineClients(newList);
-                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE 🔥
+                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
                 if (Platform.OS === 'web') window.alert("Sucesso!");
             } else {
                 const response = await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
@@ -343,7 +388,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     paymentDueDate: null, 
                     startDate: safeStartIsoDate,
                     financeCategory: financeCategoryEdit, 
-                    isFinanceActive: isFinanceActiveEdit
+                    isFinanceActive: isFinanceActiveEdit,
+                    ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
                 };
 
                 setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
@@ -353,7 +399,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 if (editingAluno.isOffline) {
                     const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
                     setOfflineClients(newList);
-                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE 🔥
+                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
                     if (Platform.OS === 'web') window.alert("Pagamento Revertido!");
                 } else {
                     const response = await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
@@ -383,13 +429,55 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         }
     };
 
+    const handleUploadR2 = async (uri) => {
+    const formData = new FormData();
+    // Ajuste o campo 'file' se o seu backend exigir outro nome
+    formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
+    
+    const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
+        method: 'POST', 
+        body: formData 
+    });
+    
+    if (!res.ok) throw new Error("Falha no upload");
+    const data = await res.json();
+    return data.url; // Retorna a URL pública que o seu backend devolve
+};
+
     const handlePickImage = async () => {
         try {
-            setUploadingPhoto(true);
-            let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.5 });
-            if (!result.canceled) setNewPhotoUrl(result.assets[0].uri);
+            let result = await ImagePicker.launchImageLibraryAsync({ 
+                mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+                allowsEditing: true, 
+                aspect: [1, 1], 
+                quality: 0.5 
+            });
+            
+            if (!result.canceled && result.assets[0].uri) {
+                setUploadingPhoto(true);
+                
+                // 🔥 SEU CÓDIGO DE UPLOAD PARA O R2 AQUI 🔥
+                const uri = result.assets[0].uri;
+                const formData = new FormData();
+                formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
+
+                // AJUSTE PARA A SUA ROTA DE UPLOAD REAL:
+                const response = await fetch('https://fitos-final.onrender.com/api/upload', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'Accept': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    setNewPhotoUrl(data.url); // Salva apenas o Link público do Cloudflare R2!
+                } else {
+                    throw new Error("Falha no upload para o R2");
+                }
+            }
         } catch (error) {
-            console.error(error);
+            console.error("Erro no upload da foto:", error);
+            if (Platform.OS === 'web') window.alert("Erro ao fazer upload da imagem.");
         } finally {
             setUploadingPhoto(false);
         }
@@ -416,13 +504,13 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 photoUrl: newPhotoUrl,
                 isOffline: true,
                 isFinanceActive: true,
-                assignedCoach: coachFilter, // Atribui à aba de quem criou
+                assignedCoach: coachFilter,
                 coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', 
             };
             
             const newList = [...offlineClients, newClient];
             setOfflineClients(newList);
-            await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList)); // 🔥 SALVA NO CACHE PARA NÃO SUMIR 🔥
+            await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
 
             if (Platform.OS === 'web') window.alert("Aluno offline cadastrado com sucesso.");
             setIsAddModalVisible(false);
@@ -694,82 +782,96 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                             <TouchableOpacity onPress={closeEditModal} style={styles.closeButton}><MaterialCommunityIcons name="close" size={26} color={theme.textSecondary} /></TouchableOpacity>
                         </View>
 
-                        <View style={{ gap: 20 }}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: isFinanceActiveEdit ? theme.accent : theme.border, backgroundColor: isFinanceActiveEdit ? theme.accent + '15' : theme.surface }}>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: isFinanceActiveEdit ? theme.text : '#FF3B30', fontWeight: 'bold', fontSize: 13 }}>
-                                        {isFinanceActiveEdit ? "Aluno Ativo no Financeiro" : "Aluno Inativo no Financeiro"}
-                                    </Text>
-                                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>
-                                        {isFinanceActiveEdit ? "Os valores pendentes entrarão na previsão do mês." : "O valor deste aluno foi congelado e não entrará mais na previsão."}
-                                    </Text>
-                                </View>
-                                <Switch value={isFinanceActiveEdit} onValueChange={setIsFinanceActiveEdit} trackColor={{ false: theme.border, true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : '#FFF'} />
-                            </View>
-
-                            <View style={styles.formRow(isWebPC)}>
-                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
-                                    <Text style={styles.inputLabel}>CATEGORIA NO FINANCEIRO</Text>
-                                    {Platform.OS === 'web' ? renderWebSelect(financeCategoryEdit, (e) => setFinanceCategoryEdit(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : (
-                                        <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-                                            <Picker selectedValue={financeCategoryEdit} onValueChange={setFinanceCategoryEdit} style={{ color: theme.text }} dropdownIconColor={theme.accent}>
-                                                {CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}
-                                            </Picker>
-                                        </View>
-                                    )}
-                                </View>
-                            </View>
-
-                            <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
-                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
-                                    <Text style={styles.inputLabel}>DURAÇÃO (TIPO DE PLANO)</Text>
-                                    {Platform.OS === 'web' ? renderWebSelect(contractType, (e) => setContractType(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' }, { value: 'Projeto 90 Dias', label: 'Projeto 90 Dias' }, { value: 'Ficha 8 Semanas', label: 'Ficha 8 Semanas' } ]) : (
-                                        <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-                                            <Picker selectedValue={contractType} onValueChange={setContractType} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /><Picker.Item label="Projeto 90 Dias" value="Projeto 90 Dias" /><Picker.Item label="Ficha 8 Semanas" value="Ficha 8 Semanas" /></Picker>
-                                        </View>
-                                    )}
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                            <View style={{ gap: 20 }}>
+                                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: isFinanceActiveEdit ? theme.accent : theme.border, backgroundColor: isFinanceActiveEdit ? theme.accent + '15' : theme.surface }}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={{ color: isFinanceActiveEdit ? theme.text : '#FF3B30', fontWeight: 'bold', fontSize: 13 }}>
+                                            {isFinanceActiveEdit ? "Aluno Ativo no Financeiro" : "Aluno Inativo no Financeiro"}
+                                        </Text>
+                                        <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 4 }}>
+                                            {isFinanceActiveEdit ? "Os valores pendentes entrarão na previsão do mês." : "O valor deste aluno foi congelado e não entrará mais na previsão."}
+                                        </Text>
+                                    </View>
+                                    <Switch value={isFinanceActiveEdit} onValueChange={setIsFinanceActiveEdit} trackColor={{ false: theme.border, true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : '#FFF'} />
                                 </View>
 
-                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
-                                    <Text style={styles.inputLabel}>VALOR (R$)</Text>
-                                    <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.accent, borderColor: theme.border, textAlign: 'center' }]} placeholder="0.00" placeholderTextColor={theme.textSecondary} value={contractValue} onChangeText={setContractValue} keyboardType="numeric" />
-                                </View>
-                            </View>
-
-                            {/* 🔥 ADIÇÃO DA DATA DE INÍCIO NO MODAL 🔥 */}
-                            <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
-                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
-                                    <Text style={styles.inputLabel}>DATA DE INÍCIO</Text>
-                                    {/* 🔥 CORREÇÃO DO ERRO DA TELA BRANCA AQUI (style sem array) 🔥 */}
-                                    {Platform.OS === 'web' ? createElement('input', { type: 'date', value: startDateEdit, onChange: (e) => setStartDateEdit(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : (
-                                        <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={startDateEdit} onChangeText={setStartDateEdit} />
-                                    )}
-                                </View>
-                                <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
-                                    <Text style={styles.inputLabel}>PRÓXIMO VENCIMENTO</Text>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                                        {Platform.OS === 'web' ? createElement('input', { type: 'date', value: paymentDueDate, onChange: (e) => setPaymentDueDate(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : (
-                                            <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, flex: 1 }]} placeholder="AAAA-MM-DD" value={paymentDueDate} onChangeText={setPaymentDueDate} />
+                                <View style={styles.formRow(isWebPC)}>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                        <Text style={styles.inputLabel}>CATEGORIA NO FINANCEIRO</Text>
+                                        {Platform.OS === 'web' ? renderWebSelect(financeCategoryEdit, (e) => setFinanceCategoryEdit(e.target.value), CATEGORIAS_OFFLINE.map(c => ({ value: c, label: c }))) : (
+                                            <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                                <Picker selectedValue={financeCategoryEdit} onValueChange={setFinanceCategoryEdit} style={{ color: theme.text }} dropdownIconColor={theme.accent}>
+                                                    {CATEGORIAS_OFFLINE.map(c => <Picker.Item key={c} label={c} value={c} />)}
+                                                </Picker>
+                                            </View>
                                         )}
-                                        <TouchableOpacity style={[styles.modernBtn, { backgroundColor: '#34C759' }]} onPress={() => setPaymentDueDate(calcularProximaData(paymentDueDate ? forceMiddayUTC(paymentDueDate) : new Date().toISOString(), contractType).split('T')[0])}>
-                                            <MaterialCommunityIcons name="cash-plus" size={16} color="#FFF" />
-                                            <Text style={styles.modernBtnText}>💰 RENOVOU</Text>
-                                        </TouchableOpacity>
                                     </View>
                                 </View>
-                            </View>
 
-                            <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: theme.accent, marginTop: 15, flexDirection: 'row', gap: 8, height: 54 }]} onPress={() => handleSaveModalContract()} disabled={isSavingContract}>
-                                {isSavingContract ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
-                                    <><MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} /><Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>SALVAR E FECHAR</Text></>
+                                <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                        <Text style={styles.inputLabel}>DURAÇÃO (TIPO DE PLANO)</Text>
+                                        {Platform.OS === 'web' ? renderWebSelect(contractType, (e) => setContractType(e.target.value), [ { value: 'Mensal', label: 'Mensal' }, { value: 'Trimestral', label: 'Trimestral' }, { value: 'Semestral', label: 'Semestral' }, { value: 'Anual', label: 'Anual' }, { value: 'Projeto 90 Dias', label: 'Projeto 90 Dias' }, { value: 'Ficha 8 Semanas', label: 'Ficha 8 Semanas' } ]) : (
+                                            <View style={[styles.pickerContainer, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                                <Picker selectedValue={contractType} onValueChange={setContractType} style={{ color: theme.text }} dropdownIconColor={theme.accent}><Picker.Item label="Mensal" value="Mensal" /><Picker.Item label="Trimestral" value="Trimestral" /><Picker.Item label="Semestral" value="Semestral" /><Picker.Item label="Anual" value="Anual" /><Picker.Item label="Projeto 90 Dias" value="Projeto 90 Dias" /><Picker.Item label="Ficha 8 Semanas" value="Ficha 8 Semanas" /></Picker>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                        <Text style={styles.inputLabel}>VALOR (R$)</Text>
+                                        <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.accent, borderColor: theme.border, textAlign: 'center' }]} placeholder="0.00" placeholderTextColor={theme.textSecondary} value={contractValue} onChangeText={setContractValue} keyboardType="numeric" />
+                                    </View>
+                                </View>
+
+                                <View style={{ flexDirection: isWebPC ? 'row' : 'column', gap: 15 }}>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                        <Text style={styles.inputLabel}>DATA DE INÍCIO</Text>
+                                        {Platform.OS === 'web' ? createElement('input', { type: 'date', value: startDateEdit, onChange: (e) => setStartDateEdit(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : (
+                                            <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} placeholder="AAAA-MM-DD" value={startDateEdit} onChangeText={setStartDateEdit} />
+                                        )}
+                                    </View>
+                                    <View style={{ flex: isWebPC ? 1 : undefined, width: isWebPC ? 'auto' : '100%' }}>
+                                        <Text style={styles.inputLabel}>PRÓXIMO VENCIMENTO</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                            {Platform.OS === 'web' ? createElement('input', { type: 'date', value: paymentDueDate, onChange: (e) => setPaymentDueDate(e.target.value), style: { ...styles.webDate(theme), flex: 1 } }) : (
+                                                <TextInput style={[styles.inputLarge, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, flex: 1 }]} placeholder="AAAA-MM-DD" value={paymentDueDate} onChangeText={setPaymentDueDate} />
+                                            )}
+                                            <TouchableOpacity style={[styles.modernBtn, { backgroundColor: '#34C759' }]} onPress={() => setPaymentDueDate(calcularProximaData(paymentDueDate ? forceMiddayUTC(paymentDueDate) : new Date().toISOString(), contractType).split('T')[0])}>
+                                                <MaterialCommunityIcons name="cash-plus" size={16} color="#FFF" />
+                                                <Text style={styles.modernBtnText}>💰 RENOVOU</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {/* 🔥 CAMPO DE EDIÇÃO DE FOTO APENAS PARA ALUNOS OFFLINE 🔥 */}
+                                {editingAluno?.isOffline && (
+                                    <View style={{ marginTop: 10 }}>
+                                        <Text style={[styles.inputLabel, { fontStyle: 'italic', color: theme.textSecondary }]}>MÍDIA / FOTO DE PERFIL (OFFLINE)</Text>
+                                        <View style={[styles.mediaBox, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                            {isUploadingEditPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : editPhotoUrl ? <View style={styles.mediaPreviewAvatar}>{Platform.OS === 'web' ? <img src={editPhotoUrl} onError={() => setEditPhotoUrl('')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: editPhotoUrl }} onError={() => setEditPhotoUrl('')} style={{ width: '100%', height: '100%' }} />}</View> : <View style={styles.mediaPlaceholder}><MaterialCommunityIcons name="account-circle" size={32} color={theme.textSecondary} /></View>}
+                                            <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: '#1C1C1E' }]} onPress={handlePickEditImage}>
+                                                <MaterialCommunityIcons name="upload" size={16} color="#FFF" />
+                                                <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5}}>ALTERAR FOTO</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
                                 )}
-                            </TouchableOpacity>
 
-                            <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: 'transparent', borderColor: '#FF3B30', borderWidth: 1, marginTop: 10, flexDirection: 'row', gap: 8, height: 54 }]} onPress={handleReverterPagamento} disabled={isSavingContract}>
-                                <MaterialCommunityIcons name="undo-variant" size={20} color="#FF3B30" />
-                                <Text style={{color: '#FF3B30', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>REVERTER PAGAMENTO</Text>
-                            </TouchableOpacity>
-                        </View>
+                                <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: theme.accent, marginTop: 15, flexDirection: 'row', gap: 8, height: 54 }]} onPress={() => handleSaveModalContract()} disabled={isSavingContract}>
+                                    {isSavingContract ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : (
+                                        <><MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} /><Text style={{color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>SALVAR E FECHAR</Text></>
+                                    )}
+                                </TouchableOpacity>
+
+                                <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: 'transparent', borderColor: '#FF3B30', borderWidth: 1, marginTop: 10, flexDirection: 'row', gap: 8, height: 54 }]} onPress={handleReverterPagamento} disabled={isSavingContract}>
+                                    <MaterialCommunityIcons name="undo-variant" size={20} color="#FF3B30" />
+                                    <Text style={{color: '#FF3B30', fontWeight: '900', fontSize: 13, letterSpacing: 0.5}}>REVERTER PAGAMENTO</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
                     </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
@@ -902,7 +1004,7 @@ const styles = StyleSheet.create({
 
     inputLarge: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, fontWeight: 'bold' },
 
-    webDate: (theme) => ({ width: '100%', padding: '14px', borderRadius: '12px', border: `1px solid ${theme.border}`, backgroundColor: theme.surface, color: theme.text, outline: 'none', fontSize: '14px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontWeight: 'bold', boxSizing: 'border-box' }),
+    webDate: (theme) => ({ width: '100%', padding: '14px', borderRadius: '12px', border: `1px solid ${theme.border}`, backgroundColor: theme.surface, color: theme.text, outline: 'none', fontSize: '14px', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', fontWeight: 'bold', boxSizing: 'border-box', flex: 1 }),
 
     modernBtn: { flexDirection: 'row', alignItems: 'center', gap: 7, paddingHorizontal: 12, height: 48, borderRadius: 12, elevation: 3 },
     modernBtnText: { color: '#FFF', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
