@@ -161,60 +161,67 @@ export default function AdminDashboard({ navigation }) {
 
       if (savedThemeObj) {
           const parsedTheme = JSON.parse(savedThemeObj);
-          if (parsedTheme.accent === '#FF2D55') setSelectedColor('rosa');
-          else if (parsedTheme.accent === '#AF52DE') setSelectedColor('roxo');
-          else if (parsedTheme.accent === '#007AFF') setSelectedColor('azul');
-          else if (parsedTheme.accent === '#FF3B30') setSelectedColor('vermelho');
-          else setSelectedColor('verde');
+          setSelectedColor(['rosa', 'roxo', 'azul', 'vermelho'].find(c => parsedTheme.accent === {rosa:'#FF2D55', roxo:'#AF52DE', azul:'#007AFF', vermelho:'#FF3B30'}[c]) || 'verde');
       }
 
-      fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`)
-        .then(res => res.json())
-        .then(async data => {
-            const rawAtivos = data.activeUsers || data.users || [];
-            const rawInativos = data.inactiveUsers || [];
+      // 🔥 BUSCA UNIFICADA (ONLINE + OFFLINE DO BANCO) 🔥
+      const [resData, resCheckin, resFeedbacks, resOffline] = await Promise.all([
+          fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`),
+          fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`),
+          fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?t=${t}`),
+          fetch(`https://fitos-final.onrender.com/api/admin/offline-clients/get?t=${t}`)
+      ]);
 
-            const processadosAtivos = rawAtivos.map(u => ({ ...u, isMyNutritionClient: u.nutritionistId === localAdminId }));
-            const processadosInativos = rawInativos.map(u => ({ ...u, isMyNutritionClient: u.nutritionistId === localAdminId }));
+      const data = await resData.json();
+      const dataCheckins = await resCheckin.json();
+      const dataFeedbacks = await resFeedbacks.json();
+      const dataOffline = await resOffline.json();
 
-            setAlunosAtivos(processadosAtivos); 
-            setAlunosInativos(processadosInativos);
-            if (data.recentLogs) setFeed(data.recentLogs);
+      const rawAtivos = (data.activeUsers || data.users || []).map(u => ({ ...u, isMyNutritionClient: u.nutritionistId === localAdminId }));
+      const rawInativos = (data.inactiveUsers || []).map(u => ({ ...u, isMyNutritionClient: u.nutritionistId === localAdminId }));
 
-            const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
-            await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({
-                ...currentCache, cacheAtivos: processadosAtivos, cacheInativos: processadosInativos, cacheFeed: data.recentLogs || []
-            }));
-            if (data.exercises) await AsyncStorage.setItem('@global_exercises', JSON.stringify(data.exercises));
-        }).catch(e => console.log(e)).finally(() => { setLoading(false); setRefreshing(false); });
+      // 🔥 MISTURA OS ALUNOS DO PRISMA COM OS OFFLINE DO PRISMA 🔥
+      const ativosUnificados = [...rawAtivos, ...dataOffline.filter(o => o.isFinanceActive)];
+      
+      setAlunosAtivos(ativosUnificados); 
+      setAlunosInativos(rawInativos);
+      if (data.recentLogs) setFeed(data.recentLogs);
 
-      fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`)
-        .then(res => res.json())
-        .then(async dataCheckins => {
-            if (Array.isArray(dataCheckins)) {
-                setCheckins(dataCheckins);
-                const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
-                await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({ ...currentCache, cacheCheckins: dataCheckins }));
-            }
-        }).catch(e => console.log(e));
+      const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
+      await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({
+          ...currentCache, 
+          cacheAtivos: ativosUnificados, 
+          cacheInativos: rawInativos, 
+          cacheFeed: data.recentLogs || []
+      }));
+      
+      if (data.exercises) await AsyncStorage.setItem('@global_exercises', JSON.stringify(data.exercises));
 
-      fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?t=${t}`)
-        .then(res => res.json())
-        .then(async dataFeedbacks => {
-            if (Array.isArray(dataFeedbacks)) {
-                setDietFeedbacks(dataFeedbacks);
-                const currentCache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
-                await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({ ...currentCache, cacheFeedbacks: dataFeedbacks }));
-            }
-        }).catch(e => console.log(e));
+      if (Array.isArray(dataCheckins)) {
+          setCheckins(dataCheckins);
+          const cache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
+          await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({ ...cache, cacheCheckins: dataCheckins }));
+      }
+
+      if (Array.isArray(dataFeedbacks)) {
+          setDietFeedbacks(dataFeedbacks);
+          const cache = JSON.parse(await AsyncStorage.getItem('@dashboard_cache') || '{}');
+          await AsyncStorage.setItem('@dashboard_cache', JSON.stringify({ ...cache, cacheFeedbacks: dataFeedbacks }));
+      }
 
       fetch(`https://fitos-final.onrender.com/api/admin/surveys?t=${t}`)
         .then(res => res.json())
-        .then(async dataSurveys => {
-            if (Array.isArray(dataSurveys)) setSurveys(dataSurveys);
-        }).catch(e => console.log("Erro NPS:", e));
+        .then(dataSurveys => { if (Array.isArray(dataSurveys)) setSurveys(dataSurveys); })
+        .catch(e => console.log("Erro NPS:", e));
 
-    } catch (e) { setLoading(false); setRefreshing(false); }
+    } catch (e) { 
+        console.error("Erro no fetchData:", e);
+        setLoading(false); 
+        setRefreshing(false); 
+    } finally {
+        setLoading(false); 
+        setRefreshing(false);
+    }
   };
 
   const handleMarkFeedbackRead = async (id) => {
