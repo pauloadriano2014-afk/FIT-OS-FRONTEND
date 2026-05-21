@@ -323,17 +323,28 @@ useEffect(() => {
         if (Platform.OS === 'web') {
             const response = await fetch(uri);
             const blob = await response.blob();
-            formData.append('file', blob, `avatar_${Date.now()}.jpg`);
+            // Adicionando um nome específico para o arquivo
+            formData.append('file', blob, 'avatar.jpg');
         } else {
-            formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
+            formData.append('file', { 
+                uri, 
+                name: 'avatar.jpg', 
+                type: 'image/jpeg' 
+            });
         }
         
         const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
             method: 'POST', 
-            body: formData 
+            body: formData,
+            // O navegador gera o 'Content-Type': 'multipart/form-data' automaticamente
         });
         
-        if (!res.ok) throw new Error("Falha no upload");
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            console.error("Erro do servidor:", errorData);
+            throw new Error(errorData.error || "Falha no upload");
+        }
+        
         const data = await res.json();
         return data.url; 
     };
