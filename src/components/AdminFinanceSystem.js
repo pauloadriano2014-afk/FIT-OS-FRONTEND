@@ -89,8 +89,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [paymentDueDate, setPaymentDueDate] = useState('');
     const [financeCategoryEdit, setFinanceCategoryEdit] = useState('Consultoria Online');
     const [isFinanceActiveEdit, setIsFinanceActiveEdit] = useState(true);
-    const [editPhotoUrl, setEditPhotoUrl] = useState(''); // 🔥 NOVO ESTADO FOTO EDIÇÃO
-    const [isUploadingEditPhoto, setIsUploadingEditPhoto] = useState(false); // 🔥 NOVO ESTADO FOTO EDIÇÃO
+    const [editPhotoUrl, setEditPhotoUrl] = useState(''); 
+    const [isUploadingEditPhoto, setIsUploadingEditPhoto] = useState(false); 
     const [isSavingContract, setIsSavingContract] = useState(false);
 
     // Novo Aluno
@@ -106,6 +106,35 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [newDueDate, setNewDueDate] = useState('');
     const [isSavingNew, setIsSavingNew] = useState(false);
 
+    // 🔥 SCRIPT DE MIGRAÇÃO (ADICIONE ISSO NO SEU COMPONENTE) 🔥
+useEffect(() => {
+    const migrateOfflineClients = async () => {
+        try {
+            const cachedOffline = await AsyncStorage.getItem('@offline_clients');
+            if (cachedOffline) {
+                const clients = JSON.parse(cachedOffline);
+                
+                // Se tiver alunos, envia para a nova rota de sincronização
+                if (clients.length > 0) {
+                    for (const client of clients) {
+                        await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(client)
+                        });
+                    }
+                    // Após salvar no Banco, a gente limpa o cache local
+                    await AsyncStorage.removeItem('@offline_clients');
+                    Alert.alert("Sucesso", "Seus alunos offline foram migrados para a nuvem!");
+                }
+            }
+        } catch (e) {
+            console.error("Erro na migração:", e);
+        }
+    };
+    migrateOfflineClients();
+}, []);
+    
     useEffect(() => {
         setLocalAlunos(alunos);
     }, [alunos]);
@@ -273,7 +302,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
         setFinanceCategoryEdit(aluno.financeCategory || 'Consultoria Online');
         setIsFinanceActiveEdit(aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true);
-        setEditPhotoUrl(aluno.photoUrl || ''); // 🔥 PUXA A FOTO ATUAL PARA EDIÇÃO
+        setEditPhotoUrl(aluno.photoUrl || ''); 
     };
 
     const closeEditModal = () => {
@@ -287,7 +316,28 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setEditPhotoUrl('');
     };
 
-    // 🔥 FUNÇÃO DE UPLOAD PARA EDIÇÃO (BASE64) 🔥
+    // 🔥 BLINDAGEM DO UPLOAD R2 PARA SUPORTE À WEB (BLOB) 🔥
+    const handleUploadR2 = async (uri) => {
+        const formData = new FormData();
+        
+        if (Platform.OS === 'web') {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            formData.append('file', blob, `avatar_${Date.now()}.jpg`);
+        } else {
+            formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
+        }
+        
+        const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
+            method: 'POST', 
+            body: formData 
+        });
+        
+        if (!res.ok) throw new Error("Falha no upload");
+        const data = await res.json();
+        return data.url; 
+    };
+
     const handlePickEditImage = async () => {
         try {
             let result = await ImagePicker.launchImageLibraryAsync({ 
@@ -299,31 +349,36 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             
             if (!result.canceled && result.assets[0].uri) {
                 setIsUploadingEditPhoto(true);
-                
-                // 🔥 SEU CÓDIGO DE UPLOAD PARA O R2 AQUI 🔥
-                const uri = result.assets[0].uri;
-                const formData = new FormData();
-                formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
-
-                // AJUSTE PARA A SUA ROTA DE UPLOAD REAL:
-                const response = await fetch('https://fitos-final.onrender.com/api/upload', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Accept': 'application/json' }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    setEditPhotoUrl(data.url); // Salva apenas o Link público do Cloudflare R2!
-                } else {
-                    throw new Error("Falha no upload para o R2");
-                }
+                const url = await handleUploadR2(result.assets[0].uri);
+                setEditPhotoUrl(url); 
             }
         } catch (error) {
             console.error("Erro no upload da foto:", error);
             if (Platform.OS === 'web') window.alert("Erro ao fazer upload da imagem.");
         } finally {
             setIsUploadingEditPhoto(false);
+        }
+    };
+
+    const handlePickImage = async () => {
+        try {
+            let result = await ImagePicker.launchImageLibraryAsync({ 
+                mediaTypes: ImagePicker.MediaTypeOptions.Images, 
+                allowsEditing: true, 
+                aspect: [1, 1], 
+                quality: 0.5 
+            });
+            
+            if (!result.canceled && result.assets[0].uri) {
+                setUploadingPhoto(true);
+                const url = await handleUploadR2(result.assets[0].uri);
+                setNewPhotoUrl(url);
+            }
+        } catch (error) {
+            console.error("Erro no upload da foto:", error);
+            if (Platform.OS === 'web') window.alert("Erro ao fazer upload da imagem.");
+        } finally {
+            setUploadingPhoto(false);
         }
     };
 
@@ -343,7 +398,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 startDate: safeStartIsoDate, 
                 financeCategory: financeCategoryEdit, 
                 isFinanceActive: isFinanceActiveEdit,
-                ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {}) // 🔥 INJETA A FOTO SE FOR OFFLINE
+                ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
             };
 
             setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
@@ -426,60 +481,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 { text: "Cancelar", style: "cancel" },
                 { text: "Sim", style: 'destructive', onPress: confirmRevert }
             ]);
-        }
-    };
-
-    const handleUploadR2 = async (uri) => {
-    const formData = new FormData();
-    // Ajuste o campo 'file' se o seu backend exigir outro nome
-    formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
-    
-    const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
-        method: 'POST', 
-        body: formData 
-    });
-    
-    if (!res.ok) throw new Error("Falha no upload");
-    const data = await res.json();
-    return data.url; // Retorna a URL pública que o seu backend devolve
-};
-
-    const handlePickImage = async () => {
-        try {
-            let result = await ImagePicker.launchImageLibraryAsync({ 
-                mediaTypes: ImagePicker.MediaTypeOptions.Images, 
-                allowsEditing: true, 
-                aspect: [1, 1], 
-                quality: 0.5 
-            });
-            
-            if (!result.canceled && result.assets[0].uri) {
-                setUploadingPhoto(true);
-                
-                // 🔥 SEU CÓDIGO DE UPLOAD PARA O R2 AQUI 🔥
-                const uri = result.assets[0].uri;
-                const formData = new FormData();
-                formData.append('file', { uri, name: `avatar_${Date.now()}.jpg`, type: 'image/jpeg' });
-
-                // AJUSTE PARA A SUA ROTA DE UPLOAD REAL:
-                const response = await fetch('https://fitos-final.onrender.com/api/upload', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'Accept': 'application/json' }
-                });
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    setNewPhotoUrl(data.url); // Salva apenas o Link público do Cloudflare R2!
-                } else {
-                    throw new Error("Falha no upload para o R2");
-                }
-            }
-        } catch (error) {
-            console.error("Erro no upload da foto:", error);
-            if (Platform.OS === 'web') window.alert("Erro ao fazer upload da imagem.");
-        } finally {
-            setUploadingPhoto(false);
         }
     };
 
@@ -632,7 +633,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: 'row', alignItems: 'center', opacity: isInactive ? 0.5 : 1 }]}>
                             <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                 {aluno.photoUrl ? (
-                                    <View style={[styles.avatar, { overflow: 'hidden' }]}><Image source={{ uri: aluno.photoUrl }} style={{ width: '100%', height: '100%' }} /></View>
+                                    <View style={[styles.avatar, { overflow: 'hidden' }]}><img src={aluno.photoUrl} onError={(e) => { e.target.onerror = null; e.target.src = ''; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /></View>
                                 ) : (
                                     <View style={[styles.avatarPlaceholder, { borderColor: theme.border }]}><MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} /></View>
                                 )}
@@ -696,7 +697,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                         <View key={aluno.id} style={[styles.mobileCard, { backgroundColor: theme.surface, borderColor: theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', opacity: isInactive ? 0.6 : 1 }]}>
                             <View style={styles.mobileCardHeader}>
                                 {aluno.photoUrl ? (
-                                    <Image source={{ uri: aluno.photoUrl }} style={styles.mobileAvatar} />
+                                    <Image source={{ uri: aluno.photoUrl }} onError={(e) => { e.target.onerror = null; e.target.src = ''; }} style={styles.mobileAvatar} />
                                 ) : (
                                     <View style={[styles.mobileAvatarPlaceholder, { borderColor: theme.border }]}><MaterialCommunityIcons name="account" size={24} color={theme.textSecondary} /></View>
                                 )}
@@ -851,7 +852,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                     <View style={{ marginTop: 10 }}>
                                         <Text style={[styles.inputLabel, { fontStyle: 'italic', color: theme.textSecondary }]}>MÍDIA / FOTO DE PERFIL (OFFLINE)</Text>
                                         <View style={[styles.mediaBox, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-                                            {isUploadingEditPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : editPhotoUrl ? <View style={styles.mediaPreviewAvatar}>{Platform.OS === 'web' ? <img src={editPhotoUrl} onError={() => setEditPhotoUrl('')} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: editPhotoUrl }} onError={() => setEditPhotoUrl('')} style={{ width: '100%', height: '100%' }} />}</View> : <View style={styles.mediaPlaceholder}><MaterialCommunityIcons name="account-circle" size={32} color={theme.textSecondary} /></View>}
+                                            {isUploadingEditPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : editPhotoUrl ? <View style={styles.mediaPreviewAvatar}>{Platform.OS === 'web' ? <img src={editPhotoUrl} onError={(e) => { e.target.onerror = null; e.target.src = ''; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: editPhotoUrl }} onError={(e) => { e.target.onerror = null; e.target.src = ''; }} style={{ width: '100%', height: '100%' }} />}</View> : <View style={styles.mediaPlaceholder}><MaterialCommunityIcons name="account-circle" size={32} color={theme.textSecondary} /></View>}
                                             <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: '#1C1C1E' }]} onPress={handlePickEditImage}>
                                                 <MaterialCommunityIcons name="upload" size={16} color="#FFF" />
                                                 <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5}}>ALTERAR FOTO</Text>
@@ -908,8 +909,11 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                                 <View style={{ marginTop: 10 }}>
                                     <Text style={[styles.inputLabel, { fontStyle: 'italic', color: theme.textSecondary }]}>MÍDIA / FOTO DE PERFIL</Text>
                                     <View style={[styles.mediaBox, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-                                        {uploadingPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : newPhotoUrl ? <View style={styles.mediaPreviewAvatar}>{Platform.OS === 'web' ? <img src={newPhotoUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: newPhotoUrl }} style={{ width: '100%', height: '100%' }} />}</View> : <View style={styles.mediaPlaceholder}><MaterialCommunityIcons name="account-circle" size={32} color={theme.textSecondary} /></View>}
-                                        <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: '#1C1C1E' }]} onPress={handlePickImage}><MaterialCommunityIcons name="upload" size={16} color="#FFF" /><Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5}}>SELECIONAR DA GALERIA</Text></TouchableOpacity>
+                                        {uploadingPhoto ? <ActivityIndicator color={theme.accent} size="small" /> : newPhotoUrl ? <View style={styles.mediaPreviewAvatar}>{Platform.OS === 'web' ? <img src={newPhotoUrl} onError={(e) => { e.target.onerror = null; e.target.src = ''; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="Avatar" /> : <Image source={{ uri: newPhotoUrl }} onError={(e) => { e.target.onerror = null; e.target.src = ''; }} style={{ width: '100%', height: '100%' }} />}</View> : <View style={styles.mediaPlaceholder}><MaterialCommunityIcons name="account-circle" size={32} color={theme.textSecondary} /></View>}
+                                        <TouchableOpacity style={[styles.uploadBtn, { backgroundColor: '#1C1C1E' }]} onPress={handlePickImage}>
+                                            <MaterialCommunityIcons name="upload" size={16} color="#FFF" />
+                                            <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5}}>SELECIONAR DA GALERIA</Text>
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
 
