@@ -107,40 +107,40 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [isSavingNew, setIsSavingNew] = useState(false);
 
     // 🔥 SCRIPT DE MIGRAÇÃO (ADICIONE ISSO NO SEU COMPONENTE) 🔥
-useEffect(() => {
-    const migrateOfflineClients = async () => {
-        try {
-            const cachedOffline = await AsyncStorage.getItem('@offline_clients');
-            if (cachedOffline) {
-                const clients = JSON.parse(cachedOffline);
-                
-                // Se tiver alunos, envia para a nova rota de sincronização
-                if (clients.length > 0) {
-                    for (const client of clients) {
-                        await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(client)
-                        });
+    useEffect(() => {
+        const migrateOfflineClients = async () => {
+            try {
+                const cachedOffline = await AsyncStorage.getItem('@offline_clients');
+                if (cachedOffline) {
+                    const clients = JSON.parse(cachedOffline);
+                    
+                    // Se tiver alunos, envia para a nova rota de sincronização
+                    if (clients.length > 0) {
+                        for (const client of clients) {
+                            await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(client)
+                            });
+                        }
+                        // Após salvar no Banco, a gente limpa o cache local
+                        await AsyncStorage.removeItem('@offline_clients');
+                        Alert.alert("Sucesso", "Seus alunos offline foram migrados para a nuvem!");
                     }
-                    // Após salvar no Banco, a gente limpa o cache local
-                    await AsyncStorage.removeItem('@offline_clients');
-                    Alert.alert("Sucesso", "Seus alunos offline foram migrados para a nuvem!");
                 }
+            } catch (e) {
+                console.error("Erro na migração:", e);
             }
-        } catch (e) {
-            console.error("Erro na migração:", e);
-        }
-    };
-    migrateOfflineClients();
-}, []);
+        };
+        migrateOfflineClients();
+    }, []);
 
-useEffect(() => {
-    fetch('https://fitos-final.onrender.com/api/admin/offline-clients/get')
-        .then(res => res.json())
-        .then(data => setOfflineClients(data))
-        .catch(e => console.error("Erro ao buscar offline:", e));
-}, []);
+    useEffect(() => {
+        fetch('https://fitos-final.onrender.com/api/admin/offline-clients/get')
+            .then(res => res.json())
+            .then(data => setOfflineClients(data))
+            .catch(e => console.error("Erro ao buscar offline:", e));
+    }, []);
     
     useEffect(() => {
         setLocalAlunos(alunos);
@@ -323,33 +323,31 @@ useEffect(() => {
         setEditPhotoUrl('');
     };
 
-    // 🔥 BLINDAGEM DO UPLOAD R2 PARA SUPORTE À WEB (BLOB) 🔥
     const handleUploadR2 = async (uri) => {
-        const formData = new FormData();
-        
-        if (Platform.OS === 'web') {
-            const response = await fetch(uri);
-            const blob = await response.blob();
-            // NOME EXATO DO ARQUIVO PARA NÃO DAR ERRO NO BACKEND
+        try {
+            const blob = await (await fetch(uri)).blob();
+            
+            const formData = new FormData();
             formData.append('file', blob, 'avatar.jpg');
-        } else {
-            formData.append('file', { uri, name: 'avatar.jpg', type: 'image/jpeg' });
+
+            console.log("Enviando FormData para o servidor...");
+            
+            const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
+                method: 'POST', 
+                body: formData 
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json();
+                throw new Error(errorData.error || "Erro no servidor");
+            }
+
+            const data = await res.json();
+            return data.url;
+        } catch (err) {
+            console.error("Erro na função handleUploadR2:", err);
+            throw err;
         }
-        
-        const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
-            method: 'POST', 
-            body: formData, // O browser cria o boundary correto automaticamente
-            mode: 'cors'    // Garante o modo de segurança
-        });
-        
-        if (!res.ok) {
-            const errorText = await res.text();
-            console.error("Erro completo do fetch:", errorText);
-            throw new Error("Erro de upload: " + res.status);
-        }
-        
-        const data = await res.json();
-        return data.url; 
     };
 
     const handlePickEditImage = async () => {
