@@ -324,31 +324,36 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     };
 
     const handleUploadR2 = async (uri) => {
-        try {
-            const blob = await (await fetch(uri)).blob();
-            
-            const formData = new FormData();
-            formData.append('file', blob, 'avatar.jpg');
+    try {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        
+        // 🔥 Garante que o arquivo tenha um nome e extensão válidos
+        const fileExtension = uri.split('.').pop().split('?')[0] || 'jpg';
+        const fileName = `upload_${Date.now()}.${fileExtension}`;
+        
+        const formData = new FormData();
+        // 🔥 Passamos o objeto file com o nome e o tipo MIME corretos
+        formData.append('file', new File([blob], fileName, { type: blob.type }));
 
-            console.log("Enviando FormData para o servidor...");
-            
-            const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
-                method: 'POST', 
-                body: formData 
-            });
+        const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { 
+            method: 'POST', 
+            body: formData 
+        });
 
-            if (!res.ok) {
-                const errorData = await res.json();
-                throw new Error(errorData.error || "Erro no servidor");
-            }
-
-            const data = await res.json();
-            return data.url;
-        } catch (err) {
-            console.error("Erro na função handleUploadR2:", err);
-            throw err;
+        if (!res.ok) {
+            const errorData = await res.json();
+            console.error("Erro do Backend:", errorData);
+            throw new Error(errorData.error || "Erro no upload");
         }
-    };
+
+        const data = await res.json();
+        return data.url; // Retorna a URL para salvar no seu estado
+    } catch (error) {
+        console.error("Falha no upload:", error);
+        throw error;
+    }
+};
 
     const handlePickEditImage = async () => {
         try {
@@ -505,21 +510,23 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         try {
             const parsedOfflineValue = parseFloat(String(newValue).replace(',', '.')) || 0;
             const newClient = {
-                id: `offline_${Date.now()}`, 
-                name: newName,
-                phone: newPhone,
-                plan: newCategory,
-                financeCategory: newCategory,
-                contractType: newDuration,
-                contractValue: parsedOfflineValue,
-                startDate: forceMiddayUTC(newStartDate), 
-                paymentDueDate: forceMiddayUTC(newDueDate),
-                photoUrl: newPhotoUrl,
-                isOffline: true,
-                isFinanceActive: true,
-                assignedCoach: coachFilter,
-                coachId: coachFilter === 'ADRI' ? 'adri_coach_id_placeholder' : 'PAULO_COACH_ID_PLACEHOLDER', 
-            };
+    id: `offline_${Date.now()}`,
+    name: newName,
+    phone: newPhone,
+    plan: newCategory,
+    financeCategory: newCategory,
+    contractType: newDuration,
+    contractValue: parsedOfflineValue,
+    startDate: forceMiddayUTC(newStartDate),
+    paymentDueDate: forceMiddayUTC(newDueDate),
+    photoUrl: newPhotoUrl,
+    isOffline: true,
+    isFinanceActive: true,
+    assignedCoach: coachFilter,
+    // 🔥 MUDANÇA CRÍTICA: Se der erro de chave estrangeira, mande NULL no coachId 
+    // ou use o ID do coach que está logado no dashboard.
+    coachId: coachFilter === 'ADRI' ? 'b7c0c181-41fd-4156-b8fe-963a267759a3' : '3c82f763-66b4-48da-836e-16817d4f57c0'
+};
             
             const newList = [...offlineClients, newClient];
             setOfflineClients(newList);
