@@ -134,6 +134,13 @@ useEffect(() => {
     };
     migrateOfflineClients();
 }, []);
+
+useEffect(() => {
+    fetch('https://fitos-final.onrender.com/api/admin/offline-clients/get')
+        .then(res => res.json())
+        .then(data => setOfflineClients(data))
+        .catch(e => console.error("Erro ao buscar offline:", e));
+}, []);
     
     useEffect(() => {
         setLocalAlunos(alunos);
@@ -323,26 +330,22 @@ useEffect(() => {
         if (Platform.OS === 'web') {
             const response = await fetch(uri);
             const blob = await response.blob();
-            // Adicionando um nome específico para o arquivo
+            // NOME EXATO DO ARQUIVO PARA NÃO DAR ERRO NO BACKEND
             formData.append('file', blob, 'avatar.jpg');
         } else {
-            formData.append('file', { 
-                uri, 
-                name: 'avatar.jpg', 
-                type: 'image/jpeg' 
-            });
+            formData.append('file', { uri, name: 'avatar.jpg', type: 'image/jpeg' });
         }
         
         const res = await fetch('https://fitos-final.onrender.com/api/upload', { 
             method: 'POST', 
-            body: formData,
-            // O navegador gera o 'Content-Type': 'multipart/form-data' automaticamente
+            body: formData, // O browser cria o boundary correto automaticamente
+            mode: 'cors'    // Garante o modo de segurança
         });
         
         if (!res.ok) {
-            const errorData = await res.json().catch(() => ({}));
-            console.error("Erro do servidor:", errorData);
-            throw new Error(errorData.error || "Falha no upload");
+            const errorText = await res.text();
+            console.error("Erro completo do fetch:", errorText);
+            throw new Error("Erro de upload: " + res.status);
         }
         
         const data = await res.json();
