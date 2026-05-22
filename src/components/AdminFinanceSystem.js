@@ -223,48 +223,45 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     };
 
     const handleUploadR2 = async (uri) => {
-    try {
-        const response = await fetch(uri);
-        const blob = await response.blob();
+        try {
+            const response = await fetch(uri);
+            const blob = await response.blob();
 
-        // Garante que a extensão será sempre válida, mesmo se o navegador falhar
-        let ext = 'jpg';
-        if (blob.type) {
-            const mimeExt = blob.type.split('/')[1];
-            if (['jpg', 'jpeg', 'png', 'webp'].includes(mimeExt)) {
-                ext = mimeExt === 'jpeg' ? 'jpg' : mimeExt;
+            let ext = 'jpg';
+            if (blob.type) {
+                const mimeExt = blob.type.split('/')[1];
+                if (['jpg', 'jpeg', 'png', 'webp'].includes(mimeExt)) {
+                    ext = mimeExt === 'jpeg' ? 'jpg' : mimeExt;
+                }
             }
+            const fileName = `upload_${Date.now()}.${ext}`;
+
+            const formData = new FormData();
+
+            if (Platform.OS === 'web') {
+                formData.append('file', blob, fileName);
+            } else {
+                formData.append('file', { uri, name: fileName, type: blob.type || 'image/jpeg' });
+            }
+
+            const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { 
+                method: 'POST', 
+                body: formData 
+            });
+
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                console.error("Erro do Backend:", errorData);
+                throw new Error(errorData.error || `Erro no servidor: Status ${res.status}`);
+            }
+
+            const data = await res.json();
+            return data.url; 
+        } catch (error) {
+            console.error("Falha no upload:", error);
+            throw error;
         }
-        const fileName = `upload_${Date.now()}.${ext}`;
-
-        const formData = new FormData();
-
-        if (Platform.OS === 'web') {
-            // Forma mais segura e universal de enviar arquivos na Web
-            formData.append('file', blob, fileName);
-        } else {
-            formData.append('file', { uri, name: fileName, type: blob.type || 'image/jpeg' });
-        }
-
-        const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { 
-            method: 'POST', 
-            body: formData 
-        });
-
-        if (!res.ok) {
-            // Tenta ler o erro exato que o backend mandou
-            const errorData = await res.json().catch(() => ({}));
-            console.error("Erro do Backend:", errorData);
-            throw new Error(errorData.error || `Erro no servidor: Status ${res.status}`);
-        }
-
-        const data = await res.json();
-        return data.url; 
-    } catch (error) {
-        console.error("Falha no upload:", error);
-        throw error;
-    }
-};
+    };
 
     const handlePickEditImage = async () => {
         try {
@@ -357,7 +354,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         else { Alert.alert("Reverter", `Tem certeza?`, [{ text: "Cancelar", style: "cancel" }, { text: "Sim", style: 'destructive', onPress: confirmRevert }]); }
     };
 
-        const handleSaveNewOfflineClient = async () => {
+    const handleSaveNewOfflineClient = async () => {
         if (!newName || !newPhone || !newValue || !newStartDate || !newDueDate) {
             if (Platform.OS === 'web') window.alert("Preencha todos os campos obrigatórios.");
             return;
@@ -377,7 +374,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             setOfflineClients(newList);
             await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
 
-            // 🔥 NOVO: Envia direto para o banco de dados no backend
             try {
                 await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
                     method: 'POST',
@@ -394,6 +390,52 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             setNewStartDate(new Date().toISOString().split('T')[0]); setNewDueDate(''); setNewPhotoUrl('');
         } catch (error) { console.error(error); } 
         finally { setIsSavingNew(false); }
+    };
+
+    // 🔥 NOVA FUNÇÃO: Excluir Aluno Offline
+    const handleDeleteOfflineClient = async (id) => {
+        const confirmAction = async () => {
+            try {
+                // 1. Remove da tela e do cache local imediatamente
+                const newList = offlineClients.filter(client => client.id !== id);
+                setOfflineClients(newList);
+                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
+
+                // 2. Envia a requisição para o backend excluir do banco de dados
+                const res = await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id })
+                });
+
+                if (!res.ok) throw new Error("Falha ao excluir no servidor");
+
+                if (Platform.OS === 'web') window.alert("Aluno excluído com sucesso!");
+
+                // Se o aluno excluído for o que está no modal de edição, fecha o modal
+                if (editingAluno && editingAluno.id === id) {
+                    closeEditModal();
+                }
+            } catch (error) {
+                console.error("Erro ao excluir aluno:", error);
+                if (Platform.OS === 'web') window.alert("Erro ao excluir aluno. Tente novamente.");
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm("Tem certeza que deseja excluir este aluno permanentemente?")) {
+                confirmAction();
+            }
+        } else {
+            Alert.alert(
+                "Excluir Aluno",
+                "Tem certeza que deseja excluir este aluno permanentemente?",
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Excluir", style: "destructive", onPress: confirmAction }
+                ]
+            );
+        }
     };
 
     return (
@@ -414,6 +456,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             <FinanceStudentList 
                 theme={theme} isWebPC={isWebPC} studentList={studentList} loadingId={loadingId} 
                 openEditModal={openEditModal} handleTogglePagamento={handleTogglePagamento} openWhatsApp={openWhatsApp} 
+                handleDeleteOfflineClient={handleDeleteOfflineClient} // 🔥 Passando a função para a lista
             />
 
             <FinanceEditModal 
@@ -427,6 +470,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 isUploadingEditPhoto={isUploadingEditPhoto} editPhotoUrl={editPhotoUrl}
                 handlePickEditImage={handlePickEditImage} handleSaveModalContract={handleSaveModalContract}
                 isSavingContract={isSavingContract} handleReverterPagamento={handleReverterPagamento}
+                handleDeleteOfflineClient={handleDeleteOfflineClient} // 🔥 Passando para o modal caso o botão fique lá dentro
             />
 
             <FinanceAddModal 
