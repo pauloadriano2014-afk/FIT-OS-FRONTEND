@@ -227,17 +227,23 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         const response = await fetch(uri);
         const blob = await response.blob();
 
-        // Pega a extensão real baseada no tipo do arquivo (MIME type)
-        const mimeType = blob.type || 'image/jpeg';
-        const ext = mimeType.split('/')[1] || 'jpg'; 
+        // Garante que a extensão será sempre válida, mesmo se o navegador falhar
+        let ext = 'jpg';
+        if (blob.type) {
+            const mimeExt = blob.type.split('/')[1];
+            if (['jpg', 'jpeg', 'png', 'webp'].includes(mimeExt)) {
+                ext = mimeExt === 'jpeg' ? 'jpg' : mimeExt;
+            }
+        }
         const fileName = `upload_${Date.now()}.${ext}`;
 
         const formData = new FormData();
 
         if (Platform.OS === 'web') {
-            formData.append('file', new File([blob], fileName, { type: mimeType }));
+            // Forma mais segura e universal de enviar arquivos na Web
+            formData.append('file', blob, fileName);
         } else {
-            formData.append('file', { uri, name: fileName, type: mimeType });
+            formData.append('file', { uri, name: fileName, type: blob.type || 'image/jpeg' });
         }
 
         const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { 
@@ -246,9 +252,10 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         });
 
         if (!res.ok) {
-            const errorData = await res.json();
+            // Tenta ler o erro exato que o backend mandou
+            const errorData = await res.json().catch(() => ({}));
             console.error("Erro do Backend:", errorData);
-            throw new Error(errorData.error || "Erro no upload");
+            throw new Error(errorData.error || `Erro no servidor: Status ${res.status}`);
         }
 
         const data = await res.json();
