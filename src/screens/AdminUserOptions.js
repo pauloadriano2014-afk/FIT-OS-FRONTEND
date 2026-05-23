@@ -83,6 +83,18 @@ export default function AdminUserOptions({ route, navigation }) {
   const [studentAlerts, setStudentAlerts] = useState([]);
   const [isAlertsExpanded, setIsAlertsExpanded] = useState(false);
 
+  // 🔥 NOVO SISTEMA DE ACOMPANHAMENTO SEMANAL 🔥
+  const [strategyNotes, setStrategyNotes] = useState(aluno.strategyNotes || '');
+  const [lastContactDate, setLastContactDate] = useState(aluno.lastContactDate || null);
+  const [savingNotes, setSavingNotes] = useState(false);
+
+  // Calcula dias desde o último contato
+  const daysSinceContact = lastContactDate 
+      ? Math.floor((new Date().getTime() - new Date(lastContactDate).getTime()) / (1000 * 3600 * 24)) 
+      : 999; // Se for null, joga um número alto para forçar o alerta
+  
+  const isContactDelayed = daysSinceContact >= 7;
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(Dimensions.get('window').width);
     const subscription = Dimensions.addEventListener('change', handleResize);
@@ -105,6 +117,7 @@ export default function AdminUserOptions({ route, navigation }) {
               setPhotoUrl(freshness.photoUrl);
               setDietGoal(freshness.dietGoal || 'NONE'); 
               setIsDietTabVisible(!!freshness.dietModule); 
+              setStudentNotes(freshness.notes || ''); // Carrega notas do cache
               
               const dbPlan = freshness.plan || 'PREMIUM';
               setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S', 'ELITE', 'PERFORMANCE', 'PREMIUM'].includes(dbPlan) ? dbPlan : 'PREMIUM');
@@ -163,6 +176,7 @@ export default function AdminUserOptions({ route, navigation }) {
             setDisableCheckIn(!!fresh.disableCheckIn); setPhotoUrl(fresh.photoUrl);
             setIsActiveUser(fresh.active); setDietGoal(fresh.dietGoal || 'NONE');
             setIsDietTabVisible(!!fresh.dietModule); 
+            setStudentNotes(fresh.notes || ''); // Atualiza notas do servidor
             
             const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S', 'ELITE', 'PERFORMANCE', 'PREMIUM'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
             setUserPlan(finalPlan);
@@ -184,6 +198,36 @@ export default function AdminUserOptions({ route, navigation }) {
         if (resAlerts && resAlerts.ok) { const alerts = await resAlerts.json(); if (Array.isArray(alerts)) setStudentAlerts(alerts); }
 
     } catch (error) { console.log("Erro no Motor:", error); } finally { setLoading(false); setLoadingPaflix(false); }
+  };
+
+  const handleSaveStrategy = async (newDate = null) => {
+      setSavingNotes(true);
+      const payload = { strategyNotes };
+      if (newDate) payload.lastContactDate = newDate;
+
+      try {
+          // ⚠️ ATENÇÃO: Seu back-end precisa aceitar 'strategyNotes' e 'lastContactDate' nesta rota!
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { 
+              method: 'PATCH', 
+              headers: { 'Content-Type': 'application/json' }, 
+              body: JSON.stringify(payload) 
+          });
+          if (!res.ok) throw new Error();
+          
+          if (newDate) setLastContactDate(newDate);
+          if (Platform.OS === 'web') window.alert("Acompanhamento atualizado!");
+          else Alert.alert("Sucesso", "Acompanhamento atualizado!");
+      } catch (e) {
+          if (Platform.OS === 'web') window.alert("Erro ao salvar. Verifique se as colunas existem no banco.");
+          else Alert.alert("Erro", "Falha ao salvar. Verifique o banco de dados.");
+      } finally {
+          setSavingNotes(false);
+      }
+  };
+
+  const handleRegisterContactToday = () => {
+      const today = new Date().toISOString();
+      handleSaveStrategy(today);
   };
 
   const confirmChangePlan = (newPlan) => {
@@ -408,7 +452,53 @@ export default function AdminUserOptions({ route, navigation }) {
                         </View>
                     )}
 
-                    {/* 🔥 DASHBOARD DO ALUNO (BLINDADO - SEM FLEX INVISÍVEL) 🔥 */}
+                    {/* 🔥 CRM DE ALINHAMENTO SEMANAL 🔥 */}
+<View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: isContactDelayed ? '#FF3B30' : theme.accent, marginBottom: 20, borderWidth: 2 }]}>
+    <View style={styles.dashCardHeader}>
+        <View style={[styles.iconBoxSmall, { backgroundColor: isContactDelayed ? '#FF3B3022' : theme.accent + '22' }]}>
+            <MaterialCommunityIcons name={isContactDelayed ? "alert" : "forum"} size={16} color={isContactDelayed ? '#FF3B30' : theme.accent}/>
+        </View>
+        <View style={{ flex: 1 }}>
+            <Text style={[styles.dashCardTitle, { color: theme.text }]}>ALINHAMENTO SEMANAL</Text>
+            <Text style={{ color: isContactDelayed ? '#FF3B30' : theme.textSecondary, fontSize: 11, marginTop: 2, fontWeight: 'bold' }}>
+                {lastContactDate 
+                    ? (isContactDelayed ? `🚨 Atrasado! Sem contato há ${daysSinceContact} dias.` : `✅ Em dia. Último papo há ${daysSinceContact} dias.`) 
+                    : '🚨 Nunca conversaram!'}
+            </Text>
+        </View>
+        <TouchableOpacity 
+            style={{ backgroundColor: theme.bg, padding: 8, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}
+            onPress={handleRegisterContactToday}
+        >
+            <Text style={{ color: theme.text, fontSize: 10, fontWeight: 'bold' }}>+ REGISTRAR HOJE</Text>
+        </TouchableOpacity>
+    </View>
+
+    <TextInput
+        style={[styles.inputArea, { backgroundColor: theme.bg, borderColor: theme.border, color: theme.text, minHeight: 100, padding: 15 }]} // Scroll fixado aqui
+        multiline={true}
+        numberOfLines={4}
+        placeholder="Anotações de estratégia, dores, metas da semana..."
+        placeholderTextColor={theme.textSecondary}
+        value={strategyNotes}
+        onChangeText={setStrategyNotes}
+    />
+    
+    <TouchableOpacity 
+        style={[styles.saveBtnLg, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1, marginTop: 10, flexDirection: 'row', gap: 8, height: 44 }]} 
+        onPress={() => handleSaveStrategy()} 
+        disabled={savingNotes}
+    >
+        {savingNotes ? <ActivityIndicator color={theme.accent} /> : (
+            <>
+                <MaterialCommunityIcons name="content-save" size={16} color={theme.accent} />
+                <Text style={{color: theme.accent, fontWeight: '900', fontSize: 11, letterSpacing: 0.5}}>SALVAR ESTRATÉGIA</Text>
+            </>
+        )}
+    </TouchableOpacity>
+</View>
+
+                    {/* DASHBOARD DO ALUNO */}
                     <Text style={[styles.sectionLabel, { marginTop: 10 }]}>DASHBOARD DO ALUNO</Text>
                     <View style={{ flexDirection: isWebPC ? 'row' : 'column', flexWrap: isWebPC ? 'wrap' : 'nowrap', gap: 15, width: '100%' }}>
                         
@@ -627,7 +717,7 @@ export default function AdminUserOptions({ route, navigation }) {
 
   if (isWebPC) {
       return (
-          <View style={{ flex: 1, flexDirection: 'row', backgroundColor: webOuterBg, width: '100%', height: '100vh', overflow: 'hidden' }}>
+          <View style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: webOuterBg, overflow: 'hidden' }}>
               
               <View style={{ width: 280, backgroundColor: theme.surface, borderRightWidth: 1, borderColor: theme.border, padding: 20 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 40, marginTop: 10 }}>
@@ -759,7 +849,7 @@ const styles = StyleSheet.create({
   aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 15 },
   cargasBtn: { flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 20 },
 
-  // 🔥 ESTILO BLINDADO (SEM FLEX QUE COLAPSA ALTURA) 🔥
+  // 🔥 ESTILO BLINDADO 🔥
   dashCard: { padding: 20, borderRadius: 16, borderWidth: 1, marginBottom: 15 },
   dashCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
   dashCardTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
@@ -785,5 +875,8 @@ const styles = StyleSheet.create({
   sidebarBtnText: { fontSize: 14, fontWeight: 'bold' },
   
   emptyBox: { padding: 40, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: 16, borderStyle: 'dashed' },
-  emptyText: { color: '#888', marginTop: 10, fontWeight: 'bold', fontSize: 12 }
+  emptyText: { color: '#888', marginTop: 10, fontWeight: 'bold', fontSize: 12 },
+
+  // 🔥 ESTILO DA ÁREA DE ANOTAÇÕES 🔥
+  inputArea: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 13, minHeight: 90, textAlignVertical: 'top', outlineStyle: 'none' }
 });

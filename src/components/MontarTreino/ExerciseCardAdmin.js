@@ -1,12 +1,12 @@
 // src/components/MontarTreino/ExerciseCardAdmin.js
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ScaleDecorator } from 'react-native-draggable-flatlist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SmartThumbnail from './SmartThumbnail';
 
-// 🔥 SCANNER INTELIGENTE DE EQUIPAMENTOS 🔥
+// ─── SCANNER DE EQUIPAMENTOS ───
 const getLoadCategoryKey = (name) => {
     const n = String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     if (n.includes('caneleira') || n.includes('gluteo 4')) return 'caneleira';
@@ -17,89 +17,99 @@ const getLoadCategoryKey = (name) => {
     return 'geral';
 };
 
-// KIT INICIAL DE CARGAS (Apenas na primeira vez)
 const getDefaultLoads = (key) => {
-    switch(key) {
-        case 'halter': return ['6kg', '8kg', '10kg', '12kg', '14kg', '16kg', '20kg'];
-        case 'maquina': return ['10kg', '15kg', '20kg', '25kg', '30kg', '40kg', '50kg', 'Zerar Máquina'];
-        case 'barra_pesada': return ['10kg/lado', '15kg/lado', '20kg/lado', '30kg/lado', '40kg/lado', '50kg/lado'];
-        case 'caneleira': return ['4kg', '6kg', '8kg', '10kg', '12kg'];
-        case 'peso_corporal': return ['Sem carga', 'Anilha 5kg', 'Anilha 10kg', 'Caneleira 2kg'];
-        default: return ['5kg', '10kg', '15kg', '20kg', '25kg', '30kg'];
+    switch (key) {
+        case 'caneleira': return ['2kg', '4kg', '6kg', '8kg', '10kg', '12kg'];
+        case 'halter': return ['2kg', '4kg', '6kg', '8kg', '10kg', '12kg', '14kg', '16kg', '18kg', '20kg'];
+        case 'barra_pesada': return ['10kg', '20kg', '30kg', '40kg', '50kg', '60kg', '80kg', '100kg'];
+        case 'maquina': return ['1 Placa', '2 Placas', '3 Placas', '4 Placas', '5 Placas', '6 Placas', '7 Placas', '8 Placas', '9 Placas', '10 Placas'];
+        case 'peso_corporal': return ['Peso do Corpo', '+2kg', '+4kg', '+6kg', '+8kg', '+10kg'];
+        default: return ['5kg', '10kg', '15kg', '20kg', '25kg', '30kg', '35kg', '40kg'];
     }
 };
 
-const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, widthWeight = 1, keyboardType = 'default', onSubmitEditing, nextFocusRef, inputRef, onBlurAction, onDeleteOption }) => {
-    const [showDropdown, setShowDropdown] = useState(false);
+const QUICK_OBS = [
+    "Focar na cadência (movimento lento)",
+    "Amplitude máxima",
+    "Pico de contração (segurar 2s)",
+    "Carga progressiva",
+    "Cuidado com a postura"
+];
+
+// ─── HYBRID INPUT (TextInput + Dropdown integrado) ───
+const HybridInput = ({
+    inputRef, label, value, onChangeText, options, theme,
+    isCardio, keyboardType = 'default', nextFocusRef,
+    onBlurAction, onDeleteOption, onSubmitEditing, flex = 1
+}) => {
+    const [open, setOpen] = useState(false);
 
     return (
-        <View style={[styles.inputBox, { flex: widthWeight, position: 'relative', zIndex: showDropdown ? 100 : 1 }]}>
-            <Text style={[styles.miniLabel, { color: isCardio ? theme.accent : theme.textSecondary }]}>{label}</Text>
+        <View style={[styles.inputBox, { flex, zIndex: open ? 200 : 1 }]}>
+            <Text style={[styles.miniLabel, {
+                color: isCardio ? theme.accent : theme.textSecondary
+            }]}>{label}</Text>
             <TextInput
                 ref={inputRef}
                 style={[styles.miniInput, {
-                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
                     color: theme.text,
-                    borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                    borderColor: open
+                        ? theme.accent
+                        : theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
                 }]}
-                value={String(value)}
-                keyboardType={keyboardType}
-                onChangeText={(v) => { onChangeText(v); setShowDropdown(true); }}
-                onFocus={() => setShowDropdown(true)}
+                value={value}
+                onChangeText={onChangeText}
+                onFocus={() => setOpen(true)}
                 onBlur={() => {
-                    setTimeout(() => setShowDropdown(false), 200);
-                    if (onBlurAction) onBlurAction(value);
+                    setTimeout(() => setOpen(false), 200);
+                    onBlurAction?.();
                 }}
+                keyboardType={keyboardType}
+                selectTextOnFocus
+                returnKeyType="next"
                 onSubmitEditing={() => {
-                    setShowDropdown(false);
-                    if (onBlurAction) onBlurAction(value);
-                    if (onSubmitEditing) onSubmitEditing();
-                    else if (nextFocusRef?.current) nextFocusRef.current.focus();
+                    onSubmitEditing?.();
+                    nextFocusRef?.current?.focus();
                 }}
-                blurOnSubmit={!nextFocusRef}
             />
-            {showDropdown && options && options.length > 0 && (
+            {open && options && options.length > 0 && (
                 <View style={[styles.hybridDropdown, {
                     backgroundColor: theme.surface,
-                    borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                    borderColor: theme.border,
                 }]}>
-                    <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <ScrollView
+                        nestedScrollEnabled
+                        style={{ maxHeight: 160 }}
+                        keyboardShouldPersistTaps="handled"
+                    >
                         {options.map((opt, i) => {
-                            if (opt.isTitle) {
-                                return (
-                                    <View key={`title-${i}`} style={[styles.dropdownTitle, {
-                                        backgroundColor: theme.bg,
-                                        borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-                                    }]}>
-                                        <Text style={[styles.dropdownTitleText, { color: theme.accent }]}>{opt.label}</Text>
-                                    </View>
-                                );
-                            }
+                            if (opt.isTitle) return (
+                                <View key={i} style={[styles.dropdownTitle, { borderBottomColor: theme.border }]}>
+                                    <Text style={[styles.dropdownTitleText, { color: theme.textSecondary }]}>{opt.label}</Text>
+                                </View>
+                            );
                             return (
-                                <View key={`opt-${i}`} style={[styles.hybridOptionContainer, {
-                                    borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                                <View key={i} style={[styles.hybridOptionContainer, {
+                                    borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
                                 }]}>
                                     <TouchableOpacity
                                         style={styles.hybridOptionClick}
                                         onPress={() => {
-                                            onChangeText(String(opt.val));
-                                            setShowDropdown(false);
-                                            if (onBlurAction) onBlurAction(String(opt.val));
-                                            if (nextFocusRef?.current) nextFocusRef.current.focus();
+                                            onChangeText(opt.val ?? opt.label);
+                                            setOpen(false);
                                         }}
                                     >
-                                        <Text style={[styles.hybridOptionText, { color: theme.text }]} numberOfLines={1}>
-                                            {opt.label}
-                                        </Text>
+                                        <Text style={[styles.hybridOptionText, {
+                                            color: value === (opt.val ?? opt.label) ? theme.accent : theme.text
+                                        }]}>{opt.label}</Text>
                                     </TouchableOpacity>
-                                    
-                                    {/* 🔥 BOTÃO DE EXCLUIR CARGA DO CACHE 🔥 */}
                                     {opt.isDeletable && onDeleteOption && (
-                                        <TouchableOpacity 
-                                            style={styles.hybridOptionDelete} 
-                                            onPress={() => onDeleteOption(opt.val)}
+                                        <TouchableOpacity
+                                            style={styles.hybridOptionDelete}
+                                            onPress={() => onDeleteOption(opt.val ?? opt.label)}
                                         >
-                                            <MaterialCommunityIcons name="close-circle" size={16} color="#FF3B30" />
+                                            <MaterialCommunityIcons name="close" size={14} color="#FF3B30" />
                                         </TouchableOpacity>
                                     )}
                                 </View>
@@ -112,11 +122,14 @@ const HybridInput = ({ label, value, onChangeText, options, theme, isCardio, wid
     );
 };
 
+// ─── BLOCK ROW (com suporte correto a cardio) ───
 const BlockRow = ({
-    bloco, bIndex, index, isCardio, theme, atualizarBloco, removerBloco, adicionarBloco,
-    setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible, workoutModel,
-    OPTIONS_SETS, OPTIONS_REPS, OPTIONS_REST, OPTIONS_LOAD, saveCustomLoad, removeCustomLoad, canRemove,
-    blocksLength
+    bloco, bIndex, index, isCardio, theme, workoutModel,
+    OPTIONS_SETS, OPTIONS_REPS, OPTIONS_REST, OPTIONS_LOAD,
+    saveCustomLoad, removeCustomLoad,
+    atualizarBloco, removerBloco,
+    setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible,
+    canRemove, blocksLength
 }) => {
     const refSets = useRef(null);
     const refReps = useRef(null);
@@ -125,31 +138,44 @@ const BlockRow = ({
 
     return (
         <View style={[styles.blockRow, {
-            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-            borderLeftColor: isCardio ? theme.accent : theme.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
+            backgroundColor: isCardio
+                ? (theme.isDark ? `${theme.accent}12` : `${theme.accent}08`)
+                : (theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
+            borderLeftColor: isCardio
+                ? theme.accent
+                : theme.isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)',
             zIndex: blocksLength - bIndex,
             position: 'relative'
         }]}>
+            {/* SÉRIES ou MINUTOS */}
             <HybridInput
                 inputRef={refSets}
                 label={isCardio ? 'MINUTOS' : 'SÉRIES'}
                 value={bloco.sets}
                 onChangeText={(v) => atualizarBloco(index, bIndex, 'sets', v)}
                 options={OPTIONS_SETS}
-                theme={theme} isCardio={isCardio}
+                theme={theme}
+                isCardio={isCardio}
                 keyboardType="numeric"
                 nextFocusRef={refReps}
+                flex={isCardio ? 1.2 : 0.8}
             />
+
+            {/* REPS ou KCAL ALVO */}
             <HybridInput
                 inputRef={refReps}
                 label={isCardio ? 'KCAL ALVO' : 'REPS'}
                 value={bloco.reps}
                 onChangeText={(v) => atualizarBloco(index, bIndex, 'reps', v)}
                 options={OPTIONS_REPS}
-                theme={theme} isCardio={isCardio}
+                theme={theme}
+                isCardio={isCardio}
                 keyboardType={isCardio ? 'numeric' : 'default'}
                 nextFocusRef={workoutModel === 'CARGA' && !isCardio ? refLoad : (!isCardio ? refRest : null)}
+                flex={isCardio ? 1.4 : 1.2}
             />
+
+            {/* CARGA (só para musculação com modelo CARGA) */}
             {workoutModel === 'CARGA' && !isCardio && (
                 <HybridInput
                     inputRef={refLoad}
@@ -162,48 +188,53 @@ const BlockRow = ({
                     keyboardType="default"
                     nextFocusRef={refRest}
                     onBlurAction={() => saveCustomLoad(bloco.load)}
-                    onDeleteOption={removeCustomLoad} // 🔥 PASSA A FUNÇÃO DE DELETAR 🔥
-                    onSubmitEditing={() => {
-                        saveCustomLoad(bloco.load);
-                        refRest.current?.focus();
-                    }}
+                    onDeleteOption={removeCustomLoad}
+                    onSubmitEditing={() => saveCustomLoad(bloco.load)}
+                    flex={1.4}
                 />
             )}
+
+            {/* PAUSA (só para musculação) */}
             {!isCardio && (
                 <HybridInput
                     inputRef={refRest}
-                    label="DESC(s)"
+                    label="PAUSA"
                     value={bloco.restTime}
                     onChangeText={(v) => atualizarBloco(index, bIndex, 'restTime', v)}
                     options={OPTIONS_REST}
-                    theme={theme} isCardio={false}
+                    theme={theme}
+                    isCardio={false}
                     keyboardType="numeric"
-                    onSubmitEditing={() => adicionarBloco(index)}
+                    flex={1}
                 />
             )}
-            <TouchableOpacity
-                style={[styles.techBox, {
-                    backgroundColor: bloco.technique
-                        ? theme.accent + '15'
-                        : theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                    borderColor: bloco.technique
-                        ? theme.accent + '50'
-                        : theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                    flex: isCardio ? 1.5 : 1,
-                }]}
-                onPress={() => {
-                    setIndexExercicioAtual(index);
-                    setIndexBlocoAtual(bIndex);
-                    setModalTecnicaVisible(true);
-                }}
-            >
-                <Text style={[styles.miniLabel, { color: isCardio ? theme.accent : theme.textSecondary }]}>
-                    {isCardio ? 'INTENSIDADE' : 'TÉCNICA'}
-                </Text>
-                <Text style={[styles.techValue, { color: bloco.technique ? theme.accent : theme.textSecondary }]} numberOfLines={1}>
-                    {bloco.technique || (isCardio ? 'Moderada' : 'Normal')}
-                </Text>
-            </TouchableOpacity>
+
+            {/* TÉCNICA (só para musculação) */}
+            {!isCardio && (
+                <View style={[styles.inputBox, { flex: 1.2 }]}>
+                    <Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TÉCNICA</Text>
+                    <TouchableOpacity
+                        style={[styles.techBox, {
+                            backgroundColor: bloco.technique
+                                ? theme.accent + '20'
+                                : theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+                            borderColor: bloco.technique
+                                ? theme.accent
+                                : theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                        }]}
+                        onPress={() => {
+                            setIndexExercicioAtual(index);
+                            setIndexBlocoAtual(bIndex);
+                            setModalTecnicaVisible(true);
+                        }}
+                    >
+                        <Text style={[styles.techValue, { color: bloco.technique ? theme.accent : theme.text }]} numberOfLines={1}>
+                            {bloco.technique || 'Normal'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
             {canRemove && (
                 <TouchableOpacity onPress={() => removerBloco(index, bIndex)} style={styles.removeBlockBtn}>
                     <MaterialCommunityIcons name="close" size={16} color="#FF3B30" />
@@ -213,185 +244,189 @@ const BlockRow = ({
     );
 };
 
+// ─── COMPONENTE PRINCIPAL ───
 export default function ExerciseCardAdmin({
-    item, index, theme, drag, isActive,
-    removeExercicio,
-    setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible,
-    removeSubstitute, atualizarBloco, adicionarBloco, removerBloco,
+    item, index, drag, isActive, theme,
+    atualizarBloco, removerBloco, adicionarBloco,
+    removeExercicio, removeSubstitute, atualizarObservacao,
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible,
-    atualizarObservacao, openPreview, currentExercisesLength,
-    setIsSwapping, setSwapIndex, setInitialCategoryFilter,
-    workoutModel,
-    moveExercise,
+    setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible,
+    setIsSwapping, setSwapIndex, openPreview,
+    workoutModel, moveExerciseWeb, setInitialCategoryFilter
 }) {
-    const videoUrl = item.exercise?.videoUrl || item.videoUrl || '';
-    const isCardio = item.category?.toUpperCase() === 'CARDIO';
-    const isGhost = String(item.exerciseId || '').startsWith('custom_');
     const isWeb = Platform.OS === 'web';
+    const isCardio = item.category?.toUpperCase() === 'CARDIO';
+    const isGhost = item.exerciseId && String(item.exerciseId).startsWith('custom_');
 
-    const exerciseName = item.exercise?.name || item.title || '';
-    const loadCategoryKey = getLoadCategoryKey(exerciseName);
-
-    const [showObsDropdown, setShowObsDropdown] = useState(false);
     const [showPyramidDropdown, setShowPyramidDropdown] = useState(false);
-    
-    // 🔥 ESTADO ÚNICO DE CARGAS (A MEMÓRIA É 100% SUA) 🔥
-    const [activeLoads, setActiveLoads] = useState([]);
+    const [showObsDropdown, setShowObsDropdown] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(true);
+    const [customLoads, setCustomLoads] = useState([]);
+    const loadCategoryKey = getLoadCategoryKey(item.title);
 
-    // CARREGA A MEMÓRIA OU INICIA O KIT PADRÃO
     useEffect(() => {
-        const loadMemory = async () => {
+        const loadSavedLoads = async () => {
             try {
-                const saved = await AsyncStorage.getItem(`@loads_v2_${loadCategoryKey}`);
-                if (saved !== null) {
-                    setActiveLoads(JSON.parse(saved)); // Puxa o que você deixou
+                const saved = await AsyncStorage.getItem(`@custom_loads_${loadCategoryKey}`);
+                if (saved) {
+                    setCustomLoads(JSON.parse(saved));
                 } else {
-                    setActiveLoads(getDefaultLoads(loadCategoryKey)); // Kit inicial se for a primeira vez
+                    const defaults = getDefaultLoads(loadCategoryKey);
+                    setCustomLoads(defaults);
+                    await AsyncStorage.setItem(`@custom_loads_${loadCategoryKey}`, JSON.stringify(defaults));
                 }
-            } catch(e) {}
+            } catch (e) { console.log(e); }
         };
-        loadMemory();
+        loadSavedLoads();
     }, [loadCategoryKey]);
 
-    // SALVA CARGAS NOVAS NA MEMÓRIA
-    const saveCustomLoad = useCallback(async (newLoad) => {
-        if (!newLoad || String(newLoad).trim() === '') return;
-        const loadStr = String(newLoad).trim();
+    const saveCustomLoad = async (newLoad) => {
+        if (!newLoad || newLoad.trim() === '') return;
+        const formatted = newLoad.trim();
+        if (!customLoads.includes(formatted)) {
+            const updated = [formatted, ...customLoads].slice(0, 15);
+            setCustomLoads(updated);
+            try { await AsyncStorage.setItem(`@custom_loads_${loadCategoryKey}`, JSON.stringify(updated)); } catch (e) {}
+        }
+    };
 
-        if (activeLoads.includes(loadStr)) return;
+    const removeCustomLoad = async (loadToRemove) => {
+        const updated = customLoads.filter(l => l !== loadToRemove);
+        setCustomLoads(updated);
+        try { await AsyncStorage.setItem(`@custom_loads_${loadCategoryKey}`, JSON.stringify(updated)); } catch (e) {}
+    };
 
-        try {
-            const updated = [loadStr, ...activeLoads].slice(0, 20); // Limite de 20 cargas
-            setActiveLoads(updated);
-            await AsyncStorage.setItem(`@loads_v2_${loadCategoryKey}`, JSON.stringify(updated));
-        } catch(e) {}
-    }, [activeLoads, loadCategoryKey]);
-
-    // EXCLUI CARGAS DA MEMÓRIA
-    const removeCustomLoad = useCallback(async (loadToRemove) => {
-        const updated = activeLoads.filter(l => l !== loadToRemove);
-        setActiveLoads(updated);
-        try {
-            await AsyncStorage.setItem(`@loads_v2_${loadCategoryKey}`, JSON.stringify(updated));
-        } catch(e) {}
-    }, [activeLoads, loadCategoryKey]);
-
-    // PREPARA AS OPÇÕES DO DROPDOWN (Todas podem ser excluídas)
-    const OPTIONS_LOAD = activeLoads.map(l => ({ val: l, label: l, isDeletable: true }));
-
-    const QUICK_OBS = [
-        'Faça até a falha',
-        'Descanse apenas após executar com os 2 braços',
-        'Descansar apenas após executar com as 2 pernas',
-        'Pode mesclar os cardios, respeite as calorias',
-        '30 a 60 segundos mantendo a posição',
-        'Foque na fase excêntrica (descida controlada)',
-        'Use carga máxima para a meta de reps',
+    // ─── OPTIONS ───
+    const OPTIONS_SETS = isCardio ? [
+        { label: '10 min', val: '10' }, { label: '15 min', val: '15' },
+        { label: '20 min', val: '20' }, { label: '30 min', val: '30' },
+        { label: '45 min', val: '45' }, { label: '60 min', val: '60' },
+    ] : [
+        { label: '1', val: '1' }, { label: '2', val: '2' }, { label: '3', val: '3' },
+        { label: '4', val: '4' }, { label: '5', val: '5' }, { label: '6', val: '6' },
     ];
 
-    const OPTIONS_SETS = isCardio
-        ? [{ val: 10, label: '10' }, { val: 15, label: '15' }, { val: 20, label: '20' }, { val: 30, label: '30' }, { val: 45, label: '45' }, { val: 60, label: '60' }]
-        : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => ({ val: n, label: String(n) }));
+    const OPTIONS_REPS = isCardio ? [
+        { label: '100 kcal', val: '100' }, { label: '150 kcal', val: '150' },
+        { label: '200 kcal', val: '200' }, { label: '250 kcal', val: '250' },
+        { label: '300 kcal', val: '300' }, { label: '400 kcal', val: '400' },
+        { label: '500 kcal', val: '500' },
+    ] : [
+        { label: 'Até a falha', val: 'Falha' }, { label: 'Máx', val: 'Máx' },
+        { label: '6', val: '6' }, { label: '8', val: '8' },
+        { label: '10', val: '10' }, { label: '12', val: '12' },
+        { label: '15', val: '15' }, { label: '20', val: '20' },
+        { label: '6 a 8', val: '6-8' }, { label: '8 a 10', val: '8-10' },
+        { label: '10 a 12', val: '10-12' }, { label: '12 a 15', val: '12-15' },
+        { label: '15 a 20', val: '15-20' },
+    ];
 
-    const OPTIONS_REPS = isCardio
-        ? [{ val: 150, label: '150' }, { val: 200, label: '200' }, { val: 250, label: '250' }, { val: 300, label: '300' }, { val: 400, label: '400' }]
-        : [{ val: 'FALHA', label: 'FALHA' }, { val: '6', label: '6' }, { val: '8', label: '8' }, { val: '10', label: '10' }, { val: '12', label: '12' }, { val: '15', label: '15' }, { val: '20', label: '20' }, { val: '30', label: '30' }];
+    const OPTIONS_REST = [
+        { label: 'Sem pausa', val: '0' }, { label: '30s', val: '30' },
+        { label: '45s', val: '45' }, { label: '60s (1 min)', val: '60' },
+        { label: '90s (1.5 min)', val: '90' }, { label: '120s (2 min)', val: '120' },
+        { label: '3 min', val: '180' },
+    ];
 
-    const OPTIONS_REST = [5, 10, 15, 30, 45, 60, 90, 120].map(n => ({ val: n, label: String(n) }));
+    const OPTIONS_LOAD = [
+        { label: 'SUAS CARGAS SALVAS', isTitle: true },
+        ...customLoads.map(l => ({ label: l, val: l, isDeletable: true }))
+    ];
+
+    // ─── DRAG HANDLE / WEB ARROWS ───
+    const dragHandleContent = isWeb ? (
+        // 🔥 BOTÕES COLORIDOS E EVIDENTES NO WEB 🔥
+        <View style={styles.webMoveRow}>
+            <TouchableOpacity
+                style={[styles.webMoveBtn, {
+                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+                    borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                }]}
+                onPress={() => moveExerciseWeb(index, -1)}
+            >
+                <MaterialCommunityIcons name="arrow-up" size={13} color={theme.textSecondary} />
+                <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Mover para cima</Text>
+            </TouchableOpacity>
+
+            <View style={[styles.webMoveDivider, { backgroundColor: theme.border }]} />
+
+            <TouchableOpacity
+                style={[styles.webMoveBtn, {
+                    backgroundColor: isExpanded ? theme.accent + '18' : (theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'),
+                    borderColor: isExpanded ? theme.accent + '40' : (theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)'),
+                }]}
+                onPress={() => setIsExpanded(!isExpanded)}
+            >
+                <MaterialCommunityIcons
+                    name={isExpanded ? 'unfold-less-horizontal' : 'unfold-more-horizontal'}
+                    size={13}
+                    color={isExpanded ? theme.accent : theme.textSecondary}
+                />
+                <Text style={[styles.webMoveBtnText, {
+                    color: isExpanded ? theme.accent : theme.textSecondary
+                }]}>
+                    {isExpanded ? 'Minimizar' : 'Expandir'}
+                </Text>
+            </TouchableOpacity>
+
+            <View style={[styles.webMoveDivider, { backgroundColor: theme.border }]} />
+
+            <TouchableOpacity
+                style={[styles.webMoveBtn, {
+                    backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
+                    borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
+                }]}
+                onPress={() => moveExerciseWeb(index, 1)}
+            >
+                <MaterialCommunityIcons name="arrow-down" size={13} color={theme.textSecondary} />
+                <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Mover para baixo</Text>
+            </TouchableOpacity>
+        </View>
+    ) : (
+        <TouchableOpacity onLongPress={drag} style={styles.dragTouchable} delayLongPress={150}>
+            <MaterialCommunityIcons name="drag-horizontal-variant" size={20} color={theme.textSecondary} />
+            <Text style={[styles.dragHint, { color: theme.textSecondary }]}>Segure para reordenar</Text>
+        </TouchableOpacity>
+    );
 
     const cardContent = (
-        <View style={[
-            styles.card,
-            {
-                backgroundColor: isGhost
-                    ? (theme.isDark ? '#2A0000' : '#FFF5F5')
-                    : theme.surface,
-                borderColor: isGhost ? '#FF3B3050' : 'transparent',
-                borderWidth: isGhost ? 1 : 0,
-                opacity: isActive ? 0.95 : 1,
-            },
-            !isGhost && Platform.select({
-                ios: {
-                    shadowColor: isActive ? theme.accent : '#000',
-                    shadowOpacity: isActive ? 0.3 : (theme.isDark ? 0.3 : 0.07),
-                    shadowRadius: isActive ? 20 : 16,
-                    shadowOffset: { width: 0, height: isActive ? 8 : 5 },
-                },
-                android: { elevation: isActive ? 8 : 3 },
-                web: {
-                    boxShadow: isActive
-                        ? `0 8px 32px rgba(0,0,0,0.2)`
-                        : theme.isDark ? '0 4px 20px rgba(0,0,0,0.35)' : '0 4px 20px rgba(0,0,0,0.07)',
-                },
-            }),
-        ]}>
+        <View style={[styles.card, {
+            backgroundColor: theme.surface,
+            borderColor: isActive ? theme.accent : (isCardio ? theme.accent + '40' : theme.border),
+            borderWidth: isActive ? 2 : 1,
+            opacity: isGhost ? 0.8 : 1,
+            ...Platform.select({
+                web: { boxShadow: isActive ? `0 0 0 2px ${theme.accent}` : '0 2px 10px rgba(0,0,0,0.05)' },
+                default: { elevation: isActive ? 8 : 2 }
+            })
+        }]}>
 
-            {/* DRAG HANDLE & WEB ARROWS (MODERNO) */}
+            {/* DRAG HANDLE */}
             <View style={[styles.dragHandle, {
-                backgroundColor: isActive
-                    ? theme.accent + '18'
-                    : theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                backgroundColor: isCardio
+                    ? (theme.isDark ? `${theme.accent}10` : `${theme.accent}08`)
+                    : (theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
+                borderBottomColor: theme.border
             }]}>
-                {isWeb ? (
-                    <View style={styles.webMoveRow}>
-                        <Text style={[styles.dragHint, { color: theme.textSecondary }]}>#{index + 1}</Text>
-                        <View style={{ flexDirection: 'row', backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderRadius: 10, overflow: 'hidden' }}>
-                            <TouchableOpacity 
-                                style={[styles.webArrowBtn, { opacity: index === 0 ? 0.3 : 1 }]}
-                                onPress={() => moveExercise && moveExercise(index, 'up')}
-                                disabled={index === 0}
-                            >
-                                <MaterialCommunityIcons name="arrow-up" size={16} color={theme.textSecondary} />
-                            </TouchableOpacity>
-                            <View style={{ width: 1, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }} />
-                            <TouchableOpacity 
-                                style={[styles.webArrowBtn, { opacity: index === currentExercisesLength - 1 ? 0.3 : 1 }]}
-                                onPress={() => moveExercise && moveExercise(index, 'down')}
-                                disabled={index === currentExercisesLength - 1}
-                            >
-                                <MaterialCommunityIcons name="arrow-down" size={16} color={theme.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        onLongPress={drag}
-                        delayLongPress={150}
-                        style={styles.dragTouchable}
-                        activeOpacity={0.6}
-                    >
-                        <MaterialCommunityIcons
-                            name="drag-horizontal-variant"
-                            size={20}
-                            color={isActive ? theme.accent : theme.textSecondary}
-                            style={{ opacity: isActive ? 1 : 0.5 }}
-                        />
-                        {isActive && (
-                            <Text style={[styles.dragHint, { color: theme.accent }]}>Arraste para mover</Text>
-                        )}
-                    </TouchableOpacity>
-                )}
+                {dragHandleContent}
             </View>
 
-            {/* ─── THUMBNAIL LATERAL ─── */}
+            {/* THUMBNAIL E TÍTULO */}
             {!isGhost && (
-                <TouchableOpacity
-                    onPress={() => openPreview({ ...item, name: item.title, isAdded: true })}
-                    style={[styles.thumbRow, {
-                        borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                    }]}
-                    activeOpacity={0.8}
-                >
-                    <View style={styles.thumbSmall}>
-                        <SmartThumbnail url={videoUrl} style={StyleSheet.absoluteFillObject} theme={theme} />
+                <View style={[styles.thumbRow, { borderBottomColor: theme.border }]}>
+                    <TouchableOpacity style={styles.thumbSmall} onPress={() => openPreview(item)}>
+                        <SmartThumbnail
+                            url={item.exercise?.videoUrl || item.videoUrl}
+                            style={StyleSheet.absoluteFillObject}
+                            theme={theme}
+                        />
                         <View style={styles.thumbPlayOverlay}>
                             <MaterialCommunityIcons name="play-circle" size={28} color="rgba(255,255,255,0.9)" />
                         </View>
-                    </View>
+                    </TouchableOpacity>
                     <View style={styles.thumbInfo}>
                         {isCardio && (
-                            <View style={styles.cardioBadge}>
+                            <View style={[styles.cardioBadge, { backgroundColor: theme.accent + '20' }]}>
                                 <MaterialCommunityIcons name="heart-pulse" size={10} color={theme.accent} />
                                 <Text style={[styles.cardioBadgeText, { color: theme.accent }]}>CARDIO</Text>
                             </View>
@@ -400,223 +435,243 @@ export default function ExerciseCardAdmin({
                             {index + 1}. {item.title}
                         </Text>
                     </View>
-                </TouchableOpacity>
+                    {/* Botão minimizar no mobile */}
+                    {!isWeb && (
+                        <TouchableOpacity
+                            style={[styles.mobileExpandBtn, {
+                                backgroundColor: isExpanded
+                                    ? theme.accent + '18'
+                                    : (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'),
+                            }]}
+                            onPress={() => setIsExpanded(!isExpanded)}
+                        >
+                            <MaterialCommunityIcons
+                                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={20}
+                                color={isExpanded ? theme.accent : theme.textSecondary}
+                            />
+                        </TouchableOpacity>
+                    )}
+                </View>
             )}
 
-            {/* CORPO DO CARD */}
-            <View style={styles.cardBody}>
+            {/* CORPO (escondido se minimizado) */}
+            {isExpanded && (
+                <View style={styles.cardBody}>
 
-                {/* GHOST HEADER */}
-                {isGhost && (
-                    <View style={styles.ghostHeader}>
-                        <View style={styles.ghostLeft}>
-                            <Text style={[styles.ghostName, { color: '#FF3B30' }]}>{index + 1}. {item.title}</Text>
-                            <View style={styles.ghostBadge}>
-                                <Text style={styles.ghostBadgeText}>⚠️ NÃO VINCULADO</Text>
+                    {/* GHOST HEADER */}
+                    {isGhost && (
+                        <View style={styles.ghostHeader}>
+                            <View style={styles.ghostLeft}>
+                                <Text style={[styles.ghostName, { color: '#FF3B30' }]}>{index + 1}. {item.title}</Text>
+                                <View style={styles.ghostBadge}>
+                                    <Text style={styles.ghostBadgeText}>⚠️ NÃO VINCULADO</Text>
+                                </View>
                             </View>
-                        </View>
-                        <View style={styles.cardActions}>
-                            <TouchableOpacity
-                                onPress={() => {
-                                    setIsSwapping(true); setSwapIndex(index);
-                                    try {
+                            <View style={styles.cardActions}>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setIsSwapping(true); setSwapIndex(index);
                                         if (item.category && setInitialCategoryFilter) {
                                             setInitialCategoryFilter(item.category, item.subCategory);
                                         }
-                                    } catch(e) { console.log(e); }
+                                        setModalBuscaVisible(true);
+                                    }}
+                                    style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]}
+                                >
+                                    <MaterialCommunityIcons name="link-variant-plus" size={18} color="#FFF" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => removeExercicio(item.tempId)} style={styles.deleteBtn}>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* AÇÕES */}
+                    {!isGhost && (
+                        <View style={styles.cardActionsRow}>
+                            <TouchableOpacity
+                                onPress={() => {
+                                    setIsSwapping(true); setSwapIndex(index);
+                                    if (item.category && typeof setInitialCategoryFilter === 'function') {
+                                        setInitialCategoryFilter(item.category, item.subCategory);
+                                    }
                                     setModalBuscaVisible(true);
                                 }}
-                                style={[styles.actionBtn, { backgroundColor: '#FF3B30' }]}
+                                style={[styles.swapBtn, {
+                                    backgroundColor: theme.accent + '18',
+                                    borderColor: theme.accent + '40',
+                                }]}
                             >
-                                <MaterialCommunityIcons name="link-variant-plus" size={18} color="#FFF" />
+                                <MaterialCommunityIcons name="sync" size={15} color={theme.accent} />
+                                <Text style={[styles.swapBtnText, { color: theme.accent }]}>Trocar exercício</Text>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => removeExercicio(item.tempId)} style={styles.deleteBtn}>
                                 <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
                             </TouchableOpacity>
                         </View>
-                    </View>
-                )}
+                    )}
 
-                {/* AÇÕES */}
-                {!isGhost && (
-                    <View style={styles.cardActionsRow}>
+                    {/* SUBSTITUTO */}
+                    {item.substitute ? (
+                        <View style={[styles.substituteRow, {
+                            backgroundColor: theme.accent + '10',
+                            borderColor: theme.accent + '40',
+                        }]}>
+                            <MaterialCommunityIcons name="swap-horizontal" size={15} color={theme.accent} />
+                            <Text style={[styles.subLabel, { color: theme.accent }]}>Ou:</Text>
+                            <Text style={[styles.subName, { color: theme.text }]}>{item.substitute.name}</Text>
+                            <TouchableOpacity onPress={() => removeSubstitute(index)}>
+                                <MaterialCommunityIcons name="close-circle" size={17} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    ) : (
                         <TouchableOpacity
+                            style={styles.addSubBtn}
                             onPress={() => {
-                                setIsSwapping(true); setSwapIndex(index);
+                                setIsSelectingSubstitute(true);
+                                setTargetIndexForSubstitute(index);
                                 if (item.category && typeof setInitialCategoryFilter === 'function') {
                                     setInitialCategoryFilter(item.category, item.subCategory);
                                 }
                                 setModalBuscaVisible(true);
                             }}
-                            style={[styles.swapBtn, {
-                                backgroundColor: theme.accent + '18',
-                                borderColor: theme.accent + '40',
-                            }]}
                         >
-                            <MaterialCommunityIcons name="sync" size={15} color={theme.accent} />
-                            <Text style={[styles.swapBtnText, { color: theme.accent }]}>Trocar exercício</Text>
+                            <MaterialCommunityIcons name="plus-circle-outline" size={13} color={theme.textSecondary} />
+                            <Text style={[styles.addSubText, { color: theme.textSecondary }]}>Adicionar opção de troca</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity onPress={() => removeExercicio(item.tempId)} style={styles.deleteBtn}>
-                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
-                        </TouchableOpacity>
-                    </View>
-                )}
-
-                {/* SUBSTITUTO */}
-                {item.substitute ? (
-                    <View style={[styles.substituteRow, {
-                        backgroundColor: theme.accent + '10',
-                        borderColor: theme.accent + '40',
-                    }]}>
-                        <MaterialCommunityIcons name="swap-horizontal" size={15} color={theme.accent} />
-                        <Text style={[styles.subLabel, { color: theme.accent }]}>Ou:</Text>
-                        <Text style={[styles.subName, { color: theme.text }]}>{item.substitute.name}</Text>
-                        <TouchableOpacity onPress={() => removeSubstitute(index)}>
-                            <MaterialCommunityIcons name="close-circle" size={17} color={theme.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    <TouchableOpacity
-                        style={styles.addSubBtn}
-                        onPress={() => {
-                            setIsSelectingSubstitute(true);
-                            setTargetIndexForSubstitute(index);
-                            if (item.category && typeof setInitialCategoryFilter === 'function') {
-                                setInitialCategoryFilter(item.category, item.subCategory);
-                            }
-                            setModalBuscaVisible(true);
-                        }}
-                    >
-                        <MaterialCommunityIcons name="plus-circle-outline" size={13} color={theme.textSecondary} />
-                        <Text style={[styles.addSubText, { color: theme.textSecondary }]}>Adicionar opção de troca</Text>
-                    </TouchableOpacity>
-                )}
-
-                {/* BLOCOS */}
-                <View style={[styles.blocksContainer, { zIndex: 999 }]}>
-                    {item.blocks && item.blocks.map((bloco, bIndex) => (
-                        <BlockRow
-                            key={bIndex}
-                            bloco={bloco} bIndex={bIndex} index={index}
-                            isCardio={isCardio} theme={theme} workoutModel={workoutModel}
-                            OPTIONS_SETS={OPTIONS_SETS} OPTIONS_REPS={OPTIONS_REPS} OPTIONS_REST={OPTIONS_REST}
-                            OPTIONS_LOAD={OPTIONS_LOAD} saveCustomLoad={saveCustomLoad} removeCustomLoad={removeCustomLoad}
-                            atualizarBloco={atualizarBloco} removerBloco={removerBloco} adicionarBloco={adicionarBloco}
-                            setIndexExercicioAtual={setIndexExercicioAtual} setIndexBlocoAtual={setIndexBlocoAtual}
-                            setModalTecnicaVisible={setModalTecnicaVisible}
-                            canRemove={item.blocks.length > 1}
-                            blocksLength={item.blocks.length}
-                        />
-                    ))}
-
-                    {!isCardio && (
-                        <View style={styles.addBlockRow}>
-                            <TouchableOpacity
-                                style={[styles.addBlockBtn, {
-                                    backgroundColor: theme.accent + '10',
-                                    borderColor: theme.accent + '40',
-                                }]}
-                                onPress={() => adicionarBloco(index)}
-                            >
-                                <MaterialCommunityIcons name="plus" size={15} color={theme.accent} />
-                                <Text style={[styles.addBlockBtnText, { color: theme.accent }]}>Manual</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.addBlockBtn, {
-                                    backgroundColor: theme.accent + '10',
-                                    borderColor: theme.accent + '40',
-                                }]}
-                                onPress={() => setShowPyramidDropdown(!showPyramidDropdown)}
-                            >
-                                <MaterialCommunityIcons name="layers-triple" size={15} color={theme.accent} />
-                                <Text style={[styles.addBlockBtnText, { color: theme.accent }]}>Pirâmide</Text>
-                            </TouchableOpacity>
-                        </View>
                     )}
 
-                    {showPyramidDropdown && (
-                        <View style={[styles.pyramidContainer, {
-                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                        }]}>
-                            <Text style={[styles.pyramidLabel, { color: theme.textSecondary }]}>ESCOLHA A ESTRUTURA:</Text>
-                            <View style={styles.pyramidBtns}>
-                                {['12-10-8-8', '15-12-10-10', '15-12-12-10', '15-12-10-8', '12-12-10', '12-10-8'].map(p => (
-                                    <TouchableOpacity
-                                        key={p}
-                                        style={[styles.pyramidBtn, {
-                                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
-                                            borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
-                                        }]}
-                                        onPress={() => { adicionarBloco(index, p); setShowPyramidDropdown(false); }}
-                                    >
-                                        <Text style={[styles.pyramidBtnText, { color: theme.text }]}>{p}</Text>
-                                    </TouchableOpacity>
-                                ))}
+                    {/* BLOCOS */}
+                    <View style={[styles.blocksContainer, { zIndex: 999 }]}>
+                        {item.blocks && item.blocks.map((bloco, bIndex) => (
+                            <BlockRow
+                                key={bIndex}
+                                bloco={bloco} bIndex={bIndex} index={index}
+                                isCardio={isCardio} theme={theme} workoutModel={workoutModel}
+                                OPTIONS_SETS={OPTIONS_SETS} OPTIONS_REPS={OPTIONS_REPS}
+                                OPTIONS_REST={OPTIONS_REST} OPTIONS_LOAD={OPTIONS_LOAD}
+                                saveCustomLoad={saveCustomLoad} removeCustomLoad={removeCustomLoad}
+                                atualizarBloco={atualizarBloco} removerBloco={removerBloco}
+                                adicionarBloco={adicionarBloco}
+                                setIndexExercicioAtual={setIndexExercicioAtual}
+                                setIndexBlocoAtual={setIndexBlocoAtual}
+                                setModalTecnicaVisible={setModalTecnicaVisible}
+                                canRemove={item.blocks.length > 1}
+                                blocksLength={item.blocks.length}
+                            />
+                        ))}
+
+                        {!isCardio && (
+                            <View style={styles.addBlockRow}>
+                                <TouchableOpacity
+                                    style={[styles.addBlockBtn, {
+                                        backgroundColor: theme.accent + '10',
+                                        borderColor: theme.accent + '40',
+                                    }]}
+                                    onPress={() => adicionarBloco(index)}
+                                >
+                                    <MaterialCommunityIcons name="plus" size={15} color={theme.accent} />
+                                    <Text style={[styles.addBlockBtnText, { color: theme.accent }]}>Manual</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.addBlockBtn, {
+                                        backgroundColor: theme.accent + '10',
+                                        borderColor: theme.accent + '40',
+                                    }]}
+                                    onPress={() => setShowPyramidDropdown(!showPyramidDropdown)}
+                                >
+                                    <MaterialCommunityIcons name="layers-triple" size={15} color={theme.accent} />
+                                    <Text style={[styles.addBlockBtnText, { color: theme.accent }]}>Pirâmide</Text>
+                                </TouchableOpacity>
                             </View>
-                        </View>
-                    )}
-                </View>
+                        )}
 
-                {/* OBSERVAÇÃO */}
-                <View style={styles.obsSection}>
-                    <View style={styles.obsHeader}>
-                        <Text style={[styles.miniLabel, { color: theme.textSecondary, marginBottom: 0 }]}>OBSERVAÇÃO</Text>
-                        <TouchableOpacity
-                            style={[styles.obsQuickBtn, {
-                                backgroundColor: theme.accent + '15',
-                                borderColor: theme.accent + '40',
-                            }]}
-                            onPress={() => setShowObsDropdown(!showObsDropdown)}
-                        >
-                            <MaterialCommunityIcons name="lightbulb-on" size={13} color={theme.accent} />
-                            <Text style={[styles.obsQuickBtnText, { color: theme.accent }]}>
-                                {showObsDropdown ? 'Fechar' : 'Inserir rápido'}
-                            </Text>
-                        </TouchableOpacity>
+                        {showPyramidDropdown && (
+                            <View style={[styles.pyramidContainer, {
+                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                                borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                            }]}>
+                                <Text style={[styles.pyramidLabel, { color: theme.textSecondary }]}>ESCOLHA A ESTRUTURA:</Text>
+                                <View style={styles.pyramidBtns}>
+                                    {['12-10-8-8', '15-12-10-10', '15-12-12-10', '15-12-10-8', '12-12-10', '12-10-8'].map(p => (
+                                        <TouchableOpacity
+                                            key={p}
+                                            style={[styles.pyramidBtn, {
+                                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+                                                borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)',
+                                            }]}
+                                            onPress={() => { adicionarBloco(index, p); setShowPyramidDropdown(false); }}
+                                        >
+                                            <Text style={[styles.pyramidBtnText, { color: theme.text }]}>{p}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        )}
                     </View>
 
-                    {showObsDropdown && (
-                        <View style={[styles.obsDropdown, {
-                            backgroundColor: theme.surface,
-                            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
-                        }]}>
-                            <ScrollView nestedScrollEnabled style={{ maxHeight: 160 }} keyboardShouldPersistTaps="handled">
-                                {QUICK_OBS.map((obsText, i) => (
-                                    <TouchableOpacity
-                                        key={i}
-                                        style={[styles.obsOption, {
-                                            borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
-                                        }]}
-                                        onPress={() => {
-                                            const currentObs = item.observation || '';
-                                            const separator = currentObs.length > 0 && !currentObs.endsWith(' ') ? ' - ' : '';
-                                            atualizarObservacao(index, currentObs + separator + obsText);
-                                            setShowObsDropdown(false);
-                                        }}
-                                    >
-                                        <Text style={[styles.obsOptionText, { color: theme.text }]}>+ {obsText}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
+                    {/* OBSERVAÇÃO */}
+                    <View style={styles.obsSection}>
+                        <View style={styles.obsHeader}>
+                            <Text style={[styles.miniLabel, { color: theme.textSecondary, marginBottom: 0 }]}>OBSERVAÇÃO</Text>
+                            <TouchableOpacity
+                                style={[styles.obsQuickBtn, {
+                                    backgroundColor: theme.accent + '15',
+                                    borderColor: theme.accent + '40',
+                                }]}
+                                onPress={() => setShowObsDropdown(!showObsDropdown)}
+                            >
+                                <MaterialCommunityIcons name="lightbulb-on" size={13} color={theme.accent} />
+                                <Text style={[styles.obsQuickBtnText, { color: theme.accent }]}>
+                                    {showObsDropdown ? 'Fechar' : 'Inserir rápido'}
+                                </Text>
+                            </TouchableOpacity>
                         </View>
-                    )}
 
-                    <TextInput
-                        style={[styles.obsInput, {
-                            backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
-                            color: theme.text,
-                            borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
-                        }]}
-                        placeholder="Adicionar observação ao aluno..."
-                        placeholderTextColor={theme.textSecondary}
-                        value={item.observation || ''}
-                        onChangeText={(text) => atualizarObservacao(index, text)}
-                        multiline
-                    />
+                        {showObsDropdown && (
+                            <View style={[styles.obsDropdown, {
+                                backgroundColor: theme.surface,
+                                borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+                            }]}>
+                                <ScrollView nestedScrollEnabled style={{ maxHeight: 160 }} keyboardShouldPersistTaps="handled">
+                                    {QUICK_OBS.map((obsText, i) => (
+                                        <TouchableOpacity
+                                            key={i}
+                                            style={[styles.obsOption, {
+                                                borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                                            }]}
+                                            onPress={() => {
+                                                const currentObs = item.observation || '';
+                                                const separator = currentObs.length > 0 && !currentObs.endsWith(' ') ? ' - ' : '';
+                                                atualizarObservacao(index, currentObs + separator + obsText);
+                                                setShowObsDropdown(false);
+                                            }}
+                                        >
+                                            <Text style={[styles.obsOptionText, { color: theme.text }]}>+ {obsText}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        <TextInput
+                            style={[styles.obsInput, {
+                                backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                                color: theme.text,
+                                borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                            }]}
+                            placeholder="Adicionar observação ao aluno..."
+                            placeholderTextColor={theme.textSecondary}
+                            value={item.observation || ''}
+                            onChangeText={(text) => atualizarObservacao(index, text)}
+                            multiline
+                        />
+                    </View>
+
                 </View>
-
-            </View>
+            )}
         </View>
     );
 
@@ -638,9 +693,9 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
 
-    // DRAG HANDLE
+    // ─── DRAG HANDLE ───
     dragHandle: {
-        height: 38,
+        minHeight: 38,
         borderBottomWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
@@ -650,7 +705,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 6,
         paddingHorizontal: 16,
-        height: '100%',
+        height: 38,
         width: '100%',
         justifyContent: 'center',
     },
@@ -659,22 +714,36 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // WEB ARROWS (MODERNO E SUTIL)
+    // 🔥 WEB MOVE BUTTONS (coloridos e evidentes) ───
     webMoveRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 14,
+        justifyContent: 'center',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        gap: 6,
         width: '100%',
     },
-    webArrowBtn: {
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        justifyContent: 'center',
+    webMoveBtn: {
+        flexDirection: 'row',
         alignItems: 'center',
+        gap: 5,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    webMoveBtnText: {
+        fontSize: 11,
+        fontWeight: '700',
+    },
+    webMoveDivider: {
+        width: 1,
+        height: 16,
+        marginHorizontal: 2,
     },
 
-    // ─── THUMBNAIL LATERAL ───
+    // ─── THUMBNAIL ───
     thumbRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -714,20 +783,23 @@ const styles = StyleSheet.create({
         paddingVertical: 3,
         borderRadius: 6,
         alignSelf: 'flex-start',
-        backgroundColor: 'rgba(0,0,0,0.06)',
     },
     cardioBadgeText: {
         fontSize: 9,
         fontWeight: '900',
         letterSpacing: 0.5,
     },
+    mobileExpandBtn: {
+        padding: 8,
+        borderRadius: 8,
+    },
 
-    // CORPO
+    // ─── CORPO ───
     cardBody: {
         padding: 14,
     },
 
-    // GHOST
+    // ─── GHOST ───
     ghostHeader: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -755,7 +827,7 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     },
 
-    // AÇÕES
+    // ─── AÇÕES ───
     cardActions: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -788,7 +860,7 @@ const styles = StyleSheet.create({
         padding: 6,
     },
 
-    // SUBSTITUTO
+    // ─── SUBSTITUTO ───
     substituteRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -819,7 +891,7 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
 
-    // BLOCOS
+    // ─── BLOCOS ───
     blocksContainer: {
         gap: 8,
         marginBottom: 16,
@@ -842,18 +914,15 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         letterSpacing: 0.5,
     },
-    
-    // 🔥 BLINDAGEM DE ZOOM iOS 🔥
     miniInput: {
         padding: 8,
         borderRadius: 8,
-        fontSize: 16, // A MÁGICA PRA NÃO DAR ZOOM NO IPHONE!
+        fontSize: 16,
         textAlign: 'center',
         borderWidth: 1,
         fontWeight: '700',
         outlineStyle: 'none',
     },
-    
     techBox: {
         alignItems: 'center',
         justifyContent: 'center',
@@ -872,7 +941,7 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
 
-    // ADICIONAR BLOCO
+    // ─── ADICIONAR BLOCO ───
     addBlockRow: {
         flexDirection: 'row',
         gap: 8,
@@ -892,7 +961,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 
-    // PIRÂMIDE
+    // ─── PIRÂMIDE ───
     pyramidContainer: {
         padding: 12,
         borderRadius: 10,
@@ -921,7 +990,7 @@ const styles = StyleSheet.create({
         fontWeight: '700',
     },
 
-    // OBSERVAÇÃO
+    // ─── OBSERVAÇÃO ───
     obsSection: {
         marginTop: 4,
     },
@@ -957,33 +1026,31 @@ const styles = StyleSheet.create({
     obsOptionText: {
         fontSize: 13,
     },
-    
-    // 🔥 BLINDAGEM DE ZOOM iOS 🔥
     obsInput: {
         padding: 12,
         borderRadius: 10,
         borderWidth: 1,
-        fontSize: 16, // A MÁGICA PRA NÃO DAR ZOOM NO IPHONE!
+        fontSize: 16,
         minHeight: 42,
         textAlignVertical: 'top',
         outlineStyle: 'none',
     },
 
-    // DROPDOWN DE OPÇÕES (MODIFICADO PARA TER O BOTÃO DE EXCLUIR)
+    // ─── HYBRID DROPDOWN ───
     hybridDropdown: {
         position: 'absolute',
-        top: 58,
-        width: 140,
-        left: -20,
+        top: 60,
+        left: -10,
+        width: 150,
         maxHeight: 200,
         borderWidth: 1,
         borderRadius: 10,
-        zIndex: 100,
-        elevation: 6,
+        zIndex: 300,
+        elevation: 8,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 8,
+        shadowOpacity: 0.18,
+        shadowRadius: 10,
     },
     hybridOptionContainer: {
         flexDirection: 'row',

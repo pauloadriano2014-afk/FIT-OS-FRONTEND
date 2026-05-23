@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { getMacro } from '../../utils/dietUtils';
 
 export default function MealCardAdmin({ 
     meal, index, totalMeals, theme, toGrams, handleOpenNameSelect, handleOpenTimeSelect, 
@@ -10,6 +12,11 @@ export default function MealCardAdmin({
     handleUpdateMeal
 }) {
     const [isExpanded, setIsExpanded] = useState(meal.items.length === 0);
+
+    const toggleExpand = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setIsExpanded(!isExpanded);
+    };
 
     const grouped = meal.items.reduce((acc, item) => {
         if (!acc[item.groupId]) acc[item.groupId] = [];
@@ -20,25 +27,24 @@ export default function MealCardAdmin({
     const mealKcal = Object.values(grouped).reduce((sum, grp) => {
         const item = grp[0];
         if (!item) return sum;
-        return sum + ((item.calories_per_100 || 0) * toGrams(item.amount, item.unit, item)) / 100;
+        return sum + (getMacro(item, 'kcal') * toGrams(item.amount, item.unit, item)) / 100;
     }, 0);
 
+    const softBg = theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+
     return (
-        <View style={[styles.mealCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            
-            {/* 🔥 CABEÇALHO EM 2 ANDARES PARA NÃO ESPREMER O TEXTO 🔥 */}
-            <View style={[styles.mealHeader, { backgroundColor: theme.bg }]}>
-                
-                {/* LINHA 1: NOME (EDITÁVEL) E BOTÃO DA SANFONA */}
+        <View style={[styles.mealCard, { backgroundColor: theme.surface }]}>
+
+            <View style={[styles.mealHeader, { backgroundColor: theme.surface }]}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <TouchableOpacity 
                         style={{ flex: 1, paddingRight: 10 }} 
-                        onPress={() => handleOpenNameSelect(meal.id)}
+                        onPress={() => { Haptics.selectionAsync(); handleOpenNameSelect(meal.id); }}
                         activeOpacity={0.7}
                     >
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                             <Text style={[styles.mealName, { color: theme.text }]}>{meal.name?.toUpperCase()}</Text>
-                            <MaterialCommunityIcons name="pencil-outline" size={14} color={theme.textSecondary} />
+                            <MaterialCommunityIcons name="pencil-circle" size={18} color={theme.textSecondary} />
                         </View>
                         <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4}}>
                             <MaterialCommunityIcons name="fire" size={14} color={theme.accent} />
@@ -47,75 +53,71 @@ export default function MealCardAdmin({
                     </TouchableOpacity>
 
                     <TouchableOpacity
-                        style={[styles.accordionBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                        onPress={() => setIsExpanded(!isExpanded)}
+                        style={[styles.accordionBtn, { backgroundColor: softBg }]}
+                        onPress={toggleExpand}
                     >
-                        <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                        <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={24} color={theme.textSecondary} />
                     </TouchableOpacity>
                 </View>
 
-                {/* LINHA 2: CONTROLES DE AÇÃO (RELÓGIO, SETAS, OPÇÕES, LIXEIRA) */}
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 }}>
                     <TouchableOpacity
-                        style={[styles.timePill, { backgroundColor: theme.surface, borderColor: theme.accent }]}
-                        onPress={() => handleOpenTimeSelect(meal.id)}
+                        style={[styles.timePill, { backgroundColor: theme.accent + '15' }]}
+                        onPress={() => { Haptics.selectionAsync(); handleOpenTimeSelect(meal.id); }}
                     >
-                        <MaterialCommunityIcons name="clock-outline" size={14} color={theme.accent} />
-                        <Text style={[styles.timePillText, { color: theme.text }]}>{meal.time || '--:--'}</Text>
+                        <MaterialCommunityIcons name="clock-outline" size={16} color={theme.accent} />
+                        <Text style={[styles.timePillText, { color: theme.accent }]}>{meal.time || '--:--'}</Text>
                     </TouchableOpacity>
 
-                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 8}}>
-                        <View style={{ flexDirection: 'row', backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)', borderRadius: 10, overflow: 'hidden' }}>
+                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
+                        <View style={{ flexDirection: 'row', backgroundColor: softBg, borderRadius: 14, overflow: 'hidden' }}>
                             <TouchableOpacity 
                                 style={[styles.moveBtn, { opacity: index === 0 ? 0.3 : 1 }]}
-                                onPress={() => handleMoveMeal && handleMoveMeal(meal.id, 'up')}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleMoveMeal && handleMoveMeal(meal.id, 'up'); }}
                                 disabled={index === 0}
                             >
-                                <MaterialCommunityIcons name="arrow-up" size={16} color={theme.textSecondary} />
+                                <MaterialCommunityIcons name="arrow-up" size={18} color={theme.textSecondary} />
                             </TouchableOpacity>
-                            <View style={{ width: 1, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }} />
+                            <View style={{ width: 1, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)' }} />
                             <TouchableOpacity 
                                 style={[styles.moveBtn, { opacity: index === totalMeals - 1 ? 0.3 : 1 }]}
-                                onPress={() => handleMoveMeal && handleMoveMeal(meal.id, 'down')}
+                                onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); handleMoveMeal && handleMoveMeal(meal.id, 'down'); }}
                                 disabled={index === totalMeals - 1}
                             >
-                                <MaterialCommunityIcons name="arrow-down" size={16} color={theme.textSecondary} />
+                                <MaterialCommunityIcons name="arrow-down" size={18} color={theme.textSecondary} />
                             </TouchableOpacity>
                         </View>
 
-                        <TouchableOpacity onPress={() => handleMealOptions(meal.id, meal.name)} style={[styles.actionIconBtn, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                            <MaterialCommunityIcons name="dots-horizontal" size={18} color={theme.textSecondary} />
+                        <TouchableOpacity onPress={() => { Haptics.selectionAsync(); handleMealOptions(meal.id, meal.name); }} style={[styles.actionIconBtn, {backgroundColor: softBg}]}>
+                            <MaterialCommunityIcons name="dots-horizontal" size={20} color={theme.textSecondary} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity onPress={() => handleDeleteMeal(meal.id)} style={[styles.actionIconBtn, {backgroundColor: '#FF3B3015', borderColor: '#FF3B3050'}]}>
-                            <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
+                        <TouchableOpacity onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); handleDeleteMeal(meal.id); }} style={[styles.actionIconBtn, {backgroundColor: '#FF3B3015'}]}>
+                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
                         </TouchableOpacity>
                     </View>
                 </View>
-
             </View>
 
-            <View style={[styles.mealDivider, { backgroundColor: theme.border }]} />
-
             {isExpanded && (
-                <View>
+                <View style={{ backgroundColor: theme.isDark ? 'rgba(0,0,0,0.2)' : '#F9F9F9', paddingTop: 16 }}>
                     {Object.values(grouped).map((group, index) => {
                         const principal = group[0];
                         const pAmt = toGrams(principal.amount, principal.unit, principal);
-                        const pKcal = ((principal.calories_per_100 || 0) * pAmt) / 100;
-                        const pProt = ((principal.p || 0) * pAmt) / 100;
-                        const pCarb = ((principal.c || 0) * pAmt) / 100;
-                        const pFat = ((principal.f || 0) * pAmt) / 100;
+                        const pKcal = (getMacro(principal, 'kcal') * pAmt) / 100;
+                        const pProt = (getMacro(principal, 'p') * pAmt) / 100;
+                        const pCarb = (getMacro(principal, 'c') * pAmt) / 100;
+                        const pFat = (getMacro(principal, 'f') * pAmt) / 100;
 
                         return (
-                            <View key={principal.groupId} style={[styles.groupBox, { borderColor: theme.border + '80' }, index > 0 && { borderTopWidth: 1, paddingTop: 15 }]}>
+                            <View key={principal.groupId} style={[styles.groupBox, index > 0 && { borderTopWidth: 1, borderTopColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', paddingTop: 20 }]}>
                                 {group.map((food, fIdx) => {
                                     const isSub = fIdx > 0;
                                     const fAmt = toGrams(food.amount, food.unit, food);
-                                    const fKcal = ((food.calories_per_100 || 0) * fAmt) / 100;
-                                    const fProt = ((food.p || 0) * fAmt) / 100;
-                                    const fCarb = ((food.c || 0) * fAmt) / 100;
-                                    const fFat = ((food.f || 0) * fAmt) / 100;
+                                    const fKcal = (getMacro(food, 'kcal') * fAmt) / 100;
+                                    const fProt = (getMacro(food, 'p') * fAmt) / 100;
+                                    const fCarb = (getMacro(food, 'c') * fAmt) / 100;
+                                    const fFat = (getMacro(food, 'f') * fAmt) / 100;
 
                                     const dKcal = isSub ? Math.round(fKcal - pKcal) : 0;
                                     const dProt = isSub ? Math.round(fProt - pProt) : 0;
@@ -127,21 +129,21 @@ export default function MealCardAdmin({
                                         <React.Fragment key={food.uniqueId}>
                                             {isSub && (
                                                 <View style={styles.ouRow}>
-                                                    <View style={[styles.ouLine, { backgroundColor: theme.border }]} />
-                                                    <View style={[styles.ouBadge, { backgroundColor: theme.accent + '20', borderColor: theme.accent + '40' }]}>
+                                                    <View style={[styles.ouLine, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
+                                                    <View style={[styles.ouBadge, { backgroundColor: theme.accent + '20' }]}>
                                                         <Text style={[styles.ouText, { color: theme.accent }]}>SUBSTITUTO (OU)</Text>
                                                     </View>
-                                                    <View style={[styles.ouLine, { backgroundColor: theme.border }]} />
+                                                    <View style={[styles.ouLine, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)' }]} />
                                                 </View>
                                             )}
 
                                             <View style={[
                                                 styles.foodRow, 
                                                 isSub 
-                                                    ? { backgroundColor: theme.bg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: theme.border, borderStyle: 'dashed' } 
-                                                    : { backgroundColor: theme.surface, borderRadius: 16, padding: 16, borderWidth: 2, borderColor: theme.accent, shadowColor: theme.accent, shadowOffset: {width: 0, height: 0}, shadowOpacity: 0.1, shadowRadius: 10, elevation: 5 }
+                                                    ? { backgroundColor: theme.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', borderStyle: 'dashed' } 
+                                                    : { backgroundColor: theme.surface, borderRadius: 20, padding: 16, shadowColor: '#000', shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3 }
                                             ]}>
-                                                
+
                                                 {!isSub && (
                                                     <View style={[styles.baseBadge, { backgroundColor: theme.accent }]}>
                                                         <Text style={styles.baseBadgeText}>ALIMENTO BASE</Text>
@@ -170,76 +172,76 @@ export default function MealCardAdmin({
 
                                                 <View style={styles.amountBox}>
                                                     <TextInput
-                                                        style={[styles.amountInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }, !isSub && { height: 40, width: 60, fontSize: 16 }]}
+                                                        style={[styles.amountInput, { backgroundColor: softBg, color: theme.text }, !isSub && { height: 44, width: 64, fontSize: 16 }]}
                                                         value={food.amount.toString()}
                                                         onChangeText={val => handleUpdateFoodAmount(meal.id, food.uniqueId, val)}
                                                         keyboardType="numeric"
                                                         maxLength={5}
                                                     />
                                                     <TouchableOpacity
-                                                        onPress={() => handleToggleUnit(meal.id, food.uniqueId)}
-                                                        style={[styles.unitBtn, { borderColor: theme.border }, !isSub && { height: 40, justifyContent: 'center' }]}
+                                                        onPress={() => { Haptics.selectionAsync(); handleToggleUnit(meal.id, food.uniqueId); }}
+                                                        style={[styles.unitBtn, { backgroundColor: softBg }, !isSub && { height: 44, justifyContent: 'center' }]}
                                                     >
                                                         <Text style={[styles.unitText, { color: theme.textSecondary }, !isSub && { fontSize: 11 }]}>{food.unit}</Text>
                                                     </TouchableOpacity>
                                                 </View>
 
-                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: 12 }}>
                                                     {!isSub && (
                                                         <TouchableOpacity 
                                                             onPress={() => handleSwapBaseFood && handleSwapBaseFood(meal.id, food)} 
-                                                            style={[styles.actionIconBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                                            style={[styles.actionIconBtn, { backgroundColor: softBg }]}
                                                         >
-                                                            <MaterialCommunityIcons name="swap-horizontal" size={18} color={theme.text} />
+                                                            <MaterialCommunityIcons name="swap-horizontal" size={20} color={theme.text} />
                                                         </TouchableOpacity>
                                                     )}
-                                                    
+
                                                     <TouchableOpacity 
-                                                        onPress={() => handleDeleteFood(meal.id, food.uniqueId)} 
-                                                        style={[styles.actionIconBtn, { backgroundColor: '#FF3B3015', borderColor: '#FF3B3030' }]}
+                                                        onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); handleDeleteFood(meal.id, food.uniqueId); }} 
+                                                        style={[styles.actionIconBtn, { backgroundColor: '#FF3B3015' }]}
                                                     >
                                                         <MaterialCommunityIcons 
                                                             name={isSub ? "close" : "trash-can-outline"} 
-                                                            size={isSub ? 16 : 18} 
+                                                            size={isSub ? 18 : 20} 
                                                             color="#FF3B30" 
                                                         />
                                                     </TouchableOpacity>
                                                 </View>
-                                                
+
                                             </View>
                                         </React.Fragment>
                                     );
                                 })}
 
                                 <TouchableOpacity
-                                    style={[styles.subBtn, { borderColor: theme.accent + '50', backgroundColor: theme.accent + '08' }]}
+                                    style={[styles.subBtn, { backgroundColor: theme.accent + '15' }]}
                                     onPress={() => handleOpenSearch(meal.id, principal.groupId)}
                                 >
-                                    <MaterialCommunityIcons name="plus" size={14} color={theme.accent} />
-                                    <Text style={[styles.subBtnText, { color: theme.accent }]}>Adicionar Substituto a este grupo</Text>
+                                    <MaterialCommunityIcons name="plus-circle" size={16} color={theme.accent} />
+                                    <Text style={[styles.subBtnText, { color: theme.accent }]}>Adicionar Substituto</Text>
                                 </TouchableOpacity>
                             </View>
                         );
                     })}
 
                     <TouchableOpacity
-                        style={[styles.addFoodBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                        style={[styles.addFoodBtn, { backgroundColor: softBg }]}
                         onPress={() => handleOpenSearch(meal.id, null)}
                     >
-                        <MaterialCommunityIcons name="plus" size={16} color={theme.textSecondary} />
+                        <MaterialCommunityIcons name="plus" size={20} color={theme.textSecondary} />
                         <Text style={[styles.addFoodText, { color: theme.textSecondary }]}>NOVO ALIMENTO BASE</Text>
                     </TouchableOpacity>
 
                     <View style={styles.notesContainer}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
                             <MaterialCommunityIcons name="text-box-outline" size={16} color={theme.textSecondary} />
                             <Text style={[styles.notesLabel, { color: theme.textSecondary }]}>OBSERVAÇÕES DESTA REFEIÇÃO</Text>
                         </View>
                         <TextInput
-                            style={[styles.notesInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                            style={[styles.notesInput, { backgroundColor: softBg, color: theme.text }]}
                             placeholder="Ex: Bater tudo no liquidificador com gelo."
                             placeholderTextColor={theme.textSecondary + '80'}
-                            value={meal.notes || ''}
+                            value={meal.notes ?? meal.observacoes ?? meal.generalNotes ?? ''}
                             onChangeText={(val) => handleUpdateMeal(meal.id, 'notes', val)}
                             multiline={true}
                             numberOfLines={2}
@@ -253,37 +255,36 @@ export default function MealCardAdmin({
 }
 
 const styles = StyleSheet.create({
-    mealCard: { borderRadius: 20, borderWidth: 1, marginBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12, elevation: 4 },
-    mealHeader: { padding: 18 },
-    accordionBtn: { padding: 6, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+    mealCard: { borderRadius: 24, borderWidth: 0, marginBottom: 24, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+    mealHeader: { padding: 20 },
+    accordionBtn: { padding: 8, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
     mealName: { fontSize: 18, fontWeight: '900', letterSpacing: -0.5 },
     mealKcal: { fontSize: 12, fontWeight: '800' },
-    timePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, borderWidth: 1 },
-    timePillText: { fontSize: 13, fontWeight: '900' },
-    moveBtn: { paddingHorizontal: 12, paddingVertical: 8, justifyContent: 'center', alignItems: 'center' },
-    actionIconBtn: { width: 36, height: 36, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-    mealDivider: { height: 1, width: '100%' },
-    groupBox: { marginHorizontal: 16, paddingBottom: 16 },
+    timePill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14 },
+    timePillText: { fontSize: 14, fontWeight: '900' },
+    moveBtn: { paddingHorizontal: 14, paddingVertical: 10, justifyContent: 'center', alignItems: 'center' },
+    actionIconBtn: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+    groupBox: { marginHorizontal: 16, paddingBottom: 20 },
     foodRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 8, position: 'relative' },
-    baseBadge: { position: 'absolute', top: -10, left: 16, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, zIndex: 10 },
+    baseBadge: { position: 'absolute', top: -10, left: 16, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, zIndex: 10 },
     baseBadgeText: { fontSize: 8, fontWeight: '900', color: '#000', letterSpacing: 0.5 },
     foodName: { fontSize: 13, fontWeight: '700', marginBottom: 2, lineHeight: 18 },
     foodKcal: { fontSize: 11, fontWeight: '800' },
     diffRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 },
     diffChip: { fontSize: 10, fontWeight: '800' },
     amountBox: { flexDirection: 'row', alignItems: 'center', marginLeft: 4 },
-    amountInput: { width: 56, paddingVertical: 8, paddingHorizontal: 4, borderRadius: 10, borderWidth: 1, textAlign: 'center', fontSize: 14, fontWeight: '800', outlineStyle: 'none' },
-    unitBtn: { paddingHorizontal: 8, paddingVertical: 8, borderRadius: 10, borderWidth: 1, marginLeft: 4, alignItems: 'center' },
-    unitText: { fontSize: 10, fontWeight: '800' },
-    ouRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 12 },
+    amountInput: { width: 60, paddingVertical: 10, paddingHorizontal: 4, borderRadius: 12, textAlign: 'center', fontSize: 14, fontWeight: '800', outlineStyle: 'none' },
+    unitBtn: { paddingHorizontal: 10, paddingVertical: 10, borderRadius: 12, marginLeft: 6, alignItems: 'center' },
+    unitText: { fontSize: 11, fontWeight: '800' },
+    ouRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 14 },
     ouLine: { flex: 1, height: 1 },
-    ouBadge: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12, borderWidth: 1, marginHorizontal: 10 },
+    ouBadge: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 14, marginHorizontal: 12 },
     ouText: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    subBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1, marginTop: 12 },
-    subBtnText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-    addFoodBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 0, marginBottom: 16, padding: 16, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed' },
+    subBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 16, marginTop: 16 },
+    subBtnText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+    addFoodBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginTop: 0, marginBottom: 20, padding: 18, borderRadius: 16 },
     addFoodText: { fontSize: 12, fontWeight: '900', letterSpacing: 1 },
-    notesContainer: { paddingHorizontal: 16, paddingBottom: 20 },
-    notesLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    notesInput: { padding: 12, borderRadius: 12, borderWidth: 1, fontSize: 14, minHeight: 60, textAlignVertical: 'top', outlineStyle: 'none' }
+    notesContainer: { paddingHorizontal: 16, paddingBottom: 24 },
+    notesLabel: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+    notesInput: { padding: 16, borderRadius: 16, fontSize: 14, minHeight: 80, textAlignVertical: 'top', outlineStyle: 'none' }
 });

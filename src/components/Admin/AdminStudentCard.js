@@ -14,6 +14,11 @@ export default function AdminStudentCard({ item, theme, navigation }) {
     const badge = getPlanBadge(dbPlan);
     const pendingCount = item._count?.checkIns || 0;
     
+    // 🔥 LÓGICA DE ALINHAMENTO SEMANAL (CRM) 🔥
+    const isContactDelayed = item.lastContactDate 
+        ? Math.floor((new Date().getTime() - new Date(item.lastContactDate).getTime()) / (1000 * 3600 * 24)) >= 7 
+        : true;
+
     // 🔥 VARIÁVEIS DOS GATILHOS DE INTENSIDADE E CICLO 🔥
     const isMenstruating = item.isMenstruating || false;
     const intensityMultiplier = activeWorkout?.intensityMultiplier || 1;
@@ -67,17 +72,27 @@ export default function AdminStudentCard({ item, theme, navigation }) {
                         <Text style={[styles.badgeText, { color: badge.color }]}>{badge.text}</Text>
                     </View>
 
-                    {/* 🔥 SELO DO DELOAD MENSTRUAL 🔥 */}
+                    {/* 🔥 SELO DE ALINHAMENTO SEMANAL (RECONFIGURADO PARA DESTAQUE) 🔥 */}
+{isContactDelayed && (
+    <View style={[styles.badgeBase, { 
+        backgroundColor: '#8B5CF622', // Roxo vibrante (estilo "místico" ou "IA")
+        borderColor: '#8B5CF6', 
+        borderWidth: 1 
+    }]}>
+        <MaterialCommunityIcons name="forum-outline" size={10} color="#8B5CF6" />
+        <Text style={[styles.badgeText, { color: '#8B5CF6', fontWeight: '900' }]}>
+            ALINHAR SEMANAL
+        </Text>
+    </View>
+)}
+
                     {isMenstruating && (
                         <View style={[styles.badgeBase, { backgroundColor: hasDeload ? '#4DE38F22' : '#FF3B3022', borderColor: hasDeload ? '#4DE38F' : '#FF3B30', borderWidth: 1 }]}>
                             <MaterialCommunityIcons name={hasDeload ? "shield-check" : "water-alert"} size={10} color={hasDeload ? "#4DE38F" : "#FF3B30"} />
-                            <Text style={[styles.badgeText, { color: hasDeload ? "#4DE38F" : "#FF3B30" }]}>
-                                {hasDeload ? 'DELOAD MENSTRUAL' : 'PROTOCOLO MENSTRUAL'}
-                            </Text>
+                            <Text style={[styles.badgeText, { color: hasDeload ? "#4DE38F" : "#FF3B30" }]}>{hasDeload ? 'DELOAD MENSTRUAL' : 'PROTOCOLO MENSTRUAL'}</Text>
                         </View>
                     )}
 
-                    {/* 🔥 SELO DO DELOAD NORMAL (ATIVADO PELO COACH) 🔥 */}
                     {!isMenstruating && hasDeload && (
                         <View style={[styles.badgeBase, { backgroundColor: '#32ADE622', borderColor: '#32ADE6', borderWidth: 1 }]}>
                             <MaterialCommunityIcons name="shield-half-full" size={10} color="#32ADE6" />
@@ -85,7 +100,6 @@ export default function AdminStudentCard({ item, theme, navigation }) {
                         </View>
                     )}
 
-                    {/* 🔥 SELO DA SEMANA DE CHOQUE 🔥 */}
                     {hasChoque && (
                         <View style={[styles.badgeBase, { backgroundColor: '#FF950022', borderColor: '#FF9500', borderWidth: 1 }]}>
                             <MaterialCommunityIcons name="lightning-bolt" size={10} color="#FF9500" />
