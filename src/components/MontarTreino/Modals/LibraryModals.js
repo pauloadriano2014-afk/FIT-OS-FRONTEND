@@ -57,7 +57,7 @@ export default function LibraryModals({
 
     // 🔥 CACHE DE PERFORMANCE: BLINDADO CONTRA ACENTOS E LETRAS MAIÚSCULAS 🔥
     const finalExercises = useMemo(() => {
-        return exerciciosFiltrados.filter(e => {
+        return (exerciciosFiltrados || []).filter(e => {
             if (!selectedSubCat || selectedSubCat === 'Todos') return true;
             
             const itemSubCat = String(e.subCategory || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();

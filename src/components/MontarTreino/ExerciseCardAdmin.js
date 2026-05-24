@@ -252,7 +252,7 @@ export default function ExerciseCardAdmin({
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible,
     setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible,
     setIsSwapping, setSwapIndex, openPreview,
-    workoutModel, moveExerciseWeb, setInitialCategoryFilter
+    workoutModel, moveExercise, setInitialCategoryFilter
 }) {
     const isWeb = Platform.OS === 'web';
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
@@ -342,7 +342,7 @@ export default function ExerciseCardAdmin({
                     backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
                     borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
                 }]}
-                onPress={() => moveExerciseWeb(index, -1)}
+                onPress={() => moveExercise(item.tempId, 'up')}
             >
                 <MaterialCommunityIcons name="arrow-up" size={13} color={theme.textSecondary} />
                 <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Mover para cima</Text>
@@ -376,7 +376,7 @@ export default function ExerciseCardAdmin({
                     backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
                     borderColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)',
                 }]}
-                onPress={() => moveExerciseWeb(index, 1)}
+                onPress={() => moveExercise(item.tempId, 'down')}
             >
                 <MaterialCommunityIcons name="arrow-down" size={13} color={theme.textSecondary} />
                 <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Mover para baixo</Text>
