@@ -16,7 +16,8 @@ import CustomCalendar from '../components/CustomCalendar';
 import LibraryModals from '../components/MontarTreino/Modals/LibraryModals';
 import TemplateAndCloneModals from '../components/MontarTreino/Modals/TemplateAndCloneModals';
 import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard';
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import MenstrualAlertCard from '../components/MontarTreino/MenstrualAlertCard'; 
 
 const { width } = Dimensions.get('window');
 
@@ -184,6 +185,16 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             setIsCancelingDeload(false);
         }
     };
+
+    const forceDeload = () => {
+    try {
+        if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(0.8);
+        const deloadEnd = new Date();
+        deloadEnd.setDate(deloadEnd.getDate() + 5);
+        if (setters.setIntensityEndDate) setters.setIntensityEndDate(deloadEnd);
+    } catch (e) {}
+    setDbDeloadSynced(true);
+};
 
     const moveTab = useCallback((tabName, direction) => {
         const tabs = [...state.workoutTabs];
@@ -558,142 +569,145 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     // ─────────────────────────────────────────────────────────────────────────────
 
     const renderSidebar = () => (
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-            {renderRaioX()}
-            {renderMenstrualAlert()}
-            {renderSettings()}
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        {renderRaioX()}
 
-            <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 10, marginTop: 10 }]}>DIAS DE TREINO</Text>
-            <View style={{ borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-                {state.workoutTabs.map((tab) => {
-                    const isSelected = state.selectedWorkoutTab === tab;
-                    const exCount = (state.exercisesByDay[tab] || []).length;
-                    return (
-                        <TouchableOpacity key={tab} style={[styles.verticalTab, { backgroundColor: isSelected ? (theme.isDark ? 'rgba(255,255,255,0.08)' : '#FFF') : 'transparent', borderLeftColor: isSelected ? theme.accent : 'transparent' }]} onPress={() => setters.setSelectedWorkoutTab(tab)}>
-                            <Text style={{ fontWeight: isSelected ? '900' : '600', color: isSelected ? theme.accent : theme.text, fontSize: 14 }}>{tab}</Text>
-                            <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>{exCount} ex.</Text>
-                        </TouchableOpacity>
-                    );
-                })}
-                <TouchableOpacity style={[styles.addVerticalTab, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} onPress={actions.addNewTab}>
-                    <MaterialCommunityIcons name="plus" size={16} color={theme.textSecondary} />
-                    <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700' }}>Adicionar Dia</Text>
-                </TouchableOpacity>
-            </View>
-
-            {!state.isTemplateMode && state.currentExercises.length > 0 && (
-                <TouchableOpacity style={[styles.magicSyncBtn, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={handleMagicSync} disabled={isSyncingCargas}>
-                    {isSyncingCargas ? <ActivityIndicator size="small" color={theme.accent} /> : (
-                        <><MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} />
-                        <View style={{flex: 1, marginLeft: 8}}>
-                            <Text style={[styles.magicSyncTitle, {color: theme.accent}]}>PUXAR CARGAS DO ALUNO</Text>
-                            <Text style={styles.magicSyncDesc}>Preenche o peso de todos os exercícios deste dia.</Text>
-                        </View></>
-                    )}
-                </TouchableOpacity>
-            )}
-
-            {!state.isTemplateMode && aluno?.id && (
-                <TouchableOpacity style={[styles.viewWorkoutBtn, { borderColor: theme.accent + '50', backgroundColor: theme.accent + '10' }]} onPress={() => navigation.navigate('DayWorkoutScreen', { workoutId: route.params?.workoutToEdit?.id, day: state.selectedWorkoutTab, workoutName: state.customWorkoutName, isPreview: true })}>
-                    <MaterialCommunityIcons name="eye" size={16} color={theme.accent} />
-                    <Text style={[styles.viewWorkoutText, { color: theme.accent }]}>VER TREINO DO ALUNO</Text>
-                </TouchableOpacity>
-            )}
-        </ScrollView>
-    );
-
-    const renderMainArea = () => (
-        <View style={{ flex: 1, backgroundColor: theme.bg }}>
-            {/* 🔥 NOVO HEADER DA ÁREA PRINCIPAL COM AS OPÇÕES DA ABA 🔥 */}
-            <View style={[styles.mainAreaHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
-                    {editingTabName === state.selectedWorkoutTab ? (
-                        <TextInput
-                            style={[styles.dayRenameInput, { color: theme.text, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: theme.accent, flex: 1, marginRight: 10 }]}
-                            value={editingTabValue}
-                            onChangeText={setEditingTabValue}
-                            autoFocus
-                            onSubmitEditing={() => confirmRenameTab(state.selectedWorkoutTab)}
-                            onBlur={() => confirmRenameTab(state.selectedWorkoutTab)}
-                        />
-                    ) : (
-                        <Text style={[styles.mainAreaTitle, { color: theme.text }]} numberOfLines={1}>
-                            Editando: <Text style={{ color: theme.accent }}>{state.selectedWorkoutTab}</Text>
-                        </Text>
-                    )}
-                </View>
-
-                <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                    {!editingTabName && (
-                        <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => { setEditingTabName(state.selectedWorkoutTab); setEditingTabValue(state.selectedWorkoutTab); }}>
-                            <MaterialCommunityIcons name="pencil" size={14} color={theme.textSecondary} />
-                            <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Renomear</Text>
-                        </TouchableOpacity>
-                    )}
-                    <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => actions.duplicateTabInline(state.selectedWorkoutTab)}>
-                        <MaterialCommunityIcons name="content-copy" size={14} color={theme.textSecondary} />
-                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Duplicar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]} onPress={() => deleteTabInline(state.selectedWorkoutTab)}>
-                        <MaterialCommunityIcons name="trash-can" size={14} color="#FF3B30" />
-                        <Text style={{ color: '#FF3B30', fontSize: 11, fontWeight: 'bold' }}>Excluir</Text>
-                    </TouchableOpacity>
-                    
-                    {/* Linha separadora */}
-                    <View style={{ width: 1, height: 20, backgroundColor: theme.border, marginHorizontal: 4 }} />
-                    
-                    <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => setForceCollapse(prev => prev + 1)}>
-                        <MaterialCommunityIcons name="format-list-bulleted" size={14} color={theme.textSecondary} />
-                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Minimizar</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]} onPress={actions.handleClearWorkout}>
-                        <MaterialCommunityIcons name="delete-sweep" size={14} color="#FF3B30" />
-                        <Text style={{ color: '#FF3B30', fontSize: 11, fontWeight: 'bold' }}>Limpar</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-            
-            {/* O Resto do renderMainArea (DraggableFlatList, etc) continua igual abaixo... */}
-
-            <DraggableFlatList
-                data={state.currentExercises}
-                onDragEnd={handleDragEnd}
-                keyExtractor={(item) => item.tempId}
-                renderItem={renderExercise}
-                contentContainerStyle={{ paddingVertical: 20, paddingBottom: 120 }}
-                showsVerticalScrollIndicator={false}
-                ListHeaderComponent={!isWebPC ? (
-                    <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
-                        {renderRaioX()}
-                        {renderMenstrualAlert()}
-                        {renderSettings()}
-                        {renderDaySelectorMobile()}
-                        {!state.isTemplateMode && state.currentExercises.length > 0 && (
-                            <TouchableOpacity style={[styles.magicSyncBtn, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={handleMagicSync} disabled={isSyncingCargas}>
-                                {isSyncingCargas ? <ActivityIndicator size="small" color={theme.accent} /> : (
-                                    <><MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} /><View style={{flex: 1, marginLeft: 8}}><Text style={[styles.magicSyncTitle, {color: theme.accent}]}>PUXAR CARGAS DO ALUNO</Text><Text style={styles.magicSyncDesc}>Preenche o peso de todos os exercícios deste dia.</Text></View></>
-                                )}
-                            </TouchableOpacity>
-                        )}
-                        {state.currentExercises.length === 0 && (
-                            <View style={[styles.emptyState, { borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
-                                <View style={[styles.emptyIconBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}><MaterialCommunityIcons name="dumbbell" size={36} color={theme.textSecondary} style={{ opacity: 0.5 }} /></View>
-                                <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia sem exercícios</Text>
-                                <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Adicione exercícios usando o menu flutuante.</Text>
-                            </View>
-                        )}
-                    </View>
-                ) : (
-                    state.currentExercises.length === 0 ? (
-                        <View style={[styles.emptyState, { borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', marginHorizontal: 24 }]}>
-                            <View style={[styles.emptyIconBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}><MaterialCommunityIcons name="dumbbell" size={36} color={theme.textSecondary} style={{ opacity: 0.5 }} /></View>
-                            <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia sem exercícios</Text>
-                            <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Use o menu flutuante abaixo para adicionar.</Text>
-                        </View>
-                    ) : null
-                )}
-                ListFooterComponent={SharedFooter()}
+        {!state.isTemplateMode && (
+            <MenstrualAlertCard
+                theme={theme}
+                state={state}
+                setters={setters}
+                alunoIsMenstruating={alunoIsMenstruating}
+                dbDeloadSynced={dbDeloadSynced}
+                intensityMultiplier={state.intensityMultiplier}
+                isCancelingDeload={isCancelingDeload}
+                handleCancelDeload={handleCancelDeload}
+                forceDeload={forceDeload}
             />
+        )}
+
+        {renderSettings()}
+
+        <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 10, marginTop: 10 }]}>DIAS DE TREINO</Text>
+        <View style={{ borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
+            {state.workoutTabs.map((tab) => {
+                const isSelected = state.selectedWorkoutTab === tab;
+                const exCount = (state.exercisesByDay[tab] || []).length;
+                return (
+                    <TouchableOpacity key={tab} style={[styles.verticalTab, { backgroundColor: isSelected ? (theme.isDark ? 'rgba(255,255,255,0.08)' : '#FFF') : 'transparent', borderLeftColor: isSelected ? theme.accent : 'transparent' }]} onPress={() => setters.setSelectedWorkoutTab(tab)}>
+                        <Text style={{ fontWeight: isSelected ? '900' : '600', color: isSelected ? theme.accent : theme.text, fontSize: 14 }}>{tab}</Text>
+                        <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>{exCount} ex.</Text>
+                    </TouchableOpacity>
+                );
+            })}
+            <TouchableOpacity style={[styles.addVerticalTab, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} onPress={actions.addNewTab}>
+                <MaterialCommunityIcons name="plus" size={16} color={theme.textSecondary} />
+                <Text style={{ color: theme.textSecondary, fontSize: 13, fontWeight: '700' }}>Adicionar Dia</Text>
+            </TouchableOpacity>
+        </View>
+
+        {!state.isTemplateMode && state.currentExercises.length > 0 && (
+            <TouchableOpacity style={[styles.magicSyncBtn, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={handleMagicSync} disabled={isSyncingCargas}>
+                {isSyncingCargas ? <ActivityIndicator size="small" color={theme.accent} /> : (
+                    <>
+                        <MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} />
+                        <View style={{ flex: 1, marginLeft: 8 }}>
+                            <Text style={[styles.magicSyncTitle, { color: theme.accent }]}>PUXAR CARGAS DO ALUNO</Text>
+                            <Text style={styles.magicSyncDesc}>Preenche o peso de todos os exercícios deste dia.</Text>
+                        </View>
+                    </>
+                )}
+            </TouchableOpacity>
+        )}
+
+        {!state.isTemplateMode && aluno?.id && (
+            <TouchableOpacity style={[styles.viewWorkoutBtn, { borderColor: theme.accent + '50', backgroundColor: theme.accent + '10' }]} onPress={() => navigation.navigate('DayWorkoutScreen', { workoutId: route.params?.workoutToEdit?.id, day: state.selectedWorkoutTab, workoutName: state.customWorkoutName, isPreview: true })}>
+                <MaterialCommunityIcons name="eye" size={16} color={theme.accent} />
+                <Text style={[styles.viewWorkoutText, { color: theme.accent }]}>VER TREINO DO ALUNO</Text>
+            </TouchableOpacity>
+        )}
+    </ScrollView>
+);
+
+const renderMainArea = () => (
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+        <View style={[styles.mainAreaHeader, { borderBottomColor: theme.border, backgroundColor: theme.bg }]}>
+            <Text style={[styles.mainAreaTitle, { color: theme.text }]}>
+                {state.selectedWorkoutTab}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => setForceCollapse(prev => prev + 1)}>
+                    <MaterialCommunityIcons name="format-list-bulleted" size={14} color={theme.textSecondary} />
+                    <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Minimizar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]} onPress={actions.handleClearWorkout}>
+                    <MaterialCommunityIcons name="delete-sweep" size={14} color="#FF3B30" />
+                    <Text style={{ color: '#FF3B30', fontSize: 11, fontWeight: 'bold' }}>Limpar</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+
+        <DraggableFlatList
+            data={state.currentExercises}
+            onDragEnd={handleDragEnd}
+            keyExtractor={(item) => item.tempId}
+            renderItem={renderExercise}
+            contentContainerStyle={{ paddingVertical: 20, paddingBottom: 120 }}
+            showsVerticalScrollIndicator={false}
+            ListHeaderComponent={!isWebPC ? (
+                <View style={{ paddingHorizontal: 16, marginBottom: 10 }}>
+                    {renderRaioX()}
+                    {!state.isTemplateMode && (
+                        <MenstrualAlertCard
+                            theme={theme}
+                            state={state}
+                            setters={setters}
+                            alunoIsMenstruating={alunoIsMenstruating}
+                            dbDeloadSynced={dbDeloadSynced}
+                            intensityMultiplier={state.intensityMultiplier}
+                            isCancelingDeload={isCancelingDeload}
+                            handleCancelDeload={handleCancelDeload}
+                            forceDeload={forceDeload}
+                        />
+                    )}
+                    {renderSettings()}
+                    {renderDaySelectorMobile()}
+                    {!state.isTemplateMode && state.currentExercises.length > 0 && (
+                        <TouchableOpacity style={[styles.magicSyncBtn, { backgroundColor: theme.surface, borderColor: theme.accent }]} onPress={handleMagicSync} disabled={isSyncingCargas}>
+                            {isSyncingCargas ? <ActivityIndicator size="small" color={theme.accent} /> : (
+                                <>
+                                    <MaterialCommunityIcons name="magic-staff" size={20} color={theme.accent} />
+                                    <View style={{ flex: 1, marginLeft: 8 }}>
+                                        <Text style={[styles.magicSyncTitle, { color: theme.accent }]}>PUXAR CARGAS DO ALUNO</Text>
+                                        <Text style={styles.magicSyncDesc}>Preenche o peso de todos os exercícios deste dia.</Text>
+                                    </View>
+                                </>
+                            )}
+                        </TouchableOpacity>
+                    )}
+                    {state.currentExercises.length === 0 && (
+                        <View style={[styles.emptyState, { borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }]}>
+                            <View style={[styles.emptyIconBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                                <MaterialCommunityIcons name="dumbbell" size={36} color={theme.textSecondary} style={{ opacity: 0.5 }} />
+                            </View>
+                            <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia sem exercícios</Text>
+                            <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Adicione exercícios usando o menu flutuante.</Text>
+                        </View>
+                    )}
+                </View>
+            ) : (
+                state.currentExercises.length === 0 ? (
+                    <View style={[styles.emptyState, { borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', marginHorizontal: 24 }]}>
+                        <View style={[styles.emptyIconBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
+                            <MaterialCommunityIcons name="dumbbell" size={36} color={theme.textSecondary} style={{ opacity: 0.5 }} />
+                        </View>
+                        <Text style={[styles.emptyTitle, { color: theme.text }]}>Dia sem exercícios</Text>
+                        <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Use o menu flutuante abaixo para adicionar.</Text>
+                    </View>
+                ) : null
+            )}
+            ListFooterComponent={SharedFooter()}
+        />
 
             {/* 🔥 MENU FLUTUANTE (VISÍVEL NO PC E NO MOBILE) 🔥 */}
             <View style={[styles.floatingMenuContainer, { backgroundColor: theme.surface }]}>

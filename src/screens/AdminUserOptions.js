@@ -136,14 +136,11 @@ export default function AdminUserOptions({ route, navigation }) {
     if (!aluno || !aluno.id) { setLoading(false); return; }
     const t = Date.now();
 
-    // 👇 Busca o adminId do storage
-    const userJson = await AsyncStorage.getItem('user');
-    const adminId = userJson ? JSON.parse(userJson).id : '';
     try {
         const [resWorkouts, resUser, resPaflix, resAccess, resAlerts] = await Promise.all([
             fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${t}`),
             fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`),
-            fetch(`https://fitos-final.onrender.com/api/contents?adminId=${adminId}&t=${t}`),
+            fetch(`https://fitos-final.onrender.com/api/contents?t=${t}`),
             fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`),
             fetch(`https://fitos-final.onrender.com/api/admin/alerts?userId=${aluno.id}&t=${t}`)
         ]);
@@ -179,9 +176,8 @@ export default function AdminUserOptions({ route, navigation }) {
             if (fresh.nextCheckInDate) setNextCheckInDate(formatToBRDate(fresh.nextCheckInDate));
             setDisableCheckIn(!!fresh.disableCheckIn); setPhotoUrl(fresh.photoUrl);
             setIsActiveUser(fresh.active); setDietGoal(fresh.dietGoal || 'NONE');
-            setIsDietTabVisible(!!fresh.dietModule); 
-            
-            
+            setIsDietTabVisible(!!fresh.dietModule);
+
             const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S', 'ELITE', 'PERFORMANCE', 'PREMIUM'].includes(fresh.plan) ? fresh.plan : 'PREMIUM';
             setUserPlan(finalPlan);
             if (finalPlan === 'FICHA_8S') {
@@ -197,17 +193,15 @@ export default function AdminUserOptions({ route, navigation }) {
             }
         }
 
-        if (resPaflix.ok) { 
-    const contents = await resPaflix.json(); 
-    console.log('🎬 PAFLIX:', contents);
-    console.log('🔑 ADMIN ID:', adminId);
-    if (Array.isArray(contents)) setVipContents(contents.filter(c => c.isVIP)); 
-}
+        if (resPaflix.ok) {
+            const contents = await resPaflix.json();
+            if (Array.isArray(contents)) setVipContents(contents.filter(c => c.isVIP));
+        }
         if (resAccess.ok) { const access = await resAccess.json(); if (Array.isArray(access)) setUserAccess(access); }
         if (resAlerts && resAlerts.ok) { const alerts = await resAlerts.json(); if (Array.isArray(alerts)) setStudentAlerts(alerts); }
 
     } catch (error) { console.log("Erro no Motor:", error); } finally { setLoading(false); setLoadingPaflix(false); }
-  };
+};
 
   const handleSaveStrategy = async (newDate = null) => {
       setSavingNotes(true);
