@@ -34,6 +34,9 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [offlineClients, setOfflineClients] = useState([]); 
     const [loadingId, setLoadingId] = useState(null);
 
+    // 🔥 O TRIGGER QUE FORÇA A TELA A ATUALIZAR NA HORA 🔥
+    const [renderTrigger, setRenderTrigger] = useState(0);
+
     // Estados do Modal de Edição
     const [editingAluno, setEditingAluno] = useState(null);
     const [contractType, setContractType] = useState('Mensal');
@@ -102,7 +105,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
     // Cálculos (useMemo)
     const todosAlunosFinanceiro = useMemo(() => {
-        const mix = [...localAlunos, ...offlineClients];
+        // 🔥 Cópia profunda (deep copy) forçada aqui para o React não ignorar a atualização
+        const mix = [...localAlunos.map(a => ({...a})), ...offlineClients.map(a => ({...a}))];
         return mix.filter(a => {
             if (a.isOffline) return a.assignedCoach === coachFilter;
             return getLogCoach(a) === coachFilter;
@@ -111,7 +115,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             financeCategory: aluno.financeCategory || (aluno.isOffline ? aluno.plan : 'Consultoria Online'),
             isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true
         }));
-    }, [localAlunos, offlineClients, coachFilter, getLogCoach]);
+    }, [localAlunos, offlineClients, coachFilter, getLogCoach, renderTrigger]); // 🔥 renderTrigger adicionado na dependência
 
     const metrics = useMemo(() => {
         let entrada = 0; let pendente = 0; let previsao = 0;
@@ -172,20 +176,27 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 const novaDataISO = isCurrentlyPaid ? calcularDataAnterior(dataBase, tipoContrato) : calcularProximaData(dataBase, tipoContrato);
                 const updatedData = { paymentDueDate: novaDataISO };
 
-                setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
+                // ATUALIZAÇÃO IMEDIATA NA TELA
+                if (aluno.isOffline) {
+                    const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
+                    setOfflineClients([...newList]);
+                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
+                } else {
+                    setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
+                }
+
                 const parentRef = alunos.find(a => a.id === aluno.id);
                 if (parentRef) Object.assign(parentRef, updatedData);
 
-                if (aluno.isOffline) {
-                    const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
-                    setOfflineClients(newList);
-                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-                } else {
-                    await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ userId: aluno.id, contractType: tipoContrato, contractValue: parseFloat(aluno.contractValue) || 0, paymentDueDate: novaDataISO, financeCategory: aluno.financeCategory || 'Consultoria Online', isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true }),
-                    });
-                }
+                // 🔥 FORÇA O RE-RENDER 🔥
+                setRenderTrigger(prev => prev + 1);
+
+                // ENVIO PARA O BANCO
+                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: aluno.id, contractType: tipoContrato, contractValue: parseFloat(aluno.contractValue) || 0, paymentDueDate: novaDataISO, financeCategory: aluno.financeCategory || 'Consultoria Online', isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true }),
+                });
+
                 if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
             } catch (error) {
                 console.error("Erro:", error);
@@ -292,26 +303,46 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         setIsSavingContract(true);
         try {
             const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
+            
+            const formatarDataParaISO = (dataStr) => {
+                if (!dataStr) return null;
+                if (dataStr.includes('-')) return forceMiddayUTC(dataStr);
+                const [d, m, y] = dataStr.split('/');
+                if (y && m && d) return forceMiddayUTC(`${y}-${m}-${d}`);
+                return null;
+            };
+
             const updatedData = {
-                userId: editingAluno.id, contractType, contractValue: parsedValue,
-                paymentDueDate: forceMiddayUTC(paymentDueDate), startDate: forceMiddayUTC(startDateEdit), 
-                financeCategory: financeCategoryEdit, isFinanceActive: isFinanceActiveEdit,
+                userId: editingAluno.id, 
+                contractType, 
+                contractValue: parsedValue,
+                paymentDueDate: formatarDataParaISO(paymentDueDate), 
+                startDate: formatarDataParaISO(startDateEdit),       
+                financeCategory: financeCategoryEdit, 
+                isFinanceActive: isFinanceActiveEdit,
                 ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
             };
 
-            setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+            // ATUALIZAÇÃO IMEDIATA NA TELA
+            if (editingAluno.isOffline) {
+                const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
+                setOfflineClients([...newList]);
+                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
+            } else {
+                setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+            }
+
             const parentRef = alunos.find(a => a.id === editingAluno.id);
             if (parentRef) Object.assign(parentRef, updatedData);
 
-            if (editingAluno.isOffline) {
-                const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
-                setOfflineClients(newList);
-                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-            } else {
-                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
-                });
-            }
+            // 🔥 FORÇA O RE-RENDER 🔥
+            setRenderTrigger(prev => prev + 1);
+
+            // ENVIO PARA O BANCO
+            await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
+            });
+
             if (Platform.OS === 'web') window.alert("Sucesso!");
             closeEditModal();
         } catch (error) { if (Platform.OS === 'web') window.alert("Erro ao salvar."); } 
@@ -324,26 +355,42 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             setIsSavingContract(true);
             try {
                 const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
+                
+                const formatarDataParaISO = (dataStr) => {
+                    if (!dataStr) return null;
+                    if (dataStr.includes('-')) return forceMiddayUTC(dataStr);
+                    const [d, m, y] = dataStr.split('/');
+                    if (y && m && d) return forceMiddayUTC(`${y}-${m}-${d}`);
+                    return null;
+                };
+
                 const updatedData = {
                     userId: editingAluno.id, contractType, contractValue: parsedValue,
-                    paymentDueDate: null, startDate: forceMiddayUTC(startDateEdit),
+                    paymentDueDate: null, startDate: formatarDataParaISO(startDateEdit),
                     financeCategory: financeCategoryEdit, isFinanceActive: isFinanceActiveEdit,
                     ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
                 };
 
-                setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                // ATUALIZAÇÃO IMEDIATA NA TELA
+                if (editingAluno.isOffline) {
+                    const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
+                    setOfflineClients([...newList]);
+                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
+                } else {
+                    setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
+                }
+
                 const parentRef = alunos.find(a => a.id === editingAluno.id);
                 if (parentRef) Object.assign(parentRef, updatedData);
 
-                if (editingAluno.isOffline) {
-                    const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
-                    setOfflineClients(newList);
-                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-                } else {
-                    await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
-                    });
-                }
+                // 🔥 FORÇA O RE-RENDER 🔥
+                setRenderTrigger(prev => prev + 1);
+
+                // ENVIO PARA O BANCO
+                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
+                });
+
                 if (Platform.OS === 'web') window.alert("Pagamento Revertido!");
                 closeEditModal();
             } catch (error) { if (Platform.OS === 'web') window.alert("Erro ao reverter."); } 
@@ -374,6 +421,9 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             setOfflineClients(newList);
             await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
 
+            // 🔥 FORÇA O RE-RENDER 🔥
+            setRenderTrigger(prev => prev + 1);
+
             try {
                 await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
                     method: 'POST',
@@ -392,16 +442,16 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         finally { setIsSavingNew(false); }
     };
 
-    // 🔥 NOVA FUNÇÃO: Excluir Aluno Offline
     const handleDeleteOfflineClient = async (id) => {
         const confirmAction = async () => {
             try {
-                // 1. Remove da tela e do cache local imediatamente
                 const newList = offlineClients.filter(client => client.id !== id);
                 setOfflineClients(newList);
                 await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
 
-                // 2. Envia a requisição para o backend excluir do banco de dados
+                // 🔥 FORÇA O RE-RENDER 🔥
+                setRenderTrigger(prev => prev + 1);
+
                 const res = await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
@@ -412,7 +462,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
 
                 if (Platform.OS === 'web') window.alert("Aluno excluído com sucesso!");
 
-                // Se o aluno excluído for o que está no modal de edição, fecha o modal
                 if (editingAluno && editingAluno.id === id) {
                     closeEditModal();
                 }
@@ -456,7 +505,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             <FinanceStudentList 
                 theme={theme} isWebPC={isWebPC} studentList={studentList} loadingId={loadingId} 
                 openEditModal={openEditModal} handleTogglePagamento={handleTogglePagamento} openWhatsApp={openWhatsApp} 
-                handleDeleteOfflineClient={handleDeleteOfflineClient} // 🔥 Passando a função para a lista
+                handleDeleteOfflineClient={handleDeleteOfflineClient}
             />
 
             <FinanceEditModal 
@@ -470,7 +519,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 isUploadingEditPhoto={isUploadingEditPhoto} editPhotoUrl={editPhotoUrl}
                 handlePickEditImage={handlePickEditImage} handleSaveModalContract={handleSaveModalContract}
                 isSavingContract={isSavingContract} handleReverterPagamento={handleReverterPagamento}
-                handleDeleteOfflineClient={handleDeleteOfflineClient} // 🔥 Passando para o modal caso o botão fique lá dentro
+                handleDeleteOfflineClient={handleDeleteOfflineClient}
             />
 
             <FinanceAddModal 
