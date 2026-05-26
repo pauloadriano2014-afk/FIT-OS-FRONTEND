@@ -79,7 +79,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [editingTabValue, setEditingTabValue] = useState('');
 
     const [isSyncingCargas, setIsSyncingCargas] = useState(false);
-    const [forceCollapse, setForceCollapse] = useState(0); // Força minimização dos cards ao reordenar
+    const [forceCollapse, setForceCollapse] = useState(0); 
 
     useEffect(() => {
         if (Platform.OS === 'web') {
@@ -213,14 +213,12 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     }, [state.exercisesByDay, state.selectedWorkoutTab]);
 
     const moveExerciseWeb = useCallback((itemTempId, direction) => {
-    // 1. Encontra o índice real no estado atual
     const currentIndex = state.currentExercises.findIndex(ex => ex.tempId === itemTempId);
     
-    if (currentIndex === -1) return; // Exercício não encontrado
+    if (currentIndex === -1) return; 
 
     const exercises = [...state.currentExercises];
     
-    // 2. Lógica de movimento
     if (direction === 'up' && currentIndex > 0) {
         const temp = exercises[currentIndex];
         exercises[currentIndex] = exercises[currentIndex - 1];
@@ -230,10 +228,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         exercises[currentIndex] = exercises[currentIndex + 1];
         exercises[currentIndex + 1] = temp;
     } else {
-        return; // Limites atingidos
+        return; 
     }
     
-    // 3. Atualiza o estado
     const updated = { ...state.exercisesByDay, [state.selectedWorkoutTab]: exercises };
     setters.setExercisesByDay(updated);
 
@@ -441,34 +438,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         );
     };
 
-    const renderMenstrualAlert = () => {
-        if (state.isTemplateMode || !alunoIsMenstruating) return null;
-        return (
-            <View style={{ backgroundColor: (dbDeloadSynced || state.intensityMultiplier < 1) ? 'rgba(77, 227, 143, 0.1)' : 'rgba(255, 59, 48, 0.1)', borderColor: (dbDeloadSynced || state.intensityMultiplier < 1) ? '#4DE38F' : '#FF3B30', borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 16 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <MaterialCommunityIcons name={(dbDeloadSynced || state.intensityMultiplier < 1) ? "shield-check" : "water-alert"} size={22} color={(dbDeloadSynced || state.intensityMultiplier < 1) ? "#4DE38F" : "#FF3B30"} />
-                    <Text style={{ color: (dbDeloadSynced || state.intensityMultiplier < 1) ? "#4DE38F" : "#FF3B30", fontSize: 13, fontWeight: '900', letterSpacing: 0.5, marginLeft: 6 }}>
-                        {(dbDeloadSynced || state.intensityMultiplier < 1) ? 'DELOAD MENSTRUAL ATIVADO' : 'ALUNA EM PROTOCOLO MENSTRUAL'}
-                    </Text>
-                </View>
-                <Text style={{ color: theme.text, fontSize: 13, lineHeight: 18, marginBottom: (dbDeloadSynced || state.intensityMultiplier < 1) ? 8 : 14 }}>
-                    {(dbDeloadSynced || state.intensityMultiplier < 1) ? 'O sistema detectou o ciclo e ativou o Deload de proteção (80%) automaticamente. O visual abaixo já está sincronizado.' : 'A aluna sinalizou o ciclo. Para evitar lesões articulares e fadiga do SNC nesta fase, aplique o Deload.'}
-                </Text>
-                <TouchableOpacity style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 10 }} onPress={handleCancelDeload} disabled={isCancelingDeload}>
-                    {isCancelingDeload ? <ActivityIndicator size="small" color={theme.textSecondary} /> : (
-                        <><MaterialCommunityIcons name="close-circle-outline" size={18} color={theme.textSecondary} style={{ marginRight: 6 }} /><Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900' }}>DESATIVAR / CANCELAR DELOAD</Text></>
-                    )}
-                </TouchableOpacity>
-                {!(dbDeloadSynced || state.intensityMultiplier < 1) && (
-                    <TouchableOpacity style={{ backgroundColor: '#FF3B30', paddingVertical: 12, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', marginTop: 10 }} onPress={() => { try { if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(0.8); const deloadEnd = new Date(); deloadEnd.setDate(deloadEnd.getDate() + 5); if (setters.setIntensityEndDate) setters.setIntensityEndDate(deloadEnd); } catch (e) {} setDbDeloadSynced(true); }}>
-                        <MaterialCommunityIcons name="shield-alert" size={18} color="#FFF" style={{ marginRight: 6 }} />
-                        <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '900' }}>FORÇAR DELOAD DE PROTEÇÃO (-20%)</Text>
-                    </TouchableOpacity>
-                )}
-            </View>
-        );
-    };
-
     const renderSettings = () => {
         if (!state.isTemplateMode) return <WorkoutSettingsCard state={state} setters={setters} actions={actions} theme={theme} />;
         return (
@@ -631,11 +600,44 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
 const renderMainArea = () => (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
+        {/* 🔥 CABEÇALHO RESTAURADO COM OS BOTÕES DE RENOMEAR, DUPLICAR E EXCLUIR 🔥 */}
         <View style={[styles.mainAreaHeader, { borderBottomColor: theme.border, backgroundColor: theme.bg }]}>
-            <Text style={[styles.mainAreaTitle, { color: theme.text }]}>
-                {state.selectedWorkoutTab}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                {editingTabName === state.selectedWorkoutTab ? (
+                    <TextInput
+                        style={[styles.dayRenameInput, { color: theme.text, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: theme.accent, flex: 1, marginRight: 10 }]}
+                        value={editingTabValue}
+                        onChangeText={setEditingTabValue}
+                        autoFocus
+                        onSubmitEditing={() => confirmRenameTab(state.selectedWorkoutTab)}
+                        onBlur={() => confirmRenameTab(state.selectedWorkoutTab)}
+                    />
+                ) : (
+                    <Text style={[styles.mainAreaTitle, { color: theme.text }]} numberOfLines={1}>
+                        Editando: <Text style={{ color: theme.accent }}>{state.selectedWorkoutTab}</Text>
+                    </Text>
+                )}
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {!editingTabName && (
+                    <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => { setEditingTabName(state.selectedWorkoutTab); setEditingTabValue(state.selectedWorkoutTab); }}>
+                        <MaterialCommunityIcons name="pencil" size={14} color={theme.textSecondary} />
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Renomear</Text>
+                    </TouchableOpacity>
+                )}
+                <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => actions.duplicateTabInline(state.selectedWorkoutTab)}>
+                    <MaterialCommunityIcons name="content-copy" size={14} color={theme.textSecondary} />
+                    <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Duplicar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]} onPress={() => deleteTabInline(state.selectedWorkoutTab)} disabled={state.workoutTabs.length <= 1}>
+                    <MaterialCommunityIcons name="trash-can" size={14} color={state.workoutTabs.length <= 1 ? theme.textSecondary : "#FF3B30"} />
+                    <Text style={{ color: state.workoutTabs.length <= 1 ? theme.textSecondary : '#FF3B30', fontSize: 11, fontWeight: 'bold' }}>Excluir</Text>
+                </TouchableOpacity>
+
+                {/* Separador */}
+                <View style={{ width: 1, height: 20, backgroundColor: theme.border, marginHorizontal: 4 }} />
+
                 <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => setForceCollapse(prev => prev + 1)}>
                     <MaterialCommunityIcons name="format-list-bulleted" size={14} color={theme.textSecondary} />
                     <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Minimizar</Text>
@@ -918,7 +920,7 @@ const styles = StyleSheet.create({
     magicSyncDesc: { fontSize: 10, color: '#888', marginTop: 2 },
 
     floatingMenuContainer: { 
-    position: Platform.OS === 'web' ? 'fixed' : 'absolute', // 🔥 O SEGREDO ESTÁ AQUI
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
     bottom: Platform.OS === 'web' ? 30 : 20, 
     alignSelf: 'center', 
     flexDirection: 'row', 
@@ -927,14 +929,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10, 
     width: Platform.OS === 'web' ? 'auto' : '95%', 
     justifyContent: 'space-evenly', 
-    zIndex: 9999, // 🔥 Aumentei o zIndex para ele nunca sumir
+    zIndex: 9999,
     alignItems: 'center', 
     elevation: 8, 
     shadowColor: '#000', 
     shadowOffset: { width: 0, height: 4 }, 
     shadowOpacity: 0.15, 
     shadowRadius: 12,
-    backgroundColor: '#1C1C1E', // Força a cor caso o theme.surface falhe no fixed
+    backgroundColor: '#1C1C1E',
 },
     floatingMenuItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: Platform.OS === 'web' ? 12 : 4, paddingVertical: 4 },
     floatingMenuText: { fontSize: 10, fontWeight: '800', marginTop: 4 },

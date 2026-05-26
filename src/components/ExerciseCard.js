@@ -393,7 +393,7 @@ export const ExerciseCard = ({
             <View style={{flexDirection: 'row', flex: 1, justifyContent: 'space-between'}}>
                 <View style={{flex:1, paddingRight:5}}>
                     <Text style={{color: hasPrescribedLoad ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad ? 10 : 8, fontWeight: '900', marginBottom: 3, textAlign: 'center'}}>
-                        {hasPrescribedLoad ? `🎯 ALVO: ${String(block.load).toUpperCase()}` : 'CARGA'}
+                        {hasPrescribedLoad ? `🎯 CARGA TOTAL: ${String(block.load).toUpperCase()}` : 'CARGA TOTAL'}
                     </Text>
                     <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                         <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
@@ -409,7 +409,7 @@ export const ExerciseCard = ({
                 </View>
                 <View style={{justifyContent:'center', paddingBottom:15}}><MaterialCommunityIcons name="arrow-right" size={16} color={colors.textMuted}/></View>
                 <View style={{flex:1, paddingLeft:5}}>
-                    <Text style={[{fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}, {color: techInfo.color}]}>DROP</Text>
+                    <Text style={[{fontSize: 8, fontWeight: 'bold', marginBottom: 3, textAlign: 'center'}, {color: techInfo.color}]}>DROP TOTAL</Text>
                     <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
                         <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                             <TextInput 
@@ -443,7 +443,7 @@ export const ExerciseCard = ({
                 marginBottom: 4, 
                 letterSpacing: hasPrescribedLoad ? 0.5 : 0
             }}>
-                {hasPrescribedLoad ? `🎯 ALVO: ${String(block.load).toUpperCase()}` : 'CARGA (KG)'}
+                {hasPrescribedLoad ? ` CARGA TOTAL: ${String(block.load).toUpperCase()}` : 'CARGA TOTAL (KG)'}
             </Text>
             
             <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
