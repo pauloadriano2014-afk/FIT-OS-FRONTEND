@@ -559,14 +559,27 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
         <Text style={[styles.sectionLabel, { color: theme.textSecondary, marginBottom: 10, marginTop: 10 }]}>DIAS DE TREINO</Text>
         <View style={{ borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }}>
-            {state.workoutTabs.map((tab) => {
+            {state.workoutTabs.map((tab, tabIndex) => {
                 const isSelected = state.selectedWorkoutTab === tab;
                 const exCount = (state.exercisesByDay[tab] || []).length;
                 return (
-                    <TouchableOpacity key={tab} style={[styles.verticalTab, { backgroundColor: isSelected ? (theme.isDark ? 'rgba(255,255,255,0.08)' : '#FFF') : 'transparent', borderLeftColor: isSelected ? theme.accent : 'transparent' }]} onPress={() => setters.setSelectedWorkoutTab(tab)}>
-                        <Text style={{ fontWeight: isSelected ? '900' : '600', color: isSelected ? theme.accent : theme.text, fontSize: 14 }}>{tab}</Text>
-                        <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>{exCount} ex.</Text>
-                    </TouchableOpacity>
+                    <View key={tab} style={[styles.verticalTab, { backgroundColor: isSelected ? (theme.isDark ? 'rgba(255,255,255,0.08)' : '#FFF') : 'transparent', borderLeftColor: isSelected ? theme.accent : 'transparent' }]}>
+                        <TouchableOpacity style={{ flex: 1, paddingVertical: 4 }} onPress={() => setters.setSelectedWorkoutTab(tab)}>
+                            <Text style={{ fontWeight: isSelected ? '900' : '600', color: isSelected ? theme.accent : theme.text, fontSize: 14 }}>{tab}</Text>
+                            <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '600' }}>{exCount} ex.</Text>
+                        </TouchableOpacity>
+                        
+                        {/* 🔥 SETINHAS RESTAURADAS NA SIDEBAR DO PC 🔥 */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderRadius: 8, overflow: 'hidden' }}>
+                            <TouchableOpacity style={{ padding: 8 }} onPress={() => moveTab(tab, 'up')} disabled={tabIndex === 0}>
+                                <MaterialCommunityIcons name="arrow-up" size={14} color={tabIndex === 0 ? theme.textSecondary + '40' : theme.textSecondary} />
+                            </TouchableOpacity>
+                            <View style={{ width: 1, height: 16, backgroundColor: theme.border }} />
+                            <TouchableOpacity style={{ padding: 8 }} onPress={() => moveTab(tab, 'down')} disabled={tabIndex === state.workoutTabs.length - 1}>
+                                <MaterialCommunityIcons name="arrow-down" size={14} color={tabIndex === state.workoutTabs.length - 1 ? theme.textSecondary + '40' : theme.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
                 );
             })}
             <TouchableOpacity style={[styles.addVerticalTab, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.02)' }]} onPress={actions.addNewTab}>
@@ -600,7 +613,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
 const renderMainArea = () => (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-        {/* 🔥 CABEÇALHO RESTAURADO COM OS BOTÕES DE RENOMEAR, DUPLICAR E EXCLUIR 🔥 */}
+        {/* 🔥 CABEÇALHO COM BOTÕES DE RENOMEAR, DUPLICAR E EXCLUIR 🔥 */}
         <View style={[styles.mainAreaHeader, { borderBottomColor: theme.border, backgroundColor: theme.bg }]}>
             <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
                 {editingTabName === state.selectedWorkoutTab ? (
@@ -649,8 +662,10 @@ const renderMainArea = () => (
             </View>
         </View>
 
+        {/* 🔥 GATILHO DO MINIMIZAR ESTÁ NO extraData 🔥 */}
         <DraggableFlatList
             data={state.currentExercises}
+            extraData={forceCollapse}
             onDragEnd={handleDragEnd}
             keyExtractor={(item) => item.tempId}
             renderItem={renderExercise}

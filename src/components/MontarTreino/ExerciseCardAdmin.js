@@ -33,7 +33,12 @@ const QUICK_OBS = [
     "Amplitude máxima",
     "Pico de contração (segurar 2s)",
     "Carga progressiva",
-    "Cuidado com a postura"
+    "Cuidado com a postura",
+    "Execute com as 2 pernas e depois descanse",
+    "Execute com os 2 braços e depois descanse",
+    "1 passada com a perna direita +1 passada com a pernas esquerda +1 agachamento = 1 repetição.",
+    "1 pra frente +1 pro lado = 1 repetição."
+    
 ];
 
 // ─── HYBRID INPUT (TextInput + Dropdown integrado) ───
@@ -595,7 +600,7 @@ export default function ExerciseCardAdmin({
                             }]}>
                                 <Text style={[styles.pyramidLabel, { color: theme.textSecondary }]}>ESCOLHA A ESTRUTURA:</Text>
                                 <View style={styles.pyramidBtns}>
-                                    {['12-10-8-8', '15-12-10-10', '15-12-12-10', '15-12-10-8', '12-12-10', '12-10-8'].map(p => (
+                                    {['15-12-10-8', '15-12-10-10', '15-12-12-10', '15-15-12-10', '15-12-10', '12-12-10', '12-10-10',  '12-10-8'].map(p => (
                                         <TouchableOpacity
                                             key={p}
                                             style={[styles.pyramidBtn, {
