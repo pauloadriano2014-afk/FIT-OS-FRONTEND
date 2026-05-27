@@ -1,8 +1,8 @@
 // src/screens/AdminStudentCheckinsScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
-  View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-  ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking, TextInput, Dimensions 
+    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
+    ActivityIndicator, Alert, Platform, StatusBar, Image, Modal, Linking, TextInput, Dimensions 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
@@ -35,15 +35,13 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
 
   const rawId = route.params?.alunoId || route.params?.aluno?.id || '';
   const rawName = route.params?.alunoName || route.params?.aluno?.name || 'ALUNO';
-  const alunoCoachId = route.params?.aluno?.coachId; // 🔥 Puxa de quem é o aluno
+  const alunoCoachId = route.params?.aluno?.coachId;
   const aluno = { id: rawId, name: rawName, coachId: alunoCoachId };
 
   const [loading, setLoading] = useState(true);
   const [checkins, setCheckins] = useState([]);
   
-  // 🔥 ESTADOS DE PRIVACIDADE MULTITENANT
   const [hasPermission, setHasPermission] = useState(false);
-  
   const [visibleCount, setVisibleCount] = useState(3);
   
   const [modalVisible, setModalVisible] = useState(false);
@@ -85,7 +83,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
               
               const isAdriLogged = adminEmail === 'adri.personal@hotmail.com';
               
-              // 🔥 BUSCA O COACH ID REAL NO CACHE (Já que a tela anterior não enviou)
               let realCoachId = aluno.coachId;
               const cachedData = await AsyncStorage.getItem('@dashboard_cache');
               if (cachedData) {
@@ -445,7 +442,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg, ...(isWeb ? { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {}) }]}>
         <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
         
-        <View style={{ flex: 1, minHeight: 0, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, overflow: 'hidden', ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
+        <View style={{ flex: 1, minHeight: 0, width: '100%', maxWidth: isWeb ? 960 : '100%', alignSelf: 'center', backgroundColor: theme.bg, overflow: 'hidden', ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
             
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexShrink: 0 }}>
@@ -464,7 +461,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
             <ScrollView style={isWeb ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' } : { flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
                 {loading ? <ActivityIndicator color={theme.accent} size="large" style={{marginTop: 50}} /> : (
                     
-                    // 🔥 TELA DE BLOQUEIO DE PRIVACIDADE 🔥
                     !hasPermission ? (
                         <View style={{ marginTop: 80, alignItems: 'center', paddingHorizontal: 30 }}>
                             <MaterialCommunityIcons name="shield-lock" size={80} color={theme.border} />
@@ -771,13 +767,34 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             </View>
                         )}
 
+                        {/* 🔥 GRID DE FOTOS PARA ANÁLISE NO MODAL 🔥 */}
                         <View style={styles.comparePhotosContainer}>
-                            {evaluationType === 'comparison' && compareSource === 'system' && (getOldCheckin() || savedCompareUrls) && (
+                            {evaluationType === 'comparison' && (getOldCheckin() || savedCompareUrls || oldFront || oldSide || oldBack) && (
                                 <View style={styles.comparePhotoCol}>
                                     <View style={[styles.compareBadge, {backgroundColor: theme.surface, borderColor: theme.border}]}>
-                                        <Text style={[styles.compareLabel, {color: theme.textSecondary}]}>ANTES: {getOldCheckin()?.weight ? `${getOldCheckin().weight}kg` : '--'}</Text>
+                                        <Text style={[styles.compareLabel, {color: theme.textSecondary}]}>
+                                            ANTES: {compareSource === 'system' && getOldCheckin() ? (getOldCheckin().weight ? `${getOldCheckin().weight}kg` : '--') : (customOldWeight ? `${customOldWeight}kg` : '--')}
+                                        </Text>
                                     </View>
-                                    <Image source={{uri: getOldCheckin()?.photoFront || (savedCompareUrls ? savedCompareUrls.split('|')[0] : null)}} style={[styles.comparePhotoImg, {borderColor: theme.border}]} resizeMode="contain" />
+                                    <View style={styles.photoGridModal}>
+                                        {['FRENTE', 'LADO', 'COSTAS'].map((label, idx) => {
+                                            const uri = compareSource === 'system' 
+                                                ? (savedCompareUrls ? savedCompareUrls.split('|')[idx] : [getOldCheckin()?.photoFront, getOldCheckin()?.photoSide, getOldCheckin()?.photoBack][idx])
+                                                : [oldFront?.uri, oldSide?.uri, oldBack?.uri][idx];
+                                            return (
+                                                <View key={`old_${label}`} style={styles.photoThumbModal}>
+                                                    {uri && uri !== 'null' && uri !== '' ? (
+                                                        <TouchableOpacity style={{width: '100%'}} onPress={() => openPhoto(uri)}>
+                                                            <Image source={{uri}} style={[styles.photoComparison, {borderColor: theme.border}]} />
+                                                        </TouchableOpacity>
+                                                    ) : (
+                                                        <View style={[styles.photoComparison, {borderColor: theme.border}]} />
+                                                    )}
+                                                    <Text style={[styles.photoLabelModal, { color: theme.textSecondary }]}>{label}</Text>
+                                                </View>
+                                            );
+                                        })}
+                                    </View>
                                 </View>
                             )}
                             
@@ -785,7 +802,23 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                 <View style={[styles.compareBadge, {backgroundColor: theme.accent + '15', borderColor: theme.accent}]}>
                                     <Text style={[styles.compareLabel, {color: theme.accent}]}>ATUAL: {currentCheckinForEval?.weight || '--'}kg</Text>
                                 </View>
-                                <Image source={{uri: currentCheckinForEval?.photoFront}} style={[styles.comparePhotoImg, {borderColor: theme.accent}]} resizeMode="contain" />
+                                <View style={styles.photoGridModal}>
+                                    {['FRENTE', 'LADO', 'COSTAS'].map((label, idx) => {
+                                        const uri = [currentCheckinForEval?.photoFront, currentCheckinForEval?.photoSide, currentCheckinForEval?.photoBack][idx];
+                                        return (
+                                            <View key={`curr_${label}`} style={styles.photoThumbModal}>
+                                                {uri && uri !== 'null' && uri !== '' ? (
+                                                    <TouchableOpacity style={{width: '100%'}} onPress={() => openPhoto(uri)}>
+                                                        <Image source={{uri}} style={[styles.photoComparison, {borderColor: theme.accent}]} />
+                                                    </TouchableOpacity>
+                                                ) : (
+                                                    <View style={[styles.photoComparison, {borderColor: theme.border}]} />
+                                                )}
+                                                <Text style={[styles.photoLabelModal, { color: theme.textSecondary }]}>{label}</Text>
+                                            </View>
+                                        );
+                                    })}
+                                </View>
                             </View>
                         </View>
 
@@ -881,7 +914,7 @@ const styles = StyleSheet.create({
   
   photoGrid: { flexDirection: 'row', gap: 10 },
   photoThumb: { flex: 1, alignItems: 'center' },
-  photo: { width: '100%', height: 140, borderRadius: 12, borderWidth: 1, backgroundColor: '#000' },
+  photo: { width: '100%', aspectRatio: 9/16, borderRadius: 12, borderWidth: 1, backgroundColor: '#000' },
   photoLabel: { fontSize: 9, fontWeight: 'bold', marginTop: 8 },
 
   aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, borderWidth: 1, gap: 8 },
@@ -905,8 +938,8 @@ const styles = StyleSheet.create({
   
   evalModalContent: { 
       width: '100%', 
-      maxWidth: 550, 
-      height: Dimensions.get('window').height * 0.85,
+      maxWidth: 960, 
+      maxHeight: '90vh', 
       borderRadius: 30, 
       borderWidth: 1,
       display: 'flex',
@@ -942,11 +975,16 @@ const styles = StyleSheet.create({
   dateList: { borderWidth: 1, borderRadius: 12, marginTop: 5, maxHeight: 150, overflow: 'hidden' },
   dateListItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 15, borderBottomWidth: 1 },
   
-  comparePhotosContainer: { flexDirection: 'row', gap: 15, marginBottom: 25 },
-  comparePhotoCol: { flex: 1, alignItems: 'center' },
-  compareBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, marginBottom: 10, alignSelf: 'center' },
+  // 🔥 GRID FOTOS MODAL AVALIAÇÃO 🔥
+  comparePhotosContainer: { flexDirection: 'column', gap: 20, marginBottom: 25 },
+  comparePhotoCol: { flex: 1 },
+  compareBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, marginBottom: 10, alignSelf: 'flex-start' },
   compareLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-  comparePhotoImg: { width: '100%', height: 250, borderRadius: 16, borderWidth: 2, backgroundColor: '#000' },
+  
+  photoGridModal: { flexDirection: 'row', gap: 10, justifyContent: 'space-between' },
+  photoThumbModal: { flex: 1, alignItems: 'center' },
+  photoComparison: { width: '100%', height: 200, borderRadius: 12, borderWidth: 1, backgroundColor: '#000', resizeMode: 'contain' },
+  photoLabelModal: { fontSize: 9, fontWeight: 'bold', marginTop: 5 },
   
   inputContext: { padding: 15, borderRadius: 12, borderWidth: 1, minHeight: 80, textAlignVertical: 'top', outlineStyle: 'none', marginBottom: 25, fontSize: 14, marginTop: 10 },
   sectionLabel: { fontSize: 11, fontWeight: '900', marginTop: 10, marginBottom: 5 },
