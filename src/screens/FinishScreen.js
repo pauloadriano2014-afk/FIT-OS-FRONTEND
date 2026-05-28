@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Alert, StatusBar, Image, ImageBackground, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ViewShot from "react-native-view-shot";
@@ -11,73 +11,76 @@ export default function FinishScreen({ route, navigation }) {
   
   const viewShotRef = useRef();
   const [loading, setLoading] = useState(false);
+  const [preloadedFile, setPreloadedFile] = useState(null);
+
+  // 🔥 O PULO DO GATO PARA O SAFARI (PWA) 🔥
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      // Aumentamos para 2.5 segundos para garantir que o modal da tela anterior feche 100%
+      setTimeout(async () => {
+        try {
+          const html2canvas = require('html2canvas');
+          const html2canvasFunc = html2canvas.default || html2canvas;
+          
+          const element = document.getElementById('share-card-web');
+          if (element) {
+            const canvas = await html2canvasFunc(element, {
+                useCORS: true,
+                backgroundColor: '#000',
+                scale: 3 // 🔥 Aumentamos a resolução para 3x (Qualidade Retina para o Instagram)
+            });
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 1.0); // Qualidade JPEG no máximo (1.0)
+            const byteString = atob(dataUrl.split(',')[1]);
+            const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            
+            const blob = new Blob([ab], { type: mimeString });
+            const file = new File([blob], 'treino_concluido.jpg', { type: 'image/jpeg' });
+            
+            // Salva a imagem em alta resolução e sem modal na memória
+            setPreloadedFile(file);
+          }
+        } catch (e) {
+          console.log("Preload do canvas falhou silenciosamente", e);
+        }
+      }, 2500); 
+    }
+  }, []);
 
   const handleShare = async () => {
     setLoading(true);
     try {
       if (Platform.OS === 'web') {
-        // 🔥 GERAÇÃO DA IMAGEM NA WEB (PWA) VIA HTML2CANVAS 🔥
-        const html2canvas = require('html2canvas');
-        const html2canvasFunc = html2canvas.default || html2canvas;
-        
-        const element = document.getElementById('share-card-web');
-        
-        if (!element) {
-            throw new Error("Não foi possível encontrar o card na tela.");
-        }
-
-        const canvas = await html2canvasFunc(element, {
-            useCORS: true,
-            backgroundColor: '#000',
-            scale: 2
-        });
-
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-        // 🔥 O SEGREDO DO MODAL NATIVO NO PWA 🔥
-        // Converte Base64 para Blob manualmente. O Safari iOS aceita isso 100% das vezes e abre o modal.
-        const byteString = atob(dataUrl.split(',')[1]);
-        const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
-        const ab = new ArrayBuffer(byteString.length);
-        const ia = new Uint8Array(ab);
-        for (let i = 0; i < byteString.length; i++) {
-            ia[i] = byteString.charCodeAt(i);
-        }
-        const blob = new Blob([ab], { type: mimeString });
-        const file = new File([blob], 'treino_concluido.jpg', { type: 'image/jpeg' });
-
-        try {
-            // Invoca a gaveta nativa de compartilhamento do sistema operacional (iOS/Android)
+        // 🔥 COMPARTILHAMENTO INSTANTÂNEO NO PWA 🔥
+        if (preloadedFile && navigator.canShare && navigator.canShare({ files: [preloadedFile] })) {
+            try {
+                await navigator.share({
+                    files: [preloadedFile],
+                    title: 'Treino Pago!',
+                    text: `🔥 Treino ${workoutName || 'do dia'} pago na consultoria Paulo Adriano Team!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nFaça parte da Elite!`
+                });
+            } catch (shareError) {
+                // Usuário fechou o modal de compartilhamento, apenas ignoramos
+            }
+        } else {
+            // FALLBACK DE SEGURANÇA
             if (navigator.share) {
                 await navigator.share({
-                    files: [file],
                     title: 'Treino Pago!',
-                    text: `🔥 Treino ${workoutName || 'do dia'} pago!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nVenha fazer parte do Paulo Adriano Team!`
+                    text: `🔥 Treino ${workoutName || 'do dia'} pago na consultoria Paulo Adriano Team!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nTire um print do seu card para postar e nos marcar!`
                 });
-                setLoading(false);
-                return;
             } else {
-                throw new Error("Navegador não suporta Web Share");
+                window.alert("📸 Tire um print (screenshot) do seu card para postar e marque o Paulo Adriano Team!");
             }
-        } catch (shareError) {
-            // Se o usuário cancelou o compartilhamento (fechou a gaveta), não fazemos nada
-            if (shareError.name === 'AbortError') {
-                setLoading(false);
-                return;
-            }
-            
-            // Plano B Extremo (Se estiver no PC onde não tem gaveta de Instagram)
-            const link = document.createElement('a');
-            link.href = dataUrl;
-            link.download = `Treino_${workoutName || 'Pago'}.jpg`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            window.alert("📸 Card salvo com sucesso!\n\nPoste nos seus Stories e marque o Paulo Adriano Team!");
         }
-
       } else {
-        // 🔥 FLUXO PARA O APLICATIVO NATIVO (QUANDO FOR PARA AS LOJAS) 🔥
+        // 🔥 FLUXO PARA O FUTURO APLICATIVO NATIVO NAS LOJAS 🔥
         if (!(await Sharing.isAvailableAsync())) {
           Alert.alert("Erro", "Compartilhamento não disponível no seu dispositivo.");
           return;
@@ -89,8 +92,7 @@ export default function FinishScreen({ route, navigation }) {
         });
       }
     } catch (error) {
-      if (Platform.OS === 'web') window.alert("Falha ao gerar o card de compartilhamento.");
-      else Alert.alert("Erro", "Falha ao gerar o card de compartilhamento.");
+      // Falhas genéricas engolidas
     } finally {
       setLoading(false);
     }
@@ -108,7 +110,6 @@ export default function FinishScreen({ route, navigation }) {
     ? `DIA ${safeDay.toUpperCase()} FINALIZADO` 
     : `${safeDay.toUpperCase()} FINALIZADO`;
 
-  // Componente do Card isolado com a ID nativa para o html2canvas ler
   const CardContent = () => (
     <View nativeID="share-card-web" style={styles.shareCard}>
       <View style={styles.cardInnerBg} />
@@ -163,7 +164,6 @@ export default function FinishScreen({ route, navigation }) {
               <Text style={styles.title}>TREINO PAGO! 🔥</Text>
               <Text style={styles.subtitle}>Sua consistência é o que gera resultados.</Text>
 
-              {/* ViewShot é ignorado na web para evitar crashes, usando View normal em vez disso */}
               {Platform.OS === 'web' ? (
                   <View>
                     <CardContent />
@@ -177,7 +177,7 @@ export default function FinishScreen({ route, navigation }) {
               <View style={styles.footer}>
                 <TouchableOpacity style={styles.shareBtn} onPress={handleShare} disabled={loading}>
                   <MaterialCommunityIcons name={Platform.OS === 'web' ? "share-variant" : "instagram"} size={24} color="#000" />
-                  <Text style={styles.shareBtnText}>{loading ? "GERANDO CARD..." : (Platform.OS === 'web' ? "COMPARTILHAR NO INSTAGRAM" : "COMPARTILHAR TREINO")}</Text>
+                  <Text style={styles.shareBtnText}>{loading ? "ABRINDO..." : (Platform.OS === 'web' ? "COMPARTILHAR NO INSTAGRAM" : "COMPARTILHAR TREINO")}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.backBtn} onPress={handleFinish}>
