@@ -1,4 +1,3 @@
-// src/components/MontarTreino/ExerciseCardAdmin.js
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -257,7 +256,8 @@ export default function ExerciseCardAdmin({
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible,
     setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible,
     setIsSwapping, setSwapIndex, openPreview,
-    workoutModel, moveExercise, setInitialCategoryFilter
+    workoutModel, moveExercise, setInitialCategoryFilter,
+    forceCollapse // 🔥 Recebendo o gatilho global de minimizar
 }) {
     const isWeb = Platform.OS === 'web';
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
@@ -268,6 +268,13 @@ export default function ExerciseCardAdmin({
     const [isExpanded, setIsExpanded] = useState(true);
     const [customLoads, setCustomLoads] = useState([]);
     const loadCategoryKey = getLoadCategoryKey(item.title);
+
+    // 🔥 LISTENER PARA MINIMIZAR GLOBAL 🔥
+    useEffect(() => {
+        if (forceCollapse > 0) {
+            setIsExpanded(false);
+        }
+    }, [forceCollapse]);
 
     useEffect(() => {
         const loadSavedLoads = async () => {
@@ -340,7 +347,7 @@ export default function ExerciseCardAdmin({
 
     // ─── DRAG HANDLE / WEB ARROWS ───
     const dragHandleContent = isWeb ? (
-        // 🔥 BOTÕES COLORIDOS E EVIDENTES NO WEB 🔥
+        // 🔥 BOTÕES COLORIDOS E EVIDENTES (E AGORA RESPONSIVOS NO MOBILE) 🔥
         <View style={styles.webMoveRow}>
             <TouchableOpacity
                 style={[styles.webMoveBtn, {
@@ -350,10 +357,8 @@ export default function ExerciseCardAdmin({
                 onPress={() => moveExercise(item.tempId, 'up')}
             >
                 <MaterialCommunityIcons name="arrow-up" size={13} color={theme.textSecondary} />
-                <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Mover para cima</Text>
+                <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Subir</Text>
             </TouchableOpacity>
-
-            <View style={[styles.webMoveDivider, { backgroundColor: theme.border }]} />
 
             <TouchableOpacity
                 style={[styles.webMoveBtn, {
@@ -374,8 +379,6 @@ export default function ExerciseCardAdmin({
                 </Text>
             </TouchableOpacity>
 
-            <View style={[styles.webMoveDivider, { backgroundColor: theme.border }]} />
-
             <TouchableOpacity
                 style={[styles.webMoveBtn, {
                     backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)',
@@ -384,7 +387,7 @@ export default function ExerciseCardAdmin({
                 onPress={() => moveExercise(item.tempId, 'down')}
             >
                 <MaterialCommunityIcons name="arrow-down" size={13} color={theme.textSecondary} />
-                <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Mover para baixo</Text>
+                <Text style={[styles.webMoveBtnText, { color: theme.textSecondary }]}>Descer</Text>
             </TouchableOpacity>
         </View>
     ) : (
@@ -411,7 +414,8 @@ export default function ExerciseCardAdmin({
                 backgroundColor: isCardio
                     ? (theme.isDark ? `${theme.accent}10` : `${theme.accent}08`)
                     : (theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
-                borderBottomColor: theme.border
+                borderBottomColor: theme.border,
+                minHeight: isWeb ? 'auto' : 38 // Ajuste web para caber multiplas linhas se for preciso
             }]}>
                 {dragHandleContent}
             </View>
@@ -440,7 +444,7 @@ export default function ExerciseCardAdmin({
                             {index + 1}. {item.title}
                         </Text>
                     </View>
-                    {/* Botão minimizar no mobile */}
+                    {/* Botão minimizar no mobile (app) */}
                     {!isWeb && (
                         <TouchableOpacity
                             style={[styles.mobileExpandBtn, {
@@ -700,8 +704,6 @@ const styles = StyleSheet.create({
 
     // ─── DRAG HANDLE ───
     dragHandle: {
-        minHeight: 38,
-        borderBottomWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -719,33 +721,31 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
 
-    // 🔥 WEB MOVE BUTTONS (coloridos e evidentes) ───
+    // 🔥 WEB MOVE BUTTONS RESPONSIVOS 🔥
     webMoveRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        flexWrap: 'wrap', // Permite que os botões quebrem de linha em celulares pequenos
         paddingHorizontal: 12,
-        paddingVertical: 6,
-        gap: 6,
+        paddingVertical: 8,
+        gap: 8,
         width: '100%',
     },
     webMoveBtn: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: 5,
         paddingHorizontal: 12,
-        paddingVertical: 6,
+        paddingVertical: 8,
         borderRadius: 8,
         borderWidth: 1,
+        minWidth: 80, // Garante que o botão tenha um tamanho bom para toque
     },
     webMoveBtnText: {
         fontSize: 11,
         fontWeight: '700',
-    },
-    webMoveDivider: {
-        width: 1,
-        height: 16,
-        marginHorizontal: 2,
     },
 
     // ─── THUMBNAIL ───

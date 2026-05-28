@@ -730,43 +730,91 @@ const renderMainArea = () => (
             ListFooterComponent={SharedFooter()}
         />
 
-            {/* 🔥 MENU FLUTUANTE (VISÍVEL NO PC E NO MOBILE) 🔥 */}
+            {/* 🔥 MENU FLUTUANTE (AGORA COM SCROLL HORIZONTAL) 🔥 */}
             <View style={[styles.floatingMenuContainer, { backgroundColor: theme.surface }]}>
-                <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}>
-                    <MaterialCommunityIcons name="plus-box-multiple" size={22} color={theme.text} />
-                    <Text style={[styles.floatingMenuText, { color: theme.text }]}>Exercício</Text>
-                </TouchableOpacity>
-                
-                <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
-                <TouchableOpacity style={styles.floatingMenuItem} onPress={actions?.handleImportPDF}>
-                    <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
-                    <Text style={[styles.floatingMenuText, { color: theme.text }]}>MFIT</Text>
-                </TouchableOpacity>
+                {Platform.OS === 'web' && windowWidth <= 768 ? (
+                    // MODO MOBILE: Scroll Horizontal
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false} 
+                        contentContainerStyle={styles.floatingMenuScrollContent}
+                        style={{ width: '100%' }} // 🔥 CIRURGIA 2: Garante a rolagem
+                        bounces={true}
+                    >
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}>
+                            <MaterialCommunityIcons name="plus-box-multiple" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Exercício</Text>
+                        </TouchableOpacity>
+                        
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={actions?.handleImportPDF}>
+                            <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>MFIT</Text>
+                        </TouchableOpacity>
 
-                <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
-                <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); }}>
-                    <MaterialCommunityIcons name="folder-download" size={22} color={theme.text} />
-                    <Text style={[styles.floatingMenuText, { color: theme.text }]}>Bases</Text>
-                </TouchableOpacity>
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); }}>
+                            <MaterialCommunityIcons name="folder-download" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Bases</Text>
+                        </TouchableOpacity>
 
-                <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
-                <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); }}>
-                    <MaterialCommunityIcons name="account-switch" size={22} color={theme.text} />
-                    <Text style={[styles.floatingMenuText, { color: theme.text }]}>Clonar</Text>
-                </TouchableOpacity>
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); }}>
+                            <MaterialCommunityIcons name="account-switch" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Clonar</Text>
+                        </TouchableOpacity>
 
-                <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
-                <TouchableOpacity style={styles.floatingMenuItem} onPress={() => setters?.setModalSaveTemplateVisible(true)}>
-                    <MaterialCommunityIcons name="content-save-cog" size={22} color={theme.text} />
-                    <Text style={[styles.floatingMenuText, { color: theme.text }]}>Salvar Base</Text>
-                </TouchableOpacity>
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => setters?.setModalSaveTemplateVisible(true)}>
+                            <MaterialCommunityIcons name="content-save-cog" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Salvar Base</Text>
+                        </TouchableOpacity>
 
-                {/* 🔥 BOTÃO DE PDF ÚNICO 🔥 */}
-                <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
-                <TouchableOpacity style={styles.floatingMenuItem} onPress={() => generateWorkoutPDF(aluno, state.workoutTabs, state.exercisesByDay, state.customWorkoutName)}>
-                    <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.accent} />
-                    <Text style={[styles.floatingMenuText, { color: theme.accent }]}>Baixar PDF</Text>
-                </TouchableOpacity>
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => generateWorkoutPDF(aluno, state.workoutTabs, state.exercisesByDay, state.customWorkoutName)}>
+                            <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.accent} />
+                            <Text style={[styles.floatingMenuText, { color: theme.accent }]}>Baixar PDF</Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                ) : (
+                    // MODO PC: Mantém o layout original espaçado
+                    <View style={styles.floatingMenuDesktopContainer}>
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}>
+                            <MaterialCommunityIcons name="plus-box-multiple" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Exercício</Text>
+                        </TouchableOpacity>
+                        
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={actions?.handleImportPDF}>
+                            <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>MFIT</Text>
+                        </TouchableOpacity>
+
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); }}>
+                            <MaterialCommunityIcons name="folder-download" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Bases</Text>
+                        </TouchableOpacity>
+
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); }}>
+                            <MaterialCommunityIcons name="account-switch" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Clonar</Text>
+                        </TouchableOpacity>
+
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => setters?.setModalSaveTemplateVisible(true)}>
+                            <MaterialCommunityIcons name="content-save-cog" size={22} color={theme.text} />
+                            <Text style={[styles.floatingMenuText, { color: theme.text }]}>Salvar Base</Text>
+                        </TouchableOpacity>
+
+                        <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                        <TouchableOpacity style={styles.floatingMenuItem} onPress={() => generateWorkoutPDF(aluno, state.workoutTabs, state.exercisesByDay, state.customWorkoutName)}>
+                            <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.accent} />
+                            <Text style={[styles.floatingMenuText, { color: theme.accent }]}>Baixar PDF</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
             </View>
         </View>
     );
@@ -949,28 +997,40 @@ const styles = StyleSheet.create({
     magicSyncTitle: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
     magicSyncDesc: { fontSize: 10, color: '#888', marginTop: 2 },
 
+    // 🔥 NOVOS ESTILOS DO MENU FLUTUANTE 🔥
     floatingMenuContainer: { 
         position: Platform.OS === 'web' ? 'fixed' : 'absolute',
         bottom: Platform.OS === 'web' ? 30 : 20, 
         alignSelf: 'center', 
-        flexDirection: 'row', 
-        flexWrap: 'wrap', /* 🔥 Mágica para não vazar no mobile 🔥 */
         borderRadius: 30, 
-        paddingHorizontal: Platform.OS === 'web' ? 15 : 8, 
-        paddingVertical: 10, 
-        width: Platform.OS === 'web' ? 'auto' : '95%', 
-        justifyContent: 'space-evenly', 
+        // 🔥 A CIRURGIA ESTÁ AQUI: Trava a largura no celular para forçar o Scroll!
+        width: Platform.OS === 'web' && width > 768 ? 'auto' : '95%', 
         zIndex: 9999,
-        alignItems: 'center', 
         elevation: 8, 
         shadowColor: '#000', 
         shadowOffset: { width: 0, height: 4 }, 
         shadowOpacity: 0.15, 
         shadowRadius: 12,
         backgroundColor: '#1C1C1E',
+        overflow: 'hidden'
     },
-    floatingMenuItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: Platform.OS === 'web' ? 12 : 4, paddingVertical: 4 },
-    floatingMenuText: { fontSize: 10, fontWeight: '800', marginTop: 4 },
+    floatingMenuDesktopContainer: {
+        flexDirection: 'row', 
+        paddingHorizontal: 15, 
+        paddingVertical: 10, 
+        justifyContent: 'space-evenly', 
+        alignItems: 'center', 
+    },
+    floatingMenuScrollContent: {
+        flexDirection: 'row',
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        alignItems: 'center',
+        // Adiciona um padding extra no final para o último item não ficar grudado na borda
+        paddingRight: 25 
+    },
+    floatingMenuItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 4 },
+    floatingMenuText: { fontSize: 10, fontWeight: '800', marginTop: 4, whiteSpace: 'nowrap' }, // Previne quebra de linha no texto
     floatingMenuDivider: { width: 1, height: 24, marginHorizontal: 5 },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
