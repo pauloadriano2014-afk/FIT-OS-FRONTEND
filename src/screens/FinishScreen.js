@@ -16,7 +16,6 @@ export default function FinishScreen({ route, navigation }) {
   // 🔥 O PULO DO GATO PARA O SAFARI (PWA) 🔥
   useEffect(() => {
     if (Platform.OS === 'web') {
-      // Aumentamos para 2.5 segundos para garantir que o modal da tela anterior feche 100%
       setTimeout(async () => {
         try {
           const html2canvas = require('html2canvas');
@@ -26,11 +25,12 @@ export default function FinishScreen({ route, navigation }) {
           if (element) {
             const canvas = await html2canvasFunc(element, {
                 useCORS: true,
+                allowTaint: true, // 🔥 Força a renderização limpa da imagem JPEG
                 backgroundColor: '#000',
-                scale: 3 // 🔥 Aumentamos a resolução para 3x (Qualidade Retina para o Instagram)
+                scale: 4 // 🔥 Escala no Talo (4x) para eliminar qualquer pixelização em telas Retina
             });
 
-            const dataUrl = canvas.toDataURL('image/jpeg', 1.0); // Qualidade JPEG no máximo (1.0)
+            const dataUrl = canvas.toDataURL('image/jpeg', 1.0); 
             const byteString = atob(dataUrl.split(',')[1]);
             const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
             const ab = new ArrayBuffer(byteString.length);
@@ -43,7 +43,6 @@ export default function FinishScreen({ route, navigation }) {
             const blob = new Blob([ab], { type: mimeString });
             const file = new File([blob], 'treino_concluido.jpg', { type: 'image/jpeg' });
             
-            // Salva a imagem em alta resolução e sem modal na memória
             setPreloadedFile(file);
           }
         } catch (e) {
@@ -57,7 +56,6 @@ export default function FinishScreen({ route, navigation }) {
     setLoading(true);
     try {
       if (Platform.OS === 'web') {
-        // 🔥 COMPARTILHAMENTO INSTANTÂNEO NO PWA 🔥
         if (preloadedFile && navigator.canShare && navigator.canShare({ files: [preloadedFile] })) {
             try {
                 await navigator.share({
@@ -231,8 +229,8 @@ const styles = StyleSheet.create({
   },
   cardInnerBg: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#0A0A0A',
-    opacity: 0.95, 
+    // 🔥 CORREÇÃO CIRÚRGICA: Trocamos o `opacity` problemático pelo `rgba` 🔥
+    backgroundColor: 'rgba(10, 10, 10, 0.95)', 
   },
   logo: { width: 150, height: 150, marginBottom: 20, zIndex: 1 },
   workoutTitle: { color: '#FFF', fontSize: 24, fontWeight: '900', textAlign: 'center', zIndex: 1, letterSpacing: 0.5 },
