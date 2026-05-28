@@ -6,6 +6,18 @@ import * as Sharing from 'expo-sharing';
 
 const { width } = Dimensions.get('window');
 
+// Função cirúrgica para extrair o link real da imagem na Web
+const getLogoWebUri = () => {
+  const asset = require('../../assets/paelite.jpg');
+  if (typeof asset === 'string') return asset;
+  if (asset.uri) return asset.uri;
+  if (Image.resolveAssetSource) {
+      const source = Image.resolveAssetSource(asset);
+      return source ? source.uri : asset;
+  }
+  return asset;
+};
+
 export default function FinishScreen({ route, navigation }) {
   const { workoutName, day, xp, duration, rpeLabel } = route.params || {};
   
@@ -13,7 +25,7 @@ export default function FinishScreen({ route, navigation }) {
   const [loading, setLoading] = useState(false);
   const [preloadedFile, setPreloadedFile] = useState(null);
 
-  // 🔥 O PULO DO GATO PARA O SAFARI (PWA) 🔥
+  // 🔥 PRÉ-GERAÇÃO DO CARD PARA O PWA 🔥
   useEffect(() => {
     if (Platform.OS === 'web') {
       setTimeout(async () => {
@@ -25,12 +37,13 @@ export default function FinishScreen({ route, navigation }) {
           if (element) {
             const canvas = await html2canvasFunc(element, {
                 useCORS: true,
-                allowTaint: true, // 🔥 Força a renderização limpa da imagem JPEG
+                allowTaint: true,
                 backgroundColor: '#000',
-                scale: 4 // 🔥 Escala no Talo (4x) para eliminar qualquer pixelização em telas Retina
+                scale: 3 // Escala 3x é o ponto doce perfeito para telas Retina
             });
 
-            const dataUrl = canvas.toDataURL('image/jpeg', 1.0); 
+            // 🔥 MUDANÇA PARA PNG PARA SALVAR AS CORES NEON 🔥
+            const dataUrl = canvas.toDataURL('image/png'); 
             const byteString = atob(dataUrl.split(',')[1]);
             const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
             const ab = new ArrayBuffer(byteString.length);
@@ -41,7 +54,7 @@ export default function FinishScreen({ route, navigation }) {
             }
             
             const blob = new Blob([ab], { type: mimeString });
-            const file = new File([blob], 'treino_concluido.jpg', { type: 'image/jpeg' });
+            const file = new File([blob], 'treino_concluido.png', { type: 'image/png' });
             
             setPreloadedFile(file);
           }
@@ -64,10 +77,10 @@ export default function FinishScreen({ route, navigation }) {
                     text: `🔥 Treino ${workoutName || 'do dia'} pago na consultoria Paulo Adriano Team!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nFaça parte da Elite!`
                 });
             } catch (shareError) {
-                // Usuário fechou o modal de compartilhamento, apenas ignoramos
+                // Usuário apenas fechou o painel de share nativo do iOS/Android
             }
         } else {
-            // FALLBACK DE SEGURANÇA
+            // FALLBACK SE O DISPOSITIVO FOR ANTIGO
             if (navigator.share) {
                 await navigator.share({
                     title: 'Treino Pago!',
@@ -78,7 +91,7 @@ export default function FinishScreen({ route, navigation }) {
             }
         }
       } else {
-        // 🔥 FLUXO PARA O FUTURO APLICATIVO NATIVO NAS LOJAS 🔥
+        // 🔥 FLUXO DO APLICATIVO NATIVO NAS LOJAS 🔥
         if (!(await Sharing.isAvailableAsync())) {
           Alert.alert("Erro", "Compartilhamento não disponível no seu dispositivo.");
           return;
@@ -86,11 +99,11 @@ export default function FinishScreen({ route, navigation }) {
         const uri = await viewShotRef.current.capture();
         await Sharing.shareAsync(uri, { 
             dialogTitle: 'Compartilhar Treino Pago',
-            mimeType: 'image/jpeg'
+            mimeType: 'image/png' // Atualizado para PNG também no nativo para máxima qualidade
         });
       }
     } catch (error) {
-      // Falhas genéricas engolidas
+       // Silenciado para não gerar popups chatos
     } finally {
       setLoading(false);
     }
@@ -111,11 +124,22 @@ export default function FinishScreen({ route, navigation }) {
   const CardContent = () => (
     <View nativeID="share-card-web" style={styles.shareCard}>
       <View style={styles.cardInnerBg} />
-      <Image 
-        source={require('../../assets/paelite.jpg')} 
-        style={styles.logo} 
-        resizeMode="contain" 
-      />
+      
+      {/* 🔥 TRUQUE DE MESTRE PARA LER OS 1080p REAIS NA WEB 🔥 */}
+      {Platform.OS === 'web' ? (
+        <img 
+          src={getLogoWebUri()} 
+          alt="Logo Elite"
+          style={{ width: 150, height: 150, objectFit: 'contain', marginBottom: 20, zIndex: 1, position: 'relative' }} 
+        />
+      ) : (
+        <Image 
+          source={require('../../assets/paelite.jpg')} 
+          style={styles.logo} 
+          resizeMode="contain" 
+        />
+      )}
+
       <Text style={styles.workoutTitle}>{workoutName || "TREINO DO DIA"}</Text>
       <View style={styles.dayBadge}>
           <Text style={styles.dayBadgeText}>{dayText}</Text>
@@ -167,7 +191,7 @@ export default function FinishScreen({ route, navigation }) {
                     <CardContent />
                   </View>
               ) : (
-                  <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 1.0 }}>
+                  <ViewShot ref={viewShotRef} options={{ format: "png", quality: 1.0 }}>
                     <CardContent />
                   </ViewShot>
               )}
@@ -229,7 +253,6 @@ const styles = StyleSheet.create({
   },
   cardInnerBg: {
     ...StyleSheet.absoluteFillObject,
-    // 🔥 CORREÇÃO CIRÚRGICA: Trocamos o `opacity` problemático pelo `rgba` 🔥
     backgroundColor: 'rgba(10, 10, 10, 0.95)', 
   },
   logo: { width: 150, height: 150, marginBottom: 20, zIndex: 1 },
