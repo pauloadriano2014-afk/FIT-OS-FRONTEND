@@ -158,45 +158,7 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* MENTOR */}
-                    <View style={styles.mentorSection}>
-                        <LinearGradient colors={['rgba(26,26,26,0)', 'rgba(26,26,26,1)']} style={styles.mentorGradientBg} />
-                        
-                        <View style={styles.mentorContent}>
-                            <View style={styles.mentorBadgeRow}>
-                                <View style={styles.featureIconBox}><MaterialCommunityIcons name="card-account-details-star-outline" size={28} color="#4DE38F" /></View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.mentorSub}>EU JÁ ESTIVE DO OUTRO LADO</Text>
-                                    <Text style={styles.mentorLabelHeader}>CONHEÇA SEU MENTOR:</Text>
-                                    <Text style={styles.mentorNameStrong}>PAULO ADRIANO</Text>
-                                </View>
-                            </View>
-
-                            <Text style={styles.mentorDesc}>
-                                "Eu sei exatamente o que é carregar o peso extra, a frustração de não ver resultados e a dúvida se o esforço vale a pena. Eu já fui um 'ex-gordo' com 97kg. Mas eu descobri o caminho. Usei a ciência e a disciplina para me transformar em um Campeão Natural com 77kg. Eu não vendo planos; eu guio transformações reais."
-                            </Text>
-
-                            <View style={styles.swipeHintContainer}>
-                                <MaterialCommunityIcons name="gesture-swipe-horizontal" size={24} color="#4DE38F" />
-                                <Text style={styles.swipeHintText}>ARRASTE PARA O LADO E VEJA A TRANSFORMAÇÃO</Text>
-                            </View>
-
-                            <ScrollView horizontal snapToInterval={340} snapToAlignment="center" decelerationRate="fast" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainerMentor}>
-                                <View style={styles.imageColMentor}>
-                                    <View style={[styles.imagePlaceholderMentor, { filter: 'grayscale(100%)' }]}>
-                                        <Image source={{ uri: linksAlunos.mentor_desafio_9x16 }} style={styles.resultImageMentorContain} />
-                                    </View>
-                                </View>
-                                <View style={styles.imageColMentor}>
-                                    <View style={styles.imagePlaceholderMentor}>
-                                        <Image source={{ uri: linksAlunos.mentor_vitoria_9x16 }} style={styles.resultImageMentorContain} />
-                                    </View>
-                                </View>
-                            </ScrollView>
-                        </View>
-                    </View>
-
-                    {/* ARSENAL */}
+                    {/* ARSENAL (Subido para mais perto do começo) */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>A RESPOSTA PARA SEUS PROBLEMAS</Text>
                     <Text style={styles.sectionSub}>Nós eliminamos as falhas ocultas que te impedem de chegar ao shape dos sonhos.</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
@@ -222,71 +184,7 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </ScrollView>
 
-                    {/* IA HIGHLIGHT - SPIN SELLING 🔥 REFINADO */}
-                    <View style={styles.aiHighlightSection}>
-                        <Text style={styles.sectionTitle}>NUNCA MAIS DESPERDICE TEMPO FAZENDO ERRADO</Text>
-                        <Text style={styles.sectionSub}>A maioria das pessoas treina errado e nem percebe — por isso o corpo não muda. Aqui, cada repetição sua é ajustada para realmente gerar resultado — sem desperdiçar tempo e sem se machucar.</Text>
-                        <View style={styles.videoContainer9x16}>
-                            {renderYouTubeVideo(linksAlunos.ai_video_id, true)}
-                        </View>
-                    </View>
-
-                    {/* PROVA SOCIAL - SPIN SELLING 🔥 REFINADO */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A SUA DOR TEM SOLUÇÃO</Text>
-                    <Text style={styles.sectionSub}>Essas pessoas não tinham genética melhor... elas só pararam de tentar sozinhas. Arraste e veja quem superou a estagnação e o sobrepeso com o nosso método.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
-                        <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
-                        <ModernResultCard goal="🔥 DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
-                        <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
-                        <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
-                        <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
-                        <ModernResultCard goal="💣 VENCENDO A GENÉTICA: DE UM CORPO MAGRO A UMA DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
-                        <ModernResultCard goal="⏱️ A PROVA DE QUE NÃO PRECISA DEMORAR: CHOQUE VISUAL EM 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
-                        <ModernResultCard goal="⚖️ VENCENDO A LUTA CONTRA A BALANÇA: UM EMAGRECIMENTO REAL, VISÍVEL E DEFINITIVO (Vane)" montageUri={linksAlunos.vane_montagem} />
-                        <ModernResultCard goal="🥊 MUITO MAIS QUE QUILOS ELIMINADOS: O RESGATE ABSOLUTO DA AUTOESTIMA E QUALIDADE DE VIDA (Bruno)" montageUri={linksAlunos.bruno_montagem} />
-                        <ModernResultCard goal="🔥 O RESGATE DA AUTOESTIMA: SILHUETA NOVA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
-                        <ModernResultCard goal="🏆 QUEBRANDO PLATÔS: DO TREINO COMUM AO PADRÃO DE PALCO (Adri)" montageUri={linksAlunos.adri_montagem} />
-                    </ScrollView>
-
-                    {/* FEEDBACKS WHATSAPP */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>O QUE ELES DIZEM NO WHATSAPP</Text>
-                    <Text style={styles.sectionSub}>A realidade nua e crua de quem vive o método todos os dias.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <FeedbackCard uri={linksAlunos.feedback_paloma} legend="🤫 10KG ELIMINADOS: CONTRA FATOS NÃO HÁ ARGUMENTOS (Paloma)" />
-                        <FeedbackCard uri={linksAlunos.feedback_eduardo} legend="🚀 A CHAVE VIROU: 5KG ELIMINADOS EM APENAS 42 DIAS (Eduardo)" />
-                        <FeedbackCard uri={linksAlunos.feedback_anne} legend="👖 MEDIDAS DESPENCANDO: A FELICIDADE DA CALÇA LARGONA (Anne)" />
-                        <FeedbackCard uri={linksAlunos.feedback_juliana} legend="🥗 DIETA SEM SOFRIMENTO E RESULTADOS RÁPIDOS (Juliana)" />
-                        <FeedbackCard uri={linksAlunos.feedback_thiago} legend="🎯 DISCIPLINA QUE GERA RESULTADO: QUASE 4KG OFF (Thiago)" />
-                        <FeedbackCard uri={linksAlunos.feedback_yasmin} legend="🔥 DERRETENDO GORDURA E RECUPERANDO O GUARDA-ROUPA (Yasmin)" />
-                        <FeedbackCard uri={linksAlunos.feedback_gleiber} legend="⚡ SHAPE RESPONDENDO E ABDÔMEN SECANDO (Gleiber)" />
-                    </ScrollView>
-
-                    {/* PADRÃO ELITE */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>PADRÃO ELITE</Text>
-                    <Text style={styles.sectionSub}>Vivendo a alta performance e guiando o time aos pódios.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <AthleteCard uri={linksAlunos.equipe_adri} title="LIDERANDO PELO EXEMPLO" desc="Eu e minha esposa Adri dividindo os palcos. Ela garante suporte e motivação constante para que ninguém fique para trás no processo." />
-                        <AthleteCard uri={linksAlunos.aluna_medalha} title="O RESULTADO DO TRABALHO" desc="Aluna de 39 anos de idade, que conseguimos colocar um shape competitivo ao perder 32kgs." />
-                        <AthleteCard uri={linksAlunos.felipe_podio} title="MÉTODO VALIDADO" desc="Nosso atleta Felipe comemorando sua vitória após um trabalho impecável de preparação. A ciência não falha." />
-                        <AthleteCard uri={linksAlunos.atleta_fem} title="A VITÓRIA" desc="O sorriso de quem entregou tudo e buscou a medalha. O método funciona para quem faz o que tem que ser feito." />
-                        <AthleteCard uri={linksAlunos.trio_fem} title="NOSSO TIME EM PESO" desc="Nossas atletas brilhando no campeonato. Estética, saúde e alta performance totalmente alinhadas." />
-                    </ScrollView>
-
-                    {/* BÔNUS EXCLUSIVOS */}
-                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>ARSENAL DE BÔNUS</Text>
-                    <Text style={styles.sectionSub}>Material extra desbloqueado de acordo com o seu plano de assinatura.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <BonusCard uri={linksAlunos.ebook_5dicas} title="E-book: 5 Dicas de Emagrecimento" subtitle="O pontapé inicial para a queima." isAudio={false} price="14,90" unlockText="A PARTIR DO MENSAL" />
-                        <BonusCard uri={linksAlunos.ebook_receitas_whey} title="Receitas Fit com Whey" subtitle="Sobremesas anabólicas." isAudio={false} price="19,90" unlockText="A PARTIR DO MENSAL" />
-                        <BonusCard uri={linksAlunos.ebook_receitas_salgadas} title="Receitas Fit Salgadas" subtitle="Almoço e janta no plano." isAudio={false} price="19,90" unlockText="A PARTIR DO MENSAL" />
-                        <BonusCard uri={linksAlunos.ebook_shape} title="E-book: Shape Natural" subtitle="Guia completo de hipertrofia." isAudio={false} price="34,90" unlockText="A PARTIR DO TRIMESTRAL" />
-                        <BonusCard uri={linksAlunos.ebook_pernas} title="E-book: Pernas Grandes" subtitle="Foco em membros inferiores." isAudio={false} price="29,90" unlockText="A PARTIR DO TRIMESTRAL" />
-                        <BonusCard uri={linksAlunos.ebook_5dicas} title="Audiobook: 5 Dicas de Emagrecimento" subtitle="Ouça em qualquer lugar." isAudio={true} price="14,90" unlockText="A PARTIR DO SEMESTRAL" />
-                        <BonusCard uri={linksAlunos.audio_shape} title="Audiobook: Shape Natural" subtitle="Para ouvir a caminho do treino." isAudio={true} price="34,90" unlockText="A PARTIR DO SEMESTRAL" />
-                    </ScrollView>
-
-                    {/* MOMENTO DE COLAPSO E ESCOLHA DE PLANOS 🔥 */}
+                    {/* 🔥 PREÇOS ANTECIPADOS PARA QUEM TEM PRESSA 🔥 */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>ESCOLHA SEU ARSENAL</Text>
                     <Text style={styles.sectionSub}>Você pode continuar tentando sozinho, errando e perdendo tempo… ou pode finalmente seguir um método que faz seu corpo responder.</Text>
                     <View style={styles.plansContainer}>
@@ -365,11 +263,113 @@ export default function PropostaScreen({ route }) {
                         </Animated.View>
                     </View>
 
-                    {/* FAQ DESCIDO PARA DEPOIS DA OFERTA 🔥 */}
-                    <Text style={[styles.sectionTitle, {marginTop: 20, marginBottom: 20}]}>AINDA TEM DÚVIDAS?</Text>
+                    {/* MENTOR (Rebaixado e com a nova frase de autoridade) */}
+                    <View style={[styles.mentorSection, {marginTop: 40}]}>
+                        <LinearGradient colors={['rgba(26,26,26,0)', 'rgba(26,26,26,1)']} style={styles.mentorGradientBg} />
+                        
+                        <View style={styles.mentorContent}>
+                            <View style={styles.mentorBadgeRow}>
+                                <View style={styles.featureIconBox}><MaterialCommunityIcons name="card-account-details-star-outline" size={28} color="#4DE38F" /></View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.mentorSub}>EU JÁ ESTIVE DO OUTRO LADO</Text>
+                                    <Text style={styles.mentorLabelHeader}>CONHEÇA SEU MENTOR:</Text>
+                                    <Text style={styles.mentorNameStrong}>PAULO ADRIANO</Text>
+                                </View>
+                            </View>
+
+                            <Text style={styles.mentorDesc}>
+                                "Eu sei exatamente o que é carregar o peso extra, a frustração de não ver resultados e a dúvida se o esforço vale a pena. Eu já fui um 'ex-gordo' com 97kg e usei a ciência para me transformar em um Campeão Natural com 77kg.{"\n\n"}O mercado fitness está cheio de planilhas genéricas. Por isso, <Text style={{color: '#4DE38F', fontWeight: 'bold'}}>eu mesmo desenvolvi do zero e programei o aplicativo ELITE TEAM</Text> que você vai usar, porque nenhuma ferramenta existente era capaz de entregar o nível de precisão biomecânica, correção de movimentos e progresso de carga que eu exijo para os meus alunos."
+                            </Text>
+
+                            <View style={styles.swipeHintContainer}>
+                                <MaterialCommunityIcons name="gesture-swipe-horizontal" size={24} color="#4DE38F" />
+                                <Text style={styles.swipeHintText}>ARRASTE PARA O LADO E VEJA A TRANSFORMAÇÃO</Text>
+                            </View>
+
+                            <ScrollView horizontal snapToInterval={340} snapToAlignment="center" decelerationRate="fast" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainerMentor}>
+                                <View style={styles.imageColMentor}>
+                                    <View style={[styles.imagePlaceholderMentor, { filter: 'grayscale(100%)' }]}>
+                                        <Image source={{ uri: linksAlunos.mentor_desafio_9x16 }} style={styles.resultImageMentorContain} />
+                                    </View>
+                                </View>
+                                <View style={styles.imageColMentor}>
+                                    <View style={styles.imagePlaceholderMentor}>
+                                        <Image source={{ uri: linksAlunos.mentor_vitoria_9x16 }} style={styles.resultImageMentorContain} />
+                                    </View>
+                                </View>
+                            </ScrollView>
+                        </View>
+                    </View>
+
+                    {/* IA HIGHLIGHT */}
+                    <View style={styles.aiHighlightSection}>
+                        <Text style={styles.sectionTitle}>NUNCA MAIS DESPERDICE TEMPO FAZENDO ERRADO</Text>
+                        <Text style={styles.sectionSub}>A maioria das pessoas treina errado e nem percebe — por isso o corpo não muda. Aqui, cada repetição sua é ajustada para realmente gerar resultado — sem desperdiçar tempo e sem se machucar.</Text>
+                        <View style={styles.videoContainer9x16}>
+                            {renderYouTubeVideo(linksAlunos.ai_video_id, true)}
+                        </View>
+                    </View>
+
+                    {/* PROVA SOCIAL */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>A SUA DOR TEM SOLUÇÃO</Text>
+                    <Text style={styles.sectionSub}>Essas pessoas não tinham genética melhor... elas só pararam de tentar sozinhas. Arraste e veja quem superou a estagnação e o sobrepeso com o nosso método.</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                        <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
+                        <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
+                        <ModernResultCard goal="🔥 DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
+                        <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
+                        <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
+                        <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
+                        <ModernResultCard goal="💣 VENCENDO A GENÉTICA: DE UM CORPO MAGRO A UMA DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
+                        <ModernResultCard goal="⏱️ A PROVA DE QUE NÃO PRECISA DEMORAR: CHOQUE VISUAL EM 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
+                        <ModernResultCard goal="⚖️ VENCENDO A LUTA CONTRA A BALANÇA: UM EMAGRECIMENTO REAL, VISÍVEL E DEFINITIVO (Vane)" montageUri={linksAlunos.vane_montagem} />
+                        <ModernResultCard goal="🥊 MUITO MAIS QUE QUILOS ELIMINADOS: O RESGATE ABSOLUTO DA AUTOESTIMA E QUALIDADE DE VIDA (Bruno)" montageUri={linksAlunos.bruno_montagem} />
+                        <ModernResultCard goal="🔥 O RESGATE DA AUTOESTIMA: SILHUETA NOVA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
+                        <ModernResultCard goal="🏆 QUEBRANDO PLATÔS: DO TREINO COMUM AO PADRÃO DE PALCO (Adri)" montageUri={linksAlunos.adri_montagem} />
+                    </ScrollView>
+
+                    {/* FEEDBACKS WHATSAPP */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>O QUE ELES DIZEM NO WHATSAPP</Text>
+                    <Text style={styles.sectionSub}>A realidade nua e crua de quem vive o método todos os dias.</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                        <FeedbackCard uri={linksAlunos.feedback_paloma} legend="🤫 10KG ELIMINADOS: CONTRA FATOS NÃO HÁ ARGUMENTOS (Paloma)" />
+                        <FeedbackCard uri={linksAlunos.feedback_eduardo} legend="🚀 A CHAVE VIROU: 5KG ELIMINADOS EM APENAS 42 DIAS (Eduardo)" />
+                        <FeedbackCard uri={linksAlunos.feedback_anne} legend="👖 MEDIDAS DESPENCANDO: A FELICIDADE DA CALÇA LARGONA (Anne)" />
+                        <FeedbackCard uri={linksAlunos.feedback_juliana} legend="🥗 DIETA SEM SOFRIMENTO E RESULTADOS RÁPIDOS (Juliana)" />
+                        <FeedbackCard uri={linksAlunos.feedback_thiago} legend="🎯 DISCIPLINA QUE GERA RESULTADO: QUASE 4KG OFF (Thiago)" />
+                        <FeedbackCard uri={linksAlunos.feedback_yasmin} legend="🔥 DERRETENDO GORDURA E RECUPERANDO O GUARDA-ROUPA (Yasmin)" />
+                        <FeedbackCard uri={linksAlunos.feedback_gleiber} legend="⚡ SHAPE RESPONDENDO E ABDÔMEN SECANDO (Gleiber)" />
+                    </ScrollView>
+
+                    {/* PADRÃO ELITE */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>PADRÃO ELITE</Text>
+                    <Text style={styles.sectionSub}>Vivendo a alta performance e guiando o time aos pódios.</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                        <AthleteCard uri={linksAlunos.equipe_adri} title="LIDERANDO PELO EXEMPLO" desc="Eu e minha esposa Adri dividindo os palcos. Ela garante suporte e motivação constante para que ninguém fique para trás no processo." />
+                        <AthleteCard uri={linksAlunos.aluna_medalha} title="O RESULTADO DO TRABALHO" desc="Aluna de 39 anos de idade, que conseguimos colocar um shape competitivo ao perder 32kgs." />
+                        <AthleteCard uri={linksAlunos.felipe_podio} title="MÉTODO VALIDADO" desc="Nosso atleta Felipe comemorando sua vitória após um trabalho impecável de preparação. A ciência não falha." />
+                        <AthleteCard uri={linksAlunos.atleta_fem} title="A VITÓRIA" desc="O sorriso de quem entregou tudo e buscou a medalha. O método funciona para quem faz o que tem que ser feito." />
+                        <AthleteCard uri={linksAlunos.trio_fem} title="NOSSO TIME EM PESO" desc="Nossas atletas brilhando no campeonato. Estética, saúde e alta performance totalmente alinhadas." />
+                    </ScrollView>
+
+                    {/* BÔNUS EXCLUSIVOS */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40}]}>ARSENAL DE BÔNUS</Text>
+                    <Text style={styles.sectionSub}>Material extra desbloqueado de acordo com o seu plano de assinatura.</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
+                        <BonusCard uri={linksAlunos.ebook_5dicas} title="E-book: 5 Dicas de Emagrecimento" subtitle="O pontapé inicial para a queima." isAudio={false} price="14,90" unlockText="A PARTIR DO MENSAL" />
+                        <BonusCard uri={linksAlunos.ebook_receitas_whey} title="Receitas Fit com Whey" subtitle="Sobremesas anabólicas." isAudio={false} price="19,90" unlockText="A PARTIR DO MENSAL" />
+                        <BonusCard uri={linksAlunos.ebook_receitas_salgadas} title="Receitas Fit Salgadas" subtitle="Almoço e janta no plano." isAudio={false} price="19,90" unlockText="A PARTIR DO MENSAL" />
+                        <BonusCard uri={linksAlunos.ebook_shape} title="E-book: Shape Natural" subtitle="Guia completo de hipertrofia." isAudio={false} price="34,90" unlockText="A PARTIR DO TRIMESTRAL" />
+                        <BonusCard uri={linksAlunos.ebook_pernas} title="E-book: Pernas Grandes" subtitle="Foco em membros inferiores." isAudio={false} price="29,90" unlockText="A PARTIR DO TRIMESTRAL" />
+                        <BonusCard uri={linksAlunos.ebook_5dicas} title="Audiobook: 5 Dicas de Emagrecimento" subtitle="Ouça em qualquer lugar." isAudio={true} price="14,90" unlockText="A PARTIR DO SEMESTRAL" />
+                        <BonusCard uri={linksAlunos.audio_shape} title="Audiobook: Shape Natural" subtitle="Para ouvir a caminho do treino." isAudio={true} price="34,90" unlockText="A PARTIR DO SEMESTRAL" />
+                    </ScrollView>
+
+                    {/* FAQ */}
+                    <Text style={[styles.sectionTitle, {marginTop: 40, marginBottom: 20}]}>AINDA TEM DÚVIDAS?</Text>
                     <FaqAccordion faqs={faqList} />
 
-                    {/* 🔥 FECHAMENTO MATADOR 🔥 */}
+                    {/* FECHAMENTO MATADOR */}
                     <Text style={styles.finalClosingText}>
                         "A única diferença entre quem muda o corpo... e quem continua no mesmo lugar... é começar."
                     </Text>
@@ -454,7 +454,6 @@ const styles = StyleSheet.create({
     expiredBtn: { backgroundColor: '#222', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: '#444' },
     expiredBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
-    // 🔥 FRASE MATADORA ANTES DO RODAPÉ 🔥
     finalClosingText: { color: '#4DE38F', fontSize: 16, fontWeight: '900', textAlign: 'center', marginTop: 40, marginBottom: 10, paddingHorizontal: 20, lineHeight: 26, fontStyle: 'italic' },
 
     footer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#222', paddingTop: 20 },

@@ -74,7 +74,7 @@ export default function FinishScreen({ route, navigation }) {
                 await navigator.share({
                     files: [preloadedFile],
                     title: 'Treino Pago!',
-                    text: `🔥 Treino ${workoutName || 'do dia'} pago na consultoria Paulo Adriano Team!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nFaça parte da Elite!`
+                    text: `🔥 Treino ${workoutName || 'do dia'} pago na consultoria PA Elite Team!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nFaça parte da Elite!`
                 });
             } catch (shareError) {
                 // Usuário apenas fechou o painel de share nativo do iOS/Android
@@ -84,10 +84,10 @@ export default function FinishScreen({ route, navigation }) {
             if (navigator.share) {
                 await navigator.share({
                     title: 'Treino Pago!',
-                    text: `🔥 Treino ${workoutName || 'do dia'} pago na consultoria Paulo Adriano Team!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nTire um print do seu card para postar e nos marcar!`
+                    text: `🔥 Treino ${workoutName || 'do dia'} pago na consultoria PA Elite Team!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nTire um print do seu card para postar e nos marcar!`
                 });
             } else {
-                window.alert("📸 Tire um print (screenshot) do seu card para postar e marque o Paulo Adriano Team!");
+                window.alert("📸 Tire um print (screenshot) do seu card para postar e marque o PA Elite Team!");
             }
         }
       } else {
@@ -160,7 +160,7 @@ export default function FinishScreen({ route, navigation }) {
           <Text style={styles.statLab}>INTENSIDADE</Text>
         </View>
       </View>
-      <Text style={styles.brandFooter}>PAULO ADRIANO TEAM</Text>
+      <Text style={styles.brandFooter}>PA Elite Team</Text>
     </View>
   );
 
