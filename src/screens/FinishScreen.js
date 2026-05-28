@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Alert, StatusBar, Image, ImageBackground } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Alert, StatusBar, Image, ImageBackground, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import ViewShot from "react-native-view-shot";
 import * as Sharing from 'expo-sharing';
@@ -7,8 +7,7 @@ import * as Sharing from 'expo-sharing';
 const { width } = Dimensions.get('window');
 
 export default function FinishScreen({ route, navigation }) {
-  // 🔥 RECEBE OS NOVOS DADOS DO DAYWORKOUT: rpeLabel e focus
-  const { workoutName, day, xp, duration, rpeLabel, focus } = route.params || {};
+  const { workoutName, day, xp, duration, rpeLabel } = route.params || {};
   
   const viewShotRef = useRef();
   const [loading, setLoading] = useState(false);
@@ -16,94 +15,179 @@ export default function FinishScreen({ route, navigation }) {
   const handleShare = async () => {
     setLoading(true);
     try {
-      if (!(await Sharing.isAvailableAsync())) {
-        Alert.alert("Erro", "Compartilhamento não disponível.");
-        return;
+      if (Platform.OS === 'web') {
+        // 🔥 GERAÇÃO DA IMAGEM NA WEB (PWA) VIA HTML2CANVAS 🔥
+        const html2canvas = require('html2canvas');
+        const html2canvasFunc = html2canvas.default || html2canvas;
+        
+        const element = document.getElementById('share-card-web');
+        
+        if (!element) {
+            throw new Error("Não foi possível encontrar o card na tela.");
+        }
+
+        const canvas = await html2canvasFunc(element, {
+            useCORS: true,
+            backgroundColor: '#000',
+            scale: 2
+        });
+
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+        // 🔥 O SEGREDO DO MODAL NATIVO NO PWA 🔥
+        // Converte Base64 para Blob manualmente. O Safari iOS aceita isso 100% das vezes e abre o modal.
+        const byteString = atob(dataUrl.split(',')[1]);
+        const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: mimeString });
+        const file = new File([blob], 'treino_concluido.jpg', { type: 'image/jpeg' });
+
+        try {
+            // Invoca a gaveta nativa de compartilhamento do sistema operacional (iOS/Android)
+            if (navigator.share) {
+                await navigator.share({
+                    files: [file],
+                    title: 'Treino Pago!',
+                    text: `🔥 Treino ${workoutName || 'do dia'} pago!\n💪 Intensidade: ${rpeLabel || 'MÁXIMA'}\n\nVenha fazer parte do Paulo Adriano Team!`
+                });
+                setLoading(false);
+                return;
+            } else {
+                throw new Error("Navegador não suporta Web Share");
+            }
+        } catch (shareError) {
+            // Se o usuário cancelou o compartilhamento (fechou a gaveta), não fazemos nada
+            if (shareError.name === 'AbortError') {
+                setLoading(false);
+                return;
+            }
+            
+            // Plano B Extremo (Se estiver no PC onde não tem gaveta de Instagram)
+            const link = document.createElement('a');
+            link.href = dataUrl;
+            link.download = `Treino_${workoutName || 'Pago'}.jpg`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.alert("📸 Card salvo com sucesso!\n\nPoste nos seus Stories e marque o Paulo Adriano Team!");
+        }
+
+      } else {
+        // 🔥 FLUXO PARA O APLICATIVO NATIVO (QUANDO FOR PARA AS LOJAS) 🔥
+        if (!(await Sharing.isAvailableAsync())) {
+          Alert.alert("Erro", "Compartilhamento não disponível no seu dispositivo.");
+          return;
+        }
+        const uri = await viewShotRef.current.capture();
+        await Sharing.shareAsync(uri, { 
+            dialogTitle: 'Compartilhar Treino Pago',
+            mimeType: 'image/jpeg'
+        });
       }
-      const uri = await viewShotRef.current.capture();
-      await Sharing.shareAsync(uri);
     } catch (error) {
-      Alert.alert("Erro", "Falha ao gerar card.");
+      if (Platform.OS === 'web') window.alert("Falha ao gerar o card de compartilhamento.");
+      else Alert.alert("Erro", "Falha ao gerar o card de compartilhamento.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleFinish = () => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Main' }],
+    });
+  };
+
+  const safeDay = day || '';
+  const dayText = safeDay.length <= 2 
+    ? `DIA ${safeDay.toUpperCase()} FINALIZADO` 
+    : `${safeDay.toUpperCase()} FINALIZADO`;
+
+  // Componente do Card isolado com a ID nativa para o html2canvas ler
+  const CardContent = () => (
+    <View nativeID="share-card-web" style={styles.shareCard}>
+      <View style={styles.cardInnerBg} />
+      <Image 
+        source={require('../../assets/paelite.jpg')} 
+        style={styles.logo} 
+        resizeMode="contain" 
+      />
+      <Text style={styles.workoutTitle}>{workoutName || "TREINO DO DIA"}</Text>
+      <View style={styles.dayBadge}>
+          <Text style={styles.dayBadgeText}>{dayText}</Text>
+      </View>
+      <View style={styles.statsRow}>
+        <View style={styles.statBox}>
+          <Text style={styles.statVal}>+{xp || 0}</Text>
+          <Text style={styles.statLab}>XP GANHO</Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.statBox}>
+          <Text style={styles.statVal}>{duration || '0'}m</Text>
+          <Text style={styles.statLab}>MINUTOS</Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.statBox}>
+          <Text style={[styles.statVal, {fontSize: 14, color: '#4DE38F'}]}>{rpeLabel || 'MÁXIMA'}</Text>
+          <Text style={styles.statLab}>INTENSIDADE</Text>
+        </View>
+      </View>
+      <Text style={styles.brandFooter}>PAULO ADRIANO TEAM</Text>
+    </View>
+  );
+
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+    <View style={[styles.container, Platform.OS === 'web' && styles.pwaFix]}>
+      <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
       
       <ImageBackground 
-        source={{uri: 'https://img.freepik.com/free-photo/dark-gym-background_23-2150330606.jpg'}} 
+        source={{uri: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop'}} 
         style={styles.bg} 
-        blurRadius={15}
       >
-        <SafeAreaView style={styles.overlay}>
-          <View style={styles.content}>
+        <View style={styles.overlay}>
+          <SafeAreaView style={styles.safeArea}>
             
-            <MaterialCommunityIcons name="trophy-variant" size={60} color="#CCFF00" />
-            <Text style={styles.title}>TREINO PAGO! 🔥</Text>
-            <Text style={styles.subtitle}>Sua consistência é o que gera resultados.</Text>
+            <ScrollView 
+              style={{ flex: 1, width: '100%' }} 
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={true}
+            >
+              
+              <MaterialCommunityIcons name="lightning-bolt" size={60} color="#4DE38F" style={styles.glowIcon} />
+              <Text style={styles.title}>TREINO PAGO! 🔥</Text>
+              <Text style={styles.subtitle}>Sua consistência é o que gera resultados.</Text>
 
-            {/* CARD PARA COMPARTILHAR */}
-            <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 0.9 }}>
-              <View style={styles.shareCard}>
-                <Image 
-                  source={require('../../assets/pateam_icon.png')} 
-                  style={styles.logo} 
-                  resizeMode="contain" 
-                />
-                
-                <Text style={styles.workoutTitle}>{workoutName || "TREINO DO DIA"}</Text>
-                
-                {/* 🔥 NOVO: EXIBE O FOCO DO TREINO */}
-                <View style={styles.focusBadge}>
-                    <Text style={styles.focusBadgeText}>FOCO: {focus || 'GERAL'}</Text>
-                </View>
-
-                <View style={styles.dayBadge}>
-                    <Text style={styles.dayBadgeText}>DIA {day} FINALIZADO</Text>
-                </View>
-
-                <View style={styles.statsRow}>
-                  <View style={styles.statBox}>
-                    <Text style={styles.statVal}>+{xp || 0}</Text>
-                    <Text style={styles.statLab}>XP GANHO</Text>
+              {/* ViewShot é ignorado na web para evitar crashes, usando View normal em vez disso */}
+              {Platform.OS === 'web' ? (
+                  <View>
+                    <CardContent />
                   </View>
-                  
-                  <View style={styles.divider} />
-                  
-                  <View style={styles.statBox}>
-                    <Text style={styles.statVal}>{duration || '0'}m</Text>
-                    <Text style={styles.statLab}>MINUTOS</Text>
-                  </View>
-                  
-                  <View style={styles.divider} />
-                  
-                  {/* 🔥 TROCADO: SAI VOLUME (NaN), ENTRA INTENSIDADE (RPE) */}
-                  <View style={styles.statBox}>
-                    <Text style={[styles.statVal, {fontSize: 12, color: '#CCFF00'}]}>{rpeLabel || 'MÁXIMA'}</Text>
-                    <Text style={styles.statLab}>INTENSIDADE</Text>
-                  </View>
-                </View>
+              ) : (
+                  <ViewShot ref={viewShotRef} options={{ format: "jpg", quality: 1.0 }}>
+                    <CardContent />
+                  </ViewShot>
+              )}
 
-                <Text style={styles.brandFooter}>COACH PAULO TEAM</Text>
+              <View style={styles.footer}>
+                <TouchableOpacity style={styles.shareBtn} onPress={handleShare} disabled={loading}>
+                  <MaterialCommunityIcons name={Platform.OS === 'web' ? "share-variant" : "instagram"} size={24} color="#000" />
+                  <Text style={styles.shareBtnText}>{loading ? "GERANDO CARD..." : (Platform.OS === 'web' ? "COMPARTILHAR NO INSTAGRAM" : "COMPARTILHAR TREINO")}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.backBtn} onPress={handleFinish}>
+                  <Text style={styles.backBtnText}>VOLTAR PARA O INÍCIO</Text>
+                </TouchableOpacity>
               </View>
-            </ViewShot>
 
-            <View style={styles.footer}>
-              <TouchableOpacity style={styles.shareBtn} onPress={handleShare} disabled={loading}>
-                <MaterialCommunityIcons name="instagram" size={24} color="#000" />
-                <Text style={styles.shareBtnText}>{loading ? "PREPARANDO..." : "COMPARTILHAR NO INSTA"}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.backBtn} onPress={() => navigation.navigate('Main')}>
-                <Text style={styles.backBtnText}>VOLTAR PARA O INÍCIO</Text>
-              </TouchableOpacity>
-            </View>
-
-          </View>
-        </SafeAreaView>
+            </ScrollView>
+          </SafeAreaView>
+        </View>
       </ImageBackground>
     </View>
   );
@@ -111,45 +195,73 @@ export default function FinishScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  bg: { flex: 1 },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.8)' },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 25 },
+  pwaFix: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }, 
   
-  title: { color: '#CCFF00', fontSize: 28, fontWeight: '900', marginTop: 15, letterSpacing: 1 },
-  subtitle: { color: '#888', fontSize: 14, textAlign: 'center', marginBottom: 40 },
+  bg: { flex: 1, width: '100%', height: '100%' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)' },
+  safeArea: { flex: 1 },
+  
+  scrollContent: { 
+    flexGrow: 1, 
+    alignItems: 'center', 
+    paddingHorizontal: 25,
+    paddingTop: 50, 
+    paddingBottom: 80 
+  },
+  
+  glowIcon: {
+    shadowColor: '#4DE38F',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  title: { color: '#4DE38F', fontSize: 32, fontWeight: '900', marginTop: 10, letterSpacing: 1 },
+  subtitle: { color: '#A0A0A0', fontSize: 14, textAlign: 'center', marginBottom: 30, fontWeight: '500' },
 
   shareCard: { 
-    width: width * 0.88, 
-    backgroundColor: '#111', 
-    borderRadius: 35, 
+    width: width > 400 ? 360 : width * 0.85, 
+    borderRadius: 24, 
     padding: 30, 
     alignItems: 'center', 
     borderWidth: 1, 
-    borderColor: '#222',
-    shadowColor: '#CCFF00',
-    shadowOpacity: 0.15,
-    shadowRadius: 30
+    borderColor: '#4DE38F40',
+    overflow: 'hidden', 
+    position: 'relative'
   },
-  logo: { width: 80, height: 80, marginBottom: 20 },
-  workoutTitle: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center' },
+  cardInnerBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#0A0A0A',
+    opacity: 0.95, 
+  },
+  logo: { width: 150, height: 150, marginBottom: 20, zIndex: 1 },
+  workoutTitle: { color: '#FFF', fontSize: 24, fontWeight: '900', textAlign: 'center', zIndex: 1, letterSpacing: 0.5 },
   
-  focusBadge: { marginTop: 5 },
-  focusBadgeText: { color: '#666', fontSize: 11, fontWeight: 'bold', letterSpacing: 1, textTransform: 'uppercase' },
+  dayBadge: { backgroundColor: '#4DE38F', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8, marginTop: 15, marginBottom: 25, zIndex: 1 },
+  dayBadgeText: { color: '#000', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
 
-  dayBadge: { backgroundColor: '#CCFF00', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 8, marginTop: 15, marginBottom: 25 },
-  dayBadgeText: { color: '#000', fontSize: 10, fontWeight: '900' },
-
-  statsRow: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', backgroundColor: '#000', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#222' },
+  statsRow: { 
+    flexDirection: 'row', 
+    width: '100%', 
+    justifyContent: 'space-between', 
+    backgroundColor: '#141414', 
+    paddingVertical: 18, 
+    paddingHorizontal: 10,
+    borderRadius: 16, 
+    borderWidth: 1, 
+    borderColor: '#222',
+    zIndex: 1 
+  },
   statBox: { alignItems: 'center', flex: 1 },
-  statVal: { color: '#FFF', fontSize: 18, fontWeight: '900' },
-  statLab: { color: '#555', fontSize: 9, fontWeight: 'bold', marginTop: 4 },
-  divider: { width: 1, height: 30, backgroundColor: '#222' },
+  statVal: { color: '#FFF', fontSize: 20, fontWeight: '900' },
+  statLab: { color: '#666', fontSize: 9, fontWeight: '800', marginTop: 4, letterSpacing: 1 },
+  divider: { width: 1, height: 35, backgroundColor: '#333', alignSelf: 'center' },
   
-  brandFooter: { color: '#333', fontSize: 12, fontWeight: 'bold', letterSpacing: 4, marginTop: 30 },
+  brandFooter: { color: '#444', fontSize: 11, fontWeight: '900', letterSpacing: 5, marginTop: 30, zIndex: 1 },
 
-  footer: { width: '100%', marginTop: 50 },
-  shareBtn: { backgroundColor: '#CCFF00', flexDirection: 'row', padding: 18, borderRadius: 18, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  shareBtnText: { color: '#000', fontWeight: '900', fontSize: 15 },
-  backBtn: { marginTop: 20, padding: 10 },
-  backBtnText: { color: '#666', textAlign: 'center', fontWeight: 'bold', fontSize: 14 }
+  footer: { width: '100%', maxWidth: 400, marginTop: 40 },
+  shareBtn: { backgroundColor: '#4DE38F', flexDirection: 'row', padding: 18, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  shareBtnText: { color: '#000', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
+  backBtn: { marginTop: 25, padding: 10 },
+  backBtnText: { color: '#888', textAlign: 'center', fontWeight: '800', fontSize: 13, letterSpacing: 1 }
 });

@@ -19,6 +19,9 @@ import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import MenstrualAlertCard from '../components/MontarTreino/MenstrualAlertCard'; 
 
+// 🔥 Importando o utilitário do PDF 🔥
+import { generateWorkoutPDF } from '../utils/pdfGenerator';
+
 const { width } = Dimensions.get('window');
 
 export default function MontarTreinoAdmin({ route, navigation }) {
@@ -651,6 +654,7 @@ const renderMainArea = () => (
                 {/* Separador */}
                 <View style={{ width: 1, height: 20, backgroundColor: theme.border, marginHorizontal: 4 }} />
 
+
                 <TouchableOpacity style={[styles.clearDayBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => setForceCollapse(prev => prev + 1)}>
                     <MaterialCommunityIcons name="format-list-bulleted" size={14} color={theme.textSecondary} />
                     <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Minimizar</Text>
@@ -732,25 +736,36 @@ const renderMainArea = () => (
                     <MaterialCommunityIcons name="plus-box-multiple" size={22} color={theme.text} />
                     <Text style={[styles.floatingMenuText, { color: theme.text }]}>Exercício</Text>
                 </TouchableOpacity>
+                
                 <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
                 <TouchableOpacity style={styles.floatingMenuItem} onPress={actions?.handleImportPDF}>
                     <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
                     <Text style={[styles.floatingMenuText, { color: theme.text }]}>MFIT</Text>
                 </TouchableOpacity>
+
                 <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
                 <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); }}>
                     <MaterialCommunityIcons name="folder-download" size={22} color={theme.text} />
                     <Text style={[styles.floatingMenuText, { color: theme.text }]}>Bases</Text>
                 </TouchableOpacity>
+
                 <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
                 <TouchableOpacity style={styles.floatingMenuItem} onPress={() => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); }}>
                     <MaterialCommunityIcons name="account-switch" size={22} color={theme.text} />
                     <Text style={[styles.floatingMenuText, { color: theme.text }]}>Clonar</Text>
                 </TouchableOpacity>
+
                 <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
                 <TouchableOpacity style={styles.floatingMenuItem} onPress={() => setters?.setModalSaveTemplateVisible(true)}>
                     <MaterialCommunityIcons name="content-save-cog" size={22} color={theme.text} />
                     <Text style={[styles.floatingMenuText, { color: theme.text }]}>Salvar Base</Text>
+                </TouchableOpacity>
+
+                {/* 🔥 BOTÃO DE PDF ÚNICO 🔥 */}
+                <View style={[styles.floatingMenuDivider, { backgroundColor: theme.border }]} />
+                <TouchableOpacity style={styles.floatingMenuItem} onPress={() => generateWorkoutPDF(aluno, state.workoutTabs, state.exercisesByDay, state.customWorkoutName)}>
+                    <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.accent} />
+                    <Text style={[styles.floatingMenuText, { color: theme.accent }]}>Baixar PDF</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -935,24 +950,25 @@ const styles = StyleSheet.create({
     magicSyncDesc: { fontSize: 10, color: '#888', marginTop: 2 },
 
     floatingMenuContainer: { 
-    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
-    bottom: Platform.OS === 'web' ? 30 : 20, 
-    alignSelf: 'center', 
-    flexDirection: 'row', 
-    borderRadius: 30, 
-    paddingHorizontal: Platform.OS === 'web' ? 15 : 8, 
-    paddingVertical: 10, 
-    width: Platform.OS === 'web' ? 'auto' : '95%', 
-    justifyContent: 'space-evenly', 
-    zIndex: 9999,
-    alignItems: 'center', 
-    elevation: 8, 
-    shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 4 }, 
-    shadowOpacity: 0.15, 
-    shadowRadius: 12,
-    backgroundColor: '#1C1C1E',
-},
+        position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+        bottom: Platform.OS === 'web' ? 30 : 20, 
+        alignSelf: 'center', 
+        flexDirection: 'row', 
+        flexWrap: 'wrap', /* 🔥 Mágica para não vazar no mobile 🔥 */
+        borderRadius: 30, 
+        paddingHorizontal: Platform.OS === 'web' ? 15 : 8, 
+        paddingVertical: 10, 
+        width: Platform.OS === 'web' ? 'auto' : '95%', 
+        justifyContent: 'space-evenly', 
+        zIndex: 9999,
+        alignItems: 'center', 
+        elevation: 8, 
+        shadowColor: '#000', 
+        shadowOffset: { width: 0, height: 4 }, 
+        shadowOpacity: 0.15, 
+        shadowRadius: 12,
+        backgroundColor: '#1C1C1E',
+    },
     floatingMenuItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: Platform.OS === 'web' ? 12 : 4, paddingVertical: 4 },
     floatingMenuText: { fontSize: 10, fontWeight: '800', marginTop: 4 },
     floatingMenuDivider: { width: 1, height: 24, marginHorizontal: 5 },

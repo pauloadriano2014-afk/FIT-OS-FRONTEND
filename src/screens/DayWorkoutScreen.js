@@ -43,6 +43,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const workoutId = params.workoutId || '';
   const day = params.day || 'A';
   const rawName = params.workoutName || 'Treino';
+  const focus = params.focus || 'GERAL'; // Adicionado para enviar ao FinishScreen
   const workoutName = rawName.replace(' |#BASE#', '');
   
   // 🔥 TRAVA DE SEGURANÇA (MODO ESPIÃO) 🔥
@@ -539,11 +540,20 @@ export default function DayWorkoutScreen({ route, navigation }) {
             }
             
             setFinishModalVisible(false);
-            const firstName = userData?.name ? userData.name.split(' ')[0] : 'atleta';
             
-            if (Platform.OS === 'web') window.alert(`🔥 TREINO CONCLUÍDO!\nBom trabalho, ${firstName}!\nXP Ganho: +${json.xpGained || 150}`);
-            else Alert.alert("🔥 TREINO CONCLUÍDO!", `Bom trabalho, ${firstName}!\nXP Ganho: +${json.xpGained || 150}`);
-            navigation.goBack();
+            // 🔥 CORREÇÃO: Pula o alerta básico e envia o aluno DIRETO para o card de compartilhamento 🔥
+            const rpeOption = RPE_OPTIONS.find(opt => opt.val === rpe);
+            const selectedRpeLabel = rpeOption ? rpeOption.label : 'MÁXIMA';
+
+            navigation.navigate('FinishScreen', {
+                workoutName: workoutName || "TREINO DO DIA",
+                day: day,
+                xp: json.xpGained || 150,
+                duration: durationInMinutes,
+                rpeLabel: selectedRpeLabel,
+                focus: focus // Manda o foco do treino lá pro card
+            });
+
         } else { 
             if (Platform.OS === 'web') window.alert("Falha ao salvar no servidor.");
             else Alert.alert("Erro", "Falha ao salvar no servidor."); 
