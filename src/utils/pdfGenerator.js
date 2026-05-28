@@ -27,27 +27,36 @@ const getFastThumbnailUrl = (url) => {
 export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, workoutName = "PLANEJAMENTO DE TREINO") => {
     try {
         const defaultImage = 'https://ui-avatars.com/api/?name=FIT+OS&background=F2F2F7&color=4DE38F&bold=true&size=128';
+        
+        // 🔥 COLOQUE A URL DA SUA LOGO AQUI 🔥
+        const logoTeam = 'https://i.imgur.com/X5mWmUE.png'; 
 
-        // 🔥 Cabeçalho inserido apenas UMA vez no começo do documento 🔥
+        // 1. GERAÇÃO DA CAPA (Ajustada: Apenas Logo + Texto Conceitual)
         let htmlTreinos = `
-            <div class="header-container">
-                <h1 class="routine-name">${workoutName.toUpperCase()}</h1>
-            </div>
-            <div class="student-bar">
-                ALUNO(A): ${aluno.name}
+            <div class="cover-page">
+                <img src="${logoTeam}" class="cover-logo" alt="Elite Team Logo" onerror="this.style.display='none'" />
+                <div class="cover-footer">TREINAMENTO PERSONALIZADO</div>
             </div>
         `;
 
+        // 2. GERAÇÃO DOS DIAS DE TREINO
         daysToPrint.forEach((day, index) => {
             const exercicios = exercisesByDay[day] || [];
             
-            // Quebra de página apenas a partir do segundo dia
-            const pageBreakStyle = index > 0 ? 'page-break-before: always; padding-top: 15px;' : 'padding-top: 5px;';
+            const pageBreakStyle = index > 0 ? 'page-break-before: always; padding-top: 15px;' : 'padding-top: 15px;';
+
+            // Identificação do Aluno e Treino no topo do Miolo (Essencial para o material impresso)
+            const headerHtml = index === 0 ? `
+                <div class="student-bar">
+                    TREINO: ${workoutName.toUpperCase()} | ALUNO(A): ${aluno.name}
+                </div>
+            ` : '';
 
             htmlTreinos += `
                 <div class="day-page" style="${pageBreakStyle}">
+                    ${headerHtml}
                     <div class="day-section">
-                        <h2 class="day-title">DIA: ${day.toUpperCase()}</h2>
+                        <h2 class="day-title" style="${index === 0 ? 'margin-top: 5px;' : ''}">DIA: ${day.toUpperCase()}</h2>
                         <table class="workout-table">
                             <tbody>`;
 
@@ -56,20 +65,19 @@ export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, wor
                 const isCardio = ex.category?.toLowerCase() === 'cardio' || ex.title?.toLowerCase().includes('esteira');
 
                 if (isCardio) {
-                    // 🔥 Lógica de Cardio Ajustada 🔥
                     const tempo = ex.blocks?.[0]?.sets || '30';
                     const kcal = ex.blocks?.[0]?.reps || '300';
-                    blocksHtml = `<span class="cardio-info">${kcal} kcal em ${tempo} minutos em intensidade média/alta</span>`;
+                    blocksHtml = `<span class="cardio-info">${kcal} kcal em ${tempo} minutes em intensidade média/alta</span>`;
                 } else if (ex.blocks) {
                     ex.blocks.forEach(b => {
-                        let cargaSpaces = '____'; 
+                        let cargaSpaces = 'S1___ S2___ S3___ S4___'; 
                         let techniqueDisplay = '';
 
                         if (b.technique?.toLowerCase() === 'drop-set' || b.technique?.toLowerCase() === 'dropset') {
-                            cargaSpaces = '____ | ____'; 
+                            cargaSpaces = 'S1_/_ S2_/_ S3_/_ S4_/_'; 
                             techniqueDisplay = 'DROP-SET';
                         } else if (b.technique?.toLowerCase() === '21') {
-                            cargaSpaces = '____ | ____ | ____'; 
+                            cargaSpaces = 'S1_/_/_ S2_/_/_ S3_/_/_ S4_/_/_'; 
                             techniqueDisplay = '21';
                         } else if (b.technique) {
                             techniqueDisplay = b.technique.toUpperCase();
@@ -142,30 +150,36 @@ export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, wor
                 </div>`;
         }); 
 
-        // 🔥 PÁGINA FINAL EXCLUSIVA (Ajustada para caber em 1 folha A5) 🔥
+        // 3. MANUAL DO ALUNO
         htmlTreinos += `
-            <div class="guide-page" style="page-break-before: always; padding-top: 15px;">
-                <div class="header-container" style="border-radius: 8px 8px 0 0;">
+            <div class="guide-page" style="page-break-before: always; padding-top: 10px;">
+                <div class="header-container" style="border-radius: 8px 8px 0 0; padding: 12px 10px;">
                     <h1 class="routine-name">MANUAL DO ALUNO</h1>
                 </div>
-                <div class="student-bar" style="margin-bottom: 20px;">
+                <div class="student-bar" style="margin-bottom: 15px; padding: 5px;">
                     LEITURA OBRIGATÓRIA PARA BONS RESULTADOS
                 </div>
                 
-                <div class="guide-section">
-                    <h2 class="guide-title">GUIA DE TÉCNICAS</h2>
-                    <p><strong>REST-PAUSE:</strong> Realize a série até a falha, descanse de 10 a 15 segundos e retome o exercício para mais algumas repetições.</p>
-                    <p><strong>BI-SET:</strong> Execute dois exercícios diferentes na sequência, sem descanso entre eles.</p>
-                    <p><strong>DROP-SET:</strong> Faça a série até a falha, reduza 20% a 30% da carga imediatamente e continue até falhar novamente.</p>
-                    <p><strong>MÉTODO 21:</strong> Divida o movimento: 7 repetições na metade inferior, 7 na metade superior e 7 movimentos completos.</p>
+                <div class="guide-section" style="margin-bottom: 12px;">
+                    <h2 class="guide-title">COMO REGISTRAR SUAS CARGAS</h2>
+                    <p><strong>S1, S2, S3 e S4:</strong> Significam respectivamente <strong>Semana 1, 2, 3 e 4</strong>. Utilize a mesma folha durante o mês inteiro e anote seu peso a cada semana para monitorar sua evolução.</p>
+                    <p><strong>Exercícios Comuns:</strong> Anote o peso total ou de cada lado no campo correspondente à semana (Ex: <i>S1: 15kg</i>).</p>
+                    <p><strong>Campos com Barra ( _/_ ):</strong> Presente em técnicas como o DROP-SET. Anote a carga da série principal antes da barra e a carga reduzida depois da barra (Ex: <i>20 / 14</i>).</p>
                 </div>
 
-                <div class="guide-section" style="margin-top: 15px;">
+                <div class="guide-section" style="margin-bottom: 12px;">
+                    <h2 class="guide-title">GUIA DE TÉCNICAS</h2>
+                    <p><strong>REST-PAUSE:</strong> Vá até a falha, descanse 10 a 15 segundos e faça mais algumas repetições com o mesmo peso.</p>
+                    <p><strong>BI-SET:</strong> Execute dois exercícios diferentes seguidos, sem descanso entre eles.</p>
+                    <p><strong>DROP-SET:</strong> Vá até a falha, reduza instantaneamente 20% a 30% da carga e continue até falhar de novo.</p>
+                    <p><strong>MÉTODO 21:</strong> Faça 7 repetições curtas embaixo, 7 curtas em cima e 7 completas.</p>
+                </div>
+
+                <div class="guide-section">
                     <h2 class="guide-title">OBSERVAÇÕES DE TREINO</h2>
-                    <p><strong>⏱ DESCANSO:</strong> Respeite o tempo de intervalo. Para treinos convencionais e de hipertrofia, descanse entre 60 e 90 segundos. O descanso garante a energia para a próxima série render igual!</p>
-                    <p><strong>📈 PROGRESSÃO DE CARGA:</strong> Tente aumentar a carga progressivamente. Se você fez o número máximo de repetições pedidas de forma fácil, está na hora de subir o peso no próximo treino mantendo a boa postura.</p>
-                    <p><strong>🎯 CADÊNCIA (VELOCIDADE):</strong> Não jogue o peso! O movimento precisa de controle. A fase de descida (quando segura a carga) deve ser um pouco mais lenta do que a subida.</p>
-                    <p><strong>🔥 ATÉ A FALHA:</strong> Quando vir o termo "FALHA", significa que deve realizar o movimento até a musculatura travar e não ser mais possível executar a repetição corretamente.</p>
+                    <p><strong>⏱ DESCANSO:</strong> Cronometre entre 60 e 90 segundos. Respeitar o intervalo garante energia para manter o rendimento nas próximas séries.</p>
+                    <p><strong>📈 PROGRESSÃO:</strong> Se completou as repetições estipuladas com facilidade na semana atual, aumente levemente o peso na semana seguinte.</p>
+                    <p><strong>🎯 CADÊNCIA:</strong> Controle o movimento. A descida do peso deve ser segurada e mais lenta que a subida.</p>
                 </div>
             </div>`;
 
@@ -180,14 +194,42 @@ export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, wor
                     body { 
                         font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; 
                         font-size: 11px; 
-                        line-height: 1.5; 
+                        line-height: 1.4; 
                         color: #111; 
                         margin: 0; 
                         padding: 0;
                     }
 
+                    /* 🔥 ESTILOS DA CAPA MINIMALISTA 🔥 */
+                    .cover-page {
+                        height: 98vh;
+                        background-color: #000;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        page-break-after: always;
+                        padding: 30px;
+                        box-sizing: border-box;
+                    }
+                    .cover-logo {
+                        max-width: 85%;
+                        max-height: 55vh;
+                        object-fit: contain;
+                    }
+                    .cover-footer {
+                        margin-top: 35px;
+                        color: #CCCCCC; /* Tom de cinza claro premium */
+                        font-size: 11px;
+                        font-weight: 600;
+                        letter-spacing: 5px; /* Espaçamento largo marcante */
+                        width: 90%;
+                        text-align: center;
+                        text-transform: uppercase;
+                    }
+
                     .day-page, .guide-page {
-                        padding: 10mm 10mm; /* Mantém respiro mas sem engolir muito espaço */
+                        padding: 8mm 8mm;
                     }
 
                     .header-container {
@@ -195,52 +237,46 @@ export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, wor
                         background-color: #000;
                         color: #FFF;
                         padding: 15px 10px;
-                        border-radius: 0 0 0 0; /* Zerei aqui pois a folha inteira já dita as margens se for a pág 1 */
+                        border-radius: 8px 8px 0 0;
                         margin-bottom: 0;
                     }
-                    /* Força arredondamento no header global se necessário */
-                    body > .header-container { border-radius: 8px 8px 0 0; margin-top: 12mm; margin-left: 10mm; margin-right: 10mm; }
-                    body > .student-bar { margin-left: 10mm; margin-right: 10mm; }
-
-                    .routine-name { font-size: 18px; font-weight: 900; letter-spacing: 1px; margin: 0; }
+                    
                     .student-bar { 
                         background-color: #4DE38F; 
                         color: #000; 
                         text-align: center;
-                        font-size: 12px; 
-                        font-weight: 800;
-                        padding: 6px;
-                        border-radius: 0 0 8px 8px;
-                        margin-bottom: 25px; 
+                        font-size: 11px; 
+                        font-weight: 900;
+                        padding: 8px;
+                        border-radius: 6px;
+                        margin-bottom: 15px;
                         text-transform: uppercase;
                         letter-spacing: 0.5px;
                     }
 
-                    .day-section { page-break-inside: avoid; }
+                    .ex-row { page-break-inside: avoid; }
                     
-                    /* 🔥 Título do Dia agora desgrudado do topo 🔥 */
                     .day-title { 
-                        font-size: 13px; 
+                        font-size: 12px; 
                         color: #FFF; 
                         background-color: #222;
-                        padding: 6px 14px;
+                        padding: 5px 12px;
                         border-radius: 6px;
-                        margin-top: 15px; /* Espaço adicionado aqui! */
-                        margin-bottom: 15px; 
+                        margin-top: 12px;
+                        margin-bottom: 12px; 
                         font-weight: 800;
                         display: inline-block;
                         letter-spacing: 0.5px;
                     }
 
-                    /* Título exclusivo do Guia para não ter margem extra no topo */
                     .guide-title {
-                        font-size: 13px; 
+                        font-size: 11px; 
                         color: #FFF; 
                         background-color: #222;
-                        padding: 5px 12px;
+                        padding: 4px 10px;
                         border-radius: 6px;
                         margin-top: 0px; 
-                        margin-bottom: 10px; 
+                        margin-bottom: 8px; 
                         font-weight: 800;
                         display: inline-block;
                         letter-spacing: 0.5px;
@@ -248,18 +284,18 @@ export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, wor
 
                     .workout-table { width: 100%; border-collapse: collapse; }
                     .workout-table td { 
-                        padding: 12px 0; 
+                        padding: 10px 0; 
                         vertical-align: middle; 
                         border-bottom: 1px solid #E5E5EA; 
                     }
                     .ex-row:last-child td { border-bottom: none; }
 
-                    .ex-number { width: 28px; text-align: left; font-weight: 900; color: #4DE38F; font-size: 16px;}
+                    .ex-number { width: 24px; text-align: left; font-weight: 900; color: #4DE38F; font-size: 15px;}
                     
-                    .ex-image-container { width: 62px; text-align: left; padding-right: 12px; }
+                    .ex-image-container { width: 58px; text-align: left; padding-right: 10px; }
                     .ex-thumbnail { 
-                        width: 54px; 
-                        height: 96px; 
+                        width: 48px; 
+                        height: 85px; 
                         border-radius: 8px; 
                         object-fit: cover; 
                         border: 1px solid #CCC; 
@@ -267,23 +303,22 @@ export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, wor
                     }
                     
                     .ex-details { padding-left: 0px; }
-                    .exercise-title { font-size: 12px; color: #000; font-weight: 800; display: block; margin-bottom: 8px; letter-spacing: 0.3px; }
+                    .exercise-title { font-size: 11px; color: #000; font-weight: 800; display: block; margin-bottom: 6px; letter-spacing: 0.3px; }
 
                     .exercise-blocks { margin-top: 2px; }
-                    .block-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-                    .sets-reps { font-size: 11px; color: #444; font-weight: 600; white-space: nowrap; }
-                    .technique-tag { font-size: 9px; background-color: #F2F2F7; padding: 3px 6px; border-radius: 4px; margin-left: 6px; font-weight: 800; color: #000; border: 1px solid #DDD; }
-                    .anotacao-carga { font-size: 10px; color: #888; white-space: nowrap; margin-left: 15px; font-weight: 600; }
-                    .cardio-info { font-size: 11px; color: #555; font-style: italic; font-weight: bold; }
+                    .block-item { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+                    .sets-reps { font-size: 10px; color: #444; font-weight: 600; white-space: nowrap; }
+                    .technique-tag { font-size: 8px; background-color: #F2F2F7; padding: 2px 4px; border-radius: 4px; margin-left: 4px; font-weight: 800; color: #000; border: 1px solid #DDD; }
+                    .anotacao-carga { font-size: 9px; color: #666; white-space: nowrap; margin-left: 10px; font-weight: 600; letter-spacing: -0.2px; }
+                    .cardio-info { font-size: 10px; color: #555; font-style: italic; font-weight: bold; }
                     
-                    /* 🔥 Guias Otimizados para caber em 1 página 🔥 */
                     .guide-section {
-                        padding: 12px 14px;
+                        padding: 10px 12px;
                         border: 1px dashed #CCC;
-                        border-radius: 12px;
+                        border-radius: 10px;
                         background-color: #FAFAFA;
                     }
-                    .guide-section p { margin: 6px 0; font-size: 10px; color: #333; line-height: 1.5; }
+                    .guide-section p { margin: 4px 0; font-size: 9.5px; color: #333; line-height: 1.4; }
                     strong { font-weight: 900; color: #000; }
                 </style>
             </head>
