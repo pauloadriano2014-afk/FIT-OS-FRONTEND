@@ -45,7 +45,15 @@ const MENU_TABS = [
 
 
 export default function AdminUserOptions({ route, navigation }) {
-    const { aluno } = route.params;
+    // 🔥 BLINDAGEM CONTRA O EFEITO [object Object] NA WEB 🔥
+    let { aluno, alunoId, alunoName } = route.params || {};
+    if (!aluno || typeof aluno === 'string' || !aluno.id) {
+        aluno = { 
+            id: alunoId || route.params?.id || '', 
+            name: alunoName || route.params?.name || 'Aluno' 
+        };
+    }
+    
     const { theme } = useTheme();
 
 
