@@ -55,18 +55,53 @@ export const useDietActions = (aluno, anamnese, initialMeals) => {
     };
 
     const handleAddFoodToMeal = (food) => {
-        const portions = FOOD_PORTIONS[food.id];
-        const initialAmount = food.suggestedAmount ? food.suggestedAmount.toString() : (portions?.default_amount?.toString() || '100');
-        const initialUnit = food.suggestedAmount ? (food.base_unit || 'g') : (portions?.default_unit || food.base_unit || 'g');
+        const portions = FOOD_PORTIONS[food.id] || {};
+        let initialAmount = food.suggestedAmount ? food.suggestedAmount.toString() : (portions?.default_amount?.toString() || '100');
+        let initialUnit = food.suggestedAmount ? (food.base_unit || 'g') : (portions?.default_unit || food.base_unit || 'g');
 
         setMeals(prev => prev.map(meal => {
             if (meal.id !== activeMealId) return meal;
+            
             const newGroupId = activeGroupId || Math.random().toString();
+            
+            // 🔥 CÁLCULO DIRETO BLINDADO 🔥
+            if (!food.suggestedAmount && activeGroupId) {
+                const baseFood = meal.items.find(i => i.groupId === activeGroupId);
+                
+                if (baseFood) {
+                    const rawAmount = parseFloat(baseFood.amount) || 100;
+                    const currentUnit = baseFood.unit || 'g';
+                    
+                    const gramsBase = toGrams(rawAmount, currentUnit, baseFood);
+                    const kcalPer100Base = parseFloat(baseFood.calories_per_100 ?? baseFood.calories ?? 0);
+                    const targetTotalKcal = (kcalPer100Base * gramsBase) / 100;
+
+                    const itemKcalPer100 = parseFloat(food.calories_per_100 ?? food.calories ?? 1);
+                    let neededGrams = (targetTotalKcal * 100) / itemKcalPer100;
+                    
+                    if (neededGrams === Infinity || isNaN(neededGrams) || neededGrams === 0) neededGrams = 100;
+                    
+                    const factor = (portions?.[initialUnit]) ?? UNIT_GRAM_FACTOR[initialUnit] ?? 1;
+                    const finalAmount = Math.max(0.5, Math.round((neededGrams / factor) * 2) / 2);
+                    
+                    initialAmount = finalAmount.toString();
+                }
+            }
+
             const newItem = { ...food, uniqueId: Math.random().toString(), groupId: newGroupId, amount: initialAmount, unit: initialUnit };
+            
             if (foodToSwapId) return { ...meal, items: meal.items.map(i => i.uniqueId === foodToSwapId ? newItem : i) };
             return { ...meal, items: [...meal.items, newItem] };
         }));
-        setActiveMealId(null); setActiveGroupId(null); setFoodToSwapId(null);
+        
+        // 🔥 A CORREÇÃO ESTÁ AQUI 🔥
+        // Nós só limpamos a memória se for uma Troca Direta (Swap).
+        // Se for adição de substituto, deixamos a memória intacta para a multi-seleção funcionar!
+        if (foodToSwapId) {
+            setActiveMealId(null); 
+            setActiveGroupId(null); 
+            setFoodToSwapId(null);
+        }
     };
 
     const handleUpdateFoodAmount = (mealId, foodUniqueId, newAmount) => {
@@ -79,13 +114,13 @@ export const useDietActions = (aluno, anamnese, initialMeals) => {
 
             if (isBase) {
                 const targetGrams = toGrams(newAmountNum, targetFood.unit, targetFood);
-                const targetTotalKcal = ((parseFloat(targetFood.calories_per_100) || 0) * targetGrams) / 100;
+                const targetTotalKcal = ((parseFloat(targetFood.calories_per_100 ?? targetFood.calories ?? 0)) * targetGrams) / 100;
                 return {
                     ...meal,
                     items: meal.items.map(item => {
                         if (item.uniqueId === foodUniqueId) return { ...item, amount: newAmount };
                         if (item.groupId === targetFood.groupId) {
-                            const itemKcalPer100 = parseFloat(item.calories_per_100) || 1;
+                            const itemKcalPer100 = parseFloat(item.calories_per_100 ?? item.calories ?? 1);
                             const neededGrams = (targetTotalKcal * 100) / itemKcalPer100;
                             const factor = (FOOD_PORTIONS[item.id]?.[item.unit]) ?? UNIT_GRAM_FACTOR[item.unit] ?? 1;
                             return { ...item, amount: Math.round(neededGrams / factor).toString() };

@@ -98,7 +98,6 @@ const formatVisualUnit = (foodName, rawGrams, subcategory) => {
     return { displayVal: grams.toString(), labelUnit: 'g', realUnit: 'g' };
 };
 
-// 🔥 ADICIONADA PROP existingGroupItems para rastrear o que já foi selecionado
 export default function SmartSubstituteModal({ visible, onClose, onSelectFood, onManualSearch, principalFood, principalAmount, theme, existingGroupItems = [] }) {
     
     const { truePrincipal, principalKcal } = useMemo(() => {
@@ -107,8 +106,9 @@ export default function SmartSubstituteModal({ visible, onClose, onSelectFood, o
         const rawAmount = parseFloat(principalAmount) || 100;
         const currentUnit = principalFood.unit || principalFood.base_unit || 'g';
         
-        const grams = toGramsLocal(rawAmount, currentUnit, principalFood.id);
-        const pureDbFood = FOOD_DATABASE.find(f => f.id === principalFood.id) || principalFood;
+        // 🔥 CORREÇÃO: Encontra o alimento pelo Nome caso o ID tenha se perdido na clonagem 🔥
+        const pureDbFood = FOOD_DATABASE.find(f => f.id === principalFood.id || f.name === principalFood.name) || principalFood;
+        const grams = toGramsLocal(rawAmount, currentUnit, pureDbFood.id);
         
         const kcalPer100 = parseFloat(pureDbFood.calories_per_100 ?? pureDbFood.calories ?? 0);
         const kcalVal = (kcalPer100 * grams) / 100;
@@ -150,7 +150,7 @@ export default function SmartSubstituteModal({ visible, onClose, onSelectFood, o
             const dKcal = subKcal - Math.round(principalKcal);
             const formatted = formatVisualUnit(food.name, suggestedAmount, food.subcategory);
             
-            // 🔥 Verifica se o item já está na dieta para desabilitar visualmente
+            // Verifica se o item já está na dieta para desabilitar visualmente
             const isAlreadyAdded = existingGroupItems.some(item => item.name === food.name);
 
             return { 
@@ -192,6 +192,7 @@ export default function SmartSubstituteModal({ visible, onClose, onSelectFood, o
                                     {truePrincipal.subcategory || truePrincipal.category}
                                 </Text>
                             </View>
+                            {/* 🔥 BOTÃO DE FECHAR ATUALIZADO 🔥 */}
                             <TouchableOpacity onPress={onClose} style={[ss.closeBtn, { backgroundColor: theme.accent }]}>
                                 <Text style={{color: '#000', fontWeight: '900', fontSize: 12}}>CONCLUIR</Text>
                             </TouchableOpacity>

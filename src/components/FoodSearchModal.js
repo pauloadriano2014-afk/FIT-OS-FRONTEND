@@ -1,5 +1,5 @@
 // src/components/FoodSearchModal.js
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, Modal, TouchableOpacity,
     TextInput, FlatList, KeyboardAvoidingView, Platform,
@@ -32,13 +32,21 @@ const CATEGORY_UI_INFO = {
 
 const MACRO_COLOR = { p: '#32ADE6', c: '#FFCC00', f: '#FF9500' };
 
-export default function FoodSearchModal({ visible, onClose, onSelectFood, targetGroup, theme }) {
+export default function FoodSearchModal({ visible, onClose, onSelectFood, targetGroup, theme, initialCategoryFilter = 'Todas' }) {
     const [search, setSearch] = useState('');
-    const [selectedCategory, setSelectedCategory] = useState('Todas');
+    const [selectedCategory, setSelectedCategory] = useState(initialCategoryFilter);
 
     const isWeb = Platform.OS === 'web';
     const { height: windowHeight } = useWindowDimensions();
     const sheetHeight = Math.round(windowHeight * 0.88);
+
+    // 🔥 Sincroniza a memória de categoria toda vez que abre 🔥
+    useEffect(() => {
+        if (visible) {
+            setSelectedCategory(initialCategoryFilter);
+            setSearch('');
+        }
+    }, [visible, initialCategoryFilter]);
 
     const filteredFoods = useMemo(() => {
         return FOOD_DATABASE.filter(food => {
@@ -49,25 +57,17 @@ export default function FoodSearchModal({ visible, onClose, onSelectFood, target
     }, [search, selectedCategory]);
 
     const handleSelect = (food) => {
-        setSearch('');
-        setSelectedCategory('Todas');
         onSelectFood(food);
-    };
-
-    const handleClose = () => {
-        setSearch('');
-        setSelectedCategory('Todas');
-        onClose();
     };
 
     const isViewingCategories = selectedCategory === 'Todas' && search.length === 0;
 
     return (
-        <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+        <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <TouchableOpacity
                 style={[styles.backdrop, isWeb ? { height: windowHeight } : {}]}
                 activeOpacity={1}
-                onPress={handleClose}
+                onPress={onClose}
             >
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -93,7 +93,7 @@ export default function FoodSearchModal({ visible, onClose, onSelectFood, target
                                     </View>
                                 )}
                             </View>
-                            <TouchableOpacity onPress={handleClose} style={[styles.closeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                 <MaterialCommunityIcons name="close" size={16} color={theme.textSecondary} />
                             </TouchableOpacity>
                         </View>
@@ -176,7 +176,7 @@ export default function FoodSearchModal({ visible, onClose, onSelectFood, target
                                 contentContainerStyle={{ paddingBottom: 40 }}
                                 keyboardShouldPersistTaps="handled"
                                 renderItem={({ item }) => {
-                                    const kcal = item.calories_per_100 || 0;
+                                    const kcal = item.calories_per_100 || item.calories || 0;
                                     return (
                                         <TouchableOpacity
                                             style={[styles.foodItemModern, { backgroundColor: theme.surface, borderColor: theme.border }]}
@@ -204,7 +204,7 @@ export default function FoodSearchModal({ visible, onClose, onSelectFood, target
                                             <View style={styles.kcalBlock}>
                                                 <Text style={[styles.kcalValue, { color: theme.text }]}>{kcal}</Text>
                                                 <Text style={[styles.kcalUnit, { color: theme.textSecondary }]}>
-                                                    kcal/100{item.base_unit}
+                                                    kcal/100{item.base_unit || 'g'}
                                                 </Text>
                                             </View>
 

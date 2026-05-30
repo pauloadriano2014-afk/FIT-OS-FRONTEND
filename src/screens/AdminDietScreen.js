@@ -32,6 +32,9 @@ export default function AdminDietScreen({ route, navigation }) {
     const RootComponent = isWeb ? View : SafeAreaView;
     const fadeAnim = useRef(new Animated.Value(1)).current;
     const [showRaioX, setShowRaioX] = useState(false);
+    
+    // 🔥 INJEÇÃO: Estado para guardar a memória da Categoria 🔥
+    const [initialCategoryFilter, setInitialCategoryFilter] = useState('Todas');
 
     const rawAluno = route.params?.aluno;
     const aluno = (typeof rawAluno === 'string' && rawAluno.startsWith('{')) ? JSON.parse(rawAluno) : rawAluno;
@@ -147,9 +150,11 @@ export default function AdminDietScreen({ route, navigation }) {
         modals.setCustomNameModalVisible(false);
     };
 
+    // 🔥 ATUALIZADO COM O RESET DA CATEGORIA
     const handleOpenSearch = (mealId, groupId = null) => {
         actions.setActiveMealId(mealId);
         actions.setActiveGroupId(groupId);
+        setInitialCategoryFilter('Todas'); // Reseta a memória se abrir do zero
         if (groupId !== null) {
             const meal = actions.meals.find(m => m.id === mealId);
             const groupItems = meal?.items.filter(i => i.groupId === groupId) || [];
@@ -163,8 +168,14 @@ export default function AdminDietScreen({ route, navigation }) {
         modals.setSearchModalVisible(true);
     };
 
+    // 🔥 ATUALIZADO: TRANSFERE A CATEGORIA DO SMART PARA O MANUAL
     const handleSmartToManual = () => {
         modals.setSmartModalVisible(false);
+        if (actions.smartPrincipalFood && actions.smartPrincipalFood.category) {
+            setInitialCategoryFilter(actions.smartPrincipalFood.category);
+        } else {
+            setInitialCategoryFilter('Todas');
+        }
         modals.setSearchModalVisible(true);
     };
 
@@ -181,6 +192,13 @@ export default function AdminDietScreen({ route, navigation }) {
     };
 
     const pct = (cur, target) => Math.min((cur / (target || 1)) * 100, 100);
+
+    const getExistingItemsInGroup = () => {
+        if (!actions.activeMealId || !actions.activeGroupId) return [];
+        const meal = actions.meals.find(m => m.id === actions.activeMealId);
+        if (!meal) return [];
+        return meal.items.filter(item => item.groupId === actions.activeGroupId);
+    };
 
     if (data.isLoadingDiet) {
         return (
@@ -272,7 +290,7 @@ export default function AdminDietScreen({ route, navigation }) {
                     </Animated.ScrollView>
                 </KeyboardAvoidingView>
 
-                {/* 🔥 FLOATING ACTION BAR (FAB) MODERNIZADA 🔥 */}
+                {/* FAB */}
                 <View style={styles.fabContainer}>
                     <View style={[styles.fabPill, { backgroundColor: theme.isDark ? 'rgba(30,30,30,0.9)' : 'rgba(255,255,255,0.9)' }]}>
                         <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalCloneVisible(true))}>
@@ -299,8 +317,35 @@ export default function AdminDietScreen({ route, navigation }) {
 
                 <DietModalsAdmin theme={theme} timeModalVisible={modals.timeModalVisible} setTimeModalVisible={modals.setTimeModalVisible} handleSelectTime={handleSelectTime} nameModalVisible={modals.nameModalVisible} setNameModalVisible={modals.setNameModalVisible} handleSelectName={handleSelectName} customNameModalVisible={modals.customNameModalVisible} setCustomNameModalVisible={modals.setCustomNameModalVisible} customNameInput={actions.customNameInput} setCustomNameInput={actions.setCustomNameInput} handleSaveCustomName={handleSaveCustomName} />
                 <DietActionModals theme={theme} isWeb={isWeb} modalCloneVisible={modals.modalCloneVisible} setModalCloneVisible={modals.setModalCloneVisible} studentsList={data.studentsList} handleCloneFromStudent={handleCloneFromStudent} modalTemplatesVisible={modals.modalTemplatesVisible} setModalTemplatesVisible={modals.setModalTemplatesVisible} templatesList={data.templatesList} handleApplyTemplate={handleApplyTemplate} modalSaveTemplateVisible={modals.modalSaveTemplateVisible} setModalSaveTemplateVisible={modals.setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate} modalMealOptionsVisible={modals.modalMealOptionsVisible} setModalMealOptionsVisible={modals.setModalMealOptionsVisible} modalSaveMealVisible={modals.modalSaveMealVisible} setModalSaveMealVisible={modals.setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate} modalImportMealVisible={modals.modalImportMealVisible} setModalImportMealVisible={modals.setModalImportMealVisible} mealTemplatesList={data.mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
-                <FoodSearchModal visible={modals.searchModalVisible} onClose={() => { modals.setSearchModalVisible(false); actions.setFoodToSwapId(null); }} onSelectFood={actions.handleAddFoodToMeal} targetGroup={actions.activeGroupId} theme={theme} />
-                <SmartSubstituteModal visible={modals.smartModalVisible} onClose={() => { modals.setSmartModalVisible(false); actions.setFoodToSwapId(null); }} onSelectFood={actions.handleAddFoodToMeal} onManualSearch={handleSmartToManual} principalFood={actions.smartPrincipalFood} principalAmount={actions.smartPrincipalAmount} theme={theme} existingGroupItems={actions.meals.find(m => m.id === actions.activeMealId)?.items.filter(i => i.groupId === actions.activeGroupId) || []} />
+                
+                <FoodSearchModal 
+                    visible={modals.searchModalVisible} 
+                    onClose={() => { 
+                        modals.setSearchModalVisible(false); 
+                        actions.setFoodToSwapId(null); 
+                        actions.setActiveGroupId(null);
+                    }} 
+                    onSelectFood={actions.handleAddFoodToMeal} 
+                    targetGroup={actions.activeGroupId} 
+                    theme={theme} 
+                    initialCategoryFilter={initialCategoryFilter} // 🔥 INJETANDO A PONTE DA MEMÓRIA 🔥
+                />
+                
+                <SmartSubstituteModal 
+                    visible={modals.smartModalVisible} 
+                    onClose={() => { 
+                        modals.setSmartModalVisible(false); 
+                        actions.setFoodToSwapId(null);
+                        actions.setActiveGroupId(null);
+                    }} 
+                    onSelectFood={actions.handleAddFoodToMeal} 
+                    onManualSearch={handleSmartToManual} 
+                    principalFood={actions.smartPrincipalFood} 
+                    principalAmount={actions.smartPrincipalAmount} 
+                    theme={theme} 
+                    existingGroupItems={getExistingItemsInGroup()} 
+                />
+                
                 {modals.importModalVisible && <ImportDietModal visible={modals.importModalVisible} onClose={() => modals.setImportModalVisible(false)} theme={theme} onImportSuccess={handleImportSuccess} />}
             </View>
         </RootComponent>
@@ -320,7 +365,6 @@ const styles = StyleSheet.create({
     addMealBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, borderRadius: 16, borderWidth: 1 },
     addMealText: { fontWeight: '900', fontSize: 12, letterSpacing: 1 },
 
-    // Estilos da Barra Flutuante (FAB)
     fabContainer: { position: 'absolute', bottom: 30, left: 0, right: 0, alignItems: 'center', zIndex: 50 },
     fabPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 40, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
     fabBtn: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },

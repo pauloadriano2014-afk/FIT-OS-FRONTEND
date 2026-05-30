@@ -52,6 +52,9 @@ export const enrichMealsWithDatabase = (mealsArray) => {
 
             return {
                 ...item,
+                id: dbFood ? dbFood.id : item.id, // 🔥 SALVA O ID
+                category: dbFood ? dbFood.category : item.category, // 🔥 SALVA A CATEGORIA
+                subcategory: dbFood ? dbFood.subcategory : item.subcategory, // 🔥 SALVA A SUBCATEGORIA
                 p: dbFood ? getMacro(dbFood, 'p') : getMacro(item, 'p'),
                 c: dbFood ? getMacro(dbFood, 'c') : getMacro(item, 'c'),
                 f: dbFood ? getMacro(dbFood, 'f') : getMacro(item, 'f'),
