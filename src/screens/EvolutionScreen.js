@@ -48,7 +48,14 @@ export default function EvolutionScreen({ navigation }) {
   const [weight, setWeight] = useState('');
   const [currentAge, setCurrentAge] = useState('');
   const [currentGender, setCurrentGender] = useState('MASCULINO'); 
-  const [measures, setMeasures] = useState({ waist: '', abdomen: '' });
+  
+  // 🔥 ESTADOS PARA A NOVA PERIMETRIA 🔥
+  const [measures, setMeasures] = useState({ 
+      waist: '', abdomen: '', chestMeasure: '', shoulders: '', hips: '', 
+      armRight: '', armLeft: '', forearmRight: '', forearmLeft: '', 
+      legRight: '', legLeft: '', calfRight: '', calfLeft: '' 
+  });
+  
   const [folds, setFolds] = useState({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
 
   useFocusEffect(
@@ -125,7 +132,11 @@ export default function EvolutionScreen({ navigation }) {
 
   const resetForm = () => {
       setEditingId(null); setWeight(''); setCustomDate(''); setMethod('BASICO');
-      setMeasures({waist:'', abdomen:''});
+      setMeasures({
+          waist:'', abdomen:'', chestMeasure: '', shoulders: '', hips: '', 
+          armRight: '', armLeft: '', forearmRight: '', forearmLeft: '', 
+          legRight: '', legLeft: '', calfRight: '', calfLeft: ''
+      });
       setFolds({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
   };
 
@@ -147,8 +158,28 @@ export default function EvolutionScreen({ navigation }) {
               foldSuprailiac: item.foldSuprailiac ? String(item.foldSuprailiac) : '',
               foldThigh: item.foldThigh ? String(item.foldThigh) : ''
           });
+          // 🔥 Carrega a perimetria no modo Pollock 🔥
+          setMeasures({ 
+              waist: item.waist ? String(item.waist) : '', 
+              abdomen: item.abdomen ? String(item.abdomen) : '',
+              chestMeasure: item.chest ? String(item.chest) : '',
+              shoulders: item.shoulders ? String(item.shoulders) : '',
+              hips: item.hips ? String(item.hips) : '',
+              armRight: item.arms ? String(item.arms) : '',
+              armLeft: item.armLeft ? String(item.armLeft) : '',
+              forearmRight: item.forearms ? String(item.forearms) : '',
+              forearmLeft: item.forearmLeft ? String(item.forearmLeft) : '',
+              legRight: item.thighs ? String(item.thighs) : '',
+              legLeft: item.thighLeft ? String(item.thighLeft) : '',
+              calfRight: item.calves ? String(item.calves) : '',
+              calfLeft: item.calfLeft ? String(item.calfLeft) : ''
+          });
       } else {
-          setMeasures({ waist: item.waist ? String(item.waist) : '', abdomen: item.abdomen ? String(item.abdomen) : '' });
+          setMeasures({ 
+              waist: item.waist ? String(item.waist) : '', 
+              abdomen: item.abdomen ? String(item.abdomen) : '',
+              chestMeasure: '', shoulders: '', hips: '', armRight: '', armLeft: '', forearmRight: '', forearmLeft: '', legRight: '', legLeft: '', calfRight: '', calfLeft: ''
+          });
       }
       setModalVisible(true);
   };
@@ -183,17 +214,35 @@ export default function EvolutionScreen({ navigation }) {
       
       let calculatedBF = null;
       let cleanFolds = {};
+      let cleanMeasures = {};
 
       if (method === 'POLLOCK') {
           if (!currentAge) return Alert.alert("Atenção", "Informe a IDADE para calcular o % de Gordura.");
           Object.keys(folds).forEach(k => cleanFolds[k] = folds[k].replace(',', '.'));
           calculatedBF = calculateBodyFat(currentGender, currentAge, cleanFolds);
+          Object.keys(measures).forEach(k => cleanMeasures[k] = measures[k] ? measures[k].replace(',', '.') : null);
+      } else {
+          cleanMeasures.waist = measures.waist ? measures.waist.replace(',', '.') : null;
+          cleanMeasures.abdomen = measures.abdomen ? measures.abdomen.replace(',', '.') : null;
       }
 
       const payload = {
           userId: userData.id, date: isoDate, weight: weight.replace(',', '.'), method, bodyFat: calculatedBF,
-          waist: method === 'BASICO' ? measures.waist.replace(',', '.') : null,
-          abdomen: method === 'BASICO' ? measures.abdomen.replace(',', '.') : null,
+          waist: cleanMeasures.waist,
+          abdomen: cleanMeasures.abdomen,
+          // Novas Perimetrias
+          chestMeasure: method === 'POLLOCK' ? cleanMeasures.chestMeasure : null,
+          shoulders: method === 'POLLOCK' ? cleanMeasures.shoulders : null,
+          hips: method === 'POLLOCK' ? cleanMeasures.hips : null,
+          armRight: method === 'POLLOCK' ? cleanMeasures.armRight : null,
+          armLeft: method === 'POLLOCK' ? cleanMeasures.armLeft : null,
+          forearmRight: method === 'POLLOCK' ? cleanMeasures.forearmRight : null,
+          forearmLeft: method === 'POLLOCK' ? cleanMeasures.forearmLeft : null,
+          legRight: method === 'POLLOCK' ? cleanMeasures.legRight : null,
+          legLeft: method === 'POLLOCK' ? cleanMeasures.legLeft : null,
+          calfRight: method === 'POLLOCK' ? cleanMeasures.calfRight : null,
+          calfLeft: method === 'POLLOCK' ? cleanMeasures.calfLeft : null,
+          // Dobras
           foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null,
           foldAxillary: method === 'POLLOCK' ? cleanFolds.foldAxillary : null,
           foldTriceps: method === 'POLLOCK' ? cleanFolds.foldTriceps : null,
@@ -239,12 +288,39 @@ export default function EvolutionScreen({ navigation }) {
       const leanMass = assessment.bodyFat ? (assessment.weight * (1 - assessment.bodyFat / 100)).toFixed(1) : '--';
       const sum = (assessment.foldChest||0) + (assessment.foldAxillary||0) + (assessment.foldTriceps||0) + (assessment.foldSubscapular||0) + (assessment.foldAbdominal||0) + (assessment.foldSuprailiac||0) + (assessment.foldThigh||0);
       let html = `<div class="header"><div class="title">Avaliação Física</div><div class="subtitle">Aluno(a): <strong>${userData?.name || 'Aluno'}</strong> &nbsp;|&nbsp; Data: <strong>${d}</strong></div></div><div class="card-container"><div class="card"><div class="card-title">Peso Atual</div><div class="card-val">${assessment.weight}kg</div></div><div class="card"><div class="card-title">Gordura (BF)</div><div class="card-val highlight">${assessment.bodyFat ? assessment.bodyFat+'%' : '--'}</div></div><div class="card"><div class="card-title">Massa Magra</div><div class="card-val">${leanMass}kg</div></div></div>`;
+      
+      // DOBRAS
       if (assessment.method === 'POLLOCK') {
           html += `<h3 style="color: #32ADE6; font-size: 16px; margin-bottom: 10px;">DOBRAS CUTÂNEAS (mm)</h3><div class="table-wrap"><table><tr><th>Peitoral</th><th>Axilar</th><th>Tríceps</th><th>Subescapular</th></tr><tr><td>${assessment.foldChest || '-'}</td><td>${assessment.foldAxillary || '-'}</td><td>${assessment.foldTriceps || '-'}</td><td>${assessment.foldSubscapular || '-'}</td></tr><tr><th>Abdominal</th><th>Supra-ilíaca</th><th>Coxa</th><th style="color:#32ADE6">SOMA TOTAL</th></tr><tr><td>${assessment.foldAbdominal || '-'}</td><td>${assessment.foldSuprailiac || '-'}</td><td>${assessment.foldThigh || '-'}</td><td style="color:#32ADE6">${sum > 0 ? sum.toFixed(1) : '-'}</td></tr></table></div>`;
       }
-      if (assessment.waist || assessment.abdomen) {
-          html += `<h3 style="color: #32ADE6; font-size: 16px; margin-top: 30px; margin-bottom: 10px;">MEDIDAS (cm)</h3><div class="table-wrap"><table><tr>${assessment.waist ? '<th>Cintura</th>' : ''}${assessment.abdomen ? '<th>Abdômen</th>' : ''}</tr><tr>${assessment.waist ? `<td>${assessment.waist}</td>` : ''}${assessment.abdomen ? `<td>${assessment.abdomen}</td>` : ''}</tr></table></div>`;
+
+      // 🔥 PERIMETRIA COMPLETA CONDICIONAL 🔥
+      const hasAnyMeasure = !!(assessment.chest || assessment.shoulders || assessment.waist || assessment.abdomen || assessment.hips || assessment.arms || assessment.armLeft || assessment.forearms || assessment.forearmLeft || assessment.thighs || assessment.thighLeft || assessment.calves || assessment.calfLeft);
+
+      if (hasAnyMeasure) {
+          html += `<h3 style="color: #32ADE6; font-size: 16px; margin-top: 30px; margin-bottom: 10px;">PERIMETRIA (cm)</h3><div class="table-wrap"><table>`;
+          
+          if (assessment.chest || assessment.shoulders) {
+              html += `<tr><th>Tórax</th><th>Ombros</th></tr><tr><td>${assessment.chest || '-'}</td><td>${assessment.shoulders || '-'}</td></tr>`;
+          }
+          if (assessment.waist || assessment.abdomen || assessment.hips) {
+              html += `<tr><th>Cintura</th><th>Abdômen</th><th>Glúteos</th></tr><tr><td>${assessment.waist || '-'}</td><td>${assessment.abdomen || '-'}</td><td>${assessment.hips || '-'}</td></tr>`;
+          }
+          if (assessment.arms || assessment.armLeft) {
+              html += `<tr><th>Braço Direito</th><th>Braço Esquerdo</th></tr><tr><td>${assessment.arms || '-'}</td><td>${assessment.armLeft || '-'}</td></tr>`;
+          }
+          if (assessment.forearms || assessment.forearmLeft) {
+              html += `<tr><th>Antebraço Dir.</th><th>Antebraço Esq.</th></tr><tr><td>${assessment.forearms || '-'}</td><td>${assessment.forearmLeft || '-'}</td></tr>`;
+          }
+          if (assessment.thighs || assessment.thighLeft) {
+              html += `<tr><th>Perna Direita</th><th>Perna Esquerda</th></tr><tr><td>${assessment.thighs || '-'}</td><td>${assessment.thighLeft || '-'}</td></tr>`;
+          }
+          if (assessment.calves || assessment.calfLeft) {
+              html += `<tr><th>Panturrilha Dir.</th><th>Panturrilha Esq.</th></tr><tr><td>${assessment.calves || '-'}</td><td>${assessment.calfLeft || '-'}</td></tr>`;
+          }
+          html += `</table></div>`;
       }
+
       processAndSharePDF(html, 'Avaliacao_Fisica');
   };
 
@@ -275,7 +351,17 @@ export default function EvolutionScreen({ navigation }) {
       };
 
       const headerCols = selectedData.map(ass => `<th>${new Date(ass.date).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</th>`).join('');
-      let html = `<div class="header"><div class="title">Relatório de Evolução</div><div class="subtitle">Comparativo de Progresso &nbsp;|&nbsp; Aluno(a): <strong>${userData?.name || 'Aluno'}</strong></div></div><div class="table-wrap"><table><tr><th class="label-left">MÉTRICA</th>${headerCols}<th style="color:#32ADE6">DELTA</th></tr>${renderTableRow('Peso (kg)', 'weight')}${renderTableRow('Gordura (BF)', 'bodyFat', true, false)}${renderTableRow('Massa Magra', 'leanMass', false, true)}${renderTableRow('Soma Dobras (mm)', 'foldSum')}${renderTableRow('Peitoral', 'foldChest')}${renderTableRow('Axilar', 'foldAxillary')}${renderTableRow('Tríceps', 'foldTriceps')}${renderTableRow('Subescapular', 'foldSubscapular')}${renderTableRow('Abdominal', 'foldAbdominal')}${renderTableRow('Supra-ilíaca', 'foldSuprailiac')}${renderTableRow('Coxa', 'foldThigh')}</table></div>`;
+      let html = `<div class="header"><div class="title">Relatório de Evolução</div><div class="subtitle">Comparativo de Progresso &nbsp;|&nbsp; Aluno(a): <strong>${userData?.name || 'Aluno'}</strong></div></div><div class="table-wrap"><table><tr><th class="label-left">MÉTRICA</th>${headerCols}<th style="color:#32ADE6">DELTA</th></tr>${renderTableRow('Peso (kg)', 'weight')}${renderTableRow('Gordura (BF)', 'bodyFat', true, false)}${renderTableRow('Massa Magra', 'leanMass', false, true)}${renderTableRow('Soma Dobras (mm)', 'foldSum')}${renderTableRow('Peitoral', 'foldChest')}${renderTableRow('Axilar', 'foldAxillary')}${renderTableRow('Tríceps', 'foldTriceps')}${renderTableRow('Subescapular', 'foldSubscapular')}${renderTableRow('Abdominal', 'foldAbdominal')}${renderTableRow('Supra-ilíaca', 'foldSuprailiac')}${renderTableRow('Coxa', 'foldThigh')}
+      ${renderTableRow('Tórax', 'chest')}
+      ${renderTableRow('Ombros', 'shoulders')}
+      ${renderTableRow('Cintura', 'waist')}
+      ${renderTableRow('Abdômen', 'abdomen')}
+      ${renderTableRow('Glúteos', 'hips')}
+      ${renderTableRow('Braço Dir.', 'arms')}
+      ${renderTableRow('Braço Esq.', 'armLeft')}
+      ${renderTableRow('Perna Dir.', 'thighs')}
+      ${renderTableRow('Perna Esq.', 'thighLeft')}
+      </table></div>`;
       processAndSharePDF(html, 'Comparativo_Evolucao');
   };
 
@@ -289,7 +375,6 @@ export default function EvolutionScreen({ navigation }) {
 
   const openFeedbackModal = (checkin) => { setSelectedFeedback(checkin); setFeedbackModalVisible(true); };
 
-  // 🔥 O DECODIFICADOR DO ALUNO: Transforma o texto sujo na tela dividida 🔥
   let rawFeedbackText = selectedFeedback?.coachFeedback || '';
   let displayFeedbackText = rawFeedbackText;
   let compareOldPhotos = [];
@@ -297,7 +382,6 @@ export default function EvolutionScreen({ navigation }) {
   if (rawFeedbackText.includes('[COMPARE:')) {
       const match = rawFeedbackText.match(/\[COMPARE:(.*?)\]/);
       if (match) {
-          // Extrai os links do R2 e remove a tag pra não sujar a tela do aluno
           compareOldPhotos = match[1].split('|');
           displayFeedbackText = rawFeedbackText.replace(match[0], '').trim();
       }
@@ -529,7 +613,6 @@ export default function EvolutionScreen({ navigation }) {
 
                   <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
                       
-                      {/* 🔥 O ALUNO AGORA ENXERGA O COMPARATIVO MESMO SE VEIO DA GALERIA 🔥 */}
                       {compareOldPhotos.length > 0 ? (
                           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20, marginBottom: 30 }}>
                               {currentPhotosKeys.map((key, i) => {

@@ -6,6 +6,19 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 export default function AssessmentDetailsModal({ visible, assessment, onClose, onGeneratePDF, onEdit, onDelete, theme }) {
     if (!visible || !assessment) return null;
 
+    // Função auxiliar para não mostrar cards de medidas que estão vazias
+    const renderMeasureCard = (label, value) => {
+        if (!value) return null;
+        return (
+            <View style={[styles.measureCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>{label}</Text>
+                <Text style={[styles.foldCardValue, {color: theme.text}]}>{value}</Text>
+            </View>
+        );
+    };
+
+    const hasAnyPerimetry = !!(assessment.chest || assessment.shoulders || assessment.waist || assessment.abdomen || assessment.hips || assessment.arms || assessment.armLeft || assessment.forearms || assessment.forearmLeft || assessment.thighs || assessment.thighLeft || assessment.calves || assessment.calfLeft);
+
     return (
         <Modal visible={visible} transparent animationType="fade">
             <View style={styles.detailsOverlay}>
@@ -67,13 +80,36 @@ export default function AssessmentDetailsModal({ visible, assessment, onClose, o
                             </>
                         )}
 
-                        {(assessment.waist || assessment.abdomen) && (
+                        {hasAnyPerimetry ? (
                             <>
-                                <Text style={[styles.detailSection, { color: theme.accent }]}>MEDIDAS (cm)</Text>
-                                { assessment.waist && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Cintura:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{assessment.waist} cm</Text></View> }
-                                { assessment.abdomen && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Abdômen:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{assessment.abdomen} cm</Text></View> }
+                                <Text style={[styles.detailSection, { color: theme.accent, marginTop: 25 }]}>PERIMETRIA (cm)</Text>
+                                <View style={styles.measuresCardGrid}>
+                                    {renderMeasureCard('TÓRAX', assessment.chest)}
+                                    {renderMeasureCard('OMBROS', assessment.shoulders)}
+                                    {renderMeasureCard('CINTURA', assessment.waist)}
+                                    {renderMeasureCard('ABDÔMEN', assessment.abdomen)}
+                                    {renderMeasureCard('GLÚTEOS', assessment.hips)}
+                                    {renderMeasureCard('BRAÇO DIR.', assessment.arms)}
+                                    {renderMeasureCard('BRAÇO ESQ.', assessment.armLeft)}
+                                    {renderMeasureCard('ANTEB. DIR.', assessment.forearms)}
+                                    {renderMeasureCard('ANTEB. ESQ.', assessment.forearmLeft)}
+                                    {renderMeasureCard('PERNA DIR.', assessment.thighs)}
+                                    {renderMeasureCard('PERNA ESQ.', assessment.thighLeft)}
+                                    {renderMeasureCard('PANTU. DIR.', assessment.calves)}
+                                    {renderMeasureCard('PANTU. ESQ.', assessment.calfLeft)}
+                                </View>
                             </>
+                        ) : (
+                            /* Modo Básico (Só aparece se não houver a perimetria avançada) */
+                            (assessment.waist || assessment.abdomen) && (
+                                <>
+                                    <Text style={[styles.detailSection, { color: theme.accent }]}>MEDIDAS BÁSICAS (cm)</Text>
+                                    { assessment.waist && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Cintura:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{assessment.waist} cm</Text></View> }
+                                    { assessment.abdomen && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Abdômen:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{assessment.abdomen} cm</Text></View> }
+                                </>
+                            )
                         )}
+                        <View style={{height: 30}}/>
                     </ScrollView>
                 </View>
             </View>
@@ -83,7 +119,7 @@ export default function AssessmentDetailsModal({ visible, assessment, onClose, o
 
 const styles = StyleSheet.create({
     detailsOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
-    detailsCard: { borderRadius: 24, padding: 25, maxHeight: '80%', borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center' },
+    detailsCard: { borderRadius: 24, padding: 25, maxHeight: '85%', borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center' },
     detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
     detailsTitle: { fontSize: 16, fontWeight: '900' },
     detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, paddingBottom: 8 },
@@ -92,9 +128,15 @@ const styles = StyleSheet.create({
     resultBox: { flexDirection: 'row', borderRadius: 16, padding: 20, justifyContent: 'space-around', marginVertical: 20 },
     resultLabel: { fontSize: 11, fontWeight: 'bold', marginBottom: 8 },
     resultValue: { fontSize: 22, fontWeight: '900' },
-    detailSection: { fontWeight: 'bold', fontSize: 13, marginTop: 15, marginBottom: 15 },
+    detailSection: { fontWeight: '900', fontSize: 14, marginTop: 15, marginBottom: 15, letterSpacing: 0.5 },
+    
+    // Grid 3 colunas (Dobras)
     foldsCardGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
     foldCard: { width: '31%', paddingVertical: 15, paddingHorizontal: 5, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginBottom: 15 },
     foldCardTitle: { fontSize: 9, fontWeight: 'bold', marginBottom: 5, textTransform: 'uppercase' },
-    foldCardValue: { fontSize: 16, fontWeight: '900' }
+    foldCardValue: { fontSize: 16, fontWeight: '900' },
+
+    // Grid 2 colunas (Perimetria)
+    measuresCardGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    measureCard: { width: '48%', paddingVertical: 15, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginBottom: 15 }
 });
