@@ -1,54 +1,156 @@
+// src/modals/AssessmentDetailsModal.js
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function AssessmentDetailsModal({ visible, onClose, theme, selectedAssessment }) {
-    if (!selectedAssessment) return null;
+export default function AssessmentDetailsModal({ visible, assessment, onClose, onGeneratePDF, onEdit, onDelete, theme }) {
+    if (!visible || !assessment) return null;
+
+    const renderMeasureCard = (label, value) => {
+        if (!value) return null;
+        return (
+            <View style={[styles.measureCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                <Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>{label}</Text>
+                <Text style={[styles.foldCardValue, {color: theme.text}]}>{value}</Text>
+            </View>
+        );
+    };
+
+    const hasAnyPerimetry = !!(assessment.chest || assessment.shoulders || assessment.waist || assessment.abdomen || assessment.hips || assessment.arms || assessment.armLeft || assessment.forearms || assessment.forearmLeft || assessment.thighs || assessment.thighLeft || assessment.calves || assessment.calfLeft);
+    const hasPhotos = !!(assessment.photos && assessment.photos.length > 0 && assessment.photos.some(p => p && p !== ''));
 
     return (
         <Modal visible={visible} transparent animationType="fade">
             <View style={styles.detailsOverlay}>
                 <View style={[styles.detailsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    
+                    {/* CABEÇALHO DO MODAL */}
                     <View style={[styles.detailsHeader, { borderBottomColor: theme.border }]}>
-                        <Text style={[styles.detailsTitle, { color: theme.accent }]}>DETALHES</Text>
-                        <TouchableOpacity onPress={onClose}>
-                            <MaterialCommunityIcons name="close" size={24} color={theme.text} />
-                        </TouchableOpacity>
+                        <Text style={[styles.detailsTitle, { color: '#4DE38F' }]}>DETALHES DA AVALIAÇÃO</Text>
+                        <View style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
+                            {onEdit && (
+                                <TouchableOpacity onPress={onEdit}>
+                                    <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.text} />
+                                </TouchableOpacity>
+                            )}
+                            {onDelete && (
+                                <TouchableOpacity onPress={onDelete}>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FF3B30" />
+                                </TouchableOpacity>
+                            )}
+                            <TouchableOpacity onPress={onClose}>
+                                <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
                     </View>
                     
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>DATA:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{new Date(selectedAssessment.date).toLocaleDateString('pt-BR')}</Text></View>
-                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>PESO:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.weight} kg</Text></View>
+                    <ScrollView showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
                         
-                        {selectedAssessment.bodyFat && (
-                            <View style={[styles.resultBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
-                                <View style={{alignItems:'center'}}><Text style={styles.resultLabel}>GORDURA</Text><Text style={[styles.resultValue, { color: theme.accent }]}>{selectedAssessment.bodyFat}%</Text></View>
-                                <View style={{height:30, width:1, backgroundColor: theme.border}}/>
-                                <View style={{alignItems:'center'}}><Text style={styles.resultLabel}>MASSA MAGRA</Text><Text style={[styles.resultValue, { color: theme.text }]}>{(selectedAssessment.weight * (1 - selectedAssessment.bodyFat/100)).toFixed(1)} kg</Text></View>
-                            </View>
+                        {/* 🔥 BOTÃO GERAR LAUDO PA ELITE TEAM 🔥 */}
+                        {onGeneratePDF && (
+                            <TouchableOpacity 
+                                onPress={onGeneratePDF} 
+                                style={[styles.pdfButton, { borderColor: '#4DE38F' }]}
+                            >
+                                <MaterialCommunityIcons name="file-pdf-box" size={24} color="#4DE38F" />
+                                <Text style={styles.pdfButtonText}>GERAR LAUDO PA ELITE</Text>
+                            </TouchableOpacity>
                         )}
 
-                        {selectedAssessment.method === 'POLLOCK' && (
+                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                            <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>DATA:</Text>
+                            <Text style={[styles.detailValue, { color: theme.text }]}>{new Date(assessment.date).toLocaleDateString('pt-BR')}</Text>
+                        </View>
+                        <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
+                            <Text style={[styles.detailLabel, { color: theme.textSecondary }]}>PESO:</Text>
+                            <Text style={[styles.detailValue, { color: theme.text }]}>{assessment.weight} kg</Text>
+                        </View>
+
+                        {assessment.bodyFat && (
+                            <View style={[styles.resultBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}>
+                                <View style={{alignItems:'center'}}>
+                                    <Text style={[styles.resultLabel, { color: theme.textSecondary }]}>GORDURA</Text>
+                                    <Text style={[styles.resultValue, { color: '#4DE38F' }]}>{assessment.bodyFat}%</Text>
+                                </View>
+                                <View style={{height:30, width:1, backgroundColor: theme.border}}/>
+                                <View style={{alignItems:'center'}}>
+                                    <Text style={[styles.resultLabel, { color: theme.textSecondary }]}>MASSA MAGRA</Text>
+                                    <Text style={[styles.resultValue, { color: theme.text }]}>{(assessment.weight * (1 - assessment.bodyFat/100)).toFixed(1)} kg</Text>
+                                </View>
+                            </View>
+                        )}
+                        
+                        {(assessment.method === 'POLLOCK') && (
                             <>
-                                <Text style={[styles.detailSection, { color: theme.accent }]}>DOBRAS (mm)</Text>
-                                <View style={styles.detailGrid}>
-                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Peitoral</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldChest || '-'}</Text></View>
-                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Axilar</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldAxillary || '-'}</Text></View>
-                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Tríceps</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldTriceps || '-'}</Text></View>
-                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Subescap.</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldSubscapular || '-'}</Text></View>
-                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Abdom.</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldAbdominal || '-'}</Text></View>
-                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Supra-il.</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldSuprailiac || '-'}</Text></View>
-                                    <View style={[styles.gridBox, { backgroundColor: theme.bg, borderColor: theme.border, borderWidth: 1 }]}><Text style={styles.gridLabel}>Coxa</Text><Text style={[styles.gridVal, { color: theme.text }]}>{selectedAssessment.foldThigh || '-'}</Text></View>
+                                <Text style={[styles.detailSection, { color: '#9D00FF' }]}>DOBRAS POLLOCK 7 (mm)</Text>
+                                <View style={styles.foldsCardGrid}>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>PEITORAL</Text><Text style={[styles.foldCardValue, {color: theme.text}]}>{assessment.foldChest || '-'}</Text></View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>AXILAR</Text><Text style={[styles.foldCardValue, {color: theme.text}]}>{assessment.foldAxillary || '-'}</Text></View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>TRÍCEPS</Text><Text style={[styles.foldCardValue, {color: theme.text}]}>{assessment.foldTriceps || '-'}</Text></View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>SUBESCAP.</Text><Text style={[styles.foldCardValue, {color: theme.text}]}>{assessment.foldSubscapular || '-'}</Text></View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>ABDOMINAL</Text><Text style={[styles.foldCardValue, {color: theme.text}]}>{assessment.foldAbdominal || '-'}</Text></View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>SUPRA-IL.</Text><Text style={[styles.foldCardValue, {color: theme.text}]}>{assessment.foldSuprailiac || '-'}</Text></View>
+                                    <View style={[styles.foldCard, { backgroundColor: theme.bg, borderColor: theme.border }]}><Text style={[styles.foldCardTitle, {color: theme.textSecondary}]}>COXA</Text><Text style={[styles.foldCardValue, {color: theme.text}]}>{assessment.foldThigh || '-'}</Text></View>
                                 </View>
                             </>
                         )}
-                        {(selectedAssessment.waist || selectedAssessment.abdomen) && (
+
+                        {hasAnyPerimetry ? (
                             <>
-                                <Text style={[styles.detailSection, { color: theme.accent }]}>MEDIDAS (cm)</Text>
-                                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>Cintura:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.waist || '-'} cm</Text></View>
-                                <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={styles.detailLabel}>Abdômen:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{selectedAssessment.abdomen || '-'} cm</Text></View>
+                                <Text style={[styles.detailSection, { color: '#9D00FF', marginTop: 25 }]}>PERIMETRIA (cm)</Text>
+                                <View style={styles.measuresCardGrid}>
+                                    {renderMeasureCard('TÓRAX', assessment.chest)}
+                                    {renderMeasureCard('OMBROS', assessment.shoulders)}
+                                    {renderMeasureCard('CINTURA', assessment.waist)}
+                                    {renderMeasureCard('ABDÔMEN', assessment.abdomen)}
+                                    {renderMeasureCard('GLÚTEOS', assessment.hips)}
+                                    {renderMeasureCard('BRAÇO DIR.', assessment.arms)}
+                                    {renderMeasureCard('BRAÇO ESQ.', assessment.armLeft)}
+                                    {renderMeasureCard('ANTEB. DIR.', assessment.forearms)}
+                                    {renderMeasureCard('ANTEB. ESQ.', assessment.forearmLeft)}
+                                    {renderMeasureCard('COXA DIR.', assessment.thighs)}
+                                    {renderMeasureCard('COXA ESQ.', assessment.thighLeft)}
+                                    {renderMeasureCard('PANTU. DIR.', assessment.calves)}
+                                    {renderMeasureCard('PANTU. ESQ.', assessment.calfLeft)}
+                                </View>
+                            </>
+                        ) : (
+                            (assessment.waist || assessment.abdomen) && (
+                                <>
+                                    <Text style={[styles.detailSection, { color: '#9D00FF' }]}>MEDIDAS BÁSICAS (cm)</Text>
+                                    { assessment.waist && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Cintura:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{assessment.waist} cm</Text></View> }
+                                    { assessment.abdomen && <View style={[styles.detailRow, { borderBottomColor: theme.border }]}><Text style={[styles.detailLabel, { color: theme.textSecondary }]}>Abdômen:</Text><Text style={[styles.detailValue, { color: theme.text }]}>{assessment.abdomen} cm</Text></View> }
+                                </>
+                            )
+                        )}
+
+                        {hasPhotos && (
+                            <>
+                                <Text style={[styles.detailSection, { color: '#4DE38F', marginTop: 20 }]}>REGISTRO FOTOGRÁFICO</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12, paddingBottom: 15 }}>
+                                    {assessment.photos[0] && assessment.photos[0] !== '' && (
+                                        <View style={[styles.photoBox, { borderColor: theme.border }]}>
+                                            <Image source={{ uri: assessment.photos[0] }} style={styles.photoImg} resizeMode="cover" />
+                                            <View style={styles.photoBadge}><Text style={styles.photoBadgeText}>FRENTE</Text></View>
+                                        </View>
+                                    )}
+                                    {assessment.photos[1] && assessment.photos[1] !== '' && (
+                                        <View style={[styles.photoBox, { borderColor: theme.border }]}>
+                                            <Image source={{ uri: assessment.photos[1] }} style={styles.photoImg} resizeMode="cover" />
+                                            <View style={styles.photoBadge}><Text style={styles.photoBadgeText}>LADO</Text></View>
+                                        </View>
+                                    )}
+                                    {assessment.photos[2] && assessment.photos[2] !== '' && (
+                                        <View style={[styles.photoBox, { borderColor: theme.border }]}>
+                                            <Image source={{ uri: assessment.photos[2] }} style={styles.photoImg} resizeMode="cover" />
+                                            <View style={styles.photoBadge}><Text style={styles.photoBadgeText}>COSTAS</Text></View>
+                                        </View>
+                                    )}
+                                </ScrollView>
                             </>
                         )}
+                        
+                        <View style={{height: 30}}/>
                     </ScrollView>
                 </View>
             </View>
@@ -58,18 +160,29 @@ export default function AssessmentDetailsModal({ visible, onClose, theme, select
 
 const styles = StyleSheet.create({
     detailsOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
-    detailsCard: { borderRadius: 20, padding: 20, maxHeight: '80%', borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center' },
-    detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
-    detailsTitle: { fontSize: 16, fontWeight: '900' },
-    detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, paddingBottom: 5 },
-    detailLabel: { color: '#888', fontWeight: 'bold', fontSize: 12 },
-    detailValue: { fontWeight: 'bold', fontSize: 14 },
-    resultBox: { flexDirection: 'row', borderRadius: 10, padding: 15, justifyContent: 'space-around', marginVertical: 15 },
-    resultLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', marginBottom: 5 },
-    resultValue: { fontSize: 18, fontWeight: '900' },
-    detailSection: { fontWeight: 'bold', fontSize: 12, marginTop: 10, marginBottom: 10 },
-    detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-    gridBox: { width: '30%', padding: 10, borderRadius: 8, alignItems: 'center', marginBottom: 5 },
-    gridLabel: { color: '#888', fontSize: 10, marginBottom: 2 },
-    gridVal: { fontWeight: 'bold' },
+    detailsCard: { borderRadius: 24, padding: 25, maxHeight: '85%', borderWidth: 1, width: '100%', maxWidth: 440, alignSelf: 'center' },
+    detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
+    detailsTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+    
+    // Novo estilo do botão de PDF
+    pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderWidth: 1, borderRadius: 12, paddingVertical: 15, marginBottom: 25, gap: 10 },
+    pdfButtonText: { color: '#4DE38F', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
+
+    detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, paddingBottom: 8 },
+    detailLabel: { fontWeight: 'bold', fontSize: 13 },
+    detailValue: { fontWeight: '900', fontSize: 15 },
+    resultBox: { flexDirection: 'row', borderRadius: 16, padding: 20, justifyContent: 'space-around', marginVertical: 20 },
+    resultLabel: { fontSize: 11, fontWeight: 'bold', marginBottom: 8 },
+    resultValue: { fontSize: 22, fontWeight: '900' },
+    detailSection: { fontWeight: '900', fontSize: 13, marginTop: 15, marginBottom: 15, letterSpacing: 0.5 },
+    foldsCardGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    foldCard: { width: '31%', paddingVertical: 15, paddingHorizontal: 5, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginBottom: 15 },
+    foldCardTitle: { fontSize: 9, fontWeight: 'bold', marginBottom: 5, textTransform: 'uppercase' },
+    foldCardValue: { fontSize: 16, fontWeight: '900' },
+    measuresCardGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+    measureCard: { width: '48%', paddingVertical: 15, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, alignItems: 'center', marginBottom: 15 },
+    photoBox: { width: 120, height: 160, borderRadius: 12, overflow: 'hidden', borderWidth: 1, position: 'relative' },
+    photoImg: { width: '100%', height: '100%' },
+    photoBadge: { position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: '#4DE38F', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 10 },
+    photoBadgeText: { fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 0.5 }
 });

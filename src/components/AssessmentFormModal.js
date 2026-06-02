@@ -1,12 +1,14 @@
 // src/components/AssessmentFormModal.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, SafeAreaView, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, TextInput, KeyboardAvoidingView, SafeAreaView, Platform, Dimensions, Image, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 export default function AssessmentFormModal({
     visible, onClose, editingId, customDate, handleDateChange, method, setMethod,
     weight, setWeight, currentAge, setCurrentAge, currentGender, setCurrentGender,
-    folds, setFolds, measures, setMeasures, onSave, theme, isWeb, webOuterBg
+    folds, setFolds, measures, setMeasures, onSave, theme, isWeb, webOuterBg,
+    photos, setPhotos // 🔥 ADICIONADO: Props para receber o estado de fotos da tela principal
 }) {
     const [pollockTab, setPollockTab] = useState('DOBRAS'); 
     
@@ -14,6 +16,48 @@ export default function AssessmentFormModal({
     const isWebPC = isWeb && windowWidth > 768;
     const containerMaxWidth = isWebPC ? 960 : '100%';
     const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
+
+    // 🔥 ADICIONADO: Lógica para abrir APENAS a galeria e upar as fotos
+    const handleSelectPhoto = async (position) => {
+        if (Platform.OS === 'web') {
+            window.alert("Por favor, selecione a imagem do seu dispositivo.");
+        }
+
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+            Alert.alert("Permissão", "Precisamos acessar a galeria para selecionar a foto.");
+            return;
+        }
+
+        let result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          quality: 0.5, 
+          base64: true,
+          allowsEditing: false, 
+        });
+        
+        if (!result.canceled && result.assets[0].base64) {
+            const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
+            if (setPhotos) {
+                setPhotos(prev => ({ ...prev, [position]: base64Img }));
+            }
+        }
+    };
+
+    // 🔥 ADICIONADO: Componente visual da caixa de foto
+    const renderPhotoBox = (label, position, icon) => (
+        <TouchableOpacity style={[styles.photoBox, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleSelectPhoto(position)} activeOpacity={0.7}>
+            {photos && photos[position] ? (
+                <Image source={{ uri: photos[position] }} style={styles.photoPreview} />
+            ) : (
+                <View style={styles.photoPlaceholder}>
+                    <MaterialCommunityIcons name={icon} size={30} color={theme.textSecondary} />
+                    <Text style={[styles.photoText, { color: theme.textSecondary }]}>{label}</Text>
+                </View>
+            )}
+            {photos && photos[position] && <View style={[styles.checkBadge, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="check" size={12} color={theme.isDark ? '#000' : '#FFF'}/></View>}
+        </TouchableOpacity>
+    );
 
     if (!visible) return null;
 
@@ -150,6 +194,14 @@ export default function AssessmentFormModal({
                                         <TextInput style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.abdomen} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none" />
                                     </View>
                                 )}
+
+                                {/* 🔥 ADICIONADO: Seção de Fotos da Avaliação */}
+                                <Text style={[styles.label, { color: theme.textSecondary, marginTop: 25 }]}>FOTOS DA AVALIAÇÃO (Opcional)</Text>
+                                <View style={styles.photosRow}>
+                                    {renderPhotoBox("FRENTE", "front", "account")}
+                                    {renderPhotoBox("LADO", "side", "account-box-outline")}
+                                    {renderPhotoBox("COSTAS", "back", "account-convert")}
+                                </View>
                                 
                                 <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={onSave}>
                                     <MaterialCommunityIcons name="content-save-outline" size={24} color="#000" />
@@ -192,6 +244,14 @@ const styles = StyleSheet.create({
     miniInput: { padding: 14, borderRadius: 12, borderWidth: 1, textAlign: 'center', fontSize: 16, fontWeight: 'bold' }, 
     
     hint: { fontSize: 12, fontStyle: 'italic', marginTop: 20, textAlign: 'center', lineHeight: 18 },
+
+    // 🔥 ADICIONADO: Estilos para as caixas de foto (Mantendo o padrão do PerformOS)
+    photosRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
+    photoBox: { width: '31%', aspectRatio: 0.8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
+    photoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    photoText: { fontSize: 10, fontWeight: 'bold', marginTop: 5 },
+    photoPreview: { width: '100%', height: '100%', resizeMode: 'cover' },
+    checkBadge: { position: 'absolute', top: 5, right: 5, width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', zIndex:10 },
     
     saveBtn: { flexDirection: 'row', padding: 20, borderRadius: 16, alignItems: 'center', justifyContent: 'center', gap: 10, marginTop: 35, elevation: 4 },
     saveBtnText: { fontWeight: '900', fontSize: 15, letterSpacing: 1 }
