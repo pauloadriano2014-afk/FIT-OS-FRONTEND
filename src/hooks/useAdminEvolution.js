@@ -21,6 +21,8 @@ export default function useAdminEvolution(aluno) {
     const [customDate, setCustomDate] = useState('');
     const [weight, setWeight] = useState('');
     const [currentAge, setCurrentAge] = useState(aluno?.birthDate ? getAgeFromDate(aluno.birthDate) : '');
+    
+    // Configura o gênero inicial vindo da lista, caso exista
     const [currentGender, setCurrentGender] = useState(aluno?.gender ? aluno.gender.toUpperCase() : 'MASCULINO');
     
     const [measures, setMeasures] = useState({ 
@@ -49,7 +51,17 @@ export default function useAdminEvolution(aluno) {
             const dataLogs = await resLogs.json();
             const dataCheckins = await resCheckins.json();
 
-            if (Array.isArray(dataAssess)) setAssessmentHistory(dataAssess);
+            if (Array.isArray(dataAssess)) {
+                setAssessmentHistory(dataAssess);
+                
+                // 🔥 CAPTURA DE GÊNERO EM TEMPO REAL DO BACKEND VIA PRISMA (include: user) 🔥
+                if (dataAssess.length > 0 && dataAssess[0]?.user) {
+                    const dbGender = dataAssess[0].user.gender || dataAssess[0].user.sexo || '';
+                    if (dbGender) {
+                        setCurrentGender(dbGender.toUpperCase().trim());
+                    }
+                }
+            }
             if (dataLogs.workoutLogs) setWorkoutLogs(dataLogs.workoutLogs);
             if (Array.isArray(dataCheckins)) setCheckinHistory(dataCheckins); 
 
@@ -173,7 +185,6 @@ export default function useAdminEvolution(aluno) {
             cleanMeasures.abdomen = measures.abdomen ? measures.abdomen.replace(',', '.') : null;
         }
 
-        // 🔥 CORREÇÃO CIRÚRGICA: Enviando os campos de foto EXATAMENTE como a API espera 🔥
         const payload = {
             userId: aluno.id, 
             date: isoDate, 
@@ -190,7 +201,7 @@ export default function useAdminEvolution(aluno) {
             forearms: method === 'POLLOCK' ? cleanMeasures.forearmRight : null, 
             forearmLeft: method === 'POLLOCK' ? cleanMeasures.forearmLeft : null, 
             thighs: method === 'POLLOCK' ? cleanMeasures.legRight : null, 
-            thighLeft: method === 'POLLOCK' ? cleanMeasures.legLeft : null, 
+            thighLeft: method === 'POLLOCK' ? cleanMeasures.thighLeft : null, 
             calves: method === 'POLLOCK' ? cleanMeasures.calfRight : null, 
             calfLeft: method === 'POLLOCK' ? cleanMeasures.calfLeft : null,
             foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null, 
