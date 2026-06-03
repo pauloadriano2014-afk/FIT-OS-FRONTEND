@@ -20,7 +20,10 @@ export default function AdminAssessmentTab({
             {/* INFORMAÇÕES BÁSICAS DO ALUNO */}
             <View style={[styles.infoBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <Text style={styles.infoText}>IDADE: {currentAge || '--'} anos</Text>
-                <Text style={styles.infoText}>SEXO: {currentGender}</Text>
+                {/* 🔥 Fica vermelho se o backend falhou e o sistema chutou MASCULINO 🔥 */}
+                <Text style={[styles.infoText, currentGender === 'MASCULINO' && { color: '#FF3B30' }]}>
+                    SEXO: {currentGender || 'NÃO DEFINIDO'}
+                </Text>
             </View>
 
             {/* BOTÃO DE NOVA AVALIAÇÃO */}

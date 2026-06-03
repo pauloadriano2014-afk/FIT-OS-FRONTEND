@@ -22,7 +22,7 @@ export default function useAdminEvolution(aluno) {
     const [weight, setWeight] = useState('');
     const [currentAge, setCurrentAge] = useState(aluno?.birthDate ? getAgeFromDate(aluno.birthDate) : '');
     
-    // 🔥 Configura o gênero inicial vindo da lista (se existir) ou inicia vazio para forçar a busca
+    // Gênero agora recebe corretamente do banco
     const [currentGender, setCurrentGender] = useState(aluno?.gender ? aluno.gender.toUpperCase().trim() : '');
     
     const [measures, setMeasures] = useState({ 
@@ -34,62 +34,71 @@ export default function useAdminEvolution(aluno) {
 
     const [photos, setPhotos] = useState({ front: null, back: null, side: null });
 
-    // Envolvendo loadData em useCallback para evitar recriação desnecessária
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
-            const [resAssess, resLogs, resCheckins] = await Promise.all([
-                fetch(`https://fitos-final.onrender.com/api/assessment?userId=${aluno.id}`),
-                fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}/history`),
-                fetch(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`) 
+
+            // 🔥 BLINDAGEM MÁXIMA: Se o servidor (Render) estiver reiniciando, ele não quebra o app! 🔥
+            const safeFetchJSON = async (url) => {
+                try {
+                    const res = await fetch(url);
+                    if (!res.ok) return null;
+                    return await res.json();
+                } catch (e) {
+                    return null; // Retorna null em vez de explodir um erro de HTML/502 Bad Gateway
+                }
+            };
+
+            const [dataAssess, dataLogs, dataCheckins] = await Promise.all([
+                safeFetchJSON(`https://fitos-final.onrender.com/api/assessment?userId=${aluno.id}`),
+                safeFetchJSON(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}/history`),
+                safeFetchJSON(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`) 
             ]);
 
-            const dataAssess = await resAssess.json();
-            const dataLogs = await resLogs.json();
-            const dataCheckins = await resCheckins.json();
-
-            // 🔥 MÁQUINA DE DESCOBRIR GÊNERO À PROVA DE FALHAS 🔥
+            // 🔥 MÁQUINA DE DESCOBRIR GÊNERO 🔥
             let realGender = aluno?.gender || aluno?.sexo || '';
 
-            // 1. Tenta achar no histórico (rota que já busca o user)
             if (!realGender && dataLogs?.user) {
                 realGender = dataLogs.user.gender || dataLogs.user.sexo || '';
             }
 
-            // 2. Tenta achar na avaliação (backend novo com include)
             if (!realGender && Array.isArray(dataAssess) && dataAssess.length > 0 && dataAssess[0]?.user) {
                 realGender = dataAssess[0].user.gender || dataAssess[0].user.sexo || '';
             }
 
-            // 3. Se TUDO falhar, faz uma busca brutal direto no cadastro do usuário
             if (!realGender) {
-                try {
-                    const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
-                    if (resUser.ok) {
-                        const userDetails = await resUser.json();
-                        realGender = userDetails.gender || userDetails.sexo || userDetails.user?.gender || '';
-                    }
-                } catch(e) { 
-                    console.log("Busca forçada de user falhou:", e); 
+                const userDetails = await safeFetchJSON(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
+                if (userDetails) {
+                    realGender = userDetails.gender || userDetails.sexo || userDetails.user?.gender || '';
                 }
             }
 
-            // Trava o gênero correto no sistema!
             if (realGender) {
                 setCurrentGender(realGender.toUpperCase().trim());
             } else {
-                setCurrentGender('MASCULINO'); // Último recurso se o aluno realmente não preencheu o perfil
+                setCurrentGender('MASCULINO'); 
             }
 
-            if (Array.isArray(dataAssess)) {
+            // 🔥 PREENCHIMENTO SEGURO DOS DADOS 🔥
+            // Só atualiza a tela se os dados vieram inteiros. Se o servidor retornou Null, mantém o que já estava.
+            if (dataAssess && Array.isArray(dataAssess)) {
                 setAssessmentHistory(dataAssess);
+            } else if (dataAssess && dataAssess.data && Array.isArray(dataAssess.data)) {
+                setAssessmentHistory(dataAssess.data);
+            } else if (dataAssess && dataAssess.assessments && Array.isArray(dataAssess.assessments)) {
+                setAssessmentHistory(dataAssess.assessments);
             }
-            if (dataLogs.workoutLogs) setWorkoutLogs(dataLogs.workoutLogs);
-            if (Array.isArray(dataCheckins)) setCheckinHistory(dataCheckins); 
+
+            if (dataLogs && dataLogs.workoutLogs) setWorkoutLogs(dataLogs.workoutLogs);
+            
+            if (dataCheckins && Array.isArray(dataCheckins)) {
+                setCheckinHistory(dataCheckins);
+            } else if (dataCheckins && Array.isArray(dataCheckins.data)) {
+                setCheckinHistory(dataCheckins.data);
+            }
 
         } catch (e) { 
-            console.log("Erro ao carregar dados:", e); 
-            if (Platform.OS !== 'web') Alert.alert("Erro", "Não foi possível carregar os dados de evolução."); 
+            console.log("Erro crítico ao carregar dados:", e); 
         } finally { 
             setLoading(false); 
         }

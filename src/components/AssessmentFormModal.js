@@ -102,15 +102,14 @@ export default function AssessmentFormModal({
                                             <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={currentAge} onChangeText={setCurrentAge} placeholder="Anos" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
                                         </View>
                                         
-                                        {/* 🔥 BOTÃO DE GÊNERO DE VOLTA! SE O BANCO ESTIVER ERRADO, VOCÊ CORRIGE AQUI E ELE SALVA PARA SEMPRE 🔥 */}
+                                        {/* 🔥 GÊNERO BLOQUEADO: APENAS LEITURA DO BANCO DE DADOS 🔥 */}
                                         <View style={{flex:1, marginLeft: 15}}>
-                                            <Text style={[styles.label, { color: theme.textSecondary }]}>GÊNERO</Text>
-                                            <TouchableOpacity 
-                                                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, justifyContent: 'center' }]} 
-                                                onPress={() => setCurrentGender(currentGender === 'MASCULINO' ? 'FEMININO' : 'MASCULINO')}
-                                            >
-                                                <Text style={{color: theme.text, fontWeight: 'bold'}}>{currentGender || 'MASCULINO'}</Text>
-                                            </TouchableOpacity>
+                                            <Text style={[styles.label, { color: theme.accent }]}>GÊNERO (Automático)</Text>
+                                            <View style={[styles.input, { backgroundColor: theme.bg, borderColor: theme.border, justifyContent: 'center' }]}>
+                                                <Text style={{color: currentGender ? theme.text : '#FF3B30', fontWeight: 'bold', fontSize: 13}}>
+                                                    {currentGender || 'NÃO DEFINIDO NO BANCO'}
+                                                </Text>
+                                            </View>
                                         </View>
                                     </View>
                                     

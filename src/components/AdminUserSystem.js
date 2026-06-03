@@ -90,7 +90,8 @@ export default function AdminUserSystem({
                             <Text style={[styles.dashCardTitle, { color: theme.text }]}>ATALHOS RÁPIDOS</Text>
                         </View>
                         <View style={{ gap: 10, marginTop: 'auto' }}>
-                            <TouchableOpacity style={[styles.dashActionBtn, { backgroundColor: theme.bg, borderColor: theme.border, justifyContent: 'center' }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name) })}>
+                            {/* 🔥 CORREÇÃO: Enviando o aluno completo na navegação 🔥 */}
+                            <TouchableOpacity style={[styles.dashActionBtn, { backgroundColor: theme.bg, borderColor: theme.border, justifyContent: 'center' }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoGender: String(aluno.gender || aluno.sexo || ''), aluno: aluno })}>
                                 <MaterialCommunityIcons name="camera-account" size={16} color="#34C759" />
                                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: 'bold' }}>Gerenciar Check-ins</Text>
                             </TouchableOpacity>
@@ -119,16 +120,18 @@ export default function AdminUserSystem({
     // ==========================================
     if (currentTab === 'AVALIACOES') {
         return (
-            <View style={{ paddingBottom: 100 }}> {/* 🔥 AQUI FICA A CORREÇÃO DO SCROLL DA TELA AVALIAÇÃO 🔥 */}
+            <View style={{ paddingBottom: 100 }}>
                 <Text style={[styles.sectionLabel, {marginTop: 20}]}>FERRAMENTAS DE ACOMPANHAMENTO</Text>
                 
-                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name) })}>
+                {/* 🔥 CORREÇÃO: Enviando o aluno completo na navegação 🔥 */}
+                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoGender: String(aluno.gender || aluno.sexo || ''), aluno: aluno })}>
                     <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}><MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" /></View>
                     <Text style={[styles.actionText, { color: theme.text }]}>Gerenciar Check-ins do Aluno</Text>
                     <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoBirthDate: String(aluno.birthDate || ''), alunoGender: String(aluno.gender || '') })}>
+                {/* 🔥 CORREÇÃO: Enviando o aluno completo na navegação para Evolução (PDF) 🔥 */}
+                <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoBirthDate: String(aluno.birthDate || ''), alunoGender: String(aluno.gender || aluno.sexo || ''), aluno: aluno })}>
                     <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}><MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" /></View>
                     <Text style={[styles.actionText, { color: theme.text }]}>Ver Gráficos de Evolução</Text>
                     <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
@@ -254,7 +257,7 @@ export default function AdminUserSystem({
     // ==========================================
     if (currentTab === 'SISTEMA') {
         return (
-            <View style={{ paddingBottom: 100 }}> {/* 🔥 Correção de Scroll aqui também 🔥 */}
+            <View style={{ paddingBottom: 100 }}> 
                 <Text style={[styles.sectionLabel, {marginTop: 20, color: '#FF3B30'}]}>ZONA DE RISCO E SISTEMA</Text>
                 
                 <View style={[styles.riskCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
