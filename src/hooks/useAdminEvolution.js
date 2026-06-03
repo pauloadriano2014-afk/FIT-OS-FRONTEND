@@ -1,5 +1,5 @@
 // src/hooks/useAdminEvolution.js
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react'; // Adicionado useCallback
 import { Alert, Platform } from 'react-native';
 import { getAgeFromDate, calculateBodyFat } from '../utils/calculations';
 
@@ -21,22 +21,21 @@ export default function useAdminEvolution(aluno) {
     const [customDate, setCustomDate] = useState('');
     const [weight, setWeight] = useState('');
     const [currentAge, setCurrentAge] = useState(aluno?.birthDate ? getAgeFromDate(aluno.birthDate) : '');
-    const [currentGender, setCurrentGender] = useState(aluno?.gender ? aluno.gender.toUpperCase() : 'MASCULINO');
-    
+
+    // 🔥 INICIA VAZIO EM VEZ DE MASCULINO PARA FORÇAR A BUSCA 🔥
+    const [currentGender, setCurrentGender] = useState('');
+
     const [measures, setMeasures] = useState({ 
         waist: '', abdomen: '', chestMeasure: '', shoulders: '', hips: '', 
         armRight: '', armLeft: '', forearmRight: '', forearmLeft: '', 
         legRight: '', legLeft: '', calfRight: '', calfLeft: '' 
     });
     const [folds, setFolds] = useState({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
-    
+
     const [photos, setPhotos] = useState({ front: null, back: null, side: null });
 
-    useEffect(() => { 
-        if (aluno?.id) loadData(); 
-    }, [aluno?.id]);
-
-    const loadData = async () => {
+    // Envolvendo loadData em useCallback para evitar recriação desnecessária
+    const loadData = useCallback(async () => {
         try {
             setLoading(true);
             const [resAssess, resLogs, resCheckins] = await Promise.all([
@@ -49,16 +48,62 @@ export default function useAdminEvolution(aluno) {
             const dataLogs = await resLogs.json();
             const dataCheckins = await resCheckins.json();
 
+            // 🔥 MÁQUINA DE DESCOBRIR GÊNERO À PROVA DE FALHAS 🔥
+            let realGender = aluno?.gender || aluno?.sexo || '';
+            console.log("1. Gênero inicial (aluno prop):", realGender); // DEBUG
+
+            // 1. Tenta achar no histórico (rota que já busca o user)
+            if (!realGender && dataLogs?.user) {
+                realGender = dataLogs.user.gender || dataLogs.user.sexo || '';
+                console.log("2. Gênero após busca em dataLogs:", realGender); // DEBUG
+            }
+
+            // 2. Tenta achar na avaliação (backend novo)
+            if (!realGender && Array.isArray(dataAssess) && dataAssess.length > 0 && dataAssess[0]?.user) {
+                realGender = dataAssess[0].user.gender || dataAssess[0].user.sexo || '';
+                console.log("3. Gênero após busca em dataAssess:", realGender); // DEBUG
+            }
+
+            // 3. Se TUDO falhar, faz uma busca brutal direto no cadastro do usuário
+            if (!realGender) {
+                try {
+                    const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`); // Adicionado cache-buster
+                    if (resUser.ok) {
+                        const userDetails = await resUser.json();
+                        realGender = userDetails.gender || userDetails.sexo || userDetails.user?.gender || '';
+                        console.log("4. Gênero após busca direta no usuário:", realGender); // DEBUG
+                    } else {
+                        console.log("Busca direta de usuário falhou com status:", resUser.status); // DEBUG
+                    }
+                } catch(e) { 
+                    console.log("Busca forçada de user falhou:", e); // DEBUG
+                }
+            }
+
+            // Trava o gênero correto no sistema!
+            if (realGender) {
+                setCurrentGender(realGender.toUpperCase().trim());
+                console.log("5. Gênero final definido em currentGender (realGender):", realGender.toUpperCase().trim()); // DEBUG
+            } else {
+                setCurrentGender('MASCULINO'); // Último recurso se o aluno realmente não preencheu o perfil
+                console.log("5. Gênero final definido em currentGender (fallback):", 'MASCULINO'); // DEBUG
+            }
+
             if (Array.isArray(dataAssess)) setAssessmentHistory(dataAssess);
             if (dataLogs.workoutLogs) setWorkoutLogs(dataLogs.workoutLogs);
             if (Array.isArray(dataCheckins)) setCheckinHistory(dataCheckins); 
 
         } catch (e) { 
             console.log("Erro ao carregar dados:", e); 
+            if (Platform.OS !== 'web') Alert.alert("Erro", "Não foi possível carregar os dados de evolução."); // Adicionado alerta para não-web
         } finally { 
             setLoading(false); 
         }
-    };
+    }, [aluno.id]); // Dependência para useCallback
+
+    useEffect(() => { 
+        if (aluno?.id) loadData(); 
+    }, [aluno?.id, loadData]); // Adicionado loadData como dependência
 
     const handleDelete = (id) => {
         if (Platform.OS === 'web') {
@@ -158,7 +203,7 @@ export default function useAdminEvolution(aluno) {
             const [day, month, year] = customDate.split('/');
             isoDate = new Date(`${year}-${month}-${day}T12:00:00`).toISOString();
         }
-        
+
         let calculatedBF = null;
         let cleanFolds = {};
         let cleanMeasures = {};
@@ -173,7 +218,6 @@ export default function useAdminEvolution(aluno) {
             cleanMeasures.abdomen = measures.abdomen ? measures.abdomen.replace(',', '.') : null;
         }
 
-        // 🔥 CORREÇÃO CIRÚRGICA: Enviando os campos de foto EXATAMENTE como a API espera 🔥
         const payload = {
             userId: aluno.id, 
             date: isoDate, 
@@ -190,7 +234,7 @@ export default function useAdminEvolution(aluno) {
             forearms: method === 'POLLOCK' ? cleanMeasures.forearmRight : null, 
             forearmLeft: method === 'POLLOCK' ? cleanMeasures.forearmLeft : null, 
             thighs: method === 'POLLOCK' ? cleanMeasures.legRight : null, 
-            thighLeft: method === 'POLLOCK' ? cleanMeasures.legLeft : null, 
+            thighLeft: method === 'POLLOCK' ? cleanMeasures.thighLeft : null, 
             calves: method === 'POLLOCK' ? cleanMeasures.calfRight : null, 
             calfLeft: method === 'POLLOCK' ? cleanMeasures.calfLeft : null,
             foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null, 
@@ -200,7 +244,7 @@ export default function useAdminEvolution(aluno) {
             foldAbdominal: method === 'POLLOCK' ? cleanFolds.foldAbdominal : null, 
             foldSuprailiac: method === 'POLLOCK' ? cleanFolds.foldSuprailiac : null, 
             foldThigh: method === 'POLLOCK' ? cleanFolds.foldThigh : null,
-            
+
             photoFront: photos.front || null,
             photoSide: photos.side || null,
             photoBack: photos.back || null

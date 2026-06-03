@@ -3,6 +3,18 @@ import { Platform, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+// 🔥 FAREJADOR DE GÊNERO DEFINITIVO: Busca direto na avaliação (onde o backend injeta) ou no userData 🔥
+const isFemaleDetector = (userData, assessment) => {
+    const rawGender = assessment?.user?.gender || 
+                      assessment?.user?.sexo || 
+                      userData?.gender || 
+                      userData?.sexo || 
+                      assessment?.gender || 
+                      '';
+    const g = String(rawGender).toUpperCase().trim();
+    return g.startsWith('F') || g === 'MULHER' || g === 'FEMININO' || g === 'FEMALE';
+};
+
 const generateRadarChart = (scores) => {
     const centerX = 150; const centerY = 150; const maxRadius = 100;
     let bgWebs = ''; let axesLines = ''; let dataPoints = ''; let dots = ''; let labelsSvg = '';
@@ -98,11 +110,10 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
     const tmbCalc = leanMassRaw ? Math.round(370 + (21.6 * leanMassRaw)) : null;
     const tmbDisplay = tmbCalc ? tmbCalc : '--';
 
-    // 🔥 GÊNERO À PROVA DE BALAS 🔥
-    const genderStr = (userData?.gender || '').toUpperCase().trim();
-    const isFemale = genderStr.startsWith('F') || genderStr === 'MULHER';
-    
+    // 🔥 GÊNERO À PROVA DE BALAS INTEGRADO 🔥
+    const isFemale = isFemaleDetector(userData, assessment);
     const pron = isFemale ? 'A avaliada' : 'O avaliado';
+    
     const heightDisplay = assessment.height ? ` | Altura: <strong>${assessment.height}m</strong>` : '';
     const bf = assessment.bodyFat ? parseFloat(assessment.bodyFat) : null;
 
@@ -265,6 +276,7 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
         </div>`;
     }
 
+    // 🔥 IMAGEM DE POSICIONAMENTO RESTAURADA 🔥
     if (bf) {
         let stageIdx = 0;
         if (bf >= 30) stageIdx = 1; else if (bf >= 20) stageIdx = 2; else if (bf >= 15) stageIdx = 3; else if (bf >= 10) stageIdx = 4; else if (bf > 0) stageIdx = 5;

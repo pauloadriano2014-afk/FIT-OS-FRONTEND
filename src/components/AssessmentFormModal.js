@@ -8,7 +8,7 @@ export default function AssessmentFormModal({
     visible, onClose, editingId, customDate, handleDateChange, method, setMethod,
     weight, setWeight, currentAge, setCurrentAge, currentGender, setCurrentGender,
     folds, setFolds, measures, setMeasures, onSave, theme, isWeb, webOuterBg,
-    photos, setPhotos // 🔥 ADICIONADO: Props para receber o estado de fotos da tela principal
+    photos, setPhotos
 }) {
     const [pollockTab, setPollockTab] = useState('DOBRAS'); 
     
@@ -17,7 +17,6 @@ export default function AssessmentFormModal({
     const containerMaxWidth = isWebPC ? 960 : '100%';
     const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
 
-    // 🔥 ADICIONADO: Lógica para abrir APENAS a galeria e upar as fotos
     const handleSelectPhoto = async (position) => {
         if (Platform.OS === 'web') {
             window.alert("Por favor, selecione a imagem do seu dispositivo.");
@@ -44,7 +43,6 @@ export default function AssessmentFormModal({
         }
     };
 
-    // 🔥 ADICIONADO: Componente visual da caixa de foto
     const renderPhotoBox = (label, position, icon) => (
         <TouchableOpacity style={[styles.photoBox, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => handleSelectPhoto(position)} activeOpacity={0.7}>
             {photos && photos[position] ? (
@@ -78,26 +76,17 @@ export default function AssessmentFormModal({
                             <ScrollView 
                                 style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]} 
                                 contentContainerStyle={{padding: 24, paddingBottom: 100}} 
-                                showsVerticalScrollIndicator={false}
-                                bounces={false} 
-                                overScrollMode="never"
+                                showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never"
                             >
                                 <Text style={[styles.label, { color: theme.textSecondary }]}>DATA (Opcional - Para Backdate)</Text>
                                 <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={customDate} onChangeText={handleDateChange} placeholder="DD/MM/AAAA (Deixe vazio para Hoje)" placeholderTextColor={theme.textSecondary} maxLength={10} outlineStyle="none" />
                                 
                                 <Text style={[styles.label, { color: theme.textSecondary, marginTop: 25 }]}>MÉTODO DA AVALIAÇÃO</Text>
                                 <View style={[styles.switchRow, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
-                                    <TouchableOpacity 
-                                        style={[styles.switchBtn, method === 'BASICO' && { backgroundColor: theme.accent }]} 
-                                        onPress={() => setMethod('BASICO')}
-                                    >
+                                    <TouchableOpacity style={[styles.switchBtn, method === 'BASICO' && { backgroundColor: theme.accent }]} onPress={() => setMethod('BASICO')}>
                                         <Text style={[styles.switchText, { color: method === 'BASICO' ? '#000' : theme.textSecondary, textAlign: 'center' }]}>BÁSICO</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.switchBtn, method === 'POLLOCK' && { backgroundColor: theme.accent }]} 
-                                        onPress={() => setMethod('POLLOCK')}
-                                    >
-                                        {/* 🔥 CORREÇÃO DO VAZAMENTO NO MOBILE 🔥 */}
+                                    <TouchableOpacity style={[styles.switchBtn, method === 'POLLOCK' && { backgroundColor: theme.accent }]} onPress={() => setMethod('POLLOCK')}>
                                         <Text style={[styles.switchText, { color: method === 'POLLOCK' ? '#000' : theme.textSecondary, textAlign: 'center' }]}>POLLOCK E{'\n'}PERIMETRIA</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -112,25 +101,24 @@ export default function AssessmentFormModal({
                                             <Text style={[styles.label, { color: theme.textSecondary }]}>IDADE</Text>
                                             <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={currentAge} onChangeText={setCurrentAge} placeholder="Anos" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
                                         </View>
-                                        <View style={{flex:1, marginLeft:15}}>
-                                            <Text style={[styles.label, { color: theme.textSecondary }]}>SEXO</Text>
-                                            <TouchableOpacity style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, justifyContent: 'center' }]} onPress={() => setCurrentGender(currentGender==='MASCULINO'?'FEMININO':'MASCULINO')}>
-                                                <Text style={{color: theme.text, fontWeight: 'bold'}}>{currentGender}</Text>
+                                        
+                                        {/* 🔥 BOTÃO DE GÊNERO DE VOLTA! SE O BANCO ESTIVER ERRADO, VOCÊ CORRIGE AQUI E ELE SALVA PARA SEMPRE 🔥 */}
+                                        <View style={{flex:1, marginLeft: 15}}>
+                                            <Text style={[styles.label, { color: theme.textSecondary }]}>GÊNERO</Text>
+                                            <TouchableOpacity 
+                                                style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, justifyContent: 'center' }]} 
+                                                onPress={() => setCurrentGender(currentGender === 'MASCULINO' ? 'FEMININO' : 'MASCULINO')}
+                                            >
+                                                <Text style={{color: theme.text, fontWeight: 'bold'}}>{currentGender || 'MASCULINO'}</Text>
                                             </TouchableOpacity>
                                         </View>
                                     </View>
                                     
                                     <View style={[styles.innerTabsContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                        <TouchableOpacity 
-                                            style={[styles.innerTabBtn, pollockTab === 'DOBRAS' && { backgroundColor: theme.accent }]} 
-                                            onPress={() => setPollockTab('DOBRAS')}
-                                        >
+                                        <TouchableOpacity style={[styles.innerTabBtn, pollockTab === 'DOBRAS' && { backgroundColor: theme.accent }]} onPress={() => setPollockTab('DOBRAS')}>
                                             <Text style={[styles.innerTabText, { color: pollockTab === 'DOBRAS' ? '#000' : theme.textSecondary }]}>DOBRAS (mm)</Text>
                                         </TouchableOpacity>
-                                        <TouchableOpacity 
-                                            style={[styles.innerTabBtn, pollockTab === 'PERIMETRIA' && { backgroundColor: theme.accent }]} 
-                                            onPress={() => setPollockTab('PERIMETRIA')}
-                                        >
+                                        <TouchableOpacity style={[styles.innerTabBtn, pollockTab === 'PERIMETRIA' && { backgroundColor: theme.accent }]} onPress={() => setPollockTab('PERIMETRIA')}>
                                             <Text style={[styles.innerTabText, { color: pollockTab === 'PERIMETRIA' ? '#000' : theme.textSecondary }]}>PERIMETRIA (cm)</Text>
                                         </TouchableOpacity>
                                     </View>
@@ -150,34 +138,29 @@ export default function AssessmentFormModal({
                                         </View>
                                     ) : (
                                         <View style={[styles.cardContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                            <Text style={[styles.hint, { color: theme.textSecondary, marginBottom: 20, marginTop: 0 }]}>Preencha apenas os campos desejados. Campos vazios não aparecerão no laudo de avaliação.</Text>
+                                            <Text style={[styles.hint, { color: theme.textSecondary, marginBottom: 20, marginTop: 0 }]}>Preencha apenas os campos desejados. Campos vazios não aparecerão no laudo.</Text>
                                             
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TÓRAX</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.chestMeasure} onChangeText={t=>setMeasures({...measures, chestMeasure:t})} outlineStyle="none"/></View>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>OMBROS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.shoulders} onChangeText={t=>setMeasures({...measures, shoulders:t})} outlineStyle="none"/></View>
                                             </View>
-
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>CINTURA</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.waist} onChangeText={t=>setMeasures({...measures, waist:t})} outlineStyle="none"/></View>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ABDÔMEN</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.abdomen} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none"/></View>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>GLÚTEOS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.hips} onChangeText={t=>setMeasures({...measures, hips:t})} outlineStyle="none"/></View>
                                             </View>
-
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>BRAÇO DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.armRight} onChangeText={t=>setMeasures({...measures, armRight:t})} outlineStyle="none"/></View>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>BRAÇO ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.armLeft} onChangeText={t=>setMeasures({...measures, armLeft:t})} outlineStyle="none"/></View>
                                             </View>
-
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ANTEB. DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.forearmRight} onChangeText={t=>setMeasures({...measures, forearmRight:t})} outlineStyle="none"/></View>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ANTEB. ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.forearmLeft} onChangeText={t=>setMeasures({...measures, forearmLeft:t})} outlineStyle="none"/></View>
                                             </View>
-
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PERNA DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.legRight} onChangeText={t=>setMeasures({...measures, legRight:t})} outlineStyle="none"/></View>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PERNA ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.legLeft} onChangeText={t=>setMeasures({...measures, legLeft:t})} outlineStyle="none"/></View>
                                             </View>
-
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 5}}>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PANTU. DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.calfRight} onChangeText={t=>setMeasures({...measures, calfRight:t})} outlineStyle="none"/></View>
                                                 <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PANTU. ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.calfLeft} onChangeText={t=>setMeasures({...measures, calfLeft:t})} outlineStyle="none"/></View>
@@ -195,7 +178,6 @@ export default function AssessmentFormModal({
                                     </View>
                                 )}
 
-                                {/* 🔥 ADICIONADO: Seção de Fotos da Avaliação */}
                                 <Text style={[styles.label, { color: theme.textSecondary, marginTop: 25 }]}>FOTOS DA AVALIAÇÃO (Opcional)</Text>
                                 <View style={styles.photosRow}>
                                     {renderPhotoBox("FRENTE", "front", "account")}
@@ -245,7 +227,6 @@ const styles = StyleSheet.create({
     
     hint: { fontSize: 12, fontStyle: 'italic', marginTop: 20, textAlign: 'center', lineHeight: 18 },
 
-    // 🔥 ADICIONADO: Estilos para as caixas de foto (Mantendo o padrão do PerformOS)
     photosRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
     photoBox: { width: '31%', aspectRatio: 0.8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
     photoPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },

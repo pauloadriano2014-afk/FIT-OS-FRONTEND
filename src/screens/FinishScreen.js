@@ -1,3 +1,4 @@
+// src/screens/FinishScreen.js
 import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Dimensions, Alert, StatusBar, Image, ImageBackground, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -121,6 +122,9 @@ export default function FinishScreen({ route, navigation }) {
     ? `DIA ${safeDay.toUpperCase()} FINALIZADO` 
     : `${safeDay.toUpperCase()} FINALIZADO`;
 
+  // 🔥 FORMATAÇÃO INTELIGENTE: Cria respiro nas barras para quebrar a linha nas palavras certas 🔥
+  const formattedWorkoutName = (workoutName || "TREINO DO DIA").replace(/\s*\/\s*/g, ' / ');
+
   const CardContent = () => (
     <View nativeID="share-card-web" style={styles.shareCard}>
       <View style={styles.cardInnerBg} />
@@ -140,10 +144,26 @@ export default function FinishScreen({ route, navigation }) {
         />
       )}
 
-      <Text style={styles.workoutTitle}>{workoutName || "TREINO DO DIA"}</Text>
+      {/* TÍTULO COM AJUSTE DE FONTE ATÉ 50% E QUEBRA INTELIGENTE */}
+      <Text 
+        style={styles.workoutTitle}
+        adjustsFontSizeToFit
+        numberOfLines={2}
+        minimumFontScale={0.5}
+      >
+        {formattedWorkoutName}
+      </Text>
+      
       <View style={styles.dayBadge}>
-          <Text style={styles.dayBadgeText}>{dayText}</Text>
+          <Text 
+            style={styles.dayBadgeText}
+            adjustsFontSizeToFit
+            numberOfLines={2}
+          >
+            {dayText}
+          </Text>
       </View>
+      
       <View style={styles.statsRow}>
         <View style={styles.statBox}>
           <Text style={styles.statVal}>+{xp || 0}</Text>
@@ -256,10 +276,21 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(10, 10, 10, 0.95)', 
   },
   logo: { width: 150, height: 150, marginBottom: 20, zIndex: 1 },
-  workoutTitle: { color: '#FFF', fontSize: 24, fontWeight: '900', textAlign: 'center', zIndex: 1, letterSpacing: 0.5 },
   
-  dayBadge: { backgroundColor: '#4DE38F', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8, marginTop: 15, marginBottom: 25, zIndex: 1 },
-  dayBadgeText: { color: '#000', fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  // Título com margens laterais garantidas
+  workoutTitle: { 
+    color: '#FFF', 
+    fontSize: 24, 
+    fontWeight: '900', 
+    textAlign: 'center', 
+    zIndex: 1, 
+    letterSpacing: 0.5, 
+    width: '100%',
+    paddingHorizontal: 10 
+  },
+  
+  dayBadge: { backgroundColor: '#4DE38F', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 8, marginTop: 15, marginBottom: 25, zIndex: 1, maxWidth: '100%' },
+  dayBadgeText: { color: '#000', fontSize: 11, fontWeight: '900', letterSpacing: 1, textAlign: 'center' },
 
   statsRow: { 
     flexDirection: 'row', 

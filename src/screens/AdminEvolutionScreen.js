@@ -197,7 +197,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
                 onClose={() => setDetailsVisible(false)} 
                 onEdit={() => handleEdit(selectedAssessment)} 
                 onDelete={() => handleDelete(selectedAssessment?.id)} 
-                onGeneratePDF={() => generateSinglePDF(selectedAssessment, { ...aluno, gender: currentGender || aluno.gender })} 
+                onGeneratePDF={() => generateSinglePDF(selectedAssessment, { ...aluno, gender: currentGender || selectedAssessment?.user?.gender || aluno.gender })} 
                 theme={theme} 
             />
 
