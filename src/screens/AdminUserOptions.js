@@ -14,6 +14,8 @@ import AdminUserAccessTab from '../components/Admin/AdminUserAccessTab';
 import AdminUserTreinosTab from '../components/Admin/AdminUserTreinosTab';
 import AdminUserSystem from '../components/AdminUserSystem';
 import RaioxCargasModal from '../components/RaioxCargasModal';
+// 🔥 NOVA ABA: Perfil e Anamnese do Aluno
+import AdminUserAnamneseTab from '../components/Admin/AdminUserAnamneseTab';
 
 const DIET_OPTIONS = [
     { id: 'NONE', label: '🚫 Ocultar Botão', desc: 'Aluno não verá a sugestão alimentar.' },
@@ -24,6 +26,7 @@ const DIET_OPTIONS = [
 
 const MENU_TABS = [
     { id: 'RESUMO', label: 'VISÃO GERAL', icon: 'view-dashboard' },
+    { id: 'ANAMNESE', label: 'PERFIL & ANAMNESE', icon: 'clipboard-text' }, // 🔥 INSERIDO AQUI
     { id: 'TREINOS', label: 'TREINOS', icon: 'weight-lifter' },
     { id: 'AVALIACOES', label: 'AVALIAÇÕES', icon: 'camera-front-variant' },
     { id: 'DIETA_IA', label: 'NUTRIÇÃO & IA', icon: 'food-apple' },
@@ -53,6 +56,9 @@ export default function AdminUserOptions({ route, navigation }) {
         switch (ops.activeTab) {
             case 'RESUMO':
                 return <AdminUserSummaryTab theme={theme} aluno={aluno} freshAluno={ops.freshAluno} isWebPC={isWebPC} handlePickImage={ops.handlePickImage} uploadingPhoto={ops.uploadingPhoto} photoUrl={ops.photoUrl} isActiveUser={ops.isActiveUser} studentAlerts={ops.studentAlerts} isAlertsExpanded={ops.isAlertsExpanded} setIsAlertsExpanded={ops.setIsAlertsExpanded} handleDismissAlert={ops.handleDismissAlert} isContactDelayed={ops.isContactDelayed} lastContactDate={ops.lastContactDate} daysSinceContact={ops.daysSinceContact} handleRegisterContactToday={ops.handleRegisterContactToday} weeklyChecks={ops.weeklyChecks} handleToggleCheck={ops.handleToggleCheck} handleRemoveCheck={ops.handleRemoveCheck} newCheckText={ops.newCheckText} setNewCheckText={ops.setNewCheckText} handleAddCheck={ops.handleAddCheck} strategyNotes={ops.strategyNotes} setStrategyNotes={ops.setStrategyNotes} handleSaveStrategy={ops.handleSaveStrategy} savingNotes={ops.savingNotes} activeWorkouts={ops.activeWorkouts} setActiveTab={ops.setActiveTab} navigation={navigation} handleAbrirRaioxCargas={ops.handleAbrirRaioxCargas} isDietTabVisible={ops.isDietTabVisible} dietGoal={ops.dietGoal} DIET_OPTIONS={DIET_OPTIONS} />;
+            case 'ANAMNESE':
+                // 🔥 ROTEAMENTO PARA A NOVA TELA DE ANAMNESE
+                return <AdminUserAnamneseTab theme={theme} aluno={ops.freshAluno || aluno} userPlan={ops.userPlan} />;
             case 'TREINOS':
                 return (
                     <AdminUserTreinosTab 

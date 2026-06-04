@@ -1,7 +1,8 @@
 // src/hooks/useAdminEvolution.js
 import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
-import { getAgeFromDate, calculateBodyFat } from '../utils/calculations';
+// 🔥 Importamos a nossa nova função matemática getAgeAtDate!
+import { getAgeFromDate, getAgeAtDate, calculateBodyFat } from '../utils/calculations';
 
 export default function useAdminEvolution(aluno) {
     const [loading, setLoading] = useState(true);
@@ -20,9 +21,10 @@ export default function useAdminEvolution(aluno) {
     const [method, setMethod] = useState('BASICO');
     const [customDate, setCustomDate] = useState('');
     const [weight, setWeight] = useState('');
-    const [currentAge, setCurrentAge] = useState(aluno?.birthDate ? getAgeFromDate(aluno.birthDate) : '');
     
-    // Gênero agora recebe corretamente do banco
+    // 🔥 Salvamos a data de nascimento como estado para a Máquina do Tempo poder consultar!
+    const [studentBirthDate, setStudentBirthDate] = useState('');
+    const [currentAge, setCurrentAge] = useState('');
     const [currentGender, setCurrentGender] = useState(aluno?.gender ? aluno.gender.toUpperCase().trim() : '');
     
     const [measures, setMeasures] = useState({ 
@@ -34,18 +36,31 @@ export default function useAdminEvolution(aluno) {
 
     const [photos, setPhotos] = useState({ front: null, back: null, side: null });
 
+    useEffect(() => {
+        if (aluno?.birthDate || aluno?.dataNascimento) {
+            setStudentBirthDate(aluno.birthDate || aluno.dataNascimento);
+        }
+        if (aluno?.birthDate || aluno?.idade || aluno?.age) {
+            if (aluno.idade || aluno.age) {
+                setCurrentAge(String(aluno.idade || aluno.age).replace(/[^0-9]/g, ''));
+            } else {
+                const calc = getAgeFromDate(aluno.birthDate);
+                if (calc) setCurrentAge(calc);
+            }
+        }
+    }, [aluno?.birthDate, aluno?.idade, aluno?.age, aluno?.dataNascimento]);
+
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
 
-            // 🔥 BLINDAGEM MÁXIMA: Se o servidor (Render) estiver reiniciando, ele não quebra o app! 🔥
             const safeFetchJSON = async (url) => {
                 try {
                     const res = await fetch(url);
                     if (!res.ok) return null;
                     return await res.json();
                 } catch (e) {
-                    return null; // Retorna null em vez de explodir um erro de HTML/502 Bad Gateway
+                    return null; 
                 }
             };
 
@@ -55,7 +70,7 @@ export default function useAdminEvolution(aluno) {
                 safeFetchJSON(`https://fitos-final.onrender.com/api/checkin?userId=${aluno.id}`) 
             ]);
 
-            // 🔥 MÁQUINA DE DESCOBRIR GÊNERO 🔥
+            // 🔥 VARREDURA PROFUNDA DO GÊNERO 🔥
             let realGender = aluno?.gender || aluno?.sexo || '';
 
             if (!realGender && dataLogs?.user) {
@@ -66,21 +81,53 @@ export default function useAdminEvolution(aluno) {
                 realGender = dataAssess[0].user.gender || dataAssess[0].user.sexo || '';
             }
 
-            if (!realGender) {
-                const userDetails = await safeFetchJSON(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
-                if (userDetails) {
+            // 🔥 O NOVO ARRASTÃO DA IDADE 🔥
+            let realBirth = aluno?.birthDate || aluno?.dataNascimento || '';
+            let literalAge = aluno?.idade || aluno?.age || '';
+
+            if (!realBirth && !literalAge && dataLogs?.user) {
+                realBirth = dataLogs.user.birthDate || dataLogs.user.dataNascimento || '';
+                literalAge = dataLogs.user.idade || dataLogs.user.age || '';
+            }
+
+            if (!realBirth && !literalAge && Array.isArray(dataAssess) && dataAssess.length > 0 && dataAssess[0]?.user) {
+                realBirth = dataAssess[0].user.birthDate || dataAssess[0].user.dataNascimento || '';
+                literalAge = dataAssess[0].user.idade || dataAssess[0].user.age || '';
+            }
+
+            // 🔥 A CORREÇÃO: Usando ?userId= para buscar o usuário corretamente no novo backend
+            const userDetails = await safeFetchJSON(`https://fitos-final.onrender.com/api/admin/user?userId=${aluno.id}&t=${Date.now()}`);
+            
+            if (userDetails) {
+                if (!realGender) {
                     realGender = userDetails.gender || userDetails.sexo || userDetails.user?.gender || '';
+                }
+
+                if (!realBirth && !literalAge) {
+                    realBirth = userDetails.birthDate || userDetails.user?.birthDate || userDetails.dataNascimento || '';
+                    literalAge = userDetails.idade || userDetails.age || userDetails.user?.idade || userDetails.user?.age || '';
                 }
             }
 
+            if (realBirth) setStudentBirthDate(realBirth); // Guarda a raiz do nascimento para cálculos!
+
+            // 🟢 APLICA O GÊNERO
             if (realGender) {
                 setCurrentGender(realGender.toUpperCase().trim());
             } else {
                 setCurrentGender('MASCULINO'); 
             }
 
-            // 🔥 PREENCHIMENTO SEGURO DOS DADOS 🔥
-            // Só atualiza a tela se os dados vieram inteiros. Se o servidor retornou Null, mantém o que já estava.
+            // 🟢 APLICA A IDADE AUTOMÁTICA APENAS SE A TELA ESTIVER VAZIA
+            if (!currentAge) {
+                if (literalAge && String(literalAge).trim() !== '') {
+                    setCurrentAge(String(literalAge).replace(/[^0-9]/g, ''));
+                } else if (realBirth) {
+                    const calcAge = getAgeFromDate(realBirth);
+                    if (calcAge) setCurrentAge(calcAge);
+                }
+            }
+
             if (dataAssess && Array.isArray(dataAssess)) {
                 setAssessmentHistory(dataAssess);
             } else if (dataAssess && dataAssess.data && Array.isArray(dataAssess.data)) {
@@ -102,7 +149,7 @@ export default function useAdminEvolution(aluno) {
         } finally { 
             setLoading(false); 
         }
-    }, [aluno.id, aluno.gender, aluno.sexo]);
+    }, [aluno.id, aluno.gender, aluno.sexo, aluno.birthDate, aluno.idade, aluno.age, currentAge]);
 
     useEffect(() => { 
         if (aluno?.id) loadData(); 
@@ -142,6 +189,20 @@ export default function useAdminEvolution(aluno) {
         if (cleaned.length > 5) cleaned = cleaned.slice(0, 5) + '/' + cleaned.slice(5);
         if (cleaned.length > 10) cleaned = cleaned.slice(0, 10);
         setCustomDate(cleaned);
+
+        // 🔥 A MÁQUINA DO TEMPO EM AÇÃO!
+        if (studentBirthDate) {
+            // Se preencheu uma data inteira, calcula a idade no passado/futuro
+            if (cleaned.length === 10) {
+                const retroAge = getAgeAtDate(studentBirthDate, cleaned);
+                if (retroAge) setCurrentAge(retroAge);
+            } 
+            // Se o professor apagar a data retroativa, volta para a idade de Hoje
+            else if (cleaned === '') {
+                const currentAgeNow = getAgeFromDate(studentBirthDate);
+                if (currentAgeNow) setCurrentAge(currentAgeNow);
+            }
+        }
     };
 
     const resetForm = () => {
@@ -149,6 +210,12 @@ export default function useAdminEvolution(aluno) {
         setMeasures({ waist:'', abdomen:'', chestMeasure: '', shoulders: '', hips: '', armRight: '', armLeft: '', forearmRight: '', forearmLeft: '', legRight: '', legLeft: '', calfRight: '', calfLeft: '' });
         setFolds({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
         setPhotos({ front: null, back: null, side: null }); 
+        
+        // Retorna a idade para Hoje ao fechar
+        if (studentBirthDate) {
+            const currentAgeNow = getAgeFromDate(studentBirthDate);
+            if (currentAgeNow) setCurrentAge(currentAgeNow);
+        }
     };
 
     const handleEdit = (item) => {
@@ -156,8 +223,19 @@ export default function useAdminEvolution(aluno) {
         setEditingId(item.id);
         setMethod(item.method || 'BASICO');
         setWeight(String(item.weight));
+        
         const d = new Date(item.date);
-        setCustomDate(`${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`);
+        const formattedDate = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+        setCustomDate(formattedDate);
+
+        // 🔥 O RESGATE DO PASSADO: Busca a idade congelada no banco, ou calcula por aproximação!
+        if (item.age) {
+            setCurrentAge(String(item.age));
+        } else if (studentBirthDate) {
+            // Suporte para avaliações muito antigas que não tinham idade salva no banco ainda
+            const retroAge = getAgeAtDate(studentBirthDate, formattedDate);
+            if (retroAge) setCurrentAge(retroAge);
+        }
 
         const itemPhotos = Array.isArray(item.photos) ? item.photos : [];
         setPhotos({
@@ -198,82 +276,107 @@ export default function useAdminEvolution(aluno) {
     };
 
     const handleSaveAssessment = async () => {
-        if (!weight) return Alert.alert("Erro", "O campo Peso é obrigatório.");
-        if (customDate && customDate.length !== 10) return Alert.alert("Erro", "Data inválida (DD/MM/AAAA).");
-
-        let isoDate = new Date().toISOString();
-        if (customDate) {
-            const [day, month, year] = customDate.split('/');
-            isoDate = new Date(`${year}-${month}-${day}T12:00:00`).toISOString();
-        }
-
-        let calculatedBF = null;
-        let cleanFolds = {};
-        let cleanMeasures = {};
-
-        if (method === 'POLLOCK') {
-            if (!currentAge) return Alert.alert("Atenção", "Informe a IDADE para calcular o % de Gordura.");
-            Object.keys(folds).forEach(k => cleanFolds[k] = folds[k].replace(',', '.'));
-            calculatedBF = calculateBodyFat(currentGender, currentAge, cleanFolds);
-            Object.keys(measures).forEach(k => cleanMeasures[k] = measures[k] ? measures[k].replace(',', '.') : null);
-        } else {
-            cleanMeasures.waist = measures.waist ? measures.waist.replace(',', '.') : null;
-            cleanMeasures.abdomen = measures.abdomen ? measures.abdomen.replace(',', '.') : null;
-        }
-
-        const payload = {
-            userId: aluno.id, 
-            date: isoDate, 
-            weight: weight.replace(',', '.'), 
-            method, 
-            bodyFat: calculatedBF,
-            waist: cleanMeasures.waist, 
-            abdomen: cleanMeasures.abdomen,
-            chest: method === 'POLLOCK' ? cleanMeasures.chestMeasure : null, 
-            shoulders: method === 'POLLOCK' ? cleanMeasures.shoulders : null, 
-            hips: method === 'POLLOCK' ? cleanMeasures.hips : null, 
-            arms: method === 'POLLOCK' ? cleanMeasures.armRight : null, 
-            armLeft: method === 'POLLOCK' ? cleanMeasures.armLeft : null, 
-            forearms: method === 'POLLOCK' ? cleanMeasures.forearmRight : null, 
-            forearmLeft: method === 'POLLOCK' ? cleanMeasures.forearmLeft : null, 
-            thighs: method === 'POLLOCK' ? cleanMeasures.legRight : null, 
-            thighLeft: method === 'POLLOCK' ? cleanMeasures.thighLeft : null, 
-            calves: method === 'POLLOCK' ? cleanMeasures.calfRight : null, 
-            calfLeft: method === 'POLLOCK' ? cleanMeasures.calfLeft : null,
-            foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null, 
-            foldAxillary: method === 'POLLOCK' ? cleanFolds.foldAxillary : null, 
-            foldTriceps: method === 'POLLOCK' ? cleanFolds.foldTriceps : null, 
-            foldSubscapular: method === 'POLLOCK' ? cleanFolds.foldSubscapular : null, 
-            foldAbdominal: method === 'POLLOCK' ? cleanFolds.foldAbdominal : null, 
-            foldSuprailiac: method === 'POLLOCK' ? cleanFolds.foldSuprailiac : null, 
-            foldThigh: method === 'POLLOCK' ? cleanFolds.foldThigh : null,
-
-            photoFront: photos.front || null,
-            photoSide: photos.side || null,
-            photoBack: photos.back || null
-        };
-
-        if (editingId) payload.id = editingId;
-
         try {
-            const res = await fetch('https://fitos-final.onrender.com/api/assessment', { 
+            if (!weight) return Alert.alert("Erro", "O campo Peso é obrigatório.");
+            if (customDate && customDate.length !== 10) return Alert.alert("Erro", "Data inválida (DD/MM/AAAA).");
+
+            let isoDate = new Date().toISOString();
+            if (customDate) {
+                const [day, month, year] = customDate.split('/');
+                isoDate = new Date(`${year}-${month}-${day}T12:00:00`).toISOString();
+            }
+
+            let calculatedBF = null;
+            let cleanFolds = {};
+            let cleanMeasures = {};
+
+            const safeReplace = (val) => {
+                if (val === null || val === undefined || val === '') return null;
+                return String(val).replace(',', '.');
+            };
+
+            if (method === 'POLLOCK') {
+                if (!currentAge || currentAge === '') {
+                    return Alert.alert("Atenção", "Informe a IDADE do aluno para calcular o % de Gordura. Verifique no cadastro.");
+                }
+                
+                Object.keys(folds).forEach(k => cleanFolds[k] = safeReplace(folds[k]));
+                
+                try {
+                    calculatedBF = calculateBodyFat(currentGender, currentAge, cleanFolds);
+                } catch (e) {
+                    console.log("Falha no cálculo BF:", e);
+                }
+                
+                Object.keys(measures).forEach(k => cleanMeasures[k] = safeReplace(measures[k]));
+            } else {
+                cleanMeasures.waist = safeReplace(measures.waist);
+                cleanMeasures.abdomen = safeReplace(measures.abdomen);
+            }
+
+            const payload = {
+                userId: aluno.id, 
+                date: isoDate,
+                age: currentAge ? parseInt(currentAge, 10) : null, // 🔥 O GRANDE PASSO: A Idade agora vai pro Banco de Dados!
+                weight: safeReplace(weight), 
+                method, 
+                bodyFat: calculatedBF,
+                waist: cleanMeasures.waist, 
+                abdomen: cleanMeasures.abdomen,
+                chest: method === 'POLLOCK' ? cleanMeasures.chestMeasure : null, 
+                shoulders: method === 'POLLOCK' ? cleanMeasures.shoulders : null, 
+                hips: method === 'POLLOCK' ? cleanMeasures.hips : null, 
+                arms: method === 'POLLOCK' ? cleanMeasures.armRight : null, 
+                armLeft: method === 'POLLOCK' ? cleanMeasures.armLeft : null, 
+                forearms: method === 'POLLOCK' ? cleanMeasures.forearmRight : null, 
+                forearmLeft: method === 'POLLOCK' ? cleanMeasures.forearmLeft : null, 
+                thighs: method === 'POLLOCK' ? cleanMeasures.legRight : null, 
+                thighLeft: method === 'POLLOCK' ? cleanMeasures.thighLeft : null, 
+                calves: method === 'POLLOCK' ? cleanMeasures.calfRight : null, 
+                calfLeft: method === 'POLLOCK' ? cleanMeasures.calfLeft : null,
+                foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null, 
+                foldAxillary: method === 'POLLOCK' ? cleanFolds.foldAxillary : null, 
+                foldTriceps: method === 'POLLOCK' ? cleanFolds.foldTriceps : null, 
+                foldSubscapular: method === 'POLLOCK' ? cleanFolds.foldSubscapular : null, 
+                foldAbdominal: method === 'POLLOCK' ? cleanFolds.foldAbdominal : null, 
+                foldSuprailiac: method === 'POLLOCK' ? cleanFolds.foldSuprailiac : null, 
+                foldThigh: method === 'POLLOCK' ? cleanFolds.foldThigh : null,
+
+                photoFront: photos.front || null,
+                photoSide: photos.side || null,
+                photoBack: photos.back || null
+            };
+
+            if (editingId) payload.id = editingId;
+
+            const endpointUrl = editingId 
+                ? `https://fitos-final.onrender.com/api/assessment?id=${editingId}` 
+                : 'https://fitos-final.onrender.com/api/assessment';
+
+            const res = await fetch(endpointUrl, { 
                 method: editingId ? 'PUT' : 'POST', 
                 headers: {'Content-Type': 'application/json'}, 
                 body: JSON.stringify(payload) 
             });
-            const json = await res.json(); 
+            
+            const textResponse = await res.text();
+            let json = {};
+            if (textResponse) {
+                try { json = JSON.parse(textResponse); } catch (e) {}
+            }
 
             if (res.ok) {
-                const msg = method === 'POLLOCK' ? `Salvo!\nBF Estimado: ${calculatedBF}%` : `Peso registrado!`;
+                const msg = method === 'POLLOCK' ? `Salvo!\nBF Estimado: ${calculatedBF}%` : `Avaliação salva com sucesso!`;
                 if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Sucesso", msg);
                 setModalVisible(false); 
                 resetForm(); 
                 loadData(); 
             } else {
-                Alert.alert("Erro ao Salvar", json.error || "Verifique os dados.");
+                Alert.alert("Erro ao Salvar", json.error || "Verifique os dados informados.");
             }
         } catch (e) { 
-            Alert.alert("Erro de Conexão", e.message); 
+            console.error("Erro CRÍTICO na submissão:", e);
+            Alert.alert("Erro", "Ocorreu uma falha no sistema. Revise os campos numéricos e tente novamente."); 
         }
     };
 

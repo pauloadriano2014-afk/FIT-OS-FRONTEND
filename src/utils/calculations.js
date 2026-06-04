@@ -1,3 +1,5 @@
+// src/utils/calculations.js
+
 export const calculateBodyFat = (gender, age, rawFolds) => {
     const cleanVal = (v) => Number(String(v).replace(',', '.') || 0);
     
@@ -15,7 +17,7 @@ export const calculateBodyFat = (gender, age, rawFolds) => {
     let density = 0;
     const ageVal = Number(age);
     
-    if (gender === 'MASCULINO') {
+    if (String(gender).toUpperCase().trim() === 'MASCULINO') {
         density = 1.112 - (0.00043499 * sum) + (0.00000055 * sum * sum) - (0.00028826 * ageVal);
     } else {
         density = 1.097 - (0.00046971 * sum) + (0.00000056 * sum * sum) - (0.00012828 * ageVal);
@@ -25,14 +27,57 @@ export const calculateBodyFat = (gender, age, rawFolds) => {
     return bf > 0 ? parseFloat(bf.toFixed(1)) : 0;
 };
 
+// 🔥 FUNÇÃO INTERNA: Tradutor absoluto de datas (Resolve o problema do JavaScript com o padrão BR) 🔥
+const parseDateBr = (dateStr) => {
+    if (!dateStr) return null;
+    const str = String(dateStr).trim();
+    
+    // Se vier no formato DD/MM/YYYY, inverte para YYYY-MM-DD para o JavaScript entender
+    if (str.includes('/')) {
+        const parts = str.split('/');
+        if (parts.length === 3 && parts[2].length === 4) {
+            return new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00`);
+        }
+    }
+    
+    // Se já vier no padrão ISO (Banco de Dados), lê normal
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+};
+
+// Pega a idade com base no dia de HOJE
 export const getAgeFromDate = (birthDate) => {
-    if (!birthDate) return '';
+    const d = parseDateBr(birthDate);
+    if (!d) return '';
+    
     const today = new Date();
-    const birth = new Date(birthDate);
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age.toString();
+    let age = today.getFullYear() - d.getFullYear();
+    const m = today.getMonth() - d.getMonth();
+    
+    if (m < 0 || (m === 0 && today.getDate() < d.getDate())) {
+        age--;
+    }
+    
+    return age > 0 ? age.toString() : '';
+};
+
+// 🔥 NOVA FUNÇÃO MESTRA: Calcula a idade no exato dia em que a Avaliação foi (ou será) feita 🔥
+export const getAgeAtDate = (birthDate, assessmentDate) => {
+    const birth = parseDateBr(birthDate);
+    if (!birth) return '';
+
+    // Se o professor não preencheu data retroativa, usa a data de hoje como base
+    const targetDate = assessmentDate ? parseDateBr(assessmentDate) : new Date();
+    if (!targetDate) return '';
+
+    let age = targetDate.getFullYear() - birth.getFullYear();
+    const m = targetDate.getMonth() - birth.getMonth();
+    
+    if (m < 0 || (m === 0 && targetDate.getDate() < birth.getDate())) {
+        age--;
+    }
+    
+    return age > 0 ? age.toString() : '';
 };
 
 export const getRpeInfo = (val) => {

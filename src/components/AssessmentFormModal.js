@@ -17,6 +17,9 @@ export default function AssessmentFormModal({
     const containerMaxWidth = isWebPC ? 960 : '100%';
     const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
 
+    // 🔥 BLINDAGEM: Garante que os valores numéricos cheguem como String, evitando falhas silenciosas no TextInput
+    const getStr = (val) => (val !== null && val !== undefined) ? String(val) : '';
+
     const handleSelectPhoto = async (position) => {
         if (Platform.OS === 'web') {
             window.alert("Por favor, selecione a imagem do seu dispositivo.");
@@ -24,22 +27,27 @@ export default function AssessmentFormModal({
 
         const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (!permission.granted) {
-            Alert.alert("Permissão", "Precisamos acessar a galeria para selecionar a foto.");
+            if (Platform.OS === 'web') window.alert("Precisamos acessar a galeria para selecionar a foto.");
+            else Alert.alert("Permissão", "Precisamos acessar a galeria para selecionar a foto.");
             return;
         }
 
-        let result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          quality: 0.5, 
-          base64: true,
-          allowsEditing: false, 
-        });
-        
-        if (!result.canceled && result.assets[0].base64) {
-            const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
-            if (setPhotos) {
-                setPhotos(prev => ({ ...prev, [position]: base64Img }));
+        try {
+            let result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                quality: 0.5, 
+                base64: true,
+                allowsEditing: false, 
+            });
+            
+            if (!result.canceled && result.assets && result.assets.length > 0 && result.assets[0].base64) {
+                const base64Img = `data:image/jpeg;base64,${result.assets[0].base64}`;
+                if (setPhotos) {
+                    setPhotos(prev => ({ ...prev, [position]: base64Img }));
+                }
             }
+        } catch (e) {
+            console.log("Erro ao selecionar foto:", e);
         }
     };
 
@@ -56,6 +64,27 @@ export default function AssessmentFormModal({
             {photos && photos[position] && <View style={[styles.checkBadge, { backgroundColor: theme.accent }]}><MaterialCommunityIcons name="check" size={12} color={theme.isDark ? '#000' : '#FFF'}/></View>}
         </TouchableOpacity>
     );
+
+    // 🔥 PRÉ-VALIDAÇÃO SEGURA: Resolve o "botão morto" forçando o aviso no navegador
+    const handleSafeSave = () => {
+        console.log("🔥 [MODAL] Botão de Salvar clicado! Processando...");
+        
+        if (!weight) {
+            const msg = "O campo Peso é obrigatório.";
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Erro", msg);
+            return;
+        }
+
+        const cleanAge = getStr(currentAge).replace(/[^0-9]/g, '');
+        if (method === 'POLLOCK' && !cleanAge) {
+            const msg = "A IDADE não pode estar vazia ou inválida. Digite a idade do aluno para calcular o Pollock.";
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Atenção", msg);
+            return;
+        }
+
+        // Se passou na validação segura, aciona o hook do PerformOS
+        if (onSave) onSave();
+    };
 
     if (!visible) return null;
 
@@ -79,7 +108,7 @@ export default function AssessmentFormModal({
                                 showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never"
                             >
                                 <Text style={[styles.label, { color: theme.textSecondary }]}>DATA (Opcional - Para Backdate)</Text>
-                                <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={customDate} onChangeText={handleDateChange} placeholder="DD/MM/AAAA (Deixe vazio para Hoje)" placeholderTextColor={theme.textSecondary} maxLength={10} outlineStyle="none" />
+                                <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={getStr(customDate)} onChangeText={handleDateChange} placeholder="DD/MM/AAAA (Deixe vazio para Hoje)" placeholderTextColor={theme.textSecondary} maxLength={10} outlineStyle="none" />
                                 
                                 <Text style={[styles.label, { color: theme.textSecondary, marginTop: 25 }]}>MÉTODO DA AVALIAÇÃO</Text>
                                 <View style={[styles.switchRow, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1 }]}>
@@ -92,22 +121,22 @@ export default function AssessmentFormModal({
                                 </View>
                                 
                                 <Text style={[styles.label, { color: theme.textSecondary }]}>PESO (KG) <Text style={{color: '#FF3B30'}}>*Obrigatório</Text></Text>
-                                <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={weight} onChangeText={setWeight} placeholder="Ex: 80.5" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
+                                <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(weight)} onChangeText={setWeight} placeholder="Ex: 80.5" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
                                 
                                 {method === 'POLLOCK' ? (
                                     <>
                                     <View style={styles.configRow}>
                                         <View style={{flex:1}}>
                                             <Text style={[styles.label, { color: theme.textSecondary }]}>IDADE</Text>
-                                            <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={currentAge} onChangeText={setCurrentAge} placeholder="Anos" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
+                                            {/* 🔥 Limpa automaticamente caracteres como '-- anos' se caírem no input */}
+                                            <TextInput style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} keyboardType="numeric" value={getStr(currentAge).replace(/[^0-9]/g, '')} onChangeText={(t) => setCurrentAge(t.replace(/[^0-9]/g, ''))} placeholder="Anos" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
                                         </View>
                                         
-                                        {/* 🔥 GÊNERO BLOQUEADO: APENAS LEITURA DO BANCO DE DADOS 🔥 */}
                                         <View style={{flex:1, marginLeft: 15}}>
                                             <Text style={[styles.label, { color: theme.accent }]}>GÊNERO (Automático)</Text>
                                             <View style={[styles.input, { backgroundColor: theme.bg, borderColor: theme.border, justifyContent: 'center' }]}>
                                                 <Text style={{color: currentGender ? theme.text : '#FF3B30', fontWeight: 'bold', fontSize: 13}}>
-                                                    {currentGender || 'NÃO DEFINIDO NO BANCO'}
+                                                    {currentGender || 'NÃO DEFINIDO'}
                                                 </Text>
                                             </View>
                                         </View>
@@ -125,13 +154,13 @@ export default function AssessmentFormModal({
                                     {pollockTab === 'DOBRAS' ? (
                                         <View style={[styles.cardContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                             <View style={styles.grid}>
-                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PEITORAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldChest} onChangeText={t=>setFolds({...folds, foldChest:t})} outlineStyle="none"/></View>
-                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>AXILAR</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldAxillary} onChangeText={t=>setFolds({...folds, foldAxillary:t})} outlineStyle="none"/></View>
-                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TRÍCEPS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldTriceps} onChangeText={t=>setFolds({...folds, foldTriceps:t})} outlineStyle="none"/></View>
-                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUBESCAP.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldSubscapular} onChangeText={t=>setFolds({...folds, foldSubscapular:t})} outlineStyle="none"/></View>
-                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ABDOMINAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldAbdominal} onChangeText={t=>setFolds({...folds, foldAbdominal:t})} outlineStyle="none"/></View>
-                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUPRA-IL.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldSuprailiac} onChangeText={t=>setFolds({...folds, foldSuprailiac:t})} outlineStyle="none"/></View>
-                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>COXA</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={folds.foldThigh} onChangeText={t=>setFolds({...folds, foldThigh:t})} outlineStyle="none"/></View>
+                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PEITORAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(folds?.foldChest)} onChangeText={t=>setFolds({...folds, foldChest:t})} outlineStyle="none"/></View>
+                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>AXILAR</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(folds?.foldAxillary)} onChangeText={t=>setFolds({...folds, foldAxillary:t})} outlineStyle="none"/></View>
+                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TRÍCEPS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(folds?.foldTriceps)} onChangeText={t=>setFolds({...folds, foldTriceps:t})} outlineStyle="none"/></View>
+                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUBESCAP.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(folds?.foldSubscapular)} onChangeText={t=>setFolds({...folds, foldSubscapular:t})} outlineStyle="none"/></View>
+                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ABDOMINAL</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(folds?.foldAbdominal)} onChangeText={t=>setFolds({...folds, foldAbdominal:t})} outlineStyle="none"/></View>
+                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>SUPRA-IL.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(folds?.foldSuprailiac)} onChangeText={t=>setFolds({...folds, foldSuprailiac:t})} outlineStyle="none"/></View>
+                                                <View style={styles.gridItem}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>COXA</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(folds?.foldThigh)} onChangeText={t=>setFolds({...folds, foldThigh:t})} outlineStyle="none"/></View>
                                             </View>
                                             <Text style={[styles.hint, { color: theme.textSecondary }]}>O app usará a soma das dobras e a idade para calcular o % de Gordura.</Text>
                                         </View>
@@ -140,29 +169,29 @@ export default function AssessmentFormModal({
                                             <Text style={[styles.hint, { color: theme.textSecondary, marginBottom: 20, marginTop: 0 }]}>Preencha apenas os campos desejados. Campos vazios não aparecerão no laudo.</Text>
                                             
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TÓRAX</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.chestMeasure} onChangeText={t=>setMeasures({...measures, chestMeasure:t})} outlineStyle="none"/></View>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>OMBROS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.shoulders} onChangeText={t=>setMeasures({...measures, shoulders:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>TÓRAX</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.chestMeasure)} onChangeText={t=>setMeasures({...measures, chestMeasure:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>OMBROS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.shoulders)} onChangeText={t=>setMeasures({...measures, shoulders:t})} outlineStyle="none"/></View>
                                             </View>
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>CINTURA</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.waist} onChangeText={t=>setMeasures({...measures, waist:t})} outlineStyle="none"/></View>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ABDÔMEN</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.abdomen} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none"/></View>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>GLÚTEOS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.hips} onChangeText={t=>setMeasures({...measures, hips:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>CINTURA</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.waist)} onChangeText={t=>setMeasures({...measures, waist:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ABDÔMEN</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.abdomen)} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>GLÚTEOS</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.hips)} onChangeText={t=>setMeasures({...measures, hips:t})} outlineStyle="none"/></View>
                                             </View>
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>BRAÇO DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.armRight} onChangeText={t=>setMeasures({...measures, armRight:t})} outlineStyle="none"/></View>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>BRAÇO ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.armLeft} onChangeText={t=>setMeasures({...measures, armLeft:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>BRAÇO DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.armRight)} onChangeText={t=>setMeasures({...measures, armRight:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>BRAÇO ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.armLeft)} onChangeText={t=>setMeasures({...measures, armLeft:t})} outlineStyle="none"/></View>
                                             </View>
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ANTEB. DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.forearmRight} onChangeText={t=>setMeasures({...measures, forearmRight:t})} outlineStyle="none"/></View>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ANTEB. ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.forearmLeft} onChangeText={t=>setMeasures({...measures, forearmLeft:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ANTEB. DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.forearmRight)} onChangeText={t=>setMeasures({...measures, forearmRight:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>ANTEB. ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.forearmLeft)} onChangeText={t=>setMeasures({...measures, forearmLeft:t})} outlineStyle="none"/></View>
                                             </View>
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 15}}>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PERNA DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.legRight} onChangeText={t=>setMeasures({...measures, legRight:t})} outlineStyle="none"/></View>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PERNA ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.legLeft} onChangeText={t=>setMeasures({...measures, legLeft:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PERNA DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.legRight)} onChangeText={t=>setMeasures({...measures, legRight:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PERNA ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.legLeft)} onChangeText={t=>setMeasures({...measures, legLeft:t})} outlineStyle="none"/></View>
                                             </View>
                                             <View style={{flexDirection: 'row', gap: 15, marginBottom: 5}}>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PANTU. DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.calfRight} onChangeText={t=>setMeasures({...measures, calfRight:t})} outlineStyle="none"/></View>
-                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PANTU. ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.calfLeft} onChangeText={t=>setMeasures({...measures, calfLeft:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PANTU. DIR.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.calfRight)} onChangeText={t=>setMeasures({...measures, calfRight:t})} outlineStyle="none"/></View>
+                                                <View style={{flex: 1}}><Text style={[styles.miniLabel, { color: theme.textSecondary }]}>PANTU. ESQ.</Text><TextInput style={[styles.miniInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.calfLeft)} onChangeText={t=>setMeasures({...measures, calfLeft:t})} outlineStyle="none"/></View>
                                             </View>
                                         </View>
                                     )}
@@ -170,10 +199,10 @@ export default function AssessmentFormModal({
                                 ) : (
                                     <View style={[styles.cardContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                         <Text style={[styles.label, { color: theme.textSecondary, marginTop: 0 }]}>CINTURA (CM) - Opcional</Text>
-                                        <TextInput style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginBottom: 15 }]} keyboardType="decimal-pad" value={measures.waist} onChangeText={t=>setMeasures({...measures, waist:t})} outlineStyle="none" />
+                                        <TextInput style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginBottom: 15 }]} keyboardType="decimal-pad" value={getStr(measures?.waist)} onChangeText={t=>setMeasures({...measures, waist:t})} outlineStyle="none" />
                                         
                                         <Text style={[styles.label, { color: theme.textSecondary }]}>ABDÔMEN (CM) - Opcional</Text>
-                                        <TextInput style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={measures.abdomen} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none" />
+                                        <TextInput style={[styles.input, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]} keyboardType="decimal-pad" value={getStr(measures?.abdomen)} onChangeText={t=>setMeasures({...measures, abdomen:t})} outlineStyle="none" />
                                     </View>
                                 )}
 
@@ -184,7 +213,8 @@ export default function AssessmentFormModal({
                                     {renderPhotoBox("COSTAS", "back", "account-convert")}
                                 </View>
                                 
-                                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={onSave}>
+                                {/* 🔥 Substituí o disparo direto pelo nosso validador blindado 🔥 */}
+                                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSafeSave}>
                                     <MaterialCommunityIcons name="content-save-outline" size={24} color="#000" />
                                     <Text style={[styles.saveBtnText, { color: '#000' }]}>{editingId ? "ATUALIZAR AVALIAÇÃO" : "SALVAR AVALIAÇÃO"}</Text>
                                 </TouchableOpacity>

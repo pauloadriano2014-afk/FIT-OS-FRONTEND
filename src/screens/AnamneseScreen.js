@@ -1,7 +1,8 @@
+// src/screens/AnamneseScreen.js
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, 
-  SafeAreaView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StatusBar 
+  SafeAreaView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StatusBar, Modal 
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -11,6 +12,7 @@ import { useTheme } from '../contexts/ThemeContext';
 
 const LIMITACOES_LIST = ['Joelho', 'Lombar', 'Ombro', 'Punho', 'Quadril', 'Tornozelo', 'Cervical', 'Cotovelos', 'Nenhuma'];
 const CIRURGIAS_LIST = ['Abdominoplastia', 'Prótese de Silicone', 'Cesárea', 'LCA/Menisco', 'Hérnia', 'Coluna', 'Manguito', 'Nenhuma'];
+const SUPLEMENTOS_LIST = ['Whey Protein', 'Creatina', 'Pré-Treino', 'BCAA', 'Multivitamínico', 'Ômega 3', 'Hipercalórico', 'Nenhum'];
 
 export default function AnamneseScreen({ route, navigation }) {
   const { theme } = useTheme();
@@ -27,11 +29,14 @@ export default function AnamneseScreen({ route, navigation }) {
   
   const [form, setForm] = useState({
     peso: '', altura: '', objetivo: '', nivel: '',
-    limitacoes: [], cirurgias: [], frequencia: '', tempoDisponivel: '',
-    // 🔥 NOVOS CAMPOS NUTRICIONAIS (Opcionais no banco)
-    mealsPerDay: '', wakeUpTime: '', sleepTime: '', workTime: '', trainTime: '',
-    allergies: '', foodPreferences: '', foodAversions: '', supplements: ''
+    limitacoes: [], cirurgias: [], equipamentos: '', frequencia: '', tempoDisponivel: '',
+    // 🔥 NOVOS CAMPOS NUTRICIONAIS (Suplementos agora é Array, Horários refeitos)
+    mealsPerDay: '', wakeUpTime: '', sleepTime: '', workTimeStart: '', workTimeEnd: '', trainTime: '',
+    allergies: '', foodPreferences: '', foodAversions: '', supplements: []
   });
+
+  // 🔥 CONTROLE DO MODAL DE HORÁRIOS
+  const [timeModal, setTimeModal] = useState({ visible: false, target: '', step: 'hour', tempHour: '' });
 
   useEffect(() => {
     const loadUser = async () => {
@@ -48,23 +53,43 @@ export default function AnamneseScreen({ route, navigation }) {
     loadUser();
   }, [currentUser]);
 
+  // Função Universal de Múltipla Escolha (Agora entende "Nenhuma" e "Nenhum")
   const toggleSelection = (field, item) => {
     setForm(prev => {
       const list = prev[field];
+      const isNone = item === 'Nenhuma' || item === 'Nenhum';
+      
       if (list.includes(item)) return { ...prev, [field]: list.filter(i => i !== item) };
-      if (item === 'Nenhuma') return { ...prev, [field]: ['Nenhuma'] };
-      return { ...prev, [field]: [...list.filter(i => i !== 'Nenhuma'), item] };
+      if (isNone) return { ...prev, [field]: [item] };
+      return { ...prev, [field]: [...list.filter(i => i !== 'Nenhuma' && i !== 'Nenhum'), item] };
     });
   };
 
+  // 🔥 FUNÇÕES DO RELÓGIO (TimePicker Modal)
+  const openTimePicker = (targetField) => {
+      setTimeModal({ visible: true, target: targetField, step: 'hour', tempHour: '' });
+  };
+
+  const handleSelectHour = (h) => {
+      setTimeModal(prev => ({ ...prev, step: 'minute', tempHour: h }));
+  };
+
+  const handleSelectMinute = (m) => {
+      const finalTime = `${timeModal.tempHour}:${m}`;
+      setForm(prev => ({ ...prev, [timeModal.target]: finalTime }));
+      setTimeModal({ visible: false, target: '', step: 'hour', tempHour: '' });
+  };
+
   const salvarAnamnese = async () => {
-    if (!form.frequencia || !form.tempoDisponivel) {
-        return Alert.alert("Falta dados", "Selecione a frequência e o tempo disponível.");
-    }
-    
+    // 🔥 TRAVA FINAL DE SEGURANÇA (Antes de enviar pro banco)
     if (currentUser?.dietModule) {
-        if (!form.mealsPerDay) return Alert.alert("Falta dados", "Selecione quantas vezes prefere comer ao dia.");
-        if (!form.wakeUpTime || !form.trainTime) return Alert.alert("Atenção", "Preencha os horários básicos da sua rotina.");
+        if (!form.allergies.trim() || !form.foodPreferences.trim() || !form.foodAversions.trim() || form.supplements.length === 0) {
+            return Alert.alert("Faltam Dados", "Por favor, preencha todas as caixas. Use as opções 'Nenhum/Nenhuma' caso não possua restrições ou suplementos.");
+        }
+    } else {
+        if (!form.frequencia || !form.tempoDisponivel) {
+            return Alert.alert("Faltam Dados", "Selecione a frequência e o tempo disponível.");
+        }
     }
 
     if (!currentUser || !currentUser.id) {
@@ -95,18 +120,19 @@ export default function AnamneseScreen({ route, navigation }) {
         tempoDisponivel: parseInt(form.tempoDisponivel) || 60,
         limitacoes: form.limitacoes,
         cirurgias: form.cirurgias,
-        equipamentos: [],
-        // 🔥 INJETANDO DADOS NUTRICIONAIS SE O MÓDULO ESTIVER ATIVO
+        equipamentos: form.equipamentos.trim() ? form.equipamentos.split(',').map(i => i.trim()).filter(i => i) : [],
+        
+        // 🔥 MAGIA: Formata os dados para o padrão antigo do Banco de Dados não quebrar!
         ...(currentUser?.dietModule && {
             mealsPerDay: parseInt(form.mealsPerDay) || null,
             wakeUpTime: form.wakeUpTime,
             sleepTime: form.sleepTime,
-            workTime: form.workTime,
+            workTime: `${form.workTimeStart} às ${form.workTimeEnd}`, // Junta os 2 horários numa string
             trainTime: form.trainTime,
-            allergies: form.allergies,
-            foodPreferences: form.foodPreferences,
-            foodAversions: form.foodAversions,
-            supplements: form.supplements
+            allergies: form.allergies.trim(),
+            foodPreferences: form.foodPreferences.trim(),
+            foodAversions: form.foodAversions.trim(),
+            supplements: form.supplements.join(', ') // Junta o Array de chips numa string
         })
       };
 
@@ -142,19 +168,29 @@ export default function AnamneseScreen({ route, navigation }) {
   };
 
   const nextStep = () => {
-    if (step === 1 && (!form.peso || !form.altura)) return Alert.alert("Falta dados", "Preencha peso e altura.");
-    if (step === 2 && (!form.objetivo || !form.nivel)) return Alert.alert("Falta dados", "Selecione objetivo e nível.");
-    if (step === 3 && (form.limitacoes.length === 0 || form.cirurgias.length === 0)) return Alert.alert("Atenção", "Selecione as opções ou marque 'Nenhuma'.");
-    if (step === 4 && (!form.frequencia || !form.tempoDisponivel)) return Alert.alert("Falta dados", "Selecione a frequência e o tempo disponível.");
+    // 🔥 TRAVAS DE SEGURANÇA POR ETAPA
+    if (step === 1 && (!form.peso || !form.altura)) return Alert.alert("Faltam Dados", "Preencha o seu peso e altura para continuarmos.");
+    if (step === 2 && (!form.objetivo || !form.nivel)) return Alert.alert("Faltam Dados", "Selecione o seu objetivo e nível de experiência.");
     
-    // Validações da Dieta (Se houver módulo ativo)
-    if (step === 5 && !form.mealsPerDay) return Alert.alert("Falta dados", "Selecione a quantidade de refeições.");
-    if (step === 6 && (!form.wakeUpTime || !form.trainTime)) return Alert.alert("Falta dados", "Preencha os horários básicos (Acordar e Treinar).");
+    if (step === 3) {
+        if (form.limitacoes.length === 0) return Alert.alert("Atenção", "Selecione suas limitações físicas ou marque 'Nenhuma'.");
+        if (form.cirurgias.length === 0) return Alert.alert("Atenção", "Selecione cirurgias prévias ou marque 'Nenhuma'.");
+        if (!form.equipamentos.trim()) return Alert.alert("Faltam Dados", "Informe o seu local de treino e equipamentos disponíveis.");
+    }
+    
+    if (step === 4 && (!form.frequencia || !form.tempoDisponivel)) return Alert.alert("Faltam Dados", "Selecione a frequência semanal e o tempo disponível para os treinos.");
+    
+    if (step === 5 && !form.mealsPerDay) return Alert.alert("Faltam Dados", "Selecione a quantidade de refeições que prefere fazer.");
+    
+    if (step === 6) {
+        if (!form.wakeUpTime || !form.sleepTime || !form.workTimeStart || !form.workTimeEnd || !form.trainTime) {
+            return Alert.alert("Faltam Dados", "Preencha todos os horários da sua rotina (Acordar, Dormir, Trabalho e Treino).");
+        }
+    }
 
     setStep(step + 1);
   };
 
-  // 🔥 Lógica da "Gaiola" do PC (PWA)
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
@@ -261,6 +297,16 @@ export default function AnamneseScreen({ route, navigation }) {
                       </TouchableOpacity>
                     ))}
                   </View>
+
+                  <Text style={[styles.question, { marginTop: 30, color: theme.text }]}>Local de Treino / Equipamentos</Text>
+                  <Text style={[styles.label, { color: theme.textSecondary, marginBottom: 10 }]}>SEPARE POR VÍRGULA</Text>
+                  <TextInput 
+                      style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
+                      placeholder="Ex: SmartFit, Academia Completa, Halteres em casa" 
+                      placeholderTextColor={theme.textSecondary} 
+                      onChangeText={v => setForm({...form, equipamentos: v})} 
+                      value={form.equipamentos} 
+                  />
                 </View>
               )}
 
@@ -295,7 +341,7 @@ export default function AnamneseScreen({ route, navigation }) {
                 </View>
               )}
 
-              {/* 🔥 ETAPA 5: NUTRIÇÃO - REFEIÇÕES (SÓ MOSTRA SE DIETMODULE === TRUE) */}
+              {/* ETAPA 5 */}
               {step === 5 && currentUser?.dietModule && (
                 <View>
                   <Text style={[styles.question, { color: theme.text }]}>Planejamento Alimentar</Text>
@@ -314,85 +360,109 @@ export default function AnamneseScreen({ route, navigation }) {
                 </View>
               )}
 
-              {/* 🔥 ETAPA 6: NUTRIÇÃO - HORÁRIOS */}
+              {/* 🔥 ETAPA 6: ROTINA COM SELETORES AUTOMÁTICOS 🔥 */}
               {step === 6 && currentUser?.dietModule && (
                 <View>
                   <Text style={[styles.question, { color: theme.text }]}>Como é a sua rotina?</Text>
                   
                   <View style={styles.row}>
                     <View style={{flex:1, marginRight:10, marginBottom: 20}}>
-                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORA QUE ACORDA</Text>
-                      <TextInput 
-                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
-                          placeholder="Ex: 06:30" placeholderTextColor={theme.textSecondary} 
-                          onChangeText={v => setForm({...form, wakeUpTime: v})} value={form.wakeUpTime} 
-                      />
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORA QUE ACORDA *</Text>
+                      <TouchableOpacity style={[styles.inputButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openTimePicker('wakeUpTime')}>
+                          <Text style={{ color: form.wakeUpTime ? theme.text : theme.textSecondary, fontSize: 16, fontWeight: 'bold' }}>
+                              {form.wakeUpTime || 'Selecionar'}
+                          </Text>
+                      </TouchableOpacity>
                     </View>
                     <View style={{flex:1, marginBottom: 20}}>
-                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORA QUE DORME</Text>
-                      <TextInput 
-                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
-                          placeholder="Ex: 23:00" placeholderTextColor={theme.textSecondary} 
-                          onChangeText={v => setForm({...form, sleepTime: v})} value={form.sleepTime} 
-                      />
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORA QUE DORME *</Text>
+                      <TouchableOpacity style={[styles.inputButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openTimePicker('sleepTime')}>
+                          <Text style={{ color: form.sleepTime ? theme.text : theme.textSecondary, fontSize: 16, fontWeight: 'bold' }}>
+                              {form.sleepTime || 'Selecionar'}
+                          </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
 
+                  <Text style={[styles.label, { color: theme.textSecondary, marginBottom: 5 }]}>HORÁRIO DE TRABALHO *</Text>
                   <View style={styles.row}>
-                    <View style={{flex:1, marginRight:10}}>
-                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORÁRIO DE TRABALHO</Text>
-                      <TextInput 
-                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
-                          placeholder="Ex: 08h às 18h" placeholderTextColor={theme.textSecondary} 
-                          onChangeText={v => setForm({...form, workTime: v})} value={form.workTime} 
-                      />
+                    <View style={{flex:1, marginRight:10, marginBottom: 20}}>
+                      <TouchableOpacity style={[styles.inputButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openTimePicker('workTimeStart')}>
+                          <Text style={{ color: form.workTimeStart ? theme.text : theme.textSecondary, fontSize: 16, fontWeight: 'bold' }}>
+                              {form.workTimeStart ? `Início: ${form.workTimeStart}` : 'Início'}
+                          </Text>
+                      </TouchableOpacity>
                     </View>
-                    <View style={{flex:1}}>
-                      <Text style={[styles.label, { color: theme.textSecondary }]}>HORÁRIO DO TREINO</Text>
-                      <TextInput 
-                          style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
-                          placeholder="Ex: 19:30" placeholderTextColor={theme.textSecondary} 
-                          onChangeText={v => setForm({...form, trainTime: v})} value={form.trainTime} 
-                      />
+                    <View style={{flex:1, marginBottom: 20}}>
+                      <TouchableOpacity style={[styles.inputButton, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => openTimePicker('workTimeEnd')}>
+                          <Text style={{ color: form.workTimeEnd ? theme.text : theme.textSecondary, fontSize: 16, fontWeight: 'bold' }}>
+                              {form.workTimeEnd ? `Fim: ${form.workTimeEnd}` : 'Fim'}
+                          </Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
+
+                  <Text style={[styles.label, { color: theme.textSecondary, marginBottom: 5 }]}>HORÁRIO DO TREINO *</Text>
+                  <TouchableOpacity style={[styles.inputButton, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 20 }]} onPress={() => openTimePicker('trainTime')}>
+                      <Text style={{ color: form.trainTime ? theme.text : theme.textSecondary, fontSize: 16, fontWeight: 'bold' }}>
+                          {form.trainTime || 'Selecionar'}
+                      </Text>
+                  </TouchableOpacity>
                 </View>
               )}
 
-              {/* 🔥 ETAPA 7: NUTRIÇÃO - PREFERÊNCIAS E RESTRIÇÕES */}
+              {/* 🔥 ETAPA 7: NUTRIÇÃO - CHIPS DE SUPLEMENTOS 🔥 */}
               {step === 7 && currentUser?.dietModule && (
                 <View>
                   <Text style={[styles.question, { color: theme.text }]}>Preferências e Restrições</Text>
                   
-                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 10 }]}>ALERGIAS OU INTOLERÂNCIAS</Text>
+                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 10 }]}>ALERGIAS OU INTOLERÂNCIAS *</Text>
                   <TextInput 
                       style={[styles.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
                       placeholder="Ex: Intolerância à lactose, alergia a camarão..." placeholderTextColor={theme.textSecondary} 
                       multiline
                       onChangeText={v => setForm({...form, allergies: v})} value={form.allergies} 
                   />
+                  <Text style={[styles.hintText, { color: theme.textSecondary }]}>* Se não houver, digite "Nenhuma".</Text>
 
-                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>O QUE VOCÊ ODEIA COMER?</Text>
+                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>O QUE VOCÊ ODEIA COMER? *</Text>
                   <TextInput 
                       style={[styles.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
                       placeholder="Ex: Fígado, batata doce, brócolis..." placeholderTextColor={theme.textSecondary} 
                       multiline
                       onChangeText={v => setForm({...form, foodAversions: v})} value={form.foodAversions} 
                   />
+                  <Text style={[styles.hintText, { color: theme.textSecondary }]}>* Se comer de tudo, digite "Nada".</Text>
 
-                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>SUPLEMENTOS QUE JÁ UTILIZA</Text>
+                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 20 }]}>PREFERÊNCIAS ALIMENTARES *</Text>
                   <TextInput 
                       style={[styles.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
-                      placeholder="Ex: Whey protein, Creatina, Ômega 3..." placeholderTextColor={theme.textSecondary} 
+                      placeholder="Ex: Gosto muito de frango com batata doce e ovos..." placeholderTextColor={theme.textSecondary} 
                       multiline
-                      onChangeText={v => setForm({...form, supplements: v})} value={form.supplements} 
+                      onChangeText={v => setForm({...form, foodPreferences: v})} value={form.foodPreferences} 
                   />
+                  <Text style={[styles.hintText, { color: theme.textSecondary }]}>* O que não pode faltar na sua dieta.</Text>
+
+                  {/* SUPLEMENTOS AGORA COM BOTÕES CHIPS */}
+                  <Text style={[styles.label, { color: theme.textSecondary, marginTop: 25, marginBottom: 10 }]}>SUPLEMENTOS QUE JÁ UTILIZA *</Text>
+                  <View style={styles.wrapGrid}>
+                    {SUPLEMENTOS_LIST.map(item => (
+                      <TouchableOpacity 
+                          key={item} 
+                          style={[styles.chip, { backgroundColor: theme.surface, borderColor: theme.border }, form.supplements.includes(item) && { backgroundColor: theme.accent, borderColor: theme.accent }]} 
+                          onPress={() => toggleSelection('supplements', item)}
+                      >
+                        <Text style={[styles.chipText, { color: theme.textSecondary }, form.supplements.includes(item) && {color: theme.isDark ? '#000' : '#FFF'}]}>{item}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
                 </View>
               )}
 
             </ScrollView>
 
-            {/* 🔥 RODAPÉ FIXO (COM VOLTAR MESMO NA ÚLTIMA ETAPA E CHECAGEM DE TOTAL DE ETAPAS) */}
+            {/* 🔥 RODAPÉ FIXO */}
             <View style={[styles.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
                {step > 1 ? (
                  <TouchableOpacity onPress={() => setStep(step-1)} style={[styles.backBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}>
@@ -410,6 +480,37 @@ export default function AnamneseScreen({ route, navigation }) {
                  </TouchableOpacity>
                )}
             </View>
+
+            {/* 🔥 MODAL DE SELEÇÃO DE HORÁRIO 🔥 */}
+            <Modal visible={timeModal.visible} transparent animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.timeModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 20 }]}>
+                            {timeModal.step === 'hour' ? 'SELECIONE A HORA' : 'SELECIONE OS MINUTOS'}
+                        </Text>
+                        
+                        <View style={styles.timeGrid}>
+                            {timeModal.step === 'hour' ? (
+                                Array.from({length: 24}, (_, i) => i.toString().padStart(2, '0')).map(h => (
+                                    <TouchableOpacity key={h} style={[styles.timeOption, { borderColor: theme.border, backgroundColor: theme.bg }]} onPress={() => handleSelectHour(h)}>
+                                        <Text style={[styles.timeOptionText, { color: theme.text }]}>{h}h</Text>
+                                    </TouchableOpacity>
+                                ))
+                            ) : (
+                                ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'].map(m => (
+                                    <TouchableOpacity key={m} style={[styles.timeOption, { borderColor: theme.border, backgroundColor: theme.bg }]} onPress={() => handleSelectMinute(m)}>
+                                        <Text style={[styles.timeOptionText, { color: theme.text }]}>{m}m</Text>
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                        </View>
+
+                        <TouchableOpacity style={{ marginTop: 25, padding: 15, alignItems: 'center' }} onPress={() => setTimeModal({ visible: false, target: '', step: 'hour', tempHour: '' })}>
+                            <Text style={{ color: theme.textSecondary, fontWeight: 'bold', fontSize: 16 }}>CANCELAR</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
             
           </KeyboardAvoidingView>
       </View>
@@ -428,8 +529,10 @@ const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 120 },
   question: { fontSize: 22, fontWeight: 'bold', marginBottom: 20 },
   label: { fontSize: 11, fontWeight: 'bold', marginBottom: 8, letterSpacing: 0.5 },
+  hintText: { fontSize: 11, fontStyle: 'italic', marginTop: 4, marginLeft: 5 },
   
   input: { padding: 18, borderRadius: 16, borderWidth: 1, fontSize: 16, outlineStyle: 'none' },
+  inputButton: { padding: 18, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   textArea: { padding: 18, borderRadius: 16, borderWidth: 1, fontSize: 15, outlineStyle: 'none', minHeight: 90, textAlignVertical: 'top' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   
@@ -447,4 +550,12 @@ const styles = StyleSheet.create({
   footer: { position: 'absolute', bottom: 0, width: '100%', flexDirection: 'row', padding: 20, borderTopWidth: 1, gap: 15 },
   backBtn: { flex: 1, padding: 16, alignItems: 'center', borderRadius: 16, borderWidth: 1 },
   nextBtn: { flex: 2, padding: 16, alignItems: 'center', borderRadius: 16, elevation: 2 },
+
+  // Estilos do Modal de Relógio
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  timeModalContent: { width: '100%', maxWidth: 350, padding: 25, borderRadius: 24, borderWidth: 1 },
+  modalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1, textAlign: 'center' },
+  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  timeOption: { width: '21%', paddingVertical: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  timeOptionText: { fontWeight: 'bold', fontSize: 16 }
 });
