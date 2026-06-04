@@ -91,7 +91,8 @@ export default function AdminEvolutionScreen({ route, navigation }) {
         <RootComponent style={rootStyle}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
             
-            <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+            {/* 🔥 CONTAINER RESPONSIVO (960px NO PC) 🔥 */}
+            <View style={[styles.mainContainer, { backgroundColor: theme.bg }, isWeb && { maxWidth: 960, borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border }]}>
                 
                 {/* CABEÇALHO */}
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
@@ -115,17 +116,29 @@ export default function AdminEvolutionScreen({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                {/* NAVEGAÇÃO DAS ABAS */}
-                <View style={[styles.tabsContainer, { borderBottomColor: theme.border }]}>
-                    <TouchableOpacity style={[styles.tabBtn, activeTab === 'AVALIACAO' && { borderBottomColor: '#4DE38F', borderBottomWidth: 2 }]} onPress={() => setActiveTab('AVALIACAO')}>
-                        <Text style={[styles.tabText, { color: activeTab === 'AVALIACAO' ? theme.text : theme.textSecondary }]}>AVALIAÇÃO</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.tabBtn, activeTab === 'CHECKINS' && { borderBottomColor: '#4DE38F', borderBottomWidth: 2 }]} onPress={() => setActiveTab('CHECKINS')}>
-                        <Text style={[styles.tabText, { color: activeTab === 'CHECKINS' ? theme.text : theme.textSecondary }]}>CHECK-INS</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.tabBtn, activeTab === 'FEEDBACK' && { borderBottomColor: '#4DE38F', borderBottomWidth: 2 }]} onPress={() => setActiveTab('FEEDBACK')}>
-                        <Text style={[styles.tabText, { color: activeTab === 'FEEDBACK' ? theme.text : theme.textSecondary }]}>TREINOS</Text>
-                    </TouchableOpacity>
+                {/* 🔥 ABAS PREMIUM (DESIGN MODERNO) 🔥 */}
+                <View style={[styles.tabContainer, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}>
+                    {['AVALIACAO', 'CHECKINS', 'FEEDBACK'].map((tab) => {
+                        const labels = { 'AVALIACAO': 'AVALIAÇÃO', 'CHECKINS': 'CHECK-INS', 'FEEDBACK': 'TREINOS' };
+                        const isActive = activeTab === tab;
+                        return (
+                            <TouchableOpacity 
+                                key={tab} 
+                                style={[
+                                    styles.tabButton, 
+                                    isActive && { backgroundColor: theme.surface, borderColor: '#4DE38F' }
+                                ]} 
+                                onPress={() => setActiveTab(tab)}
+                            >
+                                <Text style={[
+                                    styles.tabText, 
+                                    { color: isActive ? theme.text : theme.textSecondary }
+                                ]}>
+                                    {labels[tab]}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
 
                 {/* CONTEÚDO PRINCIPAL */}
@@ -206,9 +219,31 @@ export default function AdminEvolutionScreen({ route, navigation }) {
 }
 
 const styles = StyleSheet.create({
+    mainContainer: { flex: 1, width: '100%', alignSelf: 'center' },
     header: { flexDirection:'row', alignItems:'center', padding:20, paddingTop: Platform.OS === 'android' ? 10 : 20, justifyContent:'space-between', borderBottomWidth: 1 },
     headerTitle: { fontWeight:'bold', fontSize:16 },
-    tabsContainer: { flexDirection: 'row', paddingHorizontal: 20, marginBottom: 10, borderBottomWidth:1 },
-    tabBtn: { marginRight: 20, paddingBottom: 10 },
-    tabText: { fontWeight: 'bold', fontSize: 12 }
+    
+    /* 🔥 ESTILOS DAS ABAS PREMIUM 🔥 */
+    tabContainer: { 
+        flexDirection: 'row', 
+        padding: 4, 
+        borderRadius: 16, 
+        marginHorizontal: 20, 
+        marginBottom: 10,
+        marginTop: 15,
+        borderWidth: 1
+    },
+    tabButton: { 
+        flex: 1, 
+        paddingVertical: 12, 
+        borderRadius: 12, 
+        alignItems: 'center', 
+        borderWidth: 1, 
+        borderColor: 'transparent' 
+    },
+    tabText: { 
+        fontWeight: '900', 
+        fontSize: 11, 
+        letterSpacing: 1 
+    }
 });
