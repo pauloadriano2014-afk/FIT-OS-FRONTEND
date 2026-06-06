@@ -49,7 +49,7 @@ import AdminDietScreen from './src/screens/AdminDietScreen';
 import AdminDietLibraryScreen from './src/screens/AdminDietLibraryScreen';
 import AIScannerModal from './src/components/AIScannerModal';
 import LaboratoryScreen from './src/screens/LaboratoryScreen';
-import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen'; 
+import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen';
 import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
 
 Notifications.setNotificationHandler({
@@ -230,6 +230,7 @@ function RootNavigator() {
   );
 }
 
+// ─── Linking: serializa parâmetros na URL para que o F5 restaure a tela corretamente
 const linking = {
   prefixes: [
     'https://www.pauloadrianoteam.com.br',
@@ -239,13 +240,49 @@ const linking = {
   ],
   config: {
     screens: {
-      Install: { path: 'registro', parse: { coach: (coach) => coach, plan: (plan) => plan }, initialRouteName: 'Install' },
-      Proposta: { path: 'Proposta', parse: { nome: (nome) => nome } },
-      PropostaStart: { path: 'PropostaStart', parse: { nome: (nome) => nome } },
-      PropostaMaes: { path: 'PropostaMaes', parse: { nome: (nome) => nome } },
-      AdminStudentCheckins: { path: 'admin-checkins' },
-      AdminEvolution: { path: 'admin-evolution' },
-      AdminAlunoOptions: { path: 'admin-aluno' },
+      // Telas públicas
+      Install:       { path: 'registro' },
+      Proposta:      { path: 'Proposta' },
+      PropostaStart: { path: 'PropostaStart' },
+      PropostaMaes:  { path: 'PropostaMaes' },
+
+      // Dashboard admin — F5 aqui volta pro dashboard
+      AdminDashboard: { path: 'admin' },
+
+      // Telas admin que recebem parâmetros via query string na URL
+      // Ex: /admin-checkins?alunoId=abc&alunoName=Jo%C3%A3o
+      // Ao apertar F5, o React Navigation lê os params da URL e recarrega a tela corretamente
+      AdminStudentCheckins: {
+        path: 'admin-checkins',
+        parse: {
+          alunoId:   (v) => String(v),
+          alunoName: (v) => decodeURIComponent(v),
+        },
+        stringify: {
+          alunoId:   (v) => v,
+          alunoName: (v) => encodeURIComponent(v),
+        },
+      },
+      AdminEvolution: {
+        path: 'admin-evolution',
+        parse: {
+          alunoId:   (v) => String(v),
+          alunoName: (v) => decodeURIComponent(v),
+        },
+        stringify: {
+          alunoId:   (v) => v,
+          alunoName: (v) => encodeURIComponent(v),
+        },
+      },
+      AdminAlunoOptions: {
+        path: 'admin-aluno',
+        parse: {
+          alunoId: (v) => String(v),
+        },
+        stringify: {
+          alunoId: (v) => v,
+        },
+      },
     }
   }
 };

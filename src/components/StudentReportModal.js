@@ -3,78 +3,101 @@ import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image, ActivityIndicator, Platform, StatusBar } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-// 🔥 ID REAL DA ADRI (Sincronizado com o Banco de Dados)
-const ADRI_COACH_ID = 'b7c0c181-41fd-4156-b8fe-963a267759a3'; 
+const ADRI_COACH_ID = 'b7c0c181-41fd-4156-b8fe-963a267759a3';
 
 export default function StudentReportModal({ visible, onClose, pendingFeedback, userName, markFeedbackAsRead, isMarkingAsRead, coachId }) {
-    
-    // 🔥 IDENTIFICAÇÃO DE ASSINATURA (Paulo vs Adri) 🔥
     const currentCoachId = coachId || pendingFeedback?.coachId || pendingFeedback?.user?.coachId;
-    const coachEmail = pendingFeedback?.coach?.email || '';
-    
-    // Validação tripla para garantir a assinatura correta
-    const isAdri = currentCoachId === ADRI_COACH_ID || 
+    const coachEmail     = pendingFeedback?.coach?.email || '';
+    const isAdri = currentCoachId === ADRI_COACH_ID ||
                    coachEmail.toLowerCase() === 'adri.personal@hotmail.com' ||
                    pendingFeedback?.coachFeedback?.includes('Coach Adri Kern');
 
-    // 🔥 DECODIFICADOR DO CÓDIGO OCULTO DE COMPARAÇÃO 🔥
-    let rawFeedbackText = pendingFeedback?.coachFeedback || '';
-    let displayFeedbackText = rawFeedbackText;
+    const accentColor = isAdri ? '#AF52DE' : '#4DE38F';
+
+    // ── Decodifica o tipo de marcação ─────────────────────────────────────────
+    let rawFeedback      = pendingFeedback?.coachFeedback || '';
+    let displayFeedback  = rawFeedback;
     let compareOldPhotos = [];
-    
-    if (rawFeedbackText.includes('[COMPARE:')) {
-        const match = rawFeedbackText.match(/\[COMPARE:(.*?)\]/);
-        if (match) {
-            compareOldPhotos = match[1].split('|');
-            displayFeedbackText = rawFeedbackText.replace(match[0], '').trim();
+    let compareImgUrl    = null;   // ✅ Nova tag: imagem composta lado a lado
+
+    // Tag nova: [COMPARE_IMG:url] → imagem composta gerada pelo editor
+    if (rawFeedback.includes('[COMPARE_IMG:')) {
+        const m = rawFeedback.match(/\[COMPARE_IMG:(.*?)\]/);
+        if (m) {
+            compareImgUrl   = m[1];
+            displayFeedback = rawFeedback.replace(m[0], '').trim();
         }
     }
-    const currentPhotosKeys = ['photoFront', 'photoSide', 'photoBack'];
+    // Tag antiga: [COMPARE:url1|url2|url3] → pares antes/depois separados
+    else if (rawFeedback.includes('[COMPARE:')) {
+        const m = rawFeedback.match(/\[COMPARE:(.*?)\]/);
+        if (m) {
+            compareOldPhotos = m[1].split('|');
+            displayFeedback  = rawFeedback.replace(m[0], '').trim();
+        }
+    }
+
+    const photoKeys = ['photoFront', 'photoSide', 'photoBack'];
 
     return (
         <Modal visible={visible} transparent animationType="slide">
-            <View style={styles.chatModalOverlay}>
-                <View style={[styles.reportModalContent, { backgroundColor: '#111' }]}>
-                    <View style={[styles.reportHeader, { flexDirection: 'column', alignItems: 'center', paddingBottom: 25, position: 'relative', borderBottomColor: '#333' }]}>
-                        <TouchableOpacity style={{position: 'absolute', right: 20, top: 20, zIndex: 10}} onPress={onClose}>
+            <View style={styles.overlay}>
+                <View style={styles.content}>
+                    {/* Header */}
+                    <View style={[styles.header, { borderBottomColor:'#333' }]}>
+                        <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
                             <MaterialCommunityIcons name="close" size={28} color="#AAA" />
                         </TouchableOpacity>
-                        <View style={{ alignItems: 'center', marginTop: 10 }}>
-                            <Text style={[styles.reportTitle, { color: '#FFF', fontSize: 22, textAlign: 'center' }]}>RELATÓRIO TÉCNICO</Text>
-                            <Text style={[styles.reportSubtitle, { color: isAdri ? '#AF52DE' : '#4DE38F', fontWeight: 'bold', letterSpacing: 1, textAlign: 'center', marginTop: 4 }]}>ALUNO(A): {userName.toUpperCase()}</Text>
+                        <View style={{ alignItems:'center', marginTop:10 }}>
+                            <Text style={styles.title}>RELATÓRIO TÉCNICO</Text>
+                            <Text style={[styles.subtitle, { color: accentColor }]}>ALUNO(A): {userName.toUpperCase()}</Text>
                         </View>
-                        <View style={{ marginTop: 15, backgroundColor: isAdri ? '#AF52DE22' : '#4DE38F22', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 10 }}>
-                            <Text style={{ color: isAdri ? '#AF52DE' : '#4DE38F', fontSize: 11, fontWeight: '900' }}>
-                                DATA: {pendingFeedback?.date ? new Date(pendingFeedback.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase() : new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}
+                        <View style={[styles.dateBadge, { backgroundColor: accentColor + '22' }]}>
+                            <Text style={[styles.dateText, { color: accentColor }]}>
+                                DATA: {pendingFeedback?.date
+                                    ? new Date(pendingFeedback.date).toLocaleDateString('pt-BR',{ day:'2-digit', month:'long', year:'numeric' }).toUpperCase()
+                                    : new Date().toLocaleDateString('pt-BR',{ day:'2-digit', month:'long', year:'numeric' }).toUpperCase()}
                             </Text>
                         </View>
                     </View>
 
-                    <ScrollView style={{flex: 1}} contentContainerStyle={{ padding: 25, paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
-                        {compareOldPhotos.length > 0 ? (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 20, marginBottom: 30 }}>
-                                {currentPhotosKeys.map((key, i) => {
-                                    const currentPic = pendingFeedback?.[key];
-                                    const oldPic = compareOldPhotos[i];
-                                    if (!currentPic && (!oldPic || oldPic === 'null' || oldPic === '')) return null;
+                    <ScrollView style={{ flex:1 }} contentContainerStyle={{ padding:25, paddingBottom:80 }} showsVerticalScrollIndicator={false}>
 
-                                    const label = i === 0 ? 'FRONTAL' : (i === 1 ? 'LATERAL' : 'POSTERIOR');
-
+                        {/* ── Imagem composta (nova tag COMPARE_IMG) ── */}
+                        {compareImgUrl ? (
+                            <View style={{ marginBottom:30 }}>
+                                <View style={{ flexDirection:'row', alignItems:'center', gap:8, marginBottom:10 }}>
+                                    <MaterialCommunityIcons name="compare" size={16} color={accentColor} />
+                                    <Text style={{ color: accentColor, fontSize:11, fontWeight:'900', letterSpacing:1 }}>COMPARAÇÃO DE SHAPE</Text>
+                                </View>
+                                <Image
+                                    source={{ uri: compareImgUrl }}
+                                    style={{ width:'100%', aspectRatio: 2, borderRadius:16, backgroundColor:'#111' }}
+                                    resizeMode="contain"
+                                />
+                            </View>
+                        ) : compareOldPhotos.length > 0 ? (
+                            /* ── Pares antes/depois (tag antiga COMPARE) ── */
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ gap:20, marginBottom:30 }}>
+                                {photoKeys.map((key, i) => {
+                                    const current = pendingFeedback?.[key];
+                                    const old     = compareOldPhotos[i];
+                                    if (!current && (!old || old === 'null' || old === '')) return null;
+                                    const label = i === 0 ? 'FRONTAL' : i === 1 ? 'LATERAL' : 'POSTERIOR';
                                     return (
-                                        <View key={i} style={{ flexDirection: 'row', gap: 2, backgroundColor: '#1A1A1A', padding: 8, borderRadius: 16, borderWidth: 1, borderColor: '#333' }}>
-                                            {oldPic && oldPic !== 'null' && oldPic !== '' && (
-                                                <View style={{ width: 130, height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
-                                                    <Image source={{ uri: oldPic }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                                    <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: '#333', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                                                        <Text style={{ color: '#FFF', fontSize: 8, fontWeight: '900' }}>ANTES ({label})</Text>
-                                                    </View>
+                                        <View key={i} style={{ flexDirection:'row', gap:2, backgroundColor:'#1A1A1A', padding:8, borderRadius:16, borderWidth:1, borderColor:'#333' }}>
+                                            {old && old !== 'null' && old !== '' && (
+                                                <View style={styles.compPhoto}>
+                                                    <Image source={{ uri: old }} style={styles.compPhotoImg} resizeMode="cover" />
+                                                    <View style={styles.compBadgeDark}><Text style={styles.compBadgeTxt}>ANTES ({label})</Text></View>
                                                 </View>
                                             )}
-                                            {currentPic && (
-                                                <View style={{ width: 130, height: 200, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
-                                                    <Image source={{ uri: currentPic }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                                                    <View style={{ position: 'absolute', bottom: 8, alignSelf: 'center', backgroundColor: isAdri ? '#AF52DE' : '#4DE38F', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
-                                                        <Text style={{ color: isAdri ? '#FFF' : '#000', fontSize: 8, fontWeight: '900' }}>DEPOIS ({label})</Text>
+                                            {current && (
+                                                <View style={styles.compPhoto}>
+                                                    <Image source={{ uri: current }} style={styles.compPhotoImg} resizeMode="cover" />
+                                                    <View style={[styles.compBadgeAccent, { backgroundColor: accentColor }]}>
+                                                        <Text style={[styles.compBadgeTxt, { color: isAdri ? '#FFF' : '#000' }]}>DEPOIS ({label})</Text>
                                                     </View>
                                                 </View>
                                             )}
@@ -83,64 +106,66 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                                 })}
                             </ScrollView>
                         ) : (
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, marginBottom: 30 }}>
-                                {currentPhotosKeys.map((key, i) => (
-                                    pendingFeedback?.[key] && (
-                                        <View key={i} style={styles.reportPhotoContainer}>
-                                            <Image source={{ uri: pendingFeedback[key] }} style={styles.reportPhotoImg} resizeMode="cover" />
-                                            <View style={[styles.reportPhotoBadge, { backgroundColor: isAdri ? '#AF52DE' : '#4DE38F' }]}><Text style={[styles.reportPhotoBadgeText, {color: isAdri ? '#FFF' : '#000'}]}>{key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}</Text></View>
+                            /* ── Fotos individuais ── */
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                                contentContainerStyle={{ gap:15, marginBottom:30 }}>
+                                {photoKeys.map((key, i) => pendingFeedback?.[key] && (
+                                    <View key={i} style={styles.soloPhoto}>
+                                        <Image source={{ uri: pendingFeedback[key] }} style={styles.soloPhotoImg} resizeMode="cover" />
+                                        <View style={[styles.soloBadge, { backgroundColor: accentColor }]}>
+                                            <Text style={[styles.soloBadgeTxt, { color: isAdri ? '#FFF' : '#000' }]}>
+                                                {key === 'photoFront' ? 'VISTA FRONTAL' : key === 'photoSide' ? 'VISTA LATERAL' : 'VISTA POSTERIOR'}
+                                            </Text>
                                         </View>
-                                    )
+                                    </View>
                                 ))}
                             </ScrollView>
                         )}
 
-                        <View style={styles.reportDivider} />
-                        <Text style={[styles.reportSectionTitle, { color: isAdri ? '#AF52DE' : '#4DE38F' }]}>ANÁLISE DETALHADA</Text>
-                        <View style={{ marginTop: 10, marginBottom: 10 }}>
-                            {displayFeedbackText.split('\n').map((paragraph, index) => {
-                                const parts = paragraph.split(/(\*[^*]+\*)/g);
-                                return (
-                                    <Text key={index} style={[styles.reportText, { color: '#DDD' }]}>{parts.map((part, i) => {
-                                            if (part.startsWith('*') && part.endsWith('*')) return <Text key={i} style={{ fontWeight: '900', color: '#FFF' }}>{part.slice(1, -1)}</Text>;
-                                            return part;
-                                        })}
-                                    </Text>
-                                );
-                            })}
+                        {/* Análise */}
+                        <View style={styles.divider} />
+                        <Text style={[styles.sectionTitle, { color: accentColor }]}>ANÁLISE DETALHADA</Text>
+                        <View style={{ marginTop:10, marginBottom:10 }}>
+                            {displayFeedback.split('\n').map((para, i) => (
+                                <Text key={i} style={styles.reportText}>
+                                    {para.split(/(\*[^*]+\*)/g).map((part, j) =>
+                                        part.startsWith('*') && part.endsWith('*')
+                                            ? <Text key={j} style={{ fontWeight:'900', color:'#FFF' }}>{part.slice(1,-1)}</Text>
+                                            : part
+                                    )}
+                                </Text>
+                            ))}
                         </View>
-                        
-                        {/* 🔥 ASSINATURA CONSOLIDADA PA ELITE TEAM 🔥 */}
-                        <View style={[styles.reportFooter, { backgroundColor: '#1A1A1A', borderColor: isAdri ? '#AF52DE' : '#4DE38F', marginTop: 30, padding: 20, borderRadius: 20, borderWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
-                            
-                            {/* FOTO DA ESQUERDA: Adri usa a logo PA Elite, Paulo usa a foto de perfil dele */}
+
+                        {/* Assinatura */}
+                        <View style={[styles.footer, { borderColor: accentColor }]}>
                             {isAdri ? (
-                                <Image source={require('../../assets/paelite.jpg')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#AF52DE' }} />
+                                <Image source={require('../../assets/paelite.jpg')} style={[styles.footerAvatar, { borderColor: accentColor }]} />
                             ) : (
-                                <Image source={require('../../assets/paulo-foto-perfil.png')} style={{ width: 60, height: 60, borderRadius: 30, marginRight: 15, borderWidth: 2, borderColor: '#4DE38F' }} />
+                                <Image source={require('../../assets/paulo-foto-perfil.png')} style={[styles.footerAvatar, { borderColor: accentColor }]} />
                             )}
-                            
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.coachName, { color: '#FFF', fontWeight: '900', fontSize: 16 }]}>{isAdri ? 'ADRI KERN' : 'PAULO ADRIANO'}</Text>
-                                <Text style={[styles.coachTitle, { color: isAdri ? '#AF52DE' : '#4DE38F', fontSize: 10, fontWeight: 'bold', letterSpacing: 1 }]}>
+                            <View style={{ flex:1 }}>
+                                <Text style={styles.coachName}>{isAdri ? 'ADRI KERN' : 'PAULO ADRIANO'}</Text>
+                                <Text style={[styles.coachTitle, { color: accentColor }]}>
                                     {isAdri ? 'POSING COACH | PA ELITE TEAM' : 'HEAD COACH | PA ELITE TEAM'}
                                 </Text>
                             </View>
-                            
-                            {/* LOGO DA DIREITA: Mantendo a sua logo-pa.png intacta! */}
-                            {isAdri ? (
-                                <MaterialCommunityIcons name="star-check" size={32} color="#AF52DE" />
-                            ) : (
-                                <Image source={require('../../assets/logo-pa.png')} style={{ width: 45, height: 45 }} resizeMode="contain" />
-                            )}
+                            {isAdri
+                                ? <MaterialCommunityIcons name="star-check" size={32} color={accentColor} />
+                                : <Image source={require('../../assets/logo-pa.png')} style={{ width:45, height:45 }} resizeMode="contain" />
+                            }
                         </View>
 
-                        <TouchableOpacity 
-                            style={[styles.upsellBtn, {backgroundColor: isAdri ? '#AF52DE' : '#4DE38F', marginTop: 30, marginBottom: 20}]} 
-                            onPress={markFeedbackAsRead} 
-                            disabled={isMarkingAsRead}
-                        >
-                            {isMarkingAsRead ? <ActivityIndicator color="#000" /> : <Text style={[styles.upsellBtnText, {color: isAdri ? '#FFF' : '#000'}]}>{isAdri ? 'COMPREENDIDO! 👊' : 'COMPREENDIDO, COACH! 👊'}</Text>}
+                        <TouchableOpacity
+                            style={[styles.readBtn, { backgroundColor: accentColor }]}
+                            onPress={markFeedbackAsRead}
+                            disabled={isMarkingAsRead}>
+                            {isMarkingAsRead
+                                ? <ActivityIndicator color="#000" />
+                                : <Text style={[styles.readBtnTxt, { color: isAdri ? '#FFF' : '#000' }]}>
+                                    {isAdri ? 'COMPREENDIDO! 👊' : 'COMPREENDIDO, COACH! 👊'}
+                                  </Text>
+                            }
                         </TouchableOpacity>
                     </ScrollView>
                 </View>
@@ -150,21 +175,30 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
 }
 
 const styles = StyleSheet.create({
-    chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-    reportModalContent: { width: '100%', height: '100%', maxWidth: 500, alignSelf: 'center', overflow: 'hidden' },
-    reportHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 20 : 40, borderBottomWidth: 1 },
-    reportTitle: { fontSize: 22, fontWeight: '900', letterSpacing: 1 },
-    reportSubtitle: { fontSize: 13, fontWeight: '900', letterSpacing: 1, marginTop: 4 },
-    reportPhotoContainer: { width: 220, height: 320, borderRadius: 20, overflow: 'hidden', backgroundColor: '#0a0a0a', borderWidth: 1, borderColor: '#333', position: 'relative' },
-    reportPhotoImg: { width: '100%', height: '100%' },
-    reportPhotoBadge: { position: 'absolute', bottom: 15, alignSelf: 'center', paddingHorizontal: 15, paddingVertical: 6, borderRadius: 20 },
-    reportPhotoBadgeText: { fontWeight: '900', fontSize: 10, letterSpacing: 1 },
-    reportDivider: { height: 1, backgroundColor: '#333', width: '100%', marginBottom: 30 },
-    reportSectionTitle: { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
-    reportText: { fontSize: 16, lineHeight: 28, marginBottom: 15, opacity: 0.9 },
-    reportFooter: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginTop: 10 },
-    coachName: { fontSize: 18, fontWeight: '900', letterSpacing: 0.5 },
-    coachTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginTop: 2 },
-    upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-    upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
+    overlay:        { flex:1, backgroundColor:'rgba(0,0,0,0.85)', justifyContent:'center', alignItems:'center' },
+    content:        { width:'100%', height:'100%', maxWidth:500, alignSelf:'center', backgroundColor:'#111', overflow:'hidden' },
+    header:         { alignItems:'center', paddingHorizontal:25, paddingTop: Platform.OS==='android' ? StatusBar.currentHeight + 20 : 40, paddingBottom:25, borderBottomWidth:1, position:'relative' },
+    closeBtn:       { position:'absolute', right:20, top: Platform.OS==='android' ? (StatusBar.currentHeight ?? 20) + 15 : 30, zIndex:10 },
+    title:          { color:'#FFF', fontSize:22, fontWeight:'900', letterSpacing:1, textAlign:'center' },
+    subtitle:       { fontWeight:'bold', letterSpacing:1, textAlign:'center', marginTop:4, fontSize:13 },
+    dateBadge:      { marginTop:15, paddingHorizontal:15, paddingVertical:6, borderRadius:10 },
+    dateText:       { fontSize:11, fontWeight:'900' },
+    compPhoto:      { width:130, height:200, borderRadius:12, overflow:'hidden', position:'relative' },
+    compPhotoImg:   { width:'100%', height:'100%' },
+    compBadgeDark:  { position:'absolute', bottom:8, alignSelf:'center', backgroundColor:'#333', paddingHorizontal:10, paddingVertical:4, borderRadius:12 },
+    compBadgeAccent:{ position:'absolute', bottom:8, alignSelf:'center', paddingHorizontal:10, paddingVertical:4, borderRadius:12 },
+    compBadgeTxt:   { color:'#FFF', fontSize:8, fontWeight:'900' },
+    soloPhoto:      { width:220, height:320, borderRadius:20, overflow:'hidden', backgroundColor:'#0a0a0a', borderWidth:1, borderColor:'#333', position:'relative' },
+    soloPhotoImg:   { width:'100%', height:'100%' },
+    soloBadge:      { position:'absolute', bottom:15, alignSelf:'center', paddingHorizontal:15, paddingVertical:6, borderRadius:20 },
+    soloBadgeTxt:   { fontWeight:'900', fontSize:10, letterSpacing:1 },
+    divider:        { height:1, backgroundColor:'#333', marginBottom:30 },
+    sectionTitle:   { fontSize:18, fontWeight:'900', letterSpacing:1 },
+    reportText:     { fontSize:16, lineHeight:28, marginBottom:15, color:'#DDD' },
+    footer:         { flexDirection:'row', alignItems:'center', padding:20, borderRadius:20, borderWidth:1, marginTop:30, backgroundColor:'#1A1A1A' },
+    footerAvatar:   { width:60, height:60, borderRadius:30, marginRight:15, borderWidth:2 },
+    coachName:      { color:'#FFF', fontSize:16, fontWeight:'900', letterSpacing:0.5 },
+    coachTitle:     { fontSize:10, fontWeight:'900', letterSpacing:1, marginTop:2 },
+    readBtn:        { width:'100%', padding:18, borderRadius:12, alignItems:'center', marginTop:30, marginBottom:20 },
+    readBtnTxt:     { fontWeight:'900', fontSize:14, letterSpacing:1 },
 });
