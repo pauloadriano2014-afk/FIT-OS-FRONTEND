@@ -28,7 +28,7 @@ const MAIN_DARK = '#9E0029';       // Vermelho escuro (degradê)
 const EXPIRE_DATE = new Date('2026-06-12T23:59:59-03:00').getTime();
 
 // ─── TOTAL DE VAGAS (altere conforme quiser) ────────────────────────────────
-const TOTAL_VAGAS = 6;
+const TOTAL_VAGAS = 3;
 
 const faqList = [
     {
