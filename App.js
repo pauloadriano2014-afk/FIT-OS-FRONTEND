@@ -52,6 +52,7 @@ import AIScannerModal from './src/components/AIScannerModal';
 import LaboratoryScreen from './src/screens/LaboratoryScreen';
 import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen';
 import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
+import GerarTreinoIA from './src/screens/GerarTreinoIA';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -235,6 +236,7 @@ function RootNavigator() {
       <Stack.Screen name="LaboratoryScreen"         component={LaboratoryScreen} />
       <Stack.Screen name="LaboratoryBuilderScreen"  component={LaboratoryBuilderScreen} />
       <Stack.Screen name="LaboratoryFinalScreen"    component={LaboratoryFinalScreen} />
+      <Stack.Screen name="GerarTreinoIA" component={GerarTreinoIA} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }

@@ -217,6 +217,31 @@ export function useMontarTreino(route, navigation) {
 
             // SE NÃO TEM RASCUNHO (ou se tava velho), INJETA OS DADOS REAIS
             if (!draftLoaded) {
+                const { prefillData } = route.params || {};
+if (!draftLoaded && prefillData?.exercisesByDay) {
+  const tabs = prefillData.workoutTabs || Object.keys(prefillData.exercisesByDay);
+  const hydratedExercises = {};
+  tabs.forEach(tab => {
+    hydratedExercises[tab] = (prefillData.exercisesByDay[tab] || []).map(ex => ({
+      ...ex,
+      tempId: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+      substitute: null,
+      blocks: (ex.blocks || []).map(b => ({
+        sets: String(b.sets || '1'),
+        reps: String(b.reps || '12'),
+        load: b.load || '',
+        restTime: String(b.restTime || '60'),
+        technique: b.technique || '',
+      })),
+    }));
+  });
+  setExercisesByDay(hydratedExercises);
+  setWorkoutTabs(tabs);
+  setSelectedWorkoutTab(tabs[0]);
+  setCustomWorkoutName(prefillData.workoutName || '');
+  if (prefillData.workoutModel) setWorkoutModel(prefillData.workoutModel);
+  draftLoaded = true;
+}
                 if (laboratoryStructure && Object.keys(laboratoryStructure).length > 0) {
                     const newExercisesByDay = {};
                     const tabs = Object.keys(laboratoryStructure);

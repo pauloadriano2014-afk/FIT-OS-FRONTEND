@@ -60,24 +60,46 @@ export default function AdminUserOptions({ route, navigation }) {
                 // 🔥 ROTEAMENTO PARA A NOVA TELA DE ANAMNESE
                 return <AdminUserAnamneseTab theme={theme} aluno={ops.freshAluno || aluno} userPlan={ops.userPlan} />;
             case 'TREINOS':
-                return (
-                    <AdminUserTreinosTab 
-                        theme={theme}
-                        handleAbrirRaioxCargas={ops.handleAbrirRaioxCargas}
-                        workoutTab={ops.workoutTab}
-                        setWorkoutTab={ops.setWorkoutTab}
-                        userPlan={ops.userPlan}
-                        loading={ops.loading}
-                        activeWorkouts={ops.activeWorkouts}
-                        archivedWorkouts={ops.archivedWorkouts}
-                        handleNewWorkout={ops.handleNewWorkout}
-                        handleEditWorkout={ops.handleEditWorkout}
-                        handleToggleArchiveWorkout={ops.handleToggleArchiveWorkout}
-                        handleDeleteWorkout={ops.handleDeleteWorkout}
-                        hasActiveFicha={ops.hasActiveFicha}
-                        fichaDaysElapsed={ops.fichaDaysElapsed}
-                    />
-                );
+    return (
+        <View style={{ width: '100%' }}>
+            {/* 🔥 BOTÃO GERAR TREINO COM IA */}
+            <TouchableOpacity
+                style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 12,
+                    padding: 16, borderRadius: 16, marginBottom: 16,
+                    backgroundColor: theme.accent + '15',
+                    borderWidth: 1, borderColor: theme.accent + '40',
+                }}
+                onPress={() => navigation.navigate('GerarTreinoIA', { aluno: ops.freshAluno || aluno })}
+            >
+                <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: theme.accent + '25', alignItems: 'center', justifyContent: 'center' }}>
+                    <MaterialCommunityIcons name="robot-outline" size={22} color={theme.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.3 }}>Gerar Novo Treino com IA</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>Progressão automática baseada no histórico</Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.accent} />
+            </TouchableOpacity>
+
+            <AdminUserTreinosTab 
+                theme={theme}
+                handleAbrirRaioxCargas={ops.handleAbrirRaioxCargas}
+                workoutTab={ops.workoutTab}
+                setWorkoutTab={ops.setWorkoutTab}
+                userPlan={ops.userPlan}
+                loading={ops.loading}
+                activeWorkouts={ops.activeWorkouts}
+                archivedWorkouts={ops.archivedWorkouts}
+                handleNewWorkout={ops.handleNewWorkout}
+                handleEditWorkout={ops.handleEditWorkout}
+                handleToggleArchiveWorkout={ops.handleToggleArchiveWorkout}
+                handleDeleteWorkout={ops.handleDeleteWorkout}
+                hasActiveFicha={ops.hasActiveFicha}
+                fichaDaysElapsed={ops.fichaDaysElapsed}
+            />
+        </View>
+    );
             case 'AVALIACOES':
                 return <View style={{ width: '100%', paddingBottom: 20 }}><AdminUserSystem currentTab="AVALIACOES" theme={theme} navigation={navigation} aluno={ops.freshAluno || aluno} userPlan={ops.userPlan} isActiveUser={ops.isActiveUser} handleToggleStatus={ops.handleToggleStatus} disableCheckIn={ops.disableCheckIn} handleToggleDisableCheckIn={ops.handleToggleDisableCheckIn} nextCheckInDate={ops.nextCheckInDate} handleCheckInDateChange={ops.handleCheckInDateChange} handleSaveCheckInDate={ops.handleSaveCheckInDate} evaluationUrl={ops.evaluationUrl} setEvaluationUrl={ops.setEvaluationUrl} handleSaveEvaluation={ops.handleSaveEvaluation} handleDeleteUser={ops.handleDeleteUser} /></View>;
             case 'DIETA_IA':
