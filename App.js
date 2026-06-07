@@ -21,6 +21,7 @@ import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
 import PropostaScreen from './src/screens/PropostaScreen';
 import PropostaStartScreen from './src/screens/PropostaStartScreen';
 import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
+import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen'; // 💘 Dia dos Namorados
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -190,42 +191,50 @@ function RootNavigator() {
 
   return (
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Install" component={InstallScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      <Stack.Screen name="Anamnese" component={AnamneseScreen} />
-      <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
-      <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
-      <Stack.Screen name="Proposta" component={PropostaScreen} />
-      <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
-      <Stack.Screen name="PropostaMaes" component={PropostaMaesScreen} />
-      <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
-      <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
+      {/* ── Telas públicas / onboarding ───────────────────────────── */}
+      <Stack.Screen name="Install"       component={InstallScreen} />
+      <Stack.Screen name="Login"         component={LoginScreen} />
+      <Stack.Screen name="Register"      component={RegisterScreen} />
+      <Stack.Screen name="Anamnese"      component={AnamneseScreen} />
+      <Stack.Screen name="AnamneseVIP"   component={AnamneseVIPScreen} />
+      <Stack.Screen name="SetupTreino"   component={SetupTreinoScreen} />
+
+      {/* ── Páginas de proposta / vendas ──────────────────────────── */}
+      <Stack.Screen name="Proposta"           component={PropostaScreen} />
+      <Stack.Screen name="PropostaStart"      component={PropostaStartScreen} />
+      <Stack.Screen name="PropostaMaes"       component={PropostaMaesScreen} />
+      <Stack.Screen name="PropostaNavegantes" component={PropostaNavegantesScreen} />
+
+      {/* ── App do aluno ──────────────────────────────────────────── */}
+      <Stack.Screen name="Main"          component={StudentTabs} initialParams={{ userData: savedUser }} />
+      <Stack.Screen name="RoutineDetails"   component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
-      <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
-      <Stack.Screen name="FinishScreen" component={FinishScreen} />
-      <Stack.Screen name="CheckIn" component={CheckInScreen} />
-      <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
-      <Stack.Screen name="ScannerIA" component={AIScannerModal} />
-      <Stack.Screen name="Biblioteca" component={BibliotecaScreen} />
-      <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
-      <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
-      <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
-      <Stack.Screen name="PAFlix" component={PAFlixScreen} />
-      <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
-      <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
-      <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
-      <Stack.Screen name="GerenciarTemplates" component={GerenciarTemplates} />
-      <Stack.Screen name="AdminAlunoOptions" component={AdminUserOptions} />
-      <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
-      <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
-      <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
-      <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} />
-      <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} />
-      <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} />
-      <Stack.Screen name="LaboratoryScreen" component={LaboratoryScreen} />
-      <Stack.Screen name="LaboratoryBuilderScreen" component={LaboratoryBuilderScreen} />
-      <Stack.Screen name="LaboratoryFinalScreen" component={LaboratoryFinalScreen} />
+      <Stack.Screen name="DayWorkout"       component={DayWorkoutScreen} />
+      <Stack.Screen name="FinishScreen"     component={FinishScreen} />
+      <Stack.Screen name="CheckIn"          component={CheckInScreen} />
+      <Stack.Screen name="UserHistory"      component={UserHistoryScreen} />
+      <Stack.Screen name="ScannerIA"        component={AIScannerModal} />
+      <Stack.Screen name="Biblioteca"       component={BibliotecaScreen} />
+      <Stack.Screen name="PDFViewer"        component={PDFViewerScreen} />
+      <Stack.Screen name="VideoPlayer"      component={VideoPlayerScreen} />
+      <Stack.Screen name="AudioPlayer"      component={AudioPlayerScreen} />
+      <Stack.Screen name="PAFlix"           component={PAFlixScreen} />
+
+      {/* ── Painel admin ──────────────────────────────────────────── */}
+      <Stack.Screen name="AdminDashboard"          component={AdminDashboard} />
+      <Stack.Screen name="MontarTreinoAdmin"        component={MontarTreinoAdmin} />
+      <Stack.Screen name="BibliotecaAdmin"          component={BibliotecaAdmin} />
+      <Stack.Screen name="GerenciarTemplates"       component={GerenciarTemplates} />
+      <Stack.Screen name="AdminAlunoOptions"        component={AdminUserOptions} />
+      <Stack.Screen name="AdminEvolution"           component={AdminEvolutionScreen} />
+      <Stack.Screen name="AdminAddContent"          component={AdminAddContent} />
+      <Stack.Screen name="AdminStudentCheckins"     component={AdminStudentCheckinsScreen} />
+      <Stack.Screen name="AdminIALabScreen"         component={AdminIALabScreen} />
+      <Stack.Screen name="AdminDietScreen"          component={AdminDietScreen} />
+      <Stack.Screen name="AdminDietLibraryScreen"   component={AdminDietLibraryScreen} />
+      <Stack.Screen name="LaboratoryScreen"         component={LaboratoryScreen} />
+      <Stack.Screen name="LaboratoryBuilderScreen"  component={LaboratoryBuilderScreen} />
+      <Stack.Screen name="LaboratoryFinalScreen"    component={LaboratoryFinalScreen} />
     </Stack.Navigator>
   );
 }
@@ -240,18 +249,17 @@ const linking = {
   ],
   config: {
     screens: {
-      // Telas públicas
-      Install:       { path: 'registro' },
-      Proposta:      { path: 'Proposta' },
-      PropostaStart: { path: 'PropostaStart' },
-      PropostaMaes:  { path: 'PropostaMaes' },
+      // ── Telas públicas
+      Install:             { path: 'registro' },
+      Proposta:            { path: 'Proposta' },
+      PropostaStart:       { path: 'PropostaStart' },
+      PropostaMaes:        { path: 'PropostaMaes' },
+      PropostaNavegantes:  { path: 'PropostaNavegantes' }, // 💘 Dia dos Namorados
 
-      // Dashboard admin — F5 aqui volta pro dashboard
+      // ── Dashboard admin — F5 aqui volta pro dashboard
       AdminDashboard: { path: 'admin' },
 
-      // Telas admin que recebem parâmetros via query string na URL
-      // Ex: /admin-checkins?alunoId=abc&alunoName=Jo%C3%A3o
-      // Ao apertar F5, o React Navigation lê os params da URL e recarrega a tela corretamente
+      // ── Telas admin com parâmetros via query string
       AdminStudentCheckins: {
         path: 'admin-checkins',
         parse: {
