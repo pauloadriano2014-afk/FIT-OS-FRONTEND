@@ -73,6 +73,19 @@ function drawMarkOnCanvas(ctx, mark, scaleX, scaleY, scale) {
     const sy = (v) => v * scaleY;
     const ss = (v) => v * scale;
 
+    // Apply rotation transform around mark center
+    const rotation = mark.rotation ?? 0;
+    const needsRotation = rotation !== 0;
+    let pivotX = 0, pivotY = 0;
+    if (needsRotation) {
+        if (mark.type === 'text') { pivotX = sx(mark.x ?? 0); pivotY = sy(mark.y ?? 0); }
+        else { pivotX = sx((mark.startX + mark.endX) / 2); pivotY = sy((mark.startY + mark.endY) / 2); }
+        ctx.save();
+        ctx.translate(pivotX, pivotY);
+        ctx.rotate((rotation * Math.PI) / 180);
+        ctx.translate(-pivotX, -pivotY);
+    }
+
     if (mark.type === 'arrow') {
         const { lineEndX, lineEndY, ax, ay, bx, by } = calcArrowHead(
             sx(mark.startX), sy(mark.startY),
@@ -134,16 +147,49 @@ function drawMarkOnCanvas(ctx, mark, scaleX, scaleY, scale) {
     ctx.globalAlpha   = 1;
     ctx.shadowColor   = 'transparent';
     ctx.shadowBlur    = 0;
+    if (needsRotation) ctx.restore();
+}
+
+// ─── Utilitários de rotação ──────────────────────────────────────────────────
+// Centro de uma marcação (ponto de pivô para rotação)
+function markCenter(m) {
+    if (m.type === 'text') return { cx: m.x ?? 0, cy: m.y ?? 0 };
+    return { cx: (m.startX + m.endX) / 2, cy: (m.startY + m.endY) / 2 };
+}
+
+// Rotaciona um ponto em torno de um centro
+function rotatePoint(px, py, cx, cy, angleDeg) {
+    const rad = (angleDeg * Math.PI) / 180;
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    return {
+        x: cx + (px - cx) * cos - (py - cy) * sin,
+        y: cy + (px - cx) * sin + (py - cy) * cos,
+    };
+}
+
+// Aplica a rotação acumulada aos pontos reais da marcação
+function applyRotationToMark(m, deltaAngle) {
+    const totalAngle = (m.rotation ?? 0) + deltaAngle;
+    const { cx, cy } = markCenter(m);
+    if (m.type === 'text') {
+        return { ...m, rotation: totalAngle };
+    }
+    const s = rotatePoint(m.startX, m.startY, cx, cy, deltaAngle);
+    const e = rotatePoint(m.endX,   m.endY,   cx, cy, deltaAngle);
+    return { ...m, startX: s.x, startY: s.y, endX: e.x, endY: e.y, rotation: totalAngle };
 }
 
 // ─── Componente SVG de preview de uma marcação ───────────────────────────────
-function MarkShape({ mark, isSelected }) {
+function MarkShape({ mark, isSelected, onPopover }) {
     const alpha = mark.opacity ?? 1;
     const s = mark.stroke ?? 4;
     const color = mark.color ?? '#4DE38F';
-    // Selection highlight: draw a thicker semi-transparent blue outline behind
     const selColor = '#0A84FF';
     const selWidth = s + 8;
+    // Text rotation uses SVG transform on the group
+    const rot = mark.type === 'text' ? (mark.rotation ?? 0) : 0;
+    const { cx: tcx, cy: tcy } = markCenter(mark);
+    const textTransform = rot !== 0 ? `rotate(${rot}, ${tcx}, ${tcy})` : undefined;
 
     if (mark.type === 'arrow') {
         const { lineEndX, lineEndY, ax, ay, bx, by } = calcArrowHead(
@@ -155,6 +201,7 @@ function MarkShape({ mark, isSelected }) {
                 {isSelected && <Line x1={mark.startX} y1={mark.startY} x2={lineEndX} y2={lineEndY} stroke={selColor} strokeWidth={selWidth} strokeLinecap="round" opacity={0.4} />}
                 <Line x1={mark.startX} y1={mark.startY} x2={lineEndX} y2={lineEndY} stroke={color} strokeWidth={s} strokeLinecap="round" opacity={alpha} />
                 <Polygon points={`${mark.endX},${mark.endY} ${ax},${ay} ${bx},${by}`} fill={color} opacity={alpha} />
+                {isSelected && onPopover && onPopover(mark)}
             </React.Fragment>
         );
     }
@@ -163,6 +210,7 @@ function MarkShape({ mark, isSelected }) {
             <React.Fragment>
                 {isSelected && <Line x1={mark.startX} y1={mark.startY} x2={mark.endX} y2={mark.endY} stroke={selColor} strokeWidth={selWidth} strokeLinecap="round" opacity={0.4} />}
                 <Line x1={mark.startX} y1={mark.startY} x2={mark.endX} y2={mark.endY} stroke={color} strokeWidth={s} strokeLinecap="round" opacity={alpha} />
+                {isSelected && onPopover && onPopover(mark)}
             </React.Fragment>
         );
     }
@@ -174,6 +222,7 @@ function MarkShape({ mark, isSelected }) {
             <React.Fragment>
                 {isSelected && <SvgCircle cx={cx} cy={cy} r={r} stroke={selColor} strokeWidth={selWidth} fill="none" opacity={0.4} />}
                 <SvgCircle cx={cx} cy={cy} r={r} stroke={color} strokeWidth={s} fill="none" opacity={alpha} />
+                {isSelected && onPopover && onPopover(mark)}
             </React.Fragment>
         );
     }
@@ -186,6 +235,7 @@ function MarkShape({ mark, isSelected }) {
             <React.Fragment>
                 {isSelected && <Rect x={rx - 4} y={ry - 4} width={w + 8} height={h + 8} stroke={selColor} strokeWidth={2} fill="none" opacity={0.5} rx={4} />}
                 <Rect x={rx} y={ry} width={w} height={h} stroke={color} strokeWidth={s} fill="none" opacity={alpha} />
+                {isSelected && onPopover && onPopover(mark)}
             </React.Fragment>
         );
     }
@@ -201,13 +251,124 @@ function MarkShape({ mark, isSelected }) {
                         stroke={selColor} strokeWidth={2} fill={selColor} fillOpacity={0.15} rx={4}
                     />
                 )}
-                <SvgText x={mark.x} y={mark.y} fill={color} fontSize={mark.fontSize ?? 20} fontWeight="bold" opacity={alpha}>
+                <SvgText x={mark.x} y={mark.y} fill={color} fontSize={mark.fontSize ?? 20} fontWeight="bold" opacity={alpha} transform={textTransform}>
                     {mark.text ?? ''}
                 </SvgText>
+                {isSelected && onPopover && onPopover(mark)}
             </React.Fragment>
         );
     }
     return null;
+}
+
+// ─── Calcula posições dos botões do popover (compartilhado com hit-test) ────────
+function getPopoverButtons(mark) {
+    const { cx, cy } = markCenter(mark);
+    const rot  = mark.rotation ?? 0;
+    const rad  = (rot * Math.PI) / 180;
+    const PAD  = 6, BTN_R = 13, GAP = 6;
+    const pillW = 3 * (BTN_R * 2) + 2 * GAP + PAD * 2;
+    const pillH = BTN_R * 2 + PAD * 2;
+    const pillX = cx - pillW / 2;
+    const pillY = cy - 58 - pillH;
+    const b1x = pillX + PAD + BTN_R;
+    const b2x = b1x + BTN_R * 2 + GAP;
+    const b3x = b2x + BTN_R * 2 + GAP;
+    const by  = pillY + PAD + BTN_R;
+    const hx  = cx + (-Math.sin(rad)) * 36;
+    const hy  = cy + (-Math.cos(rad)) * 36;
+    // Resize handle at endX/endY (not for text)
+    const rx = mark.type === 'text' ? null : mark.endX;
+    const ry = mark.type === 'text' ? null : mark.endY;
+    return {
+        rotLeft:  { x: b1x, y: by, r: BTN_R },
+        rotRight: { x: b2x, y: by, r: BTN_R },
+        del:      { x: b3x, y: by, r: BTN_R },
+        handle:   { x: hx,  y: hy, r: 12 },
+        resize:   rx !== null ? { x: rx, y: ry, r: 10 } : null,
+    };
+}
+
+// ─── Popover SVG flutuante com ↺ ↔ 🗑 ────────────────────────────────────────
+// Renderizado dentro do SVG, acima da marcação selecionada.
+// onRotateLeft / onRotateRight / onDelete são callbacks passados pelo pai.
+function SelectionPopover({ mark, onRotateLeft, onRotateRight, onDelete, onDragStart }) {
+    const { cx, cy } = markCenter(mark);
+    const rot = mark.rotation ?? 0;
+    const rad = (rot * Math.PI) / 180;
+
+    // Rotation handle: 36px acima do centro no espaço rotacionado
+    const HANDLE_DIST = 36;
+    const hx = cx + (-Math.sin(rad)) * HANDLE_DIST;
+    const hy = cy + (-Math.cos(rad)) * HANDLE_DIST;
+
+    // Popover pill: 58px acima do centro (fixo, não rotaciona)
+    const PAD   = 6;
+    const BTN_R = 13;
+    const GAP   = 6;
+    const btnCount = 3;
+    const pillW = btnCount * (BTN_R * 2) + (btnCount - 1) * GAP + PAD * 2;
+    const pillH = BTN_R * 2 + PAD * 2;
+    const pillX = cx - pillW / 2;
+    const pillY = cy - 58 - pillH;
+
+    // Button centers
+    const b1x = pillX + PAD + BTN_R;
+    const b2x = b1x + BTN_R * 2 + GAP;
+    const b3x = b2x + BTN_R * 2 + GAP;
+    const by  = pillY + PAD + BTN_R;
+
+    return (
+        <React.Fragment>
+            {/* Line from center to rotation handle */}
+            <Line x1={cx} y1={cy} x2={hx} y2={hy} stroke="#0A84FF" strokeWidth={1.5} opacity={0.55} strokeDasharray="3,2" />
+
+            {/* Rotation handle — drag to rotate freely */}
+            <SvgCircle cx={hx} cy={hy} r={10} fill="#0A84FF" opacity={0.9}
+                onPress={onDragStart}
+                onStartShouldSetResponder={() => true}
+                onResponderGrant={onDragStart} />
+            <SvgCircle cx={hx} cy={hy} r={6} fill="#FFF" opacity={1} pointerEvents="none" />
+
+            {/* Popover background pill */}
+            <Rect x={pillX} y={pillY} width={pillW} height={pillH}
+                fill="#1C1C1E" rx={pillH / 2} opacity={0.94} />
+
+            {/* ↺ Rotate left */}
+            <SvgCircle cx={b1x} cy={by} r={BTN_R} fill="#2C2C2E"
+                onPress={onRotateLeft}
+                onStartShouldSetResponder={() => true}
+                onResponderGrant={onRotateLeft} />
+            <SvgText x={b1x} y={by + 6} textAnchor="middle" fontSize={14} fill="#FFF" pointerEvents="none">↺</SvgText>
+
+            {/* ↻ Rotate right */}
+            <SvgCircle cx={b2x} cy={by} r={BTN_R} fill="#2C2C2E"
+                onPress={onRotateRight}
+                onStartShouldSetResponder={() => true}
+                onResponderGrant={onRotateRight} />
+            <SvgText x={b2x} y={by + 6} textAnchor="middle" fontSize={14} fill="#FFF" pointerEvents="none">↻</SvgText>
+
+            {/* ✕ Delete */}
+            <SvgCircle cx={b3x} cy={by} r={BTN_R} fill="#3A1010"
+                onPress={onDelete}
+                onStartShouldSetResponder={() => true}
+                onResponderGrant={onDelete} />
+            <SvgText x={b3x} y={by + 6} textAnchor="middle" fontSize={13} fill="#FF3B30" pointerEvents="none">✕</SvgText>
+            {/* Resize handle at endX/endY — white square */}
+            {mark.type !== 'text' && (
+                <React.Fragment>
+                    <Rect
+                        x={mark.endX - 8} y={mark.endY - 8}
+                        width={16} height={16} rx={3}
+                        fill="#FFF" stroke="#0A84FF" strokeWidth={2}
+                    />
+                    {/* Small resize icon lines */}
+                    <Line x1={mark.endX - 3} y1={mark.endY + 3} x2={mark.endX + 3} y2={mark.endY - 3} stroke="#0A84FF" strokeWidth={1.5} />
+                    <Line x1={mark.endX + 0} y1={mark.endY + 3} x2={mark.endX + 3} y2={mark.endY + 0} stroke="#0A84FF" strokeWidth={1.5} />
+                </React.Fragment>
+            )}
+        </React.Fragment>
+    );
 }
 
 // ─── Hook: gerencia marcações de um lado do editor ───────────────────────────
@@ -245,7 +406,9 @@ export default function PhotoEditorModal({
     // ── Seleção e move ────────────────────────────────────────────────────────
     const [selectedMarkId, setSelectedMarkId] = useState(null); // id da marca selecionada
     const [selectedMarkSide, setSelectedMarkSide] = useState(null); // 'left'|'right'
-    const dragRef = useRef(null); // { mark, offsetX, offsetY, side }
+    const dragRef = useRef(null);        // { id, side, offsetX, offsetY }
+    const rotDragRef    = useRef(null);  // { id, side, cx, cy, startAngle }
+    const resizeDragRef = useRef(null);  // { id, side } — dragging endX/endY
 
     // ── Estado de texto ───────────────────────────────────────────────────────
     const [textInputVisible, setTextInputVisible] = useState(false);
@@ -324,7 +487,13 @@ export default function PhotoEditorModal({
 
     useEffect(() => { activeToolRef.current  = activeTool;   }, [activeTool]);
     // Clear selection when switching away from select tool
-    useEffect(() => { if (activeTool !== 'select') { setSelectedMarkId(null); setSelectedMarkSide(null); dragRef.current = null; } }, [activeTool]);
+    useEffect(() => { if (activeTool !== 'select') { setSelectedMarkId(null); setSelectedMarkSide(null); dragRef.current = null; rotDragRef.current = null; } }, [activeTool]);
+
+    // Refs that mirror state for use in draw callbacks (avoid stale closures)
+    const selectedMarkIdRef   = useRef(null);
+    const selectedMarkSideRef = useRef(null);
+    useEffect(() => { selectedMarkIdRef.current   = selectedMarkId;   }, [selectedMarkId]);
+    useEffect(() => { selectedMarkSideRef.current = selectedMarkSide; }, [selectedMarkSide]);
     useEffect(() => { activeColorRef.current = activeColor;  }, [activeColor]);
     useEffect(() => { activeSizeRef.current  = activeSize;   }, [activeSize]);
     useEffect(() => { opacityRef.current     = opacity;      }, [opacity]);
@@ -389,8 +558,9 @@ export default function PhotoEditorModal({
 
     // ── Lógica de início / movimento / fim de marcação ─────────────────────
     const handleDrawStart = useCallback((x, y, side) => {
-        if (!isDrawingRef.current) return;
-        const tool    = activeToolRef.current;
+        const tool = activeToolRef.current;
+        // Allow select tool even when not in drawing mode
+        if (!isDrawingRef.current && tool !== 'select') return;
         const color   = activeColorRef.current.hex;
         const sz      = activeSizeRef.current;
         const op      = opacityRef.current;
@@ -402,11 +572,55 @@ export default function PhotoEditorModal({
 
         // ── Modo Seleção ────────────────────────────────────────────────────
         if (tool === 'select') {
+            const selId   = selectedMarkIdRef.current;
+            const selSide = selectedMarkSideRef.current;
+
+            // ── Checar botões do popover PRIMEIRO (antes do hit-test) ────────
+            if (selId && selSide === side) {
+                const tgt     = (editorModeRef.current === 'single' || side === 'right') ? right : left;
+                const selMark = tgt.marksRef.current.find(m => m.id === selId);
+                if (selMark) {
+                    const btns = getPopoverButtons(selMark);
+                    const { cx, cy } = markCenter(selMark);
+
+                    // Botão ↺ — rotacionar -15°
+                    if (Math.hypot(nx - btns.rotLeft.x, ny - btns.rotLeft.y) <= btns.rotLeft.r) {
+                        const patched = applyRotationToMark(selMark, -15);
+                        tgt.setMarks(prev => prev.map(m => m.id === selId ? { ...m, ...patched } : m));
+                        return;
+                    }
+                    // Botão ↻ — rotacionar +15°
+                    if (Math.hypot(nx - btns.rotRight.x, ny - btns.rotRight.y) <= btns.rotRight.r) {
+                        const patched = applyRotationToMark(selMark, 15);
+                        tgt.setMarks(prev => prev.map(m => m.id === selId ? { ...m, ...patched } : m));
+                        return;
+                    }
+                    // Botão ✕ — excluir
+                    if (Math.hypot(nx - btns.del.x, ny - btns.del.y) <= btns.del.r) {
+                        tgt.setMarks(prev => prev.filter(m => m.id !== selId));
+                        setSelectedMarkId(null);
+                        setSelectedMarkSide(null);
+                        return;
+                    }
+                    // Handle de rotação livre
+                    if (Math.hypot(nx - btns.handle.x, ny - btns.handle.y) <= btns.handle.r) {
+                        const startAngle = Math.atan2(ny - cy, nx - cx) * 180 / Math.PI;
+                        rotDragRef.current = { id: selId, side, cx, cy, startAngle, initRotation: selMark.rotation ?? 0 };
+                        return;
+                    }
+                    // Handle de redimensionar (quadradinho branco em endX/endY)
+                    if (btns.resize && Math.hypot(nx - btns.resize.x, ny - btns.resize.y) <= btns.resize.r) {
+                        resizeDragRef.current = { id: selId, side };
+                        return;
+                    }
+                }
+            }
+
+            // ── Hit-test na marcação ─────────────────────────────────────────
             const hit = hitTestMark(nx, ny, target.marksRef.current);
             if (hit) {
                 setSelectedMarkId(hit.id);
                 setSelectedMarkSide(side);
-                // Calcula offset entre o toque e a âncora da marcação
                 const anchorX = hit.type === 'text' ? hit.x : hit.startX;
                 const anchorY = hit.type === 'text' ? hit.y : hit.startY;
                 dragRef.current = { id: hit.id, side, offsetX: nx - anchorX, offsetY: ny - anchorY };
@@ -440,6 +654,39 @@ export default function PhotoEditorModal({
         const nx = x / z;
         const ny = y / z;
 
+        // ── Redimensionar marcação selecionada ──────────────────────────────
+        if (activeToolRef.current === 'select' && resizeDragRef.current) {
+            const { id, side: rSide } = resizeDragRef.current;
+            const target = (editorModeRef.current === 'single' || rSide === 'right') ? right : left;
+            target.setMarks(prev => prev.map(m => {
+                if (m.id !== id) return m;
+                return { ...m, endX: nx, endY: ny };
+            }));
+            return;
+        }
+
+        // ── Rotacionar marcação selecionada ────────────────────────────────
+        if (activeToolRef.current === 'select' && rotDragRef.current) {
+            const { id, side: rSide, cx, cy, startAngle, initRotation } = rotDragRef.current;
+            const currentAngle = Math.atan2(ny - cy, nx - cx) * 180 / Math.PI;
+            const delta = currentAngle - startAngle;
+            const newRotation = initRotation + delta;
+            const target = (editorModeRef.current === 'single' || rSide === 'right') ? right : left;
+            target.setMarks(prev => prev.map(m => {
+                if (m.id !== id) return m;
+                if (m.type === 'text') return { ...m, rotation: newRotation };
+                // For non-text: rotate the actual points around center
+                const { cx: mcx, cy: mcy } = markCenter(m);
+                // Recompute from original stored rotation
+                const baseRotation = initRotation;
+                const totalDelta = newRotation - baseRotation;
+                const s = rotatePoint(m.startX, m.startY, mcx, mcy, totalDelta - (m._lastDelta ?? 0));
+                const e = rotatePoint(m.endX,   m.endY,   mcx, mcy, totalDelta - (m._lastDelta ?? 0));
+                return { ...m, startX: s.x, startY: s.y, endX: e.x, endY: e.y, rotation: newRotation, _lastDelta: totalDelta };
+            }));
+            return;
+        }
+
         // ── Arrastar marcação selecionada ──────────────────────────────────
         if (activeToolRef.current === 'select' && dragRef.current) {
             const { id, side: dSide, offsetX, offsetY } = dragRef.current;
@@ -464,9 +711,11 @@ export default function PhotoEditorModal({
     }, [right, left]);
 
     const handleDrawEnd = useCallback((x, y, side) => {
-        // Select mode: just stop dragging
+        // Select mode: stop dragging or rotating
         if (activeToolRef.current === 'select') {
-            dragRef.current = null;
+            dragRef.current       = null;
+            rotDragRef.current    = null;
+            resizeDragRef.current = null;
             return;
         }
         if (!drawingRef.current) return;
@@ -517,25 +766,27 @@ export default function PhotoEditorModal({
         if (!el) return () => {};
 
         const onDown = (e) => {
-            if (!isDrawingRef.current) return;
+            // Allow select tool events even when not in drawing mode
+            if (!isDrawingRef.current && activeToolRef.current !== 'select') return;
             e.preventDefault();
             const { x, y } = getWebCoords(e, side === 'right' ? interactionRef : leftInterRef);
             handleDrawStart(x, y, side);
         };
         const onMove = (e) => {
-            if (!drawingRef.current) return;
+            // Permite mover quando está desenhando OU quando está arrastando/rotacionando
+            if (!drawingRef.current && !dragRef.current && !rotDragRef.current && !resizeDragRef.current) return;
             e.preventDefault();
             const { x, y } = getWebCoords(e, side === 'right' ? interactionRef : leftInterRef);
             handleDrawMove(x, y, side);
         };
         const onUp = (e) => {
-            if (!drawingRef.current) return;
+            if (!drawingRef.current && !dragRef.current && !rotDragRef.current && !resizeDragRef.current) return;
             e.preventDefault();
             const { x, y } = getWebCoords(e, side === 'right' ? interactionRef : leftInterRef);
             handleDrawEnd(x, y, side);
         };
         const onTEnd = (e) => {
-            if (!drawingRef.current) return;
+            if (!drawingRef.current && !dragRef.current && !rotDragRef.current && !resizeDragRef.current) return;
             const t    = e.changedTouches?.[0];
             const ref  = side === 'right' ? interactionRef : leftInterRef;
             const rect = ref.current?.getBoundingClientRect?.();
@@ -566,20 +817,39 @@ export default function PhotoEditorModal({
             ? registerListeners(leftInterRef.current, 'left')
             : () => {};
         return () => { cleanRight(); cleanLeft(); };
-    }, [visible, editorMode, registerListeners]);
+    }, [visible, editorMode, activeTool, registerListeners]);
 
     // ── Handlers mobile ───────────────────────────────────────────────────────
     const makeMobileHandlers = (side) => IS_WEB ? {} : {
-        onStartShouldSetResponder: () => isDrawingRef.current,
-        onMoveShouldSetResponder:  () => isDrawingRef.current,
+        onStartShouldSetResponder: () => isDrawingRef.current || activeToolRef.current === 'select',
+        onMoveShouldSetResponder:  () => isDrawingRef.current || !!dragRef.current,
         onResponderGrant:    (e) => { const { locationX: x, locationY: y } = e.nativeEvent; handleDrawStart(x, y, side); },
         onResponderMove:     (e) => { const { locationX: x, locationY: y } = e.nativeEvent; handleDrawMove(x, y, side);  },
         onResponderRelease:  (e) => { const { locationX: x, locationY: y } = e.nativeEvent; handleDrawEnd(x, y, side);   },
-        onResponderTerminate: () => { drawingRef.current = false; right.setCurrentMark(null); left.setCurrentMark(null); },
+        onResponderTerminate: () => { drawingRef.current = false; dragRef.current = null; rotDragRef.current = null; resizeDragRef.current = null; right.setCurrentMark(null); left.setCurrentMark(null); },
     };
 
     // ── Toolbar ───────────────────────────────────────────────────────────────
     const handleUndo = () => active.setMarks(prev => prev.slice(0, -1));
+
+    // Helpers que atualizam a marcação selecionada E o estado ativo da toolbar
+    const handleColorChange = (c) => {
+        setActiveColor(c);
+        if (selectedMarkId) {
+            const tgt = (editorMode === 'single' || selectedMarkSide === 'right') ? right : left;
+            tgt.setMarks(prev => prev.map(m => m.id === selectedMarkId ? { ...m, color: c.hex } : m));
+        }
+    };
+    const handleSizeChange = (sz) => {
+        setActiveSize(sz);
+        if (selectedMarkId) {
+            const tgt = (editorMode === 'single' || selectedMarkSide === 'right') ? right : left;
+            tgt.setMarks(prev => prev.map(m => m.id === selectedMarkId
+                ? { ...m, stroke: sz.stroke, head: sz.head, fontSize: sz.stroke * 4 }
+                : m
+            ));
+        }
+    };
     const handleClear = () => { right.setMarks([]); left.setMarks([]); };
     const hasMarks = right.marks.length > 0 || left.marks.length > 0;
 
@@ -737,7 +1007,41 @@ export default function PhotoEditorModal({
                 {/* SVG preview marcações */}
                 {showMarks && (
                     <Svg style={[StyleSheet.absoluteFill, { zIndex: 9 }]} width={scaledW} height={scaledH} viewBox={`0 0 ${baseW} ${baseH}`} preserveAspectRatio="none" pointerEvents="none">
-                        {marks.map(m => <MarkShape key={m.id} mark={m} isSelected={selectedMarkId === m.id && selectedMarkSide === side} />)}
+                        {marks.map(m => {
+                            const isSel = selectedMarkId === m.id && selectedMarkSide === side;
+                            return (
+                                <MarkShape
+                                    key={m.id}
+                                    mark={m}
+                                    isSelected={isSel}
+                                    onPopover={isSel ? (selMark) => {
+                                        const targetState = (editorModeRef.current === 'single' || side === 'right') ? right : left;
+                                        const updateMark = (patch) => targetState.setMarks(prev => prev.map(mm => mm.id === selMark.id ? { ...mm, ...patch } : mm));
+                                        const deleteMark = () => { targetState.setMarks(prev => prev.filter(mm => mm.id !== selMark.id)); setSelectedMarkId(null); setSelectedMarkSide(null); };
+                                        const onRotL  = () => { const p = applyRotationToMark(selMark, -15); updateMark(p); };
+                                        const onRotR  = () => { const p = applyRotationToMark(selMark, 15);  updateMark(p); };
+                                        const { cx, cy } = markCenter(selMark);
+                                        const rot = selMark.rotation ?? 0;
+                                        const rad = (rot * Math.PI) / 180;
+                                        const hx = cx + (-Math.sin(rad)) * 36;
+                                        const hy = cy + (-Math.cos(rad)) * 36;
+                                        const onDragStart = () => {
+                                            const startAngle = 0; // will be computed on first move
+                                            rotDragRef.current = { id: selMark.id, side, cx, cy, startAngle: Math.atan2(hy - cy, hx - cx) * 180 / Math.PI, initRotation: selMark.rotation ?? 0 };
+                                        };
+                                        return (
+                                            <SelectionPopover
+                                                mark={selMark}
+                                                onRotateLeft={onRotL}
+                                                onRotateRight={onRotR}
+                                                onDelete={deleteMark}
+                                                onDragStart={onDragStart}
+                                            />
+                                        );
+                                    } : null}
+                                />
+                            );
+                        })}
                         {currentMark && <MarkShape mark={currentMark} />}
                     </Svg>
                 )}
@@ -746,8 +1050,8 @@ export default function PhotoEditorModal({
                 {IS_WEB ? (
                     <div ref={interRef} style={{
                         position:'absolute', inset:0, zIndex:10,
-                        cursor: isDrawingMode && isSideActive ? 'crosshair' : 'default',
-                        pointerEvents: isDrawingMode && isSideActive ? 'auto' : 'none',
+                        cursor: activeTool === 'select' ? 'pointer' : (isDrawingMode && isSideActive ? 'crosshair' : 'default'),
+                        pointerEvents: (isDrawingMode || activeTool === 'select') && isSideActive ? 'auto' : 'none',
                         touchAction: 'none',
                         outline: editorMode === 'compare' && isSideActive
                             ? `2px solid ${side === 'right' ? '#4DE38F' : '#00CFFF'}`
@@ -755,8 +1059,8 @@ export default function PhotoEditorModal({
                     }} />
                 ) : (
                     <View style={[StyleSheet.absoluteFill, { zIndex:10, backgroundColor:'transparent' },
-                                  !(isDrawingMode && isSideActive) && { pointerEvents:'none' }]}
-                          {...(isDrawingMode && isSideActive ? makeMobileHandlers(side) : {})} />
+                                  !((isDrawingMode || activeTool === 'select') && isSideActive) && { pointerEvents:'none' }]}
+                          {...((isDrawingMode || activeTool === 'select') && isSideActive ? makeMobileHandlers(side) : {})} />
                 )}
 
                 {/* Badge de lado no modo comparação */}
@@ -872,7 +1176,7 @@ export default function PhotoEditorModal({
                             {SIZE_OPTIONS.map(sz => (
                                 <TouchableOpacity key={sz.id}
                                     style={[styles.sizeBtnSm, activeSize.id === sz.id && { backgroundColor: '#4DE38F' }]}
-                                    onPress={() => setActiveSize(sz)}>
+                                    onPress={() => handleSizeChange(sz)}>
                                     <Text style={[styles.sizeTxtSm, activeSize.id === sz.id && { color:'#000' }]}>{sz.label}</Text>
                                 </TouchableOpacity>
                             ))}
@@ -881,7 +1185,7 @@ export default function PhotoEditorModal({
                         <View style={styles.toolBarMobileRow}>
                             {COLOR_OPTIONS.map(c => (
                                 <TouchableOpacity key={c.id}
-                                    onPress={() => setActiveColor(c)}
+                                    onPress={() => handleColorChange(c)}
                                     style={[styles.colorDotSm,
                                         { backgroundColor: c.hex, borderColor: c.hex === '#FFFFFF' ? '#CCC' : 'transparent' },
                                         activeColor.id === c.id && styles.colorDotActive]} />
@@ -908,7 +1212,7 @@ export default function PhotoEditorModal({
                             <View style={styles.divider} />
                             {COLOR_OPTIONS.map(c => (
                                 <TouchableOpacity key={c.id}
-                                    onPress={() => setActiveColor(c)}
+                                    onPress={() => handleColorChange(c)}
                                     style={[styles.colorDot, { backgroundColor: c.hex, borderColor: c.hex === '#FFFFFF' ? '#CCC' : 'transparent' },
                                             activeColor.id === c.id && styles.colorDotActive]} />
                             ))}
@@ -916,7 +1220,7 @@ export default function PhotoEditorModal({
                             {SIZE_OPTIONS.map(sz => (
                                 <TouchableOpacity key={sz.id}
                                     style={[styles.sizeBtn, activeSize.id === sz.id && { backgroundColor: '#4DE38F' }]}
-                                    onPress={() => setActiveSize(sz)}>
+                                    onPress={() => handleSizeChange(sz)}>
                                     <Text style={[styles.sizeTxt, activeSize.id === sz.id && { color:'#000' }]}>{sz.label}</Text>
                                 </TouchableOpacity>
                             ))}
@@ -954,85 +1258,8 @@ export default function PhotoEditorModal({
                     </Text>
                 </View>
 
-                {/* ── Painel de edição da marcação selecionada ── */}
-                {activeTool === 'select' && selectedMarkId && (() => {
-                    const targetState = (editorMode === 'single' || selectedMarkSide === 'right') ? right : left;
-                    const selMark = targetState.marks.find(m => m.id === selectedMarkId);
-                    if (!selMark) return null;
 
-                    const updateMark = (patch) => {
-                        targetState.setMarks(prev => prev.map(m => m.id === selectedMarkId ? { ...m, ...patch } : m));
-                    };
-                    const deleteMark = () => {
-                        targetState.setMarks(prev => prev.filter(m => m.id !== selectedMarkId));
-                        setSelectedMarkId(null);
-                        setSelectedMarkSide(null);
-                    };
-                    const canResize = selMark.type !== 'text';
-
-                    return (
-                        <View style={styles.selectionPanel}>
-                            {/* Cor */}
-                            <View style={styles.selPanelRow}>
-                                <Text style={styles.selPanelLabel}>COR</Text>
-                                {COLOR_OPTIONS.map(c => (
-                                    <TouchableOpacity key={c.id}
-                                        onPress={() => updateMark({ color: c.hex })}
-                                        style={[styles.colorDotSm,
-                                            { backgroundColor: c.hex, borderColor: c.hex === '#FFFFFF' ? '#AAA' : 'transparent' },
-                                            selMark.color === c.hex && { borderColor:'#0A84FF', borderWidth:3 }]} />
-                                ))}
-                                {/* Excluir */}
-                                <TouchableOpacity onPress={deleteMark} style={styles.selDeleteBtn}>
-                                    <MaterialCommunityIcons name="trash-can" size={18} color="#FF3B30" />
-                                </TouchableOpacity>
-                            </View>
-
-                            {/* Tamanho / Redimensionar */}
-                            {canResize && (
-                                <View style={styles.selPanelRow}>
-                                    <Text style={styles.selPanelLabel}>TAM</Text>
-                                    {SIZE_OPTIONS.map(sz => (
-                                        <TouchableOpacity key={sz.id}
-                                            onPress={() => updateMark({ stroke: sz.stroke, head: sz.head })}
-                                            style={[styles.sizeBtnSm,
-                                                selMark.stroke === sz.stroke && { backgroundColor:'#0A84FF' }]}>
-                                            <Text style={[styles.sizeTxtSm,
-                                                selMark.stroke === sz.stroke && { color:'#FFF' }]}>{sz.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                    {/* Editar texto se for tipo texto */}
-                                    {selMark.type === 'text' && (
-                                        <TouchableOpacity style={[styles.sizeBtnSm, { backgroundColor:'#3A3A3C', marginLeft:4 }]}
-                                            onPress={() => { setTextInputValue(selMark.text ?? ''); setPendingTextPos({ x: selMark.x, y: selMark.y, side: selectedMarkSide, editId: selectedMarkId }); setTextInputVisible(true); }}>
-                                            <MaterialCommunityIcons name="pencil" size={14} color="#FFF" />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            )}
-                            {selMark.type === 'text' && (
-                                <View style={styles.selPanelRow}>
-                                    <Text style={styles.selPanelLabel}>TAM</Text>
-                                    {SIZE_OPTIONS.map(sz => (
-                                        <TouchableOpacity key={sz.id}
-                                            onPress={() => updateMark({ fontSize: sz.stroke * 4 })}
-                                            style={[styles.sizeBtnSm,
-                                                selMark.fontSize === sz.stroke * 4 && { backgroundColor:'#0A84FF' }]}>
-                                            <Text style={[styles.sizeTxtSm,
-                                                selMark.fontSize === sz.stroke * 4 && { color:'#FFF' }]}>{sz.label}</Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                    <TouchableOpacity style={[styles.sizeBtnSm, { backgroundColor:'#3A3A3C', marginLeft:4 }]}
-                                        onPress={() => { setTextInputValue(selMark.text ?? ''); setPendingTextPos({ x: selMark.x, y: selMark.y, side: selectedMarkSide, editId: selectedMarkId }); setTextInputVisible(true); }}>
-                                        <MaterialCommunityIcons name="pencil" size={14} color="#FFF" />
-                                    </TouchableOpacity>
-                                </View>
-                            )}
-                        </View>
-                    );
-                })()}
-
-                {/* ── Picker de check-in (modo comparação) ── */}
+                                {/* ── Picker de check-in (modo comparação) ── */}
                 {editorMode === 'compare' && (
                     <View style={styles.comparePicker}>
                         <TouchableOpacity
