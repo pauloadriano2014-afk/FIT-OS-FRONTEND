@@ -38,11 +38,12 @@ const SIZE_OPTIONS = [
 ];
 
 const TOOL_OPTIONS = [
-    { id: 'arrow',  icon: 'arrow-top-right',    label: 'Seta'      },
-    { id: 'circle', icon: 'circle-outline',      label: 'Círculo'   },
-    { id: 'line',   icon: 'minus',               label: 'Linha'     },
-    { id: 'rect',   icon: 'crop-square',         label: 'Retângulo' },
-    { id: 'text',   icon: 'format-text',         label: 'Texto'     },
+    { id: 'select', icon: 'cursor-default',      label: 'Selecionar' },
+    { id: 'arrow',  icon: 'arrow-top-right',     label: 'Seta'       },
+    { id: 'circle', icon: 'circle-outline',      label: 'Círculo'    },
+    { id: 'line',   icon: 'minus',               label: 'Linha'      },
+    { id: 'rect',   icon: 'crop-square',         label: 'Retângulo'  },
+    { id: 'text',   icon: 'format-text',         label: 'Texto'      },
 ];
 
 // ─── Utilitários de cálculo ───────────────────────────────────────────────────
@@ -136,10 +137,13 @@ function drawMarkOnCanvas(ctx, mark, scaleX, scaleY, scale) {
 }
 
 // ─── Componente SVG de preview de uma marcação ───────────────────────────────
-function MarkShape({ mark }) {
+function MarkShape({ mark, isSelected }) {
     const alpha = mark.opacity ?? 1;
     const s = mark.stroke ?? 4;
     const color = mark.color ?? '#4DE38F';
+    // Selection highlight: draw a thicker semi-transparent blue outline behind
+    const selColor = '#0A84FF';
+    const selWidth = s + 8;
 
     if (mark.type === 'arrow') {
         const { lineEndX, lineEndY, ax, ay, bx, by } = calcArrowHead(
@@ -148,44 +152,59 @@ function MarkShape({ mark }) {
         if ([mark.startX, mark.startY, mark.endX, mark.endY].some(isNaN)) return null;
         return (
             <React.Fragment>
-                <Line
-                    x1={mark.startX} y1={mark.startY}
-                    x2={lineEndX}    y2={lineEndY}
-                    stroke={color} strokeWidth={s} strokeLinecap="round" opacity={alpha}
-                />
-                <Polygon
-                    points={`${mark.endX},${mark.endY} ${ax},${ay} ${bx},${by}`}
-                    fill={color} opacity={alpha}
-                />
+                {isSelected && <Line x1={mark.startX} y1={mark.startY} x2={lineEndX} y2={lineEndY} stroke={selColor} strokeWidth={selWidth} strokeLinecap="round" opacity={0.4} />}
+                <Line x1={mark.startX} y1={mark.startY} x2={lineEndX} y2={lineEndY} stroke={color} strokeWidth={s} strokeLinecap="round" opacity={alpha} />
+                <Polygon points={`${mark.endX},${mark.endY} ${ax},${ay} ${bx},${by}`} fill={color} opacity={alpha} />
             </React.Fragment>
         );
     }
     if (mark.type === 'line') {
-        return <Line x1={mark.startX} y1={mark.startY} x2={mark.endX} y2={mark.endY} stroke={color} strokeWidth={s} strokeLinecap="round" opacity={alpha} />;
+        return (
+            <React.Fragment>
+                {isSelected && <Line x1={mark.startX} y1={mark.startY} x2={mark.endX} y2={mark.endY} stroke={selColor} strokeWidth={selWidth} strokeLinecap="round" opacity={0.4} />}
+                <Line x1={mark.startX} y1={mark.startY} x2={mark.endX} y2={mark.endY} stroke={color} strokeWidth={s} strokeLinecap="round" opacity={alpha} />
+            </React.Fragment>
+        );
     }
     if (mark.type === 'circle') {
         const cx = (mark.startX + mark.endX) / 2;
         const cy = (mark.startY + mark.endY) / 2;
-        const rx = Math.abs(mark.endX - mark.startX) / 2;
-        const ry = Math.abs(mark.endY - mark.startY) / 2;
-        return <SvgCircle cx={cx} cy={cy} r={Math.max(rx, ry)} stroke={color} strokeWidth={s} fill="none" opacity={alpha} />;
+        const r  = Math.max(Math.abs(mark.endX - mark.startX), Math.abs(mark.endY - mark.startY)) / 2;
+        return (
+            <React.Fragment>
+                {isSelected && <SvgCircle cx={cx} cy={cy} r={r} stroke={selColor} strokeWidth={selWidth} fill="none" opacity={0.4} />}
+                <SvgCircle cx={cx} cy={cy} r={r} stroke={color} strokeWidth={s} fill="none" opacity={alpha} />
+            </React.Fragment>
+        );
     }
     if (mark.type === 'rect') {
-        const x = Math.min(mark.startX, mark.endX);
-        const y = Math.min(mark.startY, mark.endY);
-        const w = Math.abs(mark.endX - mark.startX);
-        const h = Math.abs(mark.endY - mark.startY);
-        return <Rect x={x} y={y} width={w} height={h} stroke={color} strokeWidth={s} fill="none" opacity={alpha} />;
+        const rx = Math.min(mark.startX, mark.endX);
+        const ry = Math.min(mark.startY, mark.endY);
+        const w  = Math.abs(mark.endX - mark.startX);
+        const h  = Math.abs(mark.endY - mark.startY);
+        return (
+            <React.Fragment>
+                {isSelected && <Rect x={rx - 4} y={ry - 4} width={w + 8} height={h + 8} stroke={selColor} strokeWidth={2} fill="none" opacity={0.5} rx={4} />}
+                <Rect x={rx} y={ry} width={w} height={h} stroke={color} strokeWidth={s} fill="none" opacity={alpha} />
+            </React.Fragment>
+        );
     }
     if (mark.type === 'text') {
         return (
-            <SvgText
-                x={mark.x} y={mark.y}
-                fill={color} fontSize={mark.fontSize ?? 20}
-                fontWeight="bold" opacity={alpha}
-            >
-                {mark.text ?? ''}
-            </SvgText>
+            <React.Fragment>
+                {isSelected && (
+                    <Rect
+                        x={(mark.x ?? 0) - 4}
+                        y={(mark.y ?? 0) - (mark.fontSize ?? 20) - 4}
+                        width={((mark.text?.length ?? 4) * (mark.fontSize ?? 20) * 0.6) + 8}
+                        height={(mark.fontSize ?? 20) + 8}
+                        stroke={selColor} strokeWidth={2} fill={selColor} fillOpacity={0.15} rx={4}
+                    />
+                )}
+                <SvgText x={mark.x} y={mark.y} fill={color} fontSize={mark.fontSize ?? 20} fontWeight="bold" opacity={alpha}>
+                    {mark.text ?? ''}
+                </SvgText>
+            </React.Fragment>
         );
     }
     return null;
@@ -222,6 +241,11 @@ export default function PhotoEditorModal({
     const [activeSize,  setActiveSize]  = useState(SIZE_OPTIONS[1]);
     const [opacity,     setOpacity]     = useState(1);
     const [showMarks,   setShowMarks]   = useState(true);
+
+    // ── Seleção e move ────────────────────────────────────────────────────────
+    const [selectedMarkId, setSelectedMarkId] = useState(null); // id da marca selecionada
+    const [selectedMarkSide, setSelectedMarkSide] = useState(null); // 'left'|'right'
+    const dragRef = useRef(null); // { mark, offsetX, offsetY, side }
 
     // ── Estado de texto ───────────────────────────────────────────────────────
     const [textInputVisible, setTextInputVisible] = useState(false);
@@ -299,6 +323,8 @@ export default function PhotoEditorModal({
     const editorModeRef   = useRef(editorMode);
 
     useEffect(() => { activeToolRef.current  = activeTool;   }, [activeTool]);
+    // Clear selection when switching away from select tool
+    useEffect(() => { if (activeTool !== 'select') { setSelectedMarkId(null); setSelectedMarkSide(null); dragRef.current = null; } }, [activeTool]);
     useEffect(() => { activeColorRef.current = activeColor;  }, [activeColor]);
     useEffect(() => { activeSizeRef.current  = activeSize;   }, [activeSize]);
     useEffect(() => { opacityRef.current     = opacity;      }, [opacity]);
@@ -324,22 +350,76 @@ export default function PhotoEditorModal({
         return { x: src.clientX - rect.left, y: src.clientY - rect.top };
     }, []);
 
-    // ── Lógica de início / movimento / fim de marcação ────────────────────────
+    // ── Hit-test: verifica se (x,y) toca numa marcação ─────────────────────
+    const hitTestMark = useCallback((x, y, marks) => {
+        // Percorre em ordem reversa (última desenhada = topo)
+        for (let i = marks.length - 1; i >= 0; i--) {
+            const m = marks[i];
+            const PAD = Math.max(14, (m.stroke ?? 4) * 2);
+            if (m.type === 'text') {
+                const fw = (m.text?.length ?? 4) * (m.fontSize ?? 20) * 0.6;
+                const fh = (m.fontSize ?? 20) * 1.4;
+                if (x >= m.x - PAD && x <= m.x + fw + PAD && y >= m.y - fh - PAD && y <= m.y + PAD)
+                    return m;
+            } else if (m.type === 'circle') {
+                const cx = (m.startX + m.endX) / 2;
+                const cy = (m.startY + m.endY) / 2;
+                const r  = Math.max(Math.abs(m.endX - m.startX), Math.abs(m.endY - m.startY)) / 2;
+                const dist = Math.hypot(x - cx, y - cy);
+                if (dist <= r + PAD && dist >= r - PAD) return m;
+            } else if (m.type === 'rect') {
+                const rx = Math.min(m.startX, m.endX) - PAD;
+                const ry = Math.min(m.startY, m.endY) - PAD;
+                const rw = Math.abs(m.endX - m.startX) + PAD * 2;
+                const rh = Math.abs(m.endY - m.startY) + PAD * 2;
+                // Hit border only (not fill)
+                if (x >= rx && x <= rx + rw && y >= ry && y <= ry + rh) return m;
+            } else {
+                // arrow and line: distance from segment
+                const dx = m.endX - m.startX, dy = m.endY - m.startY;
+                const len = Math.hypot(dx, dy);
+                if (len < 1) continue;
+                const t = Math.max(0, Math.min(1, ((x - m.startX) * dx + (y - m.startY) * dy) / (len * len)));
+                const nearX = m.startX + t * dx, nearY = m.startY + t * dy;
+                if (Math.hypot(x - nearX, y - nearY) <= PAD) return m;
+            }
+        }
+        return null;
+    }, []);
+
+    // ── Lógica de início / movimento / fim de marcação ─────────────────────
     const handleDrawStart = useCallback((x, y, side) => {
         if (!isDrawingRef.current) return;
         const tool    = activeToolRef.current;
         const color   = activeColorRef.current.hex;
         const sz      = activeSizeRef.current;
         const op      = opacityRef.current;
-        // Normaliza para coordenadas no espaço base (zoom=1)
         const z  = zoomRef.current;
         const nx = x / z;
         const ny = y / z;
 
         const target = (editorModeRef.current === 'single' || side === 'right') ? right : left;
 
+        // ── Modo Seleção ────────────────────────────────────────────────────
+        if (tool === 'select') {
+            const hit = hitTestMark(nx, ny, target.marksRef.current);
+            if (hit) {
+                setSelectedMarkId(hit.id);
+                setSelectedMarkSide(side);
+                // Calcula offset entre o toque e a âncora da marcação
+                const anchorX = hit.type === 'text' ? hit.x : hit.startX;
+                const anchorY = hit.type === 'text' ? hit.y : hit.startY;
+                dragRef.current = { id: hit.id, side, offsetX: nx - anchorX, offsetY: ny - anchorY };
+            } else {
+                setSelectedMarkId(null);
+                setSelectedMarkSide(null);
+                dragRef.current = null;
+            }
+            return;
+        }
+
+        // ── Modo Texto ──────────────────────────────────────────────────────
         if (tool === 'text') {
-            // Para texto, registra posição e abre input
             setPendingTextPos({ x: nx, y: ny, side });
             setTextInputValue('');
             setTextInputVisible(true);
@@ -353,18 +433,42 @@ export default function PhotoEditorModal({
             stroke: sz.stroke, head: sz.head,
             startX: nx, startY: ny, endX: nx, endY: ny,
         });
-    }, [right, left]);
+    }, [right, left, hitTestMark]);
 
     const handleDrawMove = useCallback((x, y, side) => {
-        if (!drawingRef.current) return;
         const z  = zoomRef.current;
         const nx = x / z;
         const ny = y / z;
+
+        // ── Arrastar marcação selecionada ──────────────────────────────────
+        if (activeToolRef.current === 'select' && dragRef.current) {
+            const { id, side: dSide, offsetX, offsetY } = dragRef.current;
+            const target = (editorModeRef.current === 'single' || dSide === 'right') ? right : left;
+            target.setMarks(prev => prev.map(m => {
+                if (m.id !== id) return m;
+                const newAnchorX = nx - offsetX;
+                const newAnchorY = ny - offsetY;
+                if (m.type === 'text') {
+                    return { ...m, x: newAnchorX, y: newAnchorY, startX: newAnchorX, startY: newAnchorY, endX: newAnchorX, endY: newAnchorY };
+                }
+                const dx = m.endX - m.startX;
+                const dy = m.endY - m.startY;
+                return { ...m, startX: newAnchorX, startY: newAnchorY, endX: newAnchorX + dx, endY: newAnchorY + dy };
+            }));
+            return;
+        }
+
+        if (!drawingRef.current) return;
         const target = (editorModeRef.current === 'single' || side === 'right') ? right : left;
         target.setCurrentMark(prev => prev ? { ...prev, endX: nx, endY: ny } : null);
     }, [right, left]);
 
     const handleDrawEnd = useCallback((x, y, side) => {
+        // Select mode: just stop dragging
+        if (activeToolRef.current === 'select') {
+            dragRef.current = null;
+            return;
+        }
         if (!drawingRef.current) return;
         drawingRef.current = false;
         const z  = zoomRef.current;
@@ -383,20 +487,26 @@ export default function PhotoEditorModal({
     // ── Confirmar texto ───────────────────────────────────────────────────────
     const confirmText = () => {
         if (!textInputValue.trim() || !pendingTextPos) { setTextInputVisible(false); return; }
-        const { x, y, side } = pendingTextPos;
+        const { x, y, side, editId } = pendingTextPos;
         const target = (editorModeRef.current === 'single' || side === 'right') ? right : left;
-        const mark = {
-            id: Date.now().toString(),
-            type: 'text',
-            color: activeColorRef.current.hex,
-            opacity: opacityRef.current,
-            fontSize: activeSizeRef.current.stroke * 4,
-            text: textInputValue.trim(),
-            x, y,
-            // Para compatibilidade com MarkShape precisamos de startX/Y
-            startX: x, startY: y, endX: x, endY: y,
-        };
-        target.setMarks(old => [...old, mark]);
+
+        if (editId) {
+            // Editando texto existente
+            target.setMarks(prev => prev.map(m => m.id === editId ? { ...m, text: textInputValue.trim() } : m));
+        } else {
+            // Novo texto
+            const mark = {
+                id: Date.now().toString(),
+                type: 'text',
+                color: activeColorRef.current.hex,
+                opacity: opacityRef.current,
+                fontSize: activeSizeRef.current.stroke * 4,
+                text: textInputValue.trim(),
+                x, y,
+                startX: x, startY: y, endX: x, endY: y,
+            };
+            target.setMarks(prev => [...prev, mark]);
+        }
         setTextInputVisible(false);
         setPendingTextPos(null);
         setTextInputValue('');
@@ -627,7 +737,7 @@ export default function PhotoEditorModal({
                 {/* SVG preview marcações */}
                 {showMarks && (
                     <Svg style={[StyleSheet.absoluteFill, { zIndex: 9 }]} width={scaledW} height={scaledH} viewBox={`0 0 ${baseW} ${baseH}`} preserveAspectRatio="none" pointerEvents="none">
-                        {marks.map(m => <MarkShape key={m.id} mark={m} />)}
+                        {marks.map(m => <MarkShape key={m.id} mark={m} isSelected={selectedMarkId === m.id && selectedMarkSide === side} />)}
                         {currentMark && <MarkShape mark={currentMark} />}
                     </Svg>
                 )}
@@ -843,6 +953,84 @@ export default function PhotoEditorModal({
                         {Math.round(opacity * 100)}%
                     </Text>
                 </View>
+
+                {/* ── Painel de edição da marcação selecionada ── */}
+                {activeTool === 'select' && selectedMarkId && (() => {
+                    const targetState = (editorMode === 'single' || selectedMarkSide === 'right') ? right : left;
+                    const selMark = targetState.marks.find(m => m.id === selectedMarkId);
+                    if (!selMark) return null;
+
+                    const updateMark = (patch) => {
+                        targetState.setMarks(prev => prev.map(m => m.id === selectedMarkId ? { ...m, ...patch } : m));
+                    };
+                    const deleteMark = () => {
+                        targetState.setMarks(prev => prev.filter(m => m.id !== selectedMarkId));
+                        setSelectedMarkId(null);
+                        setSelectedMarkSide(null);
+                    };
+                    const canResize = selMark.type !== 'text';
+
+                    return (
+                        <View style={styles.selectionPanel}>
+                            {/* Cor */}
+                            <View style={styles.selPanelRow}>
+                                <Text style={styles.selPanelLabel}>COR</Text>
+                                {COLOR_OPTIONS.map(c => (
+                                    <TouchableOpacity key={c.id}
+                                        onPress={() => updateMark({ color: c.hex })}
+                                        style={[styles.colorDotSm,
+                                            { backgroundColor: c.hex, borderColor: c.hex === '#FFFFFF' ? '#AAA' : 'transparent' },
+                                            selMark.color === c.hex && { borderColor:'#0A84FF', borderWidth:3 }]} />
+                                ))}
+                                {/* Excluir */}
+                                <TouchableOpacity onPress={deleteMark} style={styles.selDeleteBtn}>
+                                    <MaterialCommunityIcons name="trash-can" size={18} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Tamanho / Redimensionar */}
+                            {canResize && (
+                                <View style={styles.selPanelRow}>
+                                    <Text style={styles.selPanelLabel}>TAM</Text>
+                                    {SIZE_OPTIONS.map(sz => (
+                                        <TouchableOpacity key={sz.id}
+                                            onPress={() => updateMark({ stroke: sz.stroke, head: sz.head })}
+                                            style={[styles.sizeBtnSm,
+                                                selMark.stroke === sz.stroke && { backgroundColor:'#0A84FF' }]}>
+                                            <Text style={[styles.sizeTxtSm,
+                                                selMark.stroke === sz.stroke && { color:'#FFF' }]}>{sz.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                    {/* Editar texto se for tipo texto */}
+                                    {selMark.type === 'text' && (
+                                        <TouchableOpacity style={[styles.sizeBtnSm, { backgroundColor:'#3A3A3C', marginLeft:4 }]}
+                                            onPress={() => { setTextInputValue(selMark.text ?? ''); setPendingTextPos({ x: selMark.x, y: selMark.y, side: selectedMarkSide, editId: selectedMarkId }); setTextInputVisible(true); }}>
+                                            <MaterialCommunityIcons name="pencil" size={14} color="#FFF" />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            )}
+                            {selMark.type === 'text' && (
+                                <View style={styles.selPanelRow}>
+                                    <Text style={styles.selPanelLabel}>TAM</Text>
+                                    {SIZE_OPTIONS.map(sz => (
+                                        <TouchableOpacity key={sz.id}
+                                            onPress={() => updateMark({ fontSize: sz.stroke * 4 })}
+                                            style={[styles.sizeBtnSm,
+                                                selMark.fontSize === sz.stroke * 4 && { backgroundColor:'#0A84FF' }]}>
+                                            <Text style={[styles.sizeTxtSm,
+                                                selMark.fontSize === sz.stroke * 4 && { color:'#FFF' }]}>{sz.label}</Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                    <TouchableOpacity style={[styles.sizeBtnSm, { backgroundColor:'#3A3A3C', marginLeft:4 }]}
+                                        onPress={() => { setTextInputValue(selMark.text ?? ''); setPendingTextPos({ x: selMark.x, y: selMark.y, side: selectedMarkSide, editId: selectedMarkId }); setTextInputVisible(true); }}>
+                                        <MaterialCommunityIcons name="pencil" size={14} color="#FFF" />
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                    );
+                })()}
 
                 {/* ── Picker de check-in (modo comparação) ── */}
                 {editorMode === 'compare' && (
@@ -1106,6 +1294,12 @@ const styles = StyleSheet.create({
     textInputLabel:    { color:'#1C1C1E', fontWeight:'900', fontSize:13, marginBottom:10 },
     textInputField:    { backgroundColor:'#FFF', color:'#1C1C1E', borderRadius:10, padding:14, fontSize:15, borderWidth:1, borderColor:'#CCC' },
     textInputBtn:      { paddingHorizontal:20, paddingVertical:12, borderRadius:10, alignItems:'center', justifyContent:'center' },
+
+    // ── Selection panel styles ──────────────────────────────────────────────
+    selectionPanel:  { backgroundColor:'#1C1C1E', borderBottomWidth:1, borderBottomColor:'#3A3A3C', paddingHorizontal:10, paddingVertical:8, gap:6 },
+    selPanelRow:     { flexDirection:'row', alignItems:'center', gap:6, flexWrap:'wrap' },
+    selPanelLabel:   { color:'#AAA', fontSize:9, fontWeight:'900', letterSpacing:0.5, width:28 },
+    selDeleteBtn:    { marginLeft:'auto', padding:6, backgroundColor:'#2C2C2E', borderRadius:8 },
 
     // ── Mobile PWA styles ────────────────────────────────────────────────────
     toolBarMobile:     { backgroundColor:'#1C1C1E', borderBottomWidth:1, borderBottomColor:'#3A3A3C', paddingVertical:6, paddingHorizontal:8, gap:6 },
