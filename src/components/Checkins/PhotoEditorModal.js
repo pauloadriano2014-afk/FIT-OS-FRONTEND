@@ -14,6 +14,11 @@ if (Platform.OS !== 'web') {
 }
 
 const IS_WEB = Platform.OS === 'web';
+// No PWA mobile (iOS Safari / Android Chrome instalado), <img crossOrigin> não funciona.
+// Detectamos pelo userAgent e usamos ReactNativeImage nesses casos.
+const IS_MOBILE_PWA = IS_WEB && typeof navigator !== 'undefined' && (
+    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+);
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const COLOR_OPTIONS = [
@@ -242,17 +247,41 @@ export default function PhotoEditorModal({
     const olderCheckins = checkins.filter(c => c.id !== selectedCheckinId);
 
     // Quando o usuário seleciona um check-in antigo, atualiza a URI do lado esquerdo
+    // Campo da foto antiga (por padrão igual ao campo atual, mas pode ser trocado)
+    const [compareField, setCompareField] = useState(null);
+
+    // Quando o selectedPhotoField prop chega, inicializa compareField
+    useEffect(() => {
+        if (selectedPhotoField) setCompareField(selectedPhotoField);
+    }, [selectedPhotoField]);
+
     const selectCompareCheckin = (checkin) => {
         setCompareCheckinId(checkin.id);
-        const uri = checkin[selectedPhotoField] || checkin.photoFront || null;
+        // Usa compareField (que pode ter sido trocado pelo coach) ou o campo atual
+        const field = compareField || selectedPhotoField || 'photoFront';
+        const uri = checkin[field] || null;
         setComparePhotoUri(uri);
         setShowCheckinPicker(false);
         left.setMarks([]);
     };
 
+    // Quando o coach troca o campo da foto antiga, atualiza a URI se já houver check-in selecionado
+    const handleCompareFieldChange = (field) => {
+        setCompareField(field);
+        if (compareCheckinId) {
+            const checkin = olderCheckins.find(c => c.id === compareCheckinId);
+            if (checkin) {
+                setComparePhotoUri(checkin[field] || null);
+                left.setMarks([]);
+            }
+        }
+    };
+
     // ── Outros estados ─────────────────────────────────────────────────────────
     const [isSaving,  setIsSaving]  = useState(false);
     const [zoom,      setZoom]      = useState(1);
+    const zoomRef = useRef(1);
+    useEffect(() => { zoomRef.current = zoom; }, [zoom]);
 
     // ── Refs ──────────────────────────────────────────────────────────────────
     const isDrawingRef    = useRef(true);
@@ -302,12 +331,16 @@ export default function PhotoEditorModal({
         const color   = activeColorRef.current.hex;
         const sz      = activeSizeRef.current;
         const op      = opacityRef.current;
+        // Normaliza para coordenadas no espaço base (zoom=1)
+        const z  = zoomRef.current;
+        const nx = x / z;
+        const ny = y / z;
 
         const target = (editorModeRef.current === 'single' || side === 'right') ? right : left;
 
         if (tool === 'text') {
             // Para texto, registra posição e abre input
-            setPendingTextPos({ x, y, side });
+            setPendingTextPos({ x: nx, y: ny, side });
             setTextInputValue('');
             setTextInputVisible(true);
             return;
@@ -318,24 +351,30 @@ export default function PhotoEditorModal({
             id: Date.now().toString(),
             type: tool, color, opacity: op,
             stroke: sz.stroke, head: sz.head,
-            startX: x, startY: y, endX: x, endY: y,
+            startX: nx, startY: ny, endX: nx, endY: ny,
         });
     }, [right, left]);
 
     const handleDrawMove = useCallback((x, y, side) => {
         if (!drawingRef.current) return;
+        const z  = zoomRef.current;
+        const nx = x / z;
+        const ny = y / z;
         const target = (editorModeRef.current === 'single' || side === 'right') ? right : left;
-        target.setCurrentMark(prev => prev ? { ...prev, endX: x, endY: y } : null);
+        target.setCurrentMark(prev => prev ? { ...prev, endX: nx, endY: ny } : null);
     }, [right, left]);
 
     const handleDrawEnd = useCallback((x, y, side) => {
         if (!drawingRef.current) return;
         drawingRef.current = false;
+        const z  = zoomRef.current;
+        const nx = x / z;
+        const ny = y / z;
         const target = (editorModeRef.current === 'single' || side === 'right') ? right : left;
         target.setCurrentMark(prev => {
             if (!prev) return null;
-            if (Math.abs(x - prev.startX) > 2 || Math.abs(y - prev.startY) > 2) {
-                target.setMarks(old => [...old, { ...prev, endX: x, endY: y }]);
+            if (Math.abs(nx - prev.startX) > 2 || Math.abs(ny - prev.startY) > 2) {
+                target.setMarks(old => [...old, { ...prev, endX: nx, endY: ny }]);
             }
             return null;
         });
@@ -452,7 +491,7 @@ export default function PhotoEditorModal({
         if (isSaving) return;
         setIsSaving(true);
         try {
-            if (IS_WEB) {
+            if (IS_WEB && !IS_MOBILE_PWA) {
                 if (editorMode === 'single') {
                     // ── Modo individual: salva só a foto atual com setas ──────
                     const img    = await loadImageFromUrl(photoUri);
@@ -528,8 +567,11 @@ export default function PhotoEditorModal({
                 onClose();
 
             } else {
-                // Mobile: ViewShot
-                if (!RNViewShot || !captureRef.current?.capture) throw new Error('ViewShot não disponível.');
+                // Mobile nativo e Mobile PWA: ViewShot captura a view renderizada
+                // (funciona perfeitamente porque ReactNativeImage não tem restrição CORS)
+                if (!RNViewShot || !captureRef.current?.capture) {
+                    throw new Error('ViewShot não disponível. Tente no desktop para salvar comparações.');
+                }
                 const uri = await captureRef.current.capture();
                 onSave({ mode: 'single', uri });
                 handleClear();
@@ -565,7 +607,8 @@ export default function PhotoEditorModal({
         const isSideActive = editorMode === 'single' || activeSide === side;
         return (
             <View style={{ width: scaledW, height: scaledH, position: 'relative', backgroundColor: '#000' }}>
-                {IS_WEB ? (
+                {IS_WEB && !IS_MOBILE_PWA ? (
+                    // Desktop web: <img> com crossOrigin para captura no canvas
                     <img
                         src={uri ? uri + (uri.includes('?') ? '&_cb=1' : '?_cb=1') : uri}
                         crossOrigin="anonymous"
@@ -573,12 +616,17 @@ export default function PhotoEditorModal({
                                  objectFit:'contain', pointerEvents:'none', userSelect:'none' }}
                         alt="" draggable={false} />
                 ) : (
-                    <ReactNativeImage source={{ uri }} style={StyleSheet.absoluteFill} resizeMode="contain" />
+                    // Mobile PWA (iOS/Android) e React Native: Image do RN sem bloqueio CORS
+                    <ReactNativeImage
+                        source={{ uri }}
+                        style={StyleSheet.absoluteFill}
+                        resizeMode="contain"
+                    />
                 )}
 
                 {/* SVG preview marcações */}
                 {showMarks && (
-                    <Svg style={[StyleSheet.absoluteFill, { zIndex: 9 }]} width={scaledW} height={scaledH} pointerEvents="none">
+                    <Svg style={[StyleSheet.absoluteFill, { zIndex: 9 }]} width={scaledW} height={scaledH} viewBox={`0 0 ${baseW} ${baseH}`} preserveAspectRatio="none" pointerEvents="none">
                         {marks.map(m => <MarkShape key={m.id} mark={m} />)}
                         {currentMark && <MarkShape mark={currentMark} />}
                     </Svg>
@@ -698,39 +746,73 @@ export default function PhotoEditorModal({
                 )}
 
                 {/* ── Barra de ferramentas ── */}
-                <View style={styles.toolBar}>
-                    {/* Ferramentas */}
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap:6, alignItems:'center' }}>
-                        {TOOL_OPTIONS.map(t => (
-                            <TouchableOpacity key={t.id}
-                                style={[styles.toolBtn, activeTool === t.id && { backgroundColor: '#4DE38F' }]}
-                                onPress={() => setActiveTool(t.id)}>
-                                <MaterialCommunityIcons name={t.icon} size={18} color={activeTool === t.id ? '#000' : '#FFF'} />
-                            </TouchableOpacity>
-                        ))}
-
-                        <View style={styles.divider} />
-
-                        {/* Cores */}
-                        {COLOR_OPTIONS.map(c => (
-                            <TouchableOpacity key={c.id}
-                                onPress={() => setActiveColor(c)}
-                                style={[styles.colorDot, { backgroundColor: c.hex, borderColor: c.hex === '#FFFFFF' ? '#CCC' : 'transparent' },
+                {IS_MOBILE_PWA ? (
+                    // Mobile: duas linhas compactas
+                    <View style={styles.toolBarMobile}>
+                        {/* Linha 1: ferramentas + tamanhos */}
+                        <View style={styles.toolBarMobileRow}>
+                            {TOOL_OPTIONS.map(t => (
+                                <TouchableOpacity key={t.id}
+                                    style={[styles.toolBtnSm, activeTool === t.id && { backgroundColor: '#4DE38F' }]}
+                                    onPress={() => setActiveTool(t.id)}>
+                                    <MaterialCommunityIcons name={t.icon} size={16} color={activeTool === t.id ? '#000' : '#FFF'} />
+                                </TouchableOpacity>
+                            ))}
+                            <View style={styles.dividerV} />
+                            {SIZE_OPTIONS.map(sz => (
+                                <TouchableOpacity key={sz.id}
+                                    style={[styles.sizeBtnSm, activeSize.id === sz.id && { backgroundColor: '#4DE38F' }]}
+                                    onPress={() => setActiveSize(sz)}>
+                                    <Text style={[styles.sizeTxtSm, activeSize.id === sz.id && { color:'#000' }]}>{sz.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                        {/* Linha 2: cores */}
+                        <View style={styles.toolBarMobileRow}>
+                            {COLOR_OPTIONS.map(c => (
+                                <TouchableOpacity key={c.id}
+                                    onPress={() => setActiveColor(c)}
+                                    style={[styles.colorDotSm,
+                                        { backgroundColor: c.hex, borderColor: c.hex === '#FFFFFF' ? '#CCC' : 'transparent' },
                                         activeColor.id === c.id && styles.colorDotActive]} />
-                        ))}
-
-                        <View style={styles.divider} />
-
-                        {/* Tamanhos */}
-                        {SIZE_OPTIONS.map(sz => (
-                            <TouchableOpacity key={sz.id}
-                                style={[styles.sizeBtn, activeSize.id === sz.id && { backgroundColor: '#4DE38F' }]}
-                                onPress={() => setActiveSize(sz)}>
-                                <Text style={[styles.sizeTxt, activeSize.id === sz.id && { color:'#000' }]}>{sz.label}</Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
-                </View>
+                            ))}
+                            {/* Preview cor+tamanho atual */}
+                            <View style={{ flex:1, alignItems:'flex-end', paddingRight:4 }}>
+                                <View style={{ width: activeSize.stroke * 3 + 8, height: activeSize.stroke * 3 + 8,
+                                               borderRadius: 99, backgroundColor: activeColor.hex,
+                                               borderWidth: activeColor.hex === '#FFFFFF' ? 1 : 0, borderColor:'#CCC' }} />
+                            </View>
+                        </View>
+                    </View>
+                ) : (
+                    // Desktop: linha única com scroll horizontal
+                    <View style={styles.toolBar}>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap:6, alignItems:'center' }}>
+                            {TOOL_OPTIONS.map(t => (
+                                <TouchableOpacity key={t.id}
+                                    style={[styles.toolBtn, activeTool === t.id && { backgroundColor: '#4DE38F' }]}
+                                    onPress={() => setActiveTool(t.id)}>
+                                    <MaterialCommunityIcons name={t.icon} size={18} color={activeTool === t.id ? '#000' : '#FFF'} />
+                                </TouchableOpacity>
+                            ))}
+                            <View style={styles.divider} />
+                            {COLOR_OPTIONS.map(c => (
+                                <TouchableOpacity key={c.id}
+                                    onPress={() => setActiveColor(c)}
+                                    style={[styles.colorDot, { backgroundColor: c.hex, borderColor: c.hex === '#FFFFFF' ? '#CCC' : 'transparent' },
+                                            activeColor.id === c.id && styles.colorDotActive]} />
+                            ))}
+                            <View style={styles.divider} />
+                            {SIZE_OPTIONS.map(sz => (
+                                <TouchableOpacity key={sz.id}
+                                    style={[styles.sizeBtn, activeSize.id === sz.id && { backgroundColor: '#4DE38F' }]}
+                                    onPress={() => setActiveSize(sz)}>
+                                    <Text style={[styles.sizeTxt, activeSize.id === sz.id && { color:'#000' }]}>{sz.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+                )}
 
                 {/* ── Opacidade ── */}
                 <View style={styles.opacityBar}>
@@ -777,6 +859,28 @@ export default function PhotoEditorModal({
                             <MaterialCommunityIcons name={showCheckinPicker ? 'chevron-up' : 'chevron-down'} size={16} color="#888" />
                         </TouchableOpacity>
 
+                        {/* Seletor de qual foto mostrar no lado ANTES */}
+                        <View style={{ flexDirection:'row', alignItems:'center', gap:6, paddingHorizontal:10, paddingVertical:6 }}>
+                            <Text style={{ color:'#555', fontSize:10, fontWeight:'900' }}>FOTO:</Text>
+                            {[
+                                { field:'photoFront', label:'FRENTE' },
+                                { field:'photoSide',  label:'LADO'   },
+                                { field:'photoBack',  label:'COSTAS' },
+                            ].map(opt => (
+                                <TouchableOpacity
+                                    key={opt.field}
+                                    onPress={() => handleCompareFieldChange(opt.field)}
+                                    style={{
+                                        paddingHorizontal:10, paddingVertical:5, borderRadius:8,
+                                        backgroundColor: compareField === opt.field ? '#0A84FF' : '#E0E0E5',
+                                    }}>
+                                    <Text style={{ color: compareField === opt.field ? '#FFF' : '#555', fontSize:10, fontWeight:'900' }}>
+                                        {opt.label}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
                         {showCheckinPicker && (
                             <ScrollView style={styles.pickerDropdown} nestedScrollEnabled>
                                 {olderCheckins.length === 0 ? (
@@ -822,9 +926,11 @@ export default function PhotoEditorModal({
                                 )}
 
                                 {/* Lado direito (foto atual / modo single) */}
-                                {IS_WEB ? (
+                                {IS_WEB && !IS_MOBILE_PWA ? (
+                                    // Desktop: renderiza direto (canvas captura via fetch+blob)
                                     renderDrawingArea(photoUri, 'right', interactionRef, right.marks, right.currentMark)
                                 ) : (
+                                    // Mobile nativo e Mobile PWA: ViewShot captura a view
                                     RNViewShot ? (
                                         <RNViewShot ref={captureRef} options={{ format:'jpg', quality:0.92 }}>
                                             {renderDrawingArea(photoUri, 'right', interactionRef, right.marks, right.currentMark)}
@@ -839,41 +945,84 @@ export default function PhotoEditorModal({
                 </View>
 
                 {/* ── Bottom Bar ── */}
-                <View style={styles.bottomBar}>
-                    <View style={styles.zoomControls}>
-                        <TouchableOpacity onPress={() => setZoom(p => Math.max(p - 0.5, 1))} style={styles.zoomBtn}>
-                            <MaterialCommunityIcons name="magnify-minus-outline" size={22} color="#FFF" />
-                        </TouchableOpacity>
-                        <Text style={styles.zoomText}>{Math.round(zoom * 100)}%</Text>
-                        <TouchableOpacity onPress={() => setZoom(p => Math.min(p + 0.5, 3))} style={styles.zoomBtn}>
-                            <MaterialCommunityIcons name="magnify-plus-outline" size={22} color="#FFF" />
+                {IS_MOBILE_PWA ? (
+                    // Mobile: duas linhas — zoom+modo na primeira, salvar na segunda
+                    <View style={styles.bottomBarMobile}>
+                        <View style={styles.bottomBarMobileRow}>
+                            {/* Zoom */}
+                            <View style={styles.zoomControls}>
+                                <TouchableOpacity onPress={() => setZoom(p => Math.max(p - 0.5, 1))} style={styles.zoomBtn}>
+                                    <MaterialCommunityIcons name="magnify-minus-outline" size={20} color="#FFF" />
+                                </TouchableOpacity>
+                                <Text style={styles.zoomText}>{Math.round(zoom * 100)}%</Text>
+                                <TouchableOpacity onPress={() => setZoom(p => Math.min(p + 0.5, 3))} style={styles.zoomBtn}>
+                                    <MaterialCommunityIcons name="magnify-plus-outline" size={20} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                            {/* Modo desenho/pan */}
+                            <View style={{ flexDirection:'row', gap:6 }}>
+                                <TouchableOpacity
+                                    style={[styles.modeToggleBtn, { backgroundColor: isDrawingMode ? '#4DE38F' : '#2C2C2E' }]}
+                                    onPress={() => setIsDrawingMode(true)}>
+                                    <MaterialCommunityIcons name="pencil" size={18} color={isDrawingMode ? '#000' : '#FFF'} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.modeToggleBtn, { backgroundColor: !isDrawingMode ? '#4DE38F' : '#2C2C2E' }]}
+                                    onPress={() => setIsDrawingMode(false)}>
+                                    <MaterialCommunityIcons name="pan" size={18} color={!isDrawingMode ? '#000' : '#FFF'} />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                        {/* Botão salvar em linha própria — ocupa a largura toda */}
+                        <TouchableOpacity
+                            style={[styles.saveBtnFull, { backgroundColor:'#4DE38F' }]}
+                            onPress={handleSaveImage} disabled={isSaving}>
+                            {isSaving ? <ActivityIndicator color="#000" /> : (
+                                <>
+                                    <MaterialCommunityIcons name="check-bold" size={20} color="#000" />
+                                    <Text style={styles.saveBtnText}>
+                                        {editorMode === 'compare' ? 'SALVAR COMPARAÇÃO' : 'CONCLUIR MARCAÇÃO'}
+                                    </Text>
+                                </>
+                            )}
                         </TouchableOpacity>
                     </View>
-
-                    <View style={{ flexDirection:'row', gap:8 }}>
-                        <TouchableOpacity
-                            style={[styles.modeToggleBtn, { backgroundColor: isDrawingMode ? '#4DE38F' : '#1A1A1A' }]}
-                            onPress={() => setIsDrawingMode(true)}>
-                            <MaterialCommunityIcons name="pencil" size={16} color={isDrawingMode ? '#000' : '#FFF'} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={[styles.modeToggleBtn, { backgroundColor: !isDrawingMode ? '#4DE38F' : '#1A1A1A' }]}
-                            onPress={() => setIsDrawingMode(false)}>
-                            <MaterialCommunityIcons name="pan" size={16} color={!isDrawingMode ? '#000' : '#FFF'} />
+                ) : (
+                    // Desktop: linha única
+                    <View style={styles.bottomBar}>
+                        <View style={styles.zoomControls}>
+                            <TouchableOpacity onPress={() => setZoom(p => Math.max(p - 0.5, 1))} style={styles.zoomBtn}>
+                                <MaterialCommunityIcons name="magnify-minus-outline" size={22} color="#FFF" />
+                            </TouchableOpacity>
+                            <Text style={styles.zoomText}>{Math.round(zoom * 100)}%</Text>
+                            <TouchableOpacity onPress={() => setZoom(p => Math.min(p + 0.5, 3))} style={styles.zoomBtn}>
+                                <MaterialCommunityIcons name="magnify-plus-outline" size={22} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={{ flexDirection:'row', gap:8 }}>
+                            <TouchableOpacity
+                                style={[styles.modeToggleBtn, { backgroundColor: isDrawingMode ? '#4DE38F' : '#1A1A1A' }]}
+                                onPress={() => setIsDrawingMode(true)}>
+                                <MaterialCommunityIcons name="pencil" size={16} color={isDrawingMode ? '#000' : '#FFF'} />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modeToggleBtn, { backgroundColor: !isDrawingMode ? '#4DE38F' : '#1A1A1A' }]}
+                                onPress={() => setIsDrawingMode(false)}>
+                                <MaterialCommunityIcons name="pan" size={16} color={!isDrawingMode ? '#000' : '#FFF'} />
+                            </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity style={[styles.saveBtn, { backgroundColor:'#4DE38F' }]} onPress={handleSaveImage} disabled={isSaving}>
+                            {isSaving ? <ActivityIndicator color="#000" /> : (
+                                <>
+                                    <MaterialCommunityIcons name="check-bold" size={18} color="#000" />
+                                    <Text style={styles.saveBtnText}>
+                                        {editorMode === 'compare' ? 'SALVAR COMPARAÇÃO' : 'CONCLUIR MARCAÇÃO'}
+                                    </Text>
+                                </>
+                            )}
                         </TouchableOpacity>
                     </View>
-
-                    <TouchableOpacity style={[styles.saveBtn, { backgroundColor:'#4DE38F' }]} onPress={handleSaveImage} disabled={isSaving}>
-                        {isSaving ? <ActivityIndicator color="#000" /> : (
-                            <>
-                                <MaterialCommunityIcons name="check-bold" size={18} color="#000" />
-                                <Text style={styles.saveBtnText}>
-                                    {editorMode === 'compare' ? 'SALVAR COMPARAÇÃO' : 'CONCLUIR MARCAÇÃO'}
-                                </Text>
-                            </>
-                        )}
-                    </TouchableOpacity>
-                </View>
+                )}
 
             </View>
 
@@ -957,4 +1106,17 @@ const styles = StyleSheet.create({
     textInputLabel:    { color:'#1C1C1E', fontWeight:'900', fontSize:13, marginBottom:10 },
     textInputField:    { backgroundColor:'#FFF', color:'#1C1C1E', borderRadius:10, padding:14, fontSize:15, borderWidth:1, borderColor:'#CCC' },
     textInputBtn:      { paddingHorizontal:20, paddingVertical:12, borderRadius:10, alignItems:'center', justifyContent:'center' },
+
+    // ── Mobile PWA styles ────────────────────────────────────────────────────
+    toolBarMobile:     { backgroundColor:'#1C1C1E', borderBottomWidth:1, borderBottomColor:'#3A3A3C', paddingVertical:6, paddingHorizontal:8, gap:6 },
+    toolBarMobileRow:  { flexDirection:'row', alignItems:'center', gap:5 },
+    toolBtnSm:         { width:36, height:36, borderRadius:8, backgroundColor:'#3A3A3C', justifyContent:'center', alignItems:'center' },
+    sizeBtnSm:         { paddingHorizontal:8, paddingVertical:5, borderRadius:7, backgroundColor:'#3A3A3C' },
+    sizeTxtSm:         { color:'#FFF', fontWeight:'900', fontSize:10 },
+    colorDotSm:        { width:24, height:24, borderRadius:12, borderWidth:2, borderColor:'transparent' },
+    dividerV:          { width:1, height:24, backgroundColor:'#555', marginHorizontal:2 },
+
+    bottomBarMobile:   { backgroundColor:'#1C1C1E', paddingHorizontal:12, paddingTop:10, paddingBottom: Platform.OS === 'ios' ? 28 : 12, gap:8 },
+    bottomBarMobileRow:{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' },
+    saveBtnFull:       { flexDirection:'row', width:'100%', padding:14, borderRadius:12, justifyContent:'center', alignItems:'center', gap:8 },
 });
