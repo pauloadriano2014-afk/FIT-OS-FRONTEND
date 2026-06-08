@@ -18,24 +18,24 @@ const STEP_GENERATING     = 'GENERATING';
 
 // ─── GRUPOS MUSCULARES ───
 const MUSCLE_GROUPS = [
-  { id: 'QUADRICEPS',    label: 'Quadríceps',       color: '#FF6B6B', defaultRest: 60, restType: 'MULTI',   genderFilter: null    },
-  { id: 'POSTERIORES',   label: 'Posteriores',      color: '#FF8E53', defaultRest: 60, restType: 'MULTI',   genderFilter: null    },
-  { id: 'GLUTEOS',       label: 'Glúteos',          color: '#FF6B9D', defaultRest: 60, restType: 'MULTI',   genderFilter: null    },
-  { id: 'PANTURRILHA',   label: 'Panturrilha',      color: '#C77DFF', defaultRest: 15, restType: 'PANT',    genderFilter: null    },
-  { id: 'ADUTOR',        label: 'Adutor',           color: '#E8A0BF', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'ABDUTOR',       label: 'Abdutor',          color: '#DDA0DD', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'COSTAS_PUXADA', label: 'Costas — Puxada',  color: '#4ECDC4', defaultRest: 60, restType: 'MULTI',   genderFilter: null    },
-  { id: 'COSTAS_REMADA', label: 'Costas — Remada',  color: '#45B7D1', defaultRest: 60, restType: 'MULTI',   genderFilter: null    },
-  { id: 'OMBRO_MULTI',   label: 'Ombro — Multi.',   color: '#96CEB4', defaultRest: 60, restType: 'MULTI',   genderFilter: null    },
-  { id: 'OMBRO_FRONTAL', label: 'Ombro — Frontal',  color: '#88D8B0', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'OMBRO_LATERAL', label: 'Ombro — Lateral',  color: '#F0E68C', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'OMBRO_POST',    label: 'Ombro — Post.',    color: '#DDA0DD', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'TRAPEZIO',      label: 'Trapézio',         color: '#98D8C8', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'PEITO',         label: 'Peito',            color: '#F7DC6F', defaultRest: 60, restType: 'MULTI',   genderFilter: null    },
-  { id: 'BICEPS',        label: 'Bíceps',           color: '#82E0AA', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'TRICEPS',       label: 'Tríceps',          color: '#85C1E9', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'ABDOMEN',       label: 'Abdômen',          color: '#F1948A', defaultRest: 30, restType: 'ISOLADO', genderFilter: null    },
-  { id: 'CARDIO',        label: 'Cardio',           color: '#FF6B6B', defaultRest: 0,  restType: 'CARDIO',  genderFilter: null    },
+  { id: 'QUADRICEPS',    label: 'Quadríceps',       color: '#FF6B6B', defaultRest: 60, defaultSets: 4, restType: 'MULTI',   genderFilter: null },
+  { id: 'POSTERIORES',   label: 'Posteriores',      color: '#FF8E53', defaultRest: 60, defaultSets: 4, restType: 'MULTI',   genderFilter: null },
+  { id: 'GLUTEOS',       label: 'Glúteos',          color: '#FF6B9D', defaultRest: 60, defaultSets: 4, restType: 'MULTI',   genderFilter: null },
+  { id: 'PANTURRILHA',   label: 'Panturrilha',      color: '#C77DFF', defaultRest: 15, defaultSets: 3, restType: 'PANT',    genderFilter: null },
+  { id: 'ADUTOR',        label: 'Adutor',           color: '#E8A0BF', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'ABDUTOR',       label: 'Abdutor',          color: '#DDA0DD', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'COSTAS_PUXADA', label: 'Costas — Puxada',  color: '#4ECDC4', defaultRest: 60, defaultSets: 4, restType: 'MULTI',   genderFilter: null },
+  { id: 'COSTAS_REMADA', label: 'Costas — Remada',  color: '#45B7D1', defaultRest: 60, defaultSets: 4, restType: 'MULTI',   genderFilter: null },
+  { id: 'OMBRO_MULTI',   label: 'Ombro — Multi.',   color: '#96CEB4', defaultRest: 60, defaultSets: 4, restType: 'MULTI',   genderFilter: null },
+  { id: 'OMBRO_FRONTAL', label: 'Ombro — Frontal',  color: '#88D8B0', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'OMBRO_LATERAL', label: 'Ombro — Lateral',  color: '#F0E68C', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'OMBRO_POST',    label: 'Ombro — Post.',    color: '#DDA0DD', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'TRAPEZIO',      label: 'Trapézio',         color: '#98D8C8', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'PEITO',         label: 'Peito',            color: '#F7DC6F', defaultRest: 60, defaultSets: 4, restType: 'MULTI',   genderFilter: null },
+  { id: 'BICEPS',        label: 'Bíceps',           color: '#82E0AA', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'TRICEPS',       label: 'Tríceps',          color: '#85C1E9', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'ABDOMEN',       label: 'Abdômen',          color: '#F1948A', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO', genderFilter: null },
+  { id: 'CARDIO',        label: 'Cardio',           color: '#FF6B6B', defaultRest: 0,  defaultSets: 1, restType: 'CARDIO',  genderFilter: null },
 ];
 
 const REST_OPTIONS_BY_TYPE = {
@@ -367,6 +367,7 @@ export default function GerarTreinoIA({ navigation, route }) {
           }
           return { name: d.name, groups: groups.map(g => ({
             id: g.id, qty: g.qty,
+            sets: g.sets ?? 4,
             rest: g.rest ?? MUSCLE_GROUPS.find(mg => mg.id === g.id)?.defaultRest ?? 60,
           })) };
         });
@@ -441,7 +442,7 @@ export default function GerarTreinoIA({ navigation, route }) {
     const info = MUSCLE_GROUPS.find(g => g.id === groupId);
     setDays(days.map(d => {
       if (d.id !== activeDayId || d.groups.some(g => g.id === groupId)) return d;
-      return { ...d, groups: [...d.groups, { id: groupId, qty: 3, rest: info?.defaultRest ?? 60 }] };
+      return { ...d, groups: [...d.groups, { id: groupId, qty: 3, sets: info?.defaultSets ?? 4, rest: info?.defaultRest ?? 60 }] };
     }));
   };
 
@@ -451,15 +452,19 @@ export default function GerarTreinoIA({ navigation, route }) {
   const updateGroupQty = (dayId, groupId, qty) =>
     setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, qty } : g) } : d));
 
+  const updateGroupSets = (dayId, groupId, sets) =>
+    setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, sets } : g) } : d));
+
   const updateGroupRest = (dayId, groupId, rest) =>
     setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, rest } : g) } : d));
 
   const applyTemplate = (tmpl) => {
     setDays(days.map(d => d.id !== activeDayId ? d : {
       ...d, name: tmpl.label,
-      groups: tmpl.groups.map(g => ({
-        ...g, rest: MUSCLE_GROUPS.find(mg => mg.id === g.id)?.defaultRest ?? 60,
-      })),
+      groups: tmpl.groups.map(g => {
+        const info = MUSCLE_GROUPS.find(mg => mg.id === g.id);
+        return { ...g, sets: g.sets ?? info?.defaultSets ?? 4, rest: info?.defaultRest ?? 60 };
+      }),
     }));
     setShowTemplatePicker(false);
   };
@@ -885,7 +890,7 @@ export default function GerarTreinoIA({ navigation, route }) {
                 const curRest = group.rest ?? info.defaultRest;
                 return (
                   <View key={group.id} style={[S.groupCard, { backgroundColor: info.color + '10', borderColor: info.color + '25' }]}>
-                    {/* Linha 1: ordem + cor + nome + qty + remover */}
+                    {/* Linha 1: ordem + cor + nome + qty + séries + remover */}
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ flexDirection: 'column', gap: 2, marginRight: 8 }}>
                         <TouchableOpacity
@@ -904,6 +909,7 @@ export default function GerarTreinoIA({ navigation, route }) {
                       <View style={[S.groupDot, { backgroundColor: info.color }]} />
                       <Text style={[S.groupLabel, { color: theme.text, flex: 1 }]}>{info.label}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {/* Qtd exercícios */}
                         <TouchableOpacity onPress={() => updateGroupQty(activeDay.id, group.id, Math.max(1, group.qty - 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
                           <MaterialCommunityIcons name="minus" size={13} color={theme.text} />
                         </TouchableOpacity>
@@ -912,6 +918,20 @@ export default function GerarTreinoIA({ navigation, route }) {
                           <MaterialCommunityIcons name="plus" size={13} color={theme.text} />
                         </TouchableOpacity>
                         <Text style={{ fontSize: 10, color: theme.textSecondary }}>ex.</Text>
+
+                        {/* Divisor */}
+                        <View style={{ width: 1, height: 16, backgroundColor: theme.border, marginHorizontal: 2 }} />
+
+                        {/* Séries */}
+                        <TouchableOpacity onPress={() => updateGroupSets(activeDay.id, group.id, Math.max(1, (group.sets ?? info.defaultSets ?? 4) - 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                          <MaterialCommunityIcons name="minus" size={13} color={theme.text} />
+                        </TouchableOpacity>
+                        <Text style={[S.qtyNum, { color: info.color }]}>{group.sets ?? info.defaultSets ?? 4}</Text>
+                        <TouchableOpacity onPress={() => updateGroupSets(activeDay.id, group.id, Math.min(6, (group.sets ?? info.defaultSets ?? 4) + 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                          <MaterialCommunityIcons name="plus" size={13} color={theme.text} />
+                        </TouchableOpacity>
+                        <Text style={{ fontSize: 10, color: theme.textSecondary }}>ser.</Text>
+
                         <TouchableOpacity onPress={() => removeGroupFromDay(activeDay.id, group.id)}>
                           <MaterialCommunityIcons name="close-circle" size={17} color="#FF3B30" />
                         </TouchableOpacity>
