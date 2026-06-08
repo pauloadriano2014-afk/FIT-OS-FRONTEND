@@ -890,8 +890,8 @@ export default function GerarTreinoIA({ navigation, route }) {
                 const curRest = group.rest ?? info.defaultRest;
                 return (
                   <View key={group.id} style={[S.groupCard, { backgroundColor: info.color + '10', borderColor: info.color + '25' }]}>
-                    {/* Linha 1: ordem + cor + nome + qty + séries + remover */}
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {/* Linha 1: setas + nome + remover */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                       <View style={{ flexDirection: 'column', gap: 2, marginRight: 8 }}>
                         <TouchableOpacity
                           onPress={() => moveGroupUp(activeDay.id, group.id)}
@@ -908,34 +908,37 @@ export default function GerarTreinoIA({ navigation, route }) {
                       </View>
                       <View style={[S.groupDot, { backgroundColor: info.color }]} />
                       <Text style={[S.groupLabel, { color: theme.text, flex: 1 }]}>{info.label}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        {/* Qtd exercícios */}
-                        <TouchableOpacity onPress={() => updateGroupQty(activeDay.id, group.id, Math.max(1, group.qty - 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
-                          <MaterialCommunityIcons name="minus" size={13} color={theme.text} />
-                        </TouchableOpacity>
-                        <Text style={[S.qtyNum, { color: theme.text }]}>{group.qty}</Text>
-                        <TouchableOpacity onPress={() => updateGroupQty(activeDay.id, group.id, Math.min(10, group.qty + 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
-                          <MaterialCommunityIcons name="plus" size={13} color={theme.text} />
-                        </TouchableOpacity>
-                        <Text style={{ fontSize: 10, color: theme.textSecondary }}>ex.</Text>
+                      <TouchableOpacity onPress={() => removeGroupFromDay(activeDay.id, group.id)}>
+                        <MaterialCommunityIcons name="close-circle" size={17} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </View>
 
-                        {/* Divisor */}
-                        <View style={{ width: 1, height: 16, backgroundColor: theme.border, marginHorizontal: 2 }} />
+                    {/* Linha 2: exercícios + séries */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                      {/* Qtd exercícios */}
+                      <MaterialCommunityIcons name="dumbbell" size={12} color={theme.textSecondary} />
+                      <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: '700' }}>Ex.:</Text>
+                      <TouchableOpacity onPress={() => updateGroupQty(activeDay.id, group.id, Math.max(1, group.qty - 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                        <MaterialCommunityIcons name="minus" size={13} color={theme.text} />
+                      </TouchableOpacity>
+                      <Text style={[S.qtyNum, { color: theme.text }]}>{group.qty}</Text>
+                      <TouchableOpacity onPress={() => updateGroupQty(activeDay.id, group.id, Math.min(10, group.qty + 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                        <MaterialCommunityIcons name="plus" size={13} color={theme.text} />
+                      </TouchableOpacity>
 
-                        {/* Séries */}
-                        <TouchableOpacity onPress={() => updateGroupSets(activeDay.id, group.id, Math.max(1, (group.sets ?? info.defaultSets ?? 4) - 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
-                          <MaterialCommunityIcons name="minus" size={13} color={theme.text} />
-                        </TouchableOpacity>
-                        <Text style={[S.qtyNum, { color: info.color }]}>{group.sets ?? info.defaultSets ?? 4}</Text>
-                        <TouchableOpacity onPress={() => updateGroupSets(activeDay.id, group.id, Math.min(6, (group.sets ?? info.defaultSets ?? 4) + 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
-                          <MaterialCommunityIcons name="plus" size={13} color={theme.text} />
-                        </TouchableOpacity>
-                        <Text style={{ fontSize: 10, color: theme.textSecondary }}>ser.</Text>
+                      {/* Divisor */}
+                      <View style={{ width: 1, height: 16, backgroundColor: theme.border, marginHorizontal: 4 }} />
 
-                        <TouchableOpacity onPress={() => removeGroupFromDay(activeDay.id, group.id)}>
-                          <MaterialCommunityIcons name="close-circle" size={17} color="#FF3B30" />
-                        </TouchableOpacity>
-                      </View>
+                      {/* Séries */}
+                      <MaterialCommunityIcons name="repeat" size={12} color={theme.textSecondary} />
+                      <Text style={{ fontSize: 10, color: theme.textSecondary, fontWeight: '700' }}>Sér.:</Text>
+                      <TouchableOpacity onPress={() => updateGroupSets(activeDay.id, group.id, Math.max(1, (group.sets ?? info.defaultSets ?? 4) - 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                        <MaterialCommunityIcons name="minus" size={13} color={theme.text} />
+                      </TouchableOpacity>
+                      <Text style={[S.qtyNum, { color: info.color }]}>{group.sets ?? info.defaultSets ?? 4}</Text>
+                      <TouchableOpacity onPress={() => updateGroupSets(activeDay.id, group.id, Math.min(6, (group.sets ?? info.defaultSets ?? 4) + 1))} style={[S.qtyBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' }]}>
+                        <MaterialCommunityIcons name="plus" size={13} color={theme.text} />
+                      </TouchableOpacity>
                     </View>
                     {/* Linha 2: descanso */}
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
@@ -1230,7 +1233,7 @@ export default function GerarTreinoIA({ navigation, route }) {
   // ─────────────────────────────────────────────
   const Wrapper = isWeb ? View : SafeAreaView;
   const rootStyle = isWeb
-    ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, display: 'flex', flexDirection: 'column' }
+    ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
     : { flex: 1, backgroundColor: theme.bg };
 
   return (
