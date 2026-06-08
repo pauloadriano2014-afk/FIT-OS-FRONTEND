@@ -227,17 +227,22 @@ export default function GerarTreinoIA({ navigation, route }) {
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showEnvPicker, setShowEnvPicker] = useState(false);
+  const [showComparison, setShowComparison] = useState(false);
+  const [generatedData, setGeneratedData] = useState(null);
   const [showPresetSaver, setShowPresetSaver] = useState(false);
   const [showPresetsLoader, setShowPresetsLoader] = useState(false);
   const [limitationRules] = useState(DEFAULT_LIMITATION_RULES);
 
   // ─── EFFECTS ───
+  // Flag: veio com aluno pré-selecionado (do AdminUserOptions)
+  const cameFromAluno = !!(route.params?.aluno?.id);
+
   useEffect(() => {
     loadSavedPresets();
-    const alunoParam = route.params?.aluno;
-    if (alunoParam?.id) {
+    if (cameFromAluno) {
       setStep(STEP_CYCLE_CONFIG);
-      handleSelectStudent(alunoParam);
+      setLoadingStudents(false);
+      handleSelectStudent(route.params.aluno);
     } else {
       fetchStudents();
     }
@@ -391,18 +396,27 @@ export default function GerarTreinoIA({ navigation, route }) {
       if (!data.exercisesByDay || !Object.keys(data.exercisesByDay).length)
         throw new Error('A IA não retornou exercícios. Tente novamente.');
 
-      navigation.replace('MontarTreinoAdmin', {
-        aluno: selectedStudent, isEditing: false,
-        prefillData: {
-          workoutName: data.workoutName, workoutModel: data.workoutModel || 'CARGA',
-          exercisesByDay: data.exercisesByDay, workoutTabs: data.workoutTabs,
-        },
-      });
+      // Salvar dados gerados e mostrar comparação
+      setGeneratedData(data);
+      setStep(STEP_CYCLE_CONFIG);
+      setShowComparison(true);
     } catch (e) {
       clearInterval(iv);
       setError(e.message || 'Falha ao gerar treino.');
       setStep(STEP_CYCLE_CONFIG);
     }
+  };
+
+  const handleConfirmAndOpen = () => {
+    if (!generatedData) return;
+    setShowComparison(false);
+    navigation.replace('MontarTreinoAdmin', {
+      aluno: selectedStudent, isEditing: false,
+      prefillData: {
+        workoutName: generatedData.workoutName, workoutModel: generatedData.workoutModel || 'CARGA',
+        exercisesByDay: generatedData.exercisesByDay, workoutTabs: generatedData.workoutTabs,
+      },
+    });
   };
 
   // ─── HELPERS DE DIAS ───
@@ -450,8 +464,27 @@ export default function GerarTreinoIA({ navigation, route }) {
     setShowTemplatePicker(false);
   };
 
-  const toggleTechnique = (id) =>
-    setSelectedTechniques(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+  const moveGroupUp = (dayId, groupId) => {
+    setDays(days.map(d => {
+      if (d.id !== dayId) return d;
+      const idx = d.groups.findIndex(g => g.id === groupId);
+      if (idx <= 0) return d;
+      const newGroups = [...d.groups];
+      [newGroups[idx - 1], newGroups[idx]] = [newGroups[idx], newGroups[idx - 1]];
+      return { ...d, groups: newGroups };
+    }));
+  };
+
+  const moveGroupDown = (dayId, groupId) => {
+    setDays(days.map(d => {
+      if (d.id !== dayId) return d;
+      const idx = d.groups.findIndex(g => g.id === groupId);
+      if (idx >= d.groups.length - 1) return d;
+      const newGroups = [...d.groups];
+      [newGroups[idx], newGroups[idx + 1]] = [newGroups[idx + 1], newGroups[idx]];
+      return { ...d, groups: newGroups };
+    }));
+  };
 
   // ─── COMPUTED ───
   const getGroupInfo = (id) => MUSCLE_GROUPS.find(g => g.id === id);
@@ -488,8 +521,14 @@ export default function GerarTreinoIA({ navigation, route }) {
   };
 
   const handleBack = () => {
-    if (step === STEP_GENERATING) return; // bloqueia voltar durante geração
+    if (step === STEP_GENERATING) return;
     if (step === STEP_CYCLE_CONFIG) {
+      // Se veio do AdminUserOptions, volta direto para lá
+      if (cameFromAluno) {
+        navigation.goBack();
+        return;
+      }
+      // Se navegou da lista interna, volta para a lista
       setStep(STEP_SELECT_STUDENT);
       setSelectedStudent(null);
       setStudentDetail(null);
@@ -846,8 +885,22 @@ export default function GerarTreinoIA({ navigation, route }) {
                 const curRest = group.rest ?? info.defaultRest;
                 return (
                   <View key={group.id} style={[S.groupCard, { backgroundColor: info.color + '10', borderColor: info.color + '25' }]}>
-                    {/* Linha 1: nome + qty + remover */}
+                    {/* Linha 1: ordem + cor + nome + qty + remover */}
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'column', gap: 2, marginRight: 8 }}>
+                        <TouchableOpacity
+                          onPress={() => moveGroupUp(activeDay.id, group.id)}
+                          style={[S.orderBtn, { opacity: activeDay.groups.indexOf(group) === 0 ? 0.2 : 1 }]}
+                        >
+                          <MaterialCommunityIcons name="chevron-up" size={13} color={theme.textSecondary} />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => moveGroupDown(activeDay.id, group.id)}
+                          style={[S.orderBtn, { opacity: activeDay.groups.indexOf(group) === activeDay.groups.length - 1 ? 0.2 : 1 }]}
+                        >
+                          <MaterialCommunityIcons name="chevron-down" size={13} color={theme.textSecondary} />
+                        </TouchableOpacity>
+                      </View>
                       <View style={[S.groupDot, { backgroundColor: info.color }]} />
                       <Text style={[S.groupLabel, { color: theme.text, flex: 1 }]}>{info.label}</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -1034,6 +1087,104 @@ export default function GerarTreinoIA({ navigation, route }) {
         </View>
       </Modal>
 
+      {/* ── MODAL: COMPARAÇÃO ── */}
+      <Modal visible={showComparison} transparent animationType="slide" onRequestClose={() => setShowComparison(false)}>
+        <View style={[S.modalOverlay, { justifyContent: 'flex-end' }]}>
+          <View style={[S.comparisonSheet, { backgroundColor: theme.bg }]}>
+            <View style={S.modalHandle} />
+
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12 }}>
+              <View>
+                <Text style={[S.modalTitle, { color: theme.text }]}>Comparar Treinos</Text>
+                <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>Novo vs Atual — verifique antes de abrir</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowComparison(false)} style={[S.iconBtn, { backgroundColor: theme.surface }]}>
+                <MaterialCommunityIcons name="close" size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }}>
+              {/* Tabs de dias */}
+              {generatedData && Object.entries(generatedData.exercisesByDay).map(([day, exercises]) => {
+                // Busca o treino atual do aluno para comparar
+                const currentWorkout = studentDetail?.last3Workouts?.[0];
+                const currentExercisesForDay = currentWorkout?.exercises?.filter(e => e.day === day) || [];
+                const newExIds = new Set(exercises.map(e => e.exerciseId));
+                const oldExIds = new Set(currentExercisesForDay.map(e => e.exerciseId));
+                const changedCount = [...newExIds].filter(id => !oldExIds.has(id)).length;
+                const changePercent = exercises.length > 0 ? Math.round((changedCount / exercises.length) * 100) : 0;
+
+                return (
+                  <View key={day} style={[S.comparisonDay, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    {/* Header do dia */}
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                      <View style={[S.dayTabSmall, { backgroundColor: theme.accent }]}>
+                        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 13 }}>{day}</Text>
+                      </View>
+                      <Text style={[S.groupLabel, { color: theme.text, flex: 1, marginLeft: 10 }]}>
+                        {exercises.length} exercícios
+                      </Text>
+                      <View style={[S.changeBadge, { backgroundColor: changePercent >= 40 ? '#4ECDC415' : '#FF950015', borderColor: changePercent >= 40 ? '#4ECDC440' : '#FF950040' }]}>
+                        <Text style={{ fontSize: 10, fontWeight: '900', color: changePercent >= 40 ? '#4ECDC4' : '#FF9500' }}>
+                          {changePercent}% novo
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Lista de exercícios lado a lado */}
+                    <View style={{ gap: 4 }}>
+                      {exercises.map((ex, idx) => {
+                        const isNew = !oldExIds.has(ex.exerciseId);
+                        return (
+                          <View key={ex.exerciseId} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 10, color: theme.textSecondary, width: 16 }}>{idx + 1}.</Text>
+                            <View style={[S.exCompRow, {
+                              backgroundColor: isNew ? '#4ECDC410' : theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                              borderColor: isNew ? '#4ECDC430' : 'transparent',
+                              flex: 1,
+                            }]}>
+                              {isNew && <View style={S.newDot} />}
+                              <Text style={{ fontSize: 12, color: theme.text, fontWeight: isNew ? '700' : '500', flex: 1 }} numberOfLines={1}>
+                                {ex.title}
+                              </Text>
+                              {(() => {
+                                const technique = ex.blocks?.find(b => b.technique && b.technique !== '')?.technique;
+                                return technique ? (
+                                  <View style={[S.techTag, { backgroundColor: theme.accent + '20' }]}>
+                                    <Text style={{ fontSize: 9, fontWeight: '900', color: theme.accent }}>{technique}</Text>
+                                  </View>
+                                ) : null;
+                              })()}
+                              <Text style={{ fontSize: 10, color: theme.textSecondary }}>
+                                {ex.blocks?.length}x
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+
+            {/* Botões */}
+            <View style={{ padding: 16, gap: 10 }}>
+              <TouchableOpacity style={[S.generateBtn, { backgroundColor: theme.accent }]} onPress={handleConfirmAndOpen}>
+                <Text style={[S.generateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ABRIR NO EDITOR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[S.generateBtn, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}
+                onPress={() => { setShowComparison(false); setGeneratedData(null); }}
+              >
+                <Text style={[S.generateBtnText, { color: theme.textSecondary }]}>GERAR NOVAMENTE</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </ScrollView>
   );
 
@@ -1104,6 +1255,13 @@ const S = StyleSheet.create({
   envDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, marginBottom: 20 },
   envDropdownText: { fontSize: 14, fontWeight: '800' },
   envIconSmall: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  orderBtn: { width: 18, height: 18, borderRadius: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(128,128,128,0.12)' },
+  comparisonSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 12, height: '85%' },
+  comparisonDay: { borderRadius: 14, padding: 12, borderWidth: 1, marginBottom: 12 },
+  dayTabSmall: { width: 28, height: 28, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  changeBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1 },
+  exCompRow: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 7, borderRadius: 8, borderWidth: 1 },
+  techTag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 5 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 13, borderWidth: 1 },
   searchInput: { flex: 1, fontSize: 14, outlineStyle: 'none' },
