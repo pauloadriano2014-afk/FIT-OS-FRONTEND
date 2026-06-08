@@ -464,28 +464,37 @@ export default function GerarTreinoIA({ navigation, route }) {
   // RENDER: HEADER
   // ─────────────────────────────────────────────
   const stepInfo = {
-    [STEP_SELECT_STUDENT]: { title: 'Gerar com IA', sub: 'Selecione o aluno' },
+    [STEP_SELECT_STUDENT]: { title: 'Protocolo ELITE', sub: 'Selecione o aluno' },
     [STEP_CYCLE_CONFIG]:   { title: selectedStudent?.name?.split(' ')[0] || 'Configurar', sub: 'Monte a estrutura do treino' },
-    [STEP_GENERATING]:     { title: 'Gerando...', sub: 'Aguarde um momento' },
+    [STEP_GENERATING]:     { title: 'Protocolo ELITE', sub: 'Gerando rotina...' },
+  };
+
+  const handleBack = () => {
+    if (step === STEP_GENERATING) return; // bloqueia voltar durante geração
+    if (step === STEP_CYCLE_CONFIG) {
+      setStep(STEP_SELECT_STUDENT);
+      setSelectedStudent(null);
+      setStudentDetail(null);
+      return;
+    }
+    navigation.goBack();
   };
 
   const renderHeader = () => (
     <View style={[S.header, { backgroundColor: theme.bg, borderBottomColor: theme.border }]}>
-      <TouchableOpacity
-        onPress={() => step === STEP_CYCLE_CONFIG ? (setStep(STEP_SELECT_STUDENT), setSelectedStudent(null)) : navigation.goBack()}
-        style={[S.iconBtn, { backgroundColor: theme.surface }]}
-      >
-        <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
-      </TouchableOpacity>
+      {step !== STEP_GENERATING && (
+        <TouchableOpacity onPress={handleBack} style={[S.iconBtn, { backgroundColor: theme.surface }]}>
+          <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
+        </TouchableOpacity>
+      )}
 
-      <View style={{ flex: 1, marginHorizontal: 12 }}>
+      <View style={{ flex: 1, marginHorizontal: step !== STEP_GENERATING ? 12 : 0 }}>
         <Text style={[S.headerTitle, { color: theme.text }]} numberOfLines={1}>{stepInfo[step]?.title}</Text>
         <Text style={[S.headerSub, { color: theme.textSecondary }]}>{stepInfo[step]?.sub}</Text>
       </View>
 
-      <View style={[S.iaBadge, { backgroundColor: theme.accent + '20', borderColor: theme.accent + '40' }]}>
-        <MaterialCommunityIcons name="robot-outline" size={13} color={theme.accent} />
-        <Text style={[S.iaBadgeText, { color: theme.accent }]}>IA</Text>
+      <View style={[S.eliteBadge, { backgroundColor: theme.accent + '20', borderColor: theme.accent + '40' }]}>
+        <Text style={[S.eliteBadgeText, { color: theme.accent }]}>ELITE</Text>
       </View>
     </View>
   );
@@ -961,10 +970,10 @@ export default function GerarTreinoIA({ navigation, route }) {
   const renderGenerating = () => (
     <View style={[S.center, { paddingHorizontal: 32 }]}>
       <View style={[S.generatingBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '30' }]}>
-        <MaterialCommunityIcons name="robot-outline" size={48} color={theme.accent} />
+        <Text style={[S.eliteGeneratingText, { color: theme.accent }]}>ELITE</Text>
       </View>
       <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 24 }} />
-      <Text style={[S.generatingTitle, { color: theme.text }]}>Gerando rotina...</Text>
+      <Text style={[S.generatingTitle, { color: theme.text }]}>Montando protocolo...</Text>
       <Text style={[S.generatingMsg, { color: theme.textSecondary }]}>{generatingMsg}</Text>
       <Text style={{ fontSize: 11, color: theme.textSecondary + '60', marginTop: 14, textAlign: 'center' }}>
         Isso pode levar até 30 segundos
@@ -994,11 +1003,10 @@ export default function GerarTreinoIA({ navigation, route }) {
       {step === STEP_CYCLE_CONFIG && (
         <View style={[S.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
           <TouchableOpacity style={[S.generateBtn, { backgroundColor: theme.accent }]} onPress={handleGenerate}>
-            <MaterialCommunityIcons name="robot-outline" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-            <Text style={[S.generateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR TREINO COM IA</Text>
+            <Text style={[S.generateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR PROTOCOLO ELITE</Text>
           </TouchableOpacity>
           <Text style={{ textAlign: 'center', fontSize: 11, color: theme.textSecondary, marginTop: 8 }}>
-            O treino será aberto no editor para revisão
+            O protocolo será aberto no editor para revisão
           </Text>
         </View>
       )}
@@ -1012,8 +1020,9 @@ const S = StyleSheet.create({
   headerTitle: { fontSize: 16, fontWeight: '900' },
   headerSub: { fontSize: 11, marginTop: 1 },
   iconBtn: { width: 38, height: 38, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
-  iaBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
-  iaBadgeText: { fontSize: 11, fontWeight: '900' },
+  eliteBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+  eliteBadgeText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
+  eliteGeneratingText: { fontSize: 22, fontWeight: '900', letterSpacing: 2 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 13, borderWidth: 1 },
   searchInput: { flex: 1, fontSize: 14, outlineStyle: 'none' },
