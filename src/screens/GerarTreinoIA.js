@@ -199,6 +199,8 @@ export default function GerarTreinoIA({ navigation, route }) {
   const { theme } = useTheme();
   const isWeb = Platform.OS === 'web';
   const windowWidth = Dimensions.get('window').width;
+  const isWebPC = isWeb && windowWidth > 768;
+  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
   // ─── STATE ───
   const [step, setStep] = useState(STEP_SELECT_STUDENT);
@@ -224,6 +226,7 @@ export default function GerarTreinoIA({ navigation, route }) {
   // Modals
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
+  const [showEnvPicker, setShowEnvPicker] = useState(false);
   const [showPresetSaver, setShowPresetSaver] = useState(false);
   const [showPresetsLoader, setShowPresetsLoader] = useState(false);
   const [limitationRules] = useState(DEFAULT_LIMITATION_RULES);
@@ -633,26 +636,58 @@ export default function GerarTreinoIA({ navigation, route }) {
 
       {/* ── AMBIENTE DE TREINO ── */}
       <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>AMBIENTE DE TREINO</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          {TRAINING_ENVIRONMENTS.map(env => {
-            const isSel = trainingEnvironment === env.id;
+      <TouchableOpacity
+        style={[S.envDropdown, { backgroundColor: theme.surface, borderColor: theme.border }]}
+        onPress={() => setShowEnvPicker(true)}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {(() => {
+            const env = TRAINING_ENVIRONMENTS.find(e => e.id === trainingEnvironment);
             return (
-              <TouchableOpacity
-                key={env.id}
-                style={[S.envBtn, {
-                  backgroundColor: isSel ? env.color + '20' : S_theme(theme).surface,
-                  borderColor: isSel ? env.color : S_theme(theme).border,
-                }]}
-                onPress={() => setTrainingEnvironment(env.id)}
-              >
-                <MaterialCommunityIcons name={env.icon} size={14} color={isSel ? env.color : theme.textSecondary} />
-                <Text style={[S.envBtnText, { color: isSel ? env.color : theme.textSecondary }]}>{env.label}</Text>
-              </TouchableOpacity>
+              <>
+                <View style={[S.envIconSmall, { backgroundColor: (env?.color || theme.accent) + '20' }]}>
+                  <MaterialCommunityIcons name={env?.icon || 'earth'} size={16} color={env?.color || theme.accent} />
+                </View>
+                <Text style={[S.envDropdownText, { color: theme.text }]}>{env?.label || 'Selecionar'}</Text>
+              </>
             );
-          })}
+          })()}
         </View>
-      </ScrollView>
+        <MaterialCommunityIcons name="chevron-down" size={18} color={theme.textSecondary} />
+      </TouchableOpacity>
+
+      {/* Modal picker de ambiente */}
+      <Modal visible={showEnvPicker} transparent animationType="slide" onRequestClose={() => setShowEnvPicker(false)}>
+        <View style={S.modalOverlay}>
+          <View style={[S.modalSheet, { backgroundColor: theme.surface }]}>
+            <View style={S.modalHandle} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <Text style={[S.modalTitle, { color: theme.text }]}>Ambiente de Treino</Text>
+              <TouchableOpacity onPress={() => setShowEnvPicker(false)}>
+                <MaterialCommunityIcons name="close" size={20} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 460 }}>
+              {TRAINING_ENVIRONMENTS.map(env => {
+                const isSel = trainingEnvironment === env.id;
+                return (
+                  <TouchableOpacity
+                    key={env.id}
+                    style={[S.pickerRow, { borderBottomColor: theme.border, backgroundColor: isSel ? env.color + '10' : 'transparent' }]}
+                    onPress={() => { setTrainingEnvironment(env.id); setShowEnvPicker(false); }}
+                  >
+                    <View style={[S.envIconSmall, { backgroundColor: env.color + '20' }]}>
+                      <MaterialCommunityIcons name={env.icon} size={16} color={env.color} />
+                    </View>
+                    <Text style={[S.groupLabel, { color: isSel ? env.color : theme.text, flex: 1, fontWeight: isSel ? '900' : '700' }]}>{env.label}</Text>
+                    {isSel && <MaterialCommunityIcons name="check-circle" size={18} color={env.color} />}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── FASE DO CICLO ── */}
       <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>FASE DO CICLO</Text>
@@ -1024,30 +1059,30 @@ export default function GerarTreinoIA({ navigation, route }) {
   // ─────────────────────────────────────────────
   const Wrapper = isWeb ? View : SafeAreaView;
   const rootStyle = isWeb
-    ? { height: '100dvh', width: '100%', maxWidth: 700, alignSelf: 'center', backgroundColor: theme.bg, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+    ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, display: 'flex', flexDirection: 'column' }
     : { flex: 1, backgroundColor: theme.bg };
 
   return (
     <Wrapper style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
-      {renderHeader()}
-
-      <View style={{ flex: 1 }}>
-        {step === STEP_SELECT_STUDENT && renderSelectStudent()}
-        {step === STEP_CYCLE_CONFIG   && renderCycleConfig()}
-        {step === STEP_GENERATING     && renderGenerating()}
-      </View>
-
-      {step === STEP_CYCLE_CONFIG && (
-        <View style={[S.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
-          <TouchableOpacity style={[S.generateBtn, { backgroundColor: theme.accent }]} onPress={handleGenerate}>
-            <Text style={[S.generateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR PROTOCOLO ELITE</Text>
-          </TouchableOpacity>
-          <Text style={{ textAlign: 'center', fontSize: 11, color: theme.textSecondary, marginTop: 8 }}>
-            O protocolo será aberto no editor para revisão
-          </Text>
+      <View style={isWeb ? { flex: 1, width: '100%', maxWidth: 960, alignSelf: 'center', backgroundColor: theme.bg, borderLeftWidth: isWebPC ? 1 : 0, borderRightWidth: isWebPC ? 1 : 0, borderColor: theme.border, display: 'flex', flexDirection: 'column', overflow: 'hidden' } : { flex: 1 }}>
+        {renderHeader()}
+        <View style={{ flex: 1 }}>
+          {step === STEP_SELECT_STUDENT && renderSelectStudent()}
+          {step === STEP_CYCLE_CONFIG   && renderCycleConfig()}
+          {step === STEP_GENERATING     && renderGenerating()}
         </View>
-      )}
+        {step === STEP_CYCLE_CONFIG && (
+          <View style={[S.footer, { backgroundColor: theme.bg, borderTopColor: theme.border }]}>
+            <TouchableOpacity style={[S.generateBtn, { backgroundColor: theme.accent }]} onPress={handleGenerate}>
+              <Text style={[S.generateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR PROTOCOLO ELITE</Text>
+            </TouchableOpacity>
+            <Text style={{ textAlign: 'center', fontSize: 11, color: theme.textSecondary, marginTop: 8 }}>
+              O protocolo será aberto no editor para revisão
+            </Text>
+          </View>
+        )}
+      </View>
     </Wrapper>
   );
 }
@@ -1066,6 +1101,9 @@ const S = StyleSheet.create({
   eliteGeneratingText: { fontSize: 22, fontWeight: '900', letterSpacing: 2 },
   envBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
   envBtnText: { fontSize: 12, fontWeight: '700' },
+  envDropdown: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, marginBottom: 20 },
+  envDropdownText: { fontSize: 14, fontWeight: '800' },
+  envIconSmall: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 13, borderWidth: 1 },
   searchInput: { flex: 1, fontSize: 14, outlineStyle: 'none' },
