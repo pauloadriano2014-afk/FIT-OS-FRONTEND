@@ -45,6 +45,19 @@ const REST_OPTIONS_BY_TYPE = {
   CARDIO:  [{ id: '0',  label: '0s'  }],
 };
 
+// ─── AMBIENTES DE TREINO ───
+const TRAINING_ENVIRONMENTS = [
+  { id: 'UNIVERSAL',       label: 'Todos',            icon: 'earth',           color: '#4ECDC4' },
+  { id: 'SMARTFIT',        label: 'SmartFit',          icon: 'lightning-bolt',  color: '#FF6B35' },
+  { id: 'GETGYM',          label: 'GetGym',            icon: 'dumbbell',        color: '#9B59B6' },
+  { id: 'OVERALL',         label: 'Overall',           icon: 'dumbbell',        color: '#2ECC71' },
+  { id: 'BRAVES',          label: 'Braves',            icon: 'dumbbell',        color: '#E74C3C' },
+  { id: 'SEVENPLAY',       label: 'SevenPlay',         icon: 'dumbbell',        color: '#F39C12' },
+  { id: 'ACADEMIA_PADRAO', label: 'Academia Padrão',   icon: 'weight-lifter',   color: '#3498DB' },
+  { id: 'CONDOMINIO',      label: 'Condomínio',        icon: 'office-building', color: '#95A5A6' },
+  { id: 'EM_CASA',         label: 'Em Casa',           icon: 'home-outline',    color: '#82E0AA' },
+];
+
 // ─── FASES DO CICLO (inclui Emagrecimento e Definição) ───
 const CYCLE_PHASES = [
   { id: 'HIPERTROFIA',   label: 'Hipertrofia',    desc: 'Volume moderado, 8–15 reps',        icon: 'trending-up',     color: '#4ECDC4' },
@@ -202,6 +215,7 @@ export default function GerarTreinoIA({ navigation, route }) {
   const [cyclePhase, setCyclePhase] = useState('HIPERTROFIA');
   const [selectedTechniques, setSelectedTechniques] = useState(['DROPSET', 'BISET']);
   const [techniqueScope, setTechniqueScope] = useState('CYCLE');
+  const [trainingEnvironment, setTrainingEnvironment] = useState('ACADEMIA_PADRAO');
   const [days, setDays] = useState(buildDefaultDays(3));
   const [activeDayId, setActiveDayId] = useState('1');
   const [savedPresets, setSavedPresets] = useState([]);
@@ -354,6 +368,7 @@ export default function GerarTreinoIA({ navigation, route }) {
         techniques: selectedTechniques,
         techniqueScope,
         gender: studentDetail?.gender || 'Não informado',
+        trainingEnvironment: trainingEnvironment,
         days: daysWithCardio,
         limitationRules: limitationRules.filter(rule =>
           allLimits.some(l => l.includes(rule.trigger.toLowerCase()))
@@ -615,6 +630,29 @@ export default function GerarTreinoIA({ navigation, route }) {
           <Text style={[S.actionBtnText, { color: theme.textSecondary }]}>Salvar Preset</Text>
         </TouchableOpacity>
       </View>
+
+      {/* ── AMBIENTE DE TREINO ── */}
+      <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>AMBIENTE DE TREINO</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {TRAINING_ENVIRONMENTS.map(env => {
+            const isSel = trainingEnvironment === env.id;
+            return (
+              <TouchableOpacity
+                key={env.id}
+                style={[S.envBtn, {
+                  backgroundColor: isSel ? env.color + '20' : S_theme(theme).surface,
+                  borderColor: isSel ? env.color : S_theme(theme).border,
+                }]}
+                onPress={() => setTrainingEnvironment(env.id)}
+              >
+                <MaterialCommunityIcons name={env.icon} size={14} color={isSel ? env.color : theme.textSecondary} />
+                <Text style={[S.envBtnText, { color: isSel ? env.color : theme.textSecondary }]}>{env.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </ScrollView>
 
       {/* ── FASE DO CICLO ── */}
       <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>FASE DO CICLO</Text>
@@ -1014,6 +1052,9 @@ export default function GerarTreinoIA({ navigation, route }) {
   );
 }
 
+// Helper para acessar valores do tema nos estilos inline
+const S_theme = (theme) => ({ surface: theme.surface, border: theme.border });
+
 // ─── ESTILOS ───
 const S = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1 },
@@ -1023,6 +1064,8 @@ const S = StyleSheet.create({
   eliteBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
   eliteBadgeText: { fontSize: 11, fontWeight: '900', letterSpacing: 1 },
   eliteGeneratingText: { fontSize: 22, fontWeight: '900', letterSpacing: 2 },
+  envBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+  envBtnText: { fontSize: 12, fontWeight: '700' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchBox: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 13, borderWidth: 1 },
   searchInput: { flex: 1, fontSize: 14, outlineStyle: 'none' },

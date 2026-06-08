@@ -7,16 +7,40 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
-
 import { categories, subCategoriesMap } from '../../data/bibliotecaData';
+
+const ENVIRONMENTS = [
+  { id: 'UNIVERSAL',       label: 'Universal',        icon: 'earth',           desc: 'Disponível em todos os ambientes' },
+  { id: 'SMARTFIT',        label: 'SmartFit',          icon: 'lightning-bolt',  desc: 'Equipamentos exclusivos SmartFit' },
+  { id: 'GETGYM',          label: 'GetGym',            icon: 'dumbbell',        desc: 'Equipamentos exclusivos GetGym' },
+  { id: 'OVERALL',         label: 'Overall',           icon: 'dumbbell',        desc: 'Equipamentos exclusivos Overall' },
+  { id: 'BRAVES',          label: 'Braves',            icon: 'dumbbell',        desc: 'Equipamentos exclusivos Braves' },
+  { id: 'SEVENPLAY',       label: 'SevenPlay',         icon: 'dumbbell',        desc: 'Equipamentos exclusivos SevenPlay' },
+  { id: 'ACADEMIA_PADRAO', label: 'Academia Padrão',   icon: 'weight-lifter',   desc: 'Academia genérica com equipamentos comuns' },
+  { id: 'CONDOMINIO',      label: 'Condomínio',        icon: 'office-building', desc: 'Equipamentos limitados de condomínio' },
+  { id: 'EM_CASA',         label: 'Em Casa',           icon: 'home-outline',    desc: 'Poucos equipamentos ou peso do corpo' },
+];
+
+const ENV_COLORS = {
+  UNIVERSAL: '#4ECDC4', SMARTFIT: '#FF6B35', GETGYM: '#9B59B6',
+  OVERALL: '#2ECC71', BRAVES: '#E74C3C', SEVENPLAY: '#F39C12',
+  ACADEMIA_PADRAO: '#3498DB', CONDOMINIO: '#95A5A6', EM_CASA: '#82E0AA',
+};
+
+const migrateEnvs = (envs) => {
+  if (!envs || envs.length === 0) return ['ACADEMIA_PADRAO'];
+  return envs.map(e => {
+    if (e === 'ACADEMIA') return 'ACADEMIA_PADRAO';
+    if (e === 'CONDOMÍNIO' || e === 'CONDOMINIO') return 'CONDOMINIO';
+    if (e === 'CASA') return 'EM_CASA';
+    return e;
+  });
+};
 
 export default function ExerciseFormModal({ visible, onClose, initialData, onSaveSuccess, theme }) {
     const isWeb = Platform.OS === 'web';
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
-
-    const defaultExercise = { 
-        id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '', environments: ['ACADEMIA'] 
-    };
+    const defaultExercise = { id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '', environments: ['ACADEMIA_PADRAO'] };
 
     const [formExercise, setFormExercise] = useState(defaultExercise);
     const [showFormDropdown, setShowFormDropdown] = useState(false);
@@ -24,147 +48,111 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
     const [saving, setSaving] = useState(false);
     const [uploadingVideo, setUploadingVideo] = useState(false);
 
-    // Atualiza o formulário quando o modal abre com dados de edição
     useEffect(() => {
         if (visible) {
-            setFormExercise(initialData || defaultExercise);
+            setFormExercise({ ...(initialData || defaultExercise), environments: migrateEnvs(initialData?.environments) });
             setShowFormDropdown(false);
             setShowFormSubDropdown(false);
         }
     }, [visible, initialData]);
 
+    const toggleEnv = (envId) => {
+        let newEnvs = [...formExercise.environments];
+        if (envId === 'UNIVERSAL') {
+            newEnvs = newEnvs.includes('UNIVERSAL') ? [] : ['UNIVERSAL'];
+        } else {
+            newEnvs = newEnvs.filter(e => e !== 'UNIVERSAL');
+            if (newEnvs.includes(envId)) newEnvs = newEnvs.filter(e => e !== envId);
+            else newEnvs.push(envId);
+        }
+        setFormExercise({ ...formExercise, environments: newEnvs });
+    };
+
     const handleUploadVideo = async () => {
         try {
             const result = await DocumentPicker.getDocumentAsync({ type: 'video/*', copyToCacheDirectory: true });
             if (result.canceled) return;
-
             const fileToUpload = result.assets[0];
             setUploadingVideo(true);
             const formData = new FormData();
-
             if (isWeb) {
                 const res = await fetch(fileToUpload.uri);
                 const blob = await res.blob();
                 formData.append('file', blob, fileToUpload.name);
             } else {
-                formData.append('file', {
-                    uri: fileToUpload.uri,
-                    name: fileToUpload.name || 'video.mp4',
-                    type: fileToUpload.mimeType || 'video/mp4'
-                });
+                formData.append('file', { uri: fileToUpload.uri, name: fileToUpload.name || 'video.mp4', type: fileToUpload.mimeType || 'video/mp4' });
             }
-
-            const response = await fetch('https://fitos-final.onrender.com/api/upload', {
-                method: 'POST',
-                body: formData,
-                headers: { 'Accept': 'application/json' }
-            });
-
+            const response = await fetch('https://fitos-final.onrender.com/api/upload', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } });
             const data = await response.json();
-
             if (response.ok && data.videoUrl) {
                 setFormExercise({ ...formExercise, videoUrl: data.videoUrl });
-                const msg = "Vídeo enviado para a Cloudflare! Pode salvar o exercício.";
-                if(isWeb) window.alert(msg); else Alert.alert("Sucesso", msg);
-            } else {
-                throw new Error(data.error || 'Erro no envio do vídeo.');
-            }
+                if (isWeb) window.alert("Vídeo enviado!"); else Alert.alert("Sucesso", "Vídeo enviado!");
+            } else throw new Error(data.error || 'Erro no envio.');
         } catch (error) {
-            const errMsg = "Falha ao subir vídeo: " + error.message;
-            if(isWeb) window.alert(errMsg); else Alert.alert("Erro de Upload", errMsg);
-        } finally {
-            setUploadingVideo(false);
-        }
+            if (isWeb) window.alert("Erro: " + error.message); else Alert.alert("Erro", error.message);
+        } finally { setUploadingVideo(false); }
     };
 
     const handleSaveOrUpdate = async () => {
-        if (!formExercise.name) return Alert.alert("Campos Incompletos", "O nome do exercício é obrigatório.");
-        if (formExercise.environments.length === 0) return Alert.alert("Atenção", "Selecione pelo menos um ambiente de treino.");
-
+        if (!formExercise.name.trim()) return Alert.alert("Atenção", "O nome é obrigatório.");
+        if (formExercise.environments.length === 0) return Alert.alert("Atenção", "Selecione pelo menos um ambiente.");
         setSaving(true);
         try {
             const userJson = await AsyncStorage.getItem('user');
             if (!userJson) return;
             const adminId = JSON.parse(userJson).id;
-
-            const payload = { ...formExercise, adminId: adminId };
             const isEditing = !!formExercise.id;
-
             const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
                 method: isEditing ? 'PUT' : 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...formExercise, adminId }),
             });
-
             if (res.ok) {
-                const savedExerciseFromServer = await res.json();
-                onSaveSuccess(savedExerciseFromServer, isEditing);
+                const saved = await res.json();
+                onSaveSuccess(saved, isEditing);
                 onClose();
-
-                if(isWeb) window.alert("Exercício salvo com sucesso!");
-                else Alert.alert("Sucesso", "Exercício salvo com sucesso!");
-            } else { 
-                const errorData = await res.json();
-                if(isWeb) window.alert(errorData.error || "Erro ao salvar.");
-                else Alert.alert("Atenção", errorData.error || "Erro ao salvar."); 
+                if (isWeb) window.alert("Exercício salvo!"); else Alert.alert("Sucesso", "Exercício salvo!");
+            } else {
+                const err = await res.json();
+                if (isWeb) window.alert(err.error || "Erro."); else Alert.alert("Erro", err.error || "Erro.");
             }
-        } catch (e) { 
-            if(isWeb) window.alert(e.message); else Alert.alert("Erro de Conexão", e.message); 
-        } finally { 
-            setSaving(false); 
-        }
+        } catch (e) {
+            if (isWeb) window.alert(e.message); else Alert.alert("Erro", e.message);
+        } finally { setSaving(false); }
     };
 
     return (
         <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: isWeb ? webOuterBg : theme.bg }}>
-                <SafeAreaView style={{ flex:1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, borderRadius: 24, marginVertical: '2.5%', overflow: 'hidden'} : {}) }}>
+                <SafeAreaView style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border, borderRadius: 24, marginVertical: '2.5%', overflow: 'hidden' } : {}) }}>
 
-                    <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-                        <Text style={[styles.modalTitle, { color: theme.text }]}>{formExercise.id ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}</Text>
-                        <TouchableOpacity onPress={onClose} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <View style={[S.header, { borderBottomColor: theme.border }]}>
+                        <Text style={[S.title, { color: theme.text }]}>{formExercise.id ? 'EDITAR EXERCÍCIO' : 'NOVO EXERCÍCIO'}</Text>
+                        <TouchableOpacity onPress={onClose} style={[S.closeBtn, { backgroundColor: theme.surface }]}>
                             <MaterialCommunityIcons name="close" size={20} color={theme.text} />
                         </TouchableOpacity>
                     </View>
 
                     <ScrollView style={{ padding: 20 }} contentContainerStyle={{ paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
 
-                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>NOME DO EXERCÍCIO</Text>
-                        <TextInput 
-                            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
-                            value={formExercise.name} 
-                            onChangeText={t => setFormExercise({...formExercise, name: t})} 
-                            placeholder="Ex: Supino Reto com Halteres" 
-                            placeholderTextColor={theme.textSecondary} 
-                        />
+                        <Text style={[S.label, { color: theme.textSecondary }]}>NOME DO EXERCÍCIO</Text>
+                        <TextInput style={[S.input, { backgroundColor: theme.surface, color: theme.text }]} value={formExercise.name} onChangeText={t => setFormExercise({ ...formExercise, name: t })} placeholder="Ex: Supino Reto com Halteres" placeholderTextColor={theme.textSecondary} />
 
-                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>GRUPO MUSCULAR ALVO</Text>
-                        <TouchableOpacity 
-                            style={[styles.catSelector, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: showFormDropdown ? 10 : 25 }]}
-                            onPress={() => setShowFormDropdown(!showFormDropdown)}
-                        >
-                            <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                                <MaterialCommunityIcons name="format-list-bulleted" size={20} color={theme.textSecondary} />
-                                <Text style={[styles.catSelectorVal, { color: theme.text }]}>{formExercise.category.toUpperCase()}</Text>
+                        <Text style={[S.label, { color: theme.textSecondary }]}>GRUPO MUSCULAR ALVO</Text>
+                        <TouchableOpacity style={[S.selector, { backgroundColor: theme.surface, marginBottom: showFormDropdown ? 8 : 20 }]} onPress={() => setShowFormDropdown(!showFormDropdown)}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                <MaterialCommunityIcons name="format-list-bulleted" size={18} color={theme.textSecondary} />
+                                <Text style={[S.selectorText, { color: theme.text }]}>{formExercise.category.toUpperCase()}</Text>
                             </View>
-                            <MaterialCommunityIcons name={showFormDropdown ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                            <MaterialCommunityIcons name={showFormDropdown ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
                         </TouchableOpacity>
-
                         {showFormDropdown && (
-                            <View style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, marginBottom: 25, padding: 10, maxHeight: 200 }}>
-                                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                            <View style={[S.dropdown, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 20 }]}>
+                                <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={{ maxHeight: 180 }}>
                                     {categories.filter(c => c !== 'TODOS').map(cat => (
-                                        <TouchableOpacity 
-                                            key={cat} 
-                                            style={[styles.dropdownItem, formExercise.category === cat && { backgroundColor: theme.accent + '22' }]}
-                                            onPress={() => { 
-                                                const hasSubs = subCategoriesMap[cat] && subCategoriesMap[cat].length > 1;
-                                                setFormExercise({...formExercise, category: cat, subCategory: hasSubs ? 'Geral' : 'Geral'}); 
-                                                setShowFormDropdown(false); 
-                                            }}
-                                        >
-                                            <Text style={{ color: formExercise.category === cat ? theme.accent : theme.text, fontWeight: formExercise.category === cat ? 'bold' : '500' }}>{cat}</Text>
-                                            {formExercise.category === cat && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
+                                        <TouchableOpacity key={cat} style={[S.dropItem, formExercise.category === cat && { backgroundColor: theme.accent + '20' }]} onPress={() => { setFormExercise({ ...formExercise, category: cat, subCategory: 'Geral' }); setShowFormDropdown(false); }}>
+                                            <Text style={{ color: formExercise.category === cat ? theme.accent : theme.text, fontWeight: formExercise.category === cat ? '800' : '500' }}>{cat}</Text>
+                                            {formExercise.category === cat && <MaterialCommunityIcons name="check" size={16} color={theme.accent} />}
                                         </TouchableOpacity>
                                     ))}
                                 </ScrollView>
@@ -173,103 +161,66 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
 
                         {subCategoriesMap[formExercise.category] && (
                             <>
-                                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>SUBCATEGORIA (MÁQUINA/MOVIMENTO)</Text>
-                                <TouchableOpacity 
-                                    style={[styles.catSelector, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: showFormSubDropdown ? 10 : 25 }]}
-                                    onPress={() => setShowFormSubDropdown(!showFormSubDropdown)}
-                                >
-                                    <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
-                                        <MaterialCommunityIcons name="tag-outline" size={20} color={theme.textSecondary} />
-                                        <Text style={[styles.catSelectorVal, { color: theme.text }]}>{(formExercise.subCategory || 'Geral').toUpperCase()}</Text>
+                                <Text style={[S.label, { color: theme.textSecondary }]}>SUBCATEGORIA</Text>
+                                <TouchableOpacity style={[S.selector, { backgroundColor: theme.surface, marginBottom: showFormSubDropdown ? 8 : 20 }]} onPress={() => setShowFormSubDropdown(!showFormSubDropdown)}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                        <MaterialCommunityIcons name="tag-outline" size={18} color={theme.textSecondary} />
+                                        <Text style={[S.selectorText, { color: theme.text }]}>{(formExercise.subCategory || 'Geral').toUpperCase()}</Text>
                                     </View>
-                                    <MaterialCommunityIcons name={showFormSubDropdown ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
+                                    <MaterialCommunityIcons name={showFormSubDropdown ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
                                 </TouchableOpacity>
-
                                 {showFormSubDropdown && (
-                                    <View style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, marginBottom: 25, padding: 10 }}>
-                                        {subCategoriesMap[formExercise.category].filter(c => c !== 'Todos').map(sub => (
-                                            <TouchableOpacity 
-                                                key={sub} 
-                                                style={[styles.dropdownItem, formExercise.subCategory === sub && { backgroundColor: theme.accent + '22' }]}
-                                                onPress={() => { setFormExercise({...formExercise, subCategory: sub}); setShowFormSubDropdown(false); }}
-                                            >
-                                                <Text style={{ color: formExercise.subCategory === sub ? theme.accent : theme.text, fontWeight: formExercise.subCategory === sub ? 'bold' : '500' }}>{sub}</Text>
-                                                {formExercise.subCategory === sub && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
+                                    <View style={[S.dropdown, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 20 }]}>
+                                        {[...subCategoriesMap[formExercise.category].filter(c => c !== 'Todos'), 'Geral'].map(sub => (
+                                            <TouchableOpacity key={sub} style={[S.dropItem, formExercise.subCategory === sub && { backgroundColor: theme.accent + '20' }]} onPress={() => { setFormExercise({ ...formExercise, subCategory: sub }); setShowFormSubDropdown(false); }}>
+                                                <Text style={{ color: formExercise.subCategory === sub ? theme.accent : theme.text, fontWeight: formExercise.subCategory === sub ? '800' : '500' }}>{sub}</Text>
+                                                {formExercise.subCategory === sub && <MaterialCommunityIcons name="check" size={16} color={theme.accent} />}
                                             </TouchableOpacity>
                                         ))}
-                                        <TouchableOpacity 
-                                            style={[styles.dropdownItem, formExercise.subCategory === 'Geral' && { backgroundColor: theme.accent + '22' }]}
-                                            onPress={() => { setFormExercise({...formExercise, subCategory: 'Geral'}); setShowFormSubDropdown(false); }}
-                                        >
-                                            <Text style={{ color: formExercise.subCategory === 'Geral' ? theme.accent : theme.text, fontWeight: formExercise.subCategory === 'Geral' ? 'bold' : '500' }}>Geral</Text>
-                                            {formExercise.subCategory === 'Geral' && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
-                                        </TouchableOpacity>
                                     </View>
                                 )}
                             </>
                         )}
 
-                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>AMBIENTE DE TREINO</Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 25 }}>
-                            {['ACADEMIA', 'CONDOMÍNIO', 'CASA'].map(env => {
-                                const isSelected = formExercise.environments.includes(env);
+                        {/* AMBIENTES */}
+                        <Text style={[S.label, { color: theme.textSecondary }]}>AMBIENTE DE TREINO</Text>
+                        <Text style={{ fontSize: 11, color: theme.textSecondary, marginBottom: 12 }}>
+                            "Universal" aparece em todos. Para máquinas exclusivas, marque só a academia específica.
+                        </Text>
+                        <View style={{ gap: 8, marginBottom: 24 }}>
+                            {ENVIRONMENTS.map(env => {
+                                const isSel = formExercise.environments.includes(env.id);
+                                const color = ENV_COLORS[env.id] || theme.accent;
                                 return (
-                                    <TouchableOpacity
-                                        key={env}
-                                        style={[
-                                            styles.envChip,
-                                            { borderColor: theme.border, backgroundColor: theme.bg },
-                                            isSelected && { backgroundColor: theme.accent + '20', borderColor: theme.accent }
-                                        ]}
-                                        onPress={() => {
-                                            let newEnvs = [...formExercise.environments];
-                                            if (isSelected) newEnvs = newEnvs.filter(e => e !== env);
-                                            else newEnvs.push(env);
-                                            setFormExercise({ ...formExercise, environments: newEnvs });
-                                        }}
-                                    >
-                                        <MaterialCommunityIcons
-                                            name={env === 'CASA' ? 'home-outline' : env === 'CONDOMÍNIO' ? 'office-building' : 'dumbbell'}
-                                            size={14}
-                                            color={isSelected ? theme.accent : theme.textSecondary}
-                                        />
-                                        <Text style={{ color: isSelected ? theme.accent : theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>{env}</Text>
+                                    <TouchableOpacity key={env.id} style={[S.envRow, { backgroundColor: isSel ? color + '12' : theme.surface, borderColor: isSel ? color + '50' : theme.border }]} onPress={() => toggleEnv(env.id)}>
+                                        <View style={[S.envIconBox, { backgroundColor: isSel ? color + '20' : theme.bg }]}>
+                                            <MaterialCommunityIcons name={env.icon} size={15} color={isSel ? color : theme.textSecondary} />
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ fontSize: 13, fontWeight: '800', color: isSel ? color : theme.text }}>{env.label}</Text>
+                                            <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 1 }}>{env.desc}</Text>
+                                        </View>
+                                        <View style={[S.checkbox, { backgroundColor: isSel ? color : 'transparent', borderColor: isSel ? color : theme.border }]}>
+                                            {isSel && <MaterialCommunityIcons name="check" size={11} color="#FFF" />}
+                                        </View>
                                     </TouchableOpacity>
                                 );
                             })}
                         </View>
 
-                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>VÍDEO DO EXERCÍCIO</Text>
-                        <TouchableOpacity 
-                            style={[styles.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '15' }]} 
-                            onPress={handleUploadVideo}
-                            disabled={uploadingVideo}
-                        >
-                            {uploadingVideo ? (
-                                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                    <ActivityIndicator color={theme.accent} size="small" />
-                                    <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>ENVIANDO PARA A NUVEM...</Text>
-                                </View>
-                            ) : (
-                                <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                                    <MaterialCommunityIcons name="cloud-upload" size={24} color={theme.accent} />
-                                    <Text style={{color: theme.accent, marginLeft: 10, fontWeight: '800'}}>FAZER UPLOAD DE VÍDEO</Text>
-                                </View>
-                            )}
+                        {/* VÍDEO */}
+                        <Text style={[S.label, { color: theme.textSecondary }]}>VÍDEO DO EXERCÍCIO</Text>
+                        <TouchableOpacity style={[S.uploadBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '12' }]} onPress={handleUploadVideo} disabled={uploadingVideo}>
+                            {uploadingVideo
+                                ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><ActivityIndicator color={theme.accent} size="small" /><Text style={{ color: theme.accent, fontWeight: '800' }}>ENVIANDO...</Text></View>
+                                : <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><MaterialCommunityIcons name="cloud-upload" size={20} color={theme.accent} /><Text style={{ color: theme.accent, fontWeight: '800' }}>FAZER UPLOAD DE VÍDEO</Text></View>
+                            }
                         </TouchableOpacity>
+                        <Text style={[S.label, { color: theme.textSecondary, marginTop: 14 }]}>OU COLE O LINK (URL)</Text>
+                        <TextInput style={[S.input, { backgroundColor: theme.surface, color: theme.text }]} value={formExercise.videoUrl} onChangeText={t => setFormExercise({ ...formExercise, videoUrl: t })} placeholder="https://..." placeholderTextColor={theme.textSecondary} autoCapitalize="none" />
 
-                        <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>OU COLE O LINK DO VÍDEO (URL)</Text>
-                        <TextInput 
-                            style={[styles.modalInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]} 
-                            value={formExercise.videoUrl} 
-                            onChangeText={t => setFormExercise({...formExercise, videoUrl: t})} 
-                            placeholder="https://..." 
-                            placeholderTextColor={theme.textSecondary} 
-                            autoCapitalize="none" 
-                        />
-
-                        <TouchableOpacity style={[styles.btnSave, { backgroundColor: theme.accent }]} onPress={handleSaveOrUpdate} disabled={saving || uploadingVideo}>
-                            {saving ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[styles.btnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR NA BIBLIOTECA</Text>}
+                        <TouchableOpacity style={[S.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSaveOrUpdate} disabled={saving || uploadingVideo}>
+                            {saving ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} /> : <Text style={[S.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR NA BIBLIOTECA</Text>}
                         </TouchableOpacity>
                     </ScrollView>
                 </SafeAreaView>
@@ -278,24 +229,20 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
     );
 }
 
-// Substitua apenas o StyleSheet no final do arquivo ExerciseFormModal.js
-const styles = StyleSheet.create({
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', padding: 24, alignItems: 'center' },
-    modalTitle: { fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
-    backBtn: { padding: 10, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-    inputLabel: { fontSize: 12, fontWeight: '800', marginBottom: 12, letterSpacing: 1, marginLeft: 4 },
-
-    // Inputs sem borda, com fundo e padding maior
-    modalInput: { borderRadius: 16, padding: 20, fontSize: 16, fontWeight: '600', marginBottom: 25, outlineStyle: 'none' },
-
-    catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 18, borderRadius: 16, marginBottom: 25 },
-    catSelectorVal: { fontSize: 15, fontWeight: '800' },
-    dropdownItem: { padding: 16, borderRadius: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-
-    envChip: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 14 },
-
-    uploadBtn: { padding: 20, borderRadius: 16, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-
-    btnSave: { padding: 22, borderRadius: 20, alignItems: 'center', marginTop: 10, shadowColor: '#000', shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.2, shadowRadius: 12, elevation: 5 },
-    btnText: { fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }
+const S = StyleSheet.create({
+    header: { flexDirection: 'row', justifyContent: 'space-between', padding: 20, alignItems: 'center', borderBottomWidth: 1 },
+    title: { fontSize: 18, fontWeight: '900' },
+    closeBtn: { padding: 8, borderRadius: 12 },
+    label: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 10, marginLeft: 2 },
+    input: { borderRadius: 14, padding: 16, fontSize: 15, fontWeight: '600', marginBottom: 20, outlineStyle: 'none' },
+    selector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderRadius: 14 },
+    selectorText: { fontSize: 14, fontWeight: '800' },
+    dropdown: { borderRadius: 14, borderWidth: 1, padding: 8, marginBottom: 20 },
+    dropItem: { padding: 13, borderRadius: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    envRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 11, borderRadius: 13, borderWidth: 1 },
+    envIconBox: { width: 34, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+    checkbox: { width: 20, height: 20, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+    uploadBtn: { padding: 18, borderRadius: 14, borderWidth: 2, borderStyle: 'dashed', alignItems: 'center', marginBottom: 8 },
+    saveBtn: { padding: 20, borderRadius: 18, alignItems: 'center', marginTop: 8 },
+    saveBtnText: { fontWeight: '900', fontSize: 15, letterSpacing: 0.5 },
 });

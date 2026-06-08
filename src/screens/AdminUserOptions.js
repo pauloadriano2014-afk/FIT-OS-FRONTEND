@@ -62,7 +62,7 @@ export default function AdminUserOptions({ route, navigation }) {
             case 'TREINOS':
     return (
         <View style={{ width: '100%' }}>
-            {/* 🔥 BOTÃO GERAR TREINO COM IA */}
+            {/* 🔥 BOTÃO GERADOR DE TREINOS OTIMIZADO PARA MARKETING */}
             <TouchableOpacity
                 style={{
                     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -73,10 +73,10 @@ export default function AdminUserOptions({ route, navigation }) {
                 onPress={() => navigation.navigate('GerarTreinoIA', { aluno: ops.freshAluno || aluno })}
             >
                 <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: theme.accent + '25', alignItems: 'center', justifyContent: 'center' }}>
-                    <MaterialCommunityIcons name="robot-outline" size={22} color={theme.accent} />
+                    <MaterialCommunityIcons name="lightning-bolt" size={24} color={theme.accent} />
                 </View>
                 <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.3 }}>Gerar Novo Treino com IA</Text>
+                    <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.3 }}>Protocolo ELITE</Text>
                     <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>Progressão automática baseada no histórico</Text>
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.accent} />
