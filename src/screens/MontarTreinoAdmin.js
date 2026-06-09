@@ -84,6 +84,33 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [isSyncingCargas, setIsSyncingCargas] = useState(false);
     const [forceCollapse, setForceCollapse] = useState(0); 
 
+    // 🔥 INTERCEPTADOR SILENCIOSO PARA O SMART ADD 🔥
+    const smartAddInterceptor = useRef({ isWaiting: false, index: null });
+
+    const handleSetIsSelectingSubstitute = useCallback((val) => {
+        if (val) smartAddInterceptor.current.isWaiting = true;
+        setters.setIsSelectingSubstitute(val);
+    }, [setters]);
+
+    const handleSetTargetIndexForSubstitute = useCallback((idx) => {
+        if (smartAddInterceptor.current.isWaiting && idx !== null) {
+            smartAddInterceptor.current.index = idx;
+        }
+        setters.setTargetIndexForSubstitute(idx);
+    }, [setters]);
+
+    const handleSetModalBuscaVisible = useCallback((val) => {
+        if (val && smartAddInterceptor.current.isWaiting && smartAddInterceptor.current.index !== null) {
+            // 🔥 INTERCEPTADO! Ao invés de abrir a busca, aciona a inteligência do Hook 🔥
+            actions.triggerSmartSubstitute(smartAddInterceptor.current.index);
+            smartAddInterceptor.current = { isWaiting: false, index: null };
+            return; 
+        }
+        // Limpa o interceptador se for outra ação (como Swap normal ou Adicionar +)
+        smartAddInterceptor.current = { isWaiting: false, index: null };
+        setters.setModalBuscaVisible(val);
+    }, [actions, setters]);
+
     useEffect(() => {
         if (Platform.OS === 'web') {
             const style = document.createElement('style');
@@ -378,8 +405,13 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 <ExerciseCardAdmin
                     key={item.tempId}
                     item={item} index={index} theme={theme} drag={drag} isActive={isActive} moveExercise={moveExerciseWeb}
-                    removeExercicio={actions.removeExercicio} setIsSelectingSubstitute={setters.setIsSelectingSubstitute} 
-                    setTargetIndexForSubstitute={setters.setTargetIndexForSubstitute} setModalBuscaVisible={setters.setModalBuscaVisible} 
+                    removeExercicio={actions.removeExercicio} 
+                    
+                    // 🔥 FUNÇÕES INTERCEPTADAS PARA O SMART ADD 🔥
+                    setIsSelectingSubstitute={handleSetIsSelectingSubstitute} 
+                    setTargetIndexForSubstitute={handleSetTargetIndexForSubstitute} 
+                    setModalBuscaVisible={handleSetModalBuscaVisible} 
+
                     removeSubstitute={actions.removeSubstitute} atualizarBloco={actions.atualizarBloco}
                     adicionarBloco={actions.adicionarBloco} removerBloco={actions.removerBloco} setIndexExercicioAtual={setters.setIndexExercicioAtual}
                     setIndexBlocoAtual={setters.setIndexBlocoAtual} setModalTecnicaVisible={setters.setModalTecnicaVisible} atualizarObservacao={actions.atualizarObservacao}
@@ -389,7 +421,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 />
             </View>
         );
-    }, [theme, state, setters, actions, moveExerciseWeb, forceCollapse]);
+    }, [theme, state, setters, actions, moveExerciseWeb, forceCollapse, handleSetIsSelectingSubstitute, handleSetTargetIndexForSubstitute, handleSetModalBuscaVisible]);
 
     // ─────────────────────────────────────────────────────────────────────────────
     // COMPONENTES INLINE REUTILIZÁVEIS PARA SIDEBAR (PC) E HEADER (MOBILE)
@@ -666,7 +698,6 @@ const renderMainArea = () => (
             </View>
         </View>
 
-        {/* 🔥 GATILHO DO MINIMIZAR ESTÁ NO extraData 🔥 */}
         <DraggableFlatList
             data={state.currentExercises}
             extraData={forceCollapse}
@@ -831,6 +862,7 @@ const renderMainArea = () => (
                 <Modal visible={state.showCalendarStart} transparent animationType="fade"><View style={styles.modalOverlay}><CustomCalendar selectedDate={state.startDate} onSelect={actions.onSelectStartDate} onClose={() => setters.setShowCalendarStart(false)} theme={theme} /></View></Modal>
                 <Modal visible={state.showCalendarEnd} transparent animationType="fade"><View style={styles.modalOverlay}><CustomCalendar selectedDate={state.endDate} onSelect={actions.onSelectEndDate} onClose={() => setters.setShowCalendarEnd(false)} theme={theme} /></View></Modal>
                 <Modal visible={state.showCalendarIntensity} transparent animationType="fade"><View style={styles.modalOverlay}><CustomCalendar selectedDate={state.intensityEndDate || new Date()} onSelect={actions.onSelectIntensityEndDate} onClose={() => setters.setShowCalendarIntensity(false)} theme={theme} /></View></Modal>
+                
                 <Modal visible={state.modalTecnicaVisible} transparent animationType="fade">
                     <View style={styles.modalOverlay}>
                         <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
@@ -841,6 +873,56 @@ const renderMainArea = () => (
                                 </TouchableOpacity>
                             ))}
                             <TouchableOpacity style={[styles.modalCancelBtn, { marginTop: 10 }]} onPress={() => setters.setModalTecnicaVisible(false)}><Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Cancelar</Text></TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* 🔥 POP-UP ELEGANTE DO SMART ADD 🔥 */}
+                <Modal visible={state.smartSubstitutesModal} transparent animationType="fade">
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.modalBox, { backgroundColor: theme.surface }]}>
+                            <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 5 }]}>Adição Inteligente</Text>
+                            <Text style={{color: theme.textSecondary, textAlign: 'center', marginBottom: 20, fontSize: 13, lineHeight: 18}}>
+                                Você já mapeou substitutos oficiais para este exercício.
+                            </Text>
+
+                            <View style={{ gap: 8, marginBottom: 20 }}>
+                                {state.smartSubstitutesList?.map((sub, idx) => (
+                                    <TouchableOpacity 
+                                        key={sub.id || idx} 
+                                        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: theme.border }}
+                                        onPress={() => actions.confirmSmartSubstitute(sub)}
+                                    >
+                                        <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: theme.accent + '20', justifyContent: 'center', alignItems: 'center' }}>
+                                            <MaterialCommunityIcons name="lightning-bolt" size={16} color={theme.accent} />
+                                        </View>
+                                        <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 }} numberOfLines={1}>{sub.name || sub.title}</Text>
+                                        <MaterialCommunityIcons name="plus-circle" size={22} color={theme.accent} />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity 
+                                style={{ backgroundColor: 'transparent', borderWidth: 1, borderColor: theme.border, paddingVertical: 12, borderRadius: 12, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8 }}
+                                onPress={() => {
+                                    setters.setSmartSubstitutesModal(false);
+                                    setters.setModalBuscaVisible(true); 
+                                }}
+                            >
+                                <MaterialCommunityIcons name="magnify" size={16} color={theme.textSecondary} />
+                                <Text style={{ color: theme.text, fontWeight: '700', fontSize: 13 }}>Buscar outro na Biblioteca</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity 
+                                style={[styles.modalCancelBtn, { marginTop: 10 }]} 
+                                onPress={() => {
+                                    setters.setSmartSubstitutesModal(false);
+                                    setters.setIsSelectingSubstitute(false);
+                                    setters.setTargetIndexForSubstitute(null);
+                                }}
+                            >
+                                <Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Cancelar</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
                 </Modal>
@@ -1003,7 +1085,6 @@ const styles = StyleSheet.create({
         bottom: Platform.OS === 'web' ? 30 : 20, 
         alignSelf: 'center', 
         borderRadius: 30, 
-        // 🔥 A CIRURGIA ESTÁ AQUI: Trava a largura no celular para forçar o Scroll!
         width: Platform.OS === 'web' && width > 768 ? 'auto' : '95%', 
         zIndex: 9999,
         elevation: 8, 
@@ -1026,7 +1107,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         paddingVertical: 10,
         alignItems: 'center',
-        // Adiciona um padding extra no final para o último item não ficar grudado na borda
         paddingRight: 25 
     },
     floatingMenuItem: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, paddingVertical: 4 },

@@ -89,6 +89,10 @@ export function useMontarTreino(route, navigation) {
     const [isSwapping, setIsSwapping] = useState(false);
     const [swapIndex, setSwapIndex] = useState(null);
 
+    // 🔥 NOVOS ESTADOS PARA O SMART ADD 🔥
+    const [smartSubstitutesModal, setSmartSubstitutesModal] = useState(false);
+    const [smartSubstitutesList, setSmartSubstitutesList] = useState([]);
+
     const [templateGoal, setTemplateGoal] = useState('TODOS');
     const [templateLevel, setTemplateLevel] = useState('TODOS');
     const [templatesList, setTemplatesList] = useState([]);
@@ -566,7 +570,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         setSelectedWorkoutTab(newName);
     };
 
-    // 🔥 NOVA FUNÇÃO: DUPLICAR DIA DE TREINO 🔥
     const duplicateTabInline = (tabName) => {
         let baseNewName = `${tabName} (Cópia)`;
         let newName = baseNewName;
@@ -576,7 +579,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
             counter++;
         }
 
-        // Deep copy para gerar novos IDs e não bugar a lista
         const originalExercises = exercisesByDay[tabName] || [];
         const duplicatedExercises = originalExercises.map(ex => ({
             ...ex,
@@ -751,7 +753,78 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
     };
 
-    // 🔥 ADIÇÃO COM MÚLTIPLOS SUBSTITUTOS 🔥
+    // 🔥 SMART ADD: INTERCEPTADOR DE SUBSTITUTOS 🔥
+    const triggerSmartSubstitute = (index) => {
+        const currentList = exercisesByDay[selectedWorkoutTab] || [];
+        const currentExercise = currentList[index];
+        
+        // Pega as opções atuais para verificar o limite
+        const currentSubsCount = currentExercise.substitutes?.length || 0;
+        
+        if (currentSubsCount >= 3) {
+            if (Platform.OS === 'web') window.alert("Este exercício já tem 3 substitutos vinculados (limite máximo).");
+            else Alert.alert("Aviso", "Este exercício já tem 3 substitutos vinculados (limite máximo).");
+            return;
+        }
+
+        // Procura o exercício original na biblioteca para ver se ele tem defaultSubstitutes
+        const exDbMatch = biblioteca.find(e => e.id === currentExercise.exerciseId);
+        
+        if (exDbMatch && exDbMatch.defaultSubstitutes && exDbMatch.defaultSubstitutes.length > 0) {
+            // Separa apenas os substitutos que ainda não estão vinculados ao cartão
+            const alreadyLinkedIds = (currentExercise.substitutes || []).map(s => s.id);
+            const rawSubIds = exDbMatch.defaultSubstitutes;
+            
+            // Busca os objetos completos da biblioteca
+            const subObjects = rawSubIds.map(subId => biblioteca.find(b => b.id === subId)).filter(Boolean);
+            
+            // Filtra os que não estão vinculados
+            const availableSubs = subObjects.filter(sub => !alreadyLinkedIds.includes(sub.id));
+
+            if (availableSubs.length > 0) {
+                // Tem substitutos disponíveis pré-cadastrados, abre o Pop-Up Inteligente!
+                setIsSelectingSubstitute(true);
+                setTargetIndexForSubstitute(index);
+                setSmartSubstitutesList(availableSubs);
+                setSmartSubstitutesModal(true);
+                return; // Para aqui.
+            }
+        }
+
+        // FALLBACK: Não tem substituto pré-configurado ou já estão todos vinculados
+        // Vai direto para o fluxo antigo (Busca Manual)
+        setIsSelectingSubstitute(true);
+        setTargetIndexForSubstitute(index);
+        if (currentExercise.category) {
+            safeSetInitialCategoryFilter(currentExercise.category, currentExercise.subCategory);
+        }
+        setModalBuscaVisible(true);
+    };
+
+    // Confirmador do Pop-Up Inteligente
+    const confirmSmartSubstitute = (subObj) => {
+        const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
+        let currentSubs = currentList[targetIndexForSubstitute].substitutes || [];
+        
+        // Limpa o legado se existir
+        if (currentList[targetIndexForSubstitute].substitute) {
+            currentSubs.push(currentList[targetIndexForSubstitute].substitute);
+            currentList[targetIndexForSubstitute].substitute = null; 
+        }
+        
+        if (currentSubs.length < 3) {
+            currentSubs.push({ id: subObj.id, name: subObj.name, videoUrl: subObj.videoUrl });
+        }
+        
+        currentList[targetIndexForSubstitute].substitutes = currentSubs;
+        setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
+        
+        // Limpa os modais
+        setIsSelectingSubstitute(false); 
+        setTargetIndexForSubstitute(null);
+        setSmartSubstitutesModal(false);
+    };
+
     const addExercicioManual = (ex) => {
       const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
       const isCardio = ex.category?.toUpperCase() === 'CARDIO';
@@ -763,11 +836,10 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
           setModalBuscaVisible(false); 
           setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
       } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
-          // Em vez de substituir, ele adiciona no array (máx 3)
           let currentSubs = currentList[targetIndexForSubstitute].substitutes || [];
           if (currentList[targetIndexForSubstitute].substitute) {
               currentSubs.push(currentList[targetIndexForSubstitute].substitute);
-              currentList[targetIndexForSubstitute].substitute = null; // Zera o legado
+              currentList[targetIndexForSubstitute].substitute = null; 
           }
           
           if (currentSubs.length < 3) {
@@ -785,7 +857,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
       setPreviewModalVisible(false); 
     };
 
-    // Remove do array de substitutos
     const removeSubstitute = (exIndex, subIndex) => { 
         const l = [...exercisesByDay[selectedWorkoutTab]]; 
         if (l[exIndex].substitutes && l[exIndex].substitutes.length > 0) {
@@ -978,6 +1049,20 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         return matchesSearch && matchesCategory && matchesSubCategory;
     });
     
+    // Função utilitária para buscar o filtro
+    const safeSetInitialCategoryFilter = (catName, subCatName) => {
+        try {
+            if (catName) {
+                const normalizedCat = String(catName).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                const foundCat = categories.find(c => String(c).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() === normalizedCat);
+                if (foundCat) setSelectedCategory(foundCat);
+            }
+            if (subCatName && String(subCatName).trim() !== '' && String(subCatName) !== 'Geral') {
+                setSelectedSubCat(String(subCatName));
+            }
+        } catch (err) {}
+    };
+
     const hasInjury = detalhes?.anamnese && ((detalhes.anamnese.limitacoes && detalhes.anamnese.limitacoes.length > 0) || (detalhes.anamnese.cirurgias && detalhes.anamnese.cirurgias.length > 0));
 
     return {
@@ -986,7 +1071,9 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
             selectedCategory, selectedSubCat, 
             showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab,
             workoutModel,
-            intensityMultiplier, intensityEndDate, showCalendarIntensity 
+            intensityMultiplier, intensityEndDate, showCalendarIntensity,
+            // 🔥 Estado novo injetado aqui 🔥
+            smartSubstitutesModal, smartSubstitutesList 
         },
         setters: {
             setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, 
@@ -994,10 +1081,14 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
             setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
             setWorkoutModel,
             setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
-            setWorkoutTabs, setExercisesByDay 
+            setWorkoutTabs, setExercisesByDay,
+            // 🔥 Setters novos injetados aqui 🔥
+            setSmartSubstitutesModal 
         },
         actions: {
-            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab, duplicateTabInline 
+            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab, duplicateTabInline,
+            // 🔥 Ações Novas Injetadas Aqui 🔥
+            triggerSmartSubstitute, confirmSmartSubstitute, safeSetInitialCategoryFilter 
         }
     };
 }
