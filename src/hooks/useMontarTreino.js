@@ -5,12 +5,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 
 export function useMontarTreino(route, navigation) {
-    // 🔥 Agora pegamos o templateData direto do route.params (ele já vem empacotado em string ou objeto via GerenciarTemplates) 🔥
     const { aluno, isTemplateMode, templateData, workoutToEdit, isEditing, laboratoryStructure, laboratoryConfig } = route.params || {};
 
-    // 🔥 GAVETAS DE CACHE INDIVIDUAIS 🔥
-    // Se o GerenciarTemplates mandar um ID temporário (isTemplateMode), ele cria uma gaveta só pra ele.
-    // Se for edição, usa o ID do treino. Se for criar pro aluno, usa o ID do aluno.
     let parsedTemplate = null;
     let draftId = '';
 
@@ -28,7 +24,6 @@ export function useMontarTreino(route, navigation) {
         : isTemplateMode 
             ? `@draft_template_${draftId}` 
             : `@draft_new_${aluno?.id || 'avulso'}`;
-
 
     const [detalhes, setDetalhes] = useState({ anamnese: {} });
     const [biblioteca, setBiblioteca] = useState([]); 
@@ -89,7 +84,6 @@ export function useMontarTreino(route, navigation) {
     const [isSwapping, setIsSwapping] = useState(false);
     const [swapIndex, setSwapIndex] = useState(null);
 
-    // 🔥 NOVOS ESTADOS PARA O SMART ADD 🔥
     const [smartSubstitutesModal, setSmartSubstitutesModal] = useState(false);
     const [smartSubstitutesList, setSmartSubstitutesList] = useState([]);
 
@@ -121,7 +115,13 @@ export function useMontarTreino(route, navigation) {
         { id: 'TUT', title: 'T.U.T. (TEMPO SOB TENSÃO)' }
     ];
     
-    const intensidadesCardio = [{ id: 'Leve', title: 'Leve / Aquecimento' }, { id: 'Moderada', title: 'Moderada' }, { id: 'Zona 2', title: 'Trote (Zona 2)' }, { id: 'Forte', title: 'Forte' }, { id: 'HIIT', title: 'HIIT (Tiros)' }];
+    const intensidadesCardio = [
+        { id: 'Leve', title: 'Leve / Aquecimento' }, 
+        { id: 'Moderada', title: 'Moderada' }, 
+        { id: 'Zona 2', title: 'Trote (Zona 2)' }, 
+        { id: 'Forte', title: 'Forte' }, 
+        { id: 'HIIT', title: 'HIIT (Tiros)' }
+    ];
 
     useEffect(() => {
         const autoSave = async () => {
@@ -196,12 +196,10 @@ export function useMontarTreino(route, navigation) {
 
             let draftLoaded = false;
 
-            // RECUPERAÇÃO DE RASCUNHO (Sempre tenta recuperar primeiro)
             const savedDraft = await AsyncStorage.getItem(draftKey);
             if (savedDraft) {
                 try {
                     const parsedDraft = JSON.parse(savedDraft);
-                    // Se for mais recente que 24 horas, carrega o rascunho
                     if (parsedDraft && parsedDraft.exercisesByDay && (new Date().getTime() - parsedDraft.lastUpdated < 86400000)) {
                         setExercisesByDay(parsedDraft.exercisesByDay);
                         if (parsedDraft.workoutTabs && parsedDraft.workoutTabs.length > 0) {
@@ -214,59 +212,52 @@ export function useMontarTreino(route, navigation) {
                         if (parsedDraft.intensityEndDate) setIntensityEndDate(new Date(parsedDraft.intensityEndDate));
                         draftLoaded = true;
                     } else {
-                         await AsyncStorage.removeItem(draftKey); // Limpa se for velho
+                        await AsyncStorage.removeItem(draftKey);
                     }
                 } catch (e) {}
             }
 
-            // SE NÃO TEM RASCUNHO (ou se tava velho), INJETA OS DADOS REAIS
             if (!draftLoaded) {
                 const { prefillData } = route.params || {};
-if (!draftLoaded && prefillData?.exercisesByDay) {
-  const tabs = prefillData.workoutTabs || Object.keys(prefillData.exercisesByDay);
-  const hydratedExercises = {};
-  tabs.forEach(tab => {
-    hydratedExercises[tab] = (prefillData.exercisesByDay[tab] || []).map(ex => {
-      // Normaliza se veio com 1 substitute no prefill
-      const subs = [];
-      if (ex.substitutes) subs.push(...ex.substitutes);
-      else if (ex.substitute) subs.push(ex.substitute);
-      
-      return {
-      ...ex,
-      tempId: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-      substitutes: subs,
-      blocks: (ex.blocks || []).map(b => ({
-        sets: String(b.sets || '1'),
-        reps: String(b.reps || '12'),
-        load: b.load || '',
-        restTime: String(b.restTime || '60'),
-        technique: b.technique || '',
-      })),
-    }});
-  });
-  setExercisesByDay(hydratedExercises);
-  setWorkoutTabs(tabs);
-  setSelectedWorkoutTab(tabs[0]);
-  setCustomWorkoutName(prefillData.workoutName || '');
-  if (prefillData.workoutModel) setWorkoutModel(prefillData.workoutModel);
-  draftLoaded = true;
-}
+                if (!draftLoaded && prefillData?.exercisesByDay) {
+                    const tabs = prefillData.workoutTabs || Object.keys(prefillData.exercisesByDay);
+                    const hydratedExercises = {};
+                    tabs.forEach(tab => {
+                        hydratedExercises[tab] = (prefillData.exercisesByDay[tab] || []).map(ex => {
+                            const subs = [];
+                            if (ex.substitutes) subs.push(...ex.substitutes);
+                            else if (ex.substitute) subs.push(ex.substitute);
+                            return {
+                                ...ex,
+                                tempId: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
+                                substitutes: subs,
+                                blocks: (ex.blocks || []).map(b => ({
+                                    sets: String(b.sets || '1'),
+                                    reps: String(b.reps || '12'),
+                                    load: b.load || '',
+                                    restTime: String(b.restTime || '60'),
+                                    technique: b.technique || '',
+                                })),
+                            };
+                        });
+                    });
+                    setExercisesByDay(hydratedExercises);
+                    setWorkoutTabs(tabs);
+                    setSelectedWorkoutTab(tabs[0]);
+                    setCustomWorkoutName(prefillData.workoutName || '');
+                    if (prefillData.workoutModel) setWorkoutModel(prefillData.workoutModel);
+                    draftLoaded = true;
+                }
+
                 if (laboratoryStructure && Object.keys(laboratoryStructure).length > 0) {
                     const newExercisesByDay = {};
                     const tabs = Object.keys(laboratoryStructure);
 
                     const generateSmartBlocks = (muscle, level, isCardio) => {
                         if (isCardio) return [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada', load: '' }];
-                        if (level === 'INICIANTE') {
-                            return [{ sets: '3', reps: '15', restTime: '60', technique: '', load: '' }];
-                        }
+                        if (level === 'INICIANTE') return [{ sets: '3', reps: '15', restTime: '60', technique: '', load: '' }];
                         let repsArray = level === 'AVANÇADO' ? ['15', '12', '10', '8'] : ['12', '12', '10', '10'];
-                        return repsArray.map((rep) => {
-                            return {
-                                sets: '1', reps: rep, restTime: '60', technique: '', load: ''
-                            };
-                        });
+                        return repsArray.map((rep) => ({ sets: '1', reps: rep, restTime: '60', technique: '', load: '' }));
                     };
 
                     tabs.forEach(day => {
@@ -277,7 +268,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                             const match = fetchedBib.find(b => b.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim() === normalizedSuggested);
                             const isCardio = muscleId.toUpperCase() === 'CARDIO PÓS';
                             const smartBlocks = generateSmartBlocks(muscleId, laboratoryConfig?.level, isCardio);
-
                             return {
                                 exerciseId: match ? match.id : `custom_${Math.random()}`,
                                 title: match ? match.name : exactName,
@@ -296,7 +286,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                     setWorkoutTabs(tabs);
                     setSelectedWorkoutTab(tabs[0]);
                     setCustomWorkoutName(`${laboratoryConfig?.gender === 'FEMININO' ? 'Treino Feminino' : 'Treino Masculino'} - ${laboratoryConfig?.objective || 'Personalizado'}`);
-                    
                 }
                 else if (isEditing && workoutToEdit) {
                     setCustomWorkoutName(workoutToEdit.name);
@@ -337,8 +326,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                             setWorkoutTabs(extractedTabs);
                             setSelectedWorkoutTab(extractedTabs[0]);
                         }
-                        
-                        // Normaliza os templates se vierem com substitute único antigo
                         const normalData = {};
                         extractedTabs.forEach(t => {
                             normalData[t] = parsedDataStructure[t].map(x => {
@@ -364,10 +351,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         try {
             const currentAdminId = adminId || JSON.parse(await AsyncStorage.getItem('user')).id;
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${Date.now()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setTemplatesList(data);
-            }
+            if (res.ok) setTemplatesList(await res.json());
         } catch (e) {}
     };
 
@@ -397,7 +381,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                 realBlocks = [{ sets: String(item.sets || '3'), reps: String(item.reps || '12'), restTime: String(item.restTime || '60'), technique: realTech || '' }];
             }
 
-            // Normaliza banco para array
             const arrSubs = [];
             if (item.substitutes) arrSubs.push(...item.substitutes);
             else if (item.substituteId && item.substitute) arrSubs.push({ id: item.substituteId, name: item.substitute.name, videoUrl: item.substitute.videoUrl });
@@ -480,13 +463,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
 
                             if (parts.length > 1 && (parts.length === setsNum || parts.length > 2)) {
                                 parts.forEach((p) => {
-                                    expandedBlocks.push({
-                                        sets: '1',
-                                        reps: p,
-                                        load: b.load || '',
-                                        restTime: String(b.restTime || '60'),
-                                        technique: b.technique || ''
-                                    });
+                                    expandedBlocks.push({ sets: '1', reps: p, load: b.load || '', restTime: String(b.restTime || '60'), technique: b.technique || '' });
                                 });
                             } else {
                                 expandedBlocks.push(b);
@@ -546,7 +523,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
             const nextTab = updatedTabs[0];
             const updatedExercises = { ...exercisesByDay };
             delete updatedExercises[selectedWorkoutTab];
-
             setWorkoutTabs(updatedTabs);
             setExercisesByDay(updatedExercises);
             setSelectedWorkoutTab(nextTab);
@@ -574,10 +550,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         let baseNewName = `${tabName} (Cópia)`;
         let newName = baseNewName;
         let counter = 1;
-        while (workoutTabs.includes(newName)) {
-            newName = `${baseNewName} ${counter}`;
-            counter++;
-        }
+        while (workoutTabs.includes(newName)) { newName = `${baseNewName} ${counter}`; counter++; }
 
         const originalExercises = exercisesByDay[tabName] || [];
         const duplicatedExercises = originalExercises.map(ex => ({
@@ -585,18 +558,12 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
             tempId: Math.random().toString(36).substring(2, 9) + Date.now().toString(36)
         }));
 
-        const newTabs = [...workoutTabs, newName];
-        const newExercisesByDay = { ...exercisesByDay, [newName]: duplicatedExercises };
-
-        setWorkoutTabs(newTabs);
-        setExercisesByDay(newExercisesByDay);
+        setWorkoutTabs([...workoutTabs, newName]);
+        setExercisesByDay({ ...exercisesByDay, [newName]: duplicatedExercises });
         setSelectedWorkoutTab(newName);
         
-        if (Platform.OS === 'web') {
-            window.alert(`Dia duplicado com sucesso para "${newName}"!`);
-        } else {
-            Alert.alert("Sucesso", `Dia duplicado para "${newName}"!`);
-        }
+        if (Platform.OS === 'web') window.alert(`Dia duplicado com sucesso para "${newName}"!`);
+        else Alert.alert("Sucesso", `Dia duplicado para "${newName}"!`);
     };
 
     const handleRenameTab = () => {
@@ -637,10 +604,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                 const exercisesToInject = parsed[templateTabs[0]] || [];
                 const currentExercises = exercisesByDay[selectedWorkoutTab] || [];
                 const clonedExercises = exercisesToInject.map(ex => ({ ...ex, tempId: Math.random().toString() }));
-                setExercisesByDay({
-                    ...exercisesByDay,
-                    [selectedWorkoutTab]: [...currentExercises, ...clonedExercises]
-                });
+                setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: [...currentExercises, ...clonedExercises] });
                 setModalTemplatesVisible(false);
             };
 
@@ -649,37 +613,22 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                 setSelectedWorkoutTab(templateTabs[0]);
                 setExercisesByDay(parsed);
                 if(!customWorkoutName) setCustomWorkoutName(template.name);
-                if (template.workoutModel) {
-                    setWorkoutModel(template.workoutModel);
-                }
+                if (template.workoutModel) setWorkoutModel(template.workoutModel);
                 setModalTemplatesVisible(false);
             };
 
             if (Platform.OS === 'web') {
                 const isLego = window.confirm(
-                    `TREINO: ${template.name}\n\n` +
-                    `Você quer injetar este treino na aba atual (${selectedWorkoutTab}) sem apagar o resto?\n\n` +
-                    `[ OK ] = Sim, injetar como Bloco (Manter o resto).\n` +
-                    `[ CANCELAR ] = Não, quero SUBSTITUIR A ROTINA INTEIRA.`
+                    `TREINO: ${template.name}\n\nVocê quer injetar este treino na aba atual (${selectedWorkoutTab}) sem apagar o resto?\n\n[ OK ] = Sim, injetar como Bloco.\n[ CANCELAR ] = Não, quero SUBSTITUIR A ROTINA INTEIRA.`
                 );
-                
-                if (isLego) {
-                    injectLegoBlock();
-                } else {
-                    if (window.confirm("Isso vai apagar a rotina atual da tela e carregar a nova. Tem certeza?")) {
-                        replaceEntireRoutine();
-                    }
-                }
+                if (isLego) injectLegoBlock();
+                else if (window.confirm("Isso vai apagar a rotina atual. Tem certeza?")) replaceEntireRoutine();
             } else {
-                Alert.alert(
-                    "Como deseja importar?",
-                    `Treino selecionado: ${template.name}`,
-                    [
-                        { text: "Substituir a Rotina Inteira", style: 'destructive', onPress: replaceEntireRoutine },
-                        { text: `Injetar na aba ${selectedWorkoutTab} (Bloco)`, onPress: injectLegoBlock },
-                        { text: "Cancelar", style: "cancel" }
-                    ]
-                );
+                Alert.alert("Como deseja importar?", `Treino selecionado: ${template.name}`, [
+                    { text: "Substituir a Rotina Inteira", style: 'destructive', onPress: replaceEntireRoutine },
+                    { text: `Injetar na aba ${selectedWorkoutTab} (Bloco)`, onPress: injectLegoBlock },
+                    { text: "Cancelar", style: "cancel" }
+                ]);
             }
         } catch (e) { 
             if (Platform.OS === 'web') window.alert("Erro ao importar");
@@ -690,10 +639,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
     const fetchStudentsForClone = async () => {
         try {
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?t=${Date.now()}`);
-            if (res.ok) {
-                const data = await res.json();
-                setCloneStudentsList(data.filter(u => u.role !== 'ADMIN'));
-            }
+            if (res.ok) setCloneStudentsList((await res.json()).filter(u => u.role !== 'ADMIN'));
         } catch(e) {}
     };
 
@@ -701,7 +647,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         setSelectedCloneStudent(studentId);
         try {
             const res = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${studentId}&t=${Date.now()}`);
-            if(res.ok) { const data = await res.json(); setCloneWorkoutsList(data); }
+            if(res.ok) setCloneWorkoutsList(await res.json());
         } catch(e) {}
     };
 
@@ -709,10 +655,8 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         processWorkoutDataToState(workout.exercises);
         setCustomWorkoutName(`${workout.name} (Clone)`);
         setWorkoutModel(workout.workoutModel || 'CARGA'); 
-        
         setIntensityMultiplier(workout.intensityMultiplier || 1.0);
         if (workout.intensityEndDate) setIntensityEndDate(new Date(workout.intensityEndDate));
-
         setModalCloneVisible(false);
         setSelectedCloneStudent(null);
         setCloneWorkoutsList([]);
@@ -725,24 +669,15 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
             const orderedExercisesByDay = {};
             workoutTabs.forEach(tab => {
                 if (exercisesByDay[tab]) {
-                    orderedExercisesByDay[tab] = exercisesByDay[tab].map(ex => {
-                        return {
-                            ...ex,
-                            name: ex.title || ex.name || 'Exercício'
-                        }
-                    });
+                    orderedExercisesByDay[tab] = exercisesByDay[tab].map(ex => ({ ...ex, name: ex.title || ex.name || 'Exercício' }));
                 }
             });
 
             const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ 
-                    name: saveTemplateName, 
-                    goal: templateGoalInput, 
-                    level: templateLevelInput, 
-                    collectionId: saveTemplateCollectionId, 
-                    adminId: adminId, 
-                    workoutModel: workoutModel,
+                    name: saveTemplateName, goal: templateGoalInput, level: templateLevelInput, 
+                    collectionId: saveTemplateCollectionId, adminId: adminId, workoutModel: workoutModel,
                     data: JSON.stringify(orderedExercisesByDay) 
                 })
             });
@@ -753,12 +688,10 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
     };
 
-    // 🔥 SMART ADD: INTERCEPTADOR DE SUBSTITUTOS 🔥
+    // ─── SMART SUBSTITUTE: intercepta o clique de adicionar substituto ───
     const triggerSmartSubstitute = (index) => {
         const currentList = exercisesByDay[selectedWorkoutTab] || [];
         const currentExercise = currentList[index];
-        
-        // Pega as opções atuais para verificar o limite
         const currentSubsCount = currentExercise.substitutes?.length || 0;
         
         if (currentSubsCount >= 3) {
@@ -767,46 +700,33 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
             return;
         }
 
-        // Procura o exercício original na biblioteca para ver se ele tem defaultSubstitutes
         const exDbMatch = biblioteca.find(e => e.id === currentExercise.exerciseId);
         
         if (exDbMatch && exDbMatch.defaultSubstitutes && exDbMatch.defaultSubstitutes.length > 0) {
-            // Separa apenas os substitutos que ainda não estão vinculados ao cartão
             const alreadyLinkedIds = (currentExercise.substitutes || []).map(s => s.id);
             const rawSubIds = exDbMatch.defaultSubstitutes;
-            
-            // Busca os objetos completos da biblioteca
             const subObjects = rawSubIds.map(subId => biblioteca.find(b => b.id === subId)).filter(Boolean);
-            
-            // Filtra os que não estão vinculados
             const availableSubs = subObjects.filter(sub => !alreadyLinkedIds.includes(sub.id));
 
             if (availableSubs.length > 0) {
-                // Tem substitutos disponíveis pré-cadastrados, abre o Pop-Up Inteligente!
                 setIsSelectingSubstitute(true);
                 setTargetIndexForSubstitute(index);
                 setSmartSubstitutesList(availableSubs);
                 setSmartSubstitutesModal(true);
-                return; // Para aqui.
+                return;
             }
         }
 
-        // FALLBACK: Não tem substituto pré-configurado ou já estão todos vinculados
-        // Vai direto para o fluxo antigo (Busca Manual)
         setIsSelectingSubstitute(true);
         setTargetIndexForSubstitute(index);
-        if (currentExercise.category) {
-            safeSetInitialCategoryFilter(currentExercise.category, currentExercise.subCategory);
-        }
+        if (currentExercise.category) safeSetInitialCategoryFilter(currentExercise.category, currentExercise.subCategory);
         setModalBuscaVisible(true);
     };
 
-    // Confirmador do Pop-Up Inteligente
     const confirmSmartSubstitute = (subObj) => {
         const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
         let currentSubs = currentList[targetIndexForSubstitute].substitutes || [];
         
-        // Limpa o legado se existir
         if (currentList[targetIndexForSubstitute].substitute) {
             currentSubs.push(currentList[targetIndexForSubstitute].substitute);
             currentList[targetIndexForSubstitute].substitute = null; 
@@ -818,43 +738,80 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         
         currentList[targetIndexForSubstitute].substitutes = currentSubs;
         setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
-        
-        // Limpa os modais
         setIsSelectingSubstitute(false); 
         setTargetIndexForSubstitute(null);
         setSmartSubstitutesModal(false);
     };
 
+    // ─── AUTO-PREENCHER SUBSTITUTOS DE TODOS OS EXERCÍCIOS DO DIA ───
+    const autoFillSubstitutes = (dayTab = null) => {
+        const targetTab = dayTab || selectedWorkoutTab;
+        const currentList = [...(exercisesByDay[targetTab] || [])];
+        let filled = 0;
+        let alreadyFull = 0;
+
+        const updatedList = currentList.map(ex => {
+            // Já tem 3 substitutos — não mexe
+            if ((ex.substitutes || []).length >= 3) { alreadyFull++; return ex; }
+
+            // Busca o exercício na biblioteca
+            const dbEx = biblioteca.find(b => b.id === ex.exerciseId);
+            if (!dbEx || !dbEx.defaultSubstitutes || dbEx.defaultSubstitutes.length === 0) return ex;
+
+            // IDs já vinculados
+            const alreadyLinkedIds = new Set((ex.substitutes || []).map(s => s.id));
+
+            // Busca os objetos completos e filtra os não vinculados, respeitando limite de 3
+            const newSubs = dbEx.defaultSubstitutes
+                .map(subId => biblioteca.find(b => b.id === subId))
+                .filter(Boolean)
+                .filter(sub => !alreadyLinkedIds.has(sub.id))
+                .slice(0, 3 - (ex.substitutes || []).length)
+                .map(sub => ({ id: sub.id, name: sub.name, videoUrl: sub.videoUrl || '' }));
+
+            if (newSubs.length === 0) return ex;
+            filled++;
+            return { ...ex, substitutes: [...(ex.substitutes || []), ...newSubs] };
+        });
+
+        setExercisesByDay({ ...exercisesByDay, [targetTab]: updatedList });
+
+        const msg = filled > 0
+            ? `✅ ${filled} exercício(s) preenchido(s) com substitutos!${alreadyFull > 0 ? `\n${alreadyFull} já estavam completos.` : ''}`
+            : `Nenhum exercício para preencher. Configure os substitutos na biblioteca primeiro.`;
+
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Auto-preencher Substitutos', msg);
+    };
+
     const addExercicioManual = (ex) => {
-      const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
-      const isCardio = ex.category?.toUpperCase() === 'CARDIO';
-      const initialBlocks = isCardio ? [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada' }] : [{ sets: '3', reps: '12', restTime: '60', technique: '' }];
+        const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
+        const isCardio = ex.category?.toUpperCase() === 'CARDIO';
+        const initialBlocks = isCardio ? [{ sets: '20', reps: '200', restTime: '0', technique: 'Moderada' }] : [{ sets: '3', reps: '12', restTime: '60', technique: '' }];
 
-      if (isSwapping && swapIndex !== null) {
-          currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category, subCategory: ex.subCategory }; 
-          setIsSwapping(false); setSwapIndex(null);
-          setModalBuscaVisible(false); 
-          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
-      } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
-          let currentSubs = currentList[targetIndexForSubstitute].substitutes || [];
-          if (currentList[targetIndexForSubstitute].substitute) {
-              currentSubs.push(currentList[targetIndexForSubstitute].substitute);
-              currentList[targetIndexForSubstitute].substitute = null; 
-          }
-          
-          if (currentSubs.length < 3) {
-              currentSubs.push({ id: ex.id, name: ex.name, videoUrl: ex.videoUrl });
-          }
-          currentList[targetIndexForSubstitute].substitutes = currentSubs;
-
-          setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
-          setModalBuscaVisible(false); 
-          setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
-      } else {
-          currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitutes: [], category: ex.category, subCategory: ex.subCategory, blocks: initialBlocks });
-      }
-      setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
-      setPreviewModalVisible(false); 
+        if (isSwapping && swapIndex !== null) {
+            currentList[swapIndex] = { ...currentList[swapIndex], exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, category: ex.category, subCategory: ex.subCategory }; 
+            setIsSwapping(false); setSwapIndex(null);
+            setModalBuscaVisible(false); 
+            setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
+        } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
+            let currentSubs = currentList[targetIndexForSubstitute].substitutes || [];
+            if (currentList[targetIndexForSubstitute].substitute) {
+                currentSubs.push(currentList[targetIndexForSubstitute].substitute);
+                currentList[targetIndexForSubstitute].substitute = null; 
+            }
+            if (currentSubs.length < 3) {
+                currentSubs.push({ id: ex.id, name: ex.name, videoUrl: ex.videoUrl });
+            }
+            currentList[targetIndexForSubstitute].substitutes = currentSubs;
+            setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
+            setModalBuscaVisible(false); 
+            setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
+        } else {
+            currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitutes: [], category: ex.category, subCategory: ex.subCategory, blocks: initialBlocks });
+        }
+        setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
+        setPreviewModalVisible(false); 
     };
 
     const removeSubstitute = (exIndex, subIndex) => { 
@@ -867,15 +824,22 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
     };
     
-    const removeExercicio = (id) => { setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: exercisesByDay[selectedWorkoutTab].filter(x => x.tempId !== id)}); };
+    const removeExercicio = (id) => { 
+        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: exercisesByDay[selectedWorkoutTab].filter(x => x.tempId !== id)}); 
+    };
     
     const moveExercise = (i, dir) => { 
         const l = [...(exercisesByDay[selectedWorkoutTab] || [])]; 
-        if(dir==='up' && i>0) { [l[i-1], l[i]] = [l[i], l[i-1]]; } else if(dir==='down' && i < l.length-1) { [l[i+1], l[i]] = [l[i], l[i+1]]; }
+        if(dir==='up' && i>0) { [l[i-1], l[i]] = [l[i], l[i-1]]; } 
+        else if(dir==='down' && i < l.length-1) { [l[i+1], l[i]] = [l[i], l[i+1]]; }
         setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
     };
     
-    const atualizarObservacao = (i, v) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].observation=v; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
+    const atualizarObservacao = (i, v) => { 
+        const l=[...exercisesByDay[selectedWorkoutTab]]; 
+        l[i].observation=v; 
+        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); 
+    };
     
     const adicionarBloco = (exIndex, piramideString = null) => { 
         const l = [...exercisesByDay[selectedWorkoutTab]]; 
@@ -883,29 +847,15 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
 
         if (piramideString) {
             const parts = piramideString.split(/[-/,]/).map(x => x.trim()).filter(x => x);
-            const newBlocks = parts.map(rep => ({
-                sets: '1',
-                reps: rep,
-                load: lastBlock.load || '',
-                restTime: '60', 
-                technique: ''
-            }));
-            
+            const newBlocks = parts.map(rep => ({ sets: '1', reps: rep, load: lastBlock.load || '', restTime: '60', technique: '' }));
             if (l[exIndex].blocks.length === 1 && l[exIndex].blocks[0].sets === '3' && l[exIndex].blocks[0].reps === '12') {
                 l[exIndex].blocks = newBlocks;
             } else {
                 l[exIndex].blocks.push(...newBlocks);
             }
         } else {
-            l[exIndex].blocks.push({ 
-                sets: '1', 
-                reps: lastBlock.reps || '10', 
-                load: lastBlock.load || '',
-                restTime: lastBlock.restTime || '60', 
-                technique: lastBlock.technique || '' 
-            }); 
+            l[exIndex].blocks.push({ sets: '1', reps: lastBlock.reps || '10', load: lastBlock.load || '', restTime: lastBlock.restTime || '60', technique: lastBlock.technique || '' }); 
         }
-        
         setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
     };
     
@@ -922,120 +872,94 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
     };
 
     const salvarTreinoFinal = async () => {
-      const alertMsg = (title, msg) => { if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`); else Alert.alert(title, msg); };
-      if (!customWorkoutName) return alertMsg("Erro", "Defina um nome para a rotina.");
-      setSending(true);
+        const alertMsg = (title, msg) => { if (Platform.OS === 'web') window.alert(`${title}\n\n${msg}`); else Alert.alert(title, msg); };
+        if (!customWorkoutName) return alertMsg("Erro", "Defina um nome para a rotina.");
+        setSending(true);
 
-      const orderedExercisesByDay = {};
-      
-      workoutTabs.forEach(tab => {
-          if (exercisesByDay[tab]) {
-              orderedExercisesByDay[tab] = exercisesByDay[tab].map(ex => {
-                  return {
-                      ...ex,
-                      name: ex.title || ex.name || 'Exercício'
-                  }
-              });
-          }
-      });
-
-      if (isTemplateMode) {
-          try {
-              // Usa o parsedTemplate extraído no topo para segurança no salvamento
-              const templateRealId = parsedTemplate?.id?.startsWith('temp_') ? undefined : parsedTemplate?.id;
-
-              const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', { 
-                  method: 'POST', headers: {'Content-Type': 'application/json'}, 
-                  body: JSON.stringify({ 
-                      id: templateRealId, 
-                      name: customWorkoutName, 
-                      goal: templateGoalInput, 
-                      level: templateLevelInput, 
-                      collectionId: parsedTemplate?.collectionId || null, 
-                      adminId: adminId, 
-                      workoutModel: workoutModel, 
-                      data: JSON.stringify(orderedExercisesByDay) 
-                  }) 
-              });
-              if (!res.ok) throw new Error("Erro");
-              
-              await AsyncStorage.removeItem(draftKey);
-              
-              alertMsg("Sucesso", "Template atualizado na biblioteca!"); navigation.goBack();
-          } catch(e) { alertMsg("Erro", "Falha ao salvar template."); } finally { setSending(false); }
-          return;
-      }
-
-      let flatExercises = [];
-      let temFantasma = false; 
-      let globalOrder = 0; 
-
-      workoutTabs.forEach(day => {
-          if (!exercisesByDay[day]) return;
-          exercisesByDay[day].forEach((ex) => {
-              if (ex.exerciseId && String(ex.exerciseId).startsWith('custom_')) { temFantasma = true; }
-              const isCardio = ex.category?.toUpperCase() === 'CARDIO';
-              const safeBlocks = (ex.blocks && ex.blocks.length > 0) ? ex.blocks : [{ sets: '3', reps: '10', technique: '', restTime: '60' }];
-              const hiddenPayload = JSON.stringify({ t: safeBlocks[0].technique || "", b: safeBlocks, o: ex.observation || "" });
-
-              // Extrai apenas os IDs dos substitutos, garantindo que seja um array de Strings
-              const subsIds = (ex.substitutes || []).map(s => String(s.id || s.exerciseId));
-              
-              // Fallback para o antigo caso ainda tenha algum lixo no estado
-              if (ex.substitute && !subsIds.includes(String(ex.substitute.id))) {
-                  subsIds.push(String(ex.substitute.id));
-              }
-
-              flatExercises.push({ 
-                  exerciseId: String(ex.exerciseId), 
-                  day: String(day).trim(), 
-                  sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3), 
-                  reps: String(safeBlocks[0].reps), 
-                  technique: hiddenPayload, 
-                  restTime: parseInt(safeBlocks[0].restTime) || 0, 
-                  order: globalOrder++, 
-                  observation: ex.observation || "", 
-                  substitutes: subsIds // 🔥 Agora enviamos apenas a lista de IDs limpa para o Prisma
-              });
-          });
-      });
-
-      if (temFantasma) { setSending(false); return alertMsg("⚠️ EXERCÍCIOS FANTASMAS ENCONTRADOS!", "Existem exercícios na lista destacados em VERMELHO. Sincronize-os com sua biblioteca oficial antes de salvar."); }
-
-      let finalEndDate = endDate;
-      if (isArchived) { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); finalEndDate = yesterday; }
-
-      let finalIntensityEndDate = intensityEndDate;
-      if (intensityMultiplier === 1.0) { finalIntensityEndDate = null; } 
-
-      try {
-        const isUpdate = isEditing && workoutToEdit?.id;
-        const endpoint = isUpdate ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` : `https://fitos-final.onrender.com/api/workout`; 
-        const method = isUpdate ? 'PUT' : 'POST';
-
-        const response = await fetch(endpoint, { 
-            method: method, 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ 
-                userId: aluno?.id, 
-                name: customWorkoutName, 
-                workoutModel: workoutModel, 
-                
-                intensityMultiplier: intensityMultiplier,
-                intensityEndDate: finalIntensityEndDate ? finalIntensityEndDate.toISOString() : null,
-                
-                exercises: flatExercises, 
-                startDate: startDate.toISOString(), 
-                endDate: finalEndDate.toISOString(), 
-                archiveCurrent: false 
-            }) 
+        const orderedExercisesByDay = {};
+        workoutTabs.forEach(tab => {
+            if (exercisesByDay[tab]) {
+                orderedExercisesByDay[tab] = exercisesByDay[tab].map(ex => ({ ...ex, name: ex.title || ex.name || 'Exercício' }));
+            }
         });
-        if (!response.ok) throw new Error("Erro");
 
-        await AsyncStorage.removeItem(draftKey);
+        if (isTemplateMode) {
+            try {
+                const templateRealId = parsedTemplate?.id?.startsWith('temp_') ? undefined : parsedTemplate?.id;
+                const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', { 
+                    method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                    body: JSON.stringify({ 
+                        id: templateRealId, name: customWorkoutName, goal: templateGoalInput, level: templateLevelInput, 
+                        collectionId: parsedTemplate?.collectionId || null, adminId: adminId, workoutModel: workoutModel, 
+                        data: JSON.stringify(orderedExercisesByDay) 
+                    }) 
+                });
+                if (!res.ok) throw new Error("Erro");
+                await AsyncStorage.removeItem(draftKey);
+                alertMsg("Sucesso", "Template atualizado na biblioteca!"); 
+                navigation.goBack();
+            } catch(e) { alertMsg("Erro", "Falha ao salvar template."); } 
+            finally { setSending(false); }
+            return;
+        }
 
-        alertMsg("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); navigation.goBack(); 
-      } catch (e) { alertMsg("Erro", "Falha de conexão."); } finally { setSending(false); }
+        let flatExercises = [];
+        let temFantasma = false; 
+        let globalOrder = 0; 
+
+        workoutTabs.forEach(day => {
+            if (!exercisesByDay[day]) return;
+            exercisesByDay[day].forEach((ex) => {
+                if (ex.exerciseId && String(ex.exerciseId).startsWith('custom_')) { temFantasma = true; }
+                const isCardio = ex.category?.toUpperCase() === 'CARDIO';
+                const safeBlocks = (ex.blocks && ex.blocks.length > 0) ? ex.blocks : [{ sets: '3', reps: '10', technique: '', restTime: '60' }];
+                const hiddenPayload = JSON.stringify({ t: safeBlocks[0].technique || "", b: safeBlocks, o: ex.observation || "" });
+
+                const subsIds = (ex.substitutes || []).map(s => String(s.id || s.exerciseId));
+                if (ex.substitute && !subsIds.includes(String(ex.substitute.id))) {
+                    subsIds.push(String(ex.substitute.id));
+                }
+
+                flatExercises.push({ 
+                    exerciseId: String(ex.exerciseId), day: String(day).trim(), 
+                    sets: parseInt(safeBlocks[0].sets) || (isCardio ? 20 : 3), 
+                    reps: String(safeBlocks[0].reps), technique: hiddenPayload, 
+                    restTime: parseInt(safeBlocks[0].restTime) || 0, order: globalOrder++, 
+                    observation: ex.observation || "", 
+                    substitutes: subsIds
+                });
+            });
+        });
+
+        if (temFantasma) { 
+            setSending(false); 
+            return alertMsg("⚠️ EXERCÍCIOS FANTASMAS ENCONTRADOS!", "Existem exercícios na lista destacados em VERMELHO. Sincronize-os antes de salvar."); 
+        }
+
+        let finalEndDate = endDate;
+        if (isArchived) { const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); finalEndDate = yesterday; }
+        let finalIntensityEndDate = intensityEndDate;
+        if (intensityMultiplier === 1.0) { finalIntensityEndDate = null; } 
+
+        try {
+            const isUpdate = isEditing && workoutToEdit?.id;
+            const endpoint = isUpdate ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` : `https://fitos-final.onrender.com/api/workout`; 
+            const method = isUpdate ? 'PUT' : 'POST';
+
+            const response = await fetch(endpoint, { 
+                method, headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({ 
+                    userId: aluno?.id, name: customWorkoutName, workoutModel,
+                    intensityMultiplier, intensityEndDate: finalIntensityEndDate ? finalIntensityEndDate.toISOString() : null,
+                    exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false 
+                }) 
+            });
+            if (!response.ok) throw new Error("Erro");
+            await AsyncStorage.removeItem(draftKey);
+            alertMsg("Sucesso", isArchived ? "Rotina arquivada com sucesso!" : "Rotina salva com sucesso!"); 
+            navigation.goBack(); 
+        } catch (e) { alertMsg("Erro", "Falha de conexão."); } 
+        finally { setSending(false); }
     };
 
     const openPreview = (ex) => { setPreviewExercise(ex); setPreviewModalVisible(true); };
@@ -1049,7 +973,6 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         return matchesSearch && matchesCategory && matchesSubCategory;
     });
     
-    // Função utilitária para buscar o filtro
     const safeSetInitialCategoryFilter = (catName, subCatName) => {
         try {
             if (catName) {
@@ -1063,32 +986,46 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         } catch (err) {}
     };
 
-    const hasInjury = detalhes?.anamnese && ((detalhes.anamnese.limitacoes && detalhes.anamnese.limitacoes.length > 0) || (detalhes.anamnese.cirurgias && detalhes.anamnese.cirurgias.length > 0));
+    const hasInjury = detalhes?.anamnese && (
+        (detalhes.anamnese.limitacoes && detalhes.anamnese.limitacoes.length > 0) || 
+        (detalhes.anamnese.cirurgias && detalhes.anamnese.cirurgias.length > 0)
+    );
 
     return {
         state: {
-            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, 
-            selectedCategory, selectedSubCat, 
-            showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, selectedLevelTab,
-            workoutModel,
-            intensityMultiplier, intensityEndDate, showCalendarIntensity,
-            // 🔥 Estado novo injetado aqui 🔥
-            smartSubstitutesModal, smartSubstitutesList 
+            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, 
+            exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, 
+            isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, 
+            modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, 
+            modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, 
+            previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, selectedCategory, 
+            selectedSubCat, showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, 
+            templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, 
+            tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, 
+            isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, 
+            selectedLevelTab, workoutModel, intensityMultiplier, intensityEndDate, showCalendarIntensity,
+            smartSubstitutesModal, smartSubstitutesList,
         },
         setters: {
-            setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, setSearchText, 
-            setSelectedCategory, setSelectedSubCat, 
-            setShowCatDropdown, setIndexExercicioAtual, setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
-            setWorkoutModel,
-            setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
-            setWorkoutTabs, setExercisesByDay,
-            // 🔥 Setters novos injetados aqui 🔥
-            setSmartSubstitutesModal 
+            setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, 
+            setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, 
+            setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, 
+            setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, 
+            setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, 
+            setSearchText, setSelectedCategory, setSelectedSubCat, setShowCatDropdown, setIndexExercicioAtual, 
+            setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, 
+            setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
+            setWorkoutModel, setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
+            setWorkoutTabs, setExercisesByDay, setSmartSubstitutesModal,
         },
         actions: {
-            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, atualizarBloco, salvarTreinoFinal, openPreview, moveTab, duplicateTabInline,
-            // 🔥 Ações Novas Injetadas Aqui 🔥
-            triggerSmartSubstitute, confirmSmartSubstitute, safeSetInitialCategoryFilter 
+            handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, 
+            onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, 
+            fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, 
+            removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, 
+            atualizarBloco, salvarTreinoFinal, openPreview, moveTab, duplicateTabInline,
+            triggerSmartSubstitute, confirmSmartSubstitute, safeSetInitialCategoryFilter,
+            autoFillSubstitutes,
         }
     };
 }
