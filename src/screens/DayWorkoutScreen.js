@@ -448,16 +448,32 @@ export default function DayWorkoutScreen({ route, navigation }) {
     setCheckedSets(prev => ({ ...prev, [itemId]: { ...(prev[itemId] || {}), [setIndex]: true } }));
   };
 
-  const handleSwap = (index) => {
+  // 🔥 TROCA INTELIGENTE: PREPARADA PARA MÚLTIPLOS SUBSTITUTOS 🔥
+  const handleSwap = (index, selectedSub = null) => {
       const list = [...exercisesToShow];
       const current = list[index];
-      if (!current.substitute) return; 
+      
+      const subsList = [];
+      if (current.substitutes && Array.isArray(current.substitutes)) subsList.push(...current.substitutes);
+      else if (current.substitute) subsList.push(current.substitute);
+
+      if (subsList.length === 0) return; 
+
+      const subTarget = selectedSub || subsList[0];
 
       const exName = current.exercise?.name || current.title || "Exercício";
-      const subName = current.substitute.name;
+      const subName = subTarget.name || subTarget.title;
 
       const doSwap = () => {
-          const newMain = { ...current, exerciseId: current.substitute.id, exercise: current.substitute, substitute: { id: current.exerciseId, name: exName, videoUrl: current.videoUrl || current.exercise?.videoUrl } };
+          const newMain = { 
+              ...current, 
+              exerciseId: subTarget.id || subTarget.exerciseId, 
+              exercise: subTarget, 
+              title: subName,
+              videoUrl: subTarget.videoUrl || subTarget.exercise?.videoUrl,
+              substitute: null, 
+              substitutes: [{ id: current.exerciseId, name: exName, videoUrl: current.videoUrl || current.exercise?.videoUrl }] 
+          };
           list[index] = newMain; 
           setExercisesToShow(list);
       };

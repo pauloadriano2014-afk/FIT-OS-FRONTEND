@@ -1,3 +1,4 @@
+// src/components/Admin/ExerciseCardAdmin.js
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -37,7 +38,6 @@ const QUICK_OBS = [
     "Execute com os 2 braços e depois descanse",
     "1 passada com a perna direita +1 passada com a pernas esquerda +1 agachamento = 1 repetição.",
     "1 pra frente +1 pro lado = 1 repetição."
-    
 ];
 
 // ─── HYBRID INPUT (TextInput + Dropdown integrado) ───
@@ -257,7 +257,7 @@ export default function ExerciseCardAdmin({
     setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible,
     setIsSwapping, setSwapIndex, openPreview,
     workoutModel, moveExercise, setInitialCategoryFilter,
-    forceCollapse // 🔥 Recebendo o gatilho global de minimizar
+    forceCollapse
 }) {
     const isWeb = Platform.OS === 'web';
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
@@ -268,6 +268,15 @@ export default function ExerciseCardAdmin({
     const [isExpanded, setIsExpanded] = useState(true);
     const [customLoads, setCustomLoads] = useState([]);
     const loadCategoryKey = getLoadCategoryKey(item.title);
+
+    // 🔥 PREPARAÇÃO DOS SUBSTITUTOS MÚLTIPLOS 🔥
+    // O backend agora pode enviar substitute (único) OU substitutes (Array). Vamos normalizar para um Array sempre.
+    const substitutesList = [];
+    if (item.substitutes && Array.isArray(item.substitutes)) {
+        substitutesList.push(...item.substitutes);
+    } else if (item.substitute) {
+        substitutesList.push(item.substitute);
+    }
 
     // 🔥 LISTENER PARA MINIMIZAR GLOBAL 🔥
     useEffect(() => {
@@ -347,7 +356,6 @@ export default function ExerciseCardAdmin({
 
     // ─── DRAG HANDLE / WEB ARROWS ───
     const dragHandleContent = isWeb ? (
-        // 🔥 BOTÕES COLORIDOS E EVIDENTES (E AGORA RESPONSIVOS NO MOBILE) 🔥
         <View style={styles.webMoveRow}>
             <TouchableOpacity
                 style={[styles.webMoveBtn, {
@@ -415,7 +423,7 @@ export default function ExerciseCardAdmin({
                     ? (theme.isDark ? `${theme.accent}10` : `${theme.accent}08`)
                     : (theme.isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
                 borderBottomColor: theme.border,
-                minHeight: isWeb ? 'auto' : 38 // Ajuste web para caber multiplas linhas se for preciso
+                minHeight: isWeb ? 'auto' : 38
             }]}>
                 {dragHandleContent}
             </View>
@@ -522,35 +530,41 @@ export default function ExerciseCardAdmin({
                         </View>
                     )}
 
-                    {/* SUBSTITUTO */}
-                    {item.substitute ? (
-                        <View style={[styles.substituteRow, {
-                            backgroundColor: theme.accent + '10',
-                            borderColor: theme.accent + '40',
-                        }]}>
-                            <MaterialCommunityIcons name="swap-horizontal" size={15} color={theme.accent} />
-                            <Text style={[styles.subLabel, { color: theme.accent }]}>Ou:</Text>
-                            <Text style={[styles.subName, { color: theme.text }]}>{item.substitute.name}</Text>
-                            <TouchableOpacity onPress={() => removeSubstitute(index)}>
-                                <MaterialCommunityIcons name="close-circle" size={17} color={theme.textSecondary} />
+                    {/* 🔥 SUBSTITUTOS (Agora suporta múltiplos) 🔥 */}
+                    <View style={styles.substitutesContainer}>
+                        {substitutesList.length > 0 && substitutesList.map((subItem, subIndex) => (
+                            <View key={subItem.exerciseId || subIndex} style={[styles.substituteRow, {
+                                backgroundColor: theme.accent + '10',
+                                borderColor: theme.accent + '40',
+                            }]}>
+                                <MaterialCommunityIcons name="swap-horizontal" size={15} color={theme.accent} />
+                                <Text style={[styles.subLabel, { color: theme.accent }]}>Ou:</Text>
+                                <Text style={[styles.subName, { color: theme.text }]} numberOfLines={1}>{subItem.name || subItem.title}</Text>
+                                {/* Passando o subIndex para a função de remover saber qual deletar */}
+                                <TouchableOpacity onPress={() => removeSubstitute(index, subIndex)}>
+                                    <MaterialCommunityIcons name="close-circle" size={17} color={theme.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        
+                        {/* Botão de adicionar substituto (mostra se tiver menos de 3) */}
+                        {substitutesList.length < 3 && (
+                            <TouchableOpacity
+                                style={styles.addSubBtn}
+                                onPress={() => {
+                                    setIsSelectingSubstitute(true);
+                                    setTargetIndexForSubstitute(index);
+                                    if (item.category && typeof setInitialCategoryFilter === 'function') {
+                                        setInitialCategoryFilter(item.category, item.subCategory);
+                                    }
+                                    setModalBuscaVisible(true);
+                                }}
+                            >
+                                <MaterialCommunityIcons name="plus-circle-outline" size={13} color={theme.textSecondary} />
+                                <Text style={[styles.addSubText, { color: theme.textSecondary }]}>Adicionar opção de troca ({substitutesList.length}/3)</Text>
                             </TouchableOpacity>
-                        </View>
-                    ) : (
-                        <TouchableOpacity
-                            style={styles.addSubBtn}
-                            onPress={() => {
-                                setIsSelectingSubstitute(true);
-                                setTargetIndexForSubstitute(index);
-                                if (item.category && typeof setInitialCategoryFilter === 'function') {
-                                    setInitialCategoryFilter(item.category, item.subCategory);
-                                }
-                                setModalBuscaVisible(true);
-                            }}
-                        >
-                            <MaterialCommunityIcons name="plus-circle-outline" size={13} color={theme.textSecondary} />
-                            <Text style={[styles.addSubText, { color: theme.textSecondary }]}>Adicionar opção de troca</Text>
-                        </TouchableOpacity>
-                    )}
+                        )}
+                    </View>
 
                     {/* BLOCOS */}
                     <View style={[styles.blocksContainer, { zIndex: 999 }]}>
@@ -726,7 +740,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        flexWrap: 'wrap', // Permite que os botões quebrem de linha em celulares pequenos
+        flexWrap: 'wrap',
         paddingHorizontal: 12,
         paddingVertical: 8,
         gap: 8,
@@ -741,7 +755,7 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         borderRadius: 8,
         borderWidth: 1,
-        minWidth: 80, // Garante que o botão tenha um tamanho bom para toque
+        minWidth: 80,
     },
     webMoveBtnText: {
         fontSize: 11,
@@ -866,12 +880,15 @@ const styles = StyleSheet.create({
     },
 
     // ─── SUBSTITUTO ───
+    substitutesContainer: {
+        marginBottom: 12,
+    },
     substituteRow: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 10,
         borderRadius: 10,
-        marginBottom: 12,
+        marginBottom: 8,
         borderWidth: 1,
         gap: 6,
     },
@@ -889,7 +906,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 5,
         paddingVertical: 4,
-        marginBottom: 12,
+        marginTop: 4,
     },
     addSubText: {
         fontSize: 12,
