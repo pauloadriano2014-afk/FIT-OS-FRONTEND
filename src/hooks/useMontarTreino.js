@@ -222,10 +222,16 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
   const tabs = prefillData.workoutTabs || Object.keys(prefillData.exercisesByDay);
   const hydratedExercises = {};
   tabs.forEach(tab => {
-    hydratedExercises[tab] = (prefillData.exercisesByDay[tab] || []).map(ex => ({
+    hydratedExercises[tab] = (prefillData.exercisesByDay[tab] || []).map(ex => {
+      // Normaliza se veio com 1 substitute no prefill
+      const subs = [];
+      if (ex.substitutes) subs.push(...ex.substitutes);
+      else if (ex.substitute) subs.push(ex.substitute);
+      
+      return {
       ...ex,
       tempId: Math.random().toString(36).substring(2, 9) + Date.now().toString(36),
-      substitute: null,
+      substitutes: subs,
       blocks: (ex.blocks || []).map(b => ({
         sets: String(b.sets || '1'),
         reps: String(b.reps || '12'),
@@ -233,7 +239,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         restTime: String(b.restTime || '60'),
         technique: b.technique || '',
       })),
-    }));
+    }});
   });
   setExercisesByDay(hydratedExercises);
   setWorkoutTabs(tabs);
@@ -276,7 +282,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                                 subCategory: match ? match.subCategory : '',
                                 observation: '',
                                 tempId: Math.random().toString(),
-                                substitute: null,
+                                substitutes: [],
                                 blocks: smartBlocks
                             };
                         });
@@ -327,7 +333,18 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                             setWorkoutTabs(extractedTabs);
                             setSelectedWorkoutTab(extractedTabs[0]);
                         }
-                        setExercisesByDay(parsedDataStructure || {'A': []});
+                        
+                        // Normaliza os templates se vierem com substitute único antigo
+                        const normalData = {};
+                        extractedTabs.forEach(t => {
+                            normalData[t] = parsedDataStructure[t].map(x => {
+                                const s = [];
+                                if (x.substitutes) s.push(...x.substitutes);
+                                else if (x.substitute) s.push(x.substitute);
+                                return {...x, substitutes: s};
+                            });
+                        });
+                        setExercisesByDay(normalData || {'A': []});
                     } catch (e) { setExercisesByDay({'A': []}); }
                 }
             }
@@ -376,6 +393,11 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                 realBlocks = [{ sets: String(item.sets || '3'), reps: String(item.reps || '12'), restTime: String(item.restTime || '60'), technique: realTech || '' }];
             }
 
+            // Normaliza banco para array
+            const arrSubs = [];
+            if (item.substitutes) arrSubs.push(...item.substitutes);
+            else if (item.substituteId && item.substitute) arrSubs.push({ id: item.substituteId, name: item.substitute.name, videoUrl: item.substitute.videoUrl });
+
             acc[key].push({
                 exerciseId: item.exerciseId,
                 title: item.exercise?.name || "Exercício",
@@ -384,7 +406,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                 category: item.exercise?.category || '',
                 subCategory: item.exercise?.subCategory || '', 
                 tempId: Math.random().toString(),
-                substitute: (item.substituteId && item.substitute) ? { id: item.substituteId, name: item.substitute.name, videoUrl: item.substitute.videoUrl } : null,
+                substitutes: arrSubs,
                 blocks: realBlocks 
             });
             return acc;
@@ -474,7 +496,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                             category: aiEx.category || (match ? match.category : ''),
                             observation: aiEx.observation || '',
                             tempId: Math.random().toString(),
-                            substitute: aiEx.substitute ? { id: `custom_${Math.random()}`, name: aiEx.substitute, videoUrl: '' } : null,
+                            substitutes: aiEx.substitute ? [{ id: `custom_${Math.random()}`, name: aiEx.substitute, videoUrl: '' }] : [],
                             blocks: expandedBlocks 
                         };
                     });
@@ -729,6 +751,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
         } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
     };
 
+    // 🔥 ADIÇÃO COM MÚLTIPLOS SUBSTITUTOS 🔥
     const addExercicioManual = (ex) => {
       const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
       const isCardio = ex.category?.toUpperCase() === 'CARDIO';
@@ -740,18 +763,38 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
           setModalBuscaVisible(false); 
           setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
       } else if (isSelectingSubstitute && targetIndexForSubstitute !== null) {
-          currentList[targetIndexForSubstitute].substitute = { id: ex.id, name: ex.name, videoUrl: ex.videoUrl };
+          // Em vez de substituir, ele adiciona no array (máx 3)
+          let currentSubs = currentList[targetIndexForSubstitute].substitutes || [];
+          if (currentList[targetIndexForSubstitute].substitute) {
+              currentSubs.push(currentList[targetIndexForSubstitute].substitute);
+              currentList[targetIndexForSubstitute].substitute = null; // Zera o legado
+          }
+          
+          if (currentSubs.length < 3) {
+              currentSubs.push({ id: ex.id, name: ex.name, videoUrl: ex.videoUrl });
+          }
+          currentList[targetIndexForSubstitute].substitutes = currentSubs;
+
           setIsSelectingSubstitute(false); setTargetIndexForSubstitute(null);
           setModalBuscaVisible(false); 
           setSearchText(''); setSelectedCategory('TODOS'); setSelectedSubCat('Todos'); 
       } else {
-          currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitute: null, category: ex.category, subCategory: ex.subCategory, blocks: initialBlocks });
+          currentList.push({ exerciseId: ex.id, title: ex.name, videoUrl: ex.videoUrl, observation: '', tempId: Math.random().toString(), substitutes: [], category: ex.category, subCategory: ex.subCategory, blocks: initialBlocks });
       }
       setExercisesByDay({ ...exercisesByDay, [selectedWorkoutTab]: currentList });
       setPreviewModalVisible(false); 
     };
 
-    const removeSubstitute = (i) => { const l=[...exercisesByDay[selectedWorkoutTab]]; l[i].substitute=null; setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]:l}); };
+    // Remove do array de substitutos
+    const removeSubstitute = (exIndex, subIndex) => { 
+        const l = [...exercisesByDay[selectedWorkoutTab]]; 
+        if (l[exIndex].substitutes && l[exIndex].substitutes.length > 0) {
+            l[exIndex].substitutes.splice(subIndex, 1);
+        } else {
+            l[exIndex].substitute = null;
+        }
+        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
+    };
     
     const removeExercicio = (id) => { setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: exercisesByDay[selectedWorkoutTab].filter(x => x.tempId !== id)}); };
     
@@ -864,6 +907,14 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
               const safeBlocks = (ex.blocks && ex.blocks.length > 0) ? ex.blocks : [{ sets: '3', reps: '10', technique: '', restTime: '60' }];
               const hiddenPayload = JSON.stringify({ t: safeBlocks[0].technique || "", b: safeBlocks, o: ex.observation || "" });
 
+              // Extrai apenas os IDs dos substitutos, garantindo que seja um array de Strings
+              const subsIds = (ex.substitutes || []).map(s => String(s.id || s.exerciseId));
+              
+              // Fallback para o antigo caso ainda tenha algum lixo no estado
+              if (ex.substitute && !subsIds.includes(String(ex.substitute.id))) {
+                  subsIds.push(String(ex.substitute.id));
+              }
+
               flatExercises.push({ 
                   exerciseId: String(ex.exerciseId), 
                   day: String(day).trim(), 
@@ -873,7 +924,7 @@ if (!draftLoaded && prefillData?.exercisesByDay) {
                   restTime: parseInt(safeBlocks[0].restTime) || 0, 
                   order: globalOrder++, 
                   observation: ex.observation || "", 
-                  substituteId: ex.substitute ? String(ex.substitute.id) : null 
+                  substitutes: subsIds // 🔥 Agora enviamos apenas a lista de IDs limpa para o Prisma
               });
           });
       });

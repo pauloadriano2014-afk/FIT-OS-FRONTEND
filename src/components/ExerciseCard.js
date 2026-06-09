@@ -35,7 +35,8 @@ export const ExerciseCard = ({
   isVoiceEnabled, colors, 
   checkedSets, handleCheckSet,
   hasPremiumFeatures,
-  workoutModel 
+  workoutModel,
+  substitutes = [],   // ← NOVO: lista de substitutos definidos pelo coach
 }) => {
   
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
@@ -77,12 +78,8 @@ export const ExerciseCard = ({
         if (isResting && backgroundTimestamp.current !== null) {
           const elapsed = Math.floor((Date.now() - backgroundTimestamp.current) / 1000);
           const newSeconds = backgroundSeconds.current - elapsed;
-          
-          if (newSeconds <= 0) {
-              setSeconds(0);
-          } else {
-              setSeconds(newSeconds);
-          }
+          if (newSeconds <= 0) setSeconds(0);
+          else setSeconds(newSeconds);
         }
       } else if (nextAppState.match(/inactive|background/)) {
         if (isResting) {
@@ -92,7 +89,6 @@ export const ExerciseCard = ({
       }
       appState.current = nextAppState;
     });
-
     return () => { subscription.remove(); };
   }, [isResting, seconds]);
 
@@ -100,9 +96,7 @@ export const ExerciseCard = ({
       if (voiceSound) {
           try {
               const status = await voiceSound.getStatusAsync();
-              if (status.isLoaded && status.isPlaying) {
-                  await voiceSound.stopAsync();
-              }
+              if (status.isLoaded && status.isPlaying) await voiceSound.stopAsync();
           } catch (e) {}
       }
   }
@@ -117,9 +111,7 @@ export const ExerciseCard = ({
   async function playVoiceAlert(type) {
       if (!isVoiceEnabled) return; 
       try {
-          if (voiceSound) {
-              try { await voiceSound.unloadAsync(); } catch (e) {}
-          }
+          if (voiceSound) { try { await voiceSound.unloadAsync(); } catch (e) {} }
           let audioRes;
           switch (type) {
               case 'alerta_descanso': audioRes = require('../../assets/audio/alerta_descanso.m4a'); break;
@@ -176,9 +168,7 @@ export const ExerciseCard = ({
       setIsResting(false); 
       clearInterval(interval); 
       cancelNotification();
-      
       const isLastOfAll = (activeSetIndex === calculateTotalSets() && isLastExercise);
-
       if (isLastOfAll && biSetType !== 'start') {
           if (Platform.OS === 'web') window.alert("🔥 TREINO FINALIZADO!\nParabéns!");
           else Alert.alert("🔥 TREINO FINALIZADO!", "Parabéns!");
@@ -198,15 +188,11 @@ export const ExerciseCard = ({
         return;
     }
     Keyboard.dismiss();
-    
     if (categoryType !== 'CARDIO' && (currentVal === undefined || currentVal === '' || currentVal === null)) {
         handleSaveWeight(item.id, '0', setKey); 
     }
-    
     handleCheckSet(item.id, setKey);
-    
     if (categoryType === 'CARDIO') return;
-
     const totalSets = calculateTotalSets();
     const isLastSet = (typeof setKey === 'number' ? setKey : parseInt(setKey)) === totalSets;
     startRestTimer(typeof setKey === 'number' ? setKey : parseInt(setKey), 'NORMAL', blockRestTime, blockTechKey, isLastSet);
@@ -215,25 +201,17 @@ export const ExerciseCard = ({
   const startRestTimer = async (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
     await safeStopVoice(); 
     await cancelNotification();
-
     if (biSetType === 'start') {
         setTimerMessage({ title: '🔥 SEM DESCANSO!', desc: 'Vá direto para o exercício de baixo agora!' });
-        setSeconds(3); 
-        setActiveSetIndex(setNum); 
-        setIsResting(true);
+        setSeconds(3); setActiveSetIndex(setNum); setIsResting(true);
         playVoiceAlert('alerta_biset');
         return;
     }
-
     let timeToRest = parseInt(blockRestTime) || standardRestTime;
     let message = { title: 'RECUPERANDO', desc: 'Relaxe e recupere o fôlego.' };
     let voiceToPlay = 'alerta_descanso';
     let isTechniqueForced = false;
-
-    if (blockTechKey === '1_5_REPS' || blockTechKey === 'TUT') {
-        voiceToPlay = null; 
-    }
-
+    if (blockTechKey === '1_5_REPS' || blockTechKey === 'TUT') voiceToPlay = null; 
     if (type === 'CLUSTER_INTRA') {
         timeToRest = 15; message = { title: 'PAUSA CLUSTER', desc: '15s de respiro. Mantenha o peso!' }; voiceToPlay = 'alerta_cluster'; isTechniqueForced = true;
     } else if (blockTechKey === 'RESTPAUSE') {
@@ -243,27 +221,16 @@ export const ExerciseCard = ({
     } else if (blockTechKey === 'GVT') {
         timeToRest = 60; message = { title: 'GVT: TEMPO RÍGIDO', desc: 'Respeite os 60s exatos.' }; voiceToPlay = 'alerta_descanso'; 
     }
-
     if (isLastSet && !isTechniqueForced) {
         message = { title: 'EXERCÍCIO CONCLUÍDO', desc: isLastExercise ? 'Você finalizou o treino!' : 'Prepare-se para o próximo exercício da lista.' };
         voiceToPlay = isLastExercise ? 'alerta_treino_finalizado' : 'alerta_fim_exercicio'; 
     }
-
-    setTimerMessage(message);
-    setSeconds(timeToRest);
-    setActiveSetIndex(setNum);
-    setIsResting(true);
-    
+    setTimerMessage(message); setSeconds(timeToRest); setActiveSetIndex(setNum); setIsResting(true);
     if (voiceToPlay) playVoiceAlert(voiceToPlay);
-
     if (timeToRest > 0 && Platform.OS !== 'web') {
         try {
             notifIdRef.current = await Notifications.scheduleNotificationAsync({
-                content: {
-                    title: "🔥 Fim do Descanso!",
-                    body: "Acabou a moleza. Volte para o app e faça acontecer!",
-                    sound: true,
-                },
+                content: { title: "🔥 Fim do Descanso!", body: "Acabou a moleza. Volte para o app e faça acontecer!", sound: true },
                 trigger: { seconds: timeToRest },
             });
         } catch(e) {}
@@ -282,7 +249,6 @@ export const ExerciseCard = ({
       const rawTech = block.technique || "";
       const techInfo = identifyTechnique(rawTech);
       if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
-
       const hasPrescribedLoad = workoutModel === 'CARGA' && block.load && block.load.trim() !== '';
 
       if (categoryType === 'MOBILITY') {
@@ -433,24 +399,13 @@ export const ExerciseCard = ({
 
       const val = lastWeights[item.id]?.[currentSetNum];
       const isConfirmed = checkedSets[item.id]?.[currentSetNum] === true; 
-      
       return (
         <View style={{flex: 1.5, alignItems:'center'}}>
-            <Text style={{
-                color: hasPrescribedLoad ? colors.primary : colors.textMuted, 
-                fontSize: hasPrescribedLoad ? 11 : 8, 
-                fontWeight: '900', 
-                marginBottom: 4, 
-                letterSpacing: hasPrescribedLoad ? 0.5 : 0
-            }}>
+            <Text style={{ color: hasPrescribedLoad ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad ? 11 : 8, fontWeight: '900', marginBottom: 4, letterSpacing: hasPrescribedLoad ? 0.5 : 0 }}>
                 {hasPrescribedLoad ? ` CARGA TOTAL: ${String(block.load).toUpperCase()}` : 'CARGA TOTAL (KG)'}
             </Text>
-            
             <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{width:'100%'}}>
-                <View 
-                    pointerEvents={isTimerRunning ? 'auto' : 'none'} 
-                    style={[{backgroundColor: colors.inputBg, height: 40, width: '100%', borderRadius: 8, borderWidth: 1, borderColor: hasPrescribedLoad ? colors.primary : colors.border, justifyContent:'center'}, isConfirmed && {borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}
-                >
+                <View pointerEvents={isTimerRunning ? 'auto' : 'none'} style={[{backgroundColor: colors.inputBg, height: 40, width: '100%', borderRadius: 8, borderWidth: 1, borderColor: hasPrescribedLoad ? colors.primary : colors.border, justifyContent:'center'}, isConfirmed && {borderColor: colors.primary}, !isTimerRunning && {opacity: 0.5}]}>
                     <TextInput 
                         style={[{color: colors.text, width: '100%', height: '100%', textAlign: 'center', fontSize: 16, fontWeight: 'bold'}, isConfirmed && {color: colors.primary}]}
                         placeholder="0" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
@@ -465,7 +420,6 @@ export const ExerciseCard = ({
                     />
                 </View>
             </Pressable>
-            
             <Text style={{color: colors.textMuted, fontSize: 9, marginTop:2}}>Ant: {getPreviousWeight(currentSetNum)}</Text>
         </View>
       );
@@ -480,19 +434,13 @@ export const ExerciseCard = ({
       const techInfo = identifyTechnique(rawTech);
       if (techInfo.color === '#CCFF00' && colors.bg !== '#000000') techInfo.color = colors.primary;
 
-      // 🔥 REMOVE "EXECUÇÃO PADRÃO"
       if (blockIndex > 0 && techInfo.key && techInfo.key !== 'BISET' && techInfo.key !== 'NORMAL') {
           renderedLines.push(
               <View key={`divider_${blockIndex}`} style={{flexDirection: 'row', alignItems: 'center', marginVertical: 12}}>
                   <View style={{flex: 1, height: 1, backgroundColor: colors.border}} />
                   <TouchableOpacity 
                       style={{flexDirection: 'row', alignItems: 'center', marginHorizontal: 15, gap: 6, backgroundColor: techInfo.color + '1A', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, borderWidth: 1, borderColor: techInfo.color}}
-                      onPress={() => {
-                          if (setSelectedTech && setTechModalVisible) {
-                              setSelectedTech(techInfo.key);
-                              setTechModalVisible(true);
-                          }
-                      }}
+                      onPress={() => { if (setSelectedTech && setTechModalVisible) { setSelectedTech(techInfo.key); setTechModalVisible(true); } }}
                   >
                       <MaterialCommunityIcons name="information-outline" size={16} color={techInfo.color} />
                       <Text style={{color: techInfo.color, fontSize: 11, fontWeight: '900', letterSpacing: 1}}>{techInfo.label}</Text>
@@ -503,14 +451,11 @@ export const ExerciseCard = ({
       }
 
       const maxRenderSets = categoryType === 'CARDIO' ? 1 : setsInBlock;
-
       for (let i = 0; i < maxRenderSets; i++) {
           const currentSetNum = currentSetGlobalTracker;
           const isActive = activeSetIndex === currentSetNum && isResting;
-          
           const val = lastWeights[item.id]?.[currentSetNum];
           const isConfirmed = checkedSets[item.id]?.[currentSetNum] === true;
-
           const checkColor = isConfirmed ? colors.primary : colors.border;
           const checkIcon = isConfirmed ? "check-circle" : "checkbox-blank-circle-outline";
 
@@ -525,12 +470,10 @@ export const ExerciseCard = ({
                         </View>
                     )}
                 </View>
-
                 {categoryType === 'CARDIO' ? (
                     <View style={{width: 60, alignItems:'center', marginRight: 10}}>
                         <Text style={{color: colors.textMuted, fontSize: 8, fontWeight: 'bold', marginBottom: 3}}>META</Text>
                         <View style={{ height: 40, justifyContent: 'center' }}>
-                            {/* 🔥 MOSTRA MINUTOS E KCAL */}
                             <Text style={{ color: colors.text, fontSize: 12, fontWeight: 'bold', textAlign:'center' }}>{block.sets}m / {block.reps}kcal</Text>
                         </View>
                     </View>
@@ -542,22 +485,9 @@ export const ExerciseCard = ({
                         </View>
                     </View>
                 )}
-
-                <View style={{flex: 1}}>
-                    {renderInputArea(currentSetNum, isActive, block)}
-                </View>
-
+                <View style={{flex: 1}}>{renderInputArea(currentSetNum, isActive, block)}</View>
                 <View style={{width: 44, alignItems:'flex-end', marginLeft: 5, justifyContent:'center'}}>
-                    <TouchableOpacity 
-                        style={{padding: 8}} 
-                        onPress={() => {
-                            if (categoryType === 'MOBILITY' || categoryType === 'CARDIO') {
-                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
-                            } else {
-                                handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key);
-                            }
-                        }}
-                    >
+                    <TouchableOpacity style={{padding: 8}} onPress={() => handleSmartCheck(currentSetNum, val, block.restTime, techInfo.key)}>
                         <MaterialCommunityIcons name={checkIcon} size={34} color={checkColor} />
                     </TouchableOpacity>
                 </View>
@@ -569,14 +499,9 @@ export const ExerciseCard = ({
 
   const rawTopTech = blocks[0]?.technique || item.technique || '';
   const exerciseTopTechnique = typeof rawTopTech === 'string' ? rawTopTech.trim().toUpperCase() : '';
-
-  // 🔥 MOSTRAR TEXTO INTELIGENTE NO TOPO DO VÍDEO
   let topVideoText = '';
-  if (categoryType === 'CARDIO') {
-      topVideoText = `${blocks[0]?.sets} Minutos | ${blocks[0]?.reps} Kcal`;
-  } else {
-      topVideoText = `${calculateTotalSets()} Séries Totais`;
-  }
+  if (categoryType === 'CARDIO') topVideoText = `${blocks[0]?.sets} Minutos | ${blocks[0]?.reps} Kcal`;
+  else topVideoText = `${calculateTotalSets()} Séries Totais`;
 
   return (
     <View style={{ marginBottom: biSetType === 'start' ? 0 : 20 }}>
@@ -587,38 +512,15 @@ export const ExerciseCard = ({
           (biSetType) && { borderColor: colors.primary, borderWidth: 2 }
       ]}>
         
-        <TouchableOpacity 
-            activeOpacity={0.9}
-            onPress={() => handleOpenVideo(videoLink)} 
-            style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}
-        >
-            
+        <TouchableOpacity activeOpacity={0.9} onPress={() => handleOpenVideo(videoLink)} style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
             {thumbLink ? (
-                <Image 
-                    source={{ uri: thumbLink }} 
-                    style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.5, resizeMode: 'cover' }} 
-                />
+                <Image source={{ uri: thumbLink }} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.5, resizeMode: 'cover' }} />
             ) : videoLink ? (
                 <>
                     {Platform.OS === 'web' ? (
-                        <video 
-                            src={`${videoLink}#t=0.1`} 
-                            style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', opacity: 0.5, pointerEvents: 'none' }} 
-                            preload="metadata" 
-                            muted 
-                            playsInline 
-                        />
+                        <video src={`${videoLink}#t=0.1`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', opacity: 0.5, pointerEvents: 'none' }} preload="metadata" muted playsInline />
                     ) : (
-                        <Video 
-                            ref={videoRef} 
-                            style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.5 }} 
-                            source={{ uri: videoLink }} 
-                            resizeMode={ResizeMode.COVER} 
-                            isMuted={true} 
-                            shouldPlay={false} 
-                            positionMillis={100} 
-                            isLooping={false} 
-                        />
+                        <Video ref={videoRef} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.5 }} source={{ uri: videoLink }} resizeMode={ResizeMode.COVER} isMuted={true} shouldPlay={false} positionMillis={100} isLooping={false} />
                     )}
                 </>
             ) : (
@@ -626,7 +528,6 @@ export const ExerciseCard = ({
                     <MaterialCommunityIcons name="dumbbell" size={40} color="#444" />
                 </View>
             )}
-
             <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.2)', justifyContent: 'space-between', padding: 15 }} pointerEvents="box-none">
                 <View style={{flexDirection:'row', justifyContent:'space-between', width:'100%', alignItems:'flex-start'}} pointerEvents="box-none">
                     <View pointerEvents="auto">
@@ -640,39 +541,28 @@ export const ExerciseCard = ({
                         )}
                     </View>
                 </View>
-                
                 {showTools && (
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignSelf:'flex-start' }} pointerEvents="auto">
-                        <TouchableOpacity 
-                            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} 
-                            onPress={onOpenCalc}
-                        >
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={onOpenCalc}>
                             <MaterialCommunityIcons name={hasPremiumFeatures ? "calculator" : "lock"} size={14} color={hasPremiumFeatures ? "#FFF" : colors.textMuted} />
                             <Text style={{ color: hasPremiumFeatures ? '#FFF' : colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>CALCULAR</Text>
                         </TouchableOpacity>
-                        
-                        <TouchableOpacity 
-                            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} 
-                            onPress={setModalVisible}
-                        >
+                        <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={setModalVisible}>
                             <MaterialCommunityIcons name={hasPremiumFeatures ? "camera-metering-spot" : "lock"} size={14} color={hasPremiumFeatures ? "#FFF" : colors.textMuted} />
                             <Text style={{ color: hasPremiumFeatures ? '#FFF' : colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>ANÁLISE IA</Text>
                         </TouchableOpacity>
                     </View>
                 )}
-
                 <View style={{ marginTop: 'auto' }} pointerEvents="none">
                     <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'flex-end'}}>
                         <View style={{flex:1, paddingRight: 10}}>
                             <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>{exerciseTitle}</Text>
                             <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{topVideoText}</Text>
                         </View>
-                        
                         <View style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}>
                             <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
                             <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
                         </View>
-
                     </View>
                 </View>
             </View>
@@ -692,7 +582,7 @@ export const ExerciseCard = ({
                 </View>
             </View>
 
-            {realObservation && realObservation.trim() !== '' ? (
+            {realObservation && realObservation.trim() !== '' && (
                 <View style={{ backgroundColor: colors.inputBg, padding: 12, borderRadius: 8, marginTop: 15, borderWidth: 1, borderColor: colors.primary + '55', borderLeftWidth: 4, borderLeftColor: colors.primary }}>
                     <View style={{flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4}}>
                         <MaterialCommunityIcons name="bullhorn-outline" size={14} color={colors.primary} />
@@ -700,13 +590,47 @@ export const ExerciseCard = ({
                     </View>
                     <Text style={{ color: colors.text, fontSize: 13, fontStyle: 'italic', lineHeight: 18 }}>{realObservation}</Text>
                 </View>
-            ) : null}
+            )}
 
-            {onSwap && (
-                <TouchableOpacity onPress={onSwap} style={{ backgroundColor: '#FF9500', marginTop: 15, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
-                    <MaterialCommunityIcons name="swap-horizontal" size={16} color="#000" />
-                    <Text style={{ color: '#000', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 }}>TROCAR EXERCÍCIO</Text>
-                </TouchableOpacity>
+            {/* ─── OPÇÕES DE SUBSTITUTOS - LAYOUT PREMIUM ─── */}
+            {(onSwap && substitutes && substitutes.length > 0) && (
+                <View style={{ marginTop: 20, backgroundColor: colors.inputBg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.border }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+                        <MaterialCommunityIcons name="swap-horizontal" size={14} color={colors.textMuted} />
+                        <Text style={{ color: colors.textMuted, fontSize: 10, fontWeight: '900', letterSpacing: 1 }}>
+                            MÁQUINA OCUPADA? TROQUE POR:
+                        </Text>
+                    </View>
+                    <View style={{ gap: 8 }}>
+                        {substitutes.map((sub, idx) => (
+                            <TouchableOpacity
+                                key={sub.id || idx}
+                                onPress={() => onSwap(null, sub)}
+                                style={{
+                                    backgroundColor: colors.surface,
+                                    borderWidth: 1,
+                                    borderColor: colors.border,
+                                    paddingVertical: 10,
+                                    paddingHorizontal: 12,
+                                    borderRadius: 8,
+                                    flexDirection: 'row',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}
+                            >
+                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <View style={{ width: 20, height: 20, borderRadius: 4, backgroundColor: '#FF950022', justifyContent: 'center', alignItems: 'center' }}>
+                                        <Text style={{ color: '#FF9500', fontSize: 10, fontWeight: 'bold' }}>{idx + 1}</Text>
+                                    </View>
+                                    <Text style={{ color: colors.text, fontWeight: '700', fontSize: 13, flex: 1 }} numberOfLines={1}>
+                                        {sub.name || sub.title}
+                                    </Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
             )}
         </View>
 
@@ -714,26 +638,15 @@ export const ExerciseCard = ({
             <View style={{ flex: 1, backgroundColor: colors.glass, justifyContent: 'center', alignItems: 'center' }}>
                 <View style={{ width: '85%', padding: 40, backgroundColor: colors.surface, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderColor: colors.border }}>
                     <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '900', letterSpacing: 1, marginBottom: 10, textAlign:'center' }}>{timerMessage.title}</Text>
-                    
                     {biSetType !== 'start' && <Text style={{ color: colors.text, fontSize: 90, fontWeight: '900', marginVertical: 10 }}>{seconds}s</Text>}
-                    
                     <Text style={{ color: colors.textMuted, fontSize: 14, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', lineHeight: 22 }}>{timerMessage.desc}</Text>
-                    
-                    <TouchableOpacity 
-                        style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} 
-                        onPress={async () => { 
-                            setSeconds(0); 
-                            await safeStopVoice();
-                            await cancelNotification();
-                        }}
-                    >
+                    <TouchableOpacity style={{ marginTop: 10, backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 12, flexDirection:'row', gap: 8, alignItems:'center' }} onPress={async () => { setSeconds(0); await safeStopVoice(); await cancelNotification(); }}>
                         <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 14 }}>{biSetType === 'start' ? 'FECHAR' : 'PULAR'}</Text>
                         <MaterialCommunityIcons name={biSetType === 'start' ? 'close' : 'skip-next'} size={16} color={colors.primaryText}/>
                     </TouchableOpacity>
                 </View>
             </View>
         </Modal>
-
       </View>
       
       {biSetType === 'start' && 

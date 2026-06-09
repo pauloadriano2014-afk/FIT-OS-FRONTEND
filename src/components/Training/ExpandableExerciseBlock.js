@@ -15,16 +15,13 @@ export default function ExpandableExerciseBlock({
     const isBiSet = block.type === 'BISET';
     const mainItem = block.items[0];
     
-    // 1. NÚMERO DO EXERCÍCIO NA LISTA
     const exerciseNumber = (mainItem?.originalIndex || 0) + 1;
 
-    // 2. RADAR DE CARDIO
     const exName = (mainItem?.exercise?.name || mainItem?.name || '').toLowerCase();
     const exCat = (mainItem?.exercise?.category || '').toUpperCase();
     const isCardio = exCat === 'CARDIO' || exCat === 'AERÓBICO' || exCat === 'AEROBICO' || 
                      /elíptico|eliptico|esteira|bike|bicicleta|escada|caminhada|corrida/.test(exName);
 
-    // Verifica se TODAS as séries foram concluídas
     const isBlockDone = block.items.every(item => {
         let totalItemSets = 0;
         if (item.blocks && Array.isArray(item.blocks)) {
@@ -39,12 +36,11 @@ export default function ExpandableExerciseBlock({
         return totalItemSets > 0 && done;
     });
 
-    // 🔥 3. LEITURA DE MÚLTIPLOS BLOCOS E TÉCNICAS (SEM REDUNDÂNCIA)
     let totalSets = 0;
     let firstRep = '';
     let hasVaryingReps = false;
     let techAlertTexts = []; 
-    let topBadgeTech = isBiSet ? 'BISET' : 'NORMAL'; // Mantém sempre em NORMAL para ocultar do topo e focar no alerta
+    let topBadgeTech = isBiSet ? 'BISET' : 'NORMAL';
 
     if (mainItem?.blocks && Array.isArray(mainItem.blocks)) {
         let cumulativeSets = 0;
@@ -53,39 +49,22 @@ export default function ExpandableExerciseBlock({
         mainItem.blocks.forEach((b, idx) => {
             const setsInBlock = parseInt(b.sets || 1) || 1;
             totalSets += setsInBlock;
-            
             if (idx === 0) firstRep = b.reps;
             else if (b.reps !== firstRep) hasVaryingReps = true;
-
             const bTech = b.technique ? b.technique.toUpperCase() : 'NORMAL';
-            
             if (bTech !== 'NORMAL' && !isBiSet) {
                 const techTitle = TECH_GUIDE[bTech]?.title || bTech;
-                
                 if (isCardio) {
                     if (!techAlertTexts.includes(techTitle)) techAlertTexts.push(techTitle);
                 } else {
                     const isLast = (cumulativeSets + setsInBlock) === totalExerciseSets;
                     let alertMsg = "";
-                    
-                    if (setsInBlock === totalExerciseSets) {
-                        alertMsg = `${techTitle} em todas as séries`;
-                    } else if (isLast && setsInBlock === 1) {
-                        alertMsg = `${techTitle} na última série`;
-                    } else if (isLast) {
-                        alertMsg = `${techTitle} nas últimas séries`;
-                    } else {
-                        // Se a técnica pegar só 1 série no meio, ou várias séries no meio
-                        if (setsInBlock === 1) {
-                            alertMsg = `${techTitle} na ${cumulativeSets + 1}ª série`;
-                        } else {
-                            alertMsg = `${techTitle} da ${cumulativeSets + 1}ª à ${cumulativeSets + setsInBlock}ª série`;
-                        }
-                    }
-                    
-                    if (!techAlertTexts.includes(alertMsg)) {
-                        techAlertTexts.push(alertMsg);
-                    }
+                    if (setsInBlock === totalExerciseSets) alertMsg = `${techTitle} em todas as séries`;
+                    else if (isLast && setsInBlock === 1) alertMsg = `${techTitle} na última série`;
+                    else if (isLast) alertMsg = `${techTitle} nas últimas séries`;
+                    else if (setsInBlock === 1) alertMsg = `${techTitle} na ${cumulativeSets + 1}ª série`;
+                    else alertMsg = `${techTitle} da ${cumulativeSets + 1}ª à ${cumulativeSets + setsInBlock}ª série`;
+                    if (!techAlertTexts.includes(alertMsg)) techAlertTexts.push(alertMsg);
                 }
             }
             cumulativeSets += setsInBlock;
@@ -102,23 +81,15 @@ export default function ExpandableExerciseBlock({
 
     if (!TECH_GUIDE[topBadgeTech]) topBadgeTech = 'NORMAL';
 
-    // 4. SUBTÍTULO INTELIGENTE
     let subtitleText = '';
-    if (isCardio) {
-        subtitleText = `${totalSets} Minutos | ${firstRep} Kcal`;
-    } else {
-        subtitleText = hasVaryingReps 
-            ? `${totalSets} Séries Totais` 
-            : `${totalSets} Séries x ${firstRep || '?'} Reps`;
-    }
+    if (isCardio) subtitleText = `${totalSets} Minutos | ${firstRep} Kcal`;
+    else subtitleText = hasVaryingReps ? `${totalSets} Séries Totais` : `${totalSets} Séries x ${firstRep || '?'} Reps`;
 
-    // 5. THUMBNAIL INTELIGENTE
     let imageUrl = mainItem?.exercise?.thumbUrl || mainItem?.thumbUrl || 
                    mainItem?.exercise?.imageUrl || mainItem?.imageUrl || 
                    mainItem?.exercise?.image || mainItem?.image || 
                    mainItem?.exercise?.gifUrl || mainItem?.gifUrl || 
                    mainItem?.exercise?.thumbnailUrl;
-                   
     const videoUrl = mainItem?.exercise?.videoUrl || mainItem?.videoUrl;
     
     if (!imageUrl && videoUrl) {
@@ -134,39 +105,22 @@ export default function ExpandableExerciseBlock({
     return (
         <View style={{ width: '100%', marginBottom: 15 }}>
             
-            {/* 🔥 CARD RESUMIDO (O ÍNDICE) */}
             <TouchableOpacity 
                 style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: isBlockDone ? theme.accent : theme.border }]} 
                 onPress={onToggle} 
                 activeOpacity={0.8}
             >
                 <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                    
-                    {/* 🖼️ THUMBNAIL */}
                     <View style={[styles.thumbnailContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                         {imageUrl ? (
                             <Image source={{ uri: imageUrl }} style={styles.thumbnailImage} />
                         ) : videoUrl ? (
                             Platform.OS === 'web' ? (
-                                <video 
-                                    src={`${videoUrl}#t=0.1`} 
-                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', outline: 'none' }} 
-                                    preload="metadata" 
-                                    muted 
-                                    playsInline 
-                                />
+                                <video src={`${videoUrl}#t=0.1`} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover', outline: 'none' }} preload="metadata" muted playsInline />
                             ) : (
-                                <Video 
-                                    style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} 
-                                    source={{ uri: videoUrl }} 
-                                    resizeMode={ResizeMode.COVER} 
-                                    isMuted={true} 
-                                    shouldPlay={false} 
-                                    positionMillis={100} 
-                                />
+                                <Video style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} source={{ uri: videoUrl }} resizeMode={ResizeMode.COVER} isMuted={true} shouldPlay={false} positionMillis={100} />
                             )
                         ) : null}
-
                         <View style={[styles.thumbnailOverlay, { backgroundColor: (imageUrl || videoUrl) ? 'rgba(0,0,0,0.55)' : 'transparent' }]}>
                             <Text style={[styles.thumbnailNumber, { color: (imageUrl || videoUrl) ? '#FFF' : theme.textSecondary }]}>
                                 {exerciseNumber}
@@ -174,7 +128,6 @@ export default function ExpandableExerciseBlock({
                         </View>
                     </View>
                     
-                    {/* 📝 TEXTOS DO RESUMO */}
                     <View style={{ flex: 1, marginLeft: 15 }}>
                         {isBiSet ? (
                             <>
@@ -192,10 +145,7 @@ export default function ExpandableExerciseBlock({
                                 <Text style={[styles.title, { color: theme.text }]} numberOfLines={2}>
                                     {mainItem?.exercise?.name || mainItem?.name}
                                 </Text>
-                                <Text style={[styles.subTitle, { color: theme.textSecondary }]}>
-                                    {subtitleText}
-                                </Text>
-                                {/* 🚨 RENDERIZA MÚLTIPLOS AVISOS SE HOUVER MAIS DE UMA TÉCNICA NO EXERCÍCIO */}
+                                <Text style={[styles.subTitle, { color: theme.textSecondary }]}>{subtitleText}</Text>
                                 {techAlertTexts.map((alertTxt, i) => (
                                     <Text key={i} style={{ color: '#FF9500', fontSize: 10, fontWeight: 'bold', marginTop: 4 }}>
                                         ⚠️ {alertTxt}
@@ -205,7 +155,6 @@ export default function ExpandableExerciseBlock({
                         )}
                     </View>
 
-                    {/* ✅ STATUS */}
                     <View style={{ alignItems: 'flex-end', marginLeft: 10 }}>
                         {isBlockDone && <MaterialCommunityIcons name="check-circle" size={20} color={theme.accent} style={{marginBottom: 5}} />}
                         <View style={[styles.expandIconBox, { backgroundColor: isExpanded ? theme.accent : theme.bg }]}>
@@ -215,12 +164,16 @@ export default function ExpandableExerciseBlock({
                 </View>
             </TouchableOpacity>
 
-            {/* 🔥 CONTEÚDO EXPANDIDO */}
             {isExpanded && (
                 <View style={[styles.expandedContainer, isBiSet && { borderLeftWidth: 3, borderLeftColor: theme.accent, paddingLeft: 12, marginLeft: 5 }]}>
                     {block.items.map((item, idx) => {
                         let biSetType = null;
                         if (isBiSet) biSetType = idx === 0 ? 'start' : 'end';
+
+                        // ─── NORMALIZAR SUBSTITUTOS ───
+                        const substitutesList = [];
+                        if (item.substitutes && Array.isArray(item.substitutes)) substitutesList.push(...item.substitutes);
+                        else if (item.substitute) substitutesList.push(item.substitute);
 
                         return (
                             <View key={item.id} style={{ marginBottom: (isBiSet && idx === 0) ? 15 : 0 }}>
@@ -236,13 +189,14 @@ export default function ExpandableExerciseBlock({
                                     workoutModel={workoutModel}
                                     TECH_GUIDE={TECH_GUIDE} setTechModalVisible={setTechModalVisible} setSelectedTech={setSelectedTech}
                                     biSetType={biSetType} isLastExercise={false} 
-                                    onSwap={item.substitute ? () => handleSwap(item.originalIndex) : null}
+                                    onSwap={substitutesList.length > 0 ? (_, selectedSub) => handleSwap(item.originalIndex, selectedSub) : null}
+                                    substitutes={substitutesList}
                                     isTimerRunning={isTimerRunning}
                                     isVoiceEnabled={isVoiceEnabled} 
                                     colors={colors}
                                 />
                             </View>
-                        )
+                        );
                     })}
                 </View>
             )}
