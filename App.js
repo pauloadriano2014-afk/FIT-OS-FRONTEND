@@ -21,7 +21,7 @@ import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
 import PropostaScreen from './src/screens/PropostaScreen';
 import PropostaStartScreen from './src/screens/PropostaStartScreen';
 import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
-import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen'; // 💘 Dia dos Namorados
+import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -207,7 +207,7 @@ function RootNavigator() {
       <Stack.Screen name="PropostaNavegantes" component={PropostaNavegantesScreen} />
 
       {/* ── App do aluno ──────────────────────────────────────────── */}
-      <Stack.Screen name="Main"          component={StudentTabs} initialParams={{ userData: savedUser }} />
+      <Stack.Screen name="Main"             component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails"   component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
       <Stack.Screen name="DayWorkout"       component={DayWorkoutScreen} />
@@ -236,7 +236,7 @@ function RootNavigator() {
       <Stack.Screen name="LaboratoryScreen"         component={LaboratoryScreen} />
       <Stack.Screen name="LaboratoryBuilderScreen"  component={LaboratoryBuilderScreen} />
       <Stack.Screen name="LaboratoryFinalScreen"    component={LaboratoryFinalScreen} />
-      <Stack.Screen name="GerarTreinoIA" component={GerarTreinoIA} options={{ headerShown: false }} />
+      <Stack.Screen name="GerarTreinoIA"            component={GerarTreinoIA} options={{ headerShown: false }} />
     </Stack.Navigator>
   );
 }
@@ -249,6 +249,13 @@ const linking = {
     'http://localhost:8081',
     'http://localhost:8082'
   ],
+
+  // 🏃 Rotas de corrida são páginas Next.js — não devem ser interceptadas pelo app
+  filter: (url) => {
+    if (url.includes('/corrida/')) return false;
+    return true;
+  },
+
   config: {
     screens: {
       // ── Telas públicas
@@ -256,9 +263,9 @@ const linking = {
       Proposta:            { path: 'Proposta' },
       PropostaStart:       { path: 'PropostaStart' },
       PropostaMaes:        { path: 'PropostaMaes' },
-      PropostaNavegantes:  { path: 'PropostaNavegantes' }, // 💘 Dia dos Namorados
+      PropostaNavegantes:  { path: 'PropostaNavegantes' },
 
-      // ── Dashboard admin — F5 aqui volta pro dashboard
+      // ── Dashboard admin
       AdminDashboard: { path: 'admin' },
 
       // ── Telas admin com parâmetros via query string

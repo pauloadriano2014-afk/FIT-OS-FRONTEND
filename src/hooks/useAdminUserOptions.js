@@ -39,6 +39,9 @@ export default function useAdminUserOptions(aluno, navigation) {
     const [savingDiet, setSavingDiet] = useState(false);
     const [isDietTabVisible, setIsDietTabVisible] = useState(false);
 
+    // 🏃 MÓDULO DE CORRIDA
+    const [isRunningModule, setIsRunningModule] = useState(!!aluno?.runningModule);
+
     const [vipContents, setVipContents] = useState([]);
     const [userAccess, setUserAccess] = useState([]);
     const [loadingPaflix, setLoadingPaflix] = useState(false);
@@ -46,13 +49,16 @@ export default function useAdminUserOptions(aluno, navigation) {
     const [isCargasModalVisible, setIsCargasModalVisible] = useState(false);
     const [historicoDeCargasList, setHistoricoDeCargasList] = useState([]);
 
+    // 🏃 MODAL DE CORRIDA
+    const [isRunningModalVisible, setIsRunningModalVisible] = useState(false);
+
     const [studentAlerts, setStudentAlerts] = useState([]);
     const [isAlertsExpanded, setIsAlertsExpanded] = useState(false);
 
     const [strategyNotes, setStrategyNotes] = useState(aluno?.strategyNotes || '');
     const [lastContactDate, setLastContactDate] = useState(aluno?.lastContactDate || null);
     const [savingNotes, setSavingNotes] = useState(false);
-    
+
     const [weeklyChecks, setWeeklyChecks] = useState(aluno?.weeklyChecks || []);
     const [newCheckText, setNewCheckText] = useState('');
 
@@ -77,6 +83,7 @@ export default function useAdminUserOptions(aluno, navigation) {
                         setPhotoUrl(freshness.photoUrl);
                         setDietGoal(freshness.dietGoal || 'NONE');
                         setIsDietTabVisible(!!freshness.dietModule);
+                        setIsRunningModule(!!freshness.runningModule); // 🏃
                         setWeeklyChecks(freshness.weeklyChecks || []);
                         setStrategyNotes(freshness.strategyNotes || '');
                         setLastContactDate(freshness.lastContactDate || null);
@@ -89,7 +96,7 @@ export default function useAdminUserOptions(aluno, navigation) {
             } catch (e) { }
         };
 
-        if(aluno?.id) loadCache();
+        if (aluno?.id) loadCache();
         const unsubscribe = navigation.addListener('focus', () => { fetchAllData(); });
         return unsubscribe;
     }, [navigation, aluno?.id]);
@@ -139,6 +146,7 @@ export default function useAdminUserOptions(aluno, navigation) {
                 setDisableCheckIn(!!fresh.disableCheckIn); setPhotoUrl(fresh.photoUrl);
                 setIsActiveUser(fresh.active); setDietGoal(fresh.dietGoal || 'NONE');
                 setIsDietTabVisible(!!fresh.dietModule);
+                setIsRunningModule(!!fresh.runningModule); // 🏃
                 setWeeklyChecks(fresh.weeklyChecks || []);
                 setStrategyNotes(fresh.strategyNotes || '');
                 setLastContactDate(fresh.lastContactDate || null);
@@ -172,13 +180,11 @@ export default function useAdminUserOptions(aluno, navigation) {
         setSavingNotes(true);
         const payload = { strategyNotes, weeklyChecks };
         if (newDate) payload.lastContactDate = newDate;
-
         try {
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
             });
             if (!res.ok) throw new Error();
-
             if (newDate) setLastContactDate(newDate);
             if (Platform.OS === 'web') window.alert("Acompanhamento atualizado!");
             else Alert.alert("Sucesso", "Acompanhamento atualizado!");
@@ -218,6 +224,23 @@ export default function useAdminUserOptions(aluno, navigation) {
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dietModule: newValue }) });
             if (!res.ok) throw new Error();
         } catch (e) { setIsDietTabVisible(!newValue); Alert.alert("Erro", "Não foi possível alterar a visibilidade."); }
+    };
+
+    // 🏃 TOGGLE MÓDULO DE CORRIDA
+    const handleToggleRunningModule = async () => {
+        const newValue = !isRunningModule;
+        setIsRunningModule(newValue);
+        try {
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ runningModule: newValue })
+            });
+            if (!res.ok) throw new Error();
+        } catch (e) {
+            setIsRunningModule(!newValue);
+            Alert.alert("Erro", "Não foi possível alterar o módulo de corrida.");
+        }
     };
 
     const handlePickImage = async () => {
@@ -305,7 +328,6 @@ export default function useAdminUserOptions(aluno, navigation) {
         } catch (e) { }
     };
 
-    // 🔥 A CORREÇÃO DO PDF: Passar o freshAluno (que tem o gender) para evitar o bug do MASCULINO
     const handleEditWorkout = (workout) => { navigation.navigate('MontarTreinoAdmin', { aluno: JSON.stringify(freshAluno || aluno), workoutToEdit: workout, isEditing: true }); };
     const handleNewWorkout = () => { navigation.navigate('MontarTreinoAdmin', { aluno: JSON.stringify(freshAluno || aluno), isEditing: false }); };
 
@@ -370,16 +392,19 @@ export default function useAdminUserOptions(aluno, navigation) {
         activeTab, setActiveTab, isMenuVisible, setIsMenuVisible, workoutTab, setWorkoutTab,
         isActiveUser, userPlan, fichaDaysElapsed, hasActiveFicha, photoUrl, uploadingPhoto,
         evaluationUrl, setEvaluationUrl, nextCheckInDate, disableCheckIn, dietGoal, setDietGoal,
-        savingDiet, isDietTabVisible, vipContents, userAccess, loadingPaflix,
+        savingDiet, isDietTabVisible, isRunningModule, // 🏃
+        vipContents, userAccess, loadingPaflix,
         isCargasModalVisible, setIsCargasModalVisible, historicoDeCargasList,
+        isRunningModalVisible, setIsRunningModalVisible, // 🏃
         studentAlerts, isAlertsExpanded, setIsAlertsExpanded,
         strategyNotes, setStrategyNotes, lastContactDate, savingNotes,
         weeklyChecks, newCheckText, setNewCheckText, daysSinceContact, isContactDelayed,
         fetchAllData, handleSaveStrategy, handleRegisterContactToday, confirmChangePlan,
-        handleChangePlan, handleToggleDietTab, handlePickImage, handleToggleAccess,
-        handleToggleStatus, handleDeleteUser, handleSaveEvaluation, handleDeleteWorkout,
-        handleToggleArchiveWorkout, handleEditWorkout, handleNewWorkout, handleToggleDisableCheckIn,
-        handleCheckInDateChange, handleSaveCheckInDate, handleSaveDietGoal, handleDismissAlert,
-        handleAbrirRaioxCargas, handleAddCheck, handleToggleCheck, handleRemoveCheck
+        handleChangePlan, handleToggleDietTab, handleToggleRunningModule, // 🏃
+        handlePickImage, handleToggleAccess, handleToggleStatus, handleDeleteUser,
+        handleSaveEvaluation, handleDeleteWorkout, handleToggleArchiveWorkout,
+        handleEditWorkout, handleNewWorkout, handleToggleDisableCheckIn,
+        handleCheckInDateChange, handleSaveCheckInDate, handleSaveDietGoal,
+        handleDismissAlert, handleAbrirRaioxCargas, handleAddCheck, handleToggleCheck, handleRemoveCheck
     };
 }

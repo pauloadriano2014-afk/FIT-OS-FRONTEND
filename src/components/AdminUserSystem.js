@@ -25,7 +25,9 @@ export default function AdminUserSystem({
     nextCheckInDate, handleCheckInDateChange, handleSaveCheckInDate,
     evaluationUrl, setEvaluationUrl, handleSaveEvaluation, handleDeleteUser,
     activeWorkouts, setActiveTab, handleAbrirRaioxCargas,
-    dietGoal, setDietGoal, handleSaveDietGoal, isDietTabVisible, handleToggleDietTab, savingDiet
+    dietGoal, setDietGoal, handleSaveDietGoal, isDietTabVisible, handleToggleDietTab, savingDiet,
+    // 🏃 MÓDULO DE CORRIDA
+    runningModule, handleToggleRunningModule,
 }) {
 
     const autoDays = PLAN_AUTO_DAYS[userPlan] || 14;
@@ -63,7 +65,7 @@ export default function AdminUserSystem({
             <View>
                 <Text style={[styles.sectionLabel, { marginTop: 10 }]}>DASHBOARD DO ALUNO</Text>
                 <View style={{ flexDirection: isWebPC ? 'row' : 'column', flexWrap: 'wrap', gap: 15 }}>
-                    
+
                     {/* TREINO ATUAL */}
                     <View style={[styles.dashCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                         <View style={styles.dashCardHeader}>
@@ -90,7 +92,6 @@ export default function AdminUserSystem({
                             <Text style={[styles.dashCardTitle, { color: theme.text }]}>ATALHOS RÁPIDOS</Text>
                         </View>
                         <View style={{ gap: 10, marginTop: 'auto' }}>
-                            {/* 🔥 CORREÇÃO: Enviando o aluno completo na navegação 🔥 */}
                             <TouchableOpacity style={[styles.dashActionBtn, { backgroundColor: theme.bg, borderColor: theme.border, justifyContent: 'center' }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoGender: String(aluno.gender || aluno.sexo || ''), aluno: aluno })}>
                                 <MaterialCommunityIcons name="camera-account" size={16} color="#34C759" />
                                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: 'bold' }}>Gerenciar Check-ins</Text>
@@ -116,21 +117,19 @@ export default function AdminUserSystem({
     }
 
     // ==========================================
-    // ABA: AVALIACOES (FOTOS E CANVA)
+    // ABA: AVALIACOES
     // ==========================================
     if (currentTab === 'AVALIACOES') {
         return (
             <View style={{ paddingBottom: 100 }}>
                 <Text style={[styles.sectionLabel, {marginTop: 20}]}>FERRAMENTAS DE ACOMPANHAMENTO</Text>
-                
-                {/* 🔥 CORREÇÃO: Enviando o aluno completo na navegação 🔥 */}
+
                 <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminStudentCheckins', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoGender: String(aluno.gender || aluno.sexo || ''), aluno: aluno })}>
                     <View style={[styles.iconBox, {backgroundColor: 'rgba(52, 199, 89, 0.15)'}]}><MaterialCommunityIcons name="camera-front-variant" size={20} color="#34C759" /></View>
                     <Text style={[styles.actionText, { color: theme.text }]}>Gerenciar Check-ins do Aluno</Text>
                     <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
                 </TouchableOpacity>
 
-                {/* 🔥 CORREÇÃO: Enviando o aluno completo na navegação para Evolução (PDF) 🔥 */}
                 <TouchableOpacity style={[styles.actionRow, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminEvolution', { alunoId: String(aluno.id), alunoName: String(aluno.name), alunoBirthDate: String(aluno.birthDate || ''), alunoGender: String(aluno.gender || aluno.sexo || ''), aluno: aluno })}>
                     <View style={[styles.iconBox, {backgroundColor: 'rgba(50, 173, 230, 0.15)'}]}><MaterialCommunityIcons name="chart-line" size={20} color="#32ADE6" /></View>
                     <Text style={[styles.actionText, { color: theme.text }]}>Ver Gráficos de Evolução</Text>
@@ -138,7 +137,7 @@ export default function AdminUserSystem({
                 </TouchableOpacity>
 
                 <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>CONFIGURAÇÃO DE FOTOS (CHECK-IN)</Text>
-                
+
                 <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={[styles.switchRow, { borderBottomColor: theme.border }]}>
                         <View style={{flex: 1, paddingRight: 15}}>
@@ -175,12 +174,10 @@ export default function AdminUserSystem({
                 <Text style={[styles.sectionLabel, {marginTop: 30, color: theme.accent}]}>AVALIAÇÃO EM PDF (GOOGLE DRIVE)</Text>
                 <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, padding: 15 }]}>
                     <Text style={[styles.sectionSubDesc, { marginBottom: 10 }]}>Cole o link público do Google Drive com a avaliação do Canva.</Text>
-                    
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <TextInput style={[styles.inputPdf, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, flex: 1 }]} placeholder="https://drive.google.com/..." placeholderTextColor={theme.textSecondary} value={evaluationUrl} onChangeText={setEvaluationUrl} autoCapitalize="none" />
                         <TouchableOpacity style={[styles.saveBtn, { backgroundColor: theme.accent }]} onPress={handleSaveEvaluation}><MaterialCommunityIcons name="content-save" size={20} color={theme.isDark ? '#000' : '#FFF'} /></TouchableOpacity>
                     </View>
-
                     {evaluationUrl ? (
                         <View style={{ flexDirection: 'row', gap: 10, marginTop: 15 }}>
                             <TouchableOpacity style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 10, borderRadius: 8, backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border }} onPress={() => Linking.openURL(evaluationUrl)}>
@@ -233,7 +230,7 @@ export default function AdminUserSystem({
                     </View>
                     <View style={{ padding: 20 }}>
                         {DIET_OPTIONS.map(opt => (
-                            <TouchableOpacity key={opt.id} style={{flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: dietGoal === opt.id ? theme.accent : theme.border, backgroundColor: dietGoal === opt.id ? theme.accent + '15' : theme.bg, marginBottom: 10}} onPress={() => setDietGoal(opt.id)} disabled={userPlan === 'CHALLENGE_21'} >
+                            <TouchableOpacity key={opt.id} style={{flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: dietGoal === opt.id ? theme.accent : theme.border, backgroundColor: dietGoal === opt.id ? theme.accent + '15' : theme.bg, marginBottom: 10}} onPress={() => setDietGoal(opt.id)} disabled={userPlan === 'CHALLENGE_21'}>
                                 <MaterialCommunityIcons name={dietGoal === opt.id ? "radiobox-marked" : "radiobox-blank"} size={20} color={dietGoal === opt.id ? theme.accent : theme.textSecondary} />
                                 <View style={{flex: 1, marginLeft: 10}}>
                                     <Text style={{color: dietGoal === opt.id ? theme.accent : theme.text, fontWeight: 'bold', fontSize: 13}}>{opt.label}</Text>
@@ -257,9 +254,32 @@ export default function AdminUserSystem({
     // ==========================================
     if (currentTab === 'SISTEMA') {
         return (
-            <View style={{ paddingBottom: 100 }}> 
-                <Text style={[styles.sectionLabel, {marginTop: 20, color: '#FF3B30'}]}>ZONA DE RISCO E SISTEMA</Text>
-                
+            <View style={{ paddingBottom: 100 }}>
+
+                {/* 🏃 MÓDULOS ATIVOS */}
+                <Text style={[styles.sectionLabel, { color: theme.accent, marginTop: 20 }]}>MÓDULOS ATIVOS</Text>
+
+                <View style={[styles.accessCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 20 }]}>
+                    <View style={[styles.iconBox, { backgroundColor: '#22c55e22' }]}>
+                        <MaterialCommunityIcons name="run-fast" size={24} color={runningModule ? '#22c55e' : theme.textSecondary} />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 15, paddingRight: 10 }}>
+                        <Text style={[styles.accessTitle, { color: theme.text }]}>Módulo de Corrida</Text>
+                        <Text style={styles.accessCategory}>
+                            Libera a aba de corrida no app e o botão de protocolo no painel admin.
+                        </Text>
+                    </View>
+                    <Switch
+                        value={!!runningModule}
+                        onValueChange={handleToggleRunningModule}
+                        trackColor={{ false: '#333', true: '#22c55e' }}
+                        thumbColor={Platform.OS === 'ios' ? '#FFF' : (runningModule ? '#000' : '#888')}
+                    />
+                </View>
+
+                {/* ZONA DE RISCO */}
+                <Text style={[styles.sectionLabel, { color: '#FF3B30', marginTop: 10 }]}>ZONA DE RISCO E SISTEMA</Text>
+
                 <View style={[styles.riskCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
                     <View style={[styles.switchRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
                         <View style={{flex: 1, paddingRight: 15}}>
@@ -296,22 +316,22 @@ const styles = StyleSheet.create({
     iconBox: { width: 44, height: 44, borderRadius: 22, justifyContent:'center', alignItems:'center' },
     iconBoxSmall: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
     actionText: { fontWeight: '900', fontSize: 14, flex:1, letterSpacing: 0.5 },
-    
+
     premiumCard: { borderRadius: 24, marginBottom: 20, borderWidth: 1, overflow: 'hidden', elevation: 4, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 8 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 20, borderBottomWidth: 1 },
     cardTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
     switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1 },
     statusBadge: { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 16, borderWidth: 1 },
-    
+
     inputLarge: { flex: 1, padding: 16, borderRadius: 12, borderWidth: 1, fontSize: 15, fontWeight: 'bold' },
     saveBtnLg: { height: 54, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
     quickReleaseBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 15, padding: 15, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' },
-    
+
     card: { borderRadius: 16, padding: 20, marginBottom: 15, borderWidth: 1 },
     sectionSubDesc: { color: '#888', fontSize: 12, marginBottom: 15, lineHeight: 18 },
     inputPdf: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
     saveBtn: { padding: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center', height: 50, width: 50 },
-    
+
     riskCard: { borderRadius: 24, marginBottom: 30, borderWidth: 2, overflow: 'hidden', elevation: 6, shadowOffset: {width: 0, height: 6}, shadowOpacity: 0.15, shadowRadius: 10 },
     deleteUserBtn: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', backgroundColor: '#FF3B30', padding: 16, borderRadius: 12, gap: 10, elevation: 3 },
     deleteUserBtnText: { color: '#FFF', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
@@ -320,7 +340,7 @@ const styles = StyleSheet.create({
     accessTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
     accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' },
     aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 15 },
-    
+
     dashCard: { flexGrow: 1, flexBasis: '48%', minWidth: 280, padding: 20, borderRadius: 16, borderWidth: 1, justifyContent: 'space-between' },
     dashCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
     dashCardTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },

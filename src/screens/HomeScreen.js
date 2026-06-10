@@ -1,1022 +1,489 @@
 // src/screens/HomeScreen.js
-import React, { useState, useCallback, useRef, useEffect } from 'react';
-import { 
-    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, 
-    StatusBar, RefreshControl, ActivityIndicator, Alert, Platform, Modal,
-    Animated, Linking, AppState, TextInput, FlatList
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+    View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
+    StatusBar, RefreshControl, ActivityIndicator, Platform, Modal, Animated, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Image } from 'expo-image';
-
 import { useTheme } from '../contexts/ThemeContext';
 
-import LevelUpModal from '../components/LevelUpModal';
-import HomeNoticeModal from '../components/HomeNoticeModal';
-import ChatAIAssistantModal from '../components/ChatAIAssistantModal';
-import DietGuideModal from '../components/DietGuideModal'; 
-import StudentReportModal from '../components/StudentReportModal';
-import InitialPhotosModal from '../components/InitialPhotosModal';
+// ── Hook de dados ──────────────────────────────────────────────────────────
+import { useHomeData } from '../hooks/useHomeData';
+
+// ── Sub-componentes ────────────────────────────────────────────────────────
+import HomeBanners    from '../components/HomeBanners';
+import HomeMainAction from '../components/HomeMainAction';
+import HomeGrid       from '../components/HomeGrid';
+
+// ── Modais externos (já existentes) ───────────────────────────────────────
+import LevelUpModal           from '../components/LevelUpModal';
+import HomeNoticeModal        from '../components/HomeNoticeModal';
+import ChatAIAssistantModal   from '../components/ChatAIAssistantModal';
+import DietGuideModal         from '../components/DietGuideModal';
+import StudentReportModal     from '../components/StudentReportModal';
+import InitialPhotosModal     from '../components/InitialPhotosModal';
 import SatisfactionSurveyModal from '../components/SatisfactionSurveyModal';
 
-const QUICK_QUESTIONS = [
-    "🤖 Como funciona a IA de Vídeo?",
-    "🏋️‍♂️ Como marco as séries no treino?",
-    "📈 Onde vejo minha Evolução?",
-    "📸 Como fazer o Check-in?",
-    "🚨 Estou com dor na articulação!"
-];
-
 export default function HomeScreen({ navigation }) {
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    
     const { theme } = useTheme();
 
-    const [userName, setUserName] = useState('');
-    const [userData, setUserData] = useState(null);
-    const [userPlan, setUserPlan] = useState('PREMIUM'); 
-    
-    const [xp, setXp] = useState(0); 
+    // ── Todos os dados e lógica de negócio vêm do hook ────────────────────
+    const home = useHomeData();
 
-    const [fichaDaysElapsed, setFichaDaysElapsed] = useState(0);
-    const [daysToStart, setDaysToStart] = useState(0); 
+    // ── Estados de UI (só controlam visibilidade de modais) ───────────────
     const [fichaExpiredModalVisible, setFichaExpiredModalVisible] = useState(false);
-    const [isFichaPlaceholder, setIsFichaPlaceholder] = useState(false);
-    const [dietModalVisible, setDietModalVisible] = useState(false); 
-
-    const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
+    const [dietModalVisible,         setDietModalVisible]         = useState(false);
     const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
-    
-    const [isSurveyVisible, setIsSurveyVisible] = useState(false);
+    const [financeModalVisible,      setFinanceModalVisible]      = useState(false);
+    const [feedbackModalVisible,     setFeedbackModalVisible]     = useState(false);
+    const [noticeModalVisible,       setNoticeModalVisible]       = useState(false);
+    const [levelModalVisible,        setLevelModalVisible]        = useState(false);
+    const [chatVisible,              setChatVisible]              = useState(false);
+    const [upsellModalVisible,       setUpsellModalVisible]       = useState(false);
+    const [upsellFeature,            setUpsellFeature]            = useState('');
 
-    const [isMenstruating, setIsMenstruating] = useState(false);
-    const [togglingMenstrual, setTogglingMenstrual] = useState(false);
-
-    const [isCheckinPending, setIsCheckinPending] = useState(false);
-    const [isCheckinLate, setIsCheckinLate] = useState(false);
-    const [scheduledCheckInDate, setScheduledCheckInDate] = useState(null);
-    const [isEliteAwaitingCoach, setIsEliteAwaitingCoach] = useState(false); 
-    const [disableCheckIn, setDisableCheckIn] = useState(false); 
-
-    // 🔥 ESTADOS DO FINANCEIRO (MENSALIDADE) 🔥
-    const [daysToPay, setDaysToPay] = useState(null);
-    const [isFinanceLocked, setIsFinanceLocked] = useState(false);
-    const [financeModalVisible, setFinanceModalVisible] = useState(false);
-
+    // ── Animação de pulso ─────────────────────────────────────────────────
     const pulseAnim = useRef(new Animated.Value(1)).current;
-    const appState = useRef(AppState.currentState);
 
-    const [pendingFeedback, setPendingFeedback] = useState(null);
-    const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
-    const [isMarkingAsRead, setIsMarkingAsRead] = useState(false);
+    // Abre modal de notice automaticamente quando activeNotice muda
+    useEffect(() => {
+        if (home.activeNotice) setNoticeModalVisible(true);
+    }, [home.activeNotice]);
 
-    const [activeNotice, setActiveNotice] = useState(null);
-    const [noticeModalVisible, setNoticeModalVisible] = useState(false);
-    
-    const [newVideoContent, setNewVideoContent] = useState(null);
-    const [showVideoAlert, setShowVideoAlert] = useState(false);
-
-    const [levelModalVisible, setLevelModalVisible] = useState(false);
-    const [upsellModalVisible, setUpsellModalVisible] = useState(false);
-    const [upsellFeature, setUpsellFeature] = useState('');
-
-    const [chatVisible, setChatVisible] = useState(false);
-    const [chatInput, setChatInput] = useState('');
-    const [isTyping, setIsTyping] = useState(false);
-    const [messages, setMessages] = useState([]); 
-    const flatListRef = useRef(null);
-
-    const currentLevel = Math.floor(xp / 1000) + 1;
-    const nextLevelXP = 1000;
-    const currentLevelProgress = xp % 1000;
-
-    const getLevelData = (level) => {
-        if (level <= 5) return { title: "Inimigo do Sofá 🛋️", desc: "Saiu da inércia. O começo é o mais difícil!" };
-        if (level <= 10) return { title: "Em Obras 🚧", desc: "Está construindo o shape, tijolo por tijolo." };
-        if (level <= 20) return { title: "Shape Carregando... ⏳", desc: "Já tem resultado visível. O download tá vindo!" };
-        if (level <= 40) return { title: "Projeto Mutante 🧬", desc: "Ficou sério. Você já não é mais o mesmo." };
-        return { title: "Dono da Academia 🔑", desc: "Você praticamente mora lá. Cadê sua chave?" };
-    };
-    const levelData = getLevelData(currentLevel);
-
-    useFocusEffect(useCallback(() => { loadHomeData(); }, []));
+    // Abre modal de feedback automaticamente quando pendingFeedback chega
+    useEffect(() => {
+        if (home.pendingFeedback) setFeedbackModalVisible(true);
+    }, [home.pendingFeedback]);
 
     useEffect(() => {
-        const handleAppStateChange = (nextAppState) => {
-            if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-                loadHomeData(); 
-            }
-            appState.current = nextAppState;
-        };
+        const shouldPulse = home.isCheckinPending || home.pendingFeedback
+            || home.showVideoAlert || (home.daysToPay !== null && home.daysToPay <= 3);
 
-        const subscription = AppState.addEventListener('change', handleAppStateChange);
-        return () => subscription.remove();
-    }, []);
-
-    useEffect(() => {
-        if (isCheckinPending || pendingFeedback || showVideoAlert || (daysToPay !== null && daysToPay <= 3)) {
+        if (shouldPulse) {
             Animated.loop(
                 Animated.sequence([
                     Animated.timing(pulseAnim, { toValue: 1.05, duration: 800, useNativeDriver: true }),
-                    Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true })
+                    Animated.timing(pulseAnim, { toValue: 1,    duration: 800, useNativeDriver: true }),
                 ])
             ).start();
         } else {
             pulseAnim.setValue(1);
         }
-    }, [isCheckinPending, pendingFeedback, showVideoAlert, daysToPay]);
+    }, [home.isCheckinPending, home.pendingFeedback, home.showVideoAlert, home.daysToPay]);
 
+    // ── Carregar dados ao focar a tela e ao voltar do background ──────────
+    useFocusEffect(useCallback(() => { home.loadHomeData(); }, []));
+
+    useEffect(() => {
+        const { AppState } = require('react-native');
+        const appStateRef = { current: AppState.currentState };
+
+        const sub = AppState.addEventListener('change', (nextState) => {
+            if (appStateRef.current.match(/inactive|background/) && nextState === 'active') {
+                home.loadHomeData();
+            }
+            appStateRef.current = nextState;
+        });
+        return () => sub.remove();
+    }, []);
+
+    // ── Hard reload ───────────────────────────────────────────────────────
     const handleHardReload = () => {
-        setLoading(true);
-        if (Platform.OS === 'web') {
-            window.location.reload(true);
-        } else {
-            loadHomeData();
-        }
+        home.setLoading(true);
+        if (Platform.OS === 'web') window.location.reload(true);
+        else home.loadHomeData();
     };
 
-    const handleDismissVideoAlert = async () => {
-        if (newVideoContent && userData?.id) {
-            try {
-                await AsyncStorage.setItem(`video_lido_${userData.id}_${newVideoContent.id}`, 'true');
-                setShowVideoAlert(false);
-            } catch (e) {
-                console.log("Erro ao esconder banner de vídeo", e);
-            }
-        }
-    };
+    // ── Helpers derivados ─────────────────────────────────────────────────
+    const { coachNameLabel, coachWhatsappNumber } = home.getCoachInfo(home.userData);
+    const isFemale    = home.detectIsFemale(home.userData);
+    const photoModal  = home.getPhotoModalContent(home.userPlan);
 
-    const loadHomeData = async () => {
-      try {
-        setLoading(true);
-        const storedUser = await AsyncStorage.getItem('user');
-        
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          setUserData(user);
-          
-          const dbPlan = user.plan || 'PREMIUM';
-          const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
-          setUserPlan(resolvedPlan);
+    const limitDays      = home.userPlan === 'CHALLENGE_21' ? 21 : 56;
+    const isFichaExpired = ['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan)
+        && home.fichaDaysElapsed >= limitDays
+        && !home.isFichaPlaceholder;
+    const isWaitingStart = ['FICHA_8S', 'CHALLENGE_21', 'LOW_COST'].includes(home.userPlan)
+        && home.daysToStart > 0;
 
-          const firstName = user.name?.split(' ')[0] || 'Atleta';
-          setUserName(firstName);
-          
-          if (messages.length === 0) {
-              setMessages([{ id: 1, text: `Fala, ${firstName}! 👊 Sou o PA Coach AI. Use os botões abaixo se tiver alguma dúvida sobre o app ou treino.`, sender: 'ai' }]);
-          }
-          if (user.currentXP) setXp(user.currentXP);
-
-          try {
-              const t = Date.now();
-              const fetchCoachId = user.coachId || '';
-
-              const [homeRes, checkinRes, noticeRes, resUserDirect, resContents] = await Promise.all([
-                  fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
-                  fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
-                  fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
-                  fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`),
-                  fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`)
-              ]);
-
-              let fetchedUser = { ...user };
-              let hasPhotosInDb = false;
-              let checkinsData = [];
-              let unreadFeedback = null;
-
-              if (resContents.ok) {
-                  const dataContents = await resContents.json();
-                  if (Array.isArray(dataContents) && dataContents.length > 0) {
-                      const now = new Date();
-                      
-                      const recentContents = dataContents
-                          .filter(c => {
-                              if (c.isVIP) return false; 
-                              const diffTime = Math.abs(now - new Date(c.createdAt));
-                              const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                              return diffDays <= 7;
-                          })
-                          .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-                      for (let content of recentContents) {
-                          const hasReadVideo = await AsyncStorage.getItem(`video_lido_${user.id}_${content.id}`);
-                          if (!hasReadVideo) {
-                              setNewVideoContent(content);
-                              setShowVideoAlert(true);
-                              break; 
-                          }
-                      }
-                  }
-              }
-
-              if (checkinRes.ok) {
-                  checkinsData = await checkinRes.json();
-                  if (Array.isArray(checkinsData) && checkinsData.length > 0) {
-                      hasPhotosInDb = true;
-                      
-                      const evaluated = checkinsData.filter(c => c.coachFeedback);
-                      for (let c of evaluated) {
-                          const isRead = await AsyncStorage.getItem(`read_feedback_${c.id}`);
-                          if (!isRead) {
-                              unreadFeedback = c;
-                              break;
-                          }
-                      }
-                      
-                      if (unreadFeedback) {
-                          setPendingFeedback(unreadFeedback);
-                          setFeedbackModalVisible(true);
-                      } else {
-                          setPendingFeedback(null);
-                      }
-                  }
-              }
-
-              if (homeRes.ok) {
-                  const homeData = await homeRes.json();
-                  let directUserData = {};
-                  if (resUserDirect.ok) directUserData = await resUserDirect.json();
-
-                  if (homeData.user) {
-                      const serverXP = homeData.user.currentXP || 0;
-                      setXp(serverXP);
-                      
-                      fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
-
-                      // 🔥 LÓGICA FINANCEIRA CONFIGURADA 🔥
-                      if (fetchedUser.paymentDueDate && fetchedUser.isFinanceActive !== false) {
-                          const pDate = new Date(fetchedUser.paymentDueDate);
-                          pDate.setHours(0,0,0,0);
-                          const todayD = new Date(); todayD.setHours(0,0,0,0);
-                          const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
-                          
-                          setDaysToPay(diffFinanceDays);
-                          setIsFinanceLocked(diffFinanceDays <= 0);
-                      } else {
-                          setDaysToPay(null);
-                          setIsFinanceLocked(false);
-                      }
-
-                      const isAtiva = directUserData.isMenstruating !== undefined ? directUserData.isMenstruating : homeData.user?.isMenstruating;
-                      setIsMenstruating(!!isAtiva);
-                      
-                      const serverPlan = fetchedUser.plan || 'PREMIUM';
-                      const finalPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(serverPlan) ? serverPlan : 'PREMIUM';
-                      setUserPlan(finalPlan); 
-                      setDisableCheckIn(!!fetchedUser.disableCheckIn); 
-
-                      const snoozedDate = await AsyncStorage.getItem(`@nps_snooze_${fetchedUser.id}`);
-                      const todayStr = new Date().toISOString().split('T')[0];
-
-                      if (fetchedUser.npsRequested && !unreadFeedback && snoozedDate !== todayStr) {
-                          setTimeout(() => setIsSurveyVisible(true), 1000);
-                      }
-                      
-                      if (finalPlan === 'FICHA_8S' || finalPlan === 'CHALLENGE_21' || finalPlan === 'LOW_COST') {
-                          let startD = new Date(fetchedUser.createdAt || new Date());
-                          const activeWorkouts = (fetchedUser.workouts || []).filter(w => !w.archived).sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
-                          
-                          if (activeWorkouts.length > 0) {
-                              const currentWorkout = activeWorkouts[0];
-                              startD = new Date(currentWorkout.startDate); 
-                              setIsFichaPlaceholder(currentWorkout.name.includes("CONSTRUÇÃO") || !currentWorkout.routine || currentWorkout.routine.length === 0);
-                          } else {
-                              setIsFichaPlaceholder(true);
-                          }
-                          
-                          startD.setHours(0,0,0,0);
-                          const todayD = new Date(); todayD.setHours(0,0,0,0);
-                          
-                          const diffTime = todayD.getTime() - startD.getTime();
-                          const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
-                          
-                          if (diffDays < 0) {
-                              setDaysToStart(Math.abs(diffDays));
-                              setFichaDaysElapsed(0);
-                          } else {
-                              setDaysToStart(0);
-                              setFichaDaysElapsed(diffDays);
-                          }
-                          
-                          const limit = finalPlan === 'CHALLENGE_21' ? 21 : 56;
-                          if (diffDays >= limit && !isFichaPlaceholder && finalPlan !== 'LOW_COST') {
-                              setFichaExpiredModalVisible(true);
-                          }
-                      }
-                      
-                      await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
-                      setUserData(fetchedUser); 
-                  }
-              }
-
-              if (noticeRes.ok) {
-                  const notices = await noticeRes.json();
-                  if (Array.isArray(notices) && notices.length > 0) {
-                      const latestNotice = notices[0]; 
-                      const hasRead = await AsyncStorage.getItem(`read_notice_${latestNotice.id}`);
-                      if (!hasRead) { setActiveNotice(latestNotice); setNoticeModalVisible(true); }
-                  }
-              }
-
-              let checkinPending = false;
-              let checkinLate = false;
-              let futureDateStr = null;
-              let eliteAwaiting = false;
-
-              setHasSentInitialPhotos(hasPhotosInDb);
-
-              if (!fetchedUser.disableCheckIn && !unreadFeedback) { 
-                  const today = new Date();
-                  today.setHours(0,0,0,0);
-
-                  if (!hasPhotosInDb) {
-                      checkinPending = true; 
-                  } else if (fetchedUser.nextCheckInDate) {
-                      const targetDate = new Date(fetchedUser.nextCheckInDate);
-                      targetDate.setHours(0,0,0,0);
-                      
-                      if (today.getTime() >= targetDate.getTime()) {
-                          checkinPending = true;
-                          const daysPast = Math.floor((today.getTime() - targetDate.getTime()) / (1000 * 3600 * 24));
-                          if (daysPast >= 3) checkinLate = true; 
-                      } else {
-                          const dd = String(targetDate.getDate()).padStart(2,'0');
-                          const mm = String(targetDate.getMonth()+1).padStart(2,'0');
-                          const yyyy = targetDate.getFullYear();
-                          futureDateStr = `${dd}/${mm}/${yyyy}`; 
-                      }
-                  } else {
-                      if (resolvedPlan === 'PREMIUM') {
-                          eliteAwaiting = true;
-                      } else {
-                          futureDateStr = null; 
-                      }
-                  }
-              }
-
-              setIsCheckinPending(checkinPending);
-              setIsCheckinLate(checkinLate);
-              setScheduledCheckInDate(futureDateStr);
-              setIsEliteAwaitingCoach(eliteAwaiting);
-
-          } catch (err) { console.log("Erro ao carregar dados críticos:", err); }
-        } else {
-            console.error("Usuário não encontrado no AsyncStorage na Home.");
-        }
-      } catch (e) { console.log("Erro geral loadHome:", e); } 
-      finally { setLoading(false); setRefreshing(false); }
-    };
-
-    const toggleMenstrualCycle = async () => {
-        if (!userData?.id || togglingMenstrual) return;
-        setTogglingMenstrual(true);
-        
-        const newValue = !isMenstruating;
-        setIsMenstruating(newValue); 
-
-        const cachedUser = { ...userData, isMenstruating: newValue, menstruationStartDate: newValue ? new Date().toISOString() : null };
-        await AsyncStorage.setItem('user', JSON.stringify(cachedUser));
-        setUserData(cachedUser);
-
-        try {
-            let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userData.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    isMenstruating: newValue,
-                    menstruationStartDate: newValue ? new Date().toISOString() : null
-                })
-            });
-
-            if (!res.ok) {
-                res = await fetch('https://fitos-final.onrender.com/api/admin/user', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        id: userData.id, 
-                        isMenstruating: newValue,
-                        menstruationStartDate: newValue ? new Date().toISOString() : null
-                    })
-                });
-            }
-
-            if (res.ok) {
-                try {
-                    const fetchCoachId = userData.coachId || '';
-                    if (fetchCoachId) {
-                        const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}`);
-                        if (adminRes.ok) {
-                            const adminData = await adminRes.json();
-                            if (adminData.pushToken) {
-                                await fetch('https://exp.host/--/api/v2/push/send', {
-                                    method: 'POST',
-                                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        to: adminData.pushToken,
-                                        sound: 'default',
-                                        title: newValue ? '🩸 Alerta Menstrual!' : '✅ Fim do Protocolo Menstrual',
-                                        body: newValue ? `A aluna ${userData.name} sinalizou o protocolo. Reajuste ou ative o Deload se necessário.` : `A aluna ${userData.name} encerrou o período.`,
-                                    }),
-                                });
-                            }
-                        }
-                    }
-                } catch(e) { console.log("Erro na notificação Push:", e); }
-
-                if (newValue) {
-                    const title = "Sinalização Ativa 🩸";
-                    const msg = "Seu Coach foi notificado. Pegue leve, beba água e se cuide nesses dias!";
-                    if (Platform.OS === 'web') window.alert(title + "\n\n" + msg);
-                    else Alert.alert(title, msg);
-                }
-            }
-        } catch (e) {
-            console.log("Erro de rede ao salvar:", e);
-        } finally {
-            setTogglingMenstrual(false);
-        }
-    };
-
-    const handleReadNotice = async () => {
-        if (activeNotice) { try { await AsyncStorage.setItem(`read_notice_${activeNotice.id}`, 'true'); } catch(e) {} }
-        setNoticeModalVisible(false);
-    };
-
-    const markFeedbackAsRead = async () => {
-        if (!pendingFeedback) return;
-        setIsMarkingAsRead(true);
-        try {
-            await AsyncStorage.setItem(`read_feedback_${pendingFeedback.id}`, 'true');
-            setFeedbackModalVisible(false);
-            setPendingFeedback(null);
-            loadHomeData(); 
-        } catch (error) {
-            console.error("Erro ao salvar leitura:", error);
-            setFeedbackModalVisible(false); 
-        } finally {
-            setIsMarkingAsRead(false);
-        }
-    };
-
-    const handleSendChat = async (quickMessage = null) => {
-      const textToSend = typeof quickMessage === 'string' ? quickMessage : chatInput;
-      if (!textToSend.trim()) return;
-
-      const userMsg = { id: Date.now(), text: textToSend, sender: 'user' };
-      setMessages(prev => [...prev, userMsg]);
-      setChatInput('');
-      setIsTyping(true);
-      setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
-
-      try {
-          const gender = userData?.anamneses?.[0]?.genero || userData?.gender || 'Não informado';
-          const goal = userData?.anamneses?.[0]?.objetivo || userData?.goal || 'Melhorar o shape';
-
-          const res = await fetch('https://fitos-final.onrender.com/api/ai/chat', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ message: userMsg.text, userId: userData.id, userName: userName, userGender: gender, userGoal: goal, userLevel: levelData.title })
-          });
-          const data = await res.json();
-          
-          if (data.reply) setMessages(prev => [...prev, { id: Date.now() + 1, text: data.reply, sender: 'ai' }]);
-          else throw new Error("Sem resposta");
-      } catch (error) {
-          setMessages(prev => [...prev, { id: Date.now() + 1, text: "Falha na comunicação com a base, atleta.", sender: 'ai' }]);
-      } finally {
-          setIsTyping(false);
-          setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
-      }
-    };
+    const needsInitialPhoto = !home.hasSentInitialPhotos;
+    const isBlockedTotal    = isFichaExpired || isWaitingStart || needsInitialPhoto || home.isFinanceLocked;
 
     const openUpsell = (featureName) => { setUpsellFeature(featureName); setUpsellModalVisible(true); };
 
-    const getPhotoModalContent = () => {
-        switch (userPlan) {
-            case 'PREMIUM': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Para mapear sua evolução na Consultoria Elite, faça o seu primeiro registro. É rápido e 100% sigiloso.', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'FAZER DEPOIS', showEscape: true };
-            case 'LOW_COST': return { title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸', desc: 'Para acompanharmos sua progressão no plano, precisamos do seu registro inicial. Sem ele, a evolução não existe!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'IR PARA O TREINO', showEscape: false };
-            case 'FICHA_8S': return { title: 'FOTOS DO DIA 1 PENDENTES ⚠️', desc: 'Suas fotos de ponto de partida são essenciais para a avaliação de encerramento do Projeto. O envio é obrigatório para começar!', btnText: 'ENVIAR FOTOS DO DIA 1', escapeText: 'TREINAR MESMO ASSIM', showEscape: false };
-            case 'CHALLENGE_21': return { title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️', desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois".', btnText: 'ENVIAR FOTOS E COMEÇAR', escapeText: 'TREINAR MESMO ASSIM', showEscape: false };
-            default: return { title: 'FOTOS PENDENTES 📸', desc: 'Envie suas fotos iniciais para mapearmos sua evolução.', btnText: 'ENVIAR FOTOS', escapeText: 'TREINAR MESMO ASSIM', showEscape: true };
-        }
-    };
-
-    const isWeb = Platform.OS === 'web';
-    const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+    // ── Layout ────────────────────────────────────────────────────────────
+    const isWeb         = Platform.OS === 'web';
+    const webOuterBg    = theme.isDark ? '#0a0a0a' : '#E5E5EA';
     const RootComponent = isWeb ? View : SafeAreaView;
 
-    if (loading) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
-
-    const limitDays = userPlan === 'CHALLENGE_21' ? 21 : 56;
-    const isFichaExpired = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && fichaDaysElapsed >= limitDays && !isFichaPlaceholder;
-    const isWaitingStart = (userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21' || userPlan === 'LOW_COST') && daysToStart > 0;
-    
-    const needsInitialPhoto = !hasSentInitialPhotos; 
-    const photoModal = getPhotoModalContent();
-
-    const isBlockedTotal = isFichaExpired || isWaitingStart || needsInitialPhoto || isFinanceLocked;
-
-    // Cole o ID exato da Adri aqui dentro das aspas (você acha isso no painel Admin)
-    const isAdriCoach = userData?.coachId === 'b7c0c181-41fd-4156-b8fe-963a267759a3'; 
-    const coachNameLabel = isAdriCoach ? 'A ADRI' : 'O PAULO';
-    const coachWhatsappNumber = isAdriCoach ? '554198465582' : '5541997991346';
-
-    const g1 = String(userData?.gender).toUpperCase().trim();
-    const g2 = String(userData?.anamneses?.[0]?.genero).toUpperCase().trim();
-    const g3 = String(userData?.anamneses?.[0]?.gender).toUpperCase().trim();
-    const g4 = String(userData?.anamneses?.[0]?.sexo).toUpperCase().trim();
-
-    const femaleKeywords = ['FEMININO', 'F', 'FEMALE', 'MULHER'];
-    const isFemale = femaleKeywords.includes(g1) || femaleKeywords.includes(g2) || femaleKeywords.includes(g3) || femaleKeywords.includes(g4);
+    if (home.loading) {
+        return (
+            <View style={[styles.center, { backgroundColor: theme.bg }]}>
+                <ActivityIndicator color={theme.accent} size="large" />
+            </View>
+        );
+    }
 
     return (
-      <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
-        <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
-        
-        <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
-            
-            <ScrollView 
-              style={{ flex: 1, width: '100%' }}
-              contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => {setRefreshing(true); loadHomeData();}} tintColor={theme.accent}/>}
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.header}>
-                <View style={{ flex: 1, paddingRight: 10 }}>
-                  <Text style={[styles.greeting, { color: theme.textSecondary }]} numberOfLines={1}>
-                      BEM-VINDO AO {userPlan === 'LOW_COST' ? 'PLANO BÁSICO' : (userPlan === 'FICHA_8S' ? 'PROJETO DE FICHAS' : (userPlan === 'CHALLENGE_21' ? 'DESAFIO 21 DIAS' : 'ELITE'))},
-                  </Text>
-                  <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
-                      {userName.toUpperCase()} ⚡
-                  </Text>
-                </View>
-                
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <TouchableOpacity 
-                        style={[styles.reloadBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                        onPress={handleHardReload}
-                    >
-                        <MaterialCommunityIcons name="refresh" size={20} color={theme.textSecondary} />
-                    </TouchableOpacity>
+        <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
+            <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
 
-                    <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLevelModalVisible(true)}>
-                      <Text style={[styles.statusText, { color: theme.accent }]}>{levelData.title}</Text>
-                    </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* 🔥 BANNER FINANCEIRO DYNAMIC 🔥 */}
-              {daysToPay !== null && daysToPay <= 7 && !disableCheckIn && (
-                  <TouchableOpacity 
-                      style={[styles.photoBanner, { backgroundColor: daysToPay <= 3 ? '#FF3B3015' : '#FF950015', borderColor: daysToPay <= 3 ? '#FF3B30' : '#FF9500', padding: 16 }]} 
-                      onPress={() => { if(daysToPay <= 0) setFinanceModalVisible(true); }}
-                      activeOpacity={0.9}
-                  >
-                      <MaterialCommunityIcons name={daysToPay <= 0 ? "lock" : "alert"} size={22} color={daysToPay <= 3 ? '#FF3B30' : '#FF9500'} />
-                      <View style={{flex: 1, marginLeft: 5}}>
-                          <Text style={{color: daysToPay <= 3 ? '#FF3B30' : '#FF9500', fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>
-                              {daysToPay <= 0 ? 'ACESSO SUSPENSO:' : (daysToPay <= 3 ? 'VENCIMENTO URGENTE:' : 'RENOVAÇÃO PRÓXIMA:')}
-                          </Text>
-                          <Text style={{color: daysToPay <= 3 ? '#FF3B30' : '#FF9500', fontSize: 13, fontWeight: 'bold'}}>
-                              {daysToPay <= 0 
-                                  ? 'O seu plano está expirado. Regularize para liberar o treino.' 
-                                  : `Seu plano vence em ${daysToPay} dia${daysToPay > 1 ? 's' : ''}.`}
-                          </Text>
-                      </View>
-                      {daysToPay <= 0 && <MaterialCommunityIcons name="chevron-right" size={20} color="#FF3B30" />}
-                  </TouchableOpacity>
-              )}
-
-              {showVideoAlert && newVideoContent && (
-                  <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%', marginBottom: 15 }}>
-                      <View style={[styles.newVideoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                          <TouchableOpacity 
-                            style={styles.newVideoImageContainer} 
-                            activeOpacity={0.9} 
-                            onPress={() => {
-                                handleDismissVideoAlert();
-                                navigation.navigate('Biblioteca'); 
-                            }}
-                          >
-                              <Image 
-                                  source={{ uri: newVideoContent.thumbUrl || 'https://via.placeholder.com/600x338' }} 
-                                  style={styles.newVideoThumb} 
-                                  contentFit="cover" 
-                              />
-                              <View style={styles.newVideoOverlay}>
-                                  <View style={styles.newVideoPlayBtn}>
-                                      <MaterialCommunityIcons name="play" size={32} color="#FFF" />
-                                  </View>
-                              </View>
-                              <View style={styles.newVideoTag}>
-                                  <Text style={styles.newVideoTagText}>NOVA AULA NO PA FLIX</Text>
-                              </View>
-                              
-                              <TouchableOpacity style={styles.newVideoCloseTop} onPress={handleDismissVideoAlert}>
-                                  <MaterialCommunityIcons name="close" size={16} color="#FFF" />
-                              </TouchableOpacity>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity 
-                            style={styles.newVideoFooter}
-                            activeOpacity={0.8}
-                            onPress={() => {
-                                handleDismissVideoAlert();
-                                navigation.navigate('Biblioteca');
-                            }}
-                          >
-                              <View style={{flex: 1}}>
-                                  <Text style={[styles.newVideoTitle, { color: theme.text }]} numberOfLines={2}>{newVideoContent.title}</Text>
-                                  <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold' }}>Categoria: {newVideoContent.category}</Text>
-                              </View>
-                              <MaterialCommunityIcons name="chevron-right" size={24} color={theme.accent} />
-                          </TouchableOpacity>
-                      </View>
-                  </Animated.View>
-              )}
-
-              {isFemale && (
-                  <View style={[styles.photoBanner, { backgroundColor: isMenstruating ? '#FF3B3015' : theme.surface, borderColor: isMenstruating ? '#FF3B30' : theme.border, padding: 16, marginTop: -10, marginBottom: 20, alignItems: 'center' }]}>
-                      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: isMenstruating ? '#FF3B3033' : theme.accent + '15', justifyContent: 'center', alignItems: 'center' }}>
-                          <MaterialCommunityIcons name={isMenstruating ? "water" : "water-outline"} size={24} color={isMenstruating ? '#FF3B30' : theme.accent} />
-                      </View>
-                      
-                      <View style={{ flex: 1, marginLeft: 12, justifyContent: 'center' }}>
-                          <Text style={{ color: isMenstruating ? '#FF3B30' : theme.text, fontSize: 12, fontWeight: '900', letterSpacing: 0.5 }}>
-                              {isMenstruating ? 'DELOAD MENSTRUAL' : 'PROTOCOLO MENSTRUAL'}
-                          </Text>
-                          <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold', marginTop: 2, lineHeight: 14 }}>
-                              {isMenstruating ? 'Treino adaptado para proteção.' : 'Adapte a intensidade nestes dias.'}
-                          </Text>
-                          <TouchableOpacity 
-                              style={{ marginTop: 6 }}
-                              onPress={() => {
-                                  const title = "A Ciência do Deload 🩸";
-                                  const msg = "Durante o período menstrual, a queda hormonal afeta drasticamente sua força e recuperação muscular.\n\nAo sinalizar, o Coach recebe um alerta imediato e ajusta as cargas e o volume do seu treino (Deload).\n\nIsso protege suas articulações, evita frustrações e mantém seu progresso contínuo de forma inteligente!";
-                                  if (Platform.OS === 'web') window.alert(title + "\n\n" + msg);
-                                  else Alert.alert(title, msg);
-                              }}
-                          >
-                              <Text style={{ color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.5, textDecorationLine: 'underline' }}>
-                                  COMO FUNCIONA?
-                              </Text>
-                          </TouchableOpacity>
-                      </View>
-                      
-                      <TouchableOpacity onPress={toggleMenstrualCycle} disabled={togglingMenstrual} style={{ marginLeft: 5 }}>
-                          {togglingMenstrual ? (
-                              <ActivityIndicator size="small" color={isMenstruating ? '#FF3B30' : theme.textSecondary} />
-                          ) : (
-                              <MaterialCommunityIcons name={isMenstruating ? "toggle-switch" : "toggle-switch-off-outline"} size={48} color={isMenstruating ? '#FF3B30' : theme.textSecondary} />
-                          )}
-                      </TouchableOpacity>
-                  </View>
-              )}
-
-              {needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
-                  <TouchableOpacity style={[styles.photoBanner, { backgroundColor: '#FF3B3015', borderColor: '#FF3B30', padding: 16 }]} onPress={() => setInitialPhotosModalVisible(true)} activeOpacity={0.8}>
-                      <MaterialCommunityIcons name="alert" size={22} color="#FF3B30" />
-                      <View style={{flex: 1, marginLeft: 5}}>
-                          <Text style={{color: '#FF3B30', fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>AÇÃO OBRIGATÓRIA:</Text>
-                          <Text style={{color: '#FF3B30', fontSize: 13, fontWeight: 'bold'}}>Envie sua foto de ponto de partida.</Text>
-                      </View>
-                      <MaterialCommunityIcons name="camera" size={20} color="#FF3B30" />
-                  </TouchableOpacity>
-              )}
-
-              {isCheckinPending && !needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
-                  <TouchableOpacity style={[styles.photoBanner, { backgroundColor: isCheckinLate ? '#FF3B3015' : '#FF950015', borderColor: isCheckinLate ? '#FF3B30' : '#FF9500', padding: 16 }]} onPress={() => navigation.navigate('CheckIn')} activeOpacity={0.8}>
-                      <MaterialCommunityIcons name={isCheckinLate ? "alert" : "camera-timer"} size={22} color={isCheckinLate ? '#FF3B30' : '#FF9500'} />
-                      <View style={{flex: 1, marginLeft: 5}}>
-                          <Text style={{color: isCheckinLate ? '#FF3B30' : '#FF9500', fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>O COACH ESTÁ TE ESPERANDO:</Text>
-                          <Text style={{color: isCheckinLate ? '#FF3B30' : '#FF9500', fontSize: 13, fontWeight: 'bold'}}>{isCheckinLate ? 'Seu check-in está atrasado!' : 'Seu check-in foi liberado!'}</Text>
-                      </View>
-                      <MaterialCommunityIcons name="camera" size={20} color={isCheckinLate ? '#FF3B30' : '#FF9500'} />
-                  </TouchableOpacity>
-              )}
-
-              {isEliteAwaitingCoach && !needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
-                  <View style={[styles.photoBanner, { backgroundColor: theme.accent + '15', borderColor: theme.accent, padding: 16 }]}>
-                      <MaterialCommunityIcons name="check-circle" size={22} color={theme.accent} />
-                      <View style={{flex: 1, marginLeft: 5}}>
-                          <Text style={{color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>TUDO EM ORDEM:</Text>
-                          <Text style={{color: theme.accent, fontSize: 13, fontWeight: 'bold'}}>Avaliação recebida! O Coach programará seu próximo check-in.</Text>
-                      </View>
-                  </View>
-              )}
-
-              {userPlan !== 'PREMIUM' && !scheduledCheckInDate && hasSentInitialPhotos && !pendingFeedback && !disableCheckIn && (
-                  <View style={[styles.photoBanner, { backgroundColor: theme.textSecondary + '15', borderColor: theme.border, padding: 16 }]}>
-                      <MaterialCommunityIcons name="calendar-lock" size={22} color={theme.textSecondary} />
-                      <View style={{flex: 1, marginLeft: 5}}>
-                          <Text style={{color: theme.textSecondary, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS DO PLANO:</Text>
-                          <Text style={{color: theme.textSecondary, fontSize: 13, fontWeight: 'bold'}}>As próximas avaliações serão liberadas na data agendada.</Text>
-                      </View>
-                  </View>
-              )}
-
-              {scheduledCheckInDate && !isCheckinPending && !needsInitialPhoto && !pendingFeedback && !disableCheckIn && (
-                  (() => {
-                      const parts = scheduledCheckInDate.split('/');
-                      const tDate = new Date(parts[2], parts[1] - 1, parts[0]);
-                      const today = new Date(); today.setHours(0,0,0,0);
-                      const diff = Math.ceil((tDate.getTime() - today.getTime()) / (1000 * 3600 * 24));
-                      
-                      let bg = 'rgba(50, 173, 230, 0.15)', border = '#32ADE6', icon = 'shield-check', text = `Seu próximo check-in será em ${diff} dias.`;
-                      if (diff <= 3) { bg = 'rgba(255, 59, 48, 0.15)'; border = '#FF3B30'; icon = 'timer-sand'; text = `Atenção: Faltam apenas ${diff} dias para a avaliação!`; }
-                      else if (diff <= 7) { bg = 'rgba(255, 149, 0, 0.15)'; border = '#FF9500'; icon = 'calendar-clock'; text = `Faltam ${diff} dias para enviar fotos.`; }
-
-                      return (
-                          <View style={[styles.photoBanner, { backgroundColor: bg, borderColor: border, padding: 16 }]}>
-                              <MaterialCommunityIcons name={icon} size={22} color={border} />
-                              <View style={{flex: 1, marginLeft: 5}}>
-                                  <Text style={{color: border, fontSize: 10, fontWeight: '900', letterSpacing: 0.5}}>STATUS DA AVALIAÇÃO:</Text>
-                                  <Text style={{color: border, fontSize: 13, fontWeight: 'bold'}}>{text}</Text>
-                              </View>
-                          </View>
-                      );
-                  })()
-              )}
-
-              {(userPlan === 'FICHA_8S' || userPlan === 'CHALLENGE_21') && !isFichaExpired && (
-                  <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                      <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
-                          <Text style={[styles.levelText, { color: theme.accent }]}>{userPlan === 'CHALLENGE_21' ? 'CRONOGRAMA DO DESAFIO' : 'FICHA 8 SEMANAS'}</Text>
-                          <Text style={[styles.xpText, { color: theme.textSecondary }]}>
-                              {isWaitingStart ? `INICIA EM ${daysToStart} DIAS` : (isFichaPlaceholder ? 'PREPARANDO TREINO' : (userPlan === 'CHALLENGE_21' ? `DIA ${fichaDaysElapsed + 1} DE 21` : `SEMANA ${Math.min(8, Math.max(1, Math.ceil(fichaDaysElapsed / 7)))} DE 8`))}
-                          </Text>
-                      </View>
-                      <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                          {fichaDaysElapsed > 0 && <View style={[styles.xpBarFill, { width: `${Math.min(100, (fichaDaysElapsed / limitDays) * 100)}%`, backgroundColor: theme.accent }]} />}
-                      </View>
-                  </View>
-              )}
-
-              {userPlan !== 'FICHA_8S' && userPlan !== 'CHALLENGE_21' && (
-                  <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                      <View style={{flexDirection:'row', justifyContent:'space-between', marginBottom:8}}>
-                          <Text style={[styles.levelText, { color: theme.accent }]}>NÍVEL {currentLevel}</Text>
-                          <Text style={[styles.xpText, { color: theme.textSecondary }]}>{currentLevelProgress} / {nextLevelXP} XP</Text>
-                      </View>
-                      <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                          {currentLevelProgress > 0 && <View style={[styles.xpBarFill, { width: `${(currentLevelProgress/nextLevelXP)*100}%`, backgroundColor: theme.accent }]} />}
-                      </View>
-                  </View>
-              )}
-
-              {pendingFeedback ? (
-                  <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                      <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: theme.accent, shadowColor: theme.accent, borderWidth: 0 }]} onPress={() => setFeedbackModalVisible(true)} activeOpacity={0.9}>
-                          <View style={{flex: 1}}>
-                              <Text style={[styles.actionLabel, { color: '#000' }]}>O COACH ANALISOU SUAS FOTOS</Text>
-                              <Text style={[styles.actionTitle, { color: '#000', fontSize: 20 }]}>VER RELATÓRIO TÉCNICO</Text>
-                          </View>
-                          <View style={[styles.iconCircle, {backgroundColor: 'rgba(0,0,0,0.15)'}]}><MaterialCommunityIcons name="clipboard-text-search" size={28} color="#000" /></View>
-                      </TouchableOpacity>
-                  </Animated.View>
-              ) : (
-                  <TouchableOpacity 
-                      style={[
-                          styles.mainActionBtn, 
-                          { 
-                              backgroundColor: isBlockedTotal ? theme.surface : theme.accent, 
-                              shadowColor: isBlockedTotal ? '#000' : theme.accent,
-                              borderWidth: isBlockedTotal ? 1 : 0,
-                              borderColor: isBlockedTotal ? (isFinanceLocked ? '#FF3B30' : theme.border) : 'transparent'
-                          }
-                      ]} 
-                      onPress={() => { 
-                          if (isFinanceLocked) setFinanceModalVisible(true);
-                          else if (isFichaExpired) setFichaExpiredModalVisible(true);
-                          else if (isWaitingStart) Alert.alert("Aguarde", `Seu treino será liberado em ${daysToStart} dias.`);
-                          else if (needsInitialPhoto) setInitialPhotosModalVisible(true);
-                          else navigation.navigate('Treinos'); 
-                      }} 
-                      activeOpacity={0.9}
-                  >
-                      <View>
-                          <Text style={[styles.actionLabel, { color: isBlockedTotal ? theme.textSecondary : (theme.isDark ? '#000' : '#FFF') }]}>
-                              {isFinanceLocked ? 'ASSINATURA VENCIDA' : (isFichaExpired ? 'CICLO ENCERRADO' : (isWaitingStart ? 'STATUS ATUAL' : (needsInitialPhoto ? 'FOTOS PENDENTES' : 'SEU OBJETIVO DE HOJE')))}
-                          </Text>
-                          <Text style={[styles.actionTitle, { color: isBlockedTotal ? (isFinanceLocked ? '#FF3B30' : theme.text) : (theme.isDark ? '#000' : '#FFF') }]}>
-                              {isFinanceLocked ? 'ACESSO BLOQUEADO' : (isFichaExpired ? 'PRÓXIMOS PASSOS' : (isWaitingStart ? 'AGUARDANDO DATA' : (needsInitialPhoto ? 'ENVIO OBRIGATÓRIO' : 'INICIAR TREINO')))}
-                          </Text>
-                      </View>
-                      <View style={[styles.iconCircle, isBlockedTotal && {backgroundColor: isFinanceLocked ? '#FF3B3015' : theme.bg}]}>
-                          <MaterialCommunityIcons name={isFinanceLocked ? "lock" : (isWaitingStart ? "clock-outline" : (isFichaExpired ? "whatsapp" : (needsInitialPhoto ? "camera-timer" : "dumbbell")))} size={28} color={isBlockedTotal ? (isFinanceLocked ? '#FF3B30' : theme.accent) : (theme.isDark ? '#000' : '#FFF')} />
-                      </View>
-                  </TouchableOpacity>
-              )}
-
-              {(userPlan === 'CHALLENGE_21' || (userData?.dietGoal && userData.dietGoal !== 'NONE')) && (
-                  <TouchableOpacity style={[styles.mainActionBtn, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, padding: 20, marginBottom: 15, elevation: 0 }]} onPress={() => setDietModalVisible(true)} activeOpacity={0.9}>
-                      <View style={{flex: 1}}>
-                          <Text style={[styles.actionLabel, { color: theme.accent }]}>ESTRATÉGIA DO COACH</Text>
-                          <Text style={[styles.actionTitle, { color: theme.text, fontSize: 18 }]}>SUGESTÃO ALIMENTAR 🥗</Text>
-                      </View>
-                      <View style={[styles.iconCircle, {backgroundColor: theme.accent + '22'}]}><MaterialCommunityIcons name="food-apple" size={28} color={theme.accent} /></View>
-                  </TouchableOpacity>
-              )}
-
-              <View style={styles.gridContainer}>
-                  <Animated.View style={{ transform: [{ scale: pendingFeedback ? 1 : pulseAnim }], width: '48%', marginBottom: 15 }}>
-                      <TouchableOpacity 
-                          style={[styles.gridItem, { width: '100%', marginBottom: 0, backgroundColor: theme.surface, borderColor: (isCheckinPending && !disableCheckIn) ? (isCheckinLate ? '#FF3B30' : '#FF9500') : theme.border }]} 
-                          onPress={() => {
-                              if (disableCheckIn) return navigation.navigate('CheckIn');
-                              if (userPlan === 'PREMIUM' || needsInitialPhoto || isCheckinPending) navigation.navigate('CheckIn');
-                              else Alert.alert("Acesso Bloqueado", "O Coach precisa liberar o seu próximo check-in no sistema.");
-                          }}
-                      >
-                          {(isCheckinPending && !disableCheckIn) && <View style={[styles.notificationDot, { borderColor: theme.bg }]} />}
-                          <View style={[styles.gridIcon, { backgroundColor: theme.accent + '33' }]}><MaterialCommunityIcons name={(userPlan === 'PREMIUM' || disableCheckIn || needsInitialPhoto || isCheckinPending) ? "camera-plus" : "camera-off"} size={24} color={theme.accent} /></View>
-                          <Text style={[styles.gridText, { color: theme.text }]}>{(userPlan === 'PREMIUM' || disableCheckIn) ? 'Check-in Livre' : 'Fotos do Shape'}</Text>
-                      </TouchableOpacity>
-                  </Animated.View>
-                  <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('Evolução')}>
-                      <View style={[styles.gridIcon, { backgroundColor: 'rgba(50, 173, 230, 0.2)' }]}><MaterialCommunityIcons name="chart-line" size={24} color="#32ADE6" /></View>
-                      <Text style={[styles.gridText, { color: theme.text }]}>Evolução</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('UserHistory')}>
-                      <View style={[styles.gridIcon, { backgroundColor: 'rgba(255, 59, 48, 0.2)' }]}><MaterialCommunityIcons name="history" size={24} color="#FF3B30" /></View>
-                      <Text style={[styles.gridText, { color: theme.text }]}>Histórico</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.gridItem, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('Biblioteca')}>
-                      <View style={[styles.gridIcon, { backgroundColor: 'rgba(255, 149, 0, 0.2)' }]}><MaterialCommunityIcons name="play-box-multiple" size={24} color="#FF9500" /></View>
-                      <Text style={[styles.gridText, { color: theme.text }]}>PA Flix</Text>
-                  </TouchableOpacity>
-              </View>
-
-              <View style={styles.footerContainer}>
-                  <Text style={[styles.footerText, { color: theme.text }]}>PA TEAM</Text>
-                  <Text style={[styles.footerSubText, { color: theme.textSecondary }]}>CONSULTORIA DE PERFORMANCE</Text>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity style={[styles.fabChat, { shadowColor: userPlan === 'PREMIUM' ? theme.accent : '#000' }]} onPress={() => userPlan === 'PREMIUM' ? setChatVisible(true) : openUpsell('Chat Direto com o Coach')}>
-              <LinearGradient colors={userPlan === 'PREMIUM' ? [theme.accent, theme.accent] : [theme.surface, theme.surface]} style={[styles.fabGradient, userPlan !== 'PREMIUM' && {borderWidth: 1, borderColor: theme.border}]}>
-                  {userPlan === 'PREMIUM' ? <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} /> : <MaterialCommunityIcons name="lock" size={28} color={theme.textSecondary} />}
-              </LinearGradient>
-            </TouchableOpacity>
-        </View>
-
-        {/* 🔥 MODAL DE BLOQUEIO FINANCEIRO COM BOX PIX SELECIONÁVEL E DINÂMICA DE REDIRECIONAMENTO CORES SINCRO 🔥 */}
-        {isFinanceLocked && (
-            <Modal visible={financeModalVisible} transparent animationType="fade" onRequestClose={() => setFinanceModalVisible(false)}>
-                <View style={styles.chatModalOverlay}>
-                    <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
-                        <View style={[styles.levelIconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}>
-                            <MaterialCommunityIcons name="lock-alert" size={36} color="#FF3B30" />
+            <View style={[styles.inner, {
+                backgroundColor: theme.bg,
+                ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {})
+            }]}>
+                <ScrollView
+                    style={{ flex: 1, width: '100%' }}
+                    contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={home.refreshing}
+                            onRefresh={() => { home.setRefreshing(true); home.loadHomeData(); }}
+                            tintColor={theme.accent}
+                        />
+                    }
+                    showsVerticalScrollIndicator={false}
+                >
+                    {/* ── Header ─────────────────────────────────────────── */}
+                    <View style={styles.header}>
+                        <View style={{ flex: 1, paddingRight: 10 }}>
+                            <Text style={[styles.greeting, { color: theme.textSecondary }]} numberOfLines={1}>
+                                BEM-VINDO AO {
+                                    home.userPlan === 'LOW_COST'     ? 'PLANO BÁSICO'       :
+                                    home.userPlan === 'FICHA_8S'     ? 'PROJETO DE FICHAS'  :
+                                    home.userPlan === 'CHALLENGE_21' ? 'DESAFIO 21 DIAS'    :
+                                    'ELITE'
+                                },
+                            </Text>
+                            <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
+                                {home.userName.toUpperCase()} ⚡
+                            </Text>
                         </View>
-                        <Text style={[styles.upsellTitle, { color: theme.text }]}>ACESSO SUSPENSO</Text>
-                        
-                        <Text style={[styles.upsellDesc, { color: theme.textSecondary, marginBottom: 15 }]}>
-                            O seu plano venceu e o acesso à área de treinos foi suspenso temporariamente.
-                            {'\n\n'}Se você já realizou a transferência, desconsidere este aviso enquanto o sistema computa a baixa automaticamente.
-                        </Text>
 
-                        {/* 🔥 BOX EXCLUSIVO DE PAGAMENTO VIA PIX MÓVEL - SELECIONÁVEL 🔥 */}
-                        <View style={{ width: '100%', backgroundColor: theme.isDark ? '#111' : '#F2F2F7', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.border, marginBottom: 15, alignItems: 'center' }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                                <MaterialCommunityIcons name="qrcode" size={16} color={theme.accent} />
-                                <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 }}>PAGAMENTO IMEDIATO VIA PIX</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <TouchableOpacity
+                                style={[styles.reloadBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                onPress={handleHardReload}
+                            >
+                                <MaterialCommunityIcons name="refresh" size={20} color={theme.textSecondary} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                onPress={() => setLevelModalVisible(true)}
+                            >
+                                <Text style={[styles.statusText, { color: theme.accent }]}>{home.levelData.title}</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+
+                    {/* ── Banners de status ───────────────────────────────── */}
+                    <HomeBanners
+                        theme={theme}
+                        navigation={navigation}
+                        daysToPay={home.daysToPay}
+                        isFinanceLocked={home.isFinanceLocked}
+                        disableCheckIn={home.disableCheckIn}
+                        onOpenFinanceModal={() => setFinanceModalVisible(true)}
+                        showVideoAlert={home.showVideoAlert}
+                        newVideoContent={home.newVideoContent}
+                        pulseAnim={pulseAnim}
+                        onDismissVideo={home.handleDismissVideoAlert}
+                        isFemale={isFemale}
+                        isMenstruating={home.isMenstruating}
+                        togglingMenstrual={home.togglingMenstrual}
+                        onToggleMenstrual={home.toggleMenstrualCycle}
+                        needsInitialPhoto={needsInitialPhoto}
+                        pendingFeedback={home.pendingFeedback}
+                        onOpenInitialPhotos={() => setInitialPhotosModalVisible(true)}
+                        isCheckinPending={home.isCheckinPending}
+                        isCheckinLate={home.isCheckinLate}
+                        isEliteAwaitingCoach={home.isEliteAwaitingCoach}
+                        scheduledCheckInDate={home.scheduledCheckInDate}
+                        userPlan={home.userPlan}
+                        hasSentInitialPhotos={home.hasSentInitialPhotos}
+                    />
+
+                    {/* ── Card de XP / Ficha ──────────────────────────────── */}
+                    {['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan) && !isFichaExpired ? (
+                        <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <Text style={[styles.levelText, { color: theme.accent }]}>
+                                    {home.userPlan === 'CHALLENGE_21' ? 'CRONOGRAMA DO DESAFIO' : 'FICHA 8 SEMANAS'}
+                                </Text>
+                                <Text style={[styles.xpText, { color: theme.textSecondary }]}>
+                                    {isWaitingStart
+                                        ? `INICIA EM ${home.daysToStart} DIAS`
+                                        : home.isFichaPlaceholder
+                                            ? 'PREPARANDO TREINO'
+                                            : home.userPlan === 'CHALLENGE_21'
+                                                ? `DIA ${home.fichaDaysElapsed + 1} DE 21`
+                                                : `SEMANA ${Math.min(8, Math.max(1, Math.ceil(home.fichaDaysElapsed / 7)))} DE 8`}
+                                </Text>
                             </View>
-                            <Text selectable={true} style={{ color: theme.text, fontSize: 14, fontWeight: '900', letterSpacing: 0.2 }}>42.942.651/000140</Text>
-                            <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700', marginTop: 3 }}>PA ELITE TEAM LTDA</Text>
+                            <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
+                                {home.fichaDaysElapsed > 0 && (
+                                    <View style={[styles.xpBarFill, {
+                                        width: `${Math.min(100, (home.fichaDaysElapsed / limitDays) * 100)}%`,
+                                        backgroundColor: theme.accent,
+                                    }]} />
+                                )}
+                            </View>
                         </View>
+                    ) : !['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan) ? (
+                        <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <Text style={[styles.levelText, { color: theme.accent }]}>NÍVEL {home.currentLevel}</Text>
+                                <Text style={[styles.xpText, { color: theme.textSecondary }]}>{home.currentLevelProgress} / {home.nextLevelXP} XP</Text>
+                            </View>
+                            <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
+                                {home.currentLevelProgress > 0 && (
+                                    <View style={[styles.xpBarFill, {
+                                        width: `${(home.currentLevelProgress / home.nextLevelXP) * 100}%`,
+                                        backgroundColor: theme.accent,
+                                    }]} />
+                                )}
+                            </View>
+                        </View>
+                    ) : null}
 
-                        <Text style={{ color: theme.textSecondary, fontSize: 11, textAlign: 'center', marginBottom: 20, paddingHorizontal: 5, lineHeight: 16 }}>
-                            *Caso prefira realizar o pagamento através de um <Text style={{ fontWeight: 'bold', color: theme.text }}>Link de Pagamento</Text> de cartão, entre em contato com seu responsável abaixo para receber uma fatura atualizada.
-                        </Text>
+                    {/* ── Ação principal + Dieta ──────────────────────────── */}
+                    <HomeMainAction
+                        theme={theme}
+                        navigation={navigation}
+                        isBlockedTotal={isBlockedTotal}
+                        isFinanceLocked={home.isFinanceLocked}
+                        isFichaExpired={isFichaExpired}
+                        isWaitingStart={isWaitingStart}
+                        needsInitialPhoto={needsInitialPhoto}
+                        daysToStart={home.daysToStart}
+                        pendingFeedback={home.pendingFeedback}
+                        pulseAnim={pulseAnim}
+                        onOpenFeedback={() => setFeedbackModalVisible(true)}
+                        onOpenFinanceModal={() => setFinanceModalVisible(true)}
+                        onOpenFichaExpiredModal={() => setFichaExpiredModalVisible(true)}
+                        onOpenInitialPhotos={() => setInitialPhotosModalVisible(true)}
+                        userPlan={home.userPlan}
+                        userData={home.userData}
+                        onOpenDiet={() => setDietModalVisible(true)}
+                    />
 
-                        <TouchableOpacity 
-                            style={[styles.upsellBtn, { backgroundColor: '#25D366', marginBottom: 10 }]} 
-                            onPress={() => { 
-        Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Acabei de verificar o painel e preciso falar sobre a renovação da minha assinatura!")}`); 
-    }}
-                        >
-                            <Text style={[styles.upsellBtnText, { color: '#FFF' }]}>FALAR COM {coachNameLabel}</Text>
-                            <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{marginLeft: 8}}/>
+                    {/* ── Grid de atalhos ────────────────────────────────── */}
+                    <HomeGrid
+                        theme={theme}
+                        navigation={navigation}
+                        pulseAnim={pulseAnim}
+                        userPlan={home.userPlan}
+                        disableCheckIn={home.disableCheckIn}
+                        needsInitialPhoto={needsInitialPhoto}
+                        isCheckinPending={home.isCheckinPending}
+                        pendingFeedback={home.pendingFeedback}
+                    />
+                </ScrollView>
+
+                {/* ── FAB Chat ───────────────────────────────────────────── */}
+                <TouchableOpacity
+                    style={[styles.fabChat, { shadowColor: home.userPlan === 'PREMIUM' ? theme.accent : '#000' }]}
+                    onPress={() => home.userPlan === 'PREMIUM' ? setChatVisible(true) : openUpsell('Chat Direto com o Coach')}
+                >
+                    <LinearGradient
+                        colors={home.userPlan === 'PREMIUM' ? [theme.accent, theme.accent] : [theme.surface, theme.surface]}
+                        style={[styles.fabGradient, home.userPlan !== 'PREMIUM' && { borderWidth: 1, borderColor: theme.border }]}
+                    >
+                        {home.userPlan === 'PREMIUM'
+                            ? <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
+                            : <MaterialCommunityIcons name="lock"  size={28} color={theme.textSecondary} />}
+                    </LinearGradient>
+                </TouchableOpacity>
+            </View>
+
+            {/* ════════════════════════════════════════════════════════════
+                MODAIS
+            ════════════════════════════════════════════════════════════ */}
+
+            {/* Modal Financeiro */}
+            {home.isFinanceLocked && (
+                <Modal visible={financeModalVisible} transparent animationType="fade" onRequestClose={() => setFinanceModalVisible(false)}>
+                    <View style={styles.overlay}>
+                        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
+                            <View style={[styles.iconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}>
+                                <MaterialCommunityIcons name="lock-alert" size={36} color="#FF3B30" />
+                            </View>
+                            <Text style={[styles.cardTitle, { color: theme.text }]}>ACESSO SUSPENSO</Text>
+
+                            <Text style={[styles.cardDesc, { color: theme.textSecondary, marginBottom: 15 }]}>
+                                O seu plano venceu e o acesso à área de treinos foi suspenso temporariamente.
+                                {'\n\n'}Se você já realizou a transferência, desconsidere este aviso enquanto o sistema computa a baixa automaticamente.
+                            </Text>
+
+                            <View style={[styles.pixBox, { backgroundColor: theme.isDark ? '#111' : '#F2F2F7', borderColor: theme.border }]}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                    <MaterialCommunityIcons name="qrcode" size={16} color={theme.accent} />
+                                    <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 }}>PAGAMENTO IMEDIATO VIA PIX</Text>
+                                </View>
+                                <Text selectable style={{ color: theme.text, fontSize: 14, fontWeight: '900', letterSpacing: 0.2 }}>42.942.651/000140</Text>
+                                <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700', marginTop: 3 }}>PA ELITE TEAM LTDA</Text>
+                            </View>
+
+                            <Text style={{ color: theme.textSecondary, fontSize: 11, textAlign: 'center', marginBottom: 20, paddingHorizontal: 5, lineHeight: 16 }}>
+                                *Caso prefira realizar o pagamento através de um{' '}
+                                <Text style={{ fontWeight: 'bold', color: theme.text }}>Link de Pagamento</Text>
+                                {' '}de cartão, entre em contato com seu responsável abaixo para receber uma fatura atualizada.
+                            </Text>
+
+                            <TouchableOpacity
+                                style={[styles.btn, { backgroundColor: '#25D366', marginBottom: 10 }]}
+                                onPress={() => Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Acabei de verificar o painel e preciso falar sobre a renovação da minha assinatura!")}`)}
+                            >
+                                <Text style={[styles.btnText, { color: '#FFF' }]}>FALAR COM {coachNameLabel}</Text>
+                                <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[styles.btn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, shadowOpacity: 0, elevation: 0 }]}
+                                onPress={() => setFinanceModalVisible(false)}
+                            >
+                                <Text style={[styles.btnText, { color: theme.text }]}>FECHAR PAINEL</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+            )}
+
+            {/* Modal Upsell */}
+            <Modal visible={upsellModalVisible} transparent animationType="fade">
+                <View style={styles.overlay}>
+                    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                        <TouchableOpacity style={styles.closeBtn} onPress={() => setUpsellModalVisible(false)}>
+                            <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
                         </TouchableOpacity>
-
-                        <TouchableOpacity style={[styles.upsellBtn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, shadowOpacity: 0, elevation: 0 }]} onPress={() => setFinanceModalVisible(false)}>
-                            <Text style={[styles.upsellBtnText, { color: theme.text }]}>FECHAR PAINEL</Text>
+                        <View style={[styles.iconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
+                            <MaterialCommunityIcons name="crown" size={36} color={theme.accent} />
+                        </View>
+                        <Text style={[styles.cardTitle, { color: theme.text }]}>FUNCIONALIDADE ELITE</Text>
+                        <Text style={[styles.cardDesc, { color: theme.textSecondary }]}>
+                            O recurso de <Text style={{ color: theme.accent, fontWeight: 'bold' }}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Elite.
+                        </Text>
+                        <View style={[styles.benefitsBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                            {['Ajuste de Treino Sob Medida', 'Avaliação Quinzenal do Shape', 'Acesso direto ao Coach'].map(b => (
+                                <View key={b} style={styles.benefitRow}>
+                                    <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
+                                    <Text style={[styles.benefitText, { color: theme.text }]}>{b}</Text>
+                                </View>
+                            ))}
+                        </View>
+                        <TouchableOpacity
+                            style={styles.btn}
+                            onPress={() => {
+                                setUpsellModalVisible(false);
+                                Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Coach, quero subir de nível e migrar meu plano para a Consultoria Elite!")}`);
+                            }}
+                        >
+                            <Text style={styles.btnText}>SER ELITE AGORA</Text>
+                            <MaterialCommunityIcons name="whatsapp" size={20} color="#000" style={{ marginLeft: 8 }} />
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
-        )}
 
-        <StudentReportModal 
-            visible={feedbackModalVisible} 
-            onClose={() => setFeedbackModalVisible(false)}
-            pendingFeedback={pendingFeedback}
-            userName={userName}
-            markFeedbackAsRead={markFeedbackAsRead}
-            isMarkingAsRead={isMarkingAsRead}
-        />
+            {/* Modais externos */}
+            <StudentReportModal
+                visible={feedbackModalVisible}
+                onClose={() => setFeedbackModalVisible(false)}
+                pendingFeedback={home.pendingFeedback}
+                userName={home.userName}
+                markFeedbackAsRead={() => home.markFeedbackAsRead(() => setFeedbackModalVisible(false))}
+                isMarkingAsRead={home.isMarkingAsRead}
+            />
 
-        <InitialPhotosModal 
-            visible={initialPhotosModalVisible}
-            onClose={() => setInitialPhotosModalVisible(false)}
-            theme={theme}
-            photoModal={photoModal}
-            userPlan={userPlan}
-            onNavigate={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
-        />
+            <InitialPhotosModal
+                visible={initialPhotosModalVisible}
+                onClose={() => setInitialPhotosModalVisible(false)}
+                theme={theme}
+                photoModal={photoModal}
+                userPlan={home.userPlan}
+                onNavigate={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
+            />
 
-        <SatisfactionSurveyModal 
-            visible={isSurveyVisible} 
-            onClose={() => setIsSurveyVisible(false)} 
-            userId={userData?.id} 
-            theme={theme}
-            isPremium={userPlan === 'PREMIUM' || userPlan === 'ELITE'} 
-        />
+            <SatisfactionSurveyModal
+                visible={home.isSurveyVisible}
+                onClose={() => home.setIsSurveyVisible(false)}
+                userId={home.userData?.id}
+                theme={theme}
+                isPremium={home.userPlan === 'PREMIUM' || home.userPlan === 'ELITE'}
+            />
 
-        <Modal visible={upsellModalVisible} transparent animationType="fade">
-            <View style={styles.chatModalOverlay}>
-                <View style={[styles.upsellCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                    <TouchableOpacity style={styles.upsellClose} onPress={() => setUpsellModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
-                    <View style={[styles.levelIconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}><MaterialCommunityIcons name="crown" size={36} color={theme.accent} /></View>
-                    <Text style={[styles.upsellTitle, { color: theme.text }]}>FUNCIONALIDADE ELITE</Text>
-                    <Text style={[styles.upsellDesc, { color: theme.textSecondary }]}>O recurso de <Text style={{color: theme.accent, fontWeight: 'bold'}}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Elite.</Text>
-                    <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ajuste de Treino Sob Medida</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Avaliação Quinzenal do Shape</Text></View><View style={styles.upsellBenefitRow}><MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} /><Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso direto ao Coach</Text></View></View>
-                    <TouchableOpacity 
-                        style={styles.upsellBtn} 
-                        onPress={() => { 
-        setUpsellModalVisible(false); 
-        Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Coach, quero subir de nível e migrar meu plano para a Consultoria Elite!")}`); 
-    }}
-                    >
-                        <Text style={styles.upsellBtnText}>SER ELITE AGORA</Text>
-                        <MaterialCommunityIcons name="whatsapp" size={20} color="#000" style={{marginLeft: 8}}/>
-                    </TouchableOpacity>
-                </View>
-            </View>
-        </Modal>
+            <DietGuideModal
+                visible={dietModalVisible}
+                onClose={() => setDietModalVisible(false)}
+                theme={theme}
+                dietGoal={home.userPlan === 'CHALLENGE_21' ? 'WEIGHT_LOSS' : home.userData?.dietGoal}
+            />
 
-        <DietGuideModal visible={dietModalVisible} onClose={() => setDietModalVisible(false)} theme={theme} dietGoal={userPlan === 'CHALLENGE_21' ? 'WEIGHT_LOSS' : userData?.dietGoal} />
-        <LevelUpModal visible={levelModalVisible} onClose={() => setLevelModalVisible(false)} theme={theme} levelData={levelData} currentLevel={currentLevel} currentLevelProgress={currentLevelProgress} nextLevelXP={nextLevelXP} />
-        <HomeNoticeModal visible={noticeModalVisible} onClose={handleReadNotice} theme={theme} activeNotice={activeNotice} />
-        <ChatAIAssistantModal visible={chatVisible} onClose={() => setChatVisible(false)} theme={theme} isWeb={isWeb} messages={messages} flatListRef={flatListRef} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isTyping={isTyping} QUICK_QUESTIONS={QUICK_QUESTIONS} />
-      </RootComponent>
+            <LevelUpModal
+                visible={levelModalVisible}
+                onClose={() => setLevelModalVisible(false)}
+                theme={theme}
+                levelData={home.levelData}
+                currentLevel={home.currentLevel}
+                currentLevelProgress={home.currentLevelProgress}
+                nextLevelXP={home.nextLevelXP}
+            />
+
+            <HomeNoticeModal
+                visible={noticeModalVisible}
+                onClose={() => home.handleReadNotice(() => setNoticeModalVisible(false))}
+                theme={theme}
+                activeNotice={home.activeNotice}
+            />
+
+            <ChatAIAssistantModal
+                visible={chatVisible}
+                onClose={() => setChatVisible(false)}
+                theme={theme}
+                isWeb={isWeb}
+                messages={home.messages}
+                flatListRef={home.flatListRef}
+                chatInput={home.chatInput}
+                setChatInput={home.setChatInput}
+                handleSendChat={home.handleSendChat}
+                isTyping={home.isTyping}
+                QUICK_QUESTIONS={home.QUICK_QUESTIONS}
+            />
+        </RootComponent>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 },
-    center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
-    greeting: { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
-    name: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
-    
-    reloadBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
-    
-    statusBadge: { paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
+    container:  { flex: 1, paddingTop: Platform.OS === 'android' ? require('react-native').StatusBar.currentHeight + 10 : 0 },
+    center:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    inner:      { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
+    header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
+    greeting:   { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
+    name:       { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
+    reloadBtn:  { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+    statusBadge:{ paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
     statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
-    
-    newVideoCard: { borderRadius: 20, borderWidth: 1, overflow: 'hidden', elevation: 4, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 8 },
-    newVideoImageContainer: { width: '100%', aspectRatio: 16/9, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
-    newVideoThumb: { width: '100%', height: '100%', position: 'absolute' },
-    newVideoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'center', alignItems: 'center' },
-    newVideoPlayBtn: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
-    newVideoTag: { position: 'absolute', top: 15, left: 15, backgroundColor: '#FF3B30', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
-    newVideoTagText: { color: '#FFF', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
-    newVideoCloseTop: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.5)', width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-    newVideoFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 15 },
-    newVideoTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
-
-    photoBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
-    xpCard: { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
-    levelText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
-    xpText: { fontSize: 11, fontWeight: 'bold' },
-    xpBarBg: { height: 8, borderRadius: 4, overflow: 'hidden' },
-    xpBarFill: { height: '100%', borderRadius: 4 },
-    mainActionBtn: { padding: 25, borderRadius: 28, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, shadowOffset: {width: 0, height: 6}, shadowOpacity: 0.25, shadowRadius: 8, elevation: 8 },
-    actionLabel: { fontSize: 11, fontWeight: '900', opacity: 0.8, marginBottom: 4, letterSpacing: 0.5 },
-    actionTitle: { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
-    iconCircle: { width: 54, height: 54, backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 27, justifyContent: 'center', alignItems: 'center' },
-    gridContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 15 },
-    gridItem: { width: '48%', padding: 18, borderRadius: 24, alignItems: 'center', borderWidth: 1, marginBottom: 15 },
-    gridIcon: { width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-    gridText: { fontSize: 11, fontWeight: 'bold' },
-    notificationDot: { position: 'absolute', top: -4, right: -4, width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF3B30', borderWidth: 2, zIndex: 10 },
-    footerContainer: { alignItems: 'center', marginTop: 20, marginBottom: 10 },
-    footerText: { fontWeight: '900', fontSize: 16, letterSpacing: 1.5 },
-    footerSubText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginTop: 4 },
-    fabChat: { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.3, shadowRadius: 10 },
-    fabGradient: { width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-    chatModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-    levelIconBox: { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-    upsellCard: { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
-    upsellClose: { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
-    upsellTitle: { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
-    upsellDesc: { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
-    upsellBenefits: { width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
-    upsellBenefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    upsellBenefitText: { fontSize: 13, fontWeight: 'bold' },
-    upsellBtn: { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5 },
-    upsellBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 1 }
+    xpCard:     { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
+    levelText:  { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+    xpText:     { fontSize: 11, fontWeight: 'bold' },
+    xpBarBg:    { height: 8, borderRadius: 4, overflow: 'hidden' },
+    xpBarFill:  { height: '100%', borderRadius: 4 },
+    fabChat:    { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
+    fabGradient:{ width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
+    // Modais
+    overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
+    card:       { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
+    closeBtn:   { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
+    iconBox:    { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+    cardTitle:  { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
+    cardDesc:   { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
+    pixBox:     { width: '100%', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 15, alignItems: 'center' },
+    benefitsBox:{ width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
+    benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    benefitText:{ fontSize: 13, fontWeight: 'bold' },
+    btn:        { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5, marginBottom: 0 },
+    btnText:    { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 });

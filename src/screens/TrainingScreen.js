@@ -7,52 +7,62 @@ import {
 import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
-import { Shadow } from 'react-native-shadow-2'; 
+import { Shadow } from 'react-native-shadow-2';
 
 import { useTheme } from '../contexts/ThemeContext';
 import WorkoutFolder from '../components/Training/WorkoutFolder';
-import CycleInfoModal from '../components/Training/CycleInfoModal'; 
-import MindsetModal from '../components/Training/MindsetModal'; 
+import CycleInfoModal from '../components/Training/CycleInfoModal';
+import MindsetModal from '../components/Training/MindsetModal';
 import MonthlyFrequencyModal from '../components/Training/MonthlyFrequencyModal';
+
+// 🏃 MÓDULO DE CORRIDA
+import RunningTab from '../components/Training/RunningTab';
+import useRunning from '../hooks/useRunning';
 
 export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
-  const [activePrograms, setActivePrograms] = useState([]); 
+
+  const [activePrograms, setActivePrograms] = useState([]);
   const [userPlan, setUserPlan] = useState('PREMIUM');
   const { theme } = useTheme();
 
-  const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true); 
+  const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true);
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
   const [pendingWorkoutNav, setPendingWorkoutNav] = useState(null);
-  
-  // 🔥 ESTADO DE BLOQUEIO FINANCEIRO 🔥
+
+  // 🔥 ESTADO DE BLOQUEIO FINANCEIRO
   const [isFinanceLocked, setIsFinanceLocked] = useState(false);
+
+  // 🏃 ABA ATIVA — musculação ou corrida
+  const [activeTab, setActiveTab] = useState('MUSCULACAO');
+
+  // 🏃 Hook de corrida
+  const runningHook = useRunning();
 
   // Estados dos Modais
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [mindsetModalVisible, setMindsetModalVisible] = useState(false);
-  const [monthlyModalVisible, setMonthlyModalVisible] = useState(false); 
+  const [monthlyModalVisible, setMonthlyModalVisible] = useState(false);
 
-  const [fullHistory, setFullHistory] = useState([]); 
+  const [fullHistory, setFullHistory] = useState([]);
 
   const generateWeeklyView = (history = []) => {
-      const today = new Date();
-      const dayOfWeekReal = today.getDay(); 
-      const todayIndexNormalized = dayOfWeekReal === 0 ? 6 : dayOfWeekReal - 1; 
-      const daysShort = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-      const data = [];
-      const monday = new Date(today);
-      monday.setDate(today.getDate() - todayIndexNormalized);
+    const today = new Date();
+    const dayOfWeekReal = today.getDay();
+    const todayIndexNormalized = dayOfWeekReal === 0 ? 6 : dayOfWeekReal - 1;
+    const daysShort = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+    const data = [];
+    const monday = new Date(today);
+    monday.setDate(today.getDate() - todayIndexNormalized);
 
-      for (let i = 0; i < 7; i++) {
-          const currentDayDate = new Date(monday);
-          currentDayDate.setDate(monday.getDate() + i);
-          const isDone = history.some(log => new Date(log.date).toDateString() === currentDayDate.toDateString());
-          data.push({ dayName: daysShort[i], isToday: i === todayIndexNormalized, isDone: isDone });
-      }
-      return data;
+    for (let i = 0; i < 7; i++) {
+      const currentDayDate = new Date(monday);
+      currentDayDate.setDate(monday.getDate() + i);
+      const isDone = history.some(log => new Date(log.date).toDateString() === currentDayDate.toDateString());
+      data.push({ dayName: daysShort[i], isToday: i === todayIndexNormalized, isDone: isDone });
+    }
+    return data;
   };
 
   const [weeklyHistoryData, setWeeklyHistoryData] = useState(generateWeeklyView([]));
@@ -67,95 +77,87 @@ export default function TrainingScreen({ navigation }) {
       const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
       setUserPlan(resolvedPlan);
 
-      // 🔥 CHECAGEM FINANCEIRA IMEDIATA 🔥
+      // 🔥 CHECAGEM FINANCEIRA
       if (user.paymentDueDate && user.isFinanceActive !== false) {
-          const pDate = new Date(user.paymentDueDate);
-          pDate.setHours(0,0,0,0);
-          const todayD = new Date(); todayD.setHours(0,0,0,0);
-          const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
-          
-          if (diffFinanceDays <= 0) {
-              setIsFinanceLocked(true);
-              setLoading(false);
-              return; // Trava a execução, nem carrega os treinos.
-          }
+        const pDate = new Date(user.paymentDueDate);
+        pDate.setHours(0, 0, 0, 0);
+        const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+        const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
+        if (diffFinanceDays <= 0) {
+          setIsFinanceLocked(true);
+          setLoading(false);
+          return;
+        }
       }
 
       const [response, historyRes, checkinRes] = await Promise.all([
-          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`),
-          fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`),
-          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+        fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`),
+        fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`),
+        fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
       ]);
 
       let hasPhotosInDb = false;
       if (checkinRes.ok) {
-          const checkinsData = await checkinRes.json();
-          if (Array.isArray(checkinsData) && checkinsData.length > 0) hasPhotosInDb = true;
+        const checkinsData = await checkinRes.json();
+        if (Array.isArray(checkinsData) && checkinsData.length > 0) hasPhotosInDb = true;
       }
 
       const data = await response.json();
       const now = new Date();
 
       if (response.ok && Array.isArray(data)) {
-        
-        // 🔥 CIRURGIA DE INTELIGÊNCIA TEMPORAL 🔥
         const activeList = data.filter(w => {
-            if (w.archived) return false;
-
-            if (w.startDate) {
-                const start = new Date(w.startDate);
-                start.setHours(0, 0, 0, 0);
-                if (now < start) return false;
-            }
-
-            if (w.endDate) {
-                const end = new Date(w.endDate);
-                end.setHours(23, 59, 59, 999);
-                if (now > end) return false;
-            }
-
-            return true;
+          if (w.archived) return false;
+          if (w.startDate) {
+            const start = new Date(w.startDate); start.setHours(0, 0, 0, 0);
+            if (now < start) return false;
+          }
+          if (w.endDate) {
+            const end = new Date(w.endDate); end.setHours(23, 59, 59, 999);
+            if (now > end) return false;
+          }
+          return true;
         });
 
         const processedPrograms = await Promise.all(activeList.map(async (workout) => {
-            const localCompleted = await AsyncStorage.getItem(`@completed_days_${workout.id}`);
-            let completedDays = localCompleted ? JSON.parse(localCompleted) : [];
-            completedDays = completedDays.map(d => String(d).trim().toUpperCase());
+          const localCompleted = await AsyncStorage.getItem(`@completed_days_${workout.id}`);
+          let completedDays = localCompleted ? JSON.parse(localCompleted) : [];
+          completedDays = completedDays.map(d => String(d).trim().toUpperCase());
 
-            const groups = (workout.exercises || []).reduce((acc, item) => {
-                const day = item.day || 'Treino';
-                if (!acc[day]) acc[day] = { day: day, muscleGroups: new Set(), exerciseCount: 0 };
-                acc[day].exerciseCount++;
-                if (item.exercise?.category) acc[day].muscleGroups.add(item.exercise.category);
-                return acc;
-            }, {});
+          const groups = (workout.exercises || []).reduce((acc, item) => {
+            const day = item.day || 'Treino';
+            if (!acc[day]) acc[day] = { day: day, muscleGroups: new Set(), exerciseCount: 0 };
+            acc[day].exerciseCount++;
+            if (item.exercise?.category) acc[day].muscleGroups.add(item.exercise.category);
+            return acc;
+          }, {});
 
-            const daysArray = Object.values(groups);
-            const daysWithStatus = daysArray.map((d) => {
-                const normDay = String(d.day).trim().toUpperCase();
-                const isDone = completedDays.includes(normDay);
-                return { ...d, isDone, isNext: false, normDay };
-            });
+          const daysArray = Object.values(groups);
+          const daysWithStatus = daysArray.map((d) => {
+            const normDay = String(d.day).trim().toUpperCase();
+            const isDone = completedDays.includes(normDay);
+            return { ...d, isDone, isNext: false, normDay };
+          });
 
-            let nextIndex = daysWithStatus.findIndex(x => !x.isDone && !(x.day.toUpperCase() === 'OFF' || x.day.toUpperCase().includes('DESCANSO')));
-            if (nextIndex !== -1) daysWithStatus[nextIndex].isNext = true;
+          let nextIndex = daysWithStatus.findIndex(x => !x.isDone && !(x.day.toUpperCase() === 'OFF' || x.day.toUpperCase().includes('DESCANSO')));
+          if (nextIndex !== -1) daysWithStatus[nextIndex].isNext = true;
 
-            return { ...workout, routineDays: daysWithStatus };
+          return { ...workout, routineDays: daysWithStatus };
         }));
 
         setActivePrograms(processedPrograms);
 
         if (processedPrograms.length > 0 && resolvedPlan !== 'PREMIUM') {
-            let startD = new Date(processedPrograms[0].startDate); 
-            startD.setHours(0,0,0,0);
-            const todayD = new Date(); todayD.setHours(0,0,0,0);
-            const diffTime = todayD.getTime() - startD.getTime();
-            const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
-            const isPlaceholder = processedPrograms[0].name.includes("CONSTRUÇÃO") || processedPrograms[0].routineDays.length === 0;
-            if (!hasPhotosInDb && diffDays >= 0 && !isPlaceholder) setHasSentInitialPhotos(false);
-            else setHasSentInitialPhotos(true);
+          let startD = new Date(processedPrograms[0].startDate);
+          startD.setHours(0, 0, 0, 0);
+          const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
+          const diffTime = todayD.getTime() - startD.getTime();
+          const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+          const isPlaceholder = processedPrograms[0].name.includes("CONSTRUÇÃO") || processedPrograms[0].routineDays.length === 0;
+          if (!hasPhotosInDb && diffDays >= 0 && !isPlaceholder) setHasSentInitialPhotos(false);
+          else setHasSentInitialPhotos(true);
         } else {
-            setHasSentInitialPhotos(true);
+          setHasSentInitialPhotos(true);
         }
       } else {
         setActivePrograms([]);
@@ -163,8 +165,8 @@ export default function TrainingScreen({ navigation }) {
 
       const historyData = await historyRes.json();
       if (Array.isArray(historyData)) {
-          setWeeklyHistoryData(generateWeeklyView(historyData));
-          setFullHistory(historyData); 
+        setWeeklyHistoryData(generateWeeklyView(historyData));
+        setFullHistory(historyData);
       }
 
     } catch (error) {
@@ -175,200 +177,257 @@ export default function TrainingScreen({ navigation }) {
     }
   };
 
-  useFocusEffect(useCallback(() => { fetchWorkouts(); }, []));
+  useFocusEffect(useCallback(() => {
+    fetchWorkouts();
+    runningHook.fetchRunning(); // 🏃 carrega corrida em paralelo
+  }, []));
 
-  const onRefresh = useCallback(() => { setRefreshing(true); fetchWorkouts(); }, []);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    runningHook.setRefreshing(true);
+    fetchWorkouts();
+    runningHook.fetchRunning();
+  }, []);
 
   const handleResetCycle = async (workoutId) => {
-      const execReset = async () => {
-          await AsyncStorage.removeItem(`@completed_days_${workoutId}`);
-          fetchWorkouts();
-      };
-      if (Platform.OS === 'web') {
-          if(window.confirm("Deseja limpar os checks e iniciar um novo ciclo nesta semana?")) execReset();
-      } else {
-          Alert.alert("Reiniciar Ciclo", "Deseja limpar os checks e iniciar um novo ciclo nesta semana?", [
-              {text: "Cancelar", style: "cancel"},
-              {text: "Reiniciar", style: "destructive", onPress: execReset}
-          ]);
-      }
+    const execReset = async () => {
+      await AsyncStorage.removeItem(`@completed_days_${workoutId}`);
+      fetchWorkouts();
+    };
+    if (Platform.OS === 'web') {
+      if (window.confirm("Deseja limpar os checks e iniciar um novo ciclo nesta semana?")) execReset();
+    } else {
+      Alert.alert("Reiniciar Ciclo", "Deseja limpar os checks e iniciar um novo ciclo nesta semana?", [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Reiniciar", style: "destructive", onPress: execReset }
+      ]);
+    }
   };
 
   const handleDayPress = (workoutId, day, workoutName) => {
-      if (!hasSentInitialPhotos && userPlan !== 'PREMIUM') {
-          setPendingWorkoutNav({ workoutId, day, workoutName });
-          setInitialPhotosModalVisible(true);
-      } else {
-          navigation.navigate('DayWorkout', { workoutId, day, workoutName });
-      }
+    if (!hasSentInitialPhotos && userPlan !== 'PREMIUM') {
+      setPendingWorkoutNav({ workoutId, day, workoutName });
+      setInitialPhotosModalVisible(true);
+    } else {
+      navigation.navigate('DayWorkout', { workoutId, day, workoutName });
+    }
   };
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
 
-  // 🔥 TELA DE BLOQUEIO FINANCEIRO NA ÁREA DE TREINOS 🔥
+  // 🔥 TELA DE BLOQUEIO FINANCEIRO
   if (!loading && isFinanceLocked) {
-      return (
-          <RootComponent style={[styles.centeredFinanceBlock, { backgroundColor: theme.bg }]}>
-              <MaterialCommunityIcons name="lock-alert" size={70} color="#FF3B30" style={{marginBottom: 20}} />
-              <Text style={[styles.stateTitleFinance, { color: theme.text }]}>ACESSO BLOQUEADO</Text>
-              <Text style={[styles.stateDescFinance, { color: theme.textSecondary, marginBottom: 30 }]}>
-                  O seu plano venceu e o acesso à rotina de treinos foi suspenso temporariamente. 
-                  {"\n\n"}Fale com o Coach para realizar a renovação e liberar o sistema.
-              </Text>
-              <TouchableOpacity 
-                  style={{ backgroundColor: '#25D366', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }} 
-                  onPress={() => Linking.openURL("https://wa.me/5541997991346?text=Coach, preciso falar sobre a renovação do meu plano!")}
-              >
-                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>FALAR COM O COACH</Text>
-                  <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
-              </TouchableOpacity>
-          </RootComponent>
-      );
+    return (
+      <RootComponent style={[styles.centeredFinanceBlock, { backgroundColor: theme.bg }]}>
+        <MaterialCommunityIcons name="lock-alert" size={70} color="#FF3B30" style={{ marginBottom: 20 }} />
+        <Text style={[styles.stateTitleFinance, { color: theme.text }]}>ACESSO BLOQUEADO</Text>
+        <Text style={[styles.stateDescFinance, { color: theme.textSecondary, marginBottom: 30 }]}>
+          O seu plano venceu e o acesso à rotina de treinos foi suspenso temporariamente.
+          {"\n\n"}Fale com o Coach para realizar a renovação e liberar o sistema.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: '#25D366', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}
+          onPress={() => Linking.openURL("https://wa.me/5541997991346?text=Coach, preciso falar sobre a renovação do meu plano!")}
+        >
+          <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>FALAR COM O COACH</Text>
+          <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
+        </TouchableOpacity>
+      </RootComponent>
+    );
   }
 
-  if (loading && !refreshing) return <View style={[styles.center, { backgroundColor: theme.bg }]}><ActivityIndicator color={theme.accent} size="large" /></View>;
+  if (loading && !refreshing) return (
+    <View style={[styles.center, { backgroundColor: theme.bg }]}>
+      <ActivityIndicator color={theme.accent} size="large" />
+    </View>
+  );
 
   const shadowOpt = { distance: 12, startColor: theme.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.04)', offset: [0, 6] };
+
+  // 🏃 Só mostra a aba de corrida se o módulo estiver ativo
+  const showRunningTab = runningHook.hasRunningModule;
 
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
-      
-      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
-          <ScrollView 
-            style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
-            contentContainerStyle={{ flexGrow: 1, paddingBottom: 150 }}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent}/>}
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.headerLimpado}>
-                <Text style={[styles.headerTitleLimpado, { color: theme.text }]}>PAINEL DO <Text style={{color: theme.accent, fontWeight: '900'}}>ALUNO</Text></Text>
+
+      <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
+
+        <ScrollView
+          style={[styles.scrollArea, isWeb && { overflowY: 'auto' }]}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 150 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accent} />}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── Header ── */}
+          <View style={styles.headerLimpado}>
+            <Text style={[styles.headerTitleLimpado, { color: theme.text }]}>
+              PAINEL DO <Text style={{ color: theme.accent, fontWeight: '900' }}>ALUNO</Text>
+            </Text>
+          </View>
+
+          {/* 🏃 ABAS — só renderiza se tiver módulo de corrida ativo */}
+          {showRunningTab && (
+            <View style={[styles.tabRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'MUSCULACAO' && { borderBottomColor: theme.accent }]}
+                onPress={() => setActiveTab('MUSCULACAO')}
+              >
+                <MaterialCommunityIcons name="dumbbell" size={16} color={activeTab === 'MUSCULACAO' ? theme.accent : theme.textSecondary} />
+                <Text style={[styles.tabBtnText, { color: activeTab === 'MUSCULACAO' ? theme.accent : theme.textSecondary }]}>
+                  MUSCULAÇÃO
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'CORRIDA' && { borderBottomColor: '#22c55e' }]}
+                onPress={() => setActiveTab('CORRIDA')}
+              >
+                <MaterialCommunityIcons name="run-fast" size={16} color={activeTab === 'CORRIDA' ? '#22c55e' : theme.textSecondary} />
+                <Text style={[styles.tabBtnText, { color: activeTab === 'CORRIDA' ? '#22c55e' : theme.textSecondary }]}>
+                  CORRIDA
+                </Text>
+              </TouchableOpacity>
             </View>
+          )}
 
-            <View style={styles.sectionContainerMod}>
-                <Shadow {...shadowOpt} containerStyle={{width:'100%'}} style={{width:'100%'}}>
-                    <View style={[styles.calendarCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <View style={styles.calendarHeaderRow}>
-                            <Ionicons name="calendar-outline" size={14} color={theme.textSecondary} />
-                            <Text style={[styles.miniLabelMod, { color: theme.textSecondary }]}>SUA CONSISTÊNCIA NESTA SEMANA</Text>
-                        </View>
-                        <View style={styles.calendarRowMod}>
-                            {weeklyHistoryData.map((day, index) => (
-                                <View key={index} style={styles.calendarDayItemMod}>
-                                    <Text style={[styles.calendarDayTextMod, { color: theme.text }, day.isToday && {color: theme.accent, fontWeight: 'bold'}]}>{day.dayName}</Text>
-                                    {day.isDone ? (
-                                        <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
-                                    ) : (
-                                        <View style={[styles.calendarDotMod, { borderColor: theme.border }, day.isToday && {backgroundColor: theme.accent, borderColor: theme.accent}]} />
-                                    )}
-                                </View>
-                            ))}
-                        </View>
+          {/* ════════════════════════════════════════
+              ABA: CORRIDA
+          ════════════════════════════════════════ */}
+          {showRunningTab && activeTab === 'CORRIDA' && (
+            <RunningTab theme={theme} useRunningHook={runningHook} />
+          )}
 
-                        <TouchableOpacity 
-                            style={[styles.monthlyBtn, { borderTopColor: theme.border }]}
-                            onPress={() => setMonthlyModalVisible(true)}
-                        >
-                            <Text style={[styles.monthlyBtnText, { color: theme.textSecondary }]}>VER ANO COMPLETO</Text>
-                            <MaterialCommunityIcons name="chevron-right" size={16} color={theme.textSecondary} />
-                        </TouchableOpacity>
-
+          {/* ════════════════════════════════════════
+              ABA: MUSCULAÇÃO (conteúdo original)
+          ════════════════════════════════════════ */}
+          {activeTab === 'MUSCULACAO' && (
+            <>
+              {/* Calendário semanal */}
+              <View style={styles.sectionContainerMod}>
+                <Shadow {...shadowOpt} containerStyle={{ width: '100%' }} style={{ width: '100%' }}>
+                  <View style={[styles.calendarCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <View style={styles.calendarHeaderRow}>
+                      <Ionicons name="calendar-outline" size={14} color={theme.textSecondary} />
+                      <Text style={[styles.miniLabelMod, { color: theme.textSecondary }]}>SUA CONSISTÊNCIA NESTA SEMANA</Text>
                     </View>
+                    <View style={styles.calendarRowMod}>
+                      {weeklyHistoryData.map((day, index) => (
+                        <View key={index} style={styles.calendarDayItemMod}>
+                          <Text style={[styles.calendarDayTextMod, { color: theme.text }, day.isToday && { color: theme.accent, fontWeight: 'bold' }]}>{day.dayName}</Text>
+                          {day.isDone ? (
+                            <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
+                          ) : (
+                            <View style={[styles.calendarDotMod, { borderColor: theme.border }, day.isToday && { backgroundColor: theme.accent, borderColor: theme.accent }]} />
+                          )}
+                        </View>
+                      ))}
+                    </View>
+                    <TouchableOpacity
+                      style={[styles.monthlyBtn, { borderTopColor: theme.border }]}
+                      onPress={() => setMonthlyModalVisible(true)}
+                    >
+                      <Text style={[styles.monthlyBtnText, { color: theme.textSecondary }]}>VER ANO COMPLETO</Text>
+                      <MaterialCommunityIcons name="chevron-right" size={16} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                 </Shadow>
-            </View>
+              </View>
 
-            {activePrograms.length > 0 ? (
+              {/* Programas ativos */}
+              {activePrograms.length > 0 ? (
                 <View style={styles.sectionContainerMod}>
-                    {activePrograms.map(program => (
-                        <WorkoutFolder 
-                            key={program.id} 
-                            program={program} 
-                            theme={theme} 
-                            handleDayPress={handleDayPress} 
-                            handleResetCycle={handleResetCycle} 
-                        />
-                    ))}
+                  {activePrograms.map(program => (
+                    <WorkoutFolder
+                      key={program.id}
+                      program={program}
+                      theme={theme}
+                      handleDayPress={handleDayPress}
+                      handleResetCycle={handleResetCycle}
+                    />
+                  ))}
                 </View>
-            ) : (
+              ) : (
                 <View style={styles.sectionContainerMod}>
-                    <View style={[styles.emptyCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <MaterialCommunityIcons name="dumbbell" size={48} color={theme.border} />
-                        <Text style={[styles.emptyCardTextMod, {color: theme.textSecondary}]}>Aguardando seu próximo programa.</Text>
-                        <Text style={{color: theme.textSecondary, fontSize: 12}}>Entre em contato com o Coach Paulo.</Text>
+                  <View style={[styles.emptyCardMod, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <MaterialCommunityIcons name="dumbbell" size={48} color={theme.border} />
+                    <Text style={[styles.emptyCardTextMod, { color: theme.textSecondary }]}>Aguardando seu próximo programa.</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12 }}>Entre em contato com o Coach Paulo.</Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Botões de guia */}
+              <View style={[styles.sectionContainerMod, { marginTop: -5 }]}>
+                <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+                  <TouchableOpacity
+                    style={[styles.guideBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                    onPress={() => setInfoModalVisible(true)}
+                  >
+                    <View style={[styles.guideIconBox, { backgroundColor: theme.accent + '20' }]}>
+                      <MaterialCommunityIcons name="information-outline" size={20} color={theme.accent} />
                     </View>
+                    <Text style={[styles.guideBtnText, { color: theme.text }]}>INFORMAÇÕES{"\n"}DO TREINO</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.guideBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                    onPress={() => setMindsetModalVisible(true)}
+                  >
+                    <View style={[styles.guideIconBox, { backgroundColor: '#AF52DE20' }]}>
+                      <MaterialCommunityIcons name="brain" size={20} color="#AF52DE" />
+                    </View>
+                    <Text style={[styles.guideBtnText, { color: theme.text }]}>MINDSET &{"\n"}REGRAS</Text>
+                  </TouchableOpacity>
                 </View>
-            )}
+              </View>
+            </>
+          )}
 
-            <View style={[styles.sectionContainerMod, { marginTop: -5 }]}>
-                <View style={{flexDirection: 'row', gap: 10, width: '100%'}}>
-                    <TouchableOpacity 
-                        style={[styles.guideBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                        onPress={() => setInfoModalVisible(true)}
-                    >
-                        <View style={[styles.guideIconBox, { backgroundColor: theme.accent + '20' }]}>
-                            <MaterialCommunityIcons name="information-outline" size={20} color={theme.accent} />
-                        </View>
-                        <Text style={[styles.guideBtnText, { color: theme.text }]}>INFORMAÇÕES{"\n"}DO TREINO</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                        style={[styles.guideBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} 
-                        onPress={() => setMindsetModalVisible(true)}
-                    >
-                        <View style={[styles.guideIconBox, { backgroundColor: '#AF52DE20' }]}>
-                            <MaterialCommunityIcons name="brain" size={20} color="#AF52DE" />
-                        </View>
-                        <Text style={[styles.guideBtnText, { color: theme.text }]}>MINDSET &{"\n"}REGRAS</Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-          </ScrollView>
+        </ScrollView>
       </View>
 
+      {/* Modal fotos pendentes */}
       <Modal visible={initialPhotosModalVisible} transparent animationType="fade">
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 }}>
-              <View style={{ width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.accent }}>
-                  <TouchableOpacity style={{ position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 }} onPress={() => setInitialPhotosModalVisible(false)}>
-                      <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                  </TouchableOpacity>
-                  <View style={{ width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.accent + '22', marginBottom: 20 }}>
-                      <MaterialCommunityIcons name="camera-timer" size={36} color={theme.accent} />
-                  </View>
-                  <Text style={{ fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center', color: theme.text }}>FOTOS PENDENTES 📸</Text>
-                  <Text style={{ fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20, color: theme.textSecondary }}>
-                      Para mapearmos a sua evolução real, precisamos do seu Ponto de Partida. Sabemos que pode não ser o momento ideal agora, mas envie assim que possível!
-                  </Text>
-                  
-                  <TouchableOpacity 
-                      style={{ width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: {width:0, height:4}, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5, backgroundColor: theme.accent, marginBottom: 10 }} 
-                      onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
-                  >
-                      <MaterialCommunityIcons name="camera" size={20} color={theme.isDark ? '#000' : '#FFF'} style={{marginRight: 8}}/>
-                      <Text style={{ fontWeight: '900', fontSize: 14, letterSpacing: 1, color: theme.isDark ? '#000' : '#FFF' }}>TIRAR FOTOS AGORA</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity 
-                      style={{padding: 15, alignItems: 'center'}} 
-                      onPress={() => { 
-                          setInitialPhotosModalVisible(false); 
-                          if (pendingWorkoutNav) {
-                              navigation.navigate('DayWorkout', pendingWorkoutNav);
-                              setPendingWorkoutNav(null);
-                          }
-                      }}
-                  >
-                      <Text style={{color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline'}}>
-                          TREINAR MESMO ASSIM (Lembrar Depois)
-                      </Text>
-                  </TouchableOpacity>
-              </View>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 }}>
+          <View style={{ width: '100%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center', backgroundColor: theme.surface, borderColor: theme.accent }}>
+            <TouchableOpacity style={{ position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 }} onPress={() => setInitialPhotosModalVisible(false)}>
+              <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
+            </TouchableOpacity>
+            <View style={{ width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.accent + '22', marginBottom: 20 }}>
+              <MaterialCommunityIcons name="camera-timer" size={36} color={theme.accent} />
+            </View>
+            <Text style={{ fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center', color: theme.text }}>FOTOS PENDENTES 📸</Text>
+            <Text style={{ fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20, color: theme.textSecondary }}>
+              Para mapearmos a sua evolução real, precisamos do seu Ponto de Partida. Sabemos que pode não ser o momento ideal agora, mas envie assim que possível!
+            </Text>
+            <TouchableOpacity
+              style={{ width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5, backgroundColor: theme.accent, marginBottom: 10 }}
+              onPress={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
+            >
+              <MaterialCommunityIcons name="camera" size={20} color={theme.isDark ? '#000' : '#FFF'} style={{ marginRight: 8 }} />
+              <Text style={{ fontWeight: '900', fontSize: 14, letterSpacing: 1, color: theme.isDark ? '#000' : '#FFF' }}>TIRAR FOTOS AGORA</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ padding: 15, alignItems: 'center' }}
+              onPress={() => {
+                setInitialPhotosModalVisible(false);
+                if (pendingWorkoutNav) {
+                  navigation.navigate('DayWorkout', pendingWorkoutNav);
+                  setPendingWorkoutNav(null);
+                }
+              }}
+            >
+              <Text style={{ color: theme.textSecondary, fontWeight: 'bold', fontSize: 12, textDecorationLine: 'underline' }}>
+                TREINAR MESMO ASSIM (Lembrar Depois)
+              </Text>
+            </TouchableOpacity>
           </View>
+        </View>
       </Modal>
 
-      {/* 🔥 MODAIS RENDEREZADOS AQUI 🔥 */}
+      {/* Modais de musculação */}
       <CycleInfoModal visible={infoModalVisible} onClose={() => setInfoModalVisible(false)} theme={theme} />
       <MindsetModal visible={mindsetModalVisible} onClose={() => setMindsetModalVisible(false)} theme={theme} />
       <MonthlyFrequencyModal visible={monthlyModalVisible} onClose={() => setMonthlyModalVisible(false)} theme={theme} history={fullHistory} />
@@ -380,10 +439,15 @@ export default function TrainingScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 5 : 0 },
   scrollArea: { flex: 1, width: '100%' },
-  center: { flex: 1, justifyContent:'center', alignItems:'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   headerLimpado: { padding: 20, paddingTop: 15, marginBottom: 10 },
   headerTitleLimpado: { fontSize: 28, fontWeight: '800' },
   sectionContainerMod: { marginHorizontal: 20, marginBottom: 30, alignItems: 'center' },
+
+  // 🏃 Abas
+  tabRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
+  tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  tabBtnText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
 
   calendarCardMod: { width: '100%', padding: 20, borderRadius: 24, borderWidth: 1 },
   calendarHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 15, alignSelf: 'center' },
@@ -392,11 +456,10 @@ const styles = StyleSheet.create({
   calendarDayItemMod: { alignItems: 'center', flex: 1 },
   calendarDayTextMod: { fontSize: 12, fontWeight: '600', marginBottom: 8 },
   calendarDotMod: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
-
   monthlyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 20, paddingTop: 15, borderTopWidth: 1 },
   monthlyBtnText: { fontSize: 10, fontWeight: 'bold', letterSpacing: 1 },
 
-  emptyCardMod: { width:'100%', padding: 50, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
+  emptyCardMod: { width: '100%', padding: 50, borderRadius: 25, alignItems: 'center', borderWidth: 1, borderStyle: 'dashed' },
   emptyCardTextMod: { fontWeight: 'bold', fontSize: 16, marginTop: 20, marginBottom: 8 },
 
   guideBtn: { flex: 1, padding: 15, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

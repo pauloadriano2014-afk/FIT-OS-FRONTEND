@@ -2,7 +2,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import RaioxCard from './RaioxCard';
+import RaioXCard from './RaioXCard';
 import MenstrualAlertCard from './MenstrualAlertCard';
 
 export default function SidebarPC({
@@ -26,7 +26,7 @@ export default function SidebarPC({
     return (
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 24, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
             {!isTemplateMode && (
-                <RaioxCard anamneseData={anamneseData} isExpanded={isRaioxExpanded} onToggle={onToggleRaiox} theme={theme} />
+                <RaioXCard anamneseData={anamneseData} isRaioxExpanded={isRaioxExpanded} setIsRaioxExpanded={onToggleRaiox} theme={theme} />
             )}
 
             {!isTemplateMode && (
