@@ -19,10 +19,10 @@ export default function AdminUserTreinosTab({
     handleDeleteWorkout,
     hasActiveFicha,
     fichaDaysElapsed,
-    // 🏃 Props do módulo de corrida
     isRunningModule,
     handleToggleRunningModule,
     onOpenRunningModal,
+    onOpenEliteProtocol, // 🔥 FALTAVA ESSA
 }) {
     const [ferramentasOpen, setFerramentasOpen] = useState(false);
 
@@ -60,7 +60,7 @@ export default function AdminUserTreinosTab({
                     {/* Protocolo ELITE */}
                     <TouchableOpacity
                         style={[styles.ferramentaRow, { borderBottomColor: theme.border }]}
-                        onPress={() => {/* navega para GerarTreinoIA — mantém comportamento original */}}
+                        onPress={() => onOpenEliteProtocol?.()}
                     >
                         <View style={[styles.ferramentaIconBox, { backgroundColor: theme.accent + '18' }]}>
                             <MaterialCommunityIcons name="lightning-bolt" size={18} color={theme.accent} />
