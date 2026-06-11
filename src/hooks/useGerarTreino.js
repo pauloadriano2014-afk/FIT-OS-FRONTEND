@@ -11,10 +11,7 @@ import { buildDefaultDays, suggestPhase, dayNeedsCardio } from '../components/Ge
 export default function useGerarTreino(navigation, route) {
   const cameFromAluno = !!(route.params?.aluno?.id);
 
-  // ─── NAVIGATION STATE ───
   const [step, setStep] = useState(STEP_SELECT_STUDENT);
-
-  // ─── STUDENT STATE ───
   const [search, setSearch] = useState('');
   const [students, setStudents] = useState([]);
   const [loadingStudents, setLoadingStudents] = useState(true);
@@ -22,12 +19,13 @@ export default function useGerarTreino(navigation, route) {
   const [studentDetail, setStudentDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
 
-  // ─── GENERATION STATE ───
   const [generatingMsg, setGeneratingMsg] = useState('');
   const [error, setError] = useState('');
   const [generatedData, setGeneratedData] = useState(null);
 
-  // ─── CYCLE CONFIG STATE ───
+  // 🔥 NOVO ESTADO: Chave Seletora de IA
+  const [selectedAI, setSelectedAI] = useState('GEMINI');
+
   const [cyclePhase, setCyclePhase] = useState('HIPERTROFIA');
   const [selectedTechniques, setSelectedTechniques] = useState(['DROPSET', 'BISET']);
   const [techniqueScope, setTechniqueScope] = useState('CYCLE');
@@ -36,11 +34,9 @@ export default function useGerarTreino(navigation, route) {
   const [activeDayId, setActiveDayId] = useState('1');
   const [limitationRules] = useState(DEFAULT_LIMITATION_RULES);
 
-  // ─── PRESETS STATE ───
   const [savedPresets, setSavedPresets] = useState([]);
   const [presetName, setPresetName] = useState('');
 
-  // ─── MODAL STATE ───
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [showEnvPicker, setShowEnvPicker] = useState(false);
@@ -48,7 +44,6 @@ export default function useGerarTreino(navigation, route) {
   const [showPresetSaver, setShowPresetSaver] = useState(false);
   const [showPresetsLoader, setShowPresetsLoader] = useState(false);
 
-  // ─── INIT ───
   useEffect(() => {
     loadSavedPresets();
     if (cameFromAluno) {
@@ -60,7 +55,6 @@ export default function useGerarTreino(navigation, route) {
     }
   }, []);
 
-  // ─── PRESETS ───
   const loadSavedPresets = async () => {
     try {
       const raw = await AsyncStorage.getItem(STORAGE_PRESETS_KEY);
@@ -109,7 +103,6 @@ export default function useGerarTreino(navigation, route) {
     await AsyncStorage.setItem(STORAGE_PRESETS_KEY, JSON.stringify(updated));
   };
 
-  // ─── FETCH ───
   const fetchStudents = async () => {
     setLoadingStudents(true);
     try {
@@ -146,7 +139,6 @@ export default function useGerarTreino(navigation, route) {
     finally { setLoadingDetail(false); }
   };
 
-  // ─── GERAR ───
   const handleGenerate = async () => {
     if (!selectedStudent) return;
     if (!days.some(d => d.groups.length > 0)) {
@@ -183,7 +175,9 @@ export default function useGerarTreino(navigation, route) {
           };
         });
 
+      // 🔥 ENVIANDO A IA ESCOLHIDA
       const cycleConfig = {
+        selectedAI,
         phase: cyclePhase,
         techniques: selectedTechniques,
         techniqueScope,
@@ -232,7 +226,6 @@ export default function useGerarTreino(navigation, route) {
     });
   };
 
-  // ─── DAYS HELPERS ───
   const addDay = () => {
     const letters = 'ABCDEFGHIJKLMNOP';
     const name = letters[days.length] || `D${days.length + 1}`;
@@ -248,8 +241,7 @@ export default function useGerarTreino(navigation, route) {
     if (activeDayId === id) setActiveDayId(filtered[0].id);
   };
 
-  const updateDayName = (id, name) =>
-    setDays(days.map(d => d.id === id ? { ...d, name } : d));
+  const updateDayName = (id, name) => setDays(days.map(d => d.id === id ? { ...d, name } : d));
 
   const addGroupToDay = (groupId) => {
     const info = MUSCLE_GROUPS.find(g => g.id === groupId);
@@ -259,17 +251,10 @@ export default function useGerarTreino(navigation, route) {
     }));
   };
 
-  const removeGroupFromDay = (dayId, groupId) =>
-    setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.filter(g => g.id !== groupId) } : d));
-
-  const updateGroupQty = (dayId, groupId, qty) =>
-    setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, qty } : g) } : d));
-
-  const updateGroupSets = (dayId, groupId, sets) =>
-    setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, sets } : g) } : d));
-
-  const updateGroupRest = (dayId, groupId, rest) =>
-    setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, rest } : g) } : d));
+  const removeGroupFromDay = (dayId, groupId) => setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.filter(g => g.id !== groupId) } : d));
+  const updateGroupQty = (dayId, groupId, qty) => setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, qty } : g) } : d));
+  const updateGroupSets = (dayId, groupId, sets) => setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, sets } : g) } : d));
+  const updateGroupRest = (dayId, groupId, rest) => setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, rest } : g) } : d));
 
   const applyTemplate = (tmpl) => {
     setDays(days.map(d => d.id !== activeDayId ? d : {
@@ -304,8 +289,7 @@ export default function useGerarTreino(navigation, route) {
     }));
   };
 
-  const toggleTechnique = (id) =>
-    setSelectedTechniques(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+  const toggleTechnique = (id) => setSelectedTechniques(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
 
   const handleBack = () => {
     if (step === STEP_GENERATING) return;
@@ -319,36 +303,25 @@ export default function useGerarTreino(navigation, route) {
     navigation.goBack();
   };
 
-  // ─── COMPUTED ───
   const activeDay = days.find(d => d.id === activeDayId);
   const anamnese = studentDetail?.anamneses?.[0];
   const allLimitations = [...(anamnese?.limitacoes || []), ...(anamnese?.cirurgias || [])];
-  const activeRules = limitationRules.filter(rule =>
-    allLimitations.some(l => l.toLowerCase().includes(rule.trigger.toLowerCase()))
-  );
-  const filteredStudents = students.filter(s =>
-    (s.name?.toLowerCase() || '').includes(search.toLowerCase()) ||
-    (s.email?.toLowerCase() || '').includes(search.toLowerCase())
-  );
+  const activeRules = limitationRules.filter(rule => allLimitations.some(l => l.toLowerCase().includes(rule.trigger.toLowerCase())));
+  const filteredStudents = students.filter(s => (s.name?.toLowerCase() || '').includes(search.toLowerCase()) || (s.email?.toLowerCase() || '').includes(search.toLowerCase()));
 
   return {
-    // state
     step, search, setSearch, students, loadingStudents, selectedStudent,
     studentDetail, loadingDetail, generatingMsg, error, setError,
     generatedData, cyclePhase, setCyclePhase, selectedTechniques,
     techniqueScope, setTechniqueScope, trainingEnvironment, setTrainingEnvironment,
     days, activeDayId, setActiveDayId, savedPresets, presetName, setPresetName,
-    // modals
+    selectedAI, setSelectedAI, // 🔥 Variáveis Novas
     showGroupPicker, setShowGroupPicker, showTemplatePicker, setShowTemplatePicker,
     showEnvPicker, setShowEnvPicker, showComparison, setShowComparison,
     showPresetSaver, setShowPresetSaver, showPresetsLoader, setShowPresetsLoader,
-    // computed
     activeDay, anamnese, activeRules, filteredStudents,
-    // actions
-    handleBack, handleGenerate, handleConfirmAndOpen,
-    handleSelectStudent, fetchStudents,
-    savePreset, loadPreset, deletePreset,
-    addDay, removeDay, updateDayName,
+    handleBack, handleGenerate, handleConfirmAndOpen, handleSelectStudent, fetchStudents,
+    savePreset, loadPreset, deletePreset, addDay, removeDay, updateDayName,
     addGroupToDay, removeGroupFromDay, updateGroupQty, updateGroupSets, updateGroupRest,
     applyTemplate, moveGroupUp, moveGroupDown, toggleTechnique,
   };

@@ -131,6 +131,38 @@ export const useAdminCheckins = (aluno) => {
     } catch { return null; }
   };
 
+  // ✅ Restaura a foto original removendo as marcações
+  const restoreCheckinPhoto = async (checkinId, field) => {
+      try {
+          const res = await fetch('https://fitos-final.onrender.com/api/checkin/update-photo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ mode: 'restore', checkinId, photoField: field }),
+          });
+          const data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || 'Falha ao restaurar.');
+
+          const originalFieldMap = {
+              photoFront: 'photoFrontOriginal',
+              photoSide:  'photoSideOriginal',
+              photoBack:  'photoBackOriginal',
+          };
+          setCheckins(prev => prev.map(c => c.id === checkinId ? {
+              ...c,
+              [field]:                   data.restoredUrl,
+              [originalFieldMap[field]]: null,
+          } : c));
+
+          const msg = 'Foto restaurada com sucesso!';
+          if (Platform.OS === 'web') window.alert(msg);
+          else Alert.alert('Sucesso', msg);
+      } catch (err) {
+          const msg = `Erro ao restaurar: ${err.message}`;
+          if (Platform.OS === 'web') window.alert(msg);
+          else Alert.alert('Erro', msg);
+      }
+  };
+
   const pickCustomOldImage = async (slot) => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { Alert.alert('Permissão necessária','Precisamos de acesso à galeria.'); return; }
@@ -311,7 +343,7 @@ export const useAdminCheckins = (aluno) => {
     customOldWeight, setCustomOldWeight,
     customOldDate,   setCustomOldDate,
     contextText, setContextText,
-    fetchCheckins, safeDate, handleDelete,
+    fetchCheckins, safeDate, handleDelete, restoreCheckinPhoto,
     pickCustomOldImage, removeCustomOldImage,
     openEvaluationPanel, handleTabChange, getOldCheckin,
     generateAIFeedback, submitEvaluation, handleResolveSilently,

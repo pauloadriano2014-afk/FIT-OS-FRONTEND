@@ -881,11 +881,44 @@ export default function PhotoEditorModal({
                     const ctx   = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0);
 
-                    const scaleX = img.naturalWidth  / scaledW;
-                    const scaleY = img.naturalHeight / scaledH;
+                    // Marks are stored in baseW × baseH coordinate space (zoom=1, resizeMode=contain)
+                    // Need to account for letterboxing: image may not fill the entire baseW × baseH area
+                    const imgAspect  = img.naturalWidth / img.naturalHeight;
+                    const viewAspect = baseW / baseH;
+
+                    // Actual rendered size of the image inside the baseW × baseH container (contain mode)
+                    let renderedW, renderedH, offsetX, offsetY;
+                    if (imgAspect > viewAspect) {
+                        // Image wider than container → pillarbox (black top/bottom)
+                        renderedW = baseW;
+                        renderedH = baseW / imgAspect;
+                        offsetX   = 0;
+                        offsetY   = (baseH - renderedH) / 2;
+                    } else {
+                        // Image taller than container → letterbox (black left/right)
+                        renderedH = baseH;
+                        renderedW = baseH * imgAspect;
+                        offsetX   = (baseW - renderedW) / 2;
+                        offsetY   = 0;
+                    }
+
+                    // Scale from rendered-in-view coords to actual image pixels
+                    const scaleX = img.naturalWidth  / renderedW;
+                    const scaleY = img.naturalHeight / renderedH;
                     const scale  = Math.max(scaleX, scaleY);
 
-                    right.marksRef.current.forEach(m => drawMarkOnCanvas(ctx, m, scaleX, scaleY, scale));
+                    right.marksRef.current.forEach(m => {
+                        // Shift mark coords to remove the letterbox offset before scaling
+                        const shifted = {
+                            ...m,
+                            startX: m.startX - offsetX,
+                            startY: m.startY - offsetY,
+                            endX:   m.endX   - offsetX,
+                            endY:   m.endY   - offsetY,
+                            ...(m.type === 'text' ? { x: (m.x ?? 0) - offsetX, y: (m.y ?? 0) - offsetY } : {}),
+                        };
+                        drawMarkOnCanvas(ctx, shifted, scaleX, scaleY, scale);
+                    });
 
                     const uri = canvas.toDataURL('image/jpeg', 0.92);
                     onSave({ mode: 'single', uri });
@@ -946,11 +979,56 @@ export default function PhotoEditorModal({
                 handleClear();
                 onClose();
 
+            } else if (IS_MOBILE_PWA) {
+                // Mobile PWA: sem ViewShot, usamos canvas 2D igual ao desktop
+                // A imagem é carregada diretamente (sem CORS issue pois é blob URL)
+                const img = await new Promise((resolve, reject) => {
+                    const i = new window.Image();
+                    i.onload  = () => resolve(i);
+                    i.onerror = reject;
+                    i.crossOrigin = 'anonymous';
+                    i.src = photoUri + (photoUri.includes('?') ? '&_m=1' : '?_m=1');
+                });
+
+                const canvas  = document.createElement('canvas');
+                canvas.width  = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx     = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                const imgAspect  = img.naturalWidth / img.naturalHeight;
+                const viewAspect = baseW / baseH;
+                let renderedW, renderedH, offsetX, offsetY;
+                if (imgAspect > viewAspect) {
+                    renderedW = baseW; renderedH = baseW / imgAspect;
+                    offsetX = 0; offsetY = (baseH - renderedH) / 2;
+                } else {
+                    renderedH = baseH; renderedW = baseH * imgAspect;
+                    offsetX = (baseW - renderedW) / 2; offsetY = 0;
+                }
+                const scaleX = img.naturalWidth  / renderedW;
+                const scaleY = img.naturalHeight / renderedH;
+                const scale  = Math.max(scaleX, scaleY);
+
+                right.marksRef.current.forEach(m => {
+                    const shifted = {
+                        ...m,
+                        startX: m.startX - offsetX, startY: m.startY - offsetY,
+                        endX:   m.endX   - offsetX, endY:   m.endY   - offsetY,
+                        ...(m.type === 'text' ? { x: (m.x ?? 0) - offsetX, y: (m.y ?? 0) - offsetY } : {}),
+                    };
+                    drawMarkOnCanvas(ctx, shifted, scaleX, scaleY, scale);
+                });
+
+                const uri = canvas.toDataURL('image/jpeg', 0.92);
+                onSave({ mode: 'single', uri });
+                handleClear();
+                onClose();
+
             } else {
-                // Mobile nativo e Mobile PWA: ViewShot captura a view renderizada
-                // (funciona perfeitamente porque ReactNativeImage não tem restrição CORS)
+                // React Native nativo
                 if (!RNViewShot || !captureRef.current?.capture) {
-                    throw new Error('ViewShot não disponível. Tente no desktop para salvar comparações.');
+                    throw new Error('ViewShot não disponível.');
                 }
                 const uri = await captureRef.current.capture();
                 onSave({ mode: 'single', uri });
