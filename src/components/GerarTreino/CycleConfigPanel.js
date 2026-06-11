@@ -7,13 +7,15 @@ import { CYCLE_PHASES, TECHNIQUES, TRAINING_ENVIRONMENTS } from './_constants';
 export default function CycleConfigPanel({ g, theme }) {
   return (
     <View>
-      {/* 🔥 SELETOR DE INTELIGÊNCIA ARTIFICIAL 🔥 */}
+      {/* ══════════════════════════════════════════
+          🔥 SELETOR DE INTELIGÊNCIA ARTIFICIAL 🔥
+      ══════════════════════════════════════════ */}
       <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>CÉREBRO DA IA</Text>
       <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
         {[
-          { id: 'GEMINI', label: 'Gemini 2.5', icon: 'google-circles-extended', color: '#8A2BE2' }, // Roxo/Azul do Google
-          { id: 'GPT', label: 'GPT-4o', icon: 'robot-outline', color: '#10A37F' }, // Verde da OpenAI
-          { id: 'CLAUDE', label: 'Claude 3.5', icon: 'brain', color: '#D97757' } // Laranja da Anthropic
+          { id: 'GEMINI', label: 'Gemini 2.5', icon: 'google-circles-extended', color: '#8A2BE2' },
+          { id: 'GPT', label: 'GPT-4o', icon: 'robot-outline', color: '#10A37F' },
+          { id: 'CLAUDE', label: 'Claude 3.5', icon: 'brain', color: '#D97757' }
         ].map(ai => {
           const isSel = g.selectedAI === ai.id;
           return (
@@ -137,7 +139,10 @@ export default function CycleConfigPanel({ g, theme }) {
 
 const S = StyleSheet.create({
   sectionTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 10 },
-  aiBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1 }, // 🔥 Estilo novo do Botão IA
+  
+  // 🔥 ESTILO DOS BOTÕES DA IA (Foi isso aqui que o Expo não tinha carregado)
+  aiBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1 }, 
+  
   envDropdown:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, marginBottom: 20 },
   envIcon:      { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
