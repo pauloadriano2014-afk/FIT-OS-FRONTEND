@@ -420,7 +420,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     selectedWorkoutTab={state.selectedWorkoutTab} workoutTabs={state.workoutTabs}
                     currentExercisesCount={state.currentExercises.length}
                     onFillCurrentDay={() => actions.autoFillSubstitutes(state.selectedWorkoutTab)}
-                    onFillAllDays={() => state.workoutTabs.forEach(tab => actions.autoFillSubstitutes(tab))}
+                    onFillAllDays={() => actions.autoFillSubstitutesAllDays()}
+                    onClearCurrentDay={() => actions.clearSubstitutes(state.selectedWorkoutTab)}
+                    onClearAllDays={() => actions.clearSubstitutesAllDays()}
                 />
             </>
         );

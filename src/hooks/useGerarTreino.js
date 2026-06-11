@@ -219,6 +219,7 @@ export default function useGerarTreino(navigation, route) {
       prefillData: {
         workoutName: generatedData.workoutName,
         workoutModel: generatedData.workoutModel || 'CARGA',
+        trainingEnvironment: generatedData.trainingEnvironment, // 🔥 Adicione esta linha!
         exercisesByDay: generatedData.exercisesByDay,
         workoutTabs: generatedData.workoutTabs,
       },

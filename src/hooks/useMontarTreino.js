@@ -249,6 +249,7 @@ export function useMontarTreino(route, navigation) {
                     setSelectedWorkoutTab(tabs[0]);
                     setCustomWorkoutName(prefillData.workoutName || '');
                     if (prefillData.workoutModel) setWorkoutModel(prefillData.workoutModel);
+                    if (prefillData.trainingEnvironment) setWorkoutEnvironment(prefillData.trainingEnvironment);
                     draftLoaded = true;
                 }
 
@@ -814,6 +815,109 @@ export function useMontarTreino(route, navigation) {
         else Alert.alert('Auto-preencher Substitutos', msg);
     };
 
+    // ─── LIMPAR SUBSTITUTOS (um dia ou todos de uma vez) ───
+    const clearSubstitutes = (dayTab = null) => {
+        const targetTab = dayTab || selectedWorkoutTab;
+        const currentList = [...(exercisesByDay[targetTab] || [])];
+        let cleared = 0;
+
+        const updatedList = currentList.map(ex => {
+            const hasSubs = (ex.substitutes || []).length > 0 || ex.substitute;
+            if (!hasSubs) return ex;
+            cleared++;
+            return { ...ex, substitutes: [], substitute: null };
+        });
+
+        setExercisesByDay({ ...exercisesByDay, [targetTab]: updatedList });
+
+        const msg = cleared > 0
+            ? `🗑 ${cleared} exercício(s) tiveram substitutos removidos!`
+            : 'Nenhum exercício tinha substitutos vinculados.';
+
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Limpar Substitutos', msg);
+    };
+
+    // ─── LIMPAR SUBSTITUTOS DE TODOS OS DIAS DE UMA VEZ ───
+    const clearSubstitutesAllDays = () => {
+        const newExercisesByDay = { ...exercisesByDay };
+        let totalCleared = 0;
+
+        workoutTabs.forEach(tab => {
+            const currentList = [...(newExercisesByDay[tab] || [])];
+            newExercisesByDay[tab] = currentList.map(ex => {
+                const hasSubs = (ex.substitutes || []).length > 0 || ex.substitute;
+                if (!hasSubs) return ex;
+                totalCleared++;
+                return { ...ex, substitutes: [], substitute: null };
+            });
+        });
+
+        setExercisesByDay(newExercisesByDay);
+
+        const msg = totalCleared > 0
+            ? `🗑 ${totalCleared} exercício(s) tiveram substitutos removidos em todos os dias!`
+            : 'Nenhum exercício tinha substitutos vinculados.';
+
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Limpar Substitutos', msg);
+    };
+
+    // ─── PREENCHER SUBSTITUTOS DE TODOS OS DIAS DE UMA VEZ ───
+    const autoFillSubstitutesAllDays = () => {
+        const newExercisesByDay = { ...exercisesByDay };
+        let totalFilled = 0;
+        let totalAlreadyFull = 0;
+        let totalFilteredOut = 0;
+
+        workoutTabs.forEach(tab => {
+            const currentList = [...(newExercisesByDay[tab] || [])];
+
+            newExercisesByDay[tab] = currentList.map(ex => {
+                if ((ex.substitutes || []).length >= 3) { totalAlreadyFull++; return ex; }
+
+                const dbEx = biblioteca.find(b => b.id === ex.exerciseId);
+                if (!dbEx || !dbEx.defaultSubstitutes || dbEx.defaultSubstitutes.length === 0) return ex;
+
+                const alreadyLinkedIds = new Set((ex.substitutes || []).map(s => s.id));
+
+                let candidatos = dbEx.defaultSubstitutes
+                    .map(subId => biblioteca.find(b => b.id === subId))
+                    .filter(Boolean)
+                    .filter(sub => !alreadyLinkedIds.has(sub.id));
+
+                if (workoutEnvironment && workoutEnvironment !== 'UNIVERSAL') {
+                    const antes = candidatos.length;
+                    candidatos = candidatos.filter(sub => {
+                        const envs = sub.environments || [];
+                        return envs.length === 0 || envs.includes('UNIVERSAL') || envs.includes(workoutEnvironment);
+                    });
+                    totalFilteredOut += antes - candidatos.length;
+                }
+
+                const newSubs = candidatos
+                    .slice(0, 3 - (ex.substitutes || []).length)
+                    .map(sub => ({ id: sub.id, name: sub.name, videoUrl: sub.videoUrl || '' }));
+
+                if (newSubs.length === 0) return ex;
+                totalFilled++;
+                return { ...ex, substitutes: [...(ex.substitutes || []), ...newSubs] };
+            });
+        });
+
+        setExercisesByDay(newExercisesByDay);
+
+        const envMsg = totalFilteredOut > 0 ? `
+${totalFilteredOut} removido(s) por incompatibilidade com o ambiente.` : '';
+        const msg = totalFilled > 0
+            ? `✅ ${totalFilled} exercício(s) preenchidos em todos os dias!${totalAlreadyFull > 0 ? `
+${totalAlreadyFull} já estavam completos.` : ''}${envMsg}`
+            : `Nenhum exercício para preencher.${envMsg}`;
+
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Auto-preencher Substitutos', msg);
+    };
+
     const addExercicioManual = (ex) => {
         const currentList = [...(exercisesByDay[selectedWorkoutTab] || [])];
         const isCardio = ex.category?.toUpperCase() === 'CARDIO';
@@ -1055,7 +1159,7 @@ export function useMontarTreino(route, navigation) {
             removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, 
             atualizarBloco, salvarTreinoFinal, openPreview, moveTab, duplicateTabInline,
             triggerSmartSubstitute, confirmSmartSubstitute, safeSetInitialCategoryFilter,
-            autoFillSubstitutes,
+            autoFillSubstitutes, autoFillSubstitutesAllDays, clearSubstitutes, clearSubstitutesAllDays,
         }
     };
 }
