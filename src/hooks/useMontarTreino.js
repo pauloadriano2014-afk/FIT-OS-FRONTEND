@@ -45,6 +45,7 @@ export function useMontarTreino(route, navigation) {
     const [isReordering, setIsReordering] = useState(false);
 
     const [workoutModel, setWorkoutModel] = useState('CARGA'); 
+    const [workoutEnvironment, setWorkoutEnvironment] = useState('UNIVERSAL'); // 🔥 NOVO
 
     const [intensityMultiplier, setIntensityMultiplier] = useState(1.0);
     const [intensityEndDate, setIntensityEndDate] = useState(null);
@@ -127,20 +128,21 @@ export function useMontarTreino(route, navigation) {
         const autoSave = async () => {
             if (loading) return; 
             const dataToSave = {
-                exercisesByDay, workoutTabs, customWorkoutName, workoutModel,
+                exercisesByDay, workoutTabs, customWorkoutName, workoutModel, workoutEnvironment,
                 intensityMultiplier, intensityEndDate: intensityEndDate ? intensityEndDate.toISOString() : null,
                 lastUpdated: new Date().getTime()
             };
             await AsyncStorage.setItem(draftKey, JSON.stringify(dataToSave));
         };
         autoSave();
-    }, [exercisesByDay, workoutTabs, customWorkoutName, workoutModel, intensityMultiplier, intensityEndDate, loading]);
+    }, [exercisesByDay, workoutTabs, customWorkoutName, workoutModel, workoutEnvironment, intensityMultiplier, intensityEndDate, loading]);
 
     useEffect(() => { 
         if (!isEditing && !isTemplateMode && !laboratoryStructure) {
             setExercisesByDay({ 'A': [] }); setWorkoutTabs(['A']); setSelectedWorkoutTab('A');
             setCustomWorkoutName(''); setStartDate(new Date()); setEndDate(new Date(new Date().setDate(new Date().getDate() + 30)));
-            setIsArchived(false); setWorkoutModel('CARGA'); setIntensityMultiplier(1.0); setIntensityEndDate(null);
+            setIsArchived(false); setWorkoutModel('CARGA'); setWorkoutEnvironment('UNIVERSAL');
+            setIntensityMultiplier(1.0); setIntensityEndDate(null);
         }
         fetchDados(); 
     }, [isEditing, isTemplateMode, laboratoryStructure]);
@@ -208,6 +210,7 @@ export function useMontarTreino(route, navigation) {
                         }
                         if (parsedDraft.customWorkoutName) setCustomWorkoutName(parsedDraft.customWorkoutName);
                         if (parsedDraft.workoutModel) setWorkoutModel(parsedDraft.workoutModel);
+                        if (parsedDraft.workoutEnvironment) setWorkoutEnvironment(parsedDraft.workoutEnvironment);
                         if (parsedDraft.intensityMultiplier) setIntensityMultiplier(parsedDraft.intensityMultiplier);
                         if (parsedDraft.intensityEndDate) setIntensityEndDate(new Date(parsedDraft.intensityEndDate));
                         draftLoaded = true;
@@ -688,7 +691,18 @@ export function useMontarTreino(route, navigation) {
         } catch (e) { Alert.alert("Erro", "Falha ao salvar modelo."); }
     };
 
-    // ─── SMART SUBSTITUTE: intercepta o clique de adicionar substituto ───
+    // ─── HELPER: filtra substitutos pelo ambiente selecionado ───
+    const filterSubsByEnvironment = (subs) => {
+        if (!workoutEnvironment || workoutEnvironment === 'UNIVERSAL') return subs;
+        return subs.filter(sub => {
+            const dbEx = biblioteca.find(b => b.id === sub.id);
+            if (!dbEx) return true; // se não achar na biblioteca, deixa passar
+            const envs = dbEx.environments || [];
+            return envs.length === 0 || envs.includes('UNIVERSAL') || envs.includes(workoutEnvironment);
+        });
+    };
+
+    // ─── SMART SUBSTITUTE ───
     const triggerSmartSubstitute = (index) => {
         const currentList = exercisesByDay[selectedWorkoutTab] || [];
         const currentExercise = currentList[index];
@@ -708,10 +722,15 @@ export function useMontarTreino(route, navigation) {
             const subObjects = rawSubIds.map(subId => biblioteca.find(b => b.id === subId)).filter(Boolean);
             const availableSubs = subObjects.filter(sub => !alreadyLinkedIds.includes(sub.id));
 
-            if (availableSubs.length > 0) {
+            // 🔥 Filtra pelo ambiente do treino
+            const filteredByEnv = filterSubsByEnvironment(
+                availableSubs.map(s => ({ id: s.id, name: s.name, videoUrl: s.videoUrl }))
+            ).map(s => availableSubs.find(a => a.id === s.id)).filter(Boolean);
+
+            if (filteredByEnv.length > 0) {
                 setIsSelectingSubstitute(true);
                 setTargetIndexForSubstitute(index);
-                setSmartSubstitutesList(availableSubs);
+                setSmartSubstitutesList(filteredByEnv);
                 setSmartSubstitutesModal(true);
                 return;
             }
@@ -743,29 +762,39 @@ export function useMontarTreino(route, navigation) {
         setSmartSubstitutesModal(false);
     };
 
-    // ─── AUTO-PREENCHER SUBSTITUTOS DE TODOS OS EXERCÍCIOS DO DIA ───
+    // ─── AUTO-PREENCHER SUBSTITUTOS ───
     const autoFillSubstitutes = (dayTab = null) => {
         const targetTab = dayTab || selectedWorkoutTab;
         const currentList = [...(exercisesByDay[targetTab] || [])];
         let filled = 0;
         let alreadyFull = 0;
+        let filteredOut = 0;
 
         const updatedList = currentList.map(ex => {
-            // Já tem 3 substitutos — não mexe
             if ((ex.substitutes || []).length >= 3) { alreadyFull++; return ex; }
 
-            // Busca o exercício na biblioteca
             const dbEx = biblioteca.find(b => b.id === ex.exerciseId);
             if (!dbEx || !dbEx.defaultSubstitutes || dbEx.defaultSubstitutes.length === 0) return ex;
 
-            // IDs já vinculados
             const alreadyLinkedIds = new Set((ex.substitutes || []).map(s => s.id));
 
-            // Busca os objetos completos e filtra os não vinculados, respeitando limite de 3
-            const newSubs = dbEx.defaultSubstitutes
+            // Busca objetos completos dos substitutos
+            let candidatos = dbEx.defaultSubstitutes
                 .map(subId => biblioteca.find(b => b.id === subId))
                 .filter(Boolean)
-                .filter(sub => !alreadyLinkedIds.has(sub.id))
+                .filter(sub => !alreadyLinkedIds.has(sub.id));
+
+            // 🔥 Filtra pelo ambiente do treino
+            if (workoutEnvironment && workoutEnvironment !== 'UNIVERSAL') {
+                const antes = candidatos.length;
+                candidatos = candidatos.filter(sub => {
+                    const envs = sub.environments || [];
+                    return envs.length === 0 || envs.includes('UNIVERSAL') || envs.includes(workoutEnvironment);
+                });
+                filteredOut += antes - candidatos.length;
+            }
+
+            const newSubs = candidatos
                 .slice(0, 3 - (ex.substitutes || []).length)
                 .map(sub => ({ id: sub.id, name: sub.name, videoUrl: sub.videoUrl || '' }));
 
@@ -776,9 +805,10 @@ export function useMontarTreino(route, navigation) {
 
         setExercisesByDay({ ...exercisesByDay, [targetTab]: updatedList });
 
+        const envMsg = filteredOut > 0 ? `\n${filteredOut} substituto(s) removido(s) por não serem compatíveis com o ambiente selecionado.` : '';
         const msg = filled > 0
-            ? `✅ ${filled} exercício(s) preenchido(s) com substitutos!${alreadyFull > 0 ? `\n${alreadyFull} já estavam completos.` : ''}`
-            : `Nenhum exercício para preencher. Configure os substitutos na biblioteca primeiro.`;
+            ? `✅ ${filled} exercício(s) preenchido(s) com substitutos!${alreadyFull > 0 ? `\n${alreadyFull} já estavam completos.` : ''}${envMsg}`
+            : `Nenhum exercício para preencher. Configure os substitutos na biblioteca primeiro.${envMsg}`;
 
         if (Platform.OS === 'web') window.alert(msg);
         else Alert.alert('Auto-preencher Substitutos', msg);
@@ -1003,7 +1033,7 @@ export function useMontarTreino(route, navigation) {
             templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, 
             tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, 
             isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, 
-            selectedLevelTab, workoutModel, intensityMultiplier, intensityEndDate, showCalendarIntensity,
+            selectedLevelTab, workoutModel, workoutEnvironment, intensityMultiplier, intensityEndDate, showCalendarIntensity,
             smartSubstitutesModal, smartSubstitutesList,
         },
         setters: {
@@ -1015,7 +1045,7 @@ export function useMontarTreino(route, navigation) {
             setSearchText, setSelectedCategory, setSelectedSubCat, setShowCatDropdown, setIndexExercicioAtual, 
             setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, 
             setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
-            setWorkoutModel, setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
+            setWorkoutModel, setWorkoutEnvironment, setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
             setWorkoutTabs, setExercisesByDay, setSmartSubstitutesModal,
         },
         actions: {

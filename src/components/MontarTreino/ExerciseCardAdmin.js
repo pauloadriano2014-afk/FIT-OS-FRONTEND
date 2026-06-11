@@ -115,7 +115,7 @@ export default function ExerciseCardAdmin({
             borderWidth: isActive ? 2 : 1,
             opacity: isGhost ? 0.8 : 1,
             ...Platform.select({
-                web: { boxShadow: isActive ? `0 0 0 2px ${theme.accent}` : '0 2px 10px rgba(0,0,0,0.05)' },
+                web: { boxShadow: isActive ? `0 0 0 2px ${theme.accent}` : '0 2px 10px rgba(0,0,0,0.05)', overflow: 'hidden', borderRadius: 18 },
                 default: { elevation: isActive ? 8 : 2 },
             }),
         }]}>
@@ -182,6 +182,6 @@ export default function ExerciseCardAdmin({
 }
 
 const S = StyleSheet.create({
-    card: { borderRadius: 18, marginBottom: 14, overflow: 'hidden' },
+    card: { borderRadius: 18, marginBottom: 14, overflow: Platform.OS === 'web' ? 'visible' : 'hidden' },
     body: { padding: 14 },
 });

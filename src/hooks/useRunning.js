@@ -27,15 +27,25 @@ export default function useRunning() {
   const [currentBlock, setCurrentBlock] = useState(1);
   const [logs, setLogs] = useState([]);
 
-  // Modal de sessão
+  const [anamnese, setAnamnese] = useState(null);
+  const [anamneseModalVisible, setAnamneseModalVisible] = useState(false);
+
   const [sessionModalVisible, setSessionModalVisible] = useState(false);
-  const [selectedSession, setSelectedSession] = useState(null); // { day, week, block, sessionData }
-
-  // Modal de protocolo completo (leitura)
   const [protocolModalVisible, setProtocolModalVisible] = useState(false);
-
-  // Form de registro
+  const [freeRunModalVisible, setFreeRunModalVisible] = useState(false);
+  const [paceCalculatorModalVisible, setPaceCalculatorModalVisible] = useState(false);
+  const [activeRunModalVisible, setActiveRunModalVisible] = useState(false);
+  
+  const [customRunPlannerModalVisible, setCustomRunPlannerModalVisible] = useState(false);
+  const [customPhases, setCustomPhases] = useState([]);
+  const [customWorkouts, setCustomWorkouts] = useState([]); 
+  
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [activeRunMode, setActiveRunMode] = useState('free');
   const [saving, setSaving] = useState(false);
+  const [submittingAnamnese, setSubmittingAnamnese] = useState(false);
+
+  const [finishedRunDuration, setFinishedRunDuration] = useState(null);
 
   const fetchRunning = useCallback(async () => {
     try {
@@ -44,29 +54,28 @@ export default function useRunning() {
       const user = JSON.parse(stored);
       setUserId(user.id);
 
-      // Checa se o módulo está ativo para este aluno
-      if (!user.runningModule) {
-        setHasRunningModule(false);
-        setLoading(false);
-        setRefreshing(false);
-        return;
+      setHasRunningModule(!!user.runningModule);
+
+      const storedCustoms = await AsyncStorage.getItem(`@custom_runs_${user.id}`);
+      if (storedCustoms) {
+        setCustomWorkouts(JSON.parse(storedCustoms));
       }
 
-      setHasRunningModule(true);
-
-      const res = await fetch(`${API}/api/running/${user.id}&t=${Date.now()}`);
+      const res = await fetch(`${API}/api/running/${user.id}?t=${Date.now()}`);
       if (!res.ok) { setLoading(false); setRefreshing(false); return; }
 
       const data = await res.json();
+
+      if (data.anamnese) setAnamnese(data.anamnese);
 
       if (data.protocol) {
         setProtocol(data.protocol);
         setCurrentWeek(data.currentWeek || 1);
         setCurrentBlock(data.currentBlock || 1);
-        setLogs(data.protocol.logs || []);
+        setLogs(data.logs || data.protocol.logs || []);
       } else {
         setProtocol(null);
-        setLogs([]);
+        setLogs(data.logs || []);
       }
     } catch (e) {
       console.log('[useRunning] fetchRunning error:', e);
@@ -76,18 +85,126 @@ export default function useRunning() {
     }
   }, []);
 
+  const handleSaveCustomWorkout = async (workout) => {
+    const updated = [workout, ...customWorkouts];
+    setCustomWorkouts(updated);
+    if (userId) {
+      await AsyncStorage.setItem(`@custom_runs_${userId}`, JSON.stringify(updated));
+    }
+    if (Platform.OS === 'web') window.alert('Treino salvo na sua biblioteca!');
+    else Alert.alert('Salvo!', 'Seu treino foi guardado e está pronto para uso.');
+  };
+
+  const handleDeleteCustomWorkout = async (id) => {
+    const updated = customWorkouts.filter(w => w.id !== id);
+    setCustomWorkouts(updated);
+    if (userId) {
+      await AsyncStorage.setItem(`@custom_runs_${userId}`, JSON.stringify(updated));
+    }
+  };
+
+  // 🔥 NOVA FUNÇÃO: Excluir Histórico (Comunica com a API)
+  const handleDeleteLog = async (logId) => {
+    const execDelete = async () => {
+      setSaving(true);
+      try {
+        const res = await fetch(`${API}/api/running/log/${logId}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          fetchRunning(); // Recarrega os dados pra atualizar gráficos e listas
+        } else {
+          if (Platform.OS === 'web') window.alert('Erro ao excluir treino.');
+          else Alert.alert('Erro', 'Não foi possível excluir o treino.');
+        }
+      } catch (e) {
+        console.log('[useRunning] handleDeleteLog error:', e);
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('Deseja excluir este treino do histórico? Essa ação afetará seus gráficos e recordes.')) {
+        execDelete();
+      }
+    } else {
+      Alert.alert('Excluir Treino', 'Deseja excluir este treino do histórico? Seus gráficos e recordes serão recalculados.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Excluir', style: 'destructive', onPress: execDelete }
+      ]);
+    }
+  };
+
+  const handleSubmitAnamnese = async (formData) => {
+    if (!anamnese?.token) return;
+    setSubmittingAnamnese(true);
+    try {
+      const res = await fetch(`${API}/api/running/anamnese/${anamnese.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      if (res.ok) {
+        setAnamneseModalVisible(false);
+        setAnamnese(prev => ({ ...prev, filled: true }));
+        if (Platform.OS === 'web') window.alert('✅ Anamnese enviada! O Coach Paulo vai montar o seu protocolo em breve.');
+        else Alert.alert('✅ Enviado!', 'O Coach Paulo vai montar o seu protocolo de corrida em breve. 🏃');
+      } else {
+        if (Platform.OS === 'web') window.alert('Erro ao enviar. Tente novamente.');
+        else Alert.alert('Erro', 'Não foi possível enviar. Tente novamente.');
+      }
+    } catch (e) {
+      console.log('[useRunning] handleSubmitAnamnese error:', e);
+    } finally {
+      setSubmittingAnamnese(false);
+    }
+  };
+
   const handleOpenSession = (sessionDay) => {
     if (!protocol) return;
-    setSelectedSession({
-      day: sessionDay,
-      week: currentWeek,
-      block: currentBlock,
-    });
+    setSelectedSession({ day: sessionDay, week: currentWeek, block: currentBlock });
+    setFinishedRunDuration(null); 
     setSessionModalVisible(true);
   };
 
-  const handleSaveLog = async ({ durationMinutes, distanceKm, avgPace, notes, rpe }) => {
-    if (!userId || !protocol || !selectedSession) return;
+  const handleStartActiveRun = (sessionDay) => {
+    if (!sessionDay) {
+      setActiveRunMode('free');
+      setSelectedSession(null);
+    } else {
+      setActiveRunMode('protocol');
+      setSelectedSession({ day: sessionDay, week: currentWeek, block: currentBlock });
+    }
+    setActiveRunModalVisible(true);
+  };
+
+  const handleStartCustomRun = (workout) => {
+    setCustomPhases(workout.phases);
+    setActiveRunMode('custom');
+    setSelectedSession(null);
+    setActiveRunModalVisible(true);
+  };
+
+  const handleFinishActiveRun = (minutesAccumulated) => {
+    setActiveRunModalVisible(false);
+    setFinishedRunDuration(minutesAccumulated);
+    
+    setTimeout(() => {
+      if (activeRunMode === 'free' || activeRunMode === 'custom') {
+        setFreeRunModalVisible(true);
+      } else {
+        setSessionModalVisible(true);
+      }
+    }, 400);
+  };
+
+  const handleSaveLog = async (logData) => {
+    const isFreeRun = logData.isFreeRun || activeRunMode === 'free' || activeRunMode === 'custom';
+    
+    if (!userId) return;
+    if (!isFreeRun && (!protocol || !selectedSession)) return;
+
     setSaving(true);
     try {
       const res = await fetch(`${API}/api/running/log`, {
@@ -95,22 +212,25 @@ export default function useRunning() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          protocolId: protocol.id,
-          week: selectedSession.week,
-          block: selectedSession.block,
-          sessionDay: selectedSession.day,
-          durationMinutes: durationMinutes ? parseInt(durationMinutes) : null,
-          distanceKm: distanceKm ? parseFloat(distanceKm.replace(',', '.')) : null,
-          avgPace: avgPace || null,
-          notes: notes || null,
-          rpe: rpe ? parseInt(rpe) : null,
+          protocolId: protocol?.id || null, 
+          week: isFreeRun ? null : selectedSession.week,
+          block: isFreeRun ? null : selectedSession.block,
+          sessionDay: isFreeRun ? 'AVULSO' : selectedSession.day,
+          durationMinutes: logData.durationMinutes ? parseInt(logData.durationMinutes) : null,
+          distanceKm: logData.distanceKm ? parseFloat(String(logData.distanceKm).replace(',', '.')) : null,
+          avgPace: logData.avgPace || null,
+          notes: logData.notes || null,
+          rpe: logData.rpe ? parseInt(logData.rpe) : null,
         }),
       });
 
       if (res.ok) {
         setSessionModalVisible(false);
+        setFreeRunModalVisible(false);
         setSelectedSession(null);
+        setFinishedRunDuration(null); 
         fetchRunning();
+        
         if (Platform.OS === 'web') window.alert('✅ Treino registrado!');
         else Alert.alert('✅ Treino registrado!', 'Continue assim, bora pro próximo! 💪');
       } else {
@@ -124,28 +244,40 @@ export default function useRunning() {
     }
   };
 
-  // Verifica se uma sessão da semana atual já tem log
   const isSessionDone = (sessionDay) => {
-    return logs.some(
-      l => l.week === currentWeek && l.sessionDay === sessionDay
-    );
+    return logs.some(l => l.week === currentWeek && l.sessionDay === sessionDay);
   };
 
-  // Último log registrado (para exibir pace médio etc.)
   const lastLog = logs.length > 0 ? logs[0] : null;
-
-  // Progresso geral: semanas concluídas / 8
   const progressPct = Math.min(((currentWeek - 1) / 8) * 100, 100);
+
+  const hasAnamnese = !!anamnese;
+  const anamnesePending = hasAnamnese && !anamnese?.filled;
 
   return {
     loading, refreshing, setRefreshing, fetchRunning,
     hasRunningModule, protocol, currentWeek, currentBlock,
     logs, lastLog, progressPct,
     BLOCK_LABELS, SESSION_DAYS,
+    
+    anamnese, anamnesePending, hasAnamnese,
+    anamneseModalVisible, setAnamneseModalVisible,
+    submittingAnamnese, handleSubmitAnamnese,
+    
     sessionModalVisible, setSessionModalVisible,
-    selectedSession, setSelectedSession,
     protocolModalVisible, setProtocolModalVisible,
-    saving,
-    handleOpenSession, handleSaveLog, isSessionDone,
+    freeRunModalVisible, setFreeRunModalVisible,
+    paceCalculatorModalVisible, setPaceCalculatorModalVisible,
+    activeRunModalVisible, setActiveRunModalVisible,
+    
+    customRunPlannerModalVisible, setCustomRunPlannerModalVisible,
+    customPhases, customWorkouts,
+    handleSaveCustomWorkout, handleDeleteCustomWorkout,
+    
+    selectedSession, setSelectedSession,
+    saving, activeRunMode, finishedRunDuration, setFinishedRunDuration,
+    
+    handleOpenSession, handleSaveLog, handleDeleteLog, isSessionDone, // 🔥 handleDeleteLog exportado
+    handleStartActiveRun, handleStartCustomRun, handleFinishActiveRun
   };
 }

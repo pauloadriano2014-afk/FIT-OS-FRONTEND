@@ -1,6 +1,6 @@
 // src/screens/AdminUserOptions.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, ActivityIndicator, StatusBar, Platform, Dimensions, Modal } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar, Platform, Dimensions, Modal } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -13,7 +13,7 @@ import AdminUserTreinosTab from '../components/Admin/AdminUserTreinosTab';
 import AdminUserSystem from '../components/AdminUserSystem';
 import RaioxCargasModal from '../components/RaioxCargasModal';
 import AdminUserAnamneseTab from '../components/Admin/AdminUserAnamneseTab';
-import RunningProtocolModal from '../components/Admin/RunningProtocolModal'; // 🏃
+import RunningProtocolModal from '../components/Admin/RunningProtocolModal';
 
 const DIET_OPTIONS = [
     { id: 'NONE', label: '🚫 Ocultar Botão', desc: 'Aluno não verá a sugestão alimentar.' },
@@ -23,13 +23,13 @@ const DIET_OPTIONS = [
 ];
 
 const MENU_TABS = [
-    { id: 'RESUMO', label: 'VISÃO GERAL', icon: 'view-dashboard' },
-    { id: 'ANAMNESE', label: 'PERFIL & ANAMNESE', icon: 'clipboard-text' },
-    { id: 'TREINOS', label: 'TREINOS', icon: 'weight-lifter' },
-    { id: 'AVALIACOES', label: 'AVALIAÇÕES', icon: 'camera-front-variant' },
-    { id: 'DIETA_IA', label: 'NUTRIÇÃO & IA', icon: 'food-apple' },
-    { id: 'ACESSOS', label: 'PLANOS E BÔNUS', icon: 'key-star' },
-    { id: 'SISTEMA', label: 'SISTEMA & RISCO', icon: 'cog' }
+    { id: 'RESUMO',    label: 'VISÃO GERAL',       icon: 'view-dashboard' },
+    { id: 'ANAMNESE',  label: 'PERFIL & ANAMNESE',  icon: 'clipboard-text' },
+    { id: 'TREINOS',   label: 'TREINOS',             icon: 'weight-lifter' },
+    { id: 'AVALIACOES',label: 'AVALIAÇÕES',          icon: 'camera-front-variant' },
+    { id: 'DIETA_IA',  label: 'NUTRIÇÃO & IA',       icon: 'food-apple' },
+    { id: 'ACESSOS',   label: 'PLANOS E BÔNUS',      icon: 'key-star' },
+    { id: 'SISTEMA',   label: 'SISTEMA & RISCO',     icon: 'cog' }
 ];
 
 export default function AdminUserOptions({ route, navigation }) {
@@ -39,13 +39,14 @@ export default function AdminUserOptions({ route, navigation }) {
     }
 
     const { theme } = useTheme();
-    const [windowWidth, setWindowWidth] = useState(Dimensions.get('window').width);
+    const [windowWidth] = useState(Dimensions.get('window').width);
     const isWebPC = Platform.OS === 'web' && windowWidth > 768;
 
     const ops = useAdminUserOptions(aluno, navigation);
 
     const renderContent = () => {
         switch (ops.activeTab) {
+
             case 'RESUMO':
                 return (
                     <AdminUserSummaryTab
@@ -69,70 +70,38 @@ export default function AdminUserOptions({ route, navigation }) {
                 );
 
             case 'ANAMNESE':
-                return <AdminUserAnamneseTab theme={theme} aluno={ops.freshAluno || aluno} userPlan={ops.userPlan} />;
+                return (
+                    <AdminUserAnamneseTab
+                        theme={theme}
+                        aluno={ops.freshAluno || aluno}
+                        userPlan={ops.userPlan}
+                    />
+                );
 
+            // 🏃 Aba TREINOS — ferramentas agora vivem dentro do AdminUserTreinosTab
             case 'TREINOS':
                 return (
-                    <View style={{ width: '100%' }}>
-                        {/* Botão Protocolo ELITE */}
-                        <TouchableOpacity
-                            style={{
-                                flexDirection: 'row', alignItems: 'center', gap: 12,
-                                padding: 16, borderRadius: 16, marginBottom: 16,
-                                backgroundColor: theme.accent + '15',
-                                borderWidth: 1, borderColor: theme.accent + '40',
-                            }}
-                            onPress={() => navigation.navigate('GerarTreinoIA', { aluno: ops.freshAluno || aluno })}
-                        >
-                            <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: theme.accent + '25', alignItems: 'center', justifyContent: 'center' }}>
-                                <MaterialCommunityIcons name="lightning-bolt" size={24} color={theme.accent} />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.3 }}>Protocolo ELITE</Text>
-                                <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>Progressão automática baseada no histórico</Text>
-                            </View>
-                            <MaterialCommunityIcons name="chevron-right" size={20} color={theme.accent} />
-                        </TouchableOpacity>
-
-                        {/* 🏃 Botão Protocolo de Corrida — só aparece se runningModule ativo */}
-                        {ops.isRunningModule && (
-                            <TouchableOpacity
-                                style={{
-                                    flexDirection: 'row', alignItems: 'center', gap: 12,
-                                    padding: 16, borderRadius: 16, marginBottom: 16,
-                                    backgroundColor: '#22c55e15',
-                                    borderWidth: 1, borderColor: '#22c55e40',
-                                }}
-                                onPress={() => ops.setIsRunningModalVisible(true)}
-                            >
-                                <View style={{ width: 42, height: 42, borderRadius: 13, backgroundColor: '#22c55e25', alignItems: 'center', justifyContent: 'center' }}>
-                                    <MaterialCommunityIcons name="run-fast" size={24} color="#22c55e" />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={{ color: '#22c55e', fontWeight: '900', fontSize: 14, letterSpacing: 0.3 }}>Protocolo de Corrida</Text>
-                                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>Anamnese, geração com IA e acompanhamento</Text>
-                                </View>
-                                <MaterialCommunityIcons name="chevron-right" size={20} color="#22c55e" />
-                            </TouchableOpacity>
-                        )}
-
-                        <AdminUserTreinosTab
-                            theme={theme}
-                            handleAbrirRaioxCargas={ops.handleAbrirRaioxCargas}
-                            workoutTab={ops.workoutTab}
-                            setWorkoutTab={ops.setWorkoutTab}
-                            userPlan={ops.userPlan}
-                            loading={ops.loading}
-                            activeWorkouts={ops.activeWorkouts}
-                            archivedWorkouts={ops.archivedWorkouts}
-                            handleNewWorkout={ops.handleNewWorkout}
-                            handleEditWorkout={ops.handleEditWorkout}
-                            handleToggleArchiveWorkout={ops.handleToggleArchiveWorkout}
-                            handleDeleteWorkout={ops.handleDeleteWorkout}
-                            hasActiveFicha={ops.hasActiveFicha}
-                            fichaDaysElapsed={ops.fichaDaysElapsed}
-                        />
-                    </View>
+                    <AdminUserTreinosTab
+                        theme={theme}
+                        handleAbrirRaioxCargas={ops.handleAbrirRaioxCargas}
+                        workoutTab={ops.workoutTab}
+                        setWorkoutTab={ops.setWorkoutTab}
+                        userPlan={ops.userPlan}
+                        loading={ops.loading}
+                        activeWorkouts={ops.activeWorkouts}
+                        archivedWorkouts={ops.archivedWorkouts}
+                        handleNewWorkout={ops.handleNewWorkout}
+                        handleEditWorkout={ops.handleEditWorkout}
+                        handleToggleArchiveWorkout={ops.handleToggleArchiveWorkout}
+                        handleDeleteWorkout={ops.handleDeleteWorkout}
+                        hasActiveFicha={ops.hasActiveFicha}
+                        fichaDaysElapsed={ops.fichaDaysElapsed}
+                        // 🏃 Corrida
+                        isRunningModule={ops.isRunningModule}
+                        handleToggleRunningModule={ops.handleToggleRunningModule}
+                        onOpenRunningModal={() => ops.setIsRunningModalVisible(true)}
+                        onOpenEliteProtocol={() => navigation.navigate('GerarTreinoIA', { aluno: ops.freshAluno || aluno })}
+                    />
                 );
 
             case 'AVALIACOES':
@@ -198,10 +167,11 @@ export default function AdminUserOptions({ route, navigation }) {
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
     const currentTabObj = MENU_TABS.find(t => t.id === ops.activeTab) || MENU_TABS[0];
 
-    // ── Layout Web PC (sidebar) ──
+    // ── Layout Web PC (sidebar) ──────────────────────────────────────────────
     if (isWebPC) {
         return (
             <View style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: webOuterBg, overflow: 'hidden' }}>
+                {/* Sidebar */}
                 <View style={{ width: 280, backgroundColor: theme.surface, borderRightWidth: 1, borderColor: theme.border, padding: 20 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 40, marginTop: 10 }}>
                         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
@@ -225,6 +195,8 @@ export default function AdminUserOptions({ route, navigation }) {
                         })}
                     </View>
                 </View>
+
+                {/* Conteúdo */}
                 <View style={{ flex: 1, backgroundColor: theme.bg }}>
                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 40, paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
                         <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center' }}>
@@ -234,13 +206,12 @@ export default function AdminUserOptions({ route, navigation }) {
                 </View>
 
                 <RaioxCargasModal visible={ops.isCargasModalVisible} onClose={() => ops.setIsCargasModalVisible(false)} historicoDeCargasList={ops.historicoDeCargasList} theme={theme} />
-                {/* 🏃 */}
                 <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={ops.freshAluno || aluno} theme={theme} />
             </View>
         );
     }
 
-    // ── Layout Mobile ──
+    // ── Layout Mobile ────────────────────────────────────────────────────────
     return (
         <SafeAreaView style={{ height: Platform.OS === 'web' ? '100vh' : '100%', width: '100%', backgroundColor: theme.bg }}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -299,7 +270,6 @@ export default function AdminUserOptions({ route, navigation }) {
             </Modal>
 
             <RaioxCargasModal visible={ops.isCargasModalVisible} onClose={() => ops.setIsCargasModalVisible(false)} historicoDeCargasList={ops.historicoDeCargasList} theme={theme} />
-            {/* 🏃 */}
             <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={ops.freshAluno || aluno} theme={theme} />
         </SafeAreaView>
     );

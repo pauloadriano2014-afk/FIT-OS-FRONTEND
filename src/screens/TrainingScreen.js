@@ -179,7 +179,7 @@ export default function TrainingScreen({ navigation }) {
 
   useFocusEffect(useCallback(() => {
     fetchWorkouts();
-    runningHook.fetchRunning(); // 🏃 carrega corrida em paralelo
+    runningHook.fetchRunning(); 
   }, []));
 
   const onRefresh = useCallback(() => {
@@ -246,9 +246,8 @@ export default function TrainingScreen({ navigation }) {
 
   const shadowOpt = { distance: 12, startColor: theme.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.04)', offset: [0, 6] };
 
-  // 🏃 Só mostra a aba de corrida se o módulo estiver ativo
-  const showRunningTab = runningHook.hasRunningModule;
-
+  // 🔥 A PORTA ESTÁ ABERTA! 🔥
+  // Todos os alunos, Free e Pro, enxergam a seleção de abas.
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -268,34 +267,32 @@ export default function TrainingScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* 🏃 ABAS — só renderiza se tiver módulo de corrida ativo */}
-          {showRunningTab && (
-            <View style={[styles.tabRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <TouchableOpacity
-                style={[styles.tabBtn, activeTab === 'MUSCULACAO' && { borderBottomColor: theme.accent }]}
-                onPress={() => setActiveTab('MUSCULACAO')}
-              >
-                <MaterialCommunityIcons name="dumbbell" size={16} color={activeTab === 'MUSCULACAO' ? theme.accent : theme.textSecondary} />
-                <Text style={[styles.tabBtnText, { color: activeTab === 'MUSCULACAO' ? theme.accent : theme.textSecondary }]}>
-                  MUSCULAÇÃO
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.tabBtn, activeTab === 'CORRIDA' && { borderBottomColor: '#22c55e' }]}
-                onPress={() => setActiveTab('CORRIDA')}
-              >
-                <MaterialCommunityIcons name="run-fast" size={16} color={activeTab === 'CORRIDA' ? '#22c55e' : theme.textSecondary} />
-                <Text style={[styles.tabBtnText, { color: activeTab === 'CORRIDA' ? '#22c55e' : theme.textSecondary }]}>
-                  CORRIDA
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* 🏃 ABAS GLOBAIS (Sempre visíveis) */}
+          <View style={[styles.tabRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <TouchableOpacity
+              style={[styles.tabBtn, activeTab === 'MUSCULACAO' && { borderBottomColor: theme.accent }]}
+              onPress={() => setActiveTab('MUSCULACAO')}
+            >
+              <MaterialCommunityIcons name="dumbbell" size={16} color={activeTab === 'MUSCULACAO' ? theme.accent : theme.textSecondary} />
+              <Text style={[styles.tabBtnText, { color: activeTab === 'MUSCULACAO' ? theme.accent : theme.textSecondary }]}>
+                MUSCULAÇÃO
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabBtn, activeTab === 'CORRIDA' && { borderBottomColor: '#22c55e' }]}
+              onPress={() => setActiveTab('CORRIDA')}
+            >
+              <MaterialCommunityIcons name="run-fast" size={16} color={activeTab === 'CORRIDA' ? '#22c55e' : theme.textSecondary} />
+              <Text style={[styles.tabBtnText, { color: activeTab === 'CORRIDA' ? '#22c55e' : theme.textSecondary }]}>
+                CORRIDA
+              </Text>
+            </TouchableOpacity>
+          </View>
 
           {/* ════════════════════════════════════════
               ABA: CORRIDA
           ════════════════════════════════════════ */}
-          {showRunningTab && activeTab === 'CORRIDA' && (
+          {activeTab === 'CORRIDA' && (
             <RunningTab theme={theme} useRunningHook={runningHook} />
           )}
 
@@ -444,7 +441,7 @@ const styles = StyleSheet.create({
   headerTitleLimpado: { fontSize: 28, fontWeight: '800' },
   sectionContainerMod: { marginHorizontal: 20, marginBottom: 30, alignItems: 'center' },
 
-  // 🏃 Abas
+  // 🏃 Abas Globais
   tabRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabBtnText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },

@@ -199,9 +199,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         else if (direction === 'down' && currentIndex < exercises.length - 1) { const t = exercises[currentIndex]; exercises[currentIndex] = exercises[currentIndex + 1]; exercises[currentIndex + 1] = t; }
         else return;
         setters.setExercisesByDay({ ...state.exercisesByDay, [state.selectedWorkoutTab]: exercises });
-        const confirmAndMove = () => {};
-        if (Platform.OS === 'web') { if (window.confirm(direction === 'up' ? "Mover exercício para CIMA?" : "Mover exercício para BAIXO?")) confirmAndMove(); }
-        else Alert.alert("Trocar Ordem", direction === 'up' ? "Deseja mover este exercício para cima?" : "Deseja mover este exercício para baixo?", [{ text: "Cancelar", style: "cancel" }, { text: "Sim, mover", onPress: confirmAndMove }]);
     }, [state.currentExercises, state.exercisesByDay, state.selectedWorkoutTab, setters]);
 
     const confirmRenameTab = useCallback((oldName) => {
@@ -328,15 +325,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             <MainAreaHeader
                 theme={theme}
                 selectedWorkoutTab={state.selectedWorkoutTab}
-                workoutTabsLength={state.workoutTabs.length}
-                editingTabName={editingTabName}
-                editingTabValue={editingTabValue}
-                setEditingTabValue={setEditingTabValue}
-                onStartRename={() => { setEditingTabName(state.selectedWorkoutTab); setEditingTabValue(state.selectedWorkoutTab); }}
-                onConfirmRename={confirmRenameTab}
-                onDuplicate={() => actions.duplicateTabInline(state.selectedWorkoutTab)}
-                onDelete={() => deleteTabInline(state.selectedWorkoutTab)}
-                onAutoFill={() => setAutoFillModalVisible(true)}
                 onCollapse={() => setForceCollapse(prev => prev + 1)}
                 onClear={actions.handleClearWorkout}
             />
@@ -440,7 +428,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     // ROOT RENDER
     // ─────────────────────────────────────────────────────────────────────────────
 
-    const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: webOuterBg, overflowX: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
+    const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: theme.bg, overflowX: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
 
     if (isRouteCorrupted) {
         return (
@@ -471,11 +459,11 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         return (
             <View style={rootStyle}>
                 <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
-                <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', zIndex: 10 }}>
+                <View style={{ width: '100%', alignItems: 'center', backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)', zIndex: 10, ...(Platform.OS === 'web' ? { position: 'sticky', top: 0 } : {}) }}>
                     <View style={{ width: '100%', maxWidth: containerMaxWidth }}><Header /></View>
                 </View>
-                <View style={{ flex: 1, flexDirection: 'row', width: '100%', maxWidth: containerMaxWidth, alignSelf: 'center', ...containerBorders }}>
-                    <View style={[S.sidebar, { backgroundColor: theme.surface, borderRightColor: theme.border }]}>
+                <View style={{ flexDirection: 'row', width: '100%', maxWidth: containerMaxWidth, alignSelf: 'center', minHeight: Platform.OS === 'web' ? '100%' : undefined, backgroundColor: webOuterBg, ...containerBorders }}>
+                    <View style={[S.sidebar, { backgroundColor: theme.surface, borderRightColor: theme.border, ...(Platform.OS === 'web' ? { position: 'sticky', top: 61, height: 'calc(100dvh - 61px)', alignSelf: 'flex-start', overflowY: 'auto', flexShrink: 0 } : {}) }]}>
                         <SidebarPC
                             theme={theme} isTemplateMode={state.isTemplateMode}
                             anamneseData={anamneseData} isRaioxExpanded={isRaioxExpanded} onToggleRaiox={() => setIsRaioxExpanded(!isRaioxExpanded)}
@@ -483,10 +471,23 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                             renderSettings={renderSettings}
                             workoutTabs={state.workoutTabs} selectedWorkoutTab={state.selectedWorkoutTab} exercisesByDay={state.exercisesByDay}
                             onSelectTab={setters.setSelectedWorkoutTab} onMoveTab={moveTab} onAddTab={actions.addNewTab}
+                            onRenameTab={(oldName, newName) => {
+                                if (!newName || newName === oldName) return;
+                                if (state.workoutTabs.includes(newName)) { alert('Já existe um dia com esse nome!'); return; }
+                                const tabs = state.workoutTabs.map(t => t === oldName ? newName : t);
+                                const newEx = {};
+                                Object.keys(state.exercisesByDay).forEach(k => { newEx[k === oldName ? newName : k] = state.exercisesByDay[k]; });
+                                setters.setWorkoutTabs(tabs);
+                                setters.setExercisesByDay(newEx);
+                                if (state.selectedWorkoutTab === oldName) setters.setSelectedWorkoutTab(newName);
+                            }}
+                            onDuplicateTab={actions.duplicateTabInline}
+                            onDeleteTab={deleteTabInline}
                             currentExercisesLength={state.currentExercises.length}
                             isSyncingCargas={isSyncingCargas} onMagicSync={handleMagicSync}
                             alunoId={aluno?.id}
                             onViewWorkout={() => navigation.navigate('DayWorkoutScreen', { workoutId: route.params?.workoutToEdit?.id, day: state.selectedWorkoutTab, workoutName: state.customWorkoutName, isPreview: true })}
+                            onAutoFill={() => setAutoFillModalVisible(true)}
                         />
                     </View>
                     <View style={{ flex: 1 }}>{renderMainArea()}</View>
@@ -521,7 +522,7 @@ const S = StyleSheet.create({
     headerTitle: { flex: 1, fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
     saveBtn:     { paddingHorizontal: 18, paddingVertical: 9, borderRadius: 20, minWidth: 80, alignItems: 'center' },
     saveBtnText: { fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-    sidebar:     { width: 340, minWidth: 340, borderRightWidth: 1, height: '100%' },
+    sidebar:     { width: 340, minWidth: 340, borderRightWidth: 1 },
     overlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 24 },
     emptyState:  { alignItems: 'center', marginTop: 24, marginBottom: 24, padding: 36, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 20 },
     emptyIconBox:{ borderRadius: 50, padding: 20, marginBottom: 16 },

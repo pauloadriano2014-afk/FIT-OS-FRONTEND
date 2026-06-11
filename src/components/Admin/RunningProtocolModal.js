@@ -14,12 +14,7 @@ const BLOCK_LABELS = {
   2: 'Bloco 2 — Resistência Base (Sem. 3-4)',
   3: 'Bloco 3 — Sustentar Ritmo (Sem. 5-6)',
   4: 'Bloco 4 — Pré-Performance (Sem. 7)',
-  5: 'Bloco 5 — O 5KM (Sem. 8)',
-};
-
-const WEEK_LABELS = {
-  1: 'Semana 1', 2: 'Semana 2', 3: 'Semana 3', 4: 'Semana 4',
-  5: 'Semana 5', 6: 'Semana 6', 7: 'Semana 7', 8: 'Semana 8',
+  5: 'Bloco 5 — Específico (Sem. 8)',
 };
 
 const confirm = (title, msg, onConfirm) => {
@@ -48,7 +43,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
   // Dados da anamnese
   const [anamnese, setAnamnese] = useState(null);
   const [anamneseLink, setAnamneseLink] = useState('');
-  const [generatingToken, setGeneratingToken] = useState(false);
 
   // Protocolo ativo
   const [activeProtocol, setActiveProtocol] = useState(null);
@@ -56,6 +50,9 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
   // Sugestão da IA (antes de confirmar)
   const [aiSuggestion, setAiSuggestion] = useState(null);
   const [promptSnapshot, setPromptSnapshot] = useState('');
+
+  // 🔥 NOVO: Tipo de Protocolo (5K, 10K, 21K, 42K)
+  const [protocolType, setProtocolType] = useState('5K');
 
   // Campos editáveis do protocolo
   const [startBlock, setStartBlock] = useState(1);
@@ -92,6 +89,7 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
       const pData = await resProtocol.json();
       if (pData.protocol) {
         setActiveProtocol(pData);
+        setProtocolType(pData.protocol.protocolType || '5K'); // 🔥 Puxa o tipo do banco
         setStartBlock(pData.protocol.startBlock || 1);
         setStartWeek(pData.protocol.startWeek || 1);
         setCustomNotes(pData.protocol.customNotes || '');
@@ -146,6 +144,7 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
         setAiSuggestion(data.suggestion);
         setPromptSnapshot(data.promptSnapshot || '');
         // Pré-preenche os campos com a sugestão da IA
+        setProtocolType(data.suggestion.protocolType || '5K'); // 🔥 IA sugere o tipo
         setStartBlock(data.suggestion.startBlock || 1);
         setStartWeek(data.suggestion.startWeek || 1);
         setCustomNotes(data.suggestion.customNotes || '');
@@ -177,6 +176,7 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               userId: aluno.id,
+              protocolType, // 🔥 Salva o tipo no banco de dados agnóstico
               startBlock,
               startWeek,
               customNotes: customNotes || null,
@@ -202,8 +202,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
       }
     );
   };
-
-  // ── Renderização ──────────────────────────────────────────────────────────
 
   const anamneseStatus = !anamnese
     ? { label: 'NÃO INICIADA', color: theme.textSecondary, icon: 'clock-outline' }
@@ -248,11 +246,10 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
             >
 
               {/* ════════════════════════════════════════
-                  ETAPA: OVERVIEW
+                 ETAPA: OVERVIEW
               ════════════════════════════════════════ */}
               {innerStep === 'overview' && (
                 <>
-                  {/* Card Status Anamnese */}
                   <View style={[styles.card, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                     <View style={styles.cardHeader}>
                       <MaterialCommunityIcons name="clipboard-list" size={18} color={theme.accent} />
@@ -264,7 +261,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                       <Text style={[styles.statusText, { color: anamneseStatus.color }]}>{anamneseStatus.label}</Text>
                     </View>
 
-                    {/* Dados resumidos se preenchida */}
                     {anamnese?.filled && (
                       <View style={[styles.anamnesePreview, { borderColor: theme.border }]}>
                         <PreviewRow icon="run" label="Experiência" value={
@@ -288,7 +284,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                       </View>
                     )}
 
-                    {/* Botões de link */}
                     <View style={{ gap: 10, marginTop: 14 }}>
                       <TouchableOpacity
                         style={[styles.linkBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
@@ -308,7 +303,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                     </View>
                   </View>
 
-                  {/* Card Protocolo */}
                   <View style={[styles.card, { backgroundColor: theme.bg, borderColor: theme.border, marginTop: 16 }]}>
                     <View style={styles.cardHeader}>
                       <MaterialCommunityIcons name="lightning-bolt" size={18} color={theme.accent} />
@@ -317,10 +311,12 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
 
                     {activeProtocol ? (
                       <>
-                        {/* Protocolo ativo */}
                         <View style={[styles.activeProtocolCard, { borderColor: '#22c55e44', backgroundColor: '#22c55e0d' }]}>
                           <Text style={[styles.activeProtocolLabel, { color: '#22c55e' }]}>✅ PROTOCOLO ATIVO</Text>
-                          <Text style={[styles.activeProtocolName, { color: theme.text }]}>Protocolo 5K</Text>
+                          {/* 🔥 O nome agora é dinâmico com o tipo selecionado 🔥 */}
+                          <Text style={[styles.activeProtocolName, { color: theme.text }]}>
+                            Protocolo {activeProtocol.protocol.protocolType || '5K'}
+                          </Text>
                           <Text style={[styles.activeProtocolSub, { color: theme.textSecondary }]}>
                             Iniciado em {new Date(activeProtocol.protocol.startDate).toLocaleDateString('pt-BR')}
                             {' · '}Semana {activeProtocol.currentWeek}/8
@@ -334,7 +330,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                           )}
                         </View>
 
-                        {/* Logs resumidos */}
                         {activeProtocol.protocol.logs?.length > 0 && (
                           <TouchableOpacity
                             style={[styles.logsBtn, { borderColor: theme.border }]}
@@ -348,7 +343,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                           </TouchableOpacity>
                         )}
 
-                        {/* Adaptações e notas */}
                         {activeProtocol.protocol.customNotes ? (
                           <View style={[styles.notesBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                             <Text style={[styles.notesLabel, { color: theme.textSecondary }]}>OBSERVAÇÕES DO COACH</Text>
@@ -365,7 +359,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                       </View>
                     )}
 
-                    {/* Botão IA */}
                     <TouchableOpacity
                       style={[
                         styles.aiBtn,
@@ -395,7 +388,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                       </Text>
                     )}
 
-                    {/* Ou configurar manualmente */}
                     <TouchableOpacity
                       style={[styles.manualBtn, { borderColor: theme.border }]}
                       onPress={() => setInnerStep('review_ai')}
@@ -410,7 +402,7 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
               )}
 
               {/* ════════════════════════════════════════
-                  ETAPA: REVIEW / EDIÇÃO DO PROTOCOLO
+                 ETAPA: REVIEW / EDIÇÃO DO PROTOCOLO
               ════════════════════════════════════════ */}
               {innerStep === 'review_ai' && (
                 <>
@@ -428,8 +420,29 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                     </View>
                   )}
 
-                  {/* Bloco de entrada */}
-                  <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>BLOCO DE ENTRADA</Text>
+                  {/* 🔥 NOVO: SELETOR DE TIPO DE PROTOCOLO (DISTÂNCIA ALVO) 🔥 */}
+                  <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>TIPO DE PROTOCOLO (DISTÂNCIA ALVO)</Text>
+                  <View style={styles.chipRow}>
+                    {['5K', '10K', '21K', '42K'].map(pt => (
+                      <TouchableOpacity
+                        key={pt}
+                        style={[
+                          styles.blockChip, 
+                          { 
+                            borderColor: protocolType === pt ? theme.accent : theme.border, 
+                            backgroundColor: protocolType === pt ? theme.accent : theme.bg 
+                          }
+                        ]}
+                        onPress={() => setProtocolType(pt)}
+                      >
+                        <Text style={[styles.blockChipText, { color: protocolType === pt ? '#000' : theme.textSecondary }]}>
+                          {pt}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 20 }]}>BLOCO DE ENTRADA</Text>
                   <View style={styles.chipRow}>
                     {[1, 2, 3, 4, 5].map(b => (
                       <TouchableOpacity
@@ -445,7 +458,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                     {BLOCK_LABELS[startBlock]}
                   </Text>
 
-                  {/* Semana de entrada */}
                   <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 20 }]}>SEMANA DE ENTRADA</Text>
                   <View style={styles.chipRow}>
                     {[1, 2, 3, 4, 5, 6, 7, 8].map(w => (
@@ -459,7 +471,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                     ))}
                   </View>
 
-                  {/* Velocidades por zona */}
                   <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 20 }]}>VELOCIDADES PERSONALIZADAS (KM/H — ESTEIRA)</Text>
                   <View style={styles.speedGrid}>
                     {[
@@ -481,7 +492,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                     ))}
                   </View>
 
-                  {/* Adaptações */}
                   <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 20 }]}>ADAPTAÇÕES ESPECÍFICAS</Text>
                   <TextInput
                     style={[styles.textArea, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
@@ -493,7 +503,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                     outlineStyle="none"
                   />
 
-                  {/* Notas para o aluno */}
                   <Text style={[styles.fieldLabel, { color: theme.textSecondary, marginTop: 16 }]}>OBSERVAÇÕES PARA O ALUNO (VISÍVEL NO APP)</Text>
                   <TextInput
                     style={[styles.textArea, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
@@ -505,7 +514,6 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
                     outlineStyle="none"
                   />
 
-                  {/* Botão confirmar */}
                   <TouchableOpacity
                     style={[styles.confirmBtn, { backgroundColor: theme.accent, opacity: saving ? 0.7 : 1 }]}
                     onPress={() => handleSaveProtocol(!!aiSuggestion)}
@@ -526,7 +534,7 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
               )}
 
               {/* ════════════════════════════════════════
-                  ETAPA: LOGS DE TREINO
+                 ETAPA: LOGS DE TREINO
               ════════════════════════════════════════ */}
               {innerStep === 'logs' && (
                 <>
