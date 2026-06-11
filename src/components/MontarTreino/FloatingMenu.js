@@ -8,13 +8,6 @@ const { width } = Dimensions.get('window');
 export default function FloatingMenu({ theme, windowWidth, onAddExercise, onImportPDF, onOpenBases, onClone, onSaveBase, onDownloadPDF }) {
     const isMobile = Platform.OS === 'web' && windowWidth <= 768;
 
-    // Cor adaptada ao tema
-    const menuBg = theme.isDark ? '#1C1C1E' : '#FFFFFF';
-    const dividerColor = theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)';
-    const menuShadow = theme.isDark
-        ? '0 8px 32px rgba(0,0,0,0.5)'
-        : '0 8px 32px rgba(0,0,0,0.15)';
-
     const items = [
         { icon: 'plus-box-multiple', label: 'Exercício',   color: theme.text,   onPress: onAddExercise },
         { icon: 'file-pdf-box',      label: 'MFIT',        color: theme.text,   onPress: onImportPDF },
@@ -26,7 +19,7 @@ export default function FloatingMenu({ theme, windowWidth, onAddExercise, onImpo
 
     const renderItems = () => items.map((item, i) => (
         <React.Fragment key={i}>
-            {i > 0 && <View style={[S.divider, { backgroundColor: dividerColor }]} />}
+            {i > 0 && <View style={[S.divider, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)' }]} />}
             <TouchableOpacity style={S.item} onPress={item.onPress}>
                 <MaterialCommunityIcons name={item.icon} size={22} color={item.color} />
                 <Text style={[S.label, { color: item.color }]}>{item.label}</Text>
@@ -34,48 +27,56 @@ export default function FloatingMenu({ theme, windowWidth, onAddExercise, onImpo
         </React.Fragment>
     ));
 
-    const containerStyle = Platform.OS === 'web' ? {
-        position: 'fixed',
-        bottom: 30,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        borderRadius: 30,
-        zIndex: 9999,
-        backgroundColor: menuBg,
-        boxShadow: menuShadow,
-        borderWidth: theme.isDark ? 0 : 1,
-        borderColor: 'rgba(0,0,0,0.06)',
-    } : {
-        position: 'absolute',
-        bottom: 20,
-        alignSelf: 'center',
-        borderRadius: 30,
-        zIndex: 9999,
-        elevation: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: theme.isDark ? 0.4 : 0.15,
-        shadowRadius: 16,
-        backgroundColor: menuBg,
-    };
+    // Web desktop: position fixed centralizado
+    if (Platform.OS === 'web' && windowWidth > 768) {
+        return (
+            <View style={{
+                position: 'fixed',
+                bottom: 30,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                borderRadius: 30,
+                zIndex: 9999,
+                backgroundColor: theme.isDark ? '#1C1C1E' : '#FFFFFF',
+                boxShadow: theme.isDark ? '0 8px 32px rgba(0,0,0,0.5)' : '0 8px 32px rgba(0,0,0,0.15)',
+                borderWidth: theme.isDark ? 0 : 1,
+                borderColor: 'rgba(0,0,0,0.06)',
+            }}>
+                <View style={S.desktopRow}>{renderItems()}</View>
+            </View>
+        );
+    }
 
-    return (
-        <View style={containerStyle}>
-            {isMobile ? (
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={S.scrollContent}
-                    style={{ borderRadius: 30 }}
-                    bounces={true}
-                >
+    // Web mobile: position fixed nas bordas
+    if (Platform.OS === 'web' && isMobile) {
+        return (
+            <View style={{
+                position: 'fixed',
+                bottom: 20,
+                left: 16,
+                right: 16,
+                borderRadius: 28,
+                zIndex: 9999,
+                backgroundColor: theme.isDark ? '#1C1C1E' : '#FFFFFF',
+                boxShadow: theme.isDark ? '0 8px 32px rgba(0,0,0,0.5)' : '0 8px 32px rgba(0,0,0,0.15)',
+                overflow: 'hidden',
+            }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.scrollContent} bounces={true}>
                     {renderItems()}
                 </ScrollView>
-            ) : (
-                <View style={S.desktopRow}>
-                    {renderItems()}
-                </View>
-            )}
+            </View>
+        );
+    }
+
+    // Mobile nativo: igual ao original que funcionava
+    return (
+        <View style={[S.nativeContainer, {
+            backgroundColor: theme.isDark ? '#1C1C1E' : '#FFFFFF',
+            shadowOpacity: theme.isDark ? 0.4 : 0.15,
+        }]}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={S.scrollContent} bounces={true}>
+                {renderItems()}
+            </ScrollView>
         </View>
     );
 }
@@ -91,27 +92,38 @@ const S = StyleSheet.create({
     },
     scrollContent: {
         flexDirection: 'row',
-        paddingHorizontal: 18,
-        paddingVertical: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
         alignItems: 'center',
-        gap: 4,
+        gap: 2,
         paddingRight: 28,
     },
     item: {
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 14,
+        paddingHorizontal: 12,
         paddingVertical: 4,
     },
     label: {
         fontSize: 10,
         fontWeight: '800',
-        marginTop: 5,
-        ...(Platform.OS === 'web' ? { whiteSpace: 'nowrap' } : {}),
+        marginTop: 4,
     },
     divider: {
         width: 1,
-        height: 26,
+        height: 24,
         marginHorizontal: 2,
+    },
+    nativeContainer: {
+        position: 'absolute',
+        bottom: 20,
+        left: 16,
+        right: 16,
+        borderRadius: 28,
+        overflow: 'hidden',
+        elevation: 12,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowRadius: 12,
     },
 });

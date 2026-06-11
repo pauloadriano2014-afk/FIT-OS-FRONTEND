@@ -77,6 +77,16 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [forceCollapse, setForceCollapse] = useState(0);
     const [autoFillModalVisible, setAutoFillModalVisible] = useState(false);
 
+    const floatingMenuProps = {
+        theme, windowWidth,
+        onAddExercise: () => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); },
+        onImportPDF: actions?.handleImportPDF,
+        onOpenBases: () => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); },
+        onClone: () => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); },
+        onSaveBase: () => setters?.setModalSaveTemplateVisible(true),
+        onDownloadPDF: () => generateWorkoutPDF(aluno, state.workoutTabs, state.exercisesByDay, state.customWorkoutName),
+    };
+
     // ─── INTERCEPTADOR SMART ADD ───
     const smartAddInterceptor = useRef({ isWaiting: false, index: null });
     const handleSetIsSelectingSubstitute = useCallback((val) => {
@@ -373,15 +383,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 }
             />
 
-            <FloatingMenu
-                theme={theme} windowWidth={windowWidth}
-                onAddExercise={() => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); }}
-                onImportPDF={actions?.handleImportPDF}
-                onOpenBases={() => { actions?.fetchTemplates(); setters?.setModalTemplatesVisible(true); }}
-                onClone={() => { actions?.fetchStudentsForClone(); setters?.setModalCloneVisible(true); }}
-                onSaveBase={() => setters?.setModalSaveTemplateVisible(true)}
-                onDownloadPDF={() => generateWorkoutPDF(aluno, state.workoutTabs, state.exercisesByDay, state.customWorkoutName)}
-            />
+            {!isWebPC && <FloatingMenu {...floatingMenuProps} />}
         </View>
     );
 
@@ -490,7 +492,10 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                             onAutoFill={() => setAutoFillModalVisible(true)}
                         />
                     </View>
-                    <View style={{ flex: 1 }}>{renderMainArea()}</View>
+                    <View style={{ flex: 1, position: 'relative' }}>
+                        {renderMainArea()}
+                        <FloatingMenu {...floatingMenuProps} />
+                    </View>
                 </View>
                 {Modais()}
             </View>
@@ -498,7 +503,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     }
 
     return (
-        <SafeAreaViewContext style={rootStyle}>
+        <SafeAreaViewContext style={[rootStyle, { flexDirection: 'column' }]}>
             <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
             <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg }}>
                 <Header />
