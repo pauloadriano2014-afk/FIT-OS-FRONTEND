@@ -23,7 +23,6 @@ export default function useGerarTreino(navigation, route) {
   const [error, setError] = useState('');
   const [generatedData, setGeneratedData] = useState(null);
 
-  // 🔥 NOVO ESTADO: Chave Seletora de IA
   const [selectedAI, setSelectedAI] = useState('GEMINI');
 
   const [cyclePhase, setCyclePhase] = useState('HIPERTROFIA');
@@ -175,9 +174,9 @@ export default function useGerarTreino(navigation, route) {
           };
         });
 
-      // 🔥 ENVIANDO A IA ESCOLHIDA
+      // 🔥 CORREÇÃO CIRÚRGICA: Enviando o selectedAI para a API
       const cycleConfig = {
-        selectedAI,
+        selectedAI, 
         phase: cyclePhase,
         techniques: selectedTechniques,
         techniqueScope,
@@ -315,7 +314,7 @@ export default function useGerarTreino(navigation, route) {
     generatedData, cyclePhase, setCyclePhase, selectedTechniques,
     techniqueScope, setTechniqueScope, trainingEnvironment, setTrainingEnvironment,
     days, activeDayId, setActiveDayId, savedPresets, presetName, setPresetName,
-    selectedAI, setSelectedAI, // 🔥 Variáveis Novas
+    selectedAI, setSelectedAI, 
     showGroupPicker, setShowGroupPicker, showTemplatePicker, setShowTemplatePicker,
     showEnvPicker, setShowEnvPicker, showComparison, setShowComparison,
     showPresetSaver, setShowPresetSaver, showPresetsLoader, setShowPresetsLoader,
