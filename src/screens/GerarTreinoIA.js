@@ -59,7 +59,7 @@ export default function GerarTreinoIA({ navigation, route }) {
       <View style={{ padding: 16 }}>
         <View style={[S.searchBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <MaterialCommunityIcons name="magnify" size={17} color={theme.textSecondary} />
-          <TextInput style={[S.searchInput, { color: theme.text }]} placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary} value={g.search} onChangeText={g.setSearch} />
+          <TextInput style={[S.searchInput, { color: theme.text }]} placeholder="Buscar aluno..." placeholderTextColor={theme.textSecondary} value={g.search} onChangeText={g.setSearch} outlineStyle="none" />
           {g.search.length > 0 && (
             <TouchableOpacity onPress={() => g.setSearch('')}>
               <MaterialCommunityIcons name="close-circle" size={15} color={theme.textSecondary} />
@@ -106,6 +106,29 @@ export default function GerarTreinoIA({ navigation, route }) {
             <MaterialCommunityIcons name="content-save-outline" size={15} color={theme.textSecondary} />
             <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSecondary }}>Salvar Preset</Text>
           </TouchableOpacity>
+        </View>
+
+        {/* 🔥 SELETOR DE INTELIGÊNCIA ARTIFICIAL 🔥 */}
+        <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>CÉREBRO DA IA</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
+          {[
+            { id: 'GEMINI', label: 'Gemini 2.5', icon: 'google-circles-extended', color: '#8A2BE2' },
+            { id: 'GPT', label: 'GPT-4o', icon: 'robot-outline', color: '#10A37F' },
+            { id: 'CLAUDE', label: 'Claude 3.5', icon: 'brain', color: '#D97757' }
+          ].map(ai => {
+            const isSel = g.selectedAI === ai.id;
+            return (
+              <TouchableOpacity 
+                key={ai.id} 
+                style={[S.aiBtn, { backgroundColor: isSel ? ai.color + '20' : theme.surface, borderColor: isSel ? ai.color : theme.border }]} 
+                onPress={() => g.setSelectedAI(ai.id)}
+                activeOpacity={0.8}
+              >
+                <MaterialCommunityIcons name={ai.icon} size={16} color={isSel ? ai.color : theme.textSecondary} />
+                <Text style={{ fontSize: 11, fontWeight: '800', color: isSel ? ai.color : theme.textSecondary }}>{ai.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
 
         {/* AMBIENTE DE TREINO */}
@@ -240,7 +263,7 @@ export default function GerarTreinoIA({ navigation, route }) {
           <View style={[S.dayEditor, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
               <TextInput style={[S.dayNameInput, { color: theme.accent, borderColor: theme.accent + '30', backgroundColor: theme.accent + '08', flex: 1 }]}
-                value={g.activeDay.name} onChangeText={v => g.updateDayName(g.activeDay.id, v)} placeholder="Nome" placeholderTextColor={theme.textSecondary} />
+                value={g.activeDay.name} onChangeText={v => g.updateDayName(g.activeDay.id, v)} placeholder="Nome" placeholderTextColor={theme.textSecondary} outlineStyle="none" />
               <TouchableOpacity style={[S.smallBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}
                 onPress={() => g.setShowTemplatePicker(true)}>
                 <MaterialCommunityIcons name="lightning-bolt" size={13} color={theme.textSecondary} />
@@ -335,17 +358,45 @@ export default function GerarTreinoIA({ navigation, route }) {
   };
 
   // ─── STEP 3: GERANDO ───
-  const renderGenerating = () => (
-    <View style={[S.center, { paddingHorizontal: 32 }]}>
-      <View style={[S.generatingBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '30' }]}>
-        <Text style={{ fontSize: 22, fontWeight: '900', letterSpacing: 2, color: theme.accent }}>ELITE</Text>
+  const renderGenerating = () => {
+    // 🔥 MAPEAMENTO VISUAL DA IA SELECIONADA
+    const aiInfo = {
+      'GEMINI': { name: 'Gemini 2.5 Pro', color: '#8A2BE2', icon: 'google-circles-extended' },
+      'GPT':    { name: 'GPT-4o', color: '#10A37F', icon: 'robot-outline' },
+      'CLAUDE': { name: 'Claude 3.5 Sonnet', color: '#D97757', icon: 'brain' }
+    };
+    const activeAI = aiInfo[g.selectedAI] || aiInfo['GEMINI'];
+
+    return (
+      <View style={[S.center, { paddingHorizontal: 32 }]}>
+        <View style={[S.generatingBox, { backgroundColor: activeAI.color + '15', borderColor: activeAI.color + '40' }]}>
+          <MaterialCommunityIcons name={activeAI.icon} size={38} color={activeAI.color} />
+        </View>
+        
+        <ActivityIndicator size="large" color={activeAI.color} style={{ marginTop: 24 }} />
+        
+        <Text style={{ fontSize: 19, fontWeight: '900', marginTop: 18, textAlign: 'center', color: theme.text }}>
+          Montando protocolo...
+        </Text>
+        
+        {/* 🔥 BADGE INFORMANDO QUAL IA ESTÁ TRABALHANDO */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}>
+          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary }}>Via</Text>
+          <View style={{ backgroundColor: activeAI.color + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: activeAI.color + '40' }}>
+            <Text style={{ fontSize: 10, fontWeight: '900', color: activeAI.color }}>{activeAI.name}</Text>
+          </View>
+        </View>
+
+        <Text style={{ fontSize: 13, marginTop: 16, textAlign: 'center', lineHeight: 20, color: theme.textSecondary }}>
+          {g.generatingMsg}
+        </Text>
+        
+        <Text style={{ fontSize: 11, color: theme.textSecondary + '60', marginTop: 14, textAlign: 'center' }}>
+          Isso pode levar até 30 segundos
+        </Text>
       </View>
-      <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 24 }} />
-      <Text style={{ fontSize: 19, fontWeight: '900', marginTop: 18, textAlign: 'center', color: theme.text }}>Montando protocolo...</Text>
-      <Text style={{ fontSize: 13, marginTop: 8, textAlign: 'center', lineHeight: 20, color: theme.textSecondary }}>{g.generatingMsg}</Text>
-      <Text style={{ fontSize: 11, color: theme.textSecondary + '60', marginTop: 14, textAlign: 'center' }}>Isso pode levar até 30 segundos</Text>
-    </View>
-  );
+    );
+  };
 
   // ─── ROOT ───
   const Wrapper = isWeb ? View : SafeAreaView;
@@ -413,6 +464,10 @@ const S = StyleSheet.create({
   card:         { borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1 },
   alertRow:     { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 8, borderRadius: 8, borderWidth: 1 },
   actionBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 11, borderWidth: 1 },
+  
+  // 🔥 ESTILO DO NOVO BOTÃO DA IA
+  aiBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
+
   envDropdown:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, marginBottom: 20 },
   envIcon:      { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 10 },
