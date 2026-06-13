@@ -326,6 +326,16 @@ export default function ModelSelectorModal({
 
                                 <XRayItem icon="clock-outline" title="Horários & Refeições" value={`Acorda: ${anamnese.wakeUpTime || '?'} | Treina: ${anamnese.trainTime || '?'} | Dorme: ${anamnese.sleepTime || '?'} | Trabalho: ${anamnese.workTime || 'Livre'} | Refeições/dia: ${anamnese.mealsPerDay || '?'}`} />
 
+                                <XRayItem 
+    icon="calendar-check" 
+    title="Horários de Folga" 
+    value={
+        anamnese.freeDays?.length > 0 && !anamnese.freeDays.includes('Nenhum')
+        ? `Dias: ${anamnese.freeDays.join(', ')} | Acorda: ${anamnese.freeWakeUpTime || '?'} | Dorme: ${anamnese.freeSleepTime || '?'} | Treino: ${anamnese.freeTrainTime || '?'}`
+        : "Nenhuma folga definida"
+    } 
+/>
+
                                 <XRayItem icon="silverware-fork-knife" title="Hábitos & Comportamento" value={`Água: ${anamnese.waterIntake || '?'} | Álcool: ${anamnese.alcoholFreq || 'Não'} | Compulsão: ${anamnese.nightBinge || 'Não'} | Come fora: ${anamnese.eatsOutPerWeek || '?'}`} />
 
                                 <XRayItem icon="history" title="Histórico de Dietas" value={`Maior Desafio: ${anamnese.biggestChallenge || 'Nenhum'} | Estratégia Pré-treino: ${anamnese.preworkoutStrategy || 'Padrão'}`} />
