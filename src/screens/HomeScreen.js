@@ -44,6 +44,9 @@ export default function HomeScreen({ navigation }) {
     const [upsellModalVisible,       setUpsellModalVisible]       = useState(false);
     const [upsellFeature,            setUpsellFeature]            = useState('');
 
+    // 🔥 Estado para o Modal da Anamnese Pendente
+    const [anamnesePendingModalVisible, setAnamnesePendingModalVisible] = useState(false);
+
     // ── Animação de pulso ─────────────────────────────────────────────────
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -57,9 +60,19 @@ export default function HomeScreen({ navigation }) {
         if (home.pendingFeedback) setFeedbackModalVisible(true);
     }, [home.pendingFeedback]);
 
+    // 🔥 Intercepta o aluno se tiver Anamnese Pendente
+    useEffect(() => {
+        if (home.userData?.anamnesePendente === true) {
+            setAnamnesePendingModalVisible(true);
+        } else {
+            setAnamnesePendingModalVisible(false);
+        }
+    }, [home.userData?.anamnesePendente]);
+
     useEffect(() => {
         const shouldPulse = home.isCheckinPending || home.pendingFeedback
-            || home.showVideoAlert || (home.daysToPay !== null && home.daysToPay <= 3);
+            || home.showVideoAlert || (home.daysToPay !== null && home.daysToPay <= 3)
+            || home.userData?.anamnesePendente; // 🔥 Adicionado o pulso para a Anamnese Pendente
 
         if (shouldPulse) {
             Animated.loop(
@@ -71,7 +84,7 @@ export default function HomeScreen({ navigation }) {
         } else {
             pulseAnim.setValue(1);
         }
-    }, [home.isCheckinPending, home.pendingFeedback, home.showVideoAlert, home.daysToPay]);
+    }, [home.isCheckinPending, home.pendingFeedback, home.showVideoAlert, home.daysToPay, home.userData?.anamnesePendente]);
 
     // ── Carregar dados ao focar a tela e ao voltar do background ──────────
     useFocusEffect(useCallback(() => { home.loadHomeData(); }, []));
@@ -109,6 +122,8 @@ export default function HomeScreen({ navigation }) {
         && home.daysToStart > 0;
 
     const needsInitialPhoto = !home.hasSentInitialPhotos;
+    
+    // 🔥 Removido o anamnesePendente do bloqueio total para permitir clicar no Responder Depois e fechar
     const isBlockedTotal    = isFichaExpired || isWaitingStart || needsInitialPhoto || home.isFinanceLocked;
 
     const openUpsell = (featureName) => { setUpsellFeature(featureName); setUpsellModalVisible(true); };
@@ -155,7 +170,7 @@ export default function HomeScreen({ navigation }) {
                                     home.userPlan === 'FICHA_8S'     ? 'PROJETO DE FICHAS'  :
                                     home.userPlan === 'CHALLENGE_21' ? 'DESAFIO 21 DIAS'    :
                                     'ELITE'
-                                },
+                                }
                             </Text>
                             <Text style={[styles.name, { color: theme.text }]} numberOfLines={1}>
                                 {home.userName.toUpperCase()} ⚡
@@ -205,6 +220,24 @@ export default function HomeScreen({ navigation }) {
                         userPlan={home.userPlan}
                         hasSentInitialPhotos={home.hasSentInitialPhotos}
                     />
+
+                    {/* 🔥 BANNER DE URGÊNCIA: ANAMNESE PENDENTE */}
+                    {home.userData?.anamnesePendente === true && (
+                        <Animated.View style={{ transform: [{ scale: pulseAnim }], marginBottom: 15 }}>
+                            <TouchableOpacity
+                                style={[styles.urgentBanner, { backgroundColor: '#FF9500' }]}
+                                onPress={() => navigation.navigate('Anamnese')}
+                                activeOpacity={0.8}
+                            >
+                                <MaterialCommunityIcons name="alert-octagon" size={28} color="#000" />
+                                <View style={{ flex: 1, marginLeft: 12 }}>
+                                    <Text style={{ color: '#000', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>FICHA DESATUALIZADA!</Text>
+                                    <Text style={{ color: '#000', fontSize: 11, marginTop: 2, fontWeight: '600' }}>Toque aqui para preencher seus dados.</Text>
+                                </View>
+                                <MaterialCommunityIcons name="arrow-right" size={24} color="#000" />
+                            </TouchableOpacity>
+                        </Animated.View>
+                    )}
 
                     {/* ── Card de XP / Ficha ──────────────────────────────── */}
                     {['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan) && !isFichaExpired ? (
@@ -302,6 +335,42 @@ export default function HomeScreen({ navigation }) {
             {/* ════════════════════════════════════════════════════════════
                 MODAIS
             ════════════════════════════════════════════════════════════ */}
+
+            {/* 🔥 Modal de Anamnese Pendente (Obrigatório) */}
+            <Modal visible={anamnesePendingModalVisible} transparent animationType="fade" onRequestClose={() => setAnamnesePendingModalVisible(false)}>
+                <View style={styles.overlay}>
+                    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                        <View style={[styles.iconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
+                            <MaterialCommunityIcons name="clipboard-edit-outline" size={36} color={theme.accent} />
+                        </View>
+                        <Text style={[styles.cardTitle, { color: theme.text }]}>ATUALIZAÇÃO DE FICHA</Text>
+                        
+                        <Text style={[styles.cardDesc, { color: theme.textSecondary, marginBottom: 25 }]}>
+                            Seu Coach solicitou uma <Text style={{ color: theme.text, fontWeight: 'bold' }}>atualização na sua ficha clínica</Text>.
+                            Precisamos que você preencha alguns dados importantes para dar continuidade à sua Consultoria.
+                        </Text>
+                        
+                        <TouchableOpacity
+                            style={[styles.btn, { backgroundColor: theme.accent, marginBottom: 10 }]}
+                            onPress={() => {
+                                setAnamnesePendingModalVisible(false);
+                                navigation.navigate('Anamnese'); // Certifique-se de que a rota da Anamnese no App é 'Anamnese'
+                            }}
+                        >
+                            <Text style={[styles.btnText, { color: '#000' }]}>PREENCHER AGORA</Text>
+                            <MaterialCommunityIcons name="arrow-right" size={20} color="#000" style={{ marginLeft: 8 }} />
+                        </TouchableOpacity>
+
+                        {/* 🔥 Opção para responder depois */}
+                        <TouchableOpacity
+                            style={[styles.btn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, shadowOpacity: 0, elevation: 0 }]}
+                            onPress={() => setAnamnesePendingModalVisible(false)}
+                        >
+                            <Text style={[styles.btnText, { color: theme.text }]}>RESPONDER DEPOIS</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
             {/* Modal Financeiro */}
             {home.isFinanceLocked && (
@@ -466,6 +535,7 @@ const styles = StyleSheet.create({
     reloadBtn:  { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
     statusBadge:{ paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
     statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
+    urgentBanner:{ flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, elevation: 4, shadowColor: '#FF9500', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
     xpCard:     { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
     levelText:  { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
     xpText:     { fontSize: 11, fontWeight: 'bold' },

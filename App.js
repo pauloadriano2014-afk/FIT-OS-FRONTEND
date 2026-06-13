@@ -196,7 +196,7 @@ function RootNavigator() {
       <Stack.Screen name="Install"       component={InstallScreen} />
       <Stack.Screen name="Login"         component={LoginScreen} />
       <Stack.Screen name="Register"      component={RegisterScreen} />
-      <Stack.Screen name="Anamnese"      component={AnamneseScreen} />
+      <Stack.Screen name="Anamnese"      component={AnamneseScreen} options={{ headerShown: false, tabBarVisible: false }} />
       <Stack.Screen name="AnamneseVIP"   component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino"   component={SetupTreinoScreen} />
 

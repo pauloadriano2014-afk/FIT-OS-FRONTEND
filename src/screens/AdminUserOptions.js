@@ -25,8 +25,8 @@ const DIET_OPTIONS = [
 const MENU_TABS = [
     { id: 'RESUMO',    label: 'VISÃO GERAL',       icon: 'view-dashboard' },
     { id: 'ANAMNESE',  label: 'PERFIL & ANAMNESE',  icon: 'clipboard-text' },
-    { id: 'TREINOS',   label: 'TREINOS',             icon: 'weight-lifter' },
-    { id: 'AVALIACOES',label: 'AVALIAÇÕES',          icon: 'camera-front-variant' },
+    { id: 'TREINOS',   label: 'TREINOS',            icon: 'weight-lifter' },
+    { id: 'AVALIACOES',label: 'AVALIAÇÕES',         icon: 'camera-front-variant' },
     { id: 'DIETA_IA',  label: 'NUTRIÇÃO & IA',       icon: 'food-apple' },
     { id: 'ACESSOS',   label: 'PLANOS E BÔNUS',      icon: 'key-star' },
     { id: 'SISTEMA',   label: 'SISTEMA & RISCO',     icon: 'cog' }
@@ -173,11 +173,21 @@ export default function AdminUserOptions({ route, navigation }) {
             <View style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: webOuterBg, overflow: 'hidden' }}>
                 {/* Sidebar */}
                 <View style={{ width: 280, backgroundColor: theme.surface, borderRightWidth: 1, borderColor: theme.border, padding: 20 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 40, marginTop: 10 }}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
-                            <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40, marginTop: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                                <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
+                            </TouchableOpacity>
+                            <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text }}>ALUNO ELITE</Text>
+                        </View>
+                        {/* 🔥 Botão de Solicitar Anamnese (Web) */}
+                        <TouchableOpacity 
+                            onPress={ops.handleRequestAnamneseUpdate} 
+                            style={{ padding: 8, backgroundColor: 'rgba(255, 149, 0, 0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255, 149, 0, 0.3)' }}
+                            title="Solicitar Nova Anamnese"
+                        >
+                            <MaterialCommunityIcons name="clipboard-edit-outline" size={20} color="#FF9500" />
                         </TouchableOpacity>
-                        <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text }}>ALUNO ELITE</Text>
                     </View>
                     <View style={{ gap: 10 }}>
                         {MENU_TABS.map(tabObj => {
@@ -223,9 +233,15 @@ export default function AdminUserOptions({ route, navigation }) {
                 <View style={{ alignItems: 'center' }}>
                     <Text style={[styles.headerTitle, { color: theme.text }]}>GERENCIAR ALUNO</Text>
                 </View>
-                <TouchableOpacity onPress={ops.fetchAllData} style={{ padding: 8 }}>
-                    <MaterialCommunityIcons name="refresh" size={24} color={theme.accent} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    {/* 🔥 Botão de Solicitar Anamnese (Mobile) */}
+                    <TouchableOpacity onPress={ops.handleRequestAnamneseUpdate} style={{ padding: 8, marginRight: 4 }}>
+                        <MaterialCommunityIcons name="clipboard-edit-outline" size={24} color="#FF9500" />
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={ops.fetchAllData} style={{ padding: 8 }}>
+                        <MaterialCommunityIcons name="refresh" size={24} color={theme.accent} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>

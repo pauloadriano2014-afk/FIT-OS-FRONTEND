@@ -176,6 +176,44 @@ export default function useAdminUserOptions(aluno, navigation) {
         } catch (error) { console.log("Erro no Motor:", error); } finally { setLoading(false); setLoadingPaflix(false); }
     };
 
+    // 🔥 GATILHO: Solicitar Atualização de Anamnese
+    const handleRequestAnamneseUpdate = () => {
+        const msg = "O aluno será obrigado a preencher os campos faltantes da anamnese no próximo login. Deseja confirmar?";
+        
+        if (Platform.OS === 'web') {
+            if (window.confirm(msg)) executeAnamneseRequest();
+        } else {
+            Alert.alert(
+                "Solicitar Atualização", 
+                msg,
+                [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Sim, Solicitar", onPress: executeAnamneseRequest }
+                ]
+            );
+        }
+    };
+
+    const executeAnamneseRequest = async () => {
+        try {
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ anamnesePendente: true })
+            });
+
+            if (!res.ok) throw new Error('Falha ao atualizar o banco de dados');
+            
+            if (Platform.OS === 'web') window.alert("Sucesso! Anamnese solicitada.");
+            else Alert.alert("Sucesso", "O aluno foi notificado e deverá atualizar a anamnese.");
+            
+            fetchAllData(); // Atualiza os dados na tela
+        } catch (e) {
+            if (Platform.OS === 'web') window.alert("Erro ao solicitar anamnese.");
+            else Alert.alert("Erro", "Não foi possível enviar a solicitação.");
+        }
+    };
+
     const handleSaveStrategy = async (newDate = null) => {
         setSavingNotes(true);
         const payload = { strategyNotes, weeklyChecks };
@@ -405,6 +443,7 @@ export default function useAdminUserOptions(aluno, navigation) {
         handleSaveEvaluation, handleDeleteWorkout, handleToggleArchiveWorkout,
         handleEditWorkout, handleNewWorkout, handleToggleDisableCheckIn,
         handleCheckInDateChange, handleSaveCheckInDate, handleSaveDietGoal,
-        handleDismissAlert, handleAbrirRaioxCargas, handleAddCheck, handleToggleCheck, handleRemoveCheck
+        handleDismissAlert, handleAbrirRaioxCargas, handleAddCheck, handleToggleCheck, handleRemoveCheck,
+        handleRequestAnamneseUpdate // 🔥 Exportando a nova função
     };
 }
