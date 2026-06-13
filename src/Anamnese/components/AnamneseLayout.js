@@ -39,12 +39,25 @@ export default function AnamneseLayout({
           borderRightWidth: width > 480 ? 1 : 0,
           borderColor: theme.border,
           display: 'flex', flexDirection: 'column',
+          overflowX: 'hidden' // 🔥 TRAVA: Impede a rolagem horizontal indesejada no container principal
         }}>
           <Header theme={theme} step={step} totalSteps={totalSteps} onClose={onClose} />
           
           {/* O miolo scrollável isolado e blindado contra o efeito elástico */}
-          <div style={{ flex: 1, overflowY: 'auto', WebkitOverflowScrolling: 'touch', overscrollBehavior: 'none' }}>
-            <div style={{ padding: 20, paddingBottom: 32 }}>
+          <div style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            overflowX: 'hidden', // 🔥 TRAVA: Garante que o scroll aconteça apenas no eixo Y
+            WebkitOverflowScrolling: 'touch', 
+            overscrollBehavior: 'none',
+            width: '100%' // Garante que não ultrapasse a largura do pai
+          }}>
+            <div style={{ 
+              padding: 20, 
+              paddingBottom: 32,
+              width: '100%', // 🔥 Garante que o conteúdo respeite o limite
+              boxSizing: 'border-box' // 🔥 O padding não soma na largura total
+            }}>
               {children}
             </div>
           </div>

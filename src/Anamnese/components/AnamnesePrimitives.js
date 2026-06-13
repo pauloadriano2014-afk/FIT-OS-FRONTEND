@@ -145,6 +145,6 @@ export const p = StyleSheet.create({
   label:       { fontSize:10, fontWeight:'900', marginBottom:8, letterSpacing:0.8 },
   question:    { fontSize:20, fontWeight:'900', marginBottom:16, lineHeight:26 },
   hint:        { fontSize:11, fontStyle:'italic', marginTop:4, marginBottom:4, lineHeight:16 },
-  input:       { padding:16, borderRadius:16, borderWidth:1, fontSize:15, marginBottom:8 },
-  textArea:    { padding:16, borderRadius:16, borderWidth:1, fontSize:14, minHeight:80, textAlignVertical:'top', marginBottom:8 },
+  input:       { padding:16, borderRadius:16, borderWidth:1, fontSize:16, marginBottom:8 },
+  textArea:    { padding:16, borderRadius:16, borderWidth:1, fontSize:16, minHeight:80, textAlignVertical:'top', marginBottom:8 },
 });
