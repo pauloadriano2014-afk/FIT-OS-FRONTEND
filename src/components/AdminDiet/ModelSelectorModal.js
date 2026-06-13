@@ -1,5 +1,5 @@
-// src/components/AdminDiet/ModelSelectorModal.js — VERSÃO 2.0
-// Modal completo: seleção de modelo + tabela semanal editável + resumo calórico
+// src/components/AdminDiet/ModelSelectorModal.js — VERSÃO 3.1
+// Modal completo: seleção de modelo + tabela semanal + RAIO-X COMPLETO
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     View, Text, TouchableOpacity, Modal, StyleSheet,
@@ -52,23 +52,24 @@ export default function ModelSelectorModal({
     anamnese, aluno,
 }) {
     const [selectedModel, setSelectedModel]   = useState('anthropic');
-    const [activeTab, setActiveTab]           = useState('plan');  // 'plan' | 'model'
+    const [activeTab, setActiveTab]           = useState('plan');  // 'plan' | 'model' | 'xray'
     const [weekDist, setWeekDist]             = useState(null);    // editado pelo coach
 
     const softBg = theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
 
-    // Calcula o plano semanal toda vez que a anamnese muda ou o modal abre
     const plan = useMemo(() => {
         if (!anamnese || !visible) return null;
         return calcWeeklyPlan(anamnese, aluno?.birthDate, aluno?.gender, weekDist);
     }, [anamnese, aluno, visible, weekDist]);
 
-    // Inicializa weekDist com a sugestão automática
     useEffect(() => {
         if (visible && anamnese && !weekDist) {
             setWeekDist(suggestWeekDistribution(anamnese.frequencia, anamnese.objetivo));
         }
-        if (!visible) setWeekDist(null);
+        if (!visible) {
+            setWeekDist(null);
+            setActiveTab('plan'); // Reseta a aba ao fechar
+        }
     }, [visible, anamnese]);
 
     const adjustDay = (dayType, delta) => {
@@ -87,15 +88,27 @@ export default function ModelSelectorModal({
 
     const handleGenerate = () => {
         if (!isGenerating) {
-            // Passa quais abas têm dias > 0
             const activeDayTypes = DAY_TYPES.filter(d => (weekDist?.[d] || 0) > 0);
             onGenerate(selectedModel, activeDayTypes, weekDist);
         }
     };
 
+    // Helper para o Raio-X
+    const XRayItem = ({ icon, title, value }) => (
+        <View style={[styles.xrayItem, { borderBottomColor: theme.border }]}>
+            <View style={[styles.xrayIcon, { backgroundColor: softBg }]}>
+                <MaterialCommunityIcons name={icon} size={16} color={theme.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={[styles.xrayTitle, { color: theme.textSecondary }]}>{title}</Text>
+                <Text style={[styles.xrayValue, { color: theme.text }]}>{value || 'Não informado'}</Text>
+            </View>
+        </View>
+    );
+
     if (!plan) return null;
 
-    const { weekly, macrosByDay, objetivo } = plan;
+    const { weekly, macrosByDay } = plan;
     const isDeficit = weekly.deficitSemanal >= 0;
 
     return (
@@ -107,7 +120,7 @@ export default function ModelSelectorModal({
                     {/* CABEÇALHO */}
                     <View style={styles.headerRow}>
                         <View>
-                            <Text style={[styles.title, { color: theme.text }]}>ESTRATÉGIA SEMANAL</Text>
+                            <Text style={[styles.title, { color: theme.text }]}>ESTRATÉGIA IA</Text>
                             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
                                 {anamnese?.objetivo} · {aluno?.name?.split(' ')[0]}
                             </Text>
@@ -123,8 +136,9 @@ export default function ModelSelectorModal({
                     {/* ABAS INTERNAS */}
                     <View style={[styles.tabRow, { backgroundColor: softBg, borderColor: theme.border }]}>
                         {[
-                            { id: 'plan',  label: 'PLANO SEMANAL', icon: 'calendar-week' },
-                            { id: 'model', label: 'MODELO DE IA',  icon: 'robot' },
+                            { id: 'plan',  label: 'PLANO',   icon: 'calendar-week' },
+                            { id: 'model', label: 'IA',      icon: 'robot' },
+                            { id: 'xray',  label: 'RAIO-X',  icon: 'file-find' },
                         ].map(tab => (
                             <TouchableOpacity
                                 key={tab.id}
@@ -150,7 +164,6 @@ export default function ModelSelectorModal({
                         {/* ── ABA: PLANO SEMANAL ──────────────────────────────── */}
                         {activeTab === 'plan' && weekDist && (
                             <View style={{ paddingBottom: 20 }}>
-
                                 {/* RESUMO TDEE */}
                                 <View style={[styles.tdeeRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                     <View style={styles.tdeeItem}>
@@ -217,42 +230,25 @@ export default function ModelSelectorModal({
                                                 },
                                             ]}
                                         >
-                                            {/* Linha superior: ícone + nome + stepper */}
                                             <View style={styles.dayCardTop}>
                                                 <View style={[styles.dayIconBox, { backgroundColor: color + '20' }]}>
-                                                    <MaterialCommunityIcons
-                                                        name={DAY_ICONS[dayType]} size={18} color={color}
-                                                    />
+                                                    <MaterialCommunityIcons name={DAY_ICONS[dayType]} size={18} color={color} />
                                                 </View>
                                                 <View style={{ flex: 1, marginLeft: 10 }}>
-                                                    <Text style={[styles.dayCardName, { color: theme.text }]}>
-                                                        {DAY_TYPE_LABELS[dayType]}
-                                                    </Text>
-                                                    <Text style={[styles.dayCardKcal, { color: color }]}>
-                                                        {macros.kcal} kcal
-                                                    </Text>
+                                                    <Text style={[styles.dayCardName, { color: theme.text }]}>{DAY_TYPE_LABELS[dayType]}</Text>
+                                                    <Text style={[styles.dayCardKcal, { color: color }]}>{macros.kcal} kcal</Text>
                                                 </View>
-                                                {/* Stepper de dias */}
                                                 <View style={styles.stepper}>
-                                                    <TouchableOpacity
-                                                        style={[styles.stepBtn, { backgroundColor: softBg }]}
-                                                        onPress={() => adjustDay(dayType, -1)}
-                                                    >
+                                                    <TouchableOpacity style={[styles.stepBtn, { backgroundColor: softBg }]} onPress={() => adjustDay(dayType, -1)}>
                                                         <MaterialCommunityIcons name="minus" size={14} color={theme.text} />
                                                     </TouchableOpacity>
-                                                    <Text style={[styles.stepValue, { color: theme.text }]}>
-                                                        {days}x
-                                                    </Text>
-                                                    <TouchableOpacity
-                                                        style={[styles.stepBtn, { backgroundColor: softBg }]}
-                                                        onPress={() => adjustDay(dayType, +1)}
-                                                    >
+                                                    <Text style={[styles.stepValue, { color: theme.text }]}>{days}x</Text>
+                                                    <TouchableOpacity style={[styles.stepBtn, { backgroundColor: softBg }]} onPress={() => adjustDay(dayType, +1)}>
                                                         <MaterialCommunityIcons name="plus" size={14} color={theme.text} />
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>
 
-                                            {/* Linha inferior: macros */}
                                             {isActive && (
                                                 <View style={[styles.macroRow, { borderTopColor: color + '30' }]}>
                                                     {[
@@ -272,44 +268,6 @@ export default function ModelSelectorModal({
                                         </View>
                                     );
                                 })}
-
-                                {/* RESUMO SEMANAL */}
-                                <View style={[styles.weekSummary, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                    <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 12 }]}>
-                                        Média Semanal
-                                    </Text>
-                                    <View style={styles.summaryRow}>
-                                        {[
-                                            { l: 'KCAL', v: weekly.avg.kcal, u: '',  c: theme.accent },
-                                            { l: 'PROT', v: weekly.avg.prot, u: 'g', c: '#32ADE6'    },
-                                            { l: 'CARB', v: weekly.avg.carb, u: 'g', c: '#FFCC00'    },
-                                            { l: 'GORD', v: weekly.avg.fat,  u: 'g', c: '#FF9500'    },
-                                        ].map(({ l, v, u, c }) => (
-                                            <View key={l} style={styles.summaryItem}>
-                                                <Text style={[styles.summaryVal, { color: c }]}>
-                                                    {v}<Text style={{ fontSize: 10, color: theme.textSecondary }}>{u}</Text>
-                                                </Text>
-                                                <Text style={[styles.summaryLbl, { color: theme.textSecondary }]}>{l}</Text>
-                                            </View>
-                                        ))}
-                                    </View>
-                                    <View style={[styles.resultPill, {
-                                        backgroundColor: isDeficit ? '#34C75915' : '#FF950015',
-                                        borderColor:     isDeficit ? '#34C75940' : '#FF950040',
-                                    }]}>
-                                        <MaterialCommunityIcons
-                                            name={isDeficit ? 'trending-down' : 'trending-up'}
-                                            size={16}
-                                            color={isDeficit ? '#34C759' : '#FF9500'}
-                                        />
-                                        <Text style={[styles.resultText, { color: isDeficit ? '#34C759' : '#FF9500' }]}>
-                                            {isDeficit
-                                                ? `Déficit de ${weekly.deficitSemanal} kcal/semana → estimativa de ${Math.abs(weekly.kgEstimadoSemana)}kg de gordura/semana`
-                                                : `Superávit de ${Math.abs(weekly.deficitSemanal)} kcal/semana → estimativa de +${Math.abs(weekly.kgEstimadoSemana)}kg/semana`
-                                            }
-                                        </Text>
-                                    </View>
-                                </View>
                             </View>
                         )}
 
@@ -345,33 +303,51 @@ export default function ModelSelectorModal({
                                                 <MaterialCommunityIcons name="timer-outline" size={10} color={theme.textSecondary} />
                                                 <Text style={[styles.speedText, { color: theme.textSecondary }]}>{model.speed}</Text>
                                             </View>
-                                            <View style={styles.starsRow}>
-                                                {[1,2,3,4,5].map(s => (
-                                                    <MaterialCommunityIcons
-                                                        key={s}
-                                                        name={s <= model.stars ? 'star' : 'star-outline'}
-                                                        size={10}
-                                                        color={s <= model.stars ? model.color : theme.border}
-                                                    />
-                                                ))}
-                                            </View>
-                                            {isActive && (
-                                                <View style={[styles.checkDot, { backgroundColor: model.color }]}>
-                                                    <MaterialCommunityIcons name="check" size={10} color="#000" />
-                                                </View>
-                                            )}
                                         </TouchableOpacity>
                                     );
                                 })}
                             </View>
                         )}
+
+                        {/* ── ABA: RAIO-X DO PROMPT ────────────────────────── */}
+                        {activeTab === 'xray' && (
+                            <View style={[styles.xrayContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                <Text style={[styles.xrayHeaderDesc, { color: theme.textSecondary }]}>
+                                    Dossiê Completo: Estes são todos os dados que a IA lerá na ficha do aluno antes de calcular a dieta.
+                                </Text>
+                                
+                                <XRayItem icon="account-details" title="Perfil & Objetivo" value={`${anamnese.objetivo} (${anamnese.nivel}) | ${anamnese.peso}kg | ${anamnese.altura}cm`} />
+                                
+                                <XRayItem icon="dumbbell" title="Rotina de Treino" value={`${anamnese.frequencia}x/sem (${anamnese.tempoDisponivel}min) | Treina em Jejum: ${anamnese.trainFasted ? 'Sim' : 'Não'}`} />
+
+                                <XRayItem icon="hospital-box" title="Saúde & Patologias" value={`Condições: ${Array.isArray(anamnese.healthConditions) && anamnese.healthConditions.length ? anamnese.healthConditions.join(', ') : 'Nenhuma'} | Remédios: ${Array.isArray(anamnese.medications) && anamnese.medications.length ? anamnese.medications.join(', ') : 'Nenhum'}`} />
+
+                                <XRayItem icon="stomach" title="Digestivo, Sono & Stress" value={`Digestão: ${Array.isArray(anamnese.digestiveIssues) && anamnese.digestiveIssues.length ? anamnese.digestiveIssues.join(', ') : 'Ok'} | Sono: ${anamnese.sleepHours} (${anamnese.sleepQuality}) | Stress: ${anamnese.stressLevel}/5`} />
+
+                                <XRayItem icon="clock-outline" title="Horários & Refeições" value={`Acorda: ${anamnese.wakeUpTime || '?'} | Treina: ${anamnese.trainTime || '?'} | Dorme: ${anamnese.sleepTime || '?'} | Trabalho: ${anamnese.workTime || 'Livre'} | Refeições/dia: ${anamnese.mealsPerDay || '?'}`} />
+
+                                <XRayItem icon="silverware-fork-knife" title="Hábitos & Comportamento" value={`Água: ${anamnese.waterIntake || '?'} | Álcool: ${anamnese.alcoholFreq || 'Não'} | Compulsão: ${anamnese.nightBinge || 'Não'} | Come fora: ${anamnese.eatsOutPerWeek || '?'}`} />
+
+                                <XRayItem icon="history" title="Histórico de Dietas" value={`Maior Desafio: ${anamnese.biggestChallenge || 'Nenhum'} | Estratégia Pré-treino: ${anamnese.preworkoutStrategy || 'Padrão'}`} />
+
+                                <XRayItem icon="alert-octagon" title="Alergias / Intolerâncias" value={anamnese.allergies || 'Nenhuma'} />
+
+                                <XRayItem icon="cancel" title="Aversões (Não come)" value={anamnese.foodAversions || 'Nenhuma'} />
+
+                                <XRayItem icon="thumb-up" title="Preferências Alimentares" value={anamnese.foodPreferences || 'Nenhuma'} />
+
+                                <XRayItem icon="pill" title="Suplementos Atuais" value={Array.isArray(anamnese.supplements) ? anamnese.supplements.join(', ') : (anamnese.supplements || 'Nenhum')} />
+
+                                <XRayItem icon="cash" title="Orçamento Alimentar" value={anamnese.budget || 'Não informado'} />
+                            </View>
+                        )}
                     </ScrollView>
 
-                    {/* STATUS DE GERAÇÃO */}
+                    {/* STATUS DE GERAÇÃO COM PORCENTAGEM */}
                     {isGenerating && generateProgress ? (
-                        <View style={[styles.progressBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={[styles.progressBox, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
                             <ActivityIndicator size="small" color={theme.accent} />
-                            <Text style={[styles.progressText, { color: theme.accent }]}>{generateProgress}</Text>
+                            <Text style={[styles.progressText, { color: theme.text }]}>{generateProgress}</Text>
                         </View>
                     ) : null}
 
@@ -379,11 +355,7 @@ export default function ModelSelectorModal({
                     <TouchableOpacity
                         style={[
                             styles.generateBtn,
-                            {
-                                backgroundColor: (isGenerating || totalDays !== 7)
-                                    ? theme.border
-                                    : theme.accent,
-                            },
+                            { backgroundColor: (isGenerating || totalDays !== 7) ? theme.border : theme.accent },
                         ]}
                         onPress={handleGenerate}
                         disabled={isGenerating || totalDays !== 7}
@@ -417,8 +389,7 @@ const styles = StyleSheet.create({
     backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'flex-end' },
     sheet: {
         maxHeight: '92%', borderTopLeftRadius: 32, borderTopRightRadius: 32,
-        borderWidth: 1, borderBottomWidth: 0,
-        paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36,
+        borderWidth: 1, borderBottomWidth: 0, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 36,
     },
     handle: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center', marginBottom: 16 },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 },
@@ -455,15 +426,6 @@ const styles = StyleSheet.create({
     macroVal: { fontSize: 13, fontWeight: '900' },
     macroLbl: { fontSize: 9, fontWeight: '800', marginTop: 1 },
 
-    weekSummary: { borderRadius: 20, borderWidth: 1, padding: 16, marginTop: 4 },
-    summaryRow:  { flexDirection: 'row', marginBottom: 14 },
-    summaryItem: { flex: 1, alignItems: 'center' },
-    summaryVal:  { fontSize: 18, fontWeight: '900' },
-    summaryLbl:  { fontSize: 10, fontWeight: '800', marginTop: 2 },
-
-    resultPill: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1 },
-    resultText: { fontSize: 11, fontWeight: '700', flex: 1, lineHeight: 16 },
-
     modelsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingBottom: 20 },
     modelCard: { width: '47%', borderRadius: 20, borderWidth: 1.5, padding: 14, position: 'relative' },
     badge: { position: 'absolute', top: -8, right: 12, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
@@ -473,11 +435,16 @@ const styles = StyleSheet.create({
     modelCompany: { fontSize: 10, fontWeight: '700', marginBottom: 8 },
     speedPill: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, marginBottom: 6 },
     speedText: { fontSize: 9, fontWeight: '800' },
-    starsRow:  { flexDirection: 'row', gap: 2 },
-    checkDot:  { position: 'absolute', top: 10, right: 10, width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
 
-    progressBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
-    progressText: { fontSize: 12, fontWeight: '700', flex: 1 },
+    xrayContainer: { borderRadius: 20, borderWidth: 1, padding: 16, marginBottom: 20 },
+    xrayHeaderDesc: { fontSize: 12, fontWeight: '600', marginBottom: 16, lineHeight: 18 },
+    xrayItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
+    xrayIcon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    xrayTitle: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5, marginBottom: 2 },
+    xrayValue: { fontSize: 13, fontWeight: '600' },
+
+    progressBox: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 16, borderRadius: 16, borderWidth: 1.5, marginBottom: 12 },
+    progressText: { fontSize: 13, fontWeight: '800', flex: 1 },
 
     generateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 18, borderRadius: 20, marginTop: 8 },
     generateBtnText: { fontSize: 13, fontWeight: '900', color: '#000', letterSpacing: 0.5 },

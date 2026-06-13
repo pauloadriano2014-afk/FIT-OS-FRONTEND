@@ -108,20 +108,30 @@ export const generateAllDayTypes = async (
     provider     = 'anthropic',
     aluno        = {},
     activeDayTypes = ['TREINO', 'TREINO_CARDIO', 'CARDIO', 'DESCANSO'],
-    macrosByDay  = {}
+    macrosByDay  = {},
+    onProgress // 🔥 NOVO: Recebe o callback de progresso da tela
 ) => {
     const allMeals = [];
+    const total = activeDayTypes.length;
 
-    // 🔥 ENFILEIRAMENTO: Manda uma aba, espera terminar, manda a próxima
-    for (const dayType of activeDayTypes) {
+    // 🔥 ENFILEIRAMENTO COM PORCENTAGEM
+    for (let i = 0; i < total; i++) {
+        const dayType = activeDayTypes[i];
+        
+        // Ex: 0%, 25%, 50%
+        const pctStart = Math.round((i / total) * 100);
+        if (onProgress) onProgress(`Gerando aba ${dayType.replace('_', '+')} (${i + 1}/${total}) — ${pctStart}% concluído...`);
+
         const result = await generateAIDiet(anamnese, dayType, provider, aluno, macrosByDay[dayType] ?? null);
         
         const normalized = (result.meals ?? []).map(m => ({ 
             ...m, 
             dayType: dayType 
         }));
-        
         allMeals.push(...normalized);
+
+        const pctEnd = Math.round(((i + 1) / total) * 100);
+        if (onProgress) onProgress(`Aba ${dayType.replace('_', '+')} finalizada! — ${pctEnd}% concluído.`);
     }
 
     return allMeals;

@@ -123,15 +123,14 @@ export default function AdminDietScreen({ route, navigation }) {
             const plan = calcWeeklyPlan(data.anamnese, aluno?.birthDate, aluno?.gender, weekDist);
             const macrosByDay = plan.macrosByDay;
 
-            const labels = activeDayTypes.join(', ');
-            setGenerateProgress(`Gerando ${activeDayTypes.length} aba(s): ${labels}...`);
-
+            // Chama o serviço passando o onProgress
             const allMeals = await DietService.generateAllDayTypes(
                 data.anamnese,
                 provider,
                 aluno,
                 activeDayTypes,
                 macrosByDay,
+                (progressMsg) => setGenerateProgress(progressMsg) // 🔥 INJETADO AQUI
             );
 
             // Substitui apenas as abas geradas, mantém as demais
