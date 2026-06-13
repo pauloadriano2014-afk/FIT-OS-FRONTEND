@@ -11,7 +11,7 @@ import {
     SLEEP_H_LIST, SLEEP_Q_LIST, CYCLE_LIST, CYCLE_LBL, PMS_LIST,
     EATS_OUT_LIST, BUDGET_LIST, BUDGET_LBL, WATER_LIST, ALCOHOL_LIST,
     COFFEE_LIST, EAT_SPD_LIST, BINGE_LIST, BINGE_LBL,
-    TRIED_LIST, CHALLENGE_LIST, PREWORKOUT_LIST, PREWORKOUT_LBL,
+    TRIED_LIST, CHALLENGE_LIST, PREWORKOUT_LIST, PREWORKOUT_LBL, DAYS_OF_WEEK
 } from '../../Anamnese/useAdminAnamneseForm';
 
 export default function AdminAnamneseSections({ f, set, toggleMulti, setTimePicker, theme, aluno }) {
@@ -22,9 +22,11 @@ export default function AdminAnamneseSections({ f, set, toggleMulti, setTimePick
     const isFeminino = aluno?.gender === 'Feminino';
     const softBg     = theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)';
 
+    const activeFreeDays = Array.isArray(f.freeDays) ? f.freeDays : [];
+
     // ── Primitivos locais com theme injetado ──────────────────────────────────
-    const Label = useCallback(({ children }) => (
-        <Text style={[s.label, { color:theme.textSecondary }]}>{children}</Text>
+    const Label = useCallback(({ children, mt }) => (
+        <Text style={[s.label, { color:theme.textSecondary, marginTop: mt !== undefined ? mt : 16 }]}>{children}</Text>
     ), [theme]);
 
     const Inp = useCallback(({ field, placeholder, multiline=false, keyboardType='default' }) => (
@@ -247,17 +249,33 @@ export default function AdminAnamneseSections({ f, set, toggleMulti, setTimePick
             {/* ROTINA ALIMENTAR */}
             {hasDiet && (
                 <View style={[s.card, { backgroundColor:theme.surface, borderColor:theme.border }]}>
-                    <View style={s.cardRow}><CardHeader icon="clock-outline" title="ROTINA ALIMENTAR" /><SectionStatus fields={['mealsPerDay','wakeUpTime','sleepTime','trainTime','eatsOutPerWeek','budget']} /></View>
+                    <View style={s.cardRow}><CardHeader icon="clock-outline" title="ROTINA ALIMENTAR" /><SectionStatus fields={['mealsPerDay','wakeUpTime','sleepTime','trainTime','freeDays','eatsOutPerWeek','budget']} /></View>
                     <Label>REFEIÇÕES POR DIA *</Label><CircleRow field="mealsPerDay" items={MEALS_LIST} suffix="x" />
+                    
+                    <Label>QUAIS DIAS TEM FOLGA? *</Label>
+                    <ChipRow field="freeDays" items={DAYS_OF_WEEK} noneVals={['Nenhum']} />
+
                     <View style={s.row}>
-                        <View style={{flex:1}}><Label>ACORDA ÀS *</Label><TimeField field="wakeUpTime" label="Hora que acorda" /></View>
-                        <View style={{flex:1}}><Label>DORME ÀS *</Label><TimeField field="sleepTime" label="Hora que dorme" /></View>
+                        <View style={{flex:1}}><Label>ACORDA ÀS (Rotina) *</Label><TimeField field="wakeUpTime" label="Hora que acorda" /></View>
+                        <View style={{flex:1}}><Label>DORME ÀS (Rotina) *</Label><TimeField field="sleepTime" label="Hora que dorme" /></View>
                     </View>
                     <View style={s.row}>
                         <View style={{flex:1}}><Label>TRABALHO: INÍCIO</Label><TimeField field="workTimeStart" label="Início do trabalho" /></View>
                         <View style={{flex:1}}><Label>TRABALHO: FIM</Label><TimeField field="workTimeEnd" label="Fim do trabalho" /></View>
                     </View>
-                    <Label>TREINO ÀS *</Label><TimeField field="trainTime" label="Horário do treino" />
+                    <Label>TREINO ÀS (Rotina) *</Label><TimeField field="trainTime" label="Horário do treino" />
+
+                    {activeFreeDays.length > 0 && !activeFreeDays.includes('Nenhum') && (
+                        <View style={{ marginTop: 12, padding: 12, borderRadius: 12, backgroundColor: softBg }}>
+                            <Text style={{ fontSize: 11, fontWeight: '800', color: theme.accent, marginBottom: 8 }}>HORÁRIOS NA FOLGA</Text>
+                            <View style={s.row}>
+                                <View style={{flex:1}}><Label mt={0}>ACORDA (Folga) *</Label><TimeField field="freeWakeUpTime" label="Hora que acorda" /></View>
+                                <View style={{flex:1}}><Label mt={0}>DORME (Folga) *</Label><TimeField field="freeSleepTime" label="Hora que dorme" /></View>
+                            </View>
+                            <Label>TREINO/CARDIO (Folga) *</Label><TimeField field="freeTrainTime" label="Treino na folga" />
+                        </View>
+                    )}
+
                     <Label>ESTRATÉGIA PRÉ-TREINO</Label>
                     <ChipRow field="preworkoutStrategy" items={PREWORKOUT_LIST} single noneVals={[]} labels={PREWORKOUT_LBL} />
                     <Label>COME FORA POR SEMANA *</Label><ChipRow field="eatsOutPerWeek" items={EATS_OUT_LIST} single noneVals={[]} />

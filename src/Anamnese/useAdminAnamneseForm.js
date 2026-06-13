@@ -36,6 +36,7 @@ export const TRIED_LIST       = ['Low Carb','Cetogênica / Keto','Jejum Intermit
 export const CHALLENGE_LIST   = ['Ansiedade / Fome Constante','Falta de Tempo para Preparar','Comer Fora de Casa','Consistência e Disciplina','Custo dos Alimentos','Falta de Variedade','Família não Apoia','Outro'];
 export const PREWORKOUT_LIST  = ['shake_rapido','ceia_pretreino','reforcar_pos'];
 export const PREWORKOUT_LBL   = { shake_rapido:'🥤 Shake rápido 15-20min antes', ceia_pretreino:'🌙 Ceia pré-treino na noite anterior', reforcar_pos:'⏭️ Pular pré-treino e reforçar pós' };
+export const DAYS_OF_WEEK     = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Nenhum'];
 
 // ─── VALIDAÇÃO ────────────────────────────────────────────────────────────────
 export function validateAnamnese(f, hasDiet, isFeminino) {
@@ -62,9 +63,18 @@ export function validateAnamnese(f, hasDiet, isFeminino) {
         if (isFeminino && !f.cycleRegular)        miss.push({ section:'Ciclo Menstrual', field:'Regularidade do ciclo' });
         if (isFeminino && !f.pmsSymptoms?.length) miss.push({ section:'Ciclo Menstrual', field:'Sintomas de TPM' });
         if (!f.mealsPerDay)    miss.push({ section:'Rotina Alimentar', field:'Refeições por dia' });
-        if (!f.wakeUpTime)     miss.push({ section:'Rotina Alimentar', field:'Hora que acorda' });
-        if (!f.sleepTime)      miss.push({ section:'Rotina Alimentar', field:'Hora que dorme' });
-        if (!f.trainTime)      miss.push({ section:'Rotina Alimentar', field:'Horário do treino' });
+        
+        if (!f.wakeUpTime)     miss.push({ section:'Rotina Alimentar', field:'Hora que acorda (Rotina)' });
+        if (!f.sleepTime)      miss.push({ section:'Rotina Alimentar', field:'Hora que dorme (Rotina)' });
+        if (!f.trainTime)      miss.push({ section:'Rotina Alimentar', field:'Horário do treino (Rotina)' });
+        
+        if (!f.freeDays?.length) miss.push({ section:'Rotina Alimentar', field:'Dias de Folga' });
+        if (f.freeDays?.length > 0 && !f.freeDays.includes('Nenhum')) {
+            if (!f.freeWakeUpTime) miss.push({ section:'Rotina Alimentar', field:'Hora que acorda (Folga)' });
+            if (!f.freeSleepTime)  miss.push({ section:'Rotina Alimentar', field:'Hora que dorme (Folga)' });
+            if (!f.freeTrainTime)  miss.push({ section:'Rotina Alimentar', field:'Treino/Cardio (Folga)' });
+        }
+        
         if (!f.eatsOutPerWeek) miss.push({ section:'Rotina Alimentar', field:'Refeições fora/semana' });
         if (!f.budget)         miss.push({ section:'Rotina Alimentar', field:'Orçamento alimentar' });
         if (!f.waterIntake)    miss.push({ section:'Hábitos', field:'Ingestão de água' });
@@ -95,6 +105,7 @@ const INITIAL_F = {
     cycleRegular:'', pmsSymptoms:[], pmsObs:'',
     mealsPerDay:'', wakeUpTime:'', sleepTime:'',
     workTimeStart:'', workTimeEnd:'', trainTime:'',
+    freeDays:[], freeWakeUpTime:'', freeSleepTime:'', freeTrainTime:'',
     eatsOutPerWeek:'', budget:'', preworkoutStrategy:'',
     waterIntake:'', alcoholFreq:'', coffeePerDay:'', smoker:'', eatSpeed:'', nightBinge:'',
     triedDiets:[], dietWorked:'', dietHated:'', biggestChallenge:'',
@@ -179,6 +190,10 @@ export default function useAdminAnamneseForm({ aluno }) {
                     workTimeStart:d.workTime?d.workTime.split(' às ')[0]:'',
                     workTimeEnd:d.workTime?d.workTime.split(' às ')[1]:'',
                     trainTime:d.trainTime||'',
+                    freeDays:Array.isArray(d.freeDays)?d.freeDays:[],
+                    freeWakeUpTime:d.freeWakeUpTime||'',
+                    freeSleepTime:d.freeSleepTime||'',
+                    freeTrainTime:d.freeTrainTime||'',
                     eatsOutPerWeek:d.eatsOutPerWeek||'', budget:d.budget||'',
                     preworkoutStrategy:d.preworkoutStrategy||'',
                     waterIntake:d.waterIntake||'', alcoholFreq:d.alcoholFreq||'',
@@ -241,7 +256,12 @@ export default function useAdminAnamneseForm({ aluno }) {
                         mealsPerDay:parseInt(f.mealsPerDay)||null,
                         wakeUpTime:f.wakeUpTime, sleepTime:f.sleepTime,
                         workTime:f.workTimeStart&&f.workTimeEnd ? `${f.workTimeStart} às ${f.workTimeEnd}` : '',
-                        trainTime:f.trainTime, eatsOutPerWeek:f.eatsOutPerWeek, budget:f.budget,
+                        trainTime:f.trainTime,
+                        freeDays:f.freeDays,
+                        freeWakeUpTime:f.freeWakeUpTime,
+                        freeSleepTime:f.freeSleepTime,
+                        freeTrainTime:f.freeTrainTime,
+                        eatsOutPerWeek:f.eatsOutPerWeek, budget:f.budget,
                         preworkoutStrategy:f.preworkoutStrategy||null,
                         waterIntake:f.waterIntake, alcoholFreq:f.alcoholFreq, coffeePerDay:f.coffeePerDay,
                         smoker:f.smoker==='yes', eatSpeed:f.eatSpeed, nightBinge:f.nightBinge,

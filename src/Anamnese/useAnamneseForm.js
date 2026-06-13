@@ -11,6 +11,7 @@ const DEFAULT_FORM = {
   medicationsObs: '', digestiveIssues: [], digestiveObs: '', sleepHours: '', sleepQuality: '',
   wakeHungry: '', stressLevel: '', stressEating: '', cycleRegular: '', pmsSymptoms: [], pmsObs: '',
   mealsPerDay: '', wakeUpTime: '', sleepTime: '', workTimeStart: '', workTimeEnd: '', trainTime: '',
+  freeDays: [], freeWakeUpTime: '', freeSleepTime: '', freeTrainTime: '',
   eatsOutPerWeek: '', budget: '', waterIntake: '', alcoholFreq: '', coffeePerDay: '', smoker: '',
   eatSpeed: '', nightBinge: '', triedDiets: [], dietWorked: '', dietHated: '', biggestChallenge: '',
   allergies: '', foodPreferences: '', foodAversions: '', supplements: [], extraNotes: ''
@@ -132,6 +133,10 @@ export default function useAnamneseForm({ routeParams, navigation }) {
             workTimeStart: d.workTime ? d.workTime.split(' às ')[0] : '',
             workTimeEnd:   d.workTime ? d.workTime.split(' às ')[1] : '',
             trainTime:     d.trainTime      || '',
+            freeDays:       Array.isArray(d.freeDays) ? d.freeDays : [],
+            freeWakeUpTime: d.freeWakeUpTime || '',
+            freeSleepTime:  d.freeSleepTime  || '',
+            freeTrainTime:  d.freeTrainTime  || '',
             eatsOutPerWeek:d.eatsOutPerWeek || '',
             budget:        d.budget         || '',
             waterIntake:  d.waterIntake  || '',
@@ -233,9 +238,15 @@ export default function useAnamneseForm({ routeParams, navigation }) {
         break;
       case 8:
         if (!form.mealsPerDay) errs.push('Refeições Preferidas por Dia');
-        if (!form.wakeUpTime) errs.push('Horário que Acorda');
-        if (!form.sleepTime) errs.push('Horário que Dorme');
-        if (!form.trainTime) errs.push('Horário do Treino');
+        if (!form.wakeUpTime) errs.push('Horário que Acorda (Rotina)');
+        if (!form.sleepTime) errs.push('Horário que Dorme (Rotina)');
+        if (!form.trainTime) errs.push('Horário do Treino (Rotina)');
+        if (!form.freeDays || !form.freeDays.length) errs.push('Dias de Folga (ou marque Nenhum)');
+        if (form.freeDays && form.freeDays.length > 0 && !form.freeDays.includes('Nenhum')) {
+            if (!form.freeWakeUpTime) errs.push('Horário que Acorda (Folga)');
+            if (!form.freeSleepTime) errs.push('Horário que Dorme (Folga)');
+            if (!form.freeTrainTime) errs.push('Horário do Treino / Cardio (Folga)');
+        }
         if (!form.eatsOutPerWeek) errs.push('Refeições Fora de Casa (por semana)');
         if (!form.budget) errs.push('Orçamento para Alimentação');
         break;
@@ -320,6 +331,10 @@ export default function useAnamneseForm({ routeParams, navigation }) {
           workTime:       form.workTimeStart && form.workTimeEnd
             ? `${form.workTimeStart} às ${form.workTimeEnd}` : '',
           trainTime:      form.trainTime,
+          freeDays:       form.freeDays,
+          freeWakeUpTime: form.freeWakeUpTime,
+          freeSleepTime:  form.freeSleepTime,
+          freeTrainTime:  form.freeTrainTime,
           eatsOutPerWeek: form.eatsOutPerWeek,
           budget:         form.budget,
           waterIntake:    form.waterIntake,
