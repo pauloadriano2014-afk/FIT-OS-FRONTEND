@@ -336,41 +336,45 @@ export default function HomeScreen({ navigation }) {
                 MODAIS
             ════════════════════════════════════════════════════════════ */}
 
-            {/* 🔥 Modal de Anamnese Pendente (Obrigatório) */}
+                        {/* 🔥 Modal de Anamnese Pendente (Com Alerta Estratégico) */}
             <Modal visible={anamnesePendingModalVisible} transparent animationType="fade" onRequestClose={() => setAnamnesePendingModalVisible(false)}>
                 <View style={styles.overlay}>
                     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
                         <View style={[styles.iconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
-                            <MaterialCommunityIcons name="clipboard-edit-outline" size={36} color={theme.accent} />
+                            <MaterialCommunityIcons name="clipboard-alert-outline" size={36} color={theme.accent} />
                         </View>
-                        <Text style={[styles.cardTitle, { color: theme.text }]}>ATUALIZAÇÃO DE FICHA</Text>
+                        <Text style={[styles.cardTitle, { color: theme.text }]}>ATUALIZAÇÃO NECESSÁRIA</Text>
                         
                         <Text style={[styles.cardDesc, { color: theme.textSecondary, marginBottom: 25 }]}>
-                            Seu Coach solicitou uma <Text style={{ color: theme.text, fontWeight: 'bold' }}>atualização na sua ficha clínica</Text>.
-                            Precisamos que você preencha alguns dados importantes para dar continuidade à sua Consultoria.
+                            Seu Treinador solicitou uma <Text style={{ color: theme.text, fontWeight: 'bold' }}>atualização na sua ficha</Text>.
+                            {'\n\n'}
+                            ⚠️ <Text style={{ color: theme.accent, fontWeight: 'bold' }}>Atenção:</Text> Sem esses dados, sua estratégia ficará paralisada e seus resultados podem ser comprometidos. Preencha assim que possível para receber a sua nova periodização!
                         </Text>
                         
                         <TouchableOpacity
-                            style={[styles.btn, { backgroundColor: theme.accent, marginBottom: 10 }]}
+                            style={[styles.btn, { backgroundColor: theme.accent, marginBottom: 15 }]}
                             onPress={() => {
                                 setAnamnesePendingModalVisible(false);
-                                navigation.navigate('Anamnese'); // Certifique-se de que a rota da Anamnese no App é 'Anamnese'
+                                navigation.navigate('Anamnese'); 
                             }}
                         >
                             <Text style={[styles.btnText, { color: '#000' }]}>PREENCHER AGORA</Text>
                             <MaterialCommunityIcons name="arrow-right" size={20} color="#000" style={{ marginLeft: 8 }} />
                         </TouchableOpacity>
 
-                        {/* 🔥 Opção para responder depois */}
+                        {/* 🔥 Opção de pular, mas com visual mais discreto */}
                         <TouchableOpacity
-                            style={[styles.btn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, shadowOpacity: 0, elevation: 0 }]}
+                            style={{ padding: 10 }}
                             onPress={() => setAnamnesePendingModalVisible(false)}
                         >
-                            <Text style={[styles.btnText, { color: theme.text }]}>RESPONDER DEPOIS</Text>
+                            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' }}>
+                                Entendi os riscos, responder depois
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
+
 
             {/* Modal Financeiro */}
             {home.isFinanceLocked && (
