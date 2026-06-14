@@ -191,7 +191,12 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                         </TouchableOpacity>
                     </View>
 
-                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+                    {/* 🔥 TRAVA 2: ScrollView blindado com width 100% */}
+                    <ScrollView 
+                        showsVerticalScrollIndicator={false} 
+                        contentContainerStyle={{ paddingBottom: 20 }}
+                        style={{ width: '100%' }}
+                    >
 
                         {/* ── ABA PROPOSTA ─────────────────────────────────────── */}
                         {activeTab === 'PROPOSTA' && (
@@ -385,7 +390,8 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
 const styles = StyleSheet.create({
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    modalContent: { width: '100%', maxWidth: 400, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '85%', marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
+    // 🔥 TRAVA 1: Adicionado overflow: 'hidden' no modalContent para a tela não vazar
+    modalContent: { width: '100%', maxWidth: 400, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '85%', marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'hidden' },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
 
@@ -407,7 +413,8 @@ const styles = StyleSheet.create({
     sectionDesc: { fontSize: 13, lineHeight: 18, marginBottom: 20 },
 
     inputLabel: { fontSize: 11, fontWeight: '900', marginBottom: 8, letterSpacing: 0.5 },
-    input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
+    // 🔥 TRAVA 3: fontSize alterado para 16 para matar o zoom da Apple
+    input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 16, outlineStyle: 'none' },
 
     optionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, borderWidth: 1 },
     optionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
