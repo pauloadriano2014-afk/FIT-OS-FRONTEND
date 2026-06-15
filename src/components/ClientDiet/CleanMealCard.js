@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MealVersionSwitcher from './MealVersionSwitcher';
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const getMacroCategory = (food) => {
@@ -30,9 +31,9 @@ const getMacroCategory = (food) => {
     const c   = parseFloat(food.carbs    ?? food.c ?? 0);
     const fat = parseFloat(food.fats     ?? food.f ?? 0);
     const max = Math.max(p, c, fat);
-    if (max === 0)   return 'ACOMPANHAMENTO / LIVRE';
-    if (max === p)   return 'FONTE DE PROTEÍNA';
-    if (max === c)   return 'FONTE DE CARBOIDRATO';
+    if (max === 0) return 'ACOMPANHAMENTO / LIVRE';
+    if (max === p) return 'FONTE DE PROTEÍNA';
+    if (max === c) return 'FONTE DE CARBOIDRATO';
     return 'FONTE DE GORDURA';
 };
 
@@ -55,10 +56,12 @@ const getMealBgImage = (mealName) => {
 
 // ─── COMPONENTE ───────────────────────────────────────────────────────────────
 export default function CleanMealCard({ meal, theme, isChecked, onToggleCheck }) {
-    const [showSubs, setShowSubs] = useState({});
-    const bgImage = getMealBgImage(meal.name);
+    const [showSubs, setShowSubs]           = useState({});
+    const [activeMeal, setActiveMeal]       = useState(meal); // 🔥 versão ativa (principal ou alternativa)
 
-    const grouped = meal.items.reduce((acc, item) => {
+    const bgImage = getMealBgImage(activeMeal.name);
+
+    const grouped = activeMeal.items.reduce((acc, item) => {
         const key = item.substitutionGroupId || item.groupId || item.id || Math.random().toString();
         if (!acc[key]) acc[key] = [];
         acc[key].push(item);
@@ -69,12 +72,14 @@ export default function CleanMealCard({ meal, theme, isChecked, onToggleCheck })
     const toggleSubs = (idx) =>
         setShowSubs(prev => ({ ...prev, [idx]: !prev[idx] }));
 
+    const isAlt = activeMeal.id !== meal.id;
+
     return (
         <View style={[
             styles.card,
             {
                 backgroundColor: theme.surface,
-                borderColor: isChecked ? theme.accent : theme.border,
+                borderColor: isChecked ? theme.accent : isAlt ? '#FF9500' : theme.border,
                 opacity: isChecked ? 0.6 : 1,
             },
         ]}>
@@ -87,12 +92,26 @@ export default function CleanMealCard({ meal, theme, isChecked, onToggleCheck })
                     <View style={[styles.timeBadge, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                         <MaterialCommunityIcons name="clock-outline" size={14} color={theme.textSecondary} />
                         <Text style={[styles.timeText, { color: theme.textSecondary }]}>
-                            {meal.time || '--:--'}
+                            {activeMeal.time || '--:--'}
                         </Text>
                     </View>
                     <Text style={[styles.mealTitle, { color: theme.text }]}>
-                        {meal.name?.toUpperCase()}
+                        {activeMeal.name?.toUpperCase()}
                     </Text>
+
+                    {/* 🔥 Badge de versão alternativa ativa */}
+                    {isAlt && (
+                        <View style={[styles.altBadge, { backgroundColor: '#FF950020', borderColor: '#FF950060' }]}>
+                            <MaterialCommunityIcons name="swap-horizontal" size={11} color="#FF9500" />
+                            <Text style={[styles.altBadgeText, { color: '#FF9500' }]}>
+                                {activeMeal.alternativeLabel?.toUpperCase() ?? 'VERSÃO ALTERNATIVA'}
+                            </Text>
+                            {/* Voltar para a principal */}
+                            <TouchableOpacity onPress={() => setActiveMeal(meal)} style={styles.resetBtn}>
+                                <Text style={{ fontSize: 9, fontWeight: '900', color: '#FF9500' }}>VOLTAR</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
                 <TouchableOpacity
                     style={[
@@ -111,8 +130,18 @@ export default function CleanMealCard({ meal, theme, isChecked, onToggleCheck })
                 </TouchableOpacity>
             </View>
 
+            {/* 🔥 SELETOR DE VERSÃO ALTERNATIVA */}
+            <MealVersionSwitcher
+                meal={meal}
+                theme={theme}
+                onVersionChange={(version) => {
+                    setActiveMeal(version);
+                    setShowSubs({});
+                }}
+            />
+
             {/* GRUPOS DE ALIMENTOS */}
-            <View style={styles.foodList}>
+            <View style={[styles.foodList, { marginTop: meal.alternatives?.length > 0 ? 12 : 0 }]}>
                 {groups.map((group, gIdx) => {
                     const macroCategory = getMacroCategory(group[0]);
                     const mainFood      = group[0];
@@ -169,14 +198,14 @@ export default function CleanMealCard({ meal, theme, isChecked, onToggleCheck })
             </View>
 
             {/* OBSERVAÇÃO DO COACH */}
-            {!!meal.notes && (
+            {!!activeMeal.notes && (
                 <View style={[styles.noteBox, { backgroundColor: theme.accent + '15', borderColor: theme.accent + '40' }]}>
                     <MaterialCommunityIcons name="bullhorn-outline" size={16} color={theme.accent} />
                     <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 2 }}>
                             O COACH AVISA:
                         </Text>
-                        <Text style={[styles.noteText, { color: theme.text }]}>{meal.notes}</Text>
+                        <Text style={[styles.noteText, { color: theme.text }]}>{activeMeal.notes}</Text>
                     </View>
                 </View>
             )}
@@ -199,15 +228,18 @@ const styles = StyleSheet.create({
     },
     header: {
         flexDirection: 'row', justifyContent: 'space-between',
-        alignItems: 'flex-start', marginBottom: 25, zIndex: 2,
+        alignItems: 'flex-start', marginBottom: 8, zIndex: 2,
     },
     timeBadge: {
         alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center',
         gap: 5, paddingHorizontal: 10, paddingVertical: 4,
         borderRadius: 10, borderWidth: 1, marginBottom: 10,
     },
-    timeText:  { fontSize: 11, fontWeight: 'bold' },
-    mealTitle: { fontSize: 22, fontWeight: '900', fontStyle: 'italic', letterSpacing: -0.5 },
+    timeText:     { fontSize: 11, fontWeight: 'bold' },
+    mealTitle:    { fontSize: 22, fontWeight: '900', fontStyle: 'italic', letterSpacing: -0.5 },
+    altBadge:     { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+    altBadgeText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
+    resetBtn:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: '#FF950030', marginLeft: 4 },
     checkBtn: {
         width: 46, height: 46, borderRadius: 23,
         borderWidth: 1, alignItems: 'center', justifyContent: 'center', elevation: 3,

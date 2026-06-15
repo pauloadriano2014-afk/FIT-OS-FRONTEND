@@ -417,7 +417,7 @@ export default function AdminDietScreen({ route, navigation }) {
                                     })}
                                 </View>
 
-                                {/* REFEIÇÕES */}
+                                {/* REFEIÇÕES — agrupadas: principal + suas alternativas */}
                                 {actions.visibleMeals.length === 0 ? (
                                     <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                                         <View style={[styles.emptyIconBg, { backgroundColor: theme.surface }]}>
@@ -428,30 +428,81 @@ export default function AdminDietScreen({ route, navigation }) {
                                             Clique em "GERAR COM IA" ou adicione manualmente.
                                         </Text>
                                     </View>
-                                ) : (
-                                    actions.visibleMeals.map(meal => (
-                                        <MealCardAdmin
-                                            key={meal.id}
-                                            meal={meal}
-                                            index={actions.visibleMeals.indexOf(meal)}
-                                            totalMeals={actions.visibleMeals.length}
-                                            theme={theme}
-                                            toGrams={toGrams}
-                                            handleOpenNameSelect={handleOpenNameSelect}
-                                            handleOpenTimeSelect={handleOpenTimeSelect}
-                                            handleDeleteMeal={actions.handleDeleteMeal}
-                                            handleMoveMeal={actions.handleMoveMeal}
-                                            handleUpdateFoodAmount={actions.handleUpdateFoodAmount}
-                                            handleToggleUnit={actions.handleToggleUnit}
-                                            handleDeleteFood={actions.handleDeleteFood}
-                                            handleOpenSearch={handleOpenSearch}
-                                            handleMealOptions={handleMealOptions}
-                                            handleSwapBaseFood={handleSwapBaseFood}
-                                            handleUpdateMeal={actions.handleUpdateMeal}
-                                            onAnalyzeMeal={handleOpenMealAnalyzer} // 🔥 NOVO
-                                        />
-                                    ))
-                                )}
+                                ) : (() => {
+                                    // Separa principais e alternativas
+                                    const mainMeals = actions.visibleMeals.filter(m => m.isMainVersion !== false);
+                                    const altMeals  = actions.visibleMeals.filter(m => m.isMainVersion === false);
+
+                                    return mainMeals.map((meal, mIdx) => {
+                                        // Alternativas desta refeição principal
+                                        const myAlts = meal.alternativeGroupId
+                                            ? altMeals.filter(a => a.alternativeGroupId === meal.alternativeGroupId)
+                                            : [];
+
+                                        return (
+                                            <View key={meal.id}>
+                                                {/* Card principal */}
+                                                <MealCardAdmin
+                                                    meal={meal}
+                                                    index={mIdx}
+                                                    totalMeals={mainMeals.length}
+                                                    theme={theme}
+                                                    toGrams={toGrams}
+                                                    handleOpenNameSelect={handleOpenNameSelect}
+                                                    handleOpenTimeSelect={handleOpenTimeSelect}
+                                                    handleDeleteMeal={actions.handleDeleteMeal}
+                                                    handleMoveMeal={actions.handleMoveMeal}
+                                                    handleUpdateFoodAmount={actions.handleUpdateFoodAmount}
+                                                    handleToggleUnit={actions.handleToggleUnit}
+                                                    handleDeleteFood={actions.handleDeleteFood}
+                                                    handleOpenSearch={handleOpenSearch}
+                                                    handleMealOptions={handleMealOptions}
+                                                    handleSwapBaseFood={handleSwapBaseFood}
+                                                    handleUpdateMeal={actions.handleUpdateMeal}
+                                                    onAnalyzeMeal={handleOpenMealAnalyzer}
+                                                    mealTemplatesList={data.mealTemplatesList}
+                                                    allMeals={actions.visibleMeals}
+                                                    onApplyAsAlternative={actions.handleApplyAsAlternative}
+                                                />
+
+                                                {/* Cards das versões alternativas com indent */}
+                                                {myAlts.map((alt, aIdx) => (
+                                                    <View key={alt.id} style={{ paddingLeft: 16 }}>
+                                                        {/* Linha conectora visual */}
+                                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, marginLeft: 8 }}>
+                                                            <View style={{ width: 2, height: 16, backgroundColor: '#FF9500', borderRadius: 1 }} />
+                                                            <Text style={{ fontSize: 9, fontWeight: '900', color: '#FF9500', letterSpacing: 0.5 }}>
+                                                                VERSÃO ALTERNATIVA {aIdx + 1} — {alt.alternativeLabel?.toUpperCase()}
+                                                            </Text>
+                                                        </View>
+                                                        <MealCardAdmin
+                                                            meal={alt}
+                                                            index={aIdx}
+                                                            totalMeals={myAlts.length}
+                                                            theme={theme}
+                                                            toGrams={toGrams}
+                                                            handleOpenNameSelect={handleOpenNameSelect}
+                                                            handleOpenTimeSelect={handleOpenTimeSelect}
+                                                            handleDeleteMeal={actions.handleDeleteMeal}
+                                                            handleMoveMeal={actions.handleMoveMeal}
+                                                            handleUpdateFoodAmount={actions.handleUpdateFoodAmount}
+                                                            handleToggleUnit={actions.handleToggleUnit}
+                                                            handleDeleteFood={actions.handleDeleteFood}
+                                                            handleOpenSearch={handleOpenSearch}
+                                                            handleMealOptions={handleMealOptions}
+                                                            handleSwapBaseFood={handleSwapBaseFood}
+                                                            handleUpdateMeal={actions.handleUpdateMeal}
+                                                            onAnalyzeMeal={handleOpenMealAnalyzer}
+                                                            mealTemplatesList={data.mealTemplatesList}
+                                                            allMeals={actions.visibleMeals}
+                                                            onApplyAsAlternative={actions.handleApplyAsAlternative}
+                                                        />
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        );
+                                    });
+                                })()}
 
                                 <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
                                     <TouchableOpacity

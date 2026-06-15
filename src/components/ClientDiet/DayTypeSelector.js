@@ -17,7 +17,7 @@ const DAY_CONFIG = {
     },
     TREINO_CARDIO: {
         label:    'Treino + Cardio',
-        shortLabel:'T + CARDIO',
+        shortLabel:'Treino e CARDIO',
         icon:     'run-fast',
         color:    '#FF9500',
         desc:     'Dupla sessão',
