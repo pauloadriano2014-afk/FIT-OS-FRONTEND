@@ -14,7 +14,7 @@ import {
 // ─── MODELOS DISPONÍVEIS ──────────────────────────────────────────────────────
 export const AI_MODELS = [
     {
-        id: 'anthropic', label: 'Claude Sonnet 4', company: 'Anthropic',
+        id: 'anthropic', label: 'Claude Sonnet 4.6', company: 'Anthropic',
         icon: 'robot', color: '#D97706', speed: '~20s', stars: 5, badge: 'RECOMENDADO',
     },
     {
