@@ -13,9 +13,10 @@ const PROMO_NAMORADOS_ATIVA  = true;  // 💘 ativa agora
 export default function AdminInviteModal({ visible, onClose, adminEmail, theme }) {
     const [activeTab, setActiveTab]       = useState('PROPOSTA');
     const [leadName, setLeadName]         = useState('');
+    // 'ELITE' | 'START' | 'FAMILIA'
     const [propostaType, setPropostaType] = useState('ELITE');
 
-    // Flags de promoção — mutuamente exclusivas
+    // Flags de promoção — mutuamente exclusivas (só fazem sentido em ELITE)
     const [isPromoMaes,       setIsPromoMaes]       = useState(false);
     const [isPromoNavegantes, setIsPromoNavegantes] = useState(false);
 
@@ -90,7 +91,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
             routeName:  'PropostaNavegantes',
             msgIntro:   (nome) =>
                 `Fala, ${nome}! Tudo bem?\n\nNo Dia dos Namorados resolvi liberar uma condição inédita: uma vaga para os DOIS — com planos individuais e desconto exclusivo de casal.\n\nSeja para presentear quem você ama ou para vocês investirem juntos na melhor versão de cada um.\n\nAcesse o link abaixo para ver todos os detalhes e os bônus que preparei:`,
-            msgOutro:   `\n\nDá uma olhada e me chama aqui para garantirmos a vaga de vocês. São apenas 6 casais — quando acabar, acabou! ❤️‍🔥`,
+            msgOutro:   `\n\nDá uma olhada e me chama aqui para garantirmos a vaga de vocês. São apenas 3 casais — quando acabar, acabou! ❤️‍🔥`,
         },
     };
 
@@ -102,6 +103,8 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         let routeName = 'Proposta';
         if (propostaType === 'START') {
             routeName = 'PropostaStart';
+        } else if (propostaType === 'FAMILIA') {
+            routeName = 'PropostaFamilia';
         } else if (propostaType === 'ELITE' && promoAtiva) {
             routeName = promoConfig[promoAtiva].routeName;
         }
@@ -112,6 +115,8 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         if (propostaType === 'ELITE' && promoAtiva) {
             const cfg = promoConfig[promoAtiva];
             message = `${cfg.msgIntro(finalName)}\n\n🔗 ${inviteLink}${cfg.msgOutro}`;
+        } else if (propostaType === 'FAMILIA') {
+            message = `Fala, ${finalName}! Tudo bem?\n\nCriei uma condição especial pra famílias que querem treinar juntas: o Plano Família. 👨‍👩‍👧‍👦\n\nCada pessoa escolhe o plano que faz sentido pra ela (só treino ou treino + dieta), e o desconto cresce conforme mais gente da família entra — sem data pra acabar, sem pegadinha.\n\nAcesse o link abaixo, monte a simulação com o número de pessoas de vocês e veja o valor exato:\n\n🔗 ${inviteLink}\n\nQualquer dúvida, me chama aqui! 💪🌿`;
         } else {
             message = `Fala, ${finalName}! Tudo bem?\n\nConforme conversamos, preparei um material completo para você entender exatamente como funciona a nossa metodologia e como vamos trabalhar juntos para transformar o seu corpo, sem perder tempo com treinos e dietas que não dão resultado.\n\nAcesse o link abaixo para ver todos os detalhes da consultoria, os bônus que você tem direito e os valores:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start, se fizer sentido pra você. 💪🔥`;
         }
@@ -140,22 +145,28 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         openWhatsApp(message);
     };
 
-    // ── Cor e ícone do botão de envio (estado atual) ─────────────────────────
-    const activeBtnColor = promoAtiva
-        ? promoConfig[promoAtiva].color
-        : propostaType === 'ELITE'
-            ? '#FFCC00'
-            : '#32ADE6';
+    // ── Cor, ícone e label do botão de envio (estado atual) ──────────────────
+    const activeBtnColor = propostaType === 'FAMILIA'
+        ? '#34D399'
+        : promoAtiva
+            ? promoConfig[promoAtiva].color
+            : propostaType === 'ELITE'
+                ? '#FFCC00'
+                : '#32ADE6';
 
-    const activeBtnIcon = promoAtiva
-        ? promoConfig[promoAtiva].icon
-        : propostaType === 'ELITE'
-            ? 'crown'
-            : 'rocket-launch';
+    const activeBtnIcon = propostaType === 'FAMILIA'
+        ? 'account-group'
+        : promoAtiva
+            ? promoConfig[promoAtiva].icon
+            : propostaType === 'ELITE'
+                ? 'crown'
+                : 'rocket-launch';
 
-    const activeBtnLabel = promoAtiva
-        ? promoConfig[promoAtiva].label
-        : `ENVIAR PROPOSTA ${propostaType}`;
+    const activeBtnLabel = propostaType === 'FAMILIA'
+        ? 'ENVIAR PROPOSTA FAMÍLIA'
+        : promoAtiva
+            ? promoConfig[promoAtiva].label
+            : `ENVIAR PROPOSTA ${propostaType}`;
 
     // ────────────────────────────────────────────────────────────────────────
     return (
@@ -191,18 +202,13 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                         </TouchableOpacity>
                     </View>
 
-                    {/* 🔥 TRAVA 2: ScrollView blindado com width 100% */}
-                    <ScrollView 
-                        showsVerticalScrollIndicator={false} 
-                        contentContainerStyle={{ paddingBottom: 20 }}
-                        style={{ width: '100%' }}
-                    >
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
 
                         {/* ── ABA PROPOSTA ─────────────────────────────────────── */}
                         {activeTab === 'PROPOSTA' && (
                             <View style={styles.tabSection}>
                                 <Text style={[styles.sectionDesc, { color: theme.textSecondary }]}>
-                                    Gera um link para a página de vendas expirável. O cronômetro inicia no primeiro clique do aluno.
+                                    Gera um link para a página de vendas. O cronômetro (quando houver) inicia no primeiro clique do aluno.
                                 </Text>
 
                                 {/* Nome do lead */}
@@ -215,7 +221,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     onChangeText={setLeadName}
                                 />
 
-                                {/* Tipo de oferta */}
+                                {/* Tipo de oferta — agora com 3 opções */}
                                 <Text style={[styles.inputLabel, { color: theme.text, marginTop: 20 }]}>TIPO DE OFERTA:</Text>
                                 <View style={[styles.propostaTypeContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
                                     <TouchableOpacity
@@ -223,7 +229,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                         onPress={() => { setPropostaType('ELITE'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
                                     >
                                         <Text style={[styles.propostaTypeText, { color: propostaType === 'ELITE' ? '#000' : theme.textSecondary }]}>
-                                            ELITE / PERFORMANCE
+                                            ELITE / PERF.
                                         </Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
@@ -231,7 +237,15 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                         onPress={() => { setPropostaType('START'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
                                     >
                                         <Text style={[styles.propostaTypeText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>
-                                            START (DOWNSELL)
+                                            START
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.propostaTypeBtn, propostaType === 'FAMILIA' && { backgroundColor: '#34D399' }]}
+                                        onPress={() => { setPropostaType('FAMILIA'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
+                                    >
+                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'FAMILIA' ? '#000' : theme.textSecondary }]}>
+                                            FAMÍLIA
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
@@ -290,10 +304,13 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     </View>
                                 )}
 
+                                {/* Descrição contextual do tipo selecionado */}
                                 <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 15, textAlign: 'center' }}>
                                     {propostaType === 'ELITE'
                                         ? 'Página Principal (Treino + Dieta)'
-                                        : 'Plano de Entrada (Ficha de Treino)'}
+                                        : propostaType === 'START'
+                                            ? 'Plano de Entrada (Ficha de Treino)'
+                                            : 'Plano Família — condição fixa, sem data para expirar'}
                                 </Text>
 
                                 {/* Botão de envio */}
@@ -390,8 +407,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
 const styles = StyleSheet.create({
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    // 🔥 TRAVA 1: Adicionado overflow: 'hidden' no modalContent para a tela não vazar
-    modalContent: { width: '100%', maxWidth: 400, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '85%', marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0, overflow: 'hidden' },
+    modalContent: { width: '100%', maxWidth: 400, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '85%', marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     modalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
 
@@ -401,7 +417,7 @@ const styles = StyleSheet.create({
 
     propostaTypeContainer: { flexDirection: 'row', borderRadius: 12, padding: 5, borderWidth: 1 },
     propostaTypeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
-    propostaTypeText: { fontWeight: '900', fontSize: 10, letterSpacing: 0.5 },
+    propostaTypeText: { fontWeight: '900', fontSize: 10, letterSpacing: 0.3 },
 
     // ── Promoções
     promosWrapper: { marginBottom: 10, gap: 8 },
@@ -413,8 +429,7 @@ const styles = StyleSheet.create({
     sectionDesc: { fontSize: 13, lineHeight: 18, marginBottom: 20 },
 
     inputLabel: { fontSize: 11, fontWeight: '900', marginBottom: 8, letterSpacing: 0.5 },
-    // 🔥 TRAVA 3: fontSize alterado para 16 para matar o zoom da Apple
-    input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 16, outlineStyle: 'none' },
+    input: { padding: 15, borderRadius: 12, borderWidth: 1, fontSize: 14, outlineStyle: 'none' },
 
     optionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, borderWidth: 1 },
     optionLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
