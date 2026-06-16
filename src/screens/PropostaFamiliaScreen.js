@@ -377,8 +377,9 @@ export default function PropostaFamiliaScreen({ route }) {
 
                         {/* Botão "Ainda não entendi" */}
                         <TouchableOpacity style={styles.duvidaBtn} onPress={handleDuvidaCTA}>
-                            <MaterialCommunityIcons name="help-circle-outline" size={16} color="#AAA" />
+                            <MaterialCommunityIcons name="help-circle-outline" size={16} color="#AAA" style={styles.duvidaBtnIcon} />
                             <Text style={styles.duvidaBtnText}>AINDA NÃO ENTENDI, QUERO FALAR COM O COACH</Text>
+                            <View style={styles.duvidaBtnIconSpacer} />
                         </TouchableOpacity>
                     </View>
 
@@ -514,7 +515,7 @@ export default function PropostaFamiliaScreen({ route }) {
                                     -R$ {formatBRL(calculo.economiaTotal)} ({calculo.economiaPercent.toFixed(0)}%)
                                 </Text>
                             </View>
-                            <View style={[styles.totalRow, styles.totalRowFinal]}>
+                            <View style={styles.totalRowFinal}>
                                 <Text style={styles.totalLabelFinal}>
                                     TOTAL {PERIOD_LABELS[familyPeriod].toUpperCase()} DA FAMÍLIA
                                 </Text>
@@ -748,8 +749,10 @@ const styles = StyleSheet.create({
     exampleFootnote: { color: '#777', fontSize: 11, lineHeight: 17, marginTop: 12, fontStyle: 'italic' },
 
     // ── Botão "Ainda não entendi"
-    duvidaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#333', backgroundColor: '#161616' },
-    duvidaBtnText: { color: '#AAA', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
+    duvidaBtn: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 8, marginTop: 18, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#333', backgroundColor: '#161616' },
+    duvidaBtnIcon: { marginTop: 1 },
+    duvidaBtnIconSpacer: { width: 16 },
+    duvidaBtnText: { flex: 1, flexShrink: 1, color: '#AAA', fontSize: 11, fontWeight: '900', letterSpacing: 0.3, textAlign: 'center', lineHeight: 16 },
 
     // ── Calculadora
     calcSection: { marginTop: 10, marginBottom: 40, backgroundColor: '#131313', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#262626' },
@@ -782,11 +785,11 @@ const styles = StyleSheet.create({
 
     totalBox: { backgroundColor: '#0a0a0a', borderRadius: 16, padding: 16, marginBottom: 20, gap: 10 },
     totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-    totalRowFinal: { borderTopWidth: 1, borderTopColor: '#262626', paddingTop: 12, marginTop: 4 },
+    totalRowFinal: { borderTopWidth: 1, borderTopColor: '#262626', paddingTop: 14, marginTop: 4, gap: 6 },
     totalLabel: { color: '#888', fontSize: 12, fontWeight: '700' },
     totalValueStriked: { color: '#666', fontSize: 13, textDecorationLine: 'line-through', fontWeight: 'bold' },
-    totalLabelFinal: { color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
-    totalValueFinal: { color: GREEN, fontSize: 24, fontWeight: '900' },
+    totalLabelFinal: { color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+    totalValueFinal: { color: GREEN, fontSize: 26, fontWeight: '900' },
 
     buyBtnGradient: { padding: 18, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
     buyBtnText: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
