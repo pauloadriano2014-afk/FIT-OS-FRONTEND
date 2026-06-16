@@ -1,11 +1,10 @@
-// src/utils/macroPlanner.js — VERSÃO 2.0
-// Correções vs v1:
-//   FIX 1 — Gordura base: 1.0g/kg → 0.8g/kg manutenção, 0.6g/kg em déficit
-//   FIX 2 — Proteína feminina: 1.2g/kg mínimo → 1.6g/kg em todos os dias (déficit)
-//   FIX 3 — Carbo nunca negativo: recalcula kcal real se carbo zerar
-//   FIX 4 — Fator atividade: usa frequência da anamnese corretamente
-//   FIX 5 — isHomem: check explícito, não depende de substring silencioso
-// ─────────────────────────────────────────────────────────────────────────────
+// src/utils/macroPlanner.js — VERSÃO 3.0
+// Correções vs v2.0:
+//   - SINCRONIZAÇÃO BACKEND: Aplicada mesma lógica Mifflin-St Jeor do route.ts.
+//   - FATOR DE ATIVIDADE: Alinhado aos multiplicadores exatos do servidor (1.375 a 1.9).
+//   - OBJETIVOS DINÂMICOS: Substituída a matriz fixa de delta calórico por percentuais (+10%, -20%) ajustados ao TDEE.
+//   - MACROS BLINDADOS: Gordura fixa em 1.0g/kg, Proteína cravada em 2.2g/kg (Déficit) ou 2.0g/kg (Hipertrofia).
+//   - VARIAÇÃO DIÁRIA: Aplicado multiplicador de dia (Treino vs Descanso) direto no Kcal Alvo para manter o Ciclo de Carboidratos visual.
 
 export const DAY_TYPES = ['TREINO', 'TREINO_CARDIO', 'CARDIO', 'DESCANSO'];
 
@@ -16,130 +15,71 @@ export const DAY_TYPE_LABELS = {
     DESCANSO:      'Descanso',
 };
 
-// ─── FIX 5: isHomem explícito ────────────────────────────────────────────────
 export function resolveGender(anamnese, genderParam) {
     const g = (anamnese?.gender ?? genderParam ?? '').trim().toLowerCase();
     return g === 'masculino' || g === 'male' || g === 'm';
 }
 
-// ─── FIX 4: TDEE com fator atividade correto ─────────────────────────────────
-// Fórmula Mifflin-St Jeor (mais precisa que Harris-Benedict)
 function calcTDEE(peso, altura, idade, isHomem, frequencia) {
-    // TMB Mifflin-St Jeor
+    // TMB Mifflin-St Jeor (Sincronizado com backend v6.7)
     const tmb = isHomem
         ? Math.round(10 * peso + 6.25 * altura - 5 * idade + 5)
         : Math.round(10 * peso + 6.25 * altura - 5 * idade - 161);
 
-    // Fator de atividade baseado em frequência semanal de TREINO
-    // (não conta cardio leve — usa frequência informada na anamnese)
-    const fatAt =
-        frequencia <= 1 ? 1.20 :   // Sedentário / 1x
-        frequencia <= 2 ? 1.30 :   // Leve / 2x
-        frequencia <= 3 ? 1.375:   // Moderado / 3x
-        frequencia <= 4 ? 1.475:   // Moderado+ / 4x
-        frequencia <= 5 ? 1.55 :   // Ativo / 5x
-        frequencia <= 6 ? 1.65 :   // Muito ativo / 6x
-                          1.725;   // Atleta / 7x
+    const freq = frequencia ?? 4;
+    let fatAt = 1.2; // Sedentário
+    if (freq >= 1 && freq <= 2) fatAt = 1.375;
+    else if (freq >= 3 && freq <= 4) fatAt = 1.55;
+    else if (freq >= 5 && freq <= 6) fatAt = 1.725;
+    else if (freq >= 7) fatAt = 1.9;
 
     return { tmb, tdee: Math.round(tmb * fatAt) };
 }
 
-// ─── FIX 1 + FIX 2: Multiplicadores por objetivo e aba ──────────────────────
-// kcalDelta  = delta sobre TDEE (positivo = superávit, negativo = déficit)
-// fatBase_gkg = gordura em g/kg de peso corporal
-// carbMult   = multiplicador aplicado sobre o carbo calculado
-const OBJECTIVE_MATRIX = {
-    Emagrecimento: {
-        //                    kcalDelta  fatBase_gkg  carbMult
-        TREINO:        { kcalDelta: -300, fatGkg: 0.70, carbMult: 1.00 },
-        TREINO_CARDIO: { kcalDelta: -100, fatGkg: 0.70, carbMult: 1.15 },
-        CARDIO:        { kcalDelta: -500, fatGkg: 0.65, carbMult: 0.65 },
-        DESCANSO:      { kcalDelta: -600, fatGkg: 0.60, carbMult: 0.40 },
-    },
-    Definição: {
-        TREINO:        { kcalDelta: -150, fatGkg: 0.75, carbMult: 1.00 },
-        TREINO_CARDIO: { kcalDelta:  -50, fatGkg: 0.75, carbMult: 1.10 },
-        CARDIO:        { kcalDelta: -300, fatGkg: 0.70, carbMult: 0.75 },
-        DESCANSO:      { kcalDelta: -400, fatGkg: 0.65, carbMult: 0.55 },
-    },
-    Hipertrofia: {
-        TREINO:        { kcalDelta: +300, fatGkg: 0.90, carbMult: 1.10 },
-        TREINO_CARDIO: { kcalDelta: +400, fatGkg: 0.90, carbMult: 1.25 },
-        CARDIO:        { kcalDelta:    0, fatGkg: 0.80, carbMult: 0.85 },
-        DESCANSO:      { kcalDelta: -150, fatGkg: 0.75, carbMult: 0.60 },
-    },
-};
-
-// ─── FIX 2: Proteína adequada por objetivo e gênero ──────────────────────────
-// Referências: ISSN, ACSM, ESPEN
-// Em déficit: proteína ALTA para preservar massa magra
-// Em superávit (hipertrofia): proteína moderada-alta
-function getProtGkg(isHomem, dayType, objetivo) {
-    if (isHomem) {
-        // Homem: 2.0-2.4g/kg dependendo do estímulo
-        if (objetivo === 'Hipertrofia') {
-            return ['TREINO', 'TREINO_CARDIO'].includes(dayType) ? 2.2 : 1.8;
-        }
-        // Emagrecimento / Definição: proteína alta em todos os dias
-        return ['TREINO', 'TREINO_CARDIO'].includes(dayType) ? 2.4 : 2.0;
-    } else {
-        // Mulher: FIX 2 — mínimo 1.6g/kg em todos os dias (não mais 1.2g/kg)
-        if (objetivo === 'Hipertrofia') {
-            return ['TREINO', 'TREINO_CARDIO'].includes(dayType) ? 1.8 : 1.6;
-        }
-        // Emagrecimento / Definição: alta para preservar músculo
-        return ['TREINO', 'TREINO_CARDIO'].includes(dayType) ? 2.0 : 1.6;
-    }
-}
-
-// ─── CÁLCULO DE MACROS PARA UMA ABA ──────────────────────────────────────────
 function calcMacrosForDayType(peso, tdee, objetivo, isHomem, dayType) {
-    const matrix  = (OBJECTIVE_MATRIX[objetivo] ?? OBJECTIVE_MATRIX['Emagrecimento'])[dayType];
+    const obj = (objetivo || '').toLowerCase();
+    let targetKcal, protPerKg;
 
-    // Proteína
-    const protGkg  = getProtGkg(isHomem, dayType, objetivo);
-    const protAlvo = Math.round(peso * protGkg);
-
-    // FIX 1: Gordura base em g/kg (não mais peso * 1.0 fixo)
-    const fatAlvo = Math.max(30, Math.round(peso * matrix.fatGkg));
-
-    // Kcal alvo com piso mínimo de 1200 (mulher) ou 1400 (homem)
-    const pisoKcal  = isHomem ? 1400 : 1200;
-    const kcalAlvo  = Math.max(pisoKcal, Math.round(tdee + matrix.kcalDelta));
-
-    // Calorias restantes para carbo após proteína e gordura
-    const calRest = kcalAlvo - (protAlvo * 4) - (fatAlvo * 9);
-
-    // FIX 3: Carbo nunca negativo
-    // Se calRest < 0, significa que prot+fat já excedem kcal alvo.
-    // Nesse caso, reduz gordura para abrir espaço (mas mantém mínimo de 30g)
-    let carbAlvo: number;
-    let fatFinal = fatAlvo;
-
-    if (calRest < 80) { // Menos de 20g de carbo disponível
-        // Reduz gordura gradualmente até liberar espaço para no mínimo 20g carbo
-        const calNecessaria = 80; // 20g carbo mínimo = 80 kcal
-        const calFaltando   = calNecessaria - calRest;
-        const fatReducao    = Math.ceil(calFaltando / 9);
-        fatFinal = Math.max(30, fatAlvo - fatReducao);
-        const calRestCorrigida = kcalAlvo - (protAlvo * 4) - (fatFinal * 9);
-        carbAlvo = Math.max(20, Math.round(calRestCorrigida / 4));
+    // Base do Objetivo (Sincronizado com backend v6.7)
+    if (obj.includes('hipertrofia') || obj.includes('ganho')) {
+        targetKcal = tdee * 1.1; // +10% Superávit
+        protPerKg = 2.0;
+    } else if (obj.includes('emagrecimento') || obj.includes('perda') || obj.includes('defini')) {
+        targetKcal = tdee * 0.8; // -20% Déficit
+        protPerKg = 2.2;
     } else {
-        const carbBase = Math.round(calRest / 4);
-        carbAlvo = Math.max(20, Math.round(carbBase * matrix.carbMult));
+        targetKcal = tdee; // Manutenção / Saúde
+        protPerKg = 1.8;
     }
 
-    // Kcal real após todos os ajustes
-    const kcalReal = Math.round(protAlvo * 4 + carbAlvo * 4 + fatFinal * 9);
+    // Variação Diária (Ciclo de Carboidratos Inteligente)
+    // Mantém a proteína e gordura constantes, mas flutua o Kcal (e consequentemente os carbos)
+    let dayMult = 1.0;
+    if (dayType === 'TREINO_CARDIO') dayMult = 1.05; // Gasta mais, come um pouco mais
+    else if (dayType === 'TREINO')   dayMult = 1.00; // Base do cálculo
+    else if (dayType === 'CARDIO')   dayMult = 0.95; // Leve redução
+    else if (dayType === 'DESCANSO') dayMult = 0.90; // Maior redução nos dias off
 
-    return { kcal: kcalReal, prot: protAlvo, carb: carbAlvo, fat: fatFinal };
+    const pisoKcal = isHomem ? 1400 : 1200;
+    const kcalAlvo = Math.max(pisoKcal, Math.round(targetKcal * dayMult));
+
+    const protAlvo = Math.round(peso * protPerKg);
+    const fatAlvo  = Math.max(30, Math.round(peso * 1.0)); // Gordura travada em 1.0g/kg (mínimo 30g)
+    
+    const calRest = kcalAlvo - (protAlvo * 4) - (fatAlvo * 9);
+    let carbAlvo = Math.max(20, Math.round(calRest / 4)); // Mínimo de 20g de carbo
+
+    // Recalcula o Kcal real baseado nos macros finais arredondados
+    const kcalReal = Math.round(protAlvo * 4 + carbAlvo * 4 + fatAlvo * 9);
+
+    return { kcal: kcalReal, prot: protAlvo, carb: carbAlvo, fat: fatAlvo };
 }
 
 // ─── DISTRIBUIÇÃO SEMANAL SUGERIDA ───────────────────────────────────────────
 export function suggestWeekDistribution(frequencia, objetivo) {
     const freq = Math.min(7, Math.max(1, Number(frequencia) || 3));
 
-    const base: Record<number, Record<string, number>> = {
+    const base = {
         1: { TREINO: 1, TREINO_CARDIO: 0, CARDIO: 0, DESCANSO: 6 },
         2: { TREINO: 1, TREINO_CARDIO: 0, CARDIO: 1, DESCANSO: 5 },
         3: { TREINO: 2, TREINO_CARDIO: 0, CARDIO: 1, DESCANSO: 4 },
@@ -174,7 +114,6 @@ export function calcWeeklyPlan(anamnese, birthDate, gender, weekDist = null) {
     const frequencia = Number(anamnese?.frequencia) || 3;
     const objetivo   = anamnese?.objetivo || 'Emagrecimento';
 
-    // FIX 5: resolução explícita de gênero
     const isHomem = resolveGender(anamnese, gender);
 
     // Idade real
@@ -183,7 +122,7 @@ export function calcWeeklyPlan(anamnese, birthDate, gender, weekDist = null) {
     const { tmb, tdee } = calcTDEE(peso, altura, idade, isHomem, frequencia);
 
     // Macros por aba
-    const macrosByDay: Record<string, ReturnType<typeof calcMacrosForDayType>> = {};
+    const macrosByDay = {};
     for (const dayType of DAY_TYPES) {
         macrosByDay[dayType] = calcMacrosForDayType(peso, tdee, objetivo, isHomem, dayType);
     }
@@ -229,9 +168,9 @@ export function calcWeeklyPlan(anamnese, birthDate, gender, weekDist = null) {
 }
 
 // ─── HELPER: CALCULAR IDADE ───────────────────────────────────────────────────
-export function calcAge(birthDate: string | undefined): number {
+export function calcAge(birthDate) {
     if (!birthDate) return 30;
-    let d: Date;
+    let d;
     const s = String(birthDate);
     if (s.includes('/')) {
         const [day, month, year] = s.split('/');
