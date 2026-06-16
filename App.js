@@ -22,6 +22,7 @@ import PropostaScreen from './src/screens/PropostaScreen';
 import PropostaStartScreen from './src/screens/PropostaStartScreen';
 import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
 import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen';
+import PropostaFamiliaScreen from './src/screens/PropostaFamiliaScreen'; // 🌿💜 Plano Família
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -205,6 +206,7 @@ function RootNavigator() {
       <Stack.Screen name="PropostaStart"      component={PropostaStartScreen} />
       <Stack.Screen name="PropostaMaes"       component={PropostaMaesScreen} />
       <Stack.Screen name="PropostaNavegantes" component={PropostaNavegantesScreen} />
+      <Stack.Screen name="PropostaFamilia"    component={PropostaFamiliaScreen} />
 
       {/* ── App do aluno ──────────────────────────────────────────── */}
       <Stack.Screen name="Main"             component={StudentTabs} initialParams={{ userData: savedUser }} />
@@ -264,6 +266,7 @@ const linking = {
       PropostaStart:       { path: 'PropostaStart' },
       PropostaMaes:        { path: 'PropostaMaes' },
       PropostaNavegantes:  { path: 'PropostaNavegantes' },
+      PropostaFamilia:     { path: 'PropostaFamilia' },
 
       // ── Dashboard admin
       AdminDashboard: { path: 'admin' },
