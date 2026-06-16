@@ -6,7 +6,6 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // ─── Promoções ativas ────────────────────────────────────────────────────────
-// Para desativar uma promo, basta setar como false aqui.
 const PROMO_MAES_ATIVA       = false; // já encerrou
 const PROMO_NAMORADOS_ATIVA  = true;  // 💘 ativa agora
 
@@ -20,15 +19,20 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const [isPromoMaes,       setIsPromoMaes]       = useState(false);
     const [isPromoNavegantes, setIsPromoNavegantes] = useState(false);
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Identifica QUEM está logado (Paulo ou Adri) ──────────────────────────
+    // Isso decide: (1) qual coachCode vai no link de CADASTRO,
+    // (2) qual coach= vai no link de PROPOSTA (pra rotear o WhatsApp certo na página).
     const getCoachInfo = () => {
-        let coachCode = 'PATEAM';
+        let coachCode = 'PATEAM';   // padrão Paulo
+        let coachSlug = 'paulo';    // usado na query string ?coach=
         let teamName  = 'à nossa equipe';
+
         if (adminEmail && adminEmail.toLowerCase().includes('adri.personal@hotmail.com')) {
             coachCode = 'CURVAS';
+            coachSlug = 'adri';
             teamName  = 'ao projeto Costas & Curvas';
         }
-        return { coachCode, teamName };
+        return { coachCode, coachSlug, teamName };
     };
 
     const resetAndClose = () => {
@@ -99,6 +103,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const generatePropostaLink = () => {
         const finalName = leadName.trim() || 'Atleta';
         const baseUrl   = getBaseUrl();
+        const { coachSlug } = getCoachInfo();
 
         let routeName = 'Proposta';
         if (propostaType === 'START') {
@@ -109,7 +114,10 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
             routeName = promoConfig[promoAtiva].routeName;
         }
 
-        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}`;
+        // 🔑 Embute SEMPRE o coach de quem está gerando o link.
+        // Isso é o que faz o botão de WhatsApp dentro da página de vendas
+        // abrir no número de quem criou o link (Paulo ou Adri).
+        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}&coach=${coachSlug}`;
 
         let message = '';
         if (propostaType === 'ELITE' && promoAtiva) {
@@ -168,6 +176,10 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
             ? promoConfig[promoAtiva].label
             : `ENVIAR PROPOSTA ${propostaType}`;
 
+    // Quem está logado, pra mostrar no rodapé do modal (transparência pro admin)
+    const { coachSlug: loggedCoachSlug } = getCoachInfo();
+    const loggedCoachLabel = loggedCoachSlug === 'adri' ? 'Adri' : 'Paulo';
+
     // ────────────────────────────────────────────────────────────────────────
     return (
         <Modal visible={visible} transparent animationType="slide" onRequestClose={resetAndClose}>
@@ -180,6 +192,14 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                         <TouchableOpacity onPress={resetAndClose}>
                             <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
                         </TouchableOpacity>
+                    </View>
+
+                    {/* Indicador de quem está logado — confirma o roteamento do WhatsApp */}
+                    <View style={[styles.loggedAsBadge, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                        <MaterialCommunityIcons name="account-check" size={14} color={theme.textSecondary} />
+                        <Text style={[styles.loggedAsText, { color: theme.textSecondary }]}>
+                            Links gerados como <Text style={{ fontWeight: '900', color: theme.text }}>{loggedCoachLabel}</Text> — o WhatsApp da página abrirá no número de {loggedCoachLabel}.
+                        </Text>
                     </View>
 
                     {/* Tabs */}
@@ -221,7 +241,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     onChangeText={setLeadName}
                                 />
 
-                                {/* Tipo de oferta — agora com 3 opções */}
+                                {/* Tipo de oferta */}
                                 <Text style={[styles.inputLabel, { color: theme.text, marginTop: 20 }]}>TIPO DE OFERTA:</Text>
                                 <View style={[styles.propostaTypeContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
                                     <TouchableOpacity
@@ -255,7 +275,6 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     <View style={styles.promosWrapper}>
                                         <Text style={[styles.promosLabel, { color: theme.textSecondary }]}>CAMPANHAS ATIVAS:</Text>
 
-                                        {/* Toggle Dia das Mães */}
                                         {PROMO_MAES_ATIVA && (
                                             <TouchableOpacity
                                                 style={[
@@ -275,7 +294,6 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                             </TouchableOpacity>
                                         )}
 
-                                        {/* Toggle Dia dos Namorados */}
                                         {PROMO_NAMORADOS_ATIVA && (
                                             <TouchableOpacity
                                                 style={[
@@ -295,7 +313,6 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                             </TouchableOpacity>
                                         )}
 
-                                        {/* Nenhuma ativa */}
                                         {!PROMO_MAES_ATIVA && !PROMO_NAMORADOS_ATIVA && (
                                             <Text style={[styles.promoToggleText, { color: theme.textSecondary, paddingLeft: 4 }]}>
                                                 Nenhuma campanha ativa no momento.
@@ -304,7 +321,6 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     </View>
                                 )}
 
-                                {/* Descrição contextual do tipo selecionado */}
                                 <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 15, textAlign: 'center' }}>
                                     {propostaType === 'ELITE'
                                         ? 'Página Principal (Treino + Dieta)'
@@ -408,8 +424,11 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 const styles = StyleSheet.create({
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
     modalContent: { width: '100%', maxWidth: 400, borderRadius: 24, padding: 20, borderWidth: 1, maxHeight: '85%', marginTop: 'auto', borderBottomLeftRadius: 0, borderBottomRightRadius: 0 },
-    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
     modalTitle: { fontSize: 16, fontWeight: '900', letterSpacing: 1 },
+
+    loggedAsBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, borderWidth: 1, marginBottom: 16 },
+    loggedAsText: { flex: 1, fontSize: 11, lineHeight: 16 },
 
     tabsContainer: { flexDirection: 'row', borderRadius: 12, padding: 5, marginBottom: 20, borderWidth: 1 },
     tabBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
