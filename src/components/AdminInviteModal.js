@@ -114,10 +114,15 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
             routeName = promoConfig[promoAtiva].routeName;
         }
 
+        // 🔑 ID único do link — evita que o timer de expiração colida entre
+        // testes diferentes ou leads com o mesmo nome (ex: "João" testado 2x).
+        // Cada clique em "gerar link" cria um link com identidade própria.
+        const uniqueId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+
         // 🔑 Embute SEMPRE o coach de quem está gerando o link.
         // Isso é o que faz o botão de WhatsApp dentro da página de vendas
         // abrir no número de quem criou o link (Paulo ou Adri).
-        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}&coach=${coachSlug}`;
+        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}&coach=${coachSlug}&id=${uniqueId}`;
 
         let message = '';
         if (propostaType === 'ELITE' && promoAtiva) {
