@@ -34,7 +34,13 @@ export default function PropostaScreen({ route }) {
     const isGeneric = !rawName || genericNames.includes(rawName.toLowerCase());
     
     const displayName = isGeneric ? 'ATLETA' : rawName.toUpperCase();
-    const storageKeyName = isGeneric ? 'default_lead' : rawName.toLowerCase();
+
+    // 🔑 Chave do timer: usa o ID único do link (gerado pelo AdminInviteModal)
+    // em vez do nome do lead. Isso evita que dois links diferentes com o
+    // mesmo nome (ex: testes com "João") colidam e um pareça "expirado"
+    // por causa do timer salvo de outro teste anterior no mesmo navegador.
+    const linkId = route?.params?.id?.trim() || '';
+    const storageKeyName = linkId || (isGeneric ? 'default_lead' : rawName.toLowerCase());
 
     // 🔥 ROTEAMENTO INTELIGENTE DE WHATSAPP (PAULO OU ADRI) 🔥
     // Lê o parâmetro ?coach= embutido pelo AdminInviteModal na hora de gerar o link.
