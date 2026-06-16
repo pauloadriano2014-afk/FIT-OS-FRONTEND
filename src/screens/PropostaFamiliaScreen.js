@@ -238,6 +238,38 @@ export default function PropostaFamiliaScreen({ route }) {
                         </View>
                     </View>
 
+                    {/* ── EXEMPLO NUMÉRICO CONCRETO ───────────────────────────────────
+                        Mesma régua usada na explicação manual via WhatsApp, pra manter
+                        consistência entre o que o coach explica e o que a página mostra. */}
+                    <View style={styles.exampleBox}>
+                        <View style={styles.exampleHeader}>
+                            <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={GREEN} />
+                            <Text style={styles.exampleHeaderText}>EXEMPLO COM 3 PESSOAS</Text>
+                        </View>
+
+                        <View style={styles.exampleRow}>
+                            <Text style={styles.exampleRowLabel}>👤 1º membro — Elite VIP</Text>
+                            <Text style={styles.exampleRowValue}>R$ 297,00 <Text style={styles.exampleRowNote}>(sem desconto)</Text></Text>
+                        </View>
+                        <View style={styles.exampleRow}>
+                            <Text style={styles.exampleRowLabel}>👤 2º membro — Performance</Text>
+                            <Text style={styles.exampleRowValue}>R$ 167,45 <Text style={[styles.exampleRowNote, { color: GREEN }]}>(-15%)</Text></Text>
+                        </View>
+                        <View style={[styles.exampleRow, { borderBottomWidth: 0 }]}>
+                            <Text style={styles.exampleRowLabel}>👤 3º membro — Performance</Text>
+                            <Text style={styles.exampleRowValue}>R$ 157,60 <Text style={[styles.exampleRowNote, { color: GREEN }]}>(-20%)</Text></Text>
+                        </View>
+
+                        <View style={styles.exampleTotalRow}>
+                            <Text style={styles.exampleTotalLabel}>Total da família</Text>
+                            <Text style={styles.exampleTotalValue}>R$ 622,05</Text>
+                        </View>
+                        <Text style={styles.exampleFootnote}>
+                            Em vez de R$ 691,00 se cada um pagasse o plano separado — economia de R$ 68,95.
+                            O desconto é sempre sobre o plano que CADA pessoa escolheu, sem mistura entre Performance e Elite.
+                        </Text>
+                    </View>
+
                     {/* ── CALCULADORA INTERATIVA ───────────────────────────────────── */}
                     <View style={styles.calcSection}>
                         <Text style={styles.sectionTitle}>MONTE A SUA FAMÍLIA</Text>
@@ -532,10 +564,23 @@ const styles = StyleSheet.create({
     carouselContainer: { paddingLeft: 0, paddingRight: 20, paddingBottom: 20 },
 
     // ── Steps de desconto
-    discountStepsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 30, flexWrap: 'wrap', gap: 4 },
+    discountStepsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 4 },
     discountStep: { alignItems: 'center', backgroundColor: '#161616', borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: '#2A2A2A', minWidth: 56 },
     discountStepNumber: { fontSize: 16, fontWeight: '900' },
     discountStepLabel: { color: '#888', fontSize: 10, fontWeight: '700', marginTop: 2 },
+
+    // ── Exemplo numérico concreto
+    exampleBox: { backgroundColor: '#101410', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: `${GREEN}25`, marginBottom: 30 },
+    exampleHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+    exampleHeaderText: { color: GREEN, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
+    exampleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#222' },
+    exampleRowLabel: { color: '#CCC', fontSize: 13, fontWeight: '600' },
+    exampleRowValue: { color: '#FFF', fontSize: 14, fontWeight: '900' },
+    exampleRowNote: { color: '#777', fontSize: 11, fontWeight: '700' },
+    exampleTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: `${GREEN}30` },
+    exampleTotalLabel: { color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.3 },
+    exampleTotalValue: { color: GREEN, fontSize: 20, fontWeight: '900' },
+    exampleFootnote: { color: '#777', fontSize: 11, lineHeight: 17, marginTop: 12, fontStyle: 'italic' },
 
     // ── Calculadora
     calcSection: { marginTop: 10, marginBottom: 40, backgroundColor: '#131313', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#262626' },
