@@ -41,7 +41,7 @@ export default function MealCardAdmin({
     const hasItems = meal.items.length > 0;
 
     // Versão alternativa: borda laranja tracejada para distinguir da principal
-    const isAlt = meal.isMainVersion === false;
+    const isAlt = meal.isMainVersion === false || meal.isMainVersion === 0;
 
     return (
         <View style={[

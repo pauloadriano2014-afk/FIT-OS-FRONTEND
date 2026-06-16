@@ -65,12 +65,46 @@ export default function MealVersionSwitcher({ meal, theme, onVersionChange }) {
                                                         </View>
                                                     )}
                                                 </View>
-                                                <Text style={[s.versionMacros, { color: theme.textSecondary }]}>
-                                                    {Math.round(kcal)} kcal · {Math.round(prot)}g prot
-                                                </Text>
                                             </View>
                                             <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
                                         </View>
+
+                                        {/* Macros com comparação */}
+                                        {(() => {
+                                            const mainVersion = allVersions[0]; // sempre a principal
+                                            const mainKcal = calcVersionKcal(mainVersion.items);
+                                            const mainProt = calcVersionProt(mainVersion.items);
+                                            const mainCarb = calcVersionCarb(mainVersion.items);
+                                            const mainFat  = calcVersionFat(mainVersion.items);
+                                            const dKcal = Math.round(kcal - mainKcal);
+                                            const dProt = Math.round(prot - mainProt);
+                                            const dCarb = Math.round(calcVersionCarb(version.items) - mainCarb);
+                                            const dFat  = Math.round(calcVersionFat(version.items)  - mainFat);
+
+                                            return (
+                                                <View style={s.macroTable}>
+                                                    {[
+                                                        { label:'KCAL', val: Math.round(kcal), diff: isMain ? null : dKcal, color:'#FFCC00' },
+                                                        { label:'PROT', val: Math.round(prot),  diff: isMain ? null : dProt, color:'#32ADE6' },
+                                                        { label:'CARBO',val: Math.round(calcVersionCarb(version.items)), diff: isMain ? null : dCarb, color:'#FF9500' },
+                                                        { label:'GORD', val: Math.round(calcVersionFat(version.items)),  diff: isMain ? null : dFat,  color:'#AF52DE' },
+                                                    ].map(({ label, val, diff, color }) => (
+                                                        <View key={label} style={s.macroCell}>
+                                                            <Text style={[s.macroVal, { color: theme.text }]}>{val}<Text style={{ fontSize:9, color: theme.textSecondary }}>g</Text></Text>
+                                                            <Text style={[s.macroLbl, { color }]}>{label}</Text>
+                                                            {diff !== null && diff !== 0 && (
+                                                                <Text style={[s.macroDiff, { color: Math.abs(diff) > 50 ? '#FF3B30' : '#34C759' }]}>
+                                                                    {diff > 0 ? '+' : ''}{diff}
+                                                                </Text>
+                                                            )}
+                                                            {diff !== null && diff === 0 && (
+                                                                <Text style={[s.macroDiff, { color: '#34C759' }]}>✓</Text>
+                                                            )}
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            );
+                                        })()}
 
                                         <View style={s.itemsList}>
                                             {(version.items ?? []).filter((_, idx) => idx < 4).map((item, idx) => (
@@ -105,17 +139,42 @@ export default function MealVersionSwitcher({ meal, theme, onVersionChange }) {
     );
 }
 
+// Pega só o primeiro item de cada grupo (o alimento base, não os substitutos)
+function getBaseItems(items) {
+    const seen = new Set();
+    return (items ?? []).filter(item => {
+        const groupKey = item.substitutionGroupId ?? item.groupId ?? item.uniqueId ?? item.id;
+        if (seen.has(groupKey)) return false;
+        seen.add(groupKey);
+        return true;
+    });
+}
+
 function calcVersionKcal(items) {
-    return (items ?? []).reduce((sum, item) => {
+    return getBaseItems(items).reduce((sum, item) => {
         const kcalPer100 = item.calories_per_100 ?? item.calories ?? 0;
         return sum + (kcalPer100 * (item.amount ?? 0)) / 100;
     }, 0);
 }
 
 function calcVersionProt(items) {
-    return (items ?? []).reduce((sum, item) => {
+    return getBaseItems(items).reduce((sum, item) => {
         const protPer100 = item.p ?? item.protein ?? 0;
         return sum + (protPer100 * (item.amount ?? 0)) / 100;
+    }, 0);
+}
+
+function calcVersionCarb(items) {
+    return getBaseItems(items).reduce((sum, item) => {
+        const carbPer100 = item.c ?? item.carbs ?? 0;
+        return sum + (carbPer100 * (item.amount ?? 0)) / 100;
+    }, 0);
+}
+
+function calcVersionFat(items) {
+    return getBaseItems(items).reduce((sum, item) => {
+        const fatPer100 = item.f ?? item.fats ?? 0;
+        return sum + (fatPer100 * (item.amount ?? 0)) / 100;
     }, 0);
 }
 
@@ -133,6 +192,11 @@ const s = StyleSheet.create({
     mainBadge:    { paddingHorizontal:7, paddingVertical:3, borderRadius:7 },
     mainBadgeText:{ fontSize:8, fontWeight:'900', color:'#000', letterSpacing:0.5 },
     versionMacros:{ fontSize:11, fontWeight:'700', marginTop:3 },
+    macroTable:   { flexDirection:'row', gap:0, marginBottom: 10, borderRadius:12, overflow:'hidden' },
+    macroCell:    { flex:1, alignItems:'center', paddingVertical:8, paddingHorizontal:2 },
+    macroVal:     { fontSize:13, fontWeight:'900' },
+    macroLbl:     { fontSize:8,  fontWeight:'900', letterSpacing:0.5, marginTop:1 },
+    macroDiff:    { fontSize:9,  fontWeight:'900', marginTop:2 },
     itemsList:    { gap:3 },
     itemLine:     { fontSize:12, fontWeight:'600', lineHeight:18 },
     versionNotes: { fontSize:11, fontStyle:'italic', marginTop:10, paddingTop:10, borderTopWidth:1, lineHeight:16 },

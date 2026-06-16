@@ -21,7 +21,7 @@ export default function AlternativeMealManager({
         ? allMeals.filter(m =>
             m.alternativeGroupId &&
             m.alternativeGroupId === meal.alternativeGroupId &&
-            m.isMainVersion === false
+            (m.isMainVersion === false || m.isMainVersion === 0)
           ).length
         : (meal.alternatives?.length ?? 0);
 

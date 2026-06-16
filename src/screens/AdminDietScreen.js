@@ -429,9 +429,10 @@ export default function AdminDietScreen({ route, navigation }) {
                                         </Text>
                                     </View>
                                 ) : (() => {
-                                    // Separa principais e alternativas
-                                    const mainMeals = actions.visibleMeals.filter(m => m.isMainVersion !== false);
-                                    const altMeals  = actions.visibleMeals.filter(m => m.isMainVersion === false);
+                                    // FIX: isMainVersion pode ser false, 0 ou null — trata tudo
+                                    const isAlt = (m) => m.isMainVersion === false || m.isMainVersion === 0;
+                                    const mainMeals = actions.visibleMeals.filter(m => !isAlt(m));
+                                    const altMeals  = actions.visibleMeals.filter(m => isAlt(m));
 
                                     return mainMeals.map((meal, mIdx) => {
                                         // Alternativas desta refeição principal
