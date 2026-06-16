@@ -245,6 +245,15 @@ export default function PropostaFamiliaScreen({ route }) {
                             Adicione os membros e escolha o plano de cada um. O cálculo atualiza na hora.
                         </Text>
 
+                        {/* Aviso de interatividade — deixa claro que o botão do plano é clicável */}
+                        <View style={styles.tapHintBox}>
+                            <MaterialCommunityIcons name="gesture-tap" size={18} color={PURPLE} />
+                            <Text style={styles.tapHintText}>
+                                Toque no plano de cada pessoa (<Text style={{ color: PURPLE, fontWeight: '900' }}>ELITE VIP</Text> ou{' '}
+                                <Text style={{ color: GREEN, fontWeight: '900' }}>PERFORMANCE</Text>) para trocar e ver o valor mudar.
+                            </Text>
+                        </View>
+
                         {/* Lista de membros */}
                         <View style={styles.membrosList}>
                             {calculo.linhas.map((linha) => (
@@ -271,6 +280,12 @@ export default function PropostaFamiliaScreen({ route }) {
                                             <Text style={[styles.planToggleText, { color: linha.plan === 'ELITE' ? PURPLE : GREEN }]}>
                                                 {linha.plan === 'ELITE' ? 'ELITE VIP' : 'PERFORMANCE'}
                                             </Text>
+                                            <MaterialCommunityIcons
+                                                name="swap-horizontal"
+                                                size={13}
+                                                color={linha.plan === 'ELITE' ? PURPLE : GREEN}
+                                                style={{ opacity: 0.6 }}
+                                            />
                                         </TouchableOpacity>
                                     </View>
 
@@ -524,6 +539,8 @@ const styles = StyleSheet.create({
 
     // ── Calculadora
     calcSection: { marginTop: 10, marginBottom: 40, backgroundColor: '#131313', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#262626' },
+    tapHintBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: `${PURPLE}12`, borderRadius: 12, borderWidth: 1, borderColor: `${PURPLE}35`, padding: 12, marginBottom: 16 },
+    tapHintText: { flex: 1, color: '#BBB', fontSize: 12, lineHeight: 18 },
     membrosList: { gap: 10, marginBottom: 16 },
     membroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1A1A1A', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#2A2A2A' },
     membroLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
