@@ -36,6 +36,18 @@ export default function PropostaStartScreen({ route }) {
     const displayName = isGeneric ? 'ATLETA' : rawName.toUpperCase();
     const storageKeyName = isGeneric ? 'default_lead' : rawName.toLowerCase();
 
+    // 🔥 ROTEAMENTO INTELIGENTE DE WHATSAPP (PAULO OU ADRI) 🔥
+    // Lê o parâmetro ?coach= embutido pelo AdminInviteModal na hora de gerar o link.
+    const coachParam = route?.params?.coach?.trim()?.toLowerCase() || '';
+    const telefoneParam = route?.params?.telefone?.trim() || '';
+
+    let waNumber = '5541997991346'; // Padrão: Paulo
+    if (telefoneParam) {
+        waNumber = telefoneParam.replace(/\D/g, '');
+    } else if (['adri', 'adriele', 'japinha'].includes(coachParam)) {
+        waNumber = '5541998465582'; // Redireciona para a Adri
+    }
+
     const [timeLeft, setTimeLeft] = useState(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -90,7 +102,7 @@ export default function PropostaStartScreen({ route }) {
 
     const handleWhatsAppCTA = (plan) => {
         const text = `Fala, Coach! Quero começar minha transformação com o ${plan}. Bora! 👊`;
-        Linking.openURL(`https://wa.me/5541997991346?text=${encodeURIComponent(text)}`);
+        Linking.openURL(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`);
     };
 
     const renderYouTubeVideo = (videoId, isAutoPlay = false) => {
