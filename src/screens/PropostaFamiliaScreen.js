@@ -35,11 +35,28 @@ const getDiscountForPosition = (position) => {
     return 0.25; // 4ª pessoa em diante
 };
 
-// Preços base mensais (iguais aos das outras propostas, plano ELITE/PERFORMANCE)
-const PLAN_PRICES = {
-    PERFORMANCE: 197,
-    ELITE: 297,
+// Nota: preços agora vêm sempre de PLAN_PRICES_BY_PERIOD, indexados por
+// plano (PERFORMANCE/ELITE) e período (MENSAL/TRIMESTRAL/SEMESTRAL/ANUAL).
+
+// Preços base completos por período, usados só no bloco de exemplo (toggle)
+const PLAN_PRICES_BY_PERIOD = {
+    PERFORMANCE: { MENSAL: 197, TRIMESTRAL: 397, SEMESTRAL: 697, ANUAL: 1197 },
+    ELITE:       { MENSAL: 297, TRIMESTRAL: 597, SEMESTRAL: 1097, ANUAL: 1890 },
 };
+
+const PERIOD_LABELS = {
+    MENSAL: 'Mensal',
+    TRIMESTRAL: 'Trimestral',
+    SEMESTRAL: 'Semestral',
+    ANUAL: 'Anual',
+};
+
+// Composição fixa do exemplo: 1º Elite, 2º Performance, 3º Performance
+const EXAMPLE_MEMBERS = [
+    { position: 1, plan: 'ELITE' },
+    { position: 2, plan: 'PERFORMANCE' },
+    { position: 3, plan: 'PERFORMANCE' },
+];
 
 const faqList = [
     {
@@ -108,6 +125,11 @@ export default function PropostaFamiliaScreen({ route }) {
         { id: 3, plan: 'PERFORMANCE' },
     ]);
 
+    // Período da família — único para todo o grupo (não por pessoa).
+    // Famílias normalmente fecham todas no mesmo compromisso de tempo,
+    // mesmo escolhendo planos (Performance/Elite) diferentes entre si.
+    const [familyPeriod, setFamilyPeriod] = useState('MENSAL');
+
     const addMembro = () => {
         if (membros.length >= MAX_MEMBROS) return;
         setMembros(prev => [...prev, { id: Date.now(), plan: 'PERFORMANCE' }]);
@@ -124,7 +146,31 @@ export default function PropostaFamiliaScreen({ route }) {
         ));
     };
 
-    // ── Cálculo do total com desconto escalonado ────────────────────────────
+    // ── Estado do TOGGLE de período no bloco de exemplo ──────────────────────
+    const [examplePeriod, setExamplePeriod] = useState('MENSAL');
+
+    // ── Cálculo do exemplo (1º Elite, 2º Performance, 3º Performance) ────────
+    // Recalcula automaticamente conforme o período selecionado no toggle.
+    const exampleCalculo = useMemo(() => {
+        let totalOriginal = 0;
+        let totalComDesconto = 0;
+
+        const linhas = EXAMPLE_MEMBERS.map((membro) => {
+            const discount = getDiscountForPosition(membro.position);
+            const basePrice = PLAN_PRICES_BY_PERIOD[membro.plan][examplePeriod];
+            const finalPrice = basePrice * (1 - discount);
+
+            totalOriginal += basePrice;
+            totalComDesconto += finalPrice;
+
+            return { ...membro, discount, basePrice, finalPrice };
+        });
+
+        const economia = totalOriginal - totalComDesconto;
+        return { linhas, totalOriginal, totalComDesconto, economia };
+    }, [examplePeriod]);
+
+    // ── Cálculo do total com desconto escalonado + período da família ───────
     const calculo = useMemo(() => {
         let totalOriginal = 0;
         let totalComDesconto = 0;
@@ -132,7 +178,7 @@ export default function PropostaFamiliaScreen({ route }) {
         const linhas = membros.map((membro, index) => {
             const position = index + 1;
             const discount = getDiscountForPosition(position);
-            const basePrice = PLAN_PRICES[membro.plan];
+            const basePrice = PLAN_PRICES_BY_PERIOD[membro.plan][familyPeriod];
             const finalPrice = basePrice * (1 - discount);
 
             totalOriginal += basePrice;
@@ -150,15 +196,36 @@ export default function PropostaFamiliaScreen({ route }) {
         const economiaTotal = totalOriginal - totalComDesconto;
         const economiaPercent = totalOriginal > 0 ? (economiaTotal / totalOriginal) * 100 : 0;
 
-        return { linhas, totalOriginal, totalComDesconto, economiaTotal, economiaPercent };
-    }, [membros]);
+        // Avaliação física presencial grátis: só vale quando a família
+        // fecha no plano ANUAL. Janela de 1h de sala (R$50) cobre até 4 pessoas.
+        const avaliacaoGratisElegivel = familyPeriod === 'ANUAL';
+        const avaliacaoGratisQtdCobertas = avaliacaoGratisElegivel ? Math.min(membros.length, 4) : 0;
+        const avaliacaoGratisExtras = avaliacaoGratisElegivel ? Math.max(membros.length - 4, 0) : 0;
+
+        return {
+            linhas, totalOriginal, totalComDesconto, economiaTotal, economiaPercent,
+            avaliacaoGratisElegivel, avaliacaoGratisQtdCobertas, avaliacaoGratisExtras,
+        };
+    }, [membros, familyPeriod]);
 
     const handleWhatsAppCTA = () => {
         const resumoMembros = calculo.linhas
             .map(l => `${l.position}º membro: ${l.plan === 'ELITE' ? 'Elite VIP' : 'Performance'} — R$ ${formatBRL(l.finalPrice)}`)
             .join('\n');
 
-        const text = `Oi! Quero montar o Plano Família com ${membros.length} pessoas. 👨‍👩‍👧‍👦💪\n\nSimulação que fiz no app:\n${resumoMembros}\n\nTotal mensal: R$ ${formatBRL(calculo.totalComDesconto)}\nEconomia: R$ ${formatBRL(calculo.economiaTotal)} (${calculo.economiaPercent.toFixed(0)}%)\n\nVamos fechar?`;
+        const periodoLabel = PERIOD_LABELS[familyPeriod];
+        const avaliacaoTexto = calculo.avaliacaoGratisElegivel
+            ? `\n\n🎁 Por fecharem no Anual, vocês ganham avaliação física presencial gratuita (até ${calculo.avaliacaoGratisQtdCobertas} pessoas)!`
+            : '';
+
+        const text = `Oi! Quero montar o Plano Família com ${membros.length} pessoas, no plano ${periodoLabel}. 👨‍👩‍👧‍👦💪\n\nSimulação que fiz no app:\n${resumoMembros}\n\nTotal (${periodoLabel.toLowerCase()}): R$ ${formatBRL(calculo.totalComDesconto)}\nEconomia: R$ ${formatBRL(calculo.economiaTotal)} (${calculo.economiaPercent.toFixed(0)}%)${avaliacaoTexto}\n\nVamos fechar?`;
+        Linking.openURL(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`);
+    };
+
+    // Botão "Ainda não entendi" — abre o WhatsApp já com a pergunta pronta,
+    // poupando a pessoa de ter que escrever explicando a própria dúvida.
+    const handleDuvidaCTA = () => {
+        const text = `Oi! Vi o Plano Família no app, mas ainda não entendi bem como funciona o desconto por pessoa. Pode me explicar com um exemplo? 🙏`;
         Linking.openURL(`https://wa.me/${waNumber}?text=${encodeURIComponent(text)}`);
     };
 
@@ -247,27 +314,72 @@ export default function PropostaFamiliaScreen({ route }) {
                             <Text style={styles.exampleHeaderText}>EXEMPLO COM 3 PESSOAS</Text>
                         </View>
 
-                        <View style={styles.exampleRow}>
-                            <Text style={styles.exampleRowLabel}>👤 1º membro — Elite VIP</Text>
-                            <Text style={styles.exampleRowValue}>R$ 297,00 <Text style={styles.exampleRowNote}>(sem desconto)</Text></Text>
-                        </View>
-                        <View style={styles.exampleRow}>
-                            <Text style={styles.exampleRowLabel}>👤 2º membro — Performance</Text>
-                            <Text style={styles.exampleRowValue}>R$ 167,45 <Text style={[styles.exampleRowNote, { color: GREEN }]}>(-15%)</Text></Text>
-                        </View>
-                        <View style={[styles.exampleRow, { borderBottomWidth: 0 }]}>
-                            <Text style={styles.exampleRowLabel}>👤 3º membro — Performance</Text>
-                            <Text style={styles.exampleRowValue}>R$ 157,60 <Text style={[styles.exampleRowNote, { color: GREEN }]}>(-20%)</Text></Text>
+                        {/* Toggle de período */}
+                        <View style={styles.periodToggleRow}>
+                            {Object.keys(PERIOD_LABELS).map((periodKey) => (
+                                <TouchableOpacity
+                                    key={periodKey}
+                                    style={[
+                                        styles.periodToggleBtn,
+                                        examplePeriod === periodKey && { backgroundColor: GREEN, borderColor: GREEN },
+                                    ]}
+                                    onPress={() => setExamplePeriod(periodKey)}
+                                >
+                                    <Text style={[
+                                        styles.periodToggleText,
+                                        examplePeriod === periodKey && { color: '#0a0a0a' },
+                                    ]}>
+                                        {PERIOD_LABELS[periodKey]}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
                         </View>
 
+                        {/* Linhas do exemplo — plano em cima, preço embaixo (sem disputar espaço) */}
+                        {exampleCalculo.linhas.map((linha, index) => (
+                            <View
+                                key={linha.position}
+                                style={[styles.exampleRow, index === exampleCalculo.linhas.length - 1 && { borderBottomWidth: 0 }]}
+                            >
+                                <View style={styles.exampleRowTop}>
+                                    <Text style={styles.exampleRowLabel}>
+                                        👤 {linha.position}º membro
+                                    </Text>
+                                    <View style={[
+                                        styles.examplePlanBadge,
+                                        linha.plan === 'ELITE'
+                                            ? { backgroundColor: `${PURPLE}20`, borderColor: PURPLE }
+                                            : { backgroundColor: `${GREEN}15`, borderColor: GREEN },
+                                    ]}>
+                                        <Text style={[styles.examplePlanBadgeText, { color: linha.plan === 'ELITE' ? PURPLE : GREEN }]}>
+                                            {linha.plan === 'ELITE' ? 'ELITE VIP' : 'PERFORMANCE'}
+                                        </Text>
+                                    </View>
+                                </View>
+                                <View style={styles.exampleRowBottom}>
+                                    <Text style={styles.exampleRowValue}>R$ {formatBRL(linha.finalPrice)}</Text>
+                                    <Text style={[styles.exampleRowNote, linha.discount > 0 && { color: GREEN }]}>
+                                        {linha.discount > 0 ? `-${(linha.discount * 100).toFixed(0)}%` : 'sem desconto'}
+                                    </Text>
+                                </View>
+                            </View>
+                        ))}
+
                         <View style={styles.exampleTotalRow}>
-                            <Text style={styles.exampleTotalLabel}>Total da família</Text>
-                            <Text style={styles.exampleTotalValue}>R$ 622,05</Text>
+                            <Text style={styles.exampleTotalLabel}>Total da família ({PERIOD_LABELS[examplePeriod].toLowerCase()})</Text>
+                            <Text style={styles.exampleTotalValue}>R$ {formatBRL(exampleCalculo.totalComDesconto)}</Text>
                         </View>
                         <Text style={styles.exampleFootnote}>
-                            Em vez de R$ 691,00 se cada um pagasse o plano separado — economia de R$ 68,95.
-                            O desconto é sempre sobre o plano que CADA pessoa escolheu, sem mistura entre Performance e Elite.
+                            Em vez de R$ {formatBRL(exampleCalculo.totalOriginal)} se cada um pagasse o plano separado —
+                            economia de R$ {formatBRL(exampleCalculo.economia)}. O desconto é sempre sobre o plano que CADA
+                            pessoa escolheu, sem mistura entre Performance e Elite.
                         </Text>
+
+                        {/* Botão "Ainda não entendi" */}
+                        <TouchableOpacity style={styles.duvidaBtn} onPress={handleDuvidaCTA}>
+                            <MaterialCommunityIcons name="help-circle-outline" size={16} color="#AAA" />
+                            <Text style={styles.duvidaBtnText}>AINDA NÃO ENTENDI, QUERO FALAR COM O COACH</Text>
+                        </TouchableOpacity>
                     </View>
 
                     {/* ── CALCULADORA INTERATIVA ───────────────────────────────────── */}
@@ -285,6 +397,44 @@ export default function PropostaFamiliaScreen({ route }) {
                                 <Text style={{ color: GREEN, fontWeight: '900' }}>PERFORMANCE</Text>) para trocar e ver o valor mudar.
                             </Text>
                         </View>
+
+                        {/* Seletor de período da família — único pra todo o grupo */}
+                        <Text style={styles.familyPeriodLabel}>EM QUAL PERÍODO A FAMÍLIA VAI FECHAR?</Text>
+                        <View style={styles.periodToggleRow}>
+                            {Object.keys(PERIOD_LABELS).map((periodKey) => (
+                                <TouchableOpacity
+                                    key={periodKey}
+                                    style={[
+                                        styles.periodToggleBtn,
+                                        familyPeriod === periodKey && { backgroundColor: GREEN, borderColor: GREEN },
+                                    ]}
+                                    onPress={() => setFamilyPeriod(periodKey)}
+                                >
+                                    <Text style={[
+                                        styles.periodToggleText,
+                                        familyPeriod === periodKey && { color: '#0a0a0a' },
+                                    ]}>
+                                        {PERIOD_LABELS[periodKey]}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+
+                        {/* Aviso de avaliação física grátis — só aparece quando Anual está selecionado */}
+                        {calculo.avaliacaoGratisElegivel && (
+                            <View style={styles.avaliacaoGratisBox}>
+                                <MaterialCommunityIcons name="clipboard-pulse-outline" size={20} color={PURPLE} />
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.avaliacaoGratisTitle}>🎁 AVALIAÇÃO FÍSICA PRESENCIAL GRÁTIS</Text>
+                                    <Text style={styles.avaliacaoGratisText}>
+                                        Fechando no Anual, sua família ganha uma sessão presencial de avaliação física
+                                        (até 4 pessoas por horário){calculo.avaliacaoGratisExtras > 0
+                                            ? `. Como vocês são ${membros.length}, ${calculo.avaliacaoGratisExtras} pessoa(s) precisarão de um segundo horário — combinamos isso direto no WhatsApp.`
+                                            : '.'}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
 
                         {/* Lista de membros */}
                         <View style={styles.membrosList}>
@@ -365,7 +515,9 @@ export default function PropostaFamiliaScreen({ route }) {
                                 </Text>
                             </View>
                             <View style={[styles.totalRow, styles.totalRowFinal]}>
-                                <Text style={styles.totalLabelFinal}>TOTAL MENSAL DA FAMÍLIA</Text>
+                                <Text style={styles.totalLabelFinal}>
+                                    TOTAL {PERIOD_LABELS[familyPeriod].toUpperCase()} DA FAMÍLIA
+                                </Text>
                                 <Text style={styles.totalValueFinal}>R$ {formatBRL(calculo.totalComDesconto)}</Text>
                             </View>
                         </View>
@@ -380,7 +532,8 @@ export default function PropostaFamiliaScreen({ route }) {
                         </Animated.View>
 
                         <Text style={styles.calcDisclaimer}>
-                            * Simulação mensal. Valores trimestrais, semestrais e anuais com desconto adicional são calculados pelo coach no fechamento.
+                            * Cada pessoa pode estar num plano (Performance/Elite), mas todos no mesmo período de pagamento.
+                            Valores cobrados conforme a periodicidade escolhida ({PERIOD_LABELS[familyPeriod].toLowerCase()}).
                         </Text>
                     </View>
 
@@ -571,21 +724,46 @@ const styles = StyleSheet.create({
 
     // ── Exemplo numérico concreto
     exampleBox: { backgroundColor: '#101410', borderRadius: 20, padding: 18, borderWidth: 1, borderColor: `${GREEN}25`, marginBottom: 30 },
-    exampleHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+    exampleHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 16 },
     exampleHeaderText: { color: GREEN, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
-    exampleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#222' },
+
+    // ── Toggle de período dentro do exemplo
+    periodToggleRow: { flexDirection: 'row', gap: 6, marginBottom: 18, flexWrap: 'wrap' },
+    periodToggleBtn: { flex: 1, minWidth: 70, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: '#2A2A2A', backgroundColor: '#1A1A1A', alignItems: 'center' },
+    periodToggleText: { color: '#888', fontSize: 11, fontWeight: '900' },
+
+    // ── Linha do exemplo: label+badge em cima, preço+nota embaixo (sem espremer)
+    exampleRow: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#222', gap: 6 },
+    exampleRowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
     exampleRowLabel: { color: '#CCC', fontSize: 13, fontWeight: '600' },
-    exampleRowValue: { color: '#FFF', fontSize: 14, fontWeight: '900' },
+    examplePlanBadge: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1 },
+    examplePlanBadgeText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
+    exampleRowBottom: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+    exampleRowValue: { color: '#FFF', fontSize: 16, fontWeight: '900' },
     exampleRowNote: { color: '#777', fontSize: 11, fontWeight: '700' },
-    exampleTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: `${GREEN}30` },
-    exampleTotalLabel: { color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.3 },
+
+    exampleTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: `${GREEN}30`, gap: 10 },
+    exampleTotalLabel: { color: '#FFF', fontSize: 13, fontWeight: '900', letterSpacing: 0.3, flex: 1 },
     exampleTotalValue: { color: GREEN, fontSize: 20, fontWeight: '900' },
     exampleFootnote: { color: '#777', fontSize: 11, lineHeight: 17, marginTop: 12, fontStyle: 'italic' },
+
+    // ── Botão "Ainda não entendi"
+    duvidaBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 18, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#333', backgroundColor: '#161616' },
+    duvidaBtnText: { color: '#AAA', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
 
     // ── Calculadora
     calcSection: { marginTop: 10, marginBottom: 40, backgroundColor: '#131313', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#262626' },
     tapHintBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: `${PURPLE}12`, borderRadius: 12, borderWidth: 1, borderColor: `${PURPLE}35`, padding: 12, marginBottom: 16 },
     tapHintText: { flex: 1, color: '#BBB', fontSize: 12, lineHeight: 18 },
+
+    // ── Seletor de período da família (único para o grupo todo)
+    familyPeriodLabel: { color: '#888', fontSize: 11, fontWeight: '900', letterSpacing: 0.5, marginBottom: 10, textAlign: 'center' },
+
+    // ── Aviso de avaliação física grátis (plano Anual)
+    avaliacaoGratisBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: `${PURPLE}12`, borderRadius: 14, borderWidth: 1, borderColor: `${PURPLE}40`, padding: 14, marginBottom: 16, marginTop: 4 },
+    avaliacaoGratisTitle: { color: PURPLE, fontSize: 11, fontWeight: '900', letterSpacing: 0.3, marginBottom: 4 },
+    avaliacaoGratisText: { color: '#BBB', fontSize: 12, lineHeight: 18 },
+
     membrosList: { gap: 10, marginBottom: 16 },
     membroRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1A1A1A', borderRadius: 14, padding: 12, borderWidth: 1, borderColor: '#2A2A2A' },
     membroLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
