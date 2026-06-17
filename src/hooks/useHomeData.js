@@ -115,7 +115,6 @@ export function useHomeData() {
             const storedUser = await AsyncStorage.getItem('user');
 
             if (!storedUser) {
-                console.error("Usuário não encontrado no AsyncStorage na Home.");
                 setLoading(false);
                 return;
             }
@@ -123,7 +122,6 @@ export function useHomeData() {
             const user = JSON.parse(storedUser);
             setUserData(user);
 
-            // 🔥 FIX UX: Só ativa o esqueleto visual se o aplicativo ainda não possuir dados em cache
             if (!user || Object.keys(user).length === 0) {
                 setLoading(true);
             }
@@ -146,15 +144,24 @@ export function useHomeData() {
             if (user.currentXP) setXp(user.currentXP);
 
             try {
-                const t            = Date.now();
+                const t = Date.now();
                 const fetchCoachId = user.coachId || '';
 
+                // 🔥 ANTI-CACHE ABSOLUTO: Garante que o celular busque do banco, não da memória local
+                const noCacheHeaders = {
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                };
+
                 const [homeRes, checkinRes, noticeRes, resUserDirect, resContents] = await Promise.all([
-                    fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`)
+                    fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`, noCacheHeaders),
+                    fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`, noCacheHeaders),
+                    fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`, noCacheHeaders),
+                    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`, noCacheHeaders),
+                    fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`, noCacheHeaders)
                 ]);
 
                 let fetchedUser     = { ...user };
@@ -213,17 +220,24 @@ export function useHomeData() {
                         const serverXP = homeData.user.currentXP || 0;
                         setXp(serverXP);
 
-                        // 🔥 FIX CRÍTICO: Captura isolada e blindagem da checagem de Anamnese Pendente vinda do servidor
-                        const serverAnamnesePendente = directUserData.anamnesePendente !== undefined
-                            ? directUserData.anamnesePendente
-                            : homeData.user?.anamnesePendente;
+                        // 🔥 EXTRATOR DE ALTA PRECISÃO DA ANAMNESE PENDENTE 🔥
+                        // Procura a flag exata na resposta do servidor sem deixar ser esmagada
+                        let isAnamnesePendente = user.anamnesePendente; 
+
+                        if (directUserData && typeof directUserData.anamnesePendente !== 'undefined') {
+                            isAnamnesePendente = directUserData.anamnesePendente;
+                        } else if (directUserData?.user && typeof directUserData.user.anamnesePendente !== 'undefined') {
+                            isAnamnesePendente = directUserData.user.anamnesePendente;
+                        } else if (homeData?.user && typeof homeData.user.anamnesePendente !== 'undefined') {
+                            isAnamnesePendente = homeData.user.anamnesePendente;
+                        }
 
                         fetchedUser = { 
                             ...user, 
-                            currentXP: serverXP, 
                             ...homeData.user, 
                             ...directUserData,
-                            anamnesePendente: serverAnamnesePendente !== undefined ? !!serverAnamnesePendente : !!user.anamnesePendente
+                            currentXP: serverXP, 
+                            anamnesePendente: !!isAnamnesePendente // Força a gravar a verdade absoluta aqui
                         };
 
                         // Financeiro
@@ -342,7 +356,7 @@ export function useHomeData() {
                 }
 
                 setIsCheckinPending(checkinPending);
-                setIsCheckinLate(checkLate);
+                setIsCheckinLate(checkinLate);
                 setScheduledCheckInDate(futureDateStr);
                 setIsEliteAwaitingCoach(eliteAwaiting);
 
@@ -355,7 +369,7 @@ export function useHomeData() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [messages.length, userData]);
+    }, [messages.length, userData?.anamnesePendente]); // 🔥 Injetada a flag como dependência do reload
 
     // ─── Toggle menstrual ──────────────────────────────────────────────────
     const toggleMenstrualCycle = async () => {
@@ -476,7 +490,6 @@ export function useHomeData() {
 
         const userMsg = { id: Date.now(), text: textToSend, sender: 'user' };
         setMessages(prev => [...prev, userMsg]);
-        setChatInput('');
         setChatInput('');
         setIsTyping(true);
         setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
