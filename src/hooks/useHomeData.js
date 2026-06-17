@@ -72,8 +72,8 @@ export function useHomeData() {
         if (level <= 5)  return { title: "Inimigo do Sofá 🛋️",    desc: "Saiu da inércia. O começo é o mais difícil!" };
         if (level <= 10) return { title: "Em Obras 🚧",             desc: "Está construindo o shape, tijolo por tijolo." };
         if (level <= 20) return { title: "Shape Carregando... ⏳",  desc: "Já tem resultado visível. O download tá vindo!" };
-        if (level <= 40) return { title: "Projeto Mutante 🧬",      desc: "Ficou sério. Você já não é mais o mesmo." };
-        return              { title: "Dono da Academia 🔑",         desc: "Você praticamente mora lá. Cadê sua chave?" };
+        if (level <= 40) return { title: "Projeto Mutante 🧬",       desc: "Ficou sério. Você já não é mais o mesmo." };
+        return              { title: "Dono da Academia 🔑",          desc: "Você praticamente mora lá. Cadê sua chave?" };
     };
     const levelData = getLevelData(currentLevel);
 
@@ -112,16 +112,21 @@ export function useHomeData() {
     // ─── LOAD PRINCIPAL ────────────────────────────────────────────────────
     const loadHomeData = useCallback(async () => {
         try {
-            setLoading(true);
             const storedUser = await AsyncStorage.getItem('user');
 
             if (!storedUser) {
                 console.error("Usuário não encontrado no AsyncStorage na Home.");
+                setLoading(false);
                 return;
             }
 
             const user = JSON.parse(storedUser);
             setUserData(user);
+
+            // 🔥 FIX UX: Só ativa o esqueleto visual se o aplicativo ainda não possuir dados em cache
+            if (!user || Object.keys(user).length === 0) {
+                setLoading(true);
+            }
 
             const dbPlan     = user.plan || 'PREMIUM';
             const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
@@ -208,7 +213,18 @@ export function useHomeData() {
                         const serverXP = homeData.user.currentXP || 0;
                         setXp(serverXP);
 
-                        fetchedUser = { ...user, currentXP: serverXP, ...homeData.user, ...directUserData };
+                        // 🔥 FIX CRÍTICO: Captura isolada e blindagem da checagem de Anamnese Pendente vinda do servidor
+                        const serverAnamnesePendente = directUserData.anamnesePendente !== undefined
+                            ? directUserData.anamnesePendente
+                            : homeData.user?.anamnesePendente;
+
+                        fetchedUser = { 
+                            ...user, 
+                            currentXP: serverXP, 
+                            ...homeData.user, 
+                            ...directUserData,
+                            anamnesePendente: serverAnamnesePendente !== undefined ? !!serverAnamnesePendente : !!user.anamnesePendente
+                        };
 
                         // Financeiro
                         if (fetchedUser.paymentDueDate && fetchedUser.isFinanceActive !== false) {
@@ -273,11 +289,6 @@ export function useHomeData() {
                                 setDaysToStart(0);
                                 setFichaDaysElapsed(diffDays);
                             }
-
-                            const limit = finalPlan === 'CHALLENGE_21' ? 21 : 56;
-                            if (diffDays >= limit && !isFichaPlaceholder && finalPlan !== 'LOW_COST') {
-                                // flag consumida pelo screen para abrir modal
-                            }
                         }
 
                         await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
@@ -331,7 +342,7 @@ export function useHomeData() {
                 }
 
                 setIsCheckinPending(checkinPending);
-                setIsCheckinLate(checkinLate);
+                setIsCheckinLate(checkLate);
                 setScheduledCheckInDate(futureDateStr);
                 setIsEliteAwaitingCoach(eliteAwaiting);
 
@@ -344,7 +355,7 @@ export function useHomeData() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [messages.length]);
+    }, [messages.length, userData]);
 
     // ─── Toggle menstrual ──────────────────────────────────────────────────
     const toggleMenstrualCycle = async () => {
@@ -465,6 +476,7 @@ export function useHomeData() {
 
         const userMsg = { id: Date.now(), text: textToSend, sender: 'user' };
         setMessages(prev => [...prev, userMsg]);
+        setChatInput('');
         setChatInput('');
         setIsTyping(true);
         setTimeout(() => flatListRef.current?.scrollToEnd(), 100);
