@@ -1,16 +1,25 @@
-// src/components/ExerciseCard/ExerciseCardMedia.js
-import React from 'react';
+// src/components/ExerciseCardParts/ExerciseCardMedia.js
+import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
+import HowToExecuteModal from './HowToExecuteModal';
 
 export default function ExerciseCardMedia({
   thumbLink, videoLink, videoRef, handleOpenVideo,
   topTechInfo, colors, setSelectedTech, setTechModalVisible,
   showTools, hasPremiumFeatures, onOpenCalc, setModalVisible,
   exerciseTitle, topVideoText,
+  howToExecute, commonMistakes, maleFocus, femaleFocus, studentGender, // 🔥 NOVO: conteúdo de execução do exercício
 }) {
+  // 🔥 NOVO: estado local do modal "Como Executar" — fica contido aqui
+  // porque é específico da mídia deste exercício, sem precisar subir
+  // para o ExerciseCard.js (igual ao padrão de outros modais locais do app).
+  const [howToModalVisible, setHowToModalVisible] = useState(false);
+  const hasHowTo = !!(howToExecute || commonMistakes || maleFocus || femaleFocus);
+
   return (
+    <>
     <TouchableOpacity activeOpacity={0.9} onPress={() => handleOpenVideo(videoLink)} style={{ height: 180, width: '100%', backgroundColor: '#000', position: 'relative', overflow: 'hidden' }}>
       {thumbLink ? (
         <Image source={{ uri: thumbLink }} style={{ position: 'absolute', top: 0, left: 0, bottom: 0, right: 0, width: '100%', height: '100%', opacity: 0.5, resizeMode: 'cover' }} />
@@ -52,19 +61,48 @@ export default function ExerciseCardMedia({
             </TouchableOpacity>
           </View>
         )}
-        <View style={{ marginTop: 'auto' }} pointerEvents="none">
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-            <View style={{ flex: 1, paddingRight: 10 }}>
+        <View style={{ marginTop: 'auto' }} pointerEvents="box-none">
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }} pointerEvents="box-none">
+            <View style={{ flex: 1, paddingRight: 10 }} pointerEvents="none">
               <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>{exerciseTitle}</Text>
               <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{topVideoText}</Text>
             </View>
-            <View style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}>
-              <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
-              <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }} pointerEvents="auto">
+              {hasHowTo && (
+                <TouchableOpacity
+                  onPress={() => setHowToModalVisible(true)}
+                  style={{ backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}
+                >
+                  <MaterialCommunityIcons name="clipboard-text-outline" size={16} color="#FFF" />
+                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>COMO EXECUTAR</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => handleOpenVideo(videoLink)}
+                style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}
+              >
+                <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
+                <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
       </View>
     </TouchableOpacity>
+
+    {hasHowTo && (
+      <HowToExecuteModal
+        visible={howToModalVisible}
+        onClose={() => setHowToModalVisible(false)}
+        colors={colors}
+        exerciseTitle={exerciseTitle}
+        howToExecute={howToExecute}
+        commonMistakes={commonMistakes}
+        maleFocus={maleFocus}
+        femaleFocus={femaleFocus}
+        studentGender={studentGender}
+      />
+    )}
+    </>
   );
 }

@@ -41,11 +41,16 @@ export const ExerciseCard = ({
   hasPremiumFeatures,
   workoutModel,
   substitutes = [],
+  studentGender, // 🔥 NOVO: gênero do aluno logado, para decidir o foco a mostrar
 }) => {
 
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
   const videoLink = item.exercise?.videoUrl || item.videoUrl;
   const thumbLink = item.exercise?.thumbUrl || item.thumbUrl || item.exercise?.imageUrl || item.imageUrl || item.exercise?.image || item.image;
+  const howToExecute = item.exercise?.howToExecute || null;
+  const commonMistakes = item.exercise?.commonMistakes || null;
+  const maleFocus = item.exercise?.maleFocus || null;
+  const femaleFocus = item.exercise?.femaleFocus || null;
 
   const standardRestTime = item.restTime || 60;
 
@@ -172,6 +177,8 @@ export const ExerciseCard = ({
           topTechInfo={topTechInfo} colors={colors} setSelectedTech={setSelectedTech} setTechModalVisible={setTechModalVisible}
           showTools={showTools} hasPremiumFeatures={hasPremiumFeatures} onOpenCalc={onOpenCalc} setModalVisible={setModalVisible}
           exerciseTitle={exerciseTitle} topVideoText={topVideoText}
+          howToExecute={howToExecute} commonMistakes={commonMistakes}
+          maleFocus={maleFocus} femaleFocus={femaleFocus} studentGender={studentGender}
         />
 
         <View style={{ padding: 15 }}>

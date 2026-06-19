@@ -1,4 +1,4 @@
-// src/components/Admin/ExerciseFormModal.js
+// src/components/BibliotecaAdmin/ExerciseFormModal.js
 import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, TouchableOpacity, TextInput, 
@@ -40,7 +40,8 @@ const migrateEnvs = (envs) => {
 
 export default function ExerciseFormModal({ visible, onClose, initialData, onSaveSuccess, theme }) {
     const isWeb = Platform.OS === 'web';
-    const defaultExercise = { id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '', environments: ['ACADEMIA_PADRAO'], defaultSubstitutes: [] };
+    // 🔥 NOVO: howToExecute e commonMistakes inclusos no estado padrão
+    const defaultExercise = { id: null, name: '', category: 'Peito', subCategory: 'Geral', videoUrl: '', environments: ['ACADEMIA_PADRAO'], defaultSubstitutes: [], howToExecute: '', commonMistakes: '', maleFocus: '', femaleFocus: '' };
 
     const [formExercise, setFormExercise] = useState(defaultExercise);
     const [activeTab, setActiveTab] = useState('GERAL');
@@ -64,7 +65,11 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
             setFormExercise({ 
                 ...(initialData || defaultExercise), 
                 environments: migrateEnvs(initialData?.environments), 
-                defaultSubstitutes: initialData?.defaultSubstitutes || [] 
+                defaultSubstitutes: initialData?.defaultSubstitutes || [],
+                howToExecute: initialData?.howToExecute || '', // 🔥 NOVO
+                commonMistakes: initialData?.commonMistakes || '', // 🔥 NOVO
+                maleFocus: initialData?.maleFocus || '', // 🔥 NOVO
+                femaleFocus: initialData?.femaleFocus || '', // 🔥 NOVO
             });
 
             AsyncStorage.getItem('user').then(userJson => {
@@ -262,6 +267,61 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
                     </ScrollView>
                 );
 
+            // 🔥 NOVA ABA: passo a passo de execução
+            case 'EXECUCAO':
+                return (
+                    <ScrollView contentContainerStyle={{ padding: 25, paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
+                        <Text style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 20, lineHeight: 18 }}>
+                            Esse texto aparece para o aluno num botão "COMO EXECUTAR", ao lado do vídeo de execução. Deixe em branco se não quiser exibir esse botão para este exercício.
+                        </Text>
+
+                        <Text style={[S.label, { color: theme.textSecondary }]}>COMO EXECUTAR</Text>
+                        <TextInput
+                            style={[S.input, S.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                            placeholder="Ex: Posicione os pés na largura dos ombros, desça controlando o quadril para trás..."
+                            placeholderTextColor={theme.textSecondary}
+                            value={formExercise.howToExecute}
+                            onChangeText={t => setFormExercise({ ...formExercise, howToExecute: t })}
+                            multiline
+                        />
+
+                        <Text style={[S.label, { color: theme.textSecondary, marginTop: 6 }]}>ERROS COMUNS / O QUE NÃO FAZER</Text>
+                        <TextInput
+                            style={[S.input, S.textArea, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                            placeholder="Ex: Não deixe os joelhos fecharem para dentro. Evite tirar o calcanhar do chão..."
+                            placeholderTextColor={theme.textSecondary}
+                            value={formExercise.commonMistakes}
+                            onChangeText={t => setFormExercise({ ...formExercise, commonMistakes: t })}
+                            multiline
+                        />
+
+                        <View style={[S.divider, { backgroundColor: theme.border, marginVertical: 16 }]} />
+                        <Text style={{ fontSize: 12, color: theme.textSecondary, marginBottom: 16, lineHeight: 18 }}>
+                            Opcional: explicação complementar, direcionada pelo gênero do aluno. Se o aluno tiver o gênero definido, ele vê só o foco correspondente; caso contrário, vê apenas o texto de "Como Executar" acima.
+                        </Text>
+
+                        <Text style={[S.label, { color: theme.textSecondary }]}>FOCO MASCULINO</Text>
+                        <TextInput
+                            style={[S.input, S.textAreaSmall, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                            placeholder="Ex: Foco em carga progressiva para recrutamento de fibras de alta tensão..."
+                            placeholderTextColor={theme.textSecondary}
+                            value={formExercise.maleFocus}
+                            onChangeText={t => setFormExercise({ ...formExercise, maleFocus: t })}
+                            multiline
+                        />
+
+                        <Text style={[S.label, { color: theme.textSecondary, marginTop: 6 }]}>FOCO FEMININO</Text>
+                        <TextInput
+                            style={[S.input, S.textAreaSmall, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                            placeholder="Ex: Foco na conexão mente-músculo e amplitude, essencial para a modelagem..."
+                            placeholderTextColor={theme.textSecondary}
+                            value={formExercise.femaleFocus}
+                            onChangeText={t => setFormExercise({ ...formExercise, femaleFocus: t })}
+                            multiline
+                        />
+                    </ScrollView>
+                );
+
             case 'ENVS':
                 return (
                     <ScrollView contentContainerStyle={{ padding: 25, paddingBottom: 50 }} showsVerticalScrollIndicator={false}>
@@ -383,6 +443,7 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
                     <View style={[S.tabBar, { borderBottomColor: theme.border, backgroundColor: theme.bg }]}>
                         {[
                             { id: 'GERAL', label: 'DADOS GERAIS', icon: 'information-outline' },
+                            { id: 'EXECUCAO', label: 'EXECUÇÃO', icon: 'clipboard-text-outline' },
                             { id: 'ENVS', label: 'AMBIENTES', icon: 'map-marker-outline' },
                             { id: 'SUBS', label: 'SUBSTITUTOS', icon: 'swap-horizontal' }
                         ].map(t => (
@@ -420,6 +481,8 @@ const S = StyleSheet.create({
     tabText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
     label: { fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 10, marginLeft: 4 },
     input: { borderRadius: 16, padding: 18, fontSize: 15, fontWeight: '600', marginBottom: 20, borderWidth: 1, outlineStyle: 'none' },
+    textArea: { height: 120, textAlignVertical: 'top', paddingTop: 16 },
+    textAreaSmall: { height: 80, textAlignVertical: 'top', paddingTop: 14 },
     selector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 18, paddingVertical: 16, borderRadius: 16, borderWidth: 1 },
     selectorText: { fontSize: 14, fontWeight: '800' },
     dropdown: { borderRadius: 16, borderWidth: 1, padding: 8, marginTop: -15, marginBottom: 20 },

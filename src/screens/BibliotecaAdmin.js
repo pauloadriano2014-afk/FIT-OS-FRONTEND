@@ -16,6 +16,7 @@ import ExerciseCard from '../components/BibliotecaAdmin/ExerciseCard';
 import ExerciseFormModal from '../components/BibliotecaAdmin/ExerciseFormModal';
 import CategoryFilterModal from '../components/BibliotecaAdmin/CategoryFilterModal';
 import VideoPreviewModal from '../components/VideoPreviewModal';
+import BulkContentModal from '../components/BibliotecaAdmin/BulkContentModal';
 
 // Habilita animações no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -38,6 +39,7 @@ export default function BibliotecaAdmin({ navigation }) {
     const [showSubCatDropdown, setShowSubCatDropdown] = useState(false);
     const [currentVideoUrl, setCurrentVideoUrl] = useState('');
     const [editingExercise, setEditingExercise] = useState(null);
+    const [bulkContentModalVisible, setBulkContentModalVisible] = useState(false); // 🔥 NOVO
 
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
@@ -160,9 +162,15 @@ export default function BibliotecaAdmin({ navigation }) {
                                         <Text style={styles.headerSubtitle}>GERENCIAMENTO</Text>
                                     </View>
                                 </View>
-                                <TouchableOpacity onPress={fetchLibrary} style={[styles.iconBtn, { backgroundColor: theme.surface }]}>
-                                    <MaterialCommunityIcons name="refresh" size={24} color={theme.accent} />
-                                </TouchableOpacity>
+                                <View style={{ flexDirection: 'row', gap: 10 }}>
+                                    {/* 🔥 NOVO: botão de aplicação de conteúdo em lote */}
+                                    <TouchableOpacity onPress={() => setBulkContentModalVisible(true)} style={[styles.iconBtn, { backgroundColor: theme.surface }]}>
+                                        <MaterialCommunityIcons name="text-box-multiple-outline" size={22} color={theme.accent} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity onPress={fetchLibrary} style={[styles.iconBtn, { backgroundColor: theme.surface }]}>
+                                        <MaterialCommunityIcons name="refresh" size={24} color={theme.accent} />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
 
                             <View style={[styles.searchBox, { backgroundColor: theme.surface }]}>
@@ -257,6 +265,8 @@ export default function BibliotecaAdmin({ navigation }) {
             <CategoryFilterModal visible={catModalVisible} onClose={() => setCatModalVisible(false)} selectedCat={selectedCat} onSelect={(cat) => { setSelectedCat(cat); setSelectedSubCat('Todos'); }} theme={theme} />
             <ExerciseFormModal visible={formModalVisible} onClose={() => setFormModalVisible(false)} initialData={editingExercise} onSaveSuccess={onSaveSuccess} theme={theme} />
             <VideoPreviewModal visible={videoModalVisible} videoUrl={currentVideoUrl} onClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }} theme={theme} />
+            {/* 🔥 NOVO: modal de aplicação de conteúdo em lote */}
+            <BulkContentModal visible={bulkContentModalVisible} onClose={() => setBulkContentModalVisible(false)} theme={theme} />
         </RootComponent>
     );
 }

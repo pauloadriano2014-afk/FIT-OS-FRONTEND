@@ -194,6 +194,7 @@ export default function ExpandableExerciseBlock({
                                     isTimerRunning={isTimerRunning}
                                     isVoiceEnabled={isVoiceEnabled} 
                                     colors={colors}
+                                    studentGender={userData?.gender}
                                 />
                             </View>
                         );
