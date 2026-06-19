@@ -10,7 +10,7 @@ export default function ExpandableExerciseBlock({
     lastWeights, historyWeights, handleSaveWeight, checkedSets, handleCheckSet,
     handleOpenVideo, handleOpenIA, handleOpenCalc, hasPremiumFeatures, workoutModel,
     TECH_GUIDE, setTechModalVisible, setSelectedTech, handleSwap, isTimerRunning,
-    isVoiceEnabled, colors
+    isVoiceEnabled, colors, userData // <--- userData adicionado aqui
 }) {
     const isBiSet = block.type === 'BISET';
     const mainItem = block.items[0];
@@ -20,7 +20,7 @@ export default function ExpandableExerciseBlock({
     const exName = (mainItem?.exercise?.name || mainItem?.name || '').toLowerCase();
     const exCat = (mainItem?.exercise?.category || '').toUpperCase();
     const isCardio = exCat === 'CARDIO' || exCat === 'AERÓBICO' || exCat === 'AEROBICO' || 
-                     /elíptico|eliptico|esteira|bike|bicicleta|escada|caminhada|corrida/.test(exName);
+                      /elíptico|eliptico|esteira|bike|bicicleta|escada|caminhada|corrida/.test(exName);
 
     const isBlockDone = block.items.every(item => {
         let totalItemSets = 0;
@@ -94,9 +94,9 @@ export default function ExpandableExerciseBlock({
     
     if (!imageUrl && videoUrl) {
         if (videoUrl.includes('cloudflarestream.com')) {
-            const match = videoUrl.match(/cloudflarestream\.com\/([a-zA-Z0-9_-]+)/);
+            const match = videoUrl.match(/cloudflare\.com\/([a-zA-Z0-9_-]+)/);
             if (match && match[1]) {
-                const customerPrefix = videoUrl.split('.cloudflarestream')[0];
+                const customerPrefix = videoUrl.split('.cloudflare')[0];
                 imageUrl = `${customerPrefix}.cloudflarestream.com/${match[1]}/thumbnails/thumbnail.jpg`;
             }
         } 
@@ -104,7 +104,6 @@ export default function ExpandableExerciseBlock({
 
     return (
         <View style={{ width: '100%', marginBottom: 15 }}>
-            
             <TouchableOpacity 
                 style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: isBlockDone ? theme.accent : theme.border }]} 
                 onPress={onToggle} 
@@ -170,7 +169,6 @@ export default function ExpandableExerciseBlock({
                         let biSetType = null;
                         if (isBiSet) biSetType = idx === 0 ? 'start' : 'end';
 
-                        // ─── NORMALIZAR SUBSTITUTOS ───
                         const substitutesList = [];
                         if (item.substitutes && Array.isArray(item.substitutes)) substitutesList.push(...item.substitutes);
                         else if (item.substitute) substitutesList.push(item.substitute);
