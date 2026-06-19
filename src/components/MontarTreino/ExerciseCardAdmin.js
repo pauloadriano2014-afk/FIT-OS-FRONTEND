@@ -28,6 +28,7 @@ export default function ExerciseCardAdmin({
     setIsSwapping, setSwapIndex, openPreview,
     workoutModel, moveExercise, setInitialCategoryFilter,
     forceCollapse,
+    listaTecnicas = [], // 🔥 NOVA PROP: Recebe os combos criados
 }) {
     const isWeb = Platform.OS === 'web';
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
@@ -163,6 +164,7 @@ export default function ExerciseCardAdmin({
                         setIndexExercicioAtual={setIndexExercicioAtual}
                         setIndexBlocoAtual={setIndexBlocoAtual}
                         setModalTecnicaVisible={setModalTecnicaVisible}
+                        listaTecnicas={listaTecnicas} // 🔥 PROP REPASSADA PARA ONDE REALMENTE IMPORTA
                     />
 
                     {/* Observação */}

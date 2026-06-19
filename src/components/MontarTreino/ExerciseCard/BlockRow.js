@@ -11,11 +11,28 @@ export default function BlockRow({
     atualizarBloco, removerBloco,
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible,
     canRemove, blocksLength,
+    listaTecnicas = [], // 🔥 RECEBE A LISTA AQUI
 }) {
     const refSets = useRef(null);
     const refReps = useRef(null);
     const refRest = useRef(null);
     const refLoad = useRef(null);
+
+    // 🔥 BUSCA O NOME DA TÉCNICA CUSTOMIZADA PARA EXIBIR NO BOTÃO
+    let tecnicaExibida = 'Normal';
+    let hasTecnica = false;
+
+    if (bloco.customTechniqueId) {
+        const tecnicaEncontrada = listaTecnicas.find(t => t.id === bloco.customTechniqueId);
+        if (tecnicaEncontrada) {
+            tecnicaExibida = tecnicaEncontrada.name;
+            hasTecnica = true;
+        }
+    } else if (bloco.technique) {
+        // Fallback de retrocompatibilidade para treinos antigos
+        tecnicaExibida = bloco.technique;
+        hasTecnica = true;
+    }
 
     return (
         <View style={[S.row, {
@@ -76,13 +93,13 @@ export default function BlockRow({
                     <Text style={[S.techLabel, { color: theme.textSecondary }]}>TÉCNICA</Text>
                     <TouchableOpacity
                         style={[S.techBtn, {
-                            backgroundColor: bloco.technique ? theme.accent + '20' : (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'),
-                            borderColor: bloco.technique ? theme.accent : (theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'),
+                            backgroundColor: hasTecnica ? theme.accent + '20' : (theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'),
+                            borderColor: hasTecnica ? theme.accent : (theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'),
                         }]}
                         onPress={() => { setIndexExercicioAtual(index); setIndexBlocoAtual(bIndex); setModalTecnicaVisible(true); }}
                     >
-                        <Text style={[S.techValue, { color: bloco.technique ? theme.accent : theme.text }]} numberOfLines={1}>
-                            {bloco.technique || 'Normal'}
+                        <Text style={[S.techValue, { color: hasTecnica ? theme.accent : theme.text }]} numberOfLines={1}>
+                            {tecnicaExibida}
                         </Text>
                     </TouchableOpacity>
                 </View>

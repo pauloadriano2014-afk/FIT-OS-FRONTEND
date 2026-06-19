@@ -1,0 +1,42 @@
+// src/components/ExerciseCard/techInputs/PyramidInput.js
+import React from 'react';
+import { View, Text, TextInput, Pressable } from 'react-native';
+
+export default function PyramidInput({
+  item, currentSetNum, lastWeights,
+  handleSaveWeight, handleSmartCheck, handleInputFocus,
+  isTimerRunning, colors, techInfo, block, hasPrescribedLoad,
+}) {
+  return (
+    <View style={{ flexDirection: 'row', flex: 1, justifyContent: 'space-between' }}>
+      {['INF', 'SUP', 'FULL'].map((label, idx) => {
+        const suffix = label;
+        const val = lastWeights[item.id]?.[`${currentSetNum}_${suffix}`];
+        const isDone = val !== undefined && val !== '';
+        return (
+          <View key={idx} style={{ flex: 1, paddingHorizontal: 2 }}>
+            <Text style={{ color: hasPrescribedLoad ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad ? 10 : 8, fontWeight: '900', marginBottom: 3, textAlign: 'center' }}>
+              {hasPrescribedLoad ? `🎯 ${String(block.load).toUpperCase()}` : label}
+            </Text>
+            <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{ width: '100%' }}>
+              <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
+                <TextInput
+                  style={[{ backgroundColor: colors.inputBg, color: colors.text, height: 36, width: '100%', borderRadius: 6, textAlign: 'center', borderWidth: 1, borderColor: colors.border, fontSize: 13, fontWeight: 'bold' }, isDone && { borderColor: techInfo.color, color: techInfo.color }, !isTimerRunning && { opacity: 0.5 }, hasPrescribedLoad && { borderColor: colors.primary }]}
+                  placeholder="KG" placeholderTextColor={colors.textMuted} keyboardType="decimal-pad"
+                  value={val !== undefined ? String(val) : ''}
+                  onChangeText={(text) => handleSaveWeight(item.id, text.replace(',', '.'), `${currentSetNum}_${suffix}`)}
+                  onSubmitEditing={(e) => {
+                    const finalVal = e.nativeEvent.text.replace(',', '.');
+                    handleSaveWeight(item.id, finalVal, `${currentSetNum}_${suffix}`);
+                    if (idx === 2) handleSmartCheck(currentSetNum, finalVal, block.restTime, techInfo.key);
+                  }}
+                  editable={isTimerRunning} returnKeyType="done"
+                />
+              </View>
+            </Pressable>
+          </View>
+        );
+      })}
+    </View>
+  );
+}

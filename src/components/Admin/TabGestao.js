@@ -1,3 +1,4 @@
+// src/components/Admin/TabGestao.js
 import React from 'react';
 import { View, Text, TouchableOpacity, Switch, Platform, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -35,6 +36,13 @@ export default function TabGestao({
                         <View style={[styles.iconCircle, {backgroundColor: theme.accent}]}><MaterialCommunityIcons name="folder-multiple" size={32} color={theme.isDark ? '#000' : '#FFF'} /></View>
                         <Text style={[styles.bigCardTitle, { color: theme.text }]}>MEUS TEMPLATES</Text>
                         <Text style={styles.bigCardDesc}>Crie fichas de treino padrão.</Text>
+                    </TouchableOpacity>
+
+                    {/* 🔥 NOVO: GERENCIADOR DE TÉCNICAS E COMBOS 🔥 */}
+                    <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminTechniquesScreen')}>
+                        <View style={[styles.iconCircle, {backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border}]}><MaterialCommunityIcons name="puzzle-outline" size={32} color={theme.accent} /></View>
+                        <Text style={[styles.bigCardTitle, { color: theme.text }]}>TÉCNICAS AVANÇADAS</Text>
+                        <Text style={styles.bigCardDesc}>Crie combos e sequências de execução (Drops, Rest, etc).</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminDietLibraryScreen')}>

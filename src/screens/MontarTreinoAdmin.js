@@ -7,6 +7,7 @@ import {
 import { SafeAreaView as SafeAreaViewContext } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import DraggableFlatList from 'react-native-draggable-flatlist';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useMontarTreino } from '../hooks/useMontarTreino';
@@ -19,7 +20,6 @@ import MenstrualAlertCard from '../components/MontarTreino/MenstrualAlertCard';
 import { Modal } from 'react-native';
 import { generateWorkoutPDF } from '../utils/pdfGenerator';
 
-// ─── COMPONENTES MODULARIZADOS ───
 import RaioXCard from '../components/MontarTreino/RaioXCard';
 import DaySelectorMobile from '../components/MontarTreino/DaySelectorMobile';
 import FloatingMenu from '../components/MontarTreino/FloatingMenu';
@@ -39,7 +39,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const { width: windowWidth } = Dimensions.get('window');
     const isWebPC = Platform.OS === 'web' && windowWidth > 768;
     const isWeb = Platform.OS === 'web';
-    const containerMaxWidth = isWebPC ? 1200 : '100%';
+    const containerMaxWidth = isWebPC ? 1200 : '100%'; 
     const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
@@ -64,6 +64,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const { state, setters, actions } = useMontarTreino(patchedRoute, navigation);
 
     // ─── ESTADOS LOCAIS ───
+    const [tecnicasLaboratorio, setTecnicasLaboratorio] = useState([]);
     const [anamneseData, setAnamneseData] = useState(null);
     const [isRaioxExpanded, setIsRaioxExpanded] = useState(false);
     const [alunoIsMenstruating, setAlunoIsMenstruating] = useState(!!aluno?.isMenstruating);
@@ -77,6 +78,21 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [forceCollapse, setForceCollapse] = useState(0);
     const [autoFillModalVisible, setAutoFillModalVisible] = useState(false);
 
+    // 🔥 CARREGAR TÉCNICAS DO LABORATÓRIO 🔥
+    const fetchTecnicas = useCallback(async () => {
+        try {
+            // Puxa o seu ID (Coach) direto da sessão logada no app, em vez de depender do objeto "aluno"
+            const savedUser = await AsyncStorage.getItem('user');
+            if (!savedUser) return;
+            const admin = JSON.parse(savedUser);
+            
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/techniques?coachId=${admin.id}`);
+            if (res.ok) setTecnicasLaboratorio(await res.json());
+        } catch (e) { console.error("Erro ao buscar técnicas:", e); }
+    }, []);
+
+    useEffect(() => { fetchTecnicas(); }, [fetchTecnicas]);
+
     const floatingMenuProps = {
         theme, windowWidth,
         onAddExercise: () => { setters.setIsSelectingSubstitute(false); setters.setIsSwapping(false); setters.setModalBuscaVisible(true); },
@@ -87,7 +103,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         onDownloadPDF: () => generateWorkoutPDF(aluno, state.workoutTabs, state.exercisesByDay, state.customWorkoutName),
     };
 
-    // ─── INTERCEPTADOR SMART ADD ───
     const smartAddInterceptor = useRef({ isWaiting: false, index: null });
     const handleSetIsSelectingSubstitute = useCallback((val) => {
         if (val) smartAddInterceptor.current.isWaiting = true;
@@ -107,7 +122,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         setters.setModalBuscaVisible(val);
     }, [actions, setters]);
 
-    // ─── EFFECTS ───
     useEffect(() => {
         if (Platform.OS === 'web') {
             const style = document.createElement('style');
@@ -164,7 +178,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         }
     }, [state.loading, dbDeloadSynced]);
 
-    // ─── HANDLERS ───
     const handleCancelDeload = async () => {
         setIsCancelingDeload(true);
         try {
@@ -294,12 +307,13 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     setIsSwapping={setters.setIsSwapping} setSwapIndex={setters.setSwapIndex}
                     workoutModel={state.workoutModel} setInitialCategoryFilter={safeSetInitialCategoryFilter}
                     forceCollapse={forceCollapse}
+                    // 🔥 PROP INJETADA PARA O SELECT DE TÉCNICAS
+                    listaTecnicas={tecnicasLaboratorio} 
                 />
             </View>
         );
-    }, [theme, state, setters, actions, moveExerciseWeb, forceCollapse, handleSetIsSelectingSubstitute, handleSetTargetIndexForSubstitute, handleSetModalBuscaVisible, safeSetInitialCategoryFilter]);
+    }, [theme, state, setters, actions, moveExerciseWeb, forceCollapse, handleSetIsSelectingSubstitute, handleSetTargetIndexForSubstitute, handleSetModalBuscaVisible, safeSetInitialCategoryFilter, tecnicasLaboratorio]);
 
-    // ─── renderSettings (usado dentro de SidebarPC e mobile) ───
     const renderSettings = () => {
         if (!state.isTemplateMode) return <WorkoutSettingsCard state={state} setters={setters} actions={actions} theme={theme} />;
         return (
@@ -315,7 +329,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         );
     };
 
-    // ─── emptyState ───
     const renderEmptyState = (marginHorizontal = 0) => (
         <View style={[S.emptyState, { borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)', marginHorizontal }]}>
             <View style={[S.emptyIconBox, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }]}>
@@ -326,10 +339,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         </View>
     );
 
-    // ─────────────────────────────────────────────────────────────────────────────
-    // MAIN AREA
-    // ─────────────────────────────────────────────────────────────────────────────
-
     const renderMainArea = () => (
         <View style={{ flex: 1, backgroundColor: theme.bg }}>
             <MainAreaHeader
@@ -338,7 +347,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 onCollapse={() => setForceCollapse(prev => prev + 1)}
                 onClear={actions.handleClearWorkout}
             />
-
             <DraggableFlatList
                 data={state.currentExercises}
                 extraData={forceCollapse}
@@ -382,14 +390,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     />
                 }
             />
-
             {!isWebPC && <FloatingMenu {...floatingMenuProps} />}
         </View>
     );
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // MODAIS
-    // ─────────────────────────────────────────────────────────────────────────────
 
     const Modais = () => {
         const currentExOpened = state.currentExercises[state.indexExercicioAtual];
@@ -405,8 +408,21 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     visible={state.modalTecnicaVisible} onClose={() => setters.setModalTecnicaVisible(false)} theme={theme}
                     modalTitle={isCurrentCardio ? 'Intensidade' : 'Técnica'}
                     options={isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis}
-                    onSelectOption={(id) => { actions.atualizarBloco(state.indexExercicioAtual, state.indexBlocoAtual, 'technique', id); setters.setModalTecnicaVisible(false); }}
-                    getCurrentTechnique={() => state.exercisesByDay[state.selectedWorkoutTab]?.[state.indexExercicioAtual]?.blocks?.[state.indexBlocoAtual]?.technique}
+                    listaTecnicas={tecnicasLaboratorio}
+                    onSelectOption={(idOuValor, isCustomId = false) => {
+                        if (isCustomId) {
+                            actions.atualizarBloco(state.indexExercicioAtual, state.indexBlocoAtual, 'customTechniqueId', idOuValor);
+                            actions.atualizarBloco(state.indexExercicioAtual, state.indexBlocoAtual, 'technique', null);
+                        } else {
+                            actions.atualizarBloco(state.indexExercicioAtual, state.indexBlocoAtual, 'technique', idOuValor);
+                            actions.atualizarBloco(state.indexExercicioAtual, state.indexBlocoAtual, 'customTechniqueId', null);
+                        }
+                        setters.setModalTecnicaVisible(false);
+                    }}
+                    getCurrentTechnique={() => {
+                        const bloco = state.exercisesByDay[state.selectedWorkoutTab]?.[state.indexExercicioAtual]?.blocks?.[state.indexBlocoAtual];
+                        return bloco?.customTechniqueId || bloco?.technique;
+                    }}
                 />
                 <SmartAddModal
                     visible={state.smartSubstitutesModal} theme={theme}
@@ -427,10 +443,6 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             </>
         );
     };
-
-    // ─────────────────────────────────────────────────────────────────────────────
-    // ROOT RENDER
-    // ─────────────────────────────────────────────────────────────────────────────
 
     const rootStyle = isWeb ? { height: '100dvh', width: '100%', backgroundColor: theme.bg, overflowX: 'hidden' } : { flex: 1, backgroundColor: theme.bg };
 

@@ -25,6 +25,10 @@ export default function HomeBanners({
     disableCheckIn,
     onOpenFinanceModal,
 
+    // 🔥 Claim de pagamento ("Já paguei") — usado para não mostrar o banner
+    // vermelho de "ACESSO SUSPENSO" enquanto o claim ainda está ativo
+    isPaymentClaimActive,
+
     // Vídeo
     showVideoAlert,
     newVideoContent,
@@ -53,7 +57,11 @@ export default function HomeBanners({
     return (
         <>
             {/* ── Banner Financeiro ───────────────────────────────────────── */}
-            {daysToPay !== null && daysToPay <= 7 && !disableCheckIn && (
+            {/* 🔥 Não mostra o banner de vencido/suspenso enquanto o claim
+                ("Já paguei") estiver ativo — nesse caso o banner azul de
+                "pagamento em análise" (na HomeScreen) já cobre o aviso,
+                sem contradizer este aqui. */}
+            {daysToPay !== null && daysToPay <= 7 && !disableCheckIn && !(daysToPay <= 0 && isPaymentClaimActive) && (
                 <TouchableOpacity
                     style={[styles.banner, {
                         backgroundColor: daysToPay <= 3 ? '#FF3B3015' : '#FF950015',

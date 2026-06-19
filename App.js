@@ -54,6 +54,8 @@ import LaboratoryScreen from './src/screens/LaboratoryScreen';
 import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen';
 import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
 import GerarTreinoIA from './src/screens/GerarTreinoIA';
+// 🔥 NOVO: Tela de Técnicas Avançadas importada
+import AdminTechniquesScreen from './src/screens/AdminTechniquesScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -239,6 +241,8 @@ function RootNavigator() {
       <Stack.Screen name="LaboratoryBuilderScreen"  component={LaboratoryBuilderScreen} />
       <Stack.Screen name="LaboratoryFinalScreen"    component={LaboratoryFinalScreen} />
       <Stack.Screen name="GerarTreinoIA"            component={GerarTreinoIA} options={{ headerShown: false }} />
+      {/* 🔥 NOVO: Rota da Tela de Técnicas Avançadas */}
+      <Stack.Screen name="AdminTechniquesScreen"    component={AdminTechniquesScreen} />
     </Stack.Navigator>
   );
 }

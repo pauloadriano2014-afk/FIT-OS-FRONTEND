@@ -128,6 +128,10 @@ export default function HomeScreen({ navigation }) {
 
     const openUpsell = (featureName) => { setUpsellFeature(featureName); setUpsellModalVisible(true); };
 
+    // 🔥 home.handleClaimPayment já inclui a confirmação amigável e o
+    // alerta de sucesso (vem do useFinanceLock.confirmAndClaimPayment).
+    const handlePressClaimPayment = () => home.handleClaimPayment();
+
     // ── Layout ────────────────────────────────────────────────────────────
     const isWeb         = Platform.OS === 'web';
     const webOuterBg    = theme.isDark ? '#0a0a0a' : '#E5E5EA';
@@ -200,6 +204,7 @@ export default function HomeScreen({ navigation }) {
                         navigation={navigation}
                         daysToPay={home.daysToPay}
                         isFinanceLocked={home.isFinanceLocked}
+                        isPaymentClaimActive={home.isPaymentClaimActive}
                         disableCheckIn={home.disableCheckIn}
                         onOpenFinanceModal={() => setFinanceModalVisible(true)}
                         showVideoAlert={home.showVideoAlert}
@@ -220,6 +225,21 @@ export default function HomeScreen({ navigation }) {
                         userPlan={home.userPlan}
                         hasSentInitialPhotos={home.hasSentInitialPhotos}
                     />
+
+                    {/* 🔥 BANNER: PAGAMENTO EM ANÁLISE (claim ativo, dentro da janela) */}
+                    {home.isPaymentClaimActive && (
+                        <View style={[styles.claimReviewBanner, { backgroundColor: '#32ADE622', borderColor: '#32ADE6' }]}>
+                            <MaterialCommunityIcons name="clock-check-outline" size={22} color="#32ADE6" />
+                            <View style={{ flex: 1, marginLeft: 10 }}>
+                                <Text style={{ color: '#32ADE6', fontWeight: '900', fontSize: 12, letterSpacing: 0.3 }}>
+                                    PAGAMENTO EM ANÁLISE
+                                </Text>
+                                <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+                                    Seu treino está liberado enquanto seu coach confirma{home.paymentClaimDaysLeft != null ? ` (até ${home.paymentClaimDaysLeft} dia${home.paymentClaimDaysLeft === 1 ? '' : 's'})` : ''}.
+                                </Text>
+                            </View>
+                        </View>
+                    )}
 
                     {/* 🔥 BANNER DE URGÊNCIA: ANAMNESE PENDENTE */}
                     {home.userData?.anamnesePendente === true && (
@@ -406,6 +426,32 @@ export default function HomeScreen({ navigation }) {
                                 {' '}de cartão, entre em contato com seu responsável abaixo para receber uma fatura atualizada.
                             </Text>
 
+                            {/* 🔥 ESTADO 1: Prazo de carência esgotado — já tentou "já paguei" e passaram os 2 dias */}
+                            {home.paymentClaimExpired && (
+                                <View style={[styles.claimExpiredBox, { backgroundColor: '#FF950022', borderColor: '#FF9500' }]}>
+                                    <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#FF9500" />
+                                    <Text style={{ color: theme.text, fontSize: 12, marginLeft: 8, flex: 1, lineHeight: 17 }}>
+                                        O prazo para confirmação automática acabou. Fale direto com seu coach para liberar seu treino.
+                                    </Text>
+                                </View>
+                            )}
+
+                            {/* 🔥 ESTADO 2: Pode reivindicar — mostra o botão "Já paguei" */}
+                            {home.canClaimPayment && (
+                                <TouchableOpacity
+                                    style={[styles.btn, { backgroundColor: theme.surface, borderWidth: 1, borderColor: '#32ADE6', marginBottom: 10 }]}
+                                    onPress={handlePressClaimPayment}
+                                    disabled={home.isClaimingPayment}
+                                >
+                                    {home.isClaimingPayment ? <ActivityIndicator color="#32ADE6" /> : (
+                                        <>
+                                            <Text style={[styles.btnText, { color: '#32ADE6' }]}>JÁ PAGUEI, REGISTRAR</Text>
+                                            <MaterialCommunityIcons name="check-circle-outline" size={20} color="#32ADE6" style={{ marginLeft: 8 }} />
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            )}
+
                             <TouchableOpacity
                                 style={[styles.btn, { backgroundColor: '#25D366', marginBottom: 10 }]}
                                 onPress={() => Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Acabei de verificar o painel e preciso falar sobre a renovação da minha assinatura!")}`)}
@@ -540,6 +586,8 @@ const styles = StyleSheet.create({
     statusBadge:{ paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, alignItems: 'center', borderWidth: 1 },
     statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
     urgentBanner:{ flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, elevation: 4, shadowColor: '#FF9500', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
+    claimReviewBanner: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 15 },
+    claimExpiredBox: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
     xpCard:     { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
     levelText:  { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
     xpText:     { fontSize: 11, fontWeight: 'bold' },

@@ -2,6 +2,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFinanceLock } from './useFinanceLock';
 
 const QUICK_QUESTIONS = [
     "🤖 Como funciona a IA de Vídeo?",
@@ -39,9 +40,8 @@ export function useHomeData() {
     const [isEliteAwaitingCoach, setIsEliteAwaitingCoach] = useState(false);
     const [disableCheckIn, setDisableCheckIn]             = useState(false);
 
-    // Financeiro
-    const [daysToPay, setDaysToPay]         = useState(null);
-    const [isFinanceLocked, setIsFinanceLocked] = useState(false);
+    // 🔥 FINANCEIRO + CLAIM DE PAGAMENTO — agora centralizado no useFinanceLock
+    const finance = useFinanceLock();
 
     // Feedback do coach
     const [pendingFeedback, setPendingFeedback]   = useState(null);
@@ -233,18 +233,20 @@ export function useHomeData() {
                             anamnesePendente: isAnamnesePendente // Crava a verdade absoluta aqui
                         };
 
-                        // Financeiro
-                        if (fetchedUser.paymentDueDate && fetchedUser.isFinanceActive !== false) {
-                            const pDate = new Date(fetchedUser.paymentDueDate);
-                            pDate.setHours(0, 0, 0, 0);
-                            const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
-                            const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
-                            setDaysToPay(diffFinanceDays);
-                            setIsFinanceLocked(diffFinanceDays <= 0);
-                        } else {
-                            setDaysToPay(null);
-                            setIsFinanceLocked(false);
-                        }
+                        // 🔥 FINANCEIRO + CLAIM — agora delegado ao useFinanceLock,
+                        // usando exatamente o mesmo objeto homeData.user que será
+                        // a fonte de verdade em TODAS as telas (Home, Treinos, Dieta).
+                        //
+                        // IMPORTANTE: aqui usamos computeFinanceState/applyFinanceState
+                        // diretamente (em vez de fetchFinanceStatus) porque já temos o
+                        // homeData.user em mãos e não queremos uma segunda requisição.
+                        // Mas isso significa que o financeUserId interno do hook nunca
+                        // é setado sozinho — por isso sincronizamos manualmente abaixo,
+                        // senão o botão "Já paguei" na Home não sabe pra qual usuário
+                        // registrar o claim e falha silenciosamente.
+                        const financeState = finance.computeFinanceState(homeData.user);
+                        finance.applyFinanceState(financeState);
+                        finance.setFinanceUserId(user.id);
 
                         // Menstrual
                         const isAtiva = directUserData.isMenstruating !== undefined
@@ -362,7 +364,7 @@ export function useHomeData() {
             setLoading(false);
             setRefreshing(false);
         }
-    }, [messages.length]);
+    }, [messages.length, finance]);
 
     // ─── Toggle menstrual ──────────────────────────────────────────────────
     const toggleMenstrualCycle = async () => {
@@ -537,8 +539,16 @@ export function useHomeData() {
         isCheckinPending, isCheckinLate, scheduledCheckInDate,
         isEliteAwaitingCoach, disableCheckIn,
 
-        // Financeiro
-        daysToPay, isFinanceLocked,
+        // 🔥 Financeiro + Claim ("Já paguei") — vindos do useFinanceLock
+        daysToPay: finance.daysToPay,
+        isFinanceLocked: finance.isFinanceLocked,
+        paymentClaimStatus: finance.paymentClaimStatus,
+        isPaymentClaimActive: finance.isPaymentClaimActive,
+        paymentClaimExpired: finance.paymentClaimExpired,
+        paymentClaimDaysLeft: finance.paymentClaimDaysLeft,
+        canClaimPayment: finance.canClaimPayment,
+        isClaimingPayment: finance.isClaimingPayment,
+        handleClaimPayment: finance.confirmAndClaimPayment, // já inclui a confirmação amigável
 
         // Feedback
         pendingFeedback, isMarkingAsRead, markFeedbackAsRead,

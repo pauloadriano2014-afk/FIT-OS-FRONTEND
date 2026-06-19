@@ -19,6 +19,9 @@ import MonthlyFrequencyModal from '../components/Training/MonthlyFrequencyModal'
 import RunningTab from '../components/Training/RunningTab';
 import useRunning from '../hooks/useRunning';
 
+// 🔥 LÓGICA FINANCEIRA CENTRALIZADA (mesma usada na Home e na Dieta)
+import { useFinanceLock } from '../hooks/useFinanceLock';
+
 export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -31,8 +34,8 @@ export default function TrainingScreen({ navigation }) {
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
   const [pendingWorkoutNav, setPendingWorkoutNav] = useState(null);
 
-  // 🔥 ESTADO DE BLOQUEIO FINANCEIRO
-  const [isFinanceLocked, setIsFinanceLocked] = useState(false);
+  // 🔥 FINANCEIRO + CLAIM DE PAGAMENTO — centralizado, igual à Home
+  const finance = useFinanceLock();
 
   // 🏃 ABA ATIVA — musculação ou corrida
   const [activeTab, setActiveTab] = useState('MUSCULACAO');
@@ -46,6 +49,8 @@ export default function TrainingScreen({ navigation }) {
   const [monthlyModalVisible, setMonthlyModalVisible] = useState(false);
 
   const [fullHistory, setFullHistory] = useState([]);
+
+  const coachWhatsappNumber = '5541997991346';
 
   const generateWeeklyView = (history = []) => {
     const today = new Date();
@@ -77,17 +82,14 @@ export default function TrainingScreen({ navigation }) {
       const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
       setUserPlan(resolvedPlan);
 
-      // 🔥 CHECAGEM FINANCEIRA
-      if (user.paymentDueDate && user.isFinanceActive !== false) {
-        const pDate = new Date(user.paymentDueDate);
-        pDate.setHours(0, 0, 0, 0);
-        const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
-        const diffFinanceDays = Math.ceil((pDate.getTime() - todayD.getTime()) / (1000 * 3600 * 24));
-        if (diffFinanceDays <= 0) {
-          setIsFinanceLocked(true);
-          setLoading(false);
-          return;
-        }
+      // 🔥 CHECAGEM FINANCEIRA — busca sempre a versão mais atual do backend
+      // (inclui paymentDueDate, isFinanceActive e o estado do claim "Já paguei"),
+      // em vez de confiar só no que está salvo localmente no AsyncStorage.
+      const financeResult = await finance.fetchFinanceStatus(user.id);
+
+      if (financeResult?.isFinanceLocked) {
+        setLoading(false);
+        return;
       }
 
       const [response, historyRes, checkinRes] = await Promise.all([
@@ -213,23 +215,59 @@ export default function TrainingScreen({ navigation }) {
     }
   };
 
+  // 🔥 "Já paguei" — se der certo, recarrega a tela inteira (libera o conteúdo)
+  const handlePressClaimPayment = async () => {
+    const ok = await finance.confirmAndClaimPayment();
+    if (ok) {
+      setLoading(true);
+      fetchWorkouts();
+    }
+  };
+
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
 
   // 🔥 TELA DE BLOQUEIO FINANCEIRO
-  if (!loading && isFinanceLocked) {
+  if (!loading && finance.isFinanceLocked) {
     return (
       <RootComponent style={[styles.centeredFinanceBlock, { backgroundColor: theme.bg }]}>
         <MaterialCommunityIcons name="lock-alert" size={70} color="#FF3B30" style={{ marginBottom: 20 }} />
         <Text style={[styles.stateTitleFinance, { color: theme.text }]}>ACESSO BLOQUEADO</Text>
-        <Text style={[styles.stateDescFinance, { color: theme.textSecondary, marginBottom: 30 }]}>
+        <Text style={[styles.stateDescFinance, { color: theme.textSecondary, marginBottom: 20 }]}>
           O seu plano venceu e o acesso à rotina de treinos foi suspenso temporariamente.
           {"\n\n"}Fale com o Coach para realizar a renovação e liberar o sistema.
         </Text>
+
+        {/* 🔥 Prazo de carência esgotado */}
+        {finance.paymentClaimExpired && (
+          <View style={[styles.claimExpiredBox, { backgroundColor: '#FF950022', borderColor: '#FF9500' }]}>
+            <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#FF9500" />
+            <Text style={{ color: theme.text, fontSize: 12, marginLeft: 8, flex: 1, lineHeight: 17 }}>
+              O prazo para confirmação automática acabou. Fale direto com seu coach para liberar seu acesso.
+            </Text>
+          </View>
+        )}
+
+        {/* 🔥 Botão "Já paguei" */}
+        {finance.canClaimPayment && (
+          <TouchableOpacity
+            style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: '#32ADE6', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, width: '100%', justifyContent: 'center', maxWidth: 320 }}
+            onPress={handlePressClaimPayment}
+            disabled={finance.isClaimingPayment}
+          >
+            {finance.isClaimingPayment ? <ActivityIndicator color="#32ADE6" /> : (
+              <>
+                <Text style={{ color: '#32ADE6', fontWeight: '900', fontSize: 14 }}>JÁ PAGUEI, REGISTRAR</Text>
+                <MaterialCommunityIcons name="check-circle-outline" size={20} color="#32ADE6" />
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={{ backgroundColor: '#25D366', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}
-          onPress={() => Linking.openURL("https://wa.me/5541997991346?text=Coach, preciso falar sobre a renovação do meu plano!")}
+          onPress={() => Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=Coach, preciso falar sobre a renovação do meu plano!`)}
         >
           <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14 }}>FALAR COM O COACH</Text>
           <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
@@ -266,6 +304,21 @@ export default function TrainingScreen({ navigation }) {
               PAINEL DO <Text style={{ color: theme.accent, fontWeight: '900' }}>ALUNO</Text>
             </Text>
           </View>
+
+          {/* 🔥 BANNER: PAGAMENTO EM ANÁLISE (claim ativo, dentro da janela) */}
+          {finance.isPaymentClaimActive && (
+            <View style={[styles.claimReviewBanner, { backgroundColor: '#32ADE622', borderColor: '#32ADE6', marginHorizontal: 20 }]}>
+              <MaterialCommunityIcons name="clock-check-outline" size={22} color="#32ADE6" />
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={{ color: '#32ADE6', fontWeight: '900', fontSize: 12, letterSpacing: 0.3 }}>
+                  PAGAMENTO EM ANÁLISE
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+                  Seu acesso está liberado enquanto seu coach confirma{finance.paymentClaimDaysLeft != null ? ` (até ${finance.paymentClaimDaysLeft} dia${finance.paymentClaimDaysLeft === 1 ? '' : 's'})` : ''}.
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* 🏃 ABAS GLOBAIS (Sempre visíveis) */}
           <View style={[styles.tabRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -440,6 +493,10 @@ const styles = StyleSheet.create({
   headerLimpado: { padding: 20, paddingTop: 15, marginBottom: 10 },
   headerTitleLimpado: { fontSize: 28, fontWeight: '800' },
   sectionContainerMod: { marginHorizontal: 20, marginBottom: 30, alignItems: 'center' },
+
+  // 🔥 Banner de pagamento em análise
+  claimReviewBanner: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 20 },
+  claimExpiredBox: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 15, width: '100%', maxWidth: 320 },
 
   // 🏃 Abas Globais
   tabRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },

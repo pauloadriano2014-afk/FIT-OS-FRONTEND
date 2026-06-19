@@ -11,6 +11,7 @@ export default function BlocksSection({
     saveCustomLoad, removeCustomLoad,
     atualizarBloco, removerBloco, adicionarBloco,
     setIndexExercicioAtual, setIndexBlocoAtual, setModalTecnicaVisible,
+    listaTecnicas = [], // 🔥 RECEBE A LISTA AQUI
 }) {
     const [showPyramid, setShowPyramid] = useState(false);
 
@@ -30,6 +31,7 @@ export default function BlocksSection({
                     setModalTecnicaVisible={setModalTecnicaVisible}
                     canRemove={blocks.length > 1}
                     blocksLength={blocks.length}
+                    listaTecnicas={listaTecnicas} // 🔥 REPASSA PARA A LINHA
                 />
             ))}
 
