@@ -16,21 +16,6 @@ import CoachObservation from './ExerciseCardParts/CoachObservation';
 import SubstitutesPanel from './ExerciseCardParts/SubstitutesPanel';
 import RestTimerModal from './ExerciseCardParts/RestTimerModal';
 
-// Setup de viewport web (mantido como efeito de módulo, fora do componente,
-// igual ao arquivo original — só roda uma vez quando o módulo é importado).
-if (Platform.OS === 'web' && typeof window !== 'undefined' && window.visualViewport) {
-  const handler = () => {
-    const viewportHeight = window.visualViewport.height;
-    document.documentElement.style.height = `${viewportHeight}px`;
-    document.body.style.height = `${viewportHeight}px`;
-    if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-      document.activeElement.scrollIntoView({ behavior: 'auto', block: 'center' });
-    }
-  };
-  window.visualViewport.addEventListener('resize', handler);
-  window.visualViewport.addEventListener('scroll', handler);
-}
-
 export const ExerciseCard = ({
   item, totalSets, lastWeights, historyWeights,
   handleSaveWeight, handleOpenVideo, setModalVisible,
@@ -129,7 +114,7 @@ export const ExerciseCard = ({
     if (blockIndex > 0 && techInfo.actualTechId && techInfo.actualTechId !== 'BISET' && techInfo.actualTechId !== 'NORMAL') {
       renderedLines.push(
         <BlockDivider
-          key={`divider_${blockIndex}`}
+          key={`divider_${item.id}_${blockIndex}`}
           techInfo={techInfo} colors={colors}
           setSelectedTech={setSelectedTech} setTechModalVisible={setTechModalVisible}
         />
@@ -143,7 +128,7 @@ export const ExerciseCard = ({
 
       renderedLines.push(
         <SetRow
-          key={`set_${currentSetNum}`}
+          key={`set_${item.id}_${currentSetNum}`}
           currentSetNum={currentSetNum} isActive={isActive} block={block}
           categoryType={categoryType} workoutModel={workoutModel} colors={colors}
           getTechInfoFn={getTechInfoFn} techInfoForRow={techInfo}

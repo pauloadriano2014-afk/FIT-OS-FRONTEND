@@ -1,9 +1,9 @@
 // src/screens/DayWorkoutScreen.js
 import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import {
-  View, Text, SafeAreaView, ScrollView, TouchableOpacity,
+  View, Text, SafeAreaView, TouchableOpacity,
   ActivityIndicator, Alert, StatusBar, Platform, Dimensions,
-  LayoutAnimation, UIManager
+  UIManager, FlatList
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -44,15 +44,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const workoutId = params.workoutId || '';
   const day = params.day || 'A';
   const rawName = params.workoutName || 'Treino';
-  const focus = params.focus || 'GERAL'; // Enviado ao FinishScreen
+  const focus = params.focus || 'GERAL';
   const workoutName = rawName.replace(' |#BASE#', '');
 
-  // 🔥 TRAVA DE SEGURANÇA (MODO ESPIÃO) 🔥
   const isPreviewMode = params.isPreview || false;
 
   const { theme } = useTheme();
 
-  const [expandedBlockId, setExpandedBlockId] = useState(null);
+  // 🔥 SOLUÇÃO SCROLL: Agora é um objeto que guarda todos os que estão abertos
+  const [expandedBlocks, setExpandedBlocks] = useState({});
 
   const [techModalVisible, setTechModalVisible] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
@@ -88,9 +88,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   useFocusEffect(useCallback(() => { data.fetchWorkoutData(); }, []));
 
-  // Único ponto de conexão entre os dois hooks independentes: quando os dados do
-  // treino terminam de carregar, avisa o timer (que decide sincronizar com o horário
-  // salvo, ou iniciar automático se for modo espião).
   useEffect(() => {
     timer.syncWithWorkoutData(data.loading, data.exercisesToShow);
   }, [data.loading, data.exercisesToShow]);
@@ -100,16 +97,15 @@ export default function DayWorkoutScreen({ route, navigation }) {
     let tempGroup = [];
 
     data.exercisesToShow.forEach((item, index) => {
-      // 🔥 CIRURGIA 2: o 'rawTech' agora sempre terá o ID customizado ou a técnica antiga
       let rawTech = item.blocks?.[0]?.technique || item.technique || 'NORMAL';
       let safeTechnique = 'NORMAL';
 
       if (data.techGuide[rawTech]) {
-        safeTechnique = rawTech; // Achou a técnica do laboratório
+        safeTechnique = rawTech;
       } else {
         let normalized = typeof rawTech === 'string' ? rawTech.trim().toUpperCase() : 'NORMAL';
         if (data.techGuide[normalized]) {
-          safeTechnique = normalized; // Achou a técnica estática antiga
+          safeTechnique = normalized;
         }
       }
 
@@ -136,9 +132,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
     return groups;
   }, [data.exercisesToShow, data.techGuide]);
 
+  // 🔥 SOLUÇÃO SCROLL: Inverte o estado do bloco clicado, sem fechar os outros
   const toggleBlock = (blockId) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setExpandedBlockId(prev => prev === blockId ? null : blockId);
+    setExpandedBlocks(prev => ({
+      ...prev,
+      [blockId]: !prev[blockId]
+    }));
   };
 
   const closeTechModal = () => {
@@ -238,6 +237,63 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   if (data.loading && data.exercisesToShow.length === 0) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg }}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
+  const ListHeader = () => (
+    <View style={{ marginBottom: 20 }}>
+      {!timer.isTimerRunning && timer.elapsedSeconds === 0 && !isPreviewMode ? (
+        <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }} onPress={handleStartTimerRequest}>
+          <MaterialCommunityIcons name="play" size={30} color={theme.isDark ? '#000' : '#FFF'} />
+          <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 }}>INICIAR TREINO</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={{ backgroundColor: theme.surface, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: theme.accent, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 5 }}>{isPreviewMode ? "CRONÔMETRO (ESPIÃO)" : "TEMPO DECORRIDO"}</Text>
+          <Text style={{ color: theme.text, fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{formatTime(timer.elapsedSeconds)}</Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const ListFooter = () => (
+    !isPreviewMode ? (
+      <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginTop: 20, gap: 10 }} onPress={validateAndFinish}>
+        <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>FINALIZAR TREINO</Text>
+        <MaterialCommunityIcons name="check-all" size={24} color={theme.isDark ? '#000' : '#FFF'} />
+      </TouchableOpacity>
+    ) : null
+  );
+
+  const renderExerciseBlock = ({ item }) => (
+    <ExpandableExerciseBlock
+      block={item} 
+      isExpanded={!!expandedBlocks[item.id]} // 🔥 Agora lê o objeto corretamente
+      onToggle={() => toggleBlock(item.id)} 
+      theme={theme}
+      lastWeights={data.lastWeights} 
+      historyWeights={data.historyWeights} 
+      handleSaveWeight={data.handleSaveWeight} 
+      checkedSets={data.checkedSets} 
+      handleCheckSet={data.handleCheckSet}
+      handleOpenVideo={handleOpenVideo} 
+      handleOpenIA={handleOpenIA} 
+      handleOpenCalc={handleOpenCalc}
+      hasPremiumFeatures={data.userPlan === 'PREMIUM'} 
+      workoutModel={data.workoutModel} 
+      TECH_GUIDE={data.techGuide} 
+      setTechModalVisible={setTechModalVisible} 
+      setSelectedTech={setSelectedTech}
+      handleSwap={data.handleSwap} 
+      isTimerRunning={timer.isTimerRunning} 
+      isVoiceEnabled={voice.isVoiceEnabled}
+      colors={{ 
+        bg: theme.bg, surface: theme.surface, border: theme.border, 
+        text: theme.text, textMuted: theme.textSecondary, primary: theme.accent, 
+        primaryText: theme.isDark ? '#000' : '#FFF', inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5', 
+        glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)' 
+      }}
+      userData={data.userData}
+    />
+  );
+
   return (
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -260,44 +316,22 @@ export default function DayWorkoutScreen({ route, navigation }) {
         />
       </View>
 
-      <View style={{ flex: 1, position: 'relative' }}>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" bounces={false} overScrollMode="never">
-          <View style={{ width: isWeb ? '100%' : width, maxWidth: isWeb ? 480 : width, flexGrow: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingBottom: 150, paddingTop: 15, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
-
-            <View style={{ marginBottom: 20 }}>
-              {!timer.isTimerRunning && timer.elapsedSeconds === 0 && !isPreviewMode ? (
-                <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }} onPress={handleStartTimerRequest}>
-                  <MaterialCommunityIcons name="play" size={30} color={theme.isDark ? '#000' : '#FFF'} />
-                  <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 }}>INICIAR TREINO</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={{ backgroundColor: theme.surface, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: theme.accent, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 5 }}>{isPreviewMode ? "CRONÔMETRO (ESPIÃO)" : "TEMPO DECORRIDO"}</Text>
-                  <Text style={{ color: theme.text, fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{formatTime(timer.elapsedSeconds)}</Text>
-                </View>
-              )}
-            </View>
-
-            {groupedExercises.map((block) => (
-              <ExpandableExerciseBlock
-                key={block.id} block={block} isExpanded={expandedBlockId === block.id} onToggle={() => toggleBlock(block.id)} theme={theme}
-                lastWeights={data.lastWeights} historyWeights={data.historyWeights} handleSaveWeight={data.handleSaveWeight} checkedSets={data.checkedSets} handleCheckSet={data.handleCheckSet}
-                handleOpenVideo={handleOpenVideo} handleOpenIA={handleOpenIA} handleOpenCalc={handleOpenCalc}
-                hasPremiumFeatures={data.userPlan === 'PREMIUM'} workoutModel={data.workoutModel} TECH_GUIDE={data.techGuide} setTechModalVisible={setTechModalVisible} setSelectedTech={setSelectedTech}
-                handleSwap={data.handleSwap} isTimerRunning={timer.isTimerRunning} isVoiceEnabled={voice.isVoiceEnabled}
-                colors={{ bg: theme.bg, surface: theme.surface, border: theme.border, text: theme.text, textMuted: theme.textSecondary, primary: theme.accent, primaryText: theme.isDark ? '#000' : '#FFF', inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5', glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)' }}
-                userData={data.userData}
-              />
-            ))}
-
-            {/* 🔥 ESCONDE O BOTÃO DE FINALIZAR SE FOR MODO ESPIÃO 🔥 */}
-            {!isPreviewMode && (
-              <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginTop: 20, gap: 10 }} onPress={validateAndFinish}>
-                <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>FINALIZAR TREINO</Text><MaterialCommunityIcons name="check-all" size={24} color={theme.isDark ? '#000' : '#FFF'} />
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
+      <View style={{ flex: 1, position: 'relative', alignItems: 'center' }}>
+         <View style={{ width: isWeb ? '100%' : width, maxWidth: isWeb ? 480 : width, flex: 1, backgroundColor: theme.bg, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
+            <FlatList
+              data={groupedExercises}
+              keyExtractor={(item) => item.id}
+              renderItem={renderExerciseBlock}
+              ListHeaderComponent={ListHeader}
+              ListFooterComponent={ListFooter}
+              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 150 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              bounces={false}
+              overScrollMode="never"
+              removeClippedSubviews={false} // 🔥 DEVE FICAR FALSE! Se ficar true, itens somem ao dar scroll e a tela pula.
+            />
+         </View>
       </View>
 
       <InitialPhotosModal
