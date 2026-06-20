@@ -286,6 +286,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
                 hasPremiumFeatures={data.userPlan === 'PREMIUM'} workoutModel={data.workoutModel} TECH_GUIDE={data.techGuide} setTechModalVisible={setTechModalVisible} setSelectedTech={setSelectedTech}
                 handleSwap={data.handleSwap} isTimerRunning={timer.isTimerRunning} isVoiceEnabled={voice.isVoiceEnabled}
                 colors={{ bg: theme.bg, surface: theme.surface, border: theme.border, text: theme.text, textMuted: theme.textSecondary, primary: theme.accent, primaryText: theme.isDark ? '#000' : '#FFF', inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5', glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)' }}
+                userData={data.userData}
               />
             ))}
 

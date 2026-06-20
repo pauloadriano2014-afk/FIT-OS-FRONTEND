@@ -61,30 +61,28 @@ export default function ExerciseCardMedia({
             </TouchableOpacity>
           </View>
         )}
-        <View style={{ marginTop: 'auto' }} pointerEvents="box-none">
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' }} pointerEvents="box-none">
-            <View style={{ flex: 1, paddingRight: 10 }} pointerEvents="none">
-              <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>{exerciseTitle}</Text>
-              <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{topVideoText}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', gap: 8 }} pointerEvents="auto">
-              {hasHowTo && (
-                <TouchableOpacity
-                  onPress={() => setHowToModalVisible(true)}
-                  style={{ backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}
-                >
-                  <MaterialCommunityIcons name="clipboard-text-outline" size={16} color="#FFF" />
-                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>COMO EXECUTAR</Text>
-                </TouchableOpacity>
-              )}
+        <View style={{ marginTop: 'auto', gap: 10 }} pointerEvents="box-none">
+          <View pointerEvents="none">
+            <Text numberOfLines={2} ellipsizeMode="tail" style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>{exerciseTitle}</Text>
+            <Text numberOfLines={1} style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>{topVideoText}</Text>
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }} pointerEvents="auto">
+            {hasHowTo && (
               <TouchableOpacity
-                onPress={() => handleOpenVideo(videoLink)}
-                style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}
+                onPress={() => setHowToModalVisible(true)}
+                style={{ backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}
               >
-                <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
-                <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
+                <MaterialCommunityIcons name="clipboard-text-outline" size={16} color="#FFF" />
+                <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>COMO EXECUTAR</Text>
               </TouchableOpacity>
-            </View>
+            )}
+            <TouchableOpacity
+              onPress={() => handleOpenVideo(videoLink)}
+              style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}
+            >
+              <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
+              <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>

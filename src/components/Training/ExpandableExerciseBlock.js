@@ -10,7 +10,7 @@ export default function ExpandableExerciseBlock({
     lastWeights, historyWeights, handleSaveWeight, checkedSets, handleCheckSet,
     handleOpenVideo, handleOpenIA, handleOpenCalc, hasPremiumFeatures, workoutModel,
     TECH_GUIDE, setTechModalVisible, setSelectedTech, handleSwap, isTimerRunning,
-    isVoiceEnabled, colors, userData // <--- userData adicionado aqui
+    isVoiceEnabled, colors, userData
 }) {
     const isBiSet = block.type === 'BISET';
     const mainItem = block.items[0];
@@ -43,31 +43,59 @@ export default function ExpandableExerciseBlock({
     let topBadgeTech = isBiSet ? 'BISET' : 'NORMAL';
 
     if (mainItem?.blocks && Array.isArray(mainItem.blocks)) {
-        let cumulativeSets = 0;
         const totalExerciseSets = mainItem.blocks.reduce((a,blk) => a + (parseInt(blk.sets)||1), 0);
-        
+
+        // 🔥 CORREÇÃO: agrupa blocos CONSECUTIVOS que têm a mesma técnica antes de
+        // gerar a mensagem de aviso. Isso resolve o caso de técnicas como GVT, que
+        // no banco são representadas como vários blocos de 1 série cada (em vez de
+        // um único bloco de 10 séries) — sem o agrupamento, isso gerava uma linha de
+        // aviso por série (10 linhas para um GVT 10x10), em vez de uma única linha
+        // "GVT em todas as séries". A lógica de range ("da 3ª à 7ª série") também
+        // passa a funcionar corretamente para blocos parciais consecutivos, não só
+        // para o caso de um bloco único cobrindo o trecho inteiro.
+        const techSegments = [];
+        let cumulativeSets = 0;
+        mainItem.blocks.forEach((b) => {
+            const setsInBlock = parseInt(b.sets || 1) || 1;
+            const bTech = b.technique ? b.technique.toUpperCase() : 'NORMAL';
+            const startSet = cumulativeSets + 1;
+            const endSet = cumulativeSets + setsInBlock;
+
+            const lastSegment = techSegments[techSegments.length - 1];
+            if (lastSegment && lastSegment.tech === bTech) {
+                // Mesmo técnica do segmento anterior e consecutivo: estende o range
+                lastSegment.endSet = endSet;
+            } else {
+                techSegments.push({ tech: bTech, startSet, endSet });
+            }
+            cumulativeSets += setsInBlock;
+        });
+
+        techSegments.forEach((seg) => {
+            if (seg.tech === 'NORMAL' || isBiSet) return;
+            const techTitle = TECH_GUIDE[seg.tech]?.title || seg.tech;
+            const segSets = seg.endSet - seg.startSet + 1;
+
+            if (isCardio) {
+                if (!techAlertTexts.includes(techTitle)) techAlertTexts.push(techTitle);
+                return;
+            }
+
+            let alertMsg = "";
+            if (segSets === totalExerciseSets) alertMsg = `${techTitle} em todas as séries`;
+            else if (seg.endSet === totalExerciseSets && segSets === 1) alertMsg = `${techTitle} na última série`;
+            else if (seg.endSet === totalExerciseSets) alertMsg = `${techTitle} nas últimas séries`;
+            else if (segSets === 1) alertMsg = `${techTitle} na ${seg.startSet}ª série`;
+            else alertMsg = `${techTitle} da ${seg.startSet}ª à ${seg.endSet}ª série`;
+
+            if (!techAlertTexts.includes(alertMsg)) techAlertTexts.push(alertMsg);
+        });
+
         mainItem.blocks.forEach((b, idx) => {
             const setsInBlock = parseInt(b.sets || 1) || 1;
             totalSets += setsInBlock;
             if (idx === 0) firstRep = b.reps;
             else if (b.reps !== firstRep) hasVaryingReps = true;
-            const bTech = b.technique ? b.technique.toUpperCase() : 'NORMAL';
-            if (bTech !== 'NORMAL' && !isBiSet) {
-                const techTitle = TECH_GUIDE[bTech]?.title || bTech;
-                if (isCardio) {
-                    if (!techAlertTexts.includes(techTitle)) techAlertTexts.push(techTitle);
-                } else {
-                    const isLast = (cumulativeSets + setsInBlock) === totalExerciseSets;
-                    let alertMsg = "";
-                    if (setsInBlock === totalExerciseSets) alertMsg = `${techTitle} em todas as séries`;
-                    else if (isLast && setsInBlock === 1) alertMsg = `${techTitle} na última série`;
-                    else if (isLast) alertMsg = `${techTitle} nas últimas séries`;
-                    else if (setsInBlock === 1) alertMsg = `${techTitle} na ${cumulativeSets + 1}ª série`;
-                    else alertMsg = `${techTitle} da ${cumulativeSets + 1}ª à ${cumulativeSets + setsInBlock}ª série`;
-                    if (!techAlertTexts.includes(alertMsg)) techAlertTexts.push(alertMsg);
-                }
-            }
-            cumulativeSets += setsInBlock;
         });
     } else {
         totalSets = parseInt(mainItem?.sets || 1) || 1;

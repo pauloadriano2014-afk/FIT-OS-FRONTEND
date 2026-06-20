@@ -1,6 +1,7 @@
 // src/components/ExerciseCard/techInputs/ClusterSetInput.js
 import React from 'react';
 import { View, Text, TextInput, Pressable } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ClusterSetInput({
   item, currentSetNum, lastWeights,
@@ -15,9 +16,18 @@ export default function ClusterSetInput({
         const isDone = val !== undefined && val !== '';
         return (
           <View key={idx} style={{ flex: 1, paddingHorizontal: 2 }}>
-            <Text style={{ color: hasPrescribedLoad ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad ? 10 : 8, fontWeight: '900', marginBottom: 3, textAlign: 'center' }}>
-              {hasPrescribedLoad ? `🎯 ${String(block.load).toUpperCase()}` : label}
-            </Text>
+            {hasPrescribedLoad ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 3 }}>
+                <MaterialCommunityIcons name="target" size={10} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 10, fontWeight: '900', textAlign: 'center' }} numberOfLines={1}>
+                  {String(block.load).toUpperCase()}
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ color: colors.textMuted, fontSize: 8, fontWeight: '900', marginBottom: 3, textAlign: 'center' }} numberOfLines={1}>
+                {label}
+              </Text>
+            )}
             <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{ width: '100%' }}>
               <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                 <TextInput

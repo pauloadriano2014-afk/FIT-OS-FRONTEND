@@ -1,6 +1,7 @@
 // src/components/ExerciseCard/techInputs/CustomTechInput.js
 import React from 'react';
 import { View, Text, TextInput, Pressable } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function CustomTechInput({
   item, currentSetNum, lastWeights,
@@ -32,9 +33,18 @@ export default function CustomTechInput({
 
         return (
           <View key={idx} style={{ flex: 1, minWidth: stepsToRender.length > 3 ? '22%' : 'auto', paddingHorizontal: 2 }}>
-            <Text style={{ color: hasPrescribedLoad && isMain ? colors.primary : colors.textMuted, fontSize: hasPrescribedLoad && isMain ? 9 : 8, fontWeight: '900', marginBottom: 3, textAlign: 'center' }} numberOfLines={1}>
-              {hasPrescribedLoad && isMain ? `🎯 ${String(block.load).toUpperCase()}` : label}
-            </Text>
+            {hasPrescribedLoad && isMain ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2, marginBottom: 3 }}>
+                <MaterialCommunityIcons name="target" size={9} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontSize: 9, fontWeight: '900', textAlign: 'center' }} numberOfLines={1}>
+                  {String(block.load).toUpperCase()}
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ color: colors.textMuted, fontSize: 8, fontWeight: '900', marginBottom: 3, textAlign: 'center' }} numberOfLines={1}>
+                {label}
+              </Text>
+            )}
             <Pressable onPress={!isTimerRunning ? handleInputFocus : null} style={{ width: '100%' }}>
               <View pointerEvents={isTimerRunning ? 'auto' : 'none'}>
                 <TextInput
