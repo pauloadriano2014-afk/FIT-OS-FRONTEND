@@ -6,6 +6,38 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getInitialTechGuide } from './techGuideData';
 import { applyMaskToString, applyIntensityMaskToBlocks } from './workoutMaskUtils';
 
+// 🔥 TTL (tempo de vida) do cache local, em milissegundos. Depois desse tempo,
+// o cache é tratado como expirado e ignorado, forçando busca fresca do servidor.
+// Resolve casos onde o coach edita uma técnica/exercício e o cache local do
+// aluno (gravado antes da edição) ficaria "preso" indefinidamente, já que antes
+// o cache nunca expirava por conta própria — só era sobrescrito se o fetch
+// fresco funcionasse, mas continuava sendo MOSTRADO otimisticamente até lá.
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
+
+// Helper: embrulha um valor com o timestamp de quando foi salvo.
+const wrapWithTimestamp = (value) => ({ value, cachedAt: Date.now() });
+
+// Helper: lê um cache embrulhado e devolve o valor só se ainda estiver dentro
+// do TTL. Cache no formato ANTIGO (sem `cachedAt`, gravado por versões
+// anteriores do app) é tratado como expirado automaticamente — isso garante
+// que, assim que essa atualização entra em produção, qualquer cache antigo já
+// gravado no dispositivo do aluno deixa de ser usado na hora, sem precisar
+// esperar o TTL contar a partir de agora.
+const readIfFresh = (rawJson) => {
+  if (!rawJson) return null;
+  try {
+    const parsed = JSON.parse(rawJson);
+    if (!parsed || typeof parsed !== 'object' || !('cachedAt' in parsed)) {
+      return null; // formato antigo ou inválido → trata como expirado
+    }
+    const age = Date.now() - parsed.cachedAt;
+    if (age > CACHE_TTL_MS) return null; // expirado
+    return parsed.value;
+  } catch (e) {
+    return null;
+  }
+};
+
 // Hook responsável por:
 // - buscar o treino do dia (com cache + draft, exceto no modo espião)
 // - montar o techGuide dinâmico (técnicas estáticas + customizadas do laboratório)
@@ -43,12 +75,11 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
       const coachIdToUse = user.coachId || user.id;
       let currentTechGuide = getInitialTechGuide(theme);
 
-      // 🔥 NOVO: busca os overrides de vídeo das 9 técnicas FIXAS do sistema
+      // 🔥 busca os overrides de vídeo das 9 técnicas FIXAS do sistema
       // (GVT, DROPSET, RESTPAUSE, etc — globais, não filtradas por coach).
-      // Feita em paralelo conceitualmente com o resto, mas aqui de forma simples
-      // e com fallback silencioso: se falhar, as técnicas fixas simplesmente
-      // não ganham `videoUrl` nesta sessão (modal continua funcionando normal,
-      // só sem a aba de vídeo).
+      // Fallback silencioso: se falhar, as técnicas fixas simplesmente
+      // não ganham `videoUrl` nesta sessão (modal continua funcionando
+      // normal, só sem a aba de vídeo). Esse cache também tem TTL de 24h.
       try {
         const sysVideosRes = await fetch('https://fitos-final.onrender.com/api/admin/system-technique-videos');
         if (sysVideosRes.ok) {
@@ -59,7 +90,7 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
                 currentTechGuide[v.key] = { ...currentTechGuide[v.key], videoUrl: v.videoUrl };
               }
             });
-            if (!isPreviewMode) await AsyncStorage.setItem('@cached_system_tech_videos', JSON.stringify(sysVideos));
+            if (!isPreviewMode) await AsyncStorage.setItem('@cached_system_tech_videos', JSON.stringify(wrapWithTimestamp(sysVideos)));
           }
         } else {
           throw new Error("Failed to fetch system videos");
@@ -67,8 +98,8 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
       } catch (e) {
         try {
           const cachedSysVideosStr = await AsyncStorage.getItem('@cached_system_tech_videos');
-          if (cachedSysVideosStr) {
-            const sysVideos = JSON.parse(cachedSysVideosStr);
+          const sysVideos = readIfFresh(cachedSysVideosStr);
+          if (sysVideos) {
             sysVideos.forEach(v => {
               if (currentTechGuide[v.key]) {
                 currentTechGuide[v.key] = { ...currentTechGuide[v.key], videoUrl: v.videoUrl };
@@ -78,12 +109,16 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
         } catch (e2) {}
       }
 
+      // 🔥 TÉCNICAS CUSTOMIZADAS DO LABORATÓRIO — cache com TTL de 24h. Cache
+      // gravado por versões antigas do app (sem `cachedAt`) é descartado
+      // automaticamente por readIfFresh, eliminando o problema de uma técnica
+      // recém-criada/editada ficar "escondida" atrás de um cache antigo.
       try {
         let customTechs = [];
         const techRes = await fetch(`https://fitos-final.onrender.com/api/admin/techniques?coachId=${coachIdToUse}`);
         if (techRes.ok) {
           customTechs = await techRes.json();
-          if (!isPreviewMode) await AsyncStorage.setItem(`@cached_techs_${coachIdToUse}`, JSON.stringify(customTechs));
+          if (!isPreviewMode) await AsyncStorage.setItem(`@cached_techs_${coachIdToUse}`, JSON.stringify(wrapWithTimestamp(customTechs)));
         } else {
           throw new Error("Failed to fetch");
         }
@@ -96,14 +131,14 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
             icon: 'flask-outline', // Ícone de laboratório
             desc: t.description || 'Técnica avançada personalizada pelo seu treinador. Siga o passo a passo da linha do tempo.',
             steps: t.steps,
-            videoUrl: t.videoUrl || null, // 🔥 NOVO: vídeo demonstrativo cadastrado no Laboratório
+            videoUrl: t.videoUrl || null,
             isCustom: true
           };
         });
       } catch (e) {
         const cachedTechsStr = await AsyncStorage.getItem(`@cached_techs_${coachIdToUse}`);
-        if (cachedTechsStr) {
-          const customTechs = JSON.parse(cachedTechsStr);
+        const customTechs = readIfFresh(cachedTechsStr);
+        if (customTechs) {
           customTechs.forEach(t => {
             currentTechGuide[t.id] = {
               id: t.id,
@@ -112,7 +147,7 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
               icon: 'flask-outline',
               desc: t.description || 'Técnica avançada personalizada pelo seu treinador. Siga o passo a passo da linha do tempo.',
               steps: t.steps,
-              videoUrl: t.videoUrl || null, // 🔥 NOVO (também no fallback de cache)
+              videoUrl: t.videoUrl || null,
               isCustom: true
             };
           });
@@ -121,9 +156,14 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
       // Salva o dicionário completo e atualizado no estado!
       setTechGuide(currentTechGuide);
 
+      // 🔥 CACHE DO TREINO — também com TTL de 24h. Esse é o cache que causava
+      // o sintoma mais visível: o exercício aparecendo otimisticamente com o
+      // nome da técnica já resolvido de uma sessão de teste anterior (antes da
+      // técnica customizada existir de fato), antes do fetch fresco substituir.
       const cacheKey = `@cached_workout_${workoutId}_${day}`;
-      const cachedData = await AsyncStorage.getItem(cacheKey);
-      if (cachedData && !isPreviewMode) setExercisesToShow(JSON.parse(cachedData)); // Modo espião sempre pega fresco
+      const cachedDataStr = await AsyncStorage.getItem(cacheKey);
+      const cachedData = readIfFresh(cachedDataStr);
+      if (cachedData && !isPreviewMode) setExercisesToShow(cachedData); // Modo espião sempre pega fresco
 
       const draftKey = `draft_workout_${workoutId}_${day}`;
       const draft = await AsyncStorage.getItem(draftKey);
@@ -230,7 +270,7 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
           setHistoryWeights(maskedWeights);
           if (!isPreviewMode) await AsyncStorage.setItem(`@cached_history_${workoutId}_${day}`, JSON.stringify(maskedWeights));
         }
-        if (!isPreviewMode) await AsyncStorage.setItem(cacheKey, JSON.stringify(filteredExercises));
+        if (!isPreviewMode) await AsyncStorage.setItem(cacheKey, JSON.stringify(wrapWithTimestamp(filteredExercises)));
       }
     } catch (error) {
       if (!isPreviewMode) {
