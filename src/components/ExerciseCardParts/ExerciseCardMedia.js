@@ -42,7 +42,7 @@ export default function ExerciseCardMedia({
                 <TouchableOpacity style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, elevation: 3, backgroundColor: topTechInfo.color }} onPress={() => { if (setSelectedTech && setTechModalVisible) { setSelectedTech(topTechInfo.actualTechId); setTechModalVisible(true); } }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                     <MaterialCommunityIcons name="information-outline" size={12} color={colors.bg === '#000000' && (topTechInfo.actualTechId === 'BISET' || topTechInfo.actualTechId === '21') ? '#000' : '#FFF'} />
-                    <Text style={{ fontSize: 10, fontWeight: '900', color: colors.bg === '#000000' && (topTechInfo.actualTechId === 'BISET' || topTechInfo.actualTechId === '21') ? '#000' : '#FFF' }}>{topTechInfo.label}</Text>
+                    <Text style={{ fontSize: 10, fontWeight: '900', color: colors.bg === '#000000' && (topTechInfo.actualTechId === 'BISET' || topTechInfo.actualTechId === '21') ? '#000' : '#FFF', includeFontPadding: false }}>{topTechInfo.label}</Text>
                   </View>
                 </TouchableOpacity>
               )}
@@ -52,22 +52,22 @@ export default function ExerciseCardMedia({
           {showTools && (
             <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignSelf: 'flex-start' }} pointerEvents="auto">
               <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={onOpenCalc}>
-                <MaterialCommunityIcons name={hasPremiumFeatures ? "calculator" : "lock"} size={14} color={hasPremiumFeatures ? "#FFF" : colors.textMuted} />
-                <Text style={{ color: hasPremiumFeatures ? '#FFF' : colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>CALCULAR</Text>
+                <MaterialCommunityIcons name="calculator" size={14} color="#FFF" />
+                <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold', includeFontPadding: false }}>CALCULAR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={setModalVisible}>
-                <MaterialCommunityIcons name={hasPremiumFeatures ? "camera-metering-spot" : "lock"} size={14} color={hasPremiumFeatures ? "#FFF" : colors.textMuted} />
-                <Text style={{ color: hasPremiumFeatures ? '#FFF' : colors.textMuted, fontSize: 10, fontWeight: 'bold' }}>ANÁLISE IA</Text>
+                <MaterialCommunityIcons name="camera-metering-spot" size={14} color="#FFF" />
+                <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold', includeFontPadding: false }}>ANÁLISE IA</Text>
               </TouchableOpacity>
             </View>
           )}
 
           <View style={{ marginTop: 'auto', width: '100%', flexDirection: 'column', gap: 8 }} pointerEvents="box-none">
             <View style={{ width: '100%' }} pointerEvents="none">
-              <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4 }}>
+              <Text style={{ color: '#FFF', fontSize: 20, fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.8)', textShadowRadius: 4, includeFontPadding: false }}>
                 {exerciseTitle}
               </Text>
-              <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold' }}>
+              <Text style={{ color: '#DDD', fontSize: 12, fontWeight: 'bold', includeFontPadding: false }}>
                 {topVideoText}
               </Text>
             </View>
@@ -79,15 +79,15 @@ export default function ExerciseCardMedia({
                   style={{ backgroundColor: 'rgba(0,0,0,0.75)', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)' }}
                 >
                   <MaterialCommunityIcons name="clipboard-text-outline" size={16} color="#FFF" />
-                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>COMO EXECUTAR</Text>
+                  <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 10, includeFontPadding: false }}>COMO EXECUTAR</Text>
                 </TouchableOpacity>
               )}
               <TouchableOpacity
                 onPress={() => handleOpenVideo(videoLink)}
-                style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 6, elevation: 5 }}
+                style={{ backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, flexDirection: 'row', alignItems: 'center', gap: 4, elevation: 5 }}
               >
                 <MaterialCommunityIcons name="play" size={18} color={colors.primaryText} />
-                <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 11, letterSpacing: 0.5 }}>VER EXECUÇÃO</Text>
+                <Text style={{ color: colors.primaryText, fontWeight: '900', fontSize: 10, includeFontPadding: false }}>VER EXECUÇÃO</Text>
               </TouchableOpacity>
             </View>
           </View>

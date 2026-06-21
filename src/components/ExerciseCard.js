@@ -26,7 +26,7 @@ export const ExerciseCard = ({
   hasPremiumFeatures,
   workoutModel,
   substitutes = [],
-  studentGender, // 🔥 NOVO: gênero do aluno logado, para decidir o foco a mostrar
+  studentGender,
 }) => {
 
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
@@ -101,8 +101,6 @@ export const ExerciseCard = ({
 
   const getTechInfoFn = (blk) => getTechInfo(blk, { TECH_GUIDE, colors });
 
-  // Monta as linhas renderizadas (divisores de bloco + sets), preservando
-  // exatamente a mesma lógica de agrupamento do .forEach original.
   let currentSetGlobalTracker = 1;
   const renderedLines = [];
 
