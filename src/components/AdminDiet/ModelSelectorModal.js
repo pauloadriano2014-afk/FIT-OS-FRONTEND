@@ -22,8 +22,8 @@ export const AI_MODELS = [
         icon: 'star-four-points', color: '#10A37F', speed: '~15s', stars: 5, badge: null,
     },
     {
-        id: 'google', label: 'Gemini 2.5 Pro', company: 'Google',
-        icon: 'google', color: '#4285F4', speed: '~25s', stars: 4, badge: null,
+        id: 'google', label: 'Gemini 2.5 Flash', company: 'Google',
+        icon: 'google', color: '#4285F4', speed: '~10s', stars: 4, badge: 'RÁPIDO',
     },
     {
         id: 'openai-mini', label: 'GPT-4o mini', company: 'OpenAI',
