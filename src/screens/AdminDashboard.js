@@ -23,6 +23,9 @@ import TabFeed from '../components/Admin/TabFeed';
 import TabGestao from '../components/Admin/TabGestao';
 import AdminFilterWizard from '../components/Admin/AdminFilterWizard';
 
+// 🎂 Banner de aniversariantes
+import BirthdayBanner from '../components/Admin/BirthdayBanner';
+
 // Outros Componentes e Modais
 import SendNoticeModal from '../components/SendNoticeModal';
 import AdminInviteModal from '../components/AdminInviteModal'; 
@@ -97,11 +100,76 @@ export default function AdminDashboard({ navigation }) {
   const [selectedColor, setSelectedColor] = useState('verde');
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
+  // 🎂 ESTADOS DE ANIVERSARIANTES 🎂
+  const [birthdays, setBirthdays] = useState([]);
+  const [birthdayDismissed, setBirthdayDismissed] = useState(false);
+
   useFocusEffect(useCallback(() => { fetchData(false); }, []));
 
   useEffect(() => { 
       setVisibleCount(15); setVisibleCountCheckins(5); setVisibleCountDiet(5); setVisibleCountSurveys(5); setVisibleCountFeed(10);
   }, [subTabAlunos, subTabCheckins, activeTab, search, filterStatus, filterIntensidade, filterPlano, coachFilter]);
+
+  // 🎂 Busca aniversariantes assim que o adminId estiver disponível
+  useEffect(() => {
+      if (adminId) fetchBirthdays();
+  }, [adminId]);
+
+  // 🎂 Busca aniversariantes dos próximos 7 dias com cache diário (1x por dia)
+  const fetchBirthdays = async () => {
+      if (!adminId) return;
+      try {
+          const CACHE_KEY  = `@birthdays_cache_${adminId}`;
+          const CACHE_DATE = `@birthdays_date_${adminId}`;
+          const today      = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+
+          // Verifica se já buscou hoje — evita request desnecessário
+          const lastDate = await AsyncStorage.getItem(CACHE_DATE);
+          if (lastDate === today) {
+              const cached = await AsyncStorage.getItem(CACHE_KEY);
+              if (cached) { setBirthdays(JSON.parse(cached)); return; }
+          }
+
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/birthdays?adminId=${adminId}&days=7`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          setBirthdays(data);
+          setBirthdayDismissed(false);
+
+          await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
+          await AsyncStorage.setItem(CACHE_DATE, today);
+
+          // Push notification se houver aniversariante hoje (1x por dia)
+          const todayBirthdays = data.filter(b => b.daysUntil === 0);
+          if (todayBirthdays.length > 0) {
+              const pushKey  = `@birthday_push_${adminId}_${today}`;
+              const pushSent = await AsyncStorage.getItem(pushKey);
+              if (!pushSent) {
+                  const names = todayBirthdays.map(b => b.name?.split(' ')[0]).join(', ');
+                  const userJson = await AsyncStorage.getItem('user');
+                  if (userJson) {
+                      const user = JSON.parse(userJson);
+                      if (user.pushToken) {
+                          await fetch('https://exp.host/--/api/v2/push/send', {
+                              method:  'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                  to:    user.pushToken,
+                                  sound: 'default',
+                                  title: '🎂 Aniversário hoje!',
+                                  body:  `${names} ${todayBirthdays.length > 1 ? 'fazem' : 'faz'} aniversário hoje. Que tal parabenizar?`,
+                              }),
+                          }).catch(() => {});
+                      }
+                  }
+                  await AsyncStorage.setItem(pushKey, 'sent');
+              }
+          }
+      } catch (e) {
+          console.log('Erro ao buscar aniversários:', e);
+      }
+  };
 
   const ownerKey = isAdriLogged ? 'ADRI' : 'PAULO';
   const partnerKey = isAdriLogged ? 'PAULO' : 'ADRI';
@@ -208,6 +276,15 @@ export default function AdminDashboard({ navigation }) {
           <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, minHeight: '100%' }}>
 
               <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={fetchData} handleLogout={handleLogout} />
+
+              {/* 🎂 BANNER DE ANIVERSARIANTES — aparece logo abaixo do header */}
+              {!birthdayDismissed && birthdays.length > 0 && (
+                  <BirthdayBanner
+                      birthdays={birthdays}
+                      theme={theme}
+                      onDismiss={() => setBirthdayDismissed(true)}
+                  />
+              )}
 
               <AdminNavigation 
                   theme={theme} isWebPC={isWebPC} activeTab={activeTab} setActiveTab={setActiveTab} 
