@@ -234,73 +234,6 @@ export default function AdminDashboard({ navigation }) {
     else navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
-  // 🔥 FUNÇÃO DE PERSONIFICAÇÃO (MODO ALUNO TESTE) BLINDADA PARA WEB 🔥
-  const impersonateTestStudent = async () => {
-      try {
-          const currentAdminStr = await AsyncStorage.getItem('user');
-          const currentRole = await AsyncStorage.getItem('role');
-          
-          if (!currentAdminStr) {
-              if (Platform.OS === 'web') window.alert("Erro: Sessão de admin não encontrada.");
-              else Alert.alert("Erro", "Sessão de admin não encontrada.");
-              return;
-          }
-
-          const parsedAdmin = JSON.parse(currentAdminStr);
-          const safeAdminId = adminId || parsedAdmin.id;
-
-          if (!safeAdminId) {
-              if (Platform.OS === 'web') window.alert("Erro: ID de Treinador inválido.");
-              else Alert.alert("Erro", "ID de Treinador inválido.");
-              return;
-          }
-
-          const executeImpersonation = async () => {
-              try {
-                  await AsyncStorage.setItem('original_admin_user', currentAdminStr);
-                  await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
-
-                  const apiUrl = `https://fitos-final.onrender.com/api/admin/impersonate?coachId=${safeAdminId}`;
-
-                  const res = await fetch(apiUrl);
-                  
-                  if (!res.ok) throw new Error("Erro na API");
-                  
-                  const testStudent = await res.json();
-                  
-                  await AsyncStorage.setItem('user', JSON.stringify(testStudent));
-                  await AsyncStorage.setItem('role', 'USER');
-                  
-                  if (Platform.OS === 'web') {
-                      window.location.replace('/');
-                  } else {
-                      navigation.reset({ index: 0, routes: [{ name: 'Main' }] }); 
-                  }
-              } catch (err) {
-                  if (Platform.OS === 'web') window.alert("Falha ao conectar com o servidor para criar o aluno fantasma.");
-                  else Alert.alert("Erro", "Falha ao conectar com o servidor.");
-              }
-          };
-
-          if (Platform.OS === 'web') {
-              if (window.confirm("Você entrará na visão do aluno fantasma. Para voltar ao painel Coach, clique no botão vermelho que aparecerá no app. Deseja entrar?")) {
-                  executeImpersonation();
-              }
-          } else {
-              Alert.alert(
-                  "Visualizar como Aluno",
-                  "Você entrará na visão do aluno fantasma. Para voltar ao painel Coach, um botão vermelho aparecerá na tela inicial do aluno.",
-                  [
-                      { text: "Cancelar", style: "cancel" },
-                      { text: "Entrar", onPress: executeImpersonation }
-                  ]
-              );
-          }
-      } catch (error) {
-          console.log("Erro ao tentar visualizar como aluno:", error);
-      }
-  };
-
   const toggleDarkMode = () => changeTheme(!theme.isDark, selectedColor);
   const selectThemeColor = (colorKey) => { setSelectedColor(colorKey); changeTheme(theme.isDark, colorKey); };
   const switchSubTab = (tab) => { setSubTabAlunos(tab); setSearch(''); setVisibleCount(15); };
@@ -355,18 +288,6 @@ export default function AdminDashboard({ navigation }) {
                       </TouchableOpacity>
                   </View>
               )}
-
-              {/* 🔥 BOTÃO DE VISUALIZAÇÃO COMO ALUNO 🔥 */}
-              <TouchableOpacity
-                  style={[styles.impersonateBtn, { backgroundColor: theme.accent, borderColor: theme.border }]}
-                  onPress={impersonateTestStudent}
-                  activeOpacity={0.8}
-              >
-                  <MaterialCommunityIcons name="account-switch" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                  <Text style={[styles.impersonateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>
-                      VISUALIZAR COMO ALUNO TESTE
-                  </Text>
-              </TouchableOpacity>
 
               {/* 🔥 PAINEL DE COACHES PENDENTES (SÓ PARA MASTER) 🔥 */}
               {isMaster && <PendingCoachesPanel theme={theme} />}
@@ -458,8 +379,6 @@ const styles = StyleSheet.create({
   segmentedControl: { flexDirection: 'row', marginBottom: 20, padding: 4, borderRadius: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  impersonateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
-  impersonateBtnText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
   miniBirthdayPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'stretch', marginBottom: 16 },
   miniBirthdayText: { fontSize: 11, fontWeight: '700' }
 });
