@@ -46,7 +46,7 @@ export default function AdminUserOptions({ route, navigation }) {
     const ops = useAdminUserOptions(aluno, navigation);
     const targetStudent = ops.freshAluno || aluno; // O aluno que está na tela
 
-    // 🔥 FUNÇÃO DE PERSONIFICAÇÃO DE ALUNO REAL 🔥
+    // 🔥 FUNÇÃO DE PERSONIFICAÇÃO DE ALUNO REAL COM TRAVA ANTI-BUG 🔥
     const handleImpersonateRealStudent = async () => {
         try {
             const currentAdminStr = await AsyncStorage.getItem('user');
@@ -76,6 +76,13 @@ export default function AdminUserOptions({ route, navigation }) {
                     }
                 } catch (err) {
                     console.log("Erro na troca de dados:", err);
+                    
+                    // 🔥 TRAVA ANTI-BUG FANTASMA: Se falhar, destrói o bilhete falso na hora e restaura o original
+                    await AsyncStorage.removeItem('original_admin_user');
+                    await AsyncStorage.removeItem('original_admin_role');
+                    await AsyncStorage.setItem('user', currentAdminStr);
+                    if (currentRole) await AsyncStorage.setItem('role', currentRole);
+
                     if (Platform.OS === 'web') window.alert("Falha ao efetuar o login na conta do aluno.");
                     else Alert.alert("Erro", "Falha ao efetuar o login na conta do aluno.");
                 }
