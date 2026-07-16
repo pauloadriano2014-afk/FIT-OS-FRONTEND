@@ -154,9 +154,16 @@ export default function ProfileScreen({ route }) {
 
   const executeLogout = async () => {
       try {
-          await AsyncStorage.multiRemove(['user', 'token', 'app_theme']); 
+          // 🔥 LÓGICA ANTI-BUG FANTASMA ADICIONADA AQUI 🔥
+          // Ao deslogar, garante que apagará QUALQUER rastro de impersonation (Modo Aluno Fantasma)
+          await AsyncStorage.multiRemove([
+              'user', 'token', 'app_theme', 'role', 
+              'original_admin_user', 'original_admin_role'
+          ]); 
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-      } catch (e) { Alert.alert("Erro", "Falha ao sair."); }
+      } catch (e) { 
+          Alert.alert("Erro", "Falha ao sair."); 
+      }
   };
 
   const handleLogout = () => {

@@ -1,8 +1,9 @@
+// src/components/Admin/TabConfig.js
 import React from 'react';
 import { View, Text, TouchableOpacity, Switch, Platform, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function TabConfig({ isMasterCoach, theme, navigation, flixName, setIsNpsModalOpen, setIsNoticeModalOpen, toggleDarkMode }) {
+export default function TabConfig({ isMasterCoach, theme, navigation, flixName, setIsNpsModalOpen, setIsNoticeModalOpen, toggleDarkMode, selectThemeColor, selectedColor }) {
     return (
         <>
             <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: '#BF5AF2' }]} onPress={() => navigation.navigate('AdminAddContent')}>
@@ -25,10 +26,25 @@ export default function TabConfig({ isMasterCoach, theme, navigation, flixName, 
 
             <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 20 }]}>
                 <Text style={styles.cardHeaderSmall}>APARÊNCIA DO PAINEL</Text>
+                
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 15, width: '100%' }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}><MaterialCommunityIcons name={theme.isDark ? "moon-waning-crescent" : "white-balance-sunny"} size={24} color={theme.text} /><Text style={{ color: theme.text, fontSize: 16, fontWeight: 'bold' }}>Modo Escuro</Text></View>
                     <Switch value={theme.isDark} onValueChange={toggleDarkMode} trackColor={{ false: '#ccc', true: theme.accent }} thumbColor={Platform.OS === 'ios' ? '#FFF' : (theme.isDark ? '#FFF' : '#f4f3f4')} />
                 </View>
+
+                {/* 🔥 CORES DE DESTAQUE RESTAURADAS 🔥 */}
+                {!theme.isDark && (
+                    <View style={{ width: '100%', marginTop: 10 }}>
+                        <Text style={[styles.cardHeaderSmall, { marginBottom: 15, textAlign: 'left' }]}>COR DE DESTAQUE</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 5 }}>
+                            <TouchableOpacity onPress={() => selectThemeColor('verde')} style={[styles.colorCircle, { backgroundColor: '#99CC00', borderColor: selectedColor === 'verde' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('rosa')} style={[styles.colorCircle, { backgroundColor: '#FF2D55', borderColor: selectedColor === 'rosa' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('roxo')} style={[styles.colorCircle, { backgroundColor: '#AF52DE', borderColor: selectedColor === 'roxo' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('azul')} style={[styles.colorCircle, { backgroundColor: '#007AFF', borderColor: selectedColor === 'azul' ? theme.text : 'transparent' }]} />
+                            <TouchableOpacity onPress={() => selectThemeColor('vermelho')} style={[styles.colorCircle, { backgroundColor: '#FF3B30', borderColor: selectedColor === 'vermelho' ? theme.text : 'transparent' }]} />
+                        </View>
+                    </View>
+                )}
             </View>
         </>
     );
@@ -40,4 +56,5 @@ const styles = StyleSheet.create({
     bigCardTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 6 },
     bigCardDesc: { color: '#888', fontSize: 12, textAlign: 'center', paddingHorizontal: 10, lineHeight: 18 },
     cardHeaderSmall: { color:'#888', fontWeight:'bold', fontSize:12, letterSpacing: 1 },
+    colorCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 3 },
 });

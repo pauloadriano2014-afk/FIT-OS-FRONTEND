@@ -1,5 +1,6 @@
+// src/components/Admin/TabMarca.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Alert, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,13 +54,25 @@ export default function TabMarca({ theme }) {
 
     const handlePickLogo = async () => {
         try {
-            const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [3, 1], quality: 0.8 });
-            if (!result.canceled) {
+            // 🔥 ATUALIZAÇÃO DO IMAGE PICKER: mediaTypes agora recebe ['images'] 🔥
+            const result = await ImagePicker.launchImageLibraryAsync({ 
+                mediaTypes: ['images'], 
+                allowsEditing: true, 
+                aspect: [3, 1], 
+                quality: 0.8 
+            });
+            
+            if (!result.canceled && result.assets && result.assets.length > 0) {
                 setUploadingLogo(true);
                 const url = await uploadImageToR2(result.assets[0].uri, false);
                 setLogoUrl(url);
             }
-        } catch (error) { Alert.alert("Erro", "Falha ao enviar a imagem."); } finally { setUploadingLogo(false); }
+        } catch (error) { 
+            console.log("Erro no picker: ", error);
+            Alert.alert("Erro", "Falha ao enviar a imagem."); 
+        } finally { 
+            setUploadingLogo(false); 
+        }
     };
 
     const handleSaveBrand = async () => {

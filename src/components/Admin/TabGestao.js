@@ -17,7 +17,8 @@ const MASTER_IDS = [
 
 export default function TabGestao({ 
     theme, subTabGestao, setSubTabGestao, navigation, alunosAtivos, 
-    setIsNpsModalOpen, setIsNoticeModalOpen, toggleDarkMode 
+    setIsNpsModalOpen, setIsNoticeModalOpen, toggleDarkMode,
+    selectThemeColor, selectedColor // 🔥 RECUPERAMOS AS FUNÇÕES DE COR AQUI
 }) {
     const [currentUserId, setCurrentUserId] = useState(null);
 
@@ -130,7 +131,8 @@ export default function TabGestao({
 
             {/* CONTEÚDO DAS ABAS (MODULARIZADO) */}
             {subTabGestao === 'FERRAMENTAS' && <TabFerramentas isMasterCoach={isMasterCoach} theme={theme} navigation={navigation} alunosAtivos={alunosAtivos} />}
-            {subTabGestao === 'CONFIG' && <TabConfig isMasterCoach={isMasterCoach} theme={theme} navigation={navigation} flixName={flixName} setIsNpsModalOpen={setIsNpsModalOpen} setIsNoticeModalOpen={setIsNoticeModalOpen} toggleDarkMode={toggleDarkMode} />}
+            {/* 🔥 REPASSAMOS AS FUNÇÕES DE COR PARA A TAB CONFIG AQUI 🔥 */}
+            {subTabGestao === 'CONFIG' && <TabConfig isMasterCoach={isMasterCoach} theme={theme} navigation={navigation} flixName={flixName} setIsNpsModalOpen={setIsNpsModalOpen} setIsNoticeModalOpen={setIsNoticeModalOpen} toggleDarkMode={toggleDarkMode} selectThemeColor={selectThemeColor} selectedColor={selectedColor} />}
             {subTabGestao === 'SAAS' && !isMasterCoach && <TabSaaS theme={theme} currentUserId={currentUserId} />}
             {subTabGestao === 'MARCA' && <TabMarca theme={theme} />}
         </View>

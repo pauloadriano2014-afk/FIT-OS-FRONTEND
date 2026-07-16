@@ -65,12 +65,17 @@ export default function HomeScreen({ navigation }) {
                 const originalAdmin = await AsyncStorage.getItem('original_admin_user');
                 // Se a chave estiver no aparelho, ativa o modo Admin/Coach na hora
                 if (originalAdmin) {
+                    // 🔥 DESFIBRILADOR DE MEMÓRIA: Verifica se o bilhete é válido e não um lixo corrompido
+                    JSON.parse(originalAdmin);
                     setIsImpersonating(true);
                 } else {
                     setIsImpersonating(false);
                 }
             } catch (e) {
                 console.error("Erro na validação de segurança do impersonate", e);
+                // 🔥 Se estiver corrompido, destrói imediatamente o bilhete preso
+                await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
+                setIsImpersonating(false);
             }
         };
         checkImpersonation();
@@ -134,30 +139,56 @@ export default function HomeScreen({ navigation }) {
         else home.loadHomeData();
     };
 
-    // 🔥 VOLTAR AO MODO COACH E APAGAR RASTROS ──────────────────────────────
+    // 🔥 VOLTAR AO MODO COACH E APAGAR RASTROS (COM TRAVA DE SEGURANÇA) ──────────────────────────────
     const handleStopImpersonating = async () => {
         try {
             const originalUserStr = await AsyncStorage.getItem('original_admin_user');
             const originalRole = await AsyncStorage.getItem('original_admin_role');
 
             if (originalUserStr) {
-                // Restaura os dados do Admin
-                await AsyncStorage.setItem('user', originalUserStr);
-                await AsyncStorage.setItem('role', originalRole || 'ADMIN');
+                const adminData = JSON.parse(originalUserStr);
+                
+                // 🔥 TRAVA DE SEGURANÇA EXTRA: Pede confirmação mostrando o nome real do Coach
+                const confirmAction = async () => {
+                    // Restaura os dados do Admin
+                    await AsyncStorage.setItem('user', originalUserStr);
+                    await AsyncStorage.setItem('role', originalRole || 'ADMIN');
 
-                // O MAIS IMPORTANTE: Apaga o rastro. Sem isso aqui, o botão não some!
-                await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
+                    // O MAIS IMPORTANTE: Apaga o rastro. Sem isso aqui, o botão não some!
+                    await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
 
-                // Redireciona de volta
+                    // Redireciona de volta
+                    if (Platform.OS === 'web') {
+                        window.location.replace('/admin'); 
+                    } else {
+                        navigation.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
+                    }
+                };
+
                 if (Platform.OS === 'web') {
-                    window.location.replace('/admin'); 
+                    if (window.confirm(`Deseja encerrar a visualização e voltar para o painel de ${adminData.name || 'Coach'}?`)) {
+                        confirmAction();
+                    }
                 } else {
-                    navigation.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
+                    Alert.alert(
+                        "Encerrar Visualização",
+                        `Deseja voltar para o painel de ${adminData.name || 'Coach'}?`,
+                        [
+                            { text: "Cancelar", style: "cancel" },
+                            { text: "Sim, Voltar", onPress: confirmAction }
+                        ]
+                    );
                 }
+            } else {
+                // 🔥 DESFIBRILADOR: Se o botão apareceu mas não tem dados válidos, ele se autodestrói
+                await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
+                setIsImpersonating(false);
             }
         } catch (e) {
             console.log("Erro ao restaurar admin:", e);
-            Alert.alert("Erro", "Não foi possível retornar ao painel.");
+            // 🔥 DESFIBRILADOR: Limpa qualquer rastro em caso de erro fatal
+            await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
+            setIsImpersonating(false);
         }
     };
 
@@ -280,7 +311,7 @@ export default function HomeScreen({ navigation }) {
                         onDismissVideo={home.handleDismissVideoAlert}
                         isFemale={isFemale}
                         isMenstruating={home.isMenstruating}
-                        togglingMenstrual={home.togglingMenstrual}
+                        togglingMenstrual={home.toggleMenstrualCycle}
                         onToggleMenstrual={home.toggleMenstrualCycle}
                         needsInitialPhoto={needsInitialPhoto}
                         pendingFeedback={home.pendingFeedback}
