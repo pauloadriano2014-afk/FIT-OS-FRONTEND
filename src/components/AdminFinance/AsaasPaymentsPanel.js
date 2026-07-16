@@ -14,6 +14,7 @@ import {
     Platform, Alert, Linking, Image, ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'https://fitos-final.onrender.com';
 
@@ -66,7 +67,11 @@ export default function AsaasPaymentsPanel({ theme, isWebPC }) {
     const fetchPayments = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_URL}/api/admin/payments?t=${Date.now()}`);
+            // 🔒 Busca o adminId do AsyncStorage para filtrar por coach
+            const userStr = await AsyncStorage.getItem('user');
+            const adminId = userStr ? JSON.parse(userStr).id : null;
+            const query = adminId ? `adminId=${adminId}&t=${Date.now()}` : `t=${Date.now()}`;
+            const res = await fetch(`${API_URL}/api/admin/payments?${query}`);
             if (res.ok) {
                 const data = await res.json();
                 setMetrics(data.metrics || null);

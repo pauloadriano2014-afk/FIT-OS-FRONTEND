@@ -102,6 +102,12 @@ export default function AdminDashboard({ navigation }) {
   // 🎂 ESTADOS DE ANIVERSARIANTES 🎂
   const [birthdays, setBirthdays] = useState([]);
   const [birthdayDismissed, setBirthdayDismissed] = useState(false);
+  const [isBirthdaysExpanded, setIsBirthdaysExpanded] = useState(false); // 🔥 ESTADO NOVO PARA EXPANDIR
+
+  // 🧑‍🏫 GATILHO DE RECARREGAMENTO DO PAINEL DE COACHES PENDENTES 🔥
+  // Só sobe quando o botão de recarregar do header é clicado. O painel também
+  // já refaz o check sozinho ao montar (ou seja, toda vez que você entra na aba ALUNOS).
+  const [coachCheckTrigger, setCoachCheckTrigger] = useState(0);
 
   useFocusEffect(useCallback(() => { fetchData(false); }, []));
 
@@ -238,6 +244,14 @@ export default function AdminDashboard({ navigation }) {
   const selectThemeColor = (colorKey) => { setSelectedColor(colorKey); changeTheme(theme.isDark, colorKey); };
   const switchSubTab = (tab) => { setSubTabAlunos(tab); setSearch(''); setVisibleCount(15); };
 
+  // 🔥 RECARREGAMENTO DO HEADER: mantém o fetchData normal e, além disso, avisa o
+  // painel de coaches pendentes pra refazer o check (via coachCheckTrigger).
+  // Funciona em qualquer args que o AdminHeader passe pro fetchData original.
+  const handleHeaderReload = (...args) => {
+      fetchData(...args);
+      setCoachCheckTrigger(t => t + 1);
+  };
+
   const handleResolveCheckin = () => {
       const confirmAction = async () => {
           setIsResolving(true);
@@ -272,25 +286,60 @@ export default function AdminDashboard({ navigation }) {
       >
           <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, minHeight: '100%' }}>
 
-              <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={fetchData} handleLogout={handleLogout} />
+              <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={handleHeaderReload} handleLogout={handleLogout} adminId={adminId} />
 
-              {/* 🎂 ANIVERSARIANTES MINIMIZADO 🎂 */}
+              {/* 🎂 ANIVERSARIANTES EXPANSÍVEL 🎂 */}
               {!birthdayDismissed && birthdays.length > 0 && (
                   <View style={[styles.miniBirthdayPill, { backgroundColor: theme.accent + '20' }]}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
-                          <MaterialCommunityIcons name="cake-variant" size={14} color={theme.accent} />
-                          <Text style={[styles.miniBirthdayText, { color: theme.text }]}>
-                              {birthdays.length} {birthdays.length > 1 ? 'aniversariantes' : 'aniversariante'} nos próximos dias
-                          </Text>
-                      </View>
-                      <TouchableOpacity onPress={() => setBirthdayDismissed(true)} style={{ padding: 4 }}>
-                          <MaterialCommunityIcons name="close" size={14} color={theme.textSecondary} />
+                      <TouchableOpacity 
+                          style={{ flexDirection: 'row', alignItems: 'center' }} 
+                          activeOpacity={0.8}
+                          onPress={() => setIsBirthdaysExpanded(!isBirthdaysExpanded)}
+                      >
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                              <MaterialCommunityIcons name="cake-variant" size={16} color={theme.accent} />
+                              <Text style={[styles.miniBirthdayText, { color: theme.text, fontSize: 13 }]}>
+                                  {birthdays.length} {birthdays.length > 1 ? 'aniversariantes' : 'aniversariante'} nos próximos dias
+                              </Text>
+                          </View>
+                          <MaterialCommunityIcons name={isBirthdaysExpanded ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
+                          <TouchableOpacity onPress={() => setBirthdayDismissed(true)} style={{ padding: 4, marginLeft: 10, backgroundColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', borderRadius: 8 }}>
+                              <MaterialCommunityIcons name="close" size={14} color={theme.textSecondary} />
+                          </TouchableOpacity>
                       </TouchableOpacity>
+
+                      {isBirthdaysExpanded && (
+                          <View style={{ marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)', gap: 8 }}>
+                              {birthdays.map((b, index) => (
+                                  <View key={index} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: 'bold' }}>{b.name}</Text>
+                                      <Text style={{ 
+                                          color: b.daysUntil === 0 ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary, 
+                                          fontSize: 11, 
+                                          fontWeight: '900', 
+                                          backgroundColor: b.daysUntil === 0 ? theme.accent : 'transparent', 
+                                          paddingHorizontal: b.daysUntil === 0 ? 8 : 0, 
+                                          paddingVertical: b.daysUntil === 0 ? 4 : 0, 
+                                          borderRadius: 6, 
+                                          overflow: 'hidden' 
+                                      }}>
+                                          {b.daysUntil === 0 ? 'HOJE 🎉' : `Em ${b.daysUntil} dias`}
+                                      </Text>
+                                  </View>
+                              ))}
+                          </View>
+                      )}
                   </View>
               )}
 
-              {/* 🔥 PAINEL DE COACHES PENDENTES (SÓ PARA MASTER) 🔥 */}
-              {isMaster && <PendingCoachesPanel theme={theme} />}
+              {/* 🔥 PAINEL DE COACHES PENDENTES (SÓ PARA MASTER, SÓ NA ABA ALUNOS) 🔥
+                  Antes ficava sempre montado e checava coach novo em qualquer aba.
+                  Agora: só monta (e portanto só faz o fetch) quando activeTab === 'ALUNOS',
+                  e refaz o check quando o botão de recarregar do header é clicado
+                  (via coachCheckTrigger), não importa a aba em que você estiver. */}
+              {isMaster && activeTab === 'ALUNOS' && (
+                  <PendingCoachesPanel theme={theme} refreshTrigger={coachCheckTrigger} />
+              )}
 
               <AdminNavigation 
                   theme={theme} isWebPC={isWebPC} activeTab={activeTab} setActiveTab={setActiveTab} 
@@ -379,6 +428,6 @@ const styles = StyleSheet.create({
   segmentedControl: { flexDirection: 'row', marginBottom: 20, padding: 4, borderRadius: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  miniBirthdayPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'stretch', marginBottom: 16 },
+  miniBirthdayPill: { flexDirection: 'column', alignItems: 'stretch', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, marginBottom: 16 },
   miniBirthdayText: { fontSize: 11, fontWeight: '700' }
 });

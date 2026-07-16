@@ -9,7 +9,7 @@ export const categoryCovers = {
     "Cardio": "https://i.imgur.com/7j0z7bT.jpeg",
     "Antebraço": "https://i.imgur.com/HzigSSQ.jpeg",
     "Mobilidade": "https://i.imgur.com/t30EizZ.png",
-    "TODOS": "https://i.imgur.com/uL3pTeW.png"
+    "TODOS": "https://i.imgur.com/eRACLFS.png"
 };
 
 export const categories = [

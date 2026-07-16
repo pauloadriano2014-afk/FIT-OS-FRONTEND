@@ -8,6 +8,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useBibliotecaAdmin } from '../hooks/useBibliotecaAdmin';
@@ -53,7 +54,8 @@ export default function BibliotecaAdmin({ navigation }) {
     const [isMaster, setIsMaster] = useState(false); // Default true para não piscar a tela
     const [coachId, setCoachId] = useState(null);
 
-    const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+    // 🔥 FUNDO EXTERNO (LATERAIS NO PC) AGORA É SEMPRE ESCURO INDEPENDENTE DO TEMA 🔥
+    const webOuterBg = '#0a0a0a';
 
     // Verifica quem está logado para exibir ou não as abas
     useEffect(() => {
@@ -179,10 +181,10 @@ export default function BibliotecaAdmin({ navigation }) {
             {isWeb && lateralSpace > 10 && (
                 <View style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
                     <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
-                        <Image source={require('../../assets/logo.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
                     </View>
                     <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
-                        <Image source={require('../../assets/logo.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
                     </View>
                 </View>
             )}
@@ -190,7 +192,7 @@ export default function BibliotecaAdmin({ navigation }) {
             <View style={{ flex: 1, width: '100%', alignSelf: 'center', backgroundColor: isWeb ? 'transparent' : theme.bg }}>
                 <FlatList
                     key={`grid-${numColumns}`} 
-                    data={loading ? [] : displayList} // 🔥 Renderizando a lista tratada e limpa!
+                    data={loading ? [] : displayList} 
                     keyExtractor={item => String(item.id)}
                     numColumns={numColumns}
                     style={{ flex: 1, width: '100%' }}
@@ -296,15 +298,33 @@ export default function BibliotecaAdmin({ navigation }) {
                                 </View>
                             )}
 
-                            <View style={{ marginBottom: 20 }}>
-                                <ImageBackground source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} style={styles.categoryCover} imageStyle={{ borderRadius: 24 }}>
-                                    <View style={styles.coverOverlay}>
-                                        <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
-                                        <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
-                                            <Text style={[styles.coverCount, { color: theme.isDark ? '#000' : '#FFF' }]}>{displayList.length} EXERCÍCIOS</Text>
-                                        </View>
+                            {/* 🔥 BANNER MANTIDO EXATAMENTE IGUAL 🔥 */}
+                            <View style={{ marginBottom: 20, borderRadius: 24, overflow: 'hidden', height: 220, backgroundColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.2, shadowRadius: 15 }}>
+                                <Image 
+                                    source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} 
+                                    style={{ width: '100%', height: '100%', resizeMode: 'contain', position: 'absolute' }}
+                                />
+                                
+                                <LinearGradient 
+                                    colors={['#000000', 'transparent', 'transparent', '#000000']} 
+                                    locations={[0, 0.25, 0.75, 1]}
+                                    start={{ x: 0, y: 0 }} 
+                                    end={{ x: 1, y: 0 }} 
+                                    style={StyleSheet.absoluteFill}
+                                />
+
+                                <LinearGradient 
+                                    colors={['transparent', 'rgba(0,0,0,0.9)']} 
+                                    locations={[0.5, 1]}
+                                    style={StyleSheet.absoluteFill}
+                                />
+
+                                <View style={[styles.coverOverlay, { backgroundColor: 'transparent' }]}>
+                                    <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
+                                    <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
+                                        <Text style={[styles.coverCount, { color: theme.isDark ? '#000' : '#FFF' }]}>{displayList.length} EXERCÍCIOS</Text>
                                     </View>
-                                </ImageBackground>
+                                </View>
                             </View>
                         </View>
                     }
@@ -349,8 +369,7 @@ const styles = StyleSheet.create({
     catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderRadius: 20 },
     filterIconBox: { padding: 6, borderRadius: 8 },
     catSelectorVal: { fontSize: 15, fontWeight: '800' },
-    categoryCover: { height: 180, width: '100%', justifyContent: 'flex-end', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.2, shadowRadius: 15 },
-    coverOverlay: { backgroundColor: 'rgba(0,0,0,0.3)', padding: 24, height: '100%', justifyContent: 'flex-end', borderRadius: 24 },
+    coverOverlay: { padding: 24, height: '100%', justifyContent: 'flex-end', borderRadius: 24 },
     coverTitle: { color: '#FFF', fontSize: 34, fontWeight: '900', letterSpacing: -1, marginBottom: 8 },
     coverBadge: { alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
     coverCount: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },

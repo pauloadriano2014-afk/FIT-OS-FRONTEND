@@ -75,13 +75,19 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
       const coachIdToUse = user.coachId || user.id;
       let currentTechGuide = getInitialTechGuide(theme);
 
-      // 🔥 busca os overrides de vídeo das 9 técnicas FIXAS do sistema
-      // (GVT, DROPSET, RESTPAUSE, etc — globais, não filtradas por coach).
+      // 🔥 busca os overrides de vídeo das 9 técnicas FIXAS do sistema.
+      // Esses vídeos agora são escopados por TIME do coach (não mais globais
+      // pra todo mundo) — por isso o coachId aqui é obrigatório, senão a API
+      // devolve 400. Usamos o mesmo coachIdToUse já resolvido acima (coach do
+      // aluno, ou o próprio id se ele for o coach em modo preview).
       // Fallback silencioso: se falhar, as técnicas fixas simplesmente
       // não ganham `videoUrl` nesta sessão (modal continua funcionando
-      // normal, só sem a aba de vídeo). Esse cache também tem TTL de 24h.
+      // normal, só sem a aba de vídeo). Esse cache também tem TTL de 24h e
+      // agora é escopado por coachIdToUse, pra não misturar vídeo de times
+      // diferentes no mesmo aparelho.
+      const sysVideoCacheKey = `@cached_system_tech_videos_${coachIdToUse}`;
       try {
-        const sysVideosRes = await fetch('https://fitos-final.onrender.com/api/admin/system-technique-videos');
+        const sysVideosRes = await fetch(`https://fitos-final.onrender.com/api/admin/system-technique-videos?coachId=${coachIdToUse}`);
         if (sysVideosRes.ok) {
           const sysVideos = await sysVideosRes.json();
           if (Array.isArray(sysVideos)) {
@@ -90,14 +96,14 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
                 currentTechGuide[v.key] = { ...currentTechGuide[v.key], videoUrl: v.videoUrl };
               }
             });
-            if (!isPreviewMode) await AsyncStorage.setItem('@cached_system_tech_videos', JSON.stringify(wrapWithTimestamp(sysVideos)));
+            if (!isPreviewMode) await AsyncStorage.setItem(sysVideoCacheKey, JSON.stringify(wrapWithTimestamp(sysVideos)));
           }
         } else {
           throw new Error("Failed to fetch system videos");
         }
       } catch (e) {
         try {
-          const cachedSysVideosStr = await AsyncStorage.getItem('@cached_system_tech_videos');
+          const cachedSysVideosStr = await AsyncStorage.getItem(sysVideoCacheKey);
           const sysVideos = readIfFresh(cachedSysVideosStr);
           if (sysVideos) {
             sysVideos.forEach(v => {

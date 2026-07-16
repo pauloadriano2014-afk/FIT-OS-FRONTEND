@@ -51,14 +51,13 @@ export default function AdminTechniquesScreen({ navigation }) {
     const [saving, setSaving] = useState(false);
     const [formData, setFormData] = useState({ id: null, name: '', howTo: '', whyTo: '', steps: [], videoUrl: '' });
 
-    // 🔥 NOVO: estado dos vídeos das técnicas fixas do sistema
+    // 🔥 estado dos vídeos das técnicas fixas do sistema
     const [systemVideos, setSystemVideos] = useState({}); // { DROPSET: 'https://...', ... }
     const [systemVideoInputs, setSystemVideoInputs] = useState({}); // valores em edição, por key
     const [savingSystemKey, setSavingSystemKey] = useState(null); // qual key está salvando agora (mostra loading só nela)
 
     useEffect(() => {
         loadUserAndData();
-        fetchSystemVideos();
     }, []);
 
     const loadUserAndData = async () => {
@@ -68,6 +67,9 @@ export default function AdminTechniquesScreen({ navigation }) {
                 const parsed = JSON.parse(userData);
                 setCoachId(parsed.id);
                 fetchTechniques(parsed.id);
+                // 🔥 Vídeos do sistema agora são escopados por coachId (time),
+                // então só buscamos depois de saber quem está logado.
+                fetchSystemVideos(parsed.id);
             }
         } catch (error) {
             console.error("Erro ao carregar usuário:", error);
@@ -90,10 +92,10 @@ export default function AdminTechniquesScreen({ navigation }) {
         }
     };
 
-    // 🔥 NOVO: busca os overrides de vídeo das técnicas fixas
-    const fetchSystemVideos = async () => {
+    // 🔥 busca os overrides de vídeo das técnicas fixas do time do coach logado
+    const fetchSystemVideos = async (id) => {
         try {
-            const res = await fetch(SYSTEM_VIDEOS_API_URL);
+            const res = await fetch(`${SYSTEM_VIDEOS_API_URL}?coachId=${id}`);
             if (res.ok) {
                 const data = await res.json();
                 const map = {};
@@ -107,7 +109,7 @@ export default function AdminTechniquesScreen({ navigation }) {
         }
     };
 
-    // 🔥 NOVO: salva o vídeo de uma técnica fixa específica
+    // 🔥 salva o vídeo de uma técnica fixa específica (escopado ao time do coach)
     const handleSaveSystemVideo = async (key) => {
         const videoUrl = (systemVideoInputs[key] || '').trim();
         if (!videoUrl) {
@@ -118,7 +120,7 @@ export default function AdminTechniquesScreen({ navigation }) {
             const res = await fetch(SYSTEM_VIDEOS_API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key, videoUrl })
+                body: JSON.stringify({ key, videoUrl, coachId })
             });
             if (res.ok) {
                 setSystemVideos(prev => ({ ...prev, [key]: videoUrl }));
@@ -134,12 +136,12 @@ export default function AdminTechniquesScreen({ navigation }) {
         }
     };
 
-    // 🔥 NOVO: remove o vídeo de uma técnica fixa
+    // 🔥 remove o vídeo de uma técnica fixa (escopado ao time do coach)
     const handleRemoveSystemVideo = async (key) => {
         const doRemove = async () => {
             setSavingSystemKey(key);
             try {
-                const res = await fetch(`${SYSTEM_VIDEOS_API_URL}?key=${key}`, { method: 'DELETE' });
+                const res = await fetch(`${SYSTEM_VIDEOS_API_URL}?key=${key}&coachId=${coachId}`, { method: 'DELETE' });
                 if (res.ok) {
                     setSystemVideos(prev => { const next = { ...prev }; delete next[key]; return next; });
                     setSystemVideoInputs(prev => ({ ...prev, [key]: '' }));
@@ -217,7 +219,7 @@ export default function AdminTechniquesScreen({ navigation }) {
                     steps: formData.steps, 
                     coachId, 
                     isGlobal: false,
-                    videoUrl: formData.videoUrl.trim() || null, // 🔥 NOVO
+                    videoUrl: formData.videoUrl.trim() || null,
                 })
             });
 
@@ -241,8 +243,12 @@ export default function AdminTechniquesScreen({ navigation }) {
                 text: "Apagar", style: "destructive",
                 onPress: async () => {
                     try {
-                        const res = await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
+                        const res = await fetch(`${API_URL}?id=${id}&coachId=${coachId}`, { method: 'DELETE' });
                         if (res.ok) fetchTechniques(coachId);
+                        else {
+                            const data = await res.json();
+                            Alert.alert("Erro", data.error || "Falha ao apagar.");
+                        }
                     } catch (e) {
                         Alert.alert("Erro", "Falha ao apagar.");
                     }
@@ -275,10 +281,10 @@ export default function AdminTechniquesScreen({ navigation }) {
                 ) : (
                     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list} showsVerticalScrollIndicator={true}>
 
-                        {/* 🔥 NOVA SEÇÃO: vídeos das técnicas fixas do sistema 🔥 */}
+                        {/* SEÇÃO: vídeos das técnicas fixas do sistema (escopadas por time) */}
                         <Text style={[styles.sectionLabel, { color: theme.accent }]}>VÍDEOS — TÉCNICAS DO SISTEMA</Text>
                         <Text style={[styles.sectionHint, { color: theme.textSecondary }]}>
-                            Cole o link do YouTube (formato 9:16) de cada técnica fixa. Texto e áudio dessas técnicas já existem no app — aqui você só adiciona o vídeo demonstrativo.
+                            Cole o link do YouTube (formato 9:16) de cada técnica fixa. Texto e áudio dessas técnicas já existem no app — aqui você só adiciona o vídeo demonstrativo. Esses vídeos valem só para o seu time.
                         </Text>
 
                     {SYSTEM_TECHNIQUES.map(tech => {
@@ -329,7 +335,7 @@ export default function AdminTechniquesScreen({ navigation }) {
 
                     <View style={[styles.divider, { backgroundColor: theme.border, marginVertical: 25 }]} />
 
-                    {/* LISTAGEM DE TÉCNICAS CUSTOMIZADAS (original, intocada) */}
+                    {/* LISTAGEM DE TÉCNICAS CUSTOMIZADAS (isoladas por coach) */}
                     <Text style={[styles.sectionLabel, { color: theme.accent }]}>SUAS TÉCNICAS CUSTOMIZADAS</Text>
 
                     {techniques.length === 0 && (
@@ -345,14 +351,21 @@ export default function AdminTechniquesScreen({ navigation }) {
                                     </View>
                                     {tech.description ? <Text style={[styles.cardDesc, { color: theme.textSecondary }]} numberOfLines={2}>{tech.description}</Text> : null}
                                 </View>
-                                <View style={styles.cardActions}>
-                                    <TouchableOpacity onPress={() => openModal(tech)} style={styles.actionBtn}>
-                                        <MaterialCommunityIcons name="pencil" size={20} color={theme.accent} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => handleDelete(tech.id)} style={styles.actionBtn}>
-                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
-                                    </TouchableOpacity>
-                                </View>
+                                {(!tech.isGlobal && tech.coachId === coachId) ? (
+                                    <View style={styles.cardActions}>
+                                        <TouchableOpacity onPress={() => openModal(tech)} style={styles.actionBtn}>
+                                            <MaterialCommunityIcons name="pencil" size={20} color={theme.accent} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleDelete(tech.id)} style={styles.actionBtn}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : (
+                                    <View style={[styles.videoBadge, { backgroundColor: theme.border }]}>
+                                        <MaterialCommunityIcons name="earth" size={12} color={theme.textSecondary} />
+                                        <Text style={{ color: theme.textSecondary, fontSize: 9, fontWeight: '900' }}>GLOBAL</Text>
+                                    </View>
+                                )}
                             </View>
 
                             <View style={styles.timeline}>
@@ -387,7 +400,6 @@ export default function AdminTechniquesScreen({ navigation }) {
                             <TouchableOpacity onPress={() => setModalVisible(false)}><MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
                         </View>
 
-                        {/* 🔥 CIRURGIA AQUI: Adicionado flex: 1 no ScrollView e flexGrow: 1 no contentContainerStyle */}
                         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
                             <Text style={[styles.label, { color: theme.text }]}>Nome do Combo / Técnica</Text>
                             <TextInput
@@ -419,7 +431,7 @@ export default function AdminTechniquesScreen({ navigation }) {
                                 multiline={true}
                             />
 
-                            {/* 🔥 NOVO CAMPO: link do vídeo demonstrativo */}
+                            {/* Link do vídeo demonstrativo */}
                             <Text style={[styles.label, { color: theme.text, marginTop: 15 }]}>VÍDEO DEMONSTRATIVO (YouTube, opcional)</Text>
                             <TextInput
                                 style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
@@ -497,7 +509,6 @@ const styles = StyleSheet.create({
     addBtn: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginLeft: 'auto' },
     center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
-    // 🔥 CIRURGIA: Adicionado flexGrow: 1 na listagem principal
     list: { padding: 20, paddingBottom: 100, flexGrow: 1 },
     
     emptyText: { textAlign: 'center', marginTop: 50, fontSize: 13, fontWeight: '600' },

@@ -186,14 +186,15 @@ export default function BibliotecaScreen({ navigation, route }) {
       contents.forEach(c => {
           let isLocked = false;
           
+          // 🔒 LÓGICA DE BLOQUEIO VIP CORRIGIDA:
+          // - Vídeos (isVIP: false) → sempre liberados, não entram aqui
+          // - E-books / Áudios VIP (isVIP: true) → bloqueados por padrão;
+          //   só desbloqueiam se a chavinha estiver ligada (ContentAccess).
+          //   O plano do aluno NÃO influencia — a chavinha é a única fonte
+          //   da verdade, porque você usa ela pra controlar quem comprou
+          //   o bônus avulso ou foi contemplado no plano.
           if (c.isVIP) {
-              if (userPlan === 'PREMIUM') {
-                  isLocked = false; 
-              } else if (accessIds.includes(c.id)) {
-                  isLocked = false; 
-              } else {
-                  isLocked = true; 
-              }
+              isLocked = !accessIds.includes(c.id);
           }
           
           // CAPAS INTELIGENTES DO YOUTUBE

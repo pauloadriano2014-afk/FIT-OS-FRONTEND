@@ -4,9 +4,14 @@
 // Uso no seu dashboard admin (visível só pro master/Paulo):
 //   import PendingCoachesPanel from '../components/Admin/PendingCoachesPanel';
 //   ...
-//   <PendingCoachesPanel theme={theme} />
+//   <PendingCoachesPanel theme={theme} refreshTrigger={coachCheckTrigger} />
 //
-// theme segue o padrão string ('dark' | 'light') do AdminFinanceSystem.
+// 🔥 O check de coaches pendentes só roda:
+//   1) quando o componente é montado (ou seja, quando você entra na aba ALUNOS,
+//      já que o AdminDashboard só renderiza este painel nessa aba)
+//   2) quando `refreshTrigger` muda (disparado pelo botão de recarregar do header)
+//
+// theme é o objeto vindo do ThemeContext (theme.isDark, theme.text, etc).
 
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -17,8 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 const API_URL = 'https://fitos-final.onrender.com';
 
-export default function PendingCoachesPanel({ theme }) {
-    const isDark = theme === 'dark';
+export default function PendingCoachesPanel({ theme, refreshTrigger }) {
+    const isDark = !!theme?.isDark;
     const c = {
         bg: isDark ? '#1E1E1E' : '#F9F9F9',
         bg2: isDark ? '#2A2A2A' : '#FFF',
@@ -58,7 +63,9 @@ export default function PendingCoachesPanel({ theme }) {
         }
     }, []);
 
-    useEffect(() => { fetchRequests(); }, [fetchRequests]);
+    // 🔥 Só roda ao montar (entrada na aba ALUNOS) e quando refreshTrigger mudar
+    // (clique no botão de recarregar do header). NÃO roda a cada re-render/troca de aba.
+    useEffect(() => { fetchRequests(); }, [fetchRequests, refreshTrigger]);
 
     const resolveRequest = async (coachId, action, inviteCode = '') => {
         setProcessingId(coachId);
