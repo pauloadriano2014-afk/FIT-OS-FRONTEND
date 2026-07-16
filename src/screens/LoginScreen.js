@@ -125,7 +125,25 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      const isAdmin = data.user.role === 'ADMIN';
+      // 🔥 TRAVA DE STATUS DA CONTA (Coaches em análise / recusados) 🔥
+      const accountStatus = data.user.accountStatus || 'ACTIVE';
+
+      if (accountStatus === 'PENDING_APPROVAL') {
+        const msg = 'Seu cadastro de Coach está em análise. 🕐\n\nVocê será avisado pelo WhatsApp assim que seu acesso for liberado (em até 24h).';
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Aguardando Aprovação', msg);
+        return;
+      }
+
+      if (accountStatus === 'REJECTED') {
+        const msg = 'Seu acesso não está disponível no momento. Em caso de dúvidas, entre em contato com o suporte.';
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Acesso Indisponível', msg);
+        return;
+      }
+
+      // 🔥 ROTEAMENTO: ADMIN e COACH vão para o painel; aluno vai para o app
+      const isAdmin = data.user.role === 'ADMIN' || data.user.role === 'COACH';
       const role = isAdmin ? 'admin' : 'student';
 
       await AsyncStorage.multiRemove(['user', 'role']);
@@ -154,27 +172,36 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const handleForgotPassword = () => {
+  // 🔑 ESQUECI MINHA SENHA — envia link de redefinição por e-mail
+  const [sendingReset, setSendingReset] = useState(false);
+
+  const handleForgotPassword = async () => {
     if (!email || email.trim() === '') {
         const msg = "Digite o seu E-MAIL no campo acima antes de pedir a troca de senha.";
         if (Platform.OS === 'web') return window.alert(msg);
         return Alert.alert('E-mail necessário', msg);
     }
 
-    const myPhone = "5541997991346";
-    const wppMessage = `Fala, Paulo! Esqueci-me da senha da app. O meu e-mail de acesso é: ${email.toLowerCase().trim()}`;
-    const wppLink = `https://wa.me/${myPhone}?text=${encodeURIComponent(wppMessage)}`;
+    if (sendingReset) return;
+    setSendingReset(true);
+    try {
+        await fetch('https://fitos-final.onrender.com/api/auth/forgot-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email.toLowerCase().trim() })
+        });
 
-    Linking.canOpenURL(wppLink)
-        .then(supported => {
-            if (!supported) {
-                if (Platform.OS === 'web') window.alert('Não foi possível abrir o WhatsApp.');
-                else Alert.alert('Erro', 'WhatsApp não encontrado no telemóvel.');
-            } else {
-                return Linking.openURL(wppLink);
-            }
-        })
-        .catch(err => console.error('An error occurred', err));
+        // A resposta é sempre genérica (segurança) — então a mensagem também é
+        const msg = "Se este e-mail estiver cadastrado, enviamos um link de redefinição para ele. 📬\n\nConfira sua caixa de entrada (e o spam). O link vale por 1 hora.";
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Verifique seu e-mail', msg);
+    } catch (e) {
+        const msg = "Erro de conexão. Verifique sua internet e tente novamente.";
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert('Erro', msg);
+    } finally {
+        setSendingReset(false);
+    }
   };
 
   const isWeb = Platform.OS === 'web';

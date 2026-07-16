@@ -158,7 +158,11 @@ export const ExerciseCard = ({
         <ExerciseCardMedia
           thumbLink={thumbLink} videoLink={videoLink} videoRef={videoRef} handleOpenVideo={handleOpenVideo}
           topTechInfo={topTechInfo} colors={colors} setSelectedTech={setSelectedTech} setTechModalVisible={setTechModalVisible}
-          showTools={showTools} hasPremiumFeatures={hasPremiumFeatures} onOpenCalc={onOpenCalc} setModalVisible={setModalVisible}
+          showTools={showTools} hasPremiumFeatures={hasPremiumFeatures} onOpenCalc={onOpenCalc} 
+          
+          // 🔥 TRAVA INJETADA AQUI!
+          setModalVisible={setModalVisible}
+          
           exerciseTitle={exerciseTitle} topVideoText={topVideoText}
           howToExecute={howToExecute} commonMistakes={commonMistakes}
           maleFocus={maleFocus} femaleFocus={femaleFocus} studentGender={studentGender}

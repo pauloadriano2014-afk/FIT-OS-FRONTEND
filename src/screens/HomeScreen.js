@@ -2,11 +2,12 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    StatusBar, RefreshControl, ActivityIndicator, Platform, Modal, Animated, Linking
+    StatusBar, RefreshControl, ActivityIndicator, Platform, Modal, Animated, Linking, Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
 // ── Hook de dados ──────────────────────────────────────────────────────────
@@ -25,6 +26,8 @@ import DietGuideModal         from '../components/DietGuideModal';
 import StudentReportModal     from '../components/StudentReportModal';
 import InitialPhotosModal     from '../components/InitialPhotosModal';
 import SatisfactionSurveyModal from '../components/SatisfactionSurveyModal';
+// 💳 NOVO: Modal de pagamento via Asaas (PIX/Cartão/Boleto)
+import FinancePaymentModal    from '../components/FinancePaymentModal';
 
 export default function HomeScreen({ navigation }) {
     const { theme } = useTheme();
@@ -44,11 +47,34 @@ export default function HomeScreen({ navigation }) {
     const [upsellModalVisible,       setUpsellModalVisible]       = useState(false);
     const [upsellFeature,            setUpsellFeature]            = useState('');
 
-    // 🔥 Estado para o Modal da Anamnese Pendente
+    // 💳 NOVO: Modal de pagamento (checkout Asaas)
+    const [paymentModalVisible,      setPaymentModalVisible]      = useState(false);
+
     const [anamnesePendingModalVisible, setAnamnesePendingModalVisible] = useState(false);
+
+    // 🔥 Estado do Modo Coach (Impersonation)
+    const [isImpersonating, setIsImpersonating] = useState(false);
 
     // ── Animação de pulso ─────────────────────────────────────────────────
     const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    // 🔥 VERIFICAÇÃO BLINDADA DO MODO COACH (RODA ASSIM QUE A TELA ABRE) 🔥
+    useEffect(() => {
+        const checkImpersonation = async () => {
+            try {
+                const originalAdmin = await AsyncStorage.getItem('original_admin_user');
+                // Se a chave estiver no aparelho, ativa o modo Admin/Coach na hora
+                if (originalAdmin) {
+                    setIsImpersonating(true);
+                } else {
+                    setIsImpersonating(false);
+                }
+            } catch (e) {
+                console.error("Erro na validação de segurança do impersonate", e);
+            }
+        };
+        checkImpersonation();
+    }, []);
 
     // Abre modal de notice automaticamente quando activeNotice muda
     useEffect(() => {
@@ -60,7 +86,7 @@ export default function HomeScreen({ navigation }) {
         if (home.pendingFeedback) setFeedbackModalVisible(true);
     }, [home.pendingFeedback]);
 
-    // 🔥 Intercepta o aluno se tiver Anamnese Pendente
+    // Intercepta o aluno se tiver Anamnese Pendente
     useEffect(() => {
         if (home.userData?.anamnesePendente === true) {
             setAnamnesePendingModalVisible(true);
@@ -72,7 +98,7 @@ export default function HomeScreen({ navigation }) {
     useEffect(() => {
         const shouldPulse = home.isCheckinPending || home.pendingFeedback
             || home.showVideoAlert || (home.daysToPay !== null && home.daysToPay <= 3)
-            || home.userData?.anamnesePendente; // 🔥 Adicionado o pulso para a Anamnese Pendente
+            || home.userData?.anamnesePendente; 
 
         if (shouldPulse) {
             Animated.loop(
@@ -86,7 +112,6 @@ export default function HomeScreen({ navigation }) {
         }
     }, [home.isCheckinPending, home.pendingFeedback, home.showVideoAlert, home.daysToPay, home.userData?.anamnesePendente]);
 
-    // ── Carregar dados ao focar a tela e ao voltar do background ──────────
     useFocusEffect(useCallback(() => { home.loadHomeData(); }, []));
 
     useEffect(() => {
@@ -109,6 +134,33 @@ export default function HomeScreen({ navigation }) {
         else home.loadHomeData();
     };
 
+    // 🔥 VOLTAR AO MODO COACH E APAGAR RASTROS ──────────────────────────────
+    const handleStopImpersonating = async () => {
+        try {
+            const originalUserStr = await AsyncStorage.getItem('original_admin_user');
+            const originalRole = await AsyncStorage.getItem('original_admin_role');
+
+            if (originalUserStr) {
+                // Restaura os dados do Admin
+                await AsyncStorage.setItem('user', originalUserStr);
+                await AsyncStorage.setItem('role', originalRole || 'ADMIN');
+
+                // O MAIS IMPORTANTE: Apaga o rastro. Sem isso aqui, o botão não some!
+                await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
+
+                // Redireciona de volta
+                if (Platform.OS === 'web') {
+                    window.location.replace('/admin'); 
+                } else {
+                    navigation.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
+                }
+            }
+        } catch (e) {
+            console.log("Erro ao restaurar admin:", e);
+            Alert.alert("Erro", "Não foi possível retornar ao painel.");
+        }
+    };
+
     // ── Helpers derivados ─────────────────────────────────────────────────
     const { coachNameLabel, coachWhatsappNumber } = home.getCoachInfo(home.userData);
     const isFemale    = home.detectIsFemale(home.userData);
@@ -123,14 +175,17 @@ export default function HomeScreen({ navigation }) {
 
     const needsInitialPhoto = !home.hasSentInitialPhotos;
     
-    // 🔥 Removido o anamnesePendente do bloqueio total para permitir clicar no Responder Depois e fechar
     const isBlockedTotal    = isFichaExpired || isWaitingStart || needsInitialPhoto || home.isFinanceLocked;
 
     const openUpsell = (featureName) => { setUpsellFeature(featureName); setUpsellModalVisible(true); };
 
-    // 🔥 home.handleClaimPayment já inclui a confirmação amigável e o
-    // alerta de sucesso (vem do useFinanceLock.confirmAndClaimPayment).
     const handlePressClaimPayment = () => home.handleClaimPayment();
+
+    // 💳 NOVO: abre o checkout Asaas (fecha o modal de aviso antes)
+    const handleOpenPayment = () => {
+        setFinanceModalVisible(false);
+        setPaymentModalVisible(true);
+    };
 
     // ── Layout ────────────────────────────────────────────────────────────
     const isWeb         = Platform.OS === 'web';
@@ -165,6 +220,18 @@ export default function HomeScreen({ navigation }) {
                     }
                     showsVerticalScrollIndicator={false}
                 >
+                    {/* 🔥 BOTÃO DE SAÍDA DO MODO TESTE (Aparece no topo) 🔥 */}
+                    {isImpersonating && (
+                        <TouchableOpacity
+                            style={[styles.btnStopImpersonating, { shadowColor: '#FF3B30', marginTop: 10 }]}
+                            onPress={handleStopImpersonating}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialCommunityIcons name="logout-variant" size={20} color="#FFF" />
+                            <Text style={styles.btnStopImpersonatingText}>VOLTAR PARA O PAINEL COACH</Text>
+                        </TouchableOpacity>
+                    )}
+
                     {/* ── Header ─────────────────────────────────────────── */}
                     <View style={styles.header}>
                         <View style={{ flex: 1, paddingRight: 10 }}>
@@ -333,6 +400,8 @@ export default function HomeScreen({ navigation }) {
                         needsInitialPhoto={needsInitialPhoto}
                         isCheckinPending={home.isCheckinPending}
                         pendingFeedback={home.pendingFeedback}
+                        brandLogoUrl={home.brandLogoUrl}
+                        brandLogoSize={home.brandLogoSize}
                     />
                 </ScrollView>
 
@@ -356,7 +425,7 @@ export default function HomeScreen({ navigation }) {
                 MODAIS
             ════════════════════════════════════════════════════════════ */}
 
-                        {/* 🔥 Modal de Anamnese Pendente (Com Alerta Estratégico) */}
+            {/* 🔥 Modal de Anamnese Pendente (Com Alerta Estratégico) */}
             <Modal visible={anamnesePendingModalVisible} transparent animationType="fade" onRequestClose={() => setAnamnesePendingModalVisible(false)}>
                 <View style={styles.overlay}>
                     <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
@@ -382,7 +451,6 @@ export default function HomeScreen({ navigation }) {
                             <MaterialCommunityIcons name="arrow-right" size={20} color="#000" style={{ marginLeft: 8 }} />
                         </TouchableOpacity>
 
-                        {/* 🔥 Opção de pular, mas com visual mais discreto */}
                         <TouchableOpacity
                             style={{ padding: 10 }}
                             onPress={() => setAnamnesePendingModalVisible(false)}
@@ -408,25 +476,18 @@ export default function HomeScreen({ navigation }) {
 
                             <Text style={[styles.cardDesc, { color: theme.textSecondary, marginBottom: 15 }]}>
                                 O seu plano venceu e o acesso à área de treinos foi suspenso temporariamente.
-                                {'\n\n'}Se você já realizou a transferência, desconsidere este aviso enquanto o sistema computa a baixa automaticamente.
+                                {'\n'}Pague agora mesmo pelo app e libere seu acesso em segundos.
                             </Text>
 
-                            <View style={[styles.pixBox, { backgroundColor: theme.isDark ? '#111' : '#F2F2F7', borderColor: theme.border }]}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                                    <MaterialCommunityIcons name="qrcode" size={16} color={theme.accent} />
-                                    <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 }}>PAGAMENTO IMEDIATO VIA PIX</Text>
-                                </View>
-                                <Text selectable style={{ color: theme.text, fontSize: 14, fontWeight: '900', letterSpacing: 0.2 }}>42.942.651/000140</Text>
-                                <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700', marginTop: 3 }}>PA ELITE TEAM LTDA</Text>
-                            </View>
+                            {/* 💳 NOVO: PAGAR AGORA (PIX/CARTÃO/BOLETO via Asaas) */}
+                            <TouchableOpacity
+                                style={[styles.btn, { backgroundColor: theme.accent, marginBottom: 10 }]}
+                                onPress={handleOpenPayment}
+                            >
+                                <Text style={[styles.btnText, { color: '#000' }]}>PAGAR AGORA (PIX/CARTÃO)</Text>
+                                <MaterialCommunityIcons name="qrcode-scan" size={20} color="#000" style={{ marginLeft: 8 }} />
+                            </TouchableOpacity>
 
-                            <Text style={{ color: theme.textSecondary, fontSize: 11, textAlign: 'center', marginBottom: 20, paddingHorizontal: 5, lineHeight: 16 }}>
-                                *Caso prefira realizar o pagamento através de um{' '}
-                                <Text style={{ fontWeight: 'bold', color: theme.text }}>Link de Pagamento</Text>
-                                {' '}de cartão, entre em contato com seu responsável abaixo para receber uma fatura atualizada.
-                            </Text>
-
-                            {/* 🔥 ESTADO 1: Prazo de carência esgotado — já tentou "já paguei" e passaram os 2 dias */}
                             {home.paymentClaimExpired && (
                                 <View style={[styles.claimExpiredBox, { backgroundColor: '#FF950022', borderColor: '#FF9500' }]}>
                                     <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#FF9500" />
@@ -436,7 +497,6 @@ export default function HomeScreen({ navigation }) {
                                 </View>
                             )}
 
-                            {/* 🔥 ESTADO 2: Pode reivindicar — mostra o botão "Já paguei" */}
                             {home.canClaimPayment && (
                                 <TouchableOpacity
                                     style={[styles.btn, { backgroundColor: theme.surface, borderWidth: 1, borderColor: '#32ADE6', marginBottom: 10 }]}
@@ -445,7 +505,7 @@ export default function HomeScreen({ navigation }) {
                                 >
                                     {home.isClaimingPayment ? <ActivityIndicator color="#32ADE6" /> : (
                                         <>
-                                            <Text style={[styles.btnText, { color: '#32ADE6' }]}>JÁ PAGUEI, REGISTRAR</Text>
+                                            <Text style={[styles.btnText, { color: '#32ADE6' }]}>PAGUEI POR FORA, REGISTRAR</Text>
                                             <MaterialCommunityIcons name="check-circle-outline" size={20} color="#32ADE6" style={{ marginLeft: 8 }} />
                                         </>
                                     )}
@@ -470,6 +530,15 @@ export default function HomeScreen({ navigation }) {
                     </View>
                 </Modal>
             )}
+
+            {/* 💳 NOVO: Modal de Checkout Asaas (QR PIX + CPF + fatura) */}
+            <FinancePaymentModal
+                visible={paymentModalVisible}
+                onClose={() => setPaymentModalVisible(false)}
+                theme={theme}
+                userId={home.userData?.id}
+                onPaid={() => home.loadHomeData()}
+            />
 
             {/* Modal Upsell */}
             <Modal visible={upsellModalVisible} transparent animationType="fade">
@@ -579,6 +648,29 @@ const styles = StyleSheet.create({
     container:  { flex: 1, paddingTop: Platform.OS === 'android' ? require('react-native').StatusBar.currentHeight + 10 : 0 },
     center:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
     inner:      { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
+    
+    // 🔥 ESTILO DO BOTÃO DE SAÍDA
+    btnStopImpersonating: {
+        backgroundColor: '#FF3B30',
+        padding: 16,
+        marginBottom: 20,
+        borderRadius: 14,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        elevation: 6,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5
+    },
+    btnStopImpersonatingText: {
+        color: '#FFF',
+        fontWeight: '900',
+        marginLeft: 10,
+        fontSize: 13,
+        letterSpacing: 0.5
+    },
+
     header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
     greeting:   { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
     name:       { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },

@@ -1,7 +1,14 @@
 // src/components/Admin/AdminUserDietTab.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// 🔥 IDs MASTER PARA BLINDAGEM NATIVA
+const MASTER_IDS = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
 
 export default function AdminUserDietTab({
     theme,
@@ -15,42 +22,78 @@ export default function AdminUserDietTab({
     isDietTabVisible,
     handleToggleDietTab,
     navigation,
-    DIET_OPTIONS
+    DIET_OPTIONS,
+    isMasterCoach
 }) {
+    const [safeIsMaster, setSafeIsMaster] = useState(false);
+    const [isCheckingSecurity, setIsCheckingSecurity] = useState(true);
+
+    // 🔥 VERIFICAÇÃO NATIVA (Roda direto no celular do usuário antes de mostrar a tela)
+    useEffect(() => {
+        const verifyMasterAccess = async () => {
+            try {
+                const userJson = await AsyncStorage.getItem('user');
+                if (userJson) {
+                    const userObj = JSON.parse(userJson);
+                    setSafeIsMaster(MASTER_IDS.includes(userObj.id));
+                }
+            } catch (e) {
+                console.log("Erro na verificação de segurança:", e);
+            } finally {
+                setIsCheckingSecurity(false);
+            }
+        };
+        verifyMasterAccess();
+    }, []);
+
+    if (isCheckingSecurity) {
+        return (
+            <View style={[styles.tabContent, { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 }]}>
+                <ActivityIndicator size="large" color={theme.accent} />
+            </View>
+        );
+    }
+
     return (
         <View style={styles.tabContent}>
-            <Text style={[styles.sectionLabel, { color: theme.accent }]}>LABORATÓRIO NUTRICIONAL (IA)</Text>
-            <Text style={[styles.sectionSubDesc, { marginBottom: 15 }]}>Gerencie a visibilidade e a montagem do plano alimentar deste aluno.</Text>
+            <Text style={[styles.sectionLabel, { color: theme.accent }]}>LABORATÓRIO NUTRICIONAL</Text>
+            <Text style={[styles.sectionSubDesc, { marginBottom: 15 }]}>Gerencie a visibilidade e a sugestão do plano alimentar deste aluno.</Text>
 
-            <View style={[styles.accessCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 15 }]}>
-                <View style={[styles.iconBox, { backgroundColor: theme.bg }]}><MaterialCommunityIcons name="food-apple" size={24} color={isDietTabVisible ? theme.accent : theme.textSecondary} /></View>
-                <View style={{ flex: 1, marginLeft: 15, paddingRight: 10 }}>
-                    <Text style={[styles.accessTitle, { color: theme.text }]}>Liberar Aba "Dieta" no App</Text>
-                    <Text style={styles.accessCategory}>Se ativado, a maçã ficará visível no celular do aluno.</Text>
-                </View>
-                <Switch 
-                    value={isDietTabVisible} 
-                    onValueChange={handleToggleDietTab} 
-                    trackColor={{ false: '#333', true: theme.accent }} 
-                    thumbColor={Platform.OS === 'ios' ? '#FFF' : (isDietTabVisible ? '#000' : '#888')} 
-                />
-            </View>
+            {/* 🔥 BLOCO 1 E 2: A MAÇÃ E A MESA DE OPERAÇÕES SÓ APARECEM PARA MASTER 🔥 */}
+            {safeIsMaster && (
+                <>
+                    <View style={[styles.accessCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 15 }]}>
+                        <View style={[styles.iconBox, { backgroundColor: theme.bg }]}><MaterialCommunityIcons name="food-apple" size={24} color={isDietTabVisible ? theme.accent : theme.textSecondary} /></View>
+                        <View style={{ flex: 1, marginLeft: 15, paddingRight: 10 }}>
+                            <Text style={[styles.accessTitle, { color: theme.text }]}>Liberar Aba "Dieta" no App</Text>
+                            <Text style={styles.accessCategory}>Se ativado, a maçã ficará visível no celular do aluno.</Text>
+                        </View>
+                        <Switch 
+                            value={isDietTabVisible} 
+                            onValueChange={handleToggleDietTab} 
+                            trackColor={{ false: '#333', true: theme.accent }} 
+                            thumbColor={Platform.OS === 'ios' ? '#FFF' : (isDietTabVisible ? '#000' : '#888')} 
+                        />
+                    </View>
 
-            <TouchableOpacity style={[styles.aiDietBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]} onPress={() => navigation.navigate('AdminDietScreen', { aluno: freshAluno || aluno, alunoId: (freshAluno || aluno).id })}>
-                <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="view-dashboard-edit-outline" size={22} color={theme.accent} /></View>
-                <View style={{ flex: 1, marginLeft: 15 }}>
-                    <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>ABRIR MESA DE OPERAÇÕES</Text>
-                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>Montar dieta com Tabela TACO e Macros</Text>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={24} color={theme.accent} />
-            </TouchableOpacity>
+                    <TouchableOpacity style={[styles.aiDietBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]} onPress={() => navigation.navigate('AdminDietScreen', { aluno: freshAluno || aluno, alunoId: (freshAluno || aluno).id })}>
+                        <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="view-dashboard-edit-outline" size={22} color={theme.accent} /></View>
+                        <View style={{ flex: 1, marginLeft: 15 }}>
+                            <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>ABRIR MESA DE OPERAÇÕES</Text>
+                            <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>Montar dieta com Tabela TACO e Macros</Text>
+                        </View>
+                        <MaterialCommunityIcons name="chevron-right" size={24} color={theme.accent} />
+                    </TouchableOpacity>
+                </>
+            )}
 
-            <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 15 }]}>
+            {/* 🔥 BLOCO 3: ESTRATÉGIA GENÉRICA (PDF) - LIBERADA PARA TODO MUNDO 🔥 */}
+            <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: safeIsMaster ? 15 : 0 }]}>
                 <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
                     <View style={[styles.iconBoxSmall, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}><MaterialCommunityIcons name="clipboard-text-outline" size={18} color={theme.textSecondary} /></View>
                     <View style={{ flex: 1 }}>
-                        <Text style={[styles.cardTitle, { color: theme.text }]}>Estratégia Básica (Fallback)</Text>
-                        <Text style={{ color: theme.textSecondary, fontSize: 11 }}>Sugestão genérica em PDF para alunos que não possuem a dieta prescrita na Mesa de Operações.</Text>
+                        <Text style={[styles.cardTitle, { color: theme.text }]}>Estratégia e Sugestão Alimentar</Text>
+                        <Text style={{ color: theme.textSecondary, fontSize: 11 }}>Libera um PDF de sugestão pré-montado baseado no objetivo do aluno.</Text>
                     </View>
                 </View>
                 <View style={{ padding: 20 }}>
@@ -70,11 +113,12 @@ export default function AdminUserDietTab({
                     ))}
                     {(userPlan !== 'CHALLENGE_21' && userPlan !== 'CHALLENGE21') && (
                         <TouchableOpacity style={[styles.saveBtnLg, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, width: '100%', marginTop: 10, flexDirection: 'row', gap: 8, height: 48 }]} onPress={handleSaveDietGoal} disabled={savingDiet}>
-                            {savingDiet ? <ActivityIndicator color={theme.text} /> : (<><MaterialCommunityIcons name="content-save" size={18} color={theme.text} /><Text style={{ color: theme.text, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 }}>SALVAR ESTRATÉGIA BÁSICA</Text></>)}
+                            {savingDiet ? <ActivityIndicator color={theme.text} /> : (<><MaterialCommunityIcons name="content-save" size={18} color={theme.text} /><Text style={{ color: theme.text, fontWeight: '900', fontSize: 12, letterSpacing: 0.5 }}>SALVAR ESTRATÉGIA</Text></>)}
                         </TouchableOpacity>
                     )}
                 </View>
             </View>
+            
         </View>
     );
 }

@@ -12,6 +12,9 @@ const QUICK_QUESTIONS = [
     "🚨 Estou com dor na articulação!"
 ];
 
+// 🔥 ID DO PAULO (MASTER) PARA SALVAR ALUNOS ÓRFÃOS 🔥
+const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
+
 export function useHomeData() {
     const [loading, setLoading]           = useState(true);
     const [refreshing, setRefreshing]     = useState(false);
@@ -40,7 +43,11 @@ export function useHomeData() {
     const [isEliteAwaitingCoach, setIsEliteAwaitingCoach] = useState(false);
     const [disableCheckIn, setDisableCheckIn]             = useState(false);
 
-    // 🔥 FINANCEIRO + CLAIM DE PAGAMENTO — agora centralizado no useFinanceLock
+    // 🔥 WHITE-LABEL (LOGO DO COACH) 🔥
+    const [brandLogoUrl, setBrandLogoUrl] = useState(null);
+    const [brandLogoSize, setBrandLogoSize] = useState(220); // Estado novo guardando o tamanho
+
+    // 🔥 FINANCEIRO + CLAIM DE PAGAMENTO
     const finance = useFinanceLock();
 
     // Feedback do coach
@@ -145,20 +152,49 @@ export function useHomeData() {
             if (user.currentXP) setXp(user.currentXP);
 
             try {
-                const t = Date.now(); // Quebra-cache natural sem bloquear CORS
-                const fetchCoachId = user.coachId || '';
+                const t = Date.now(); 
+                
+                // 🔥 FALLBACK DE COACH: Se o aluno não tiver Coach amarrado, puxa o do Paulo!
+                let fetchCoachId = user.coachId || user.nutritionistId || PAULO_ID;
 
-                const [homeRes, checkinRes, noticeRes, resUserDirect, resContents] = await Promise.all([
+                // CHEAT CODE DE TESTE: Puxa a logo de quem está usando o botão "Visualizar App"
+                const originalAdminStr = await AsyncStorage.getItem('original_admin_user');
+                let cachedAdminLogo = null;
+                let cachedAdminLogoSize = 220; // Cache do tamanho
+                if (originalAdminStr) {
+                    const adminObj = JSON.parse(originalAdminStr);
+                    fetchCoachId = adminObj.id; // Força buscar a logo de quem tá testando
+                    if (adminObj.brandLogoUrl) cachedAdminLogo = adminObj.brandLogoUrl;
+                    if (adminObj.brandLogoSize) cachedAdminLogoSize = adminObj.brandLogoSize;
+                }
+
+                const [homeRes, checkinRes, noticeRes, resUserDirect, resContents, resCoach] = await Promise.all([
                     fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
                     fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
                     fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
                     fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`)
+                    fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`),
+                    fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?t=${t}`)
                 ]);
 
                 let fetchedUser     = { ...user };
                 let hasPhotosInDb   = false;
                 let unreadFeedback  = null;
+
+                // ── Marca (White-Label) Absoluta ──────────────────────────
+                if (cachedAdminLogo) {
+                    setBrandLogoUrl(cachedAdminLogo);
+                    setBrandLogoSize(cachedAdminLogoSize); // 🔥 PEGA TAMANHO DO CACHE
+                } else if (resCoach.ok) {
+                    const coachData = await resCoach.json();
+                    if (coachData && coachData.brandLogoUrl) {
+                        setBrandLogoUrl(coachData.brandLogoUrl);
+                        setBrandLogoSize(coachData.brandLogoSize || 220); // 🔥 PEGA TAMANHO DO BANCO
+                    } else {
+                        setBrandLogoUrl(null);
+                        setBrandLogoSize(220);
+                    }
+                }
 
                 // ── Conteúdos / vídeos novos ──────────────────────────────
                 if (resContents.ok) {
@@ -221,7 +257,7 @@ export function useHomeData() {
                         for (let camada of camadas) {
                             if (camada && typeof camada.anamnesePendente !== 'undefined') {
                                 isAnamnesePendente = !!camada.anamnesePendente;
-                                break; // Achou a resposta real do banco, para de procurar!
+                                break;
                             }
                         }
 
@@ -230,20 +266,9 @@ export function useHomeData() {
                             ...(homeData?.user || {}), 
                             ...directUserData,
                             currentXP: serverXP, 
-                            anamnesePendente: isAnamnesePendente // Crava a verdade absoluta aqui
+                            anamnesePendente: isAnamnesePendente 
                         };
 
-                        // 🔥 FINANCEIRO + CLAIM — agora delegado ao useFinanceLock,
-                        // usando exatamente o mesmo objeto homeData.user que será
-                        // a fonte de verdade em TODAS as telas (Home, Treinos, Dieta).
-                        //
-                        // IMPORTANTE: aqui usamos computeFinanceState/applyFinanceState
-                        // diretamente (em vez de fetchFinanceStatus) porque já temos o
-                        // homeData.user em mãos e não queremos uma segunda requisição.
-                        // Mas isso significa que o financeUserId interno do hook nunca
-                        // é setado sozinho — por isso sincronizamos manualmente abaixo,
-                        // senão o botão "Já paguei" na Home não sabe pra qual usuário
-                        // registrar o claim e falha silenciosamente.
                         const financeState = finance.computeFinanceState(homeData.user);
                         finance.applyFinanceState(financeState);
                         finance.setFinanceUserId(user.id);
@@ -319,7 +344,7 @@ export function useHomeData() {
                 setHasSentInitialPhotos(hasPhotosInDb);
 
                 let checkinPending = false;
-                let checkinLate    = false; // 🔥 Variável corrigida
+                let checkinLate    = false;
                 let futureDateStr  = null;
                 let eliteAwaiting  = false;
 
@@ -351,7 +376,7 @@ export function useHomeData() {
                 }
 
                 setIsCheckinPending(checkinPending);
-                setIsCheckinLate(checkinLate); // 🔥 Chamada corrigida
+                setIsCheckinLate(checkinLate);
                 setScheduledCheckInDate(futureDateStr);
                 setIsEliteAwaitingCoach(eliteAwaiting);
 
@@ -539,6 +564,10 @@ export function useHomeData() {
         isCheckinPending, isCheckinLate, scheduledCheckInDate,
         isEliteAwaitingCoach, disableCheckIn,
 
+        // 🔥 BRANDING (Logomarca e Tamanho)
+        brandLogoUrl,
+        brandLogoSize, 
+
         // 🔥 Financeiro + Claim ("Já paguei") — vindos do useFinanceLock
         daysToPay: finance.daysToPay,
         isFinanceLocked: finance.isFinanceLocked,
@@ -548,7 +577,7 @@ export function useHomeData() {
         paymentClaimDaysLeft: finance.paymentClaimDaysLeft,
         canClaimPayment: finance.canClaimPayment,
         isClaimingPayment: finance.isClaimingPayment,
-        handleClaimPayment: finance.confirmAndClaimPayment, // já inclui a confirmação amigável
+        handleClaimPayment: finance.confirmAndClaimPayment,
 
         // Feedback
         pendingFeedback, isMarkingAsRead, markFeedbackAsRead,

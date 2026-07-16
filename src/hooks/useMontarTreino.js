@@ -642,7 +642,8 @@ export function useMontarTreino(route, navigation) {
 
     const fetchStudentsForClone = async () => {
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?t=${Date.now()}`);
+            // 🔥 INJETANDO O ADMIN ID NA REQUISIÇÃO (Ativa a Muralha do Admin User Route) 🔥
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${adminId}&t=${Date.now()}`);
             if (res.ok) setCloneStudentsList((await res.json()).filter(u => u.role !== 'ADMIN'));
         } catch(e) {}
     };
@@ -650,7 +651,8 @@ export function useMontarTreino(route, navigation) {
     const fetchWorkoutsOfStudent = async (studentId) => {
         setSelectedCloneStudent(studentId);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${studentId}&t=${Date.now()}`);
+            // 🔥 INJETANDO O ADMIN ID NA REQUISIÇÃO (Para passar pela muralha do Workout) 🔥
+            const res = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${studentId}&adminId=${adminId}&t=${Date.now()}`);
             if(res.ok) setCloneWorkoutsList(await res.json());
         } catch(e) {}
     };
@@ -907,11 +909,9 @@ export function useMontarTreino(route, navigation) {
 
         setExercisesByDay(newExercisesByDay);
 
-        const envMsg = totalFilteredOut > 0 ? `
-${totalFilteredOut} removido(s) por incompatibilidade com o ambiente.` : '';
+        const envMsg = totalFilteredOut > 0 ? `\n${totalFilteredOut} removido(s) por incompatibilidade com o ambiente.` : '';
         const msg = totalFilled > 0
-            ? `✅ ${totalFilled} exercício(s) preenchidos em todos os dias!${totalAlreadyFull > 0 ? `
-${totalAlreadyFull} já estavam completos.` : ''}${envMsg}`
+            ? `✅ ${totalFilled} exercício(s) preenchidos em todos os dias!${totalAlreadyFull > 0 ? `\n${totalAlreadyFull} já estavam completos.` : ''}${envMsg}`
             : `Nenhum exercício para preencher.${envMsg}`;
 
         if (Platform.OS === 'web') window.alert(msg);
@@ -1085,7 +1085,9 @@ ${totalAlreadyFull} já estavam completos.` : ''}${envMsg}`
                 body: JSON.stringify({ 
                     userId: aluno?.id, name: customWorkoutName, workoutModel,
                     intensityMultiplier, intensityEndDate: finalIntensityEndDate ? finalIntensityEndDate.toISOString() : null,
-                    exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false 
+                    exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false,
+                    // 🔥 ADICIONANDO ADMIN ID AQUI PARA PASSAR PELA MURALHA DO BACKEND 🔥
+                    adminId: adminId
                 }) 
             });
             if (!response.ok) throw new Error("Erro");

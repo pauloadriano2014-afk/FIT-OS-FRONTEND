@@ -9,7 +9,17 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
         displayCat += ` • ${item.subCategory.toUpperCase()}`;
     }
 
-    const envTags = item.environments || ['ACADEMIA'];
+    const rawTags = item.environments || ['ACADEMIA'];
+    
+    // 🔥 LÓGICA DE UX PARA LIMPAR AS TAGS (REGRA UNIVERSAL E REGRA +X)
+    let displayedTags = [];
+    if (rawTags.includes('UNIVERSAL')) {
+        displayedTags = ['UNIVERSAL'];
+    } else if (rawTags.length > 2) {
+        displayedTags = [rawTags[0], rawTags[1], `+${rawTags.length - 2} LOCAIS`];
+    } else {
+        displayedTags = rawTags;
+    }
 
     return (
         <TouchableOpacity 
@@ -45,8 +55,8 @@ const ExerciseCard = React.memo(({ item, onPress, onEdit, onDelete, width, theme
                 <Text style={[styles.mfitCategory, { color: theme.textSecondary }]}>{displayCat}</Text>
 
                 <View style={styles.tagsContainer}>
-                    {envTags.map(env => (
-                        <View key={env} style={[styles.envBadge, { backgroundColor: theme.accent + '15' }]}>
+                    {displayedTags.map((env, index) => (
+                        <View key={`${env}-${index}`} style={[styles.envBadge, { backgroundColor: theme.accent + '15' }]}>
                             <Text style={[styles.envBadgeText, { color: theme.accent }]}>{env}</Text>
                         </View>
                     ))}

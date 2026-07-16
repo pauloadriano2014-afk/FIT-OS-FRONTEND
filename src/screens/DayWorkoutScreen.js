@@ -31,6 +31,12 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { width } = Dimensions.get('window');
 
+// 🔥 IDs do time Master para a trava do botão de IA 🔥
+const MASTER_IDS = [
+  '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+  'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
+
 const RPE_OPTIONS = [
   { val: 10, label: 'FALHA TOTAL', desc: 'Não subia mais nada', color: '#BF5AF2' },
   { val: 9, label: 'MUITO INTENSO', desc: 'Sobrou 1 repetição', color: '#FF3B30' },
@@ -154,7 +160,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
   };
 
   const handleOpenIA = (item) => {
-    if (data.userPlan === 'PREMIUM') {
+    // 🔥 Permite acesso se for ELITE ou PREMIUM
+    if (data.userPlan === 'PREMIUM' || data.userPlan === 'ELITE') {
       try {
         const refVideo = item.exercise?.videoUrl || item.videoUrl || '';
         navigation.navigate('ScannerIA', {
@@ -169,7 +176,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
   };
 
   const handleOpenCalc = () => {
-    if (data.userPlan === 'PREMIUM') setCalcModalVisible(true);
+    if (data.userPlan === 'PREMIUM' || data.userPlan === 'ELITE') setCalcModalVisible(true);
     else openDynamicUpsell('calc');
   };
 
@@ -204,7 +211,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
   };
 
   const handleStartTimerRequest = () => {
-    if (!data.hasSentInitialPhotos && data.userPlan !== 'PREMIUM') setInitialPhotosModalVisible(true);
+    if (!data.hasSentInitialPhotos && data.userPlan !== 'PREMIUM' && data.userPlan !== 'ELITE') setInitialPhotosModalVisible(true);
     else timer.executeStartTimer();
   };
 
@@ -212,7 +219,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const getPhotoModalContent = () => {
     switch (data.userPlan) {
-      case 'PREMIUM': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Para mapear sua evolução na Consultoria Elite, faça o seu primeiro registro. É rápido e 100% sigiloso.', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'FAZER DEPOIS', showEscape: true };
+      case 'PREMIUM': 
+      case 'ELITE': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Para mapear sua evolução na Consultoria Elite, faça o seu primeiro registro. É rápido e 100% sigiloso.', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'FAZER DEPOIS', showEscape: true };
       case 'LOW_COST': return { title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸', desc: 'Para acompanharmos sua progressão no plano, precisamos do seu registro inicial. Sem ele, a evolução não existe!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'IR PARA O TREINO', showEscape: false };
       case 'FICHA_8S': return { title: 'FOTOS DO DIA 1 PENDENTES ⚠️', desc: 'Suas fotos de ponto de partida são essenciais para a avaliação de encerramento do Projeto. O envio é obrigatório para começar!', btnText: 'ENVIAR FOTOS DO DIA 1', escapeText: 'TREINAR MESMO ASSIM', showEscape: false };
       case 'CHALLENGE_21': return { title: 'FOTOS DO DIA 1 — OBRIGATÓRIAS ⚠️', desc: 'O Desafio de 21 Dias depende das fotos iniciais para medir o seu resultado final. Sem o "antes", não existe "depois".', btnText: 'ENVIAR FOTOS E COMEÇAR', escapeText: 'TREINAR MESMO ASSIM', showEscape: false };
@@ -262,37 +270,46 @@ export default function DayWorkoutScreen({ route, navigation }) {
     ) : null
   );
 
-  const renderExerciseBlock = ({ item }) => (
-    <ExpandableExerciseBlock
-      block={item} 
-      isExpanded={!!expandedBlocks[item.id]} // 🔥 Agora lê o objeto corretamente
-      onToggle={() => toggleBlock(item.id)} 
-      theme={theme}
-      lastWeights={data.lastWeights} 
-      historyWeights={data.historyWeights} 
-      handleSaveWeight={data.handleSaveWeight} 
-      checkedSets={data.checkedSets} 
-      handleCheckSet={data.handleCheckSet}
-      handleOpenVideo={handleOpenVideo} 
-      handleOpenIA={handleOpenIA} 
-      handleOpenCalc={handleOpenCalc}
-      hasPremiumFeatures={data.userPlan === 'PREMIUM'} 
-      workoutModel={data.workoutModel} 
-      TECH_GUIDE={data.techGuide} 
-      setTechModalVisible={setTechModalVisible} 
-      setSelectedTech={setSelectedTech}
-      handleSwap={data.handleSwap} 
-      isTimerRunning={timer.isTimerRunning} 
-      isVoiceEnabled={voice.isVoiceEnabled}
-      colors={{ 
-        bg: theme.bg, surface: theme.surface, border: theme.border, 
-        text: theme.text, textMuted: theme.textSecondary, primary: theme.accent, 
-        primaryText: theme.isDark ? '#000' : '#FFF', inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5', 
-        glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)' 
-      }}
-      userData={data.userData}
-    />
-  );
+  const renderExerciseBlock = ({ item }) => {
+    // 🔥 VERIFICA SE O ALUNO PERTENCE AO TIME MASTER 🔥
+    const currentCoachId = data.userData?.coachId || data.userData?.nutritionistId;
+    const isMasterStudent = currentCoachId ? MASTER_IDS.includes(currentCoachId) : false;
+
+    return (
+      <ExpandableExerciseBlock
+        block={item} 
+        isExpanded={!!expandedBlocks[item.id]} 
+        onToggle={() => toggleBlock(item.id)} 
+        theme={theme}
+        lastWeights={data.lastWeights} 
+        historyWeights={data.historyWeights} 
+        handleSaveWeight={data.handleSaveWeight} 
+        checkedSets={data.checkedSets} 
+        handleCheckSet={data.handleCheckSet}
+        handleOpenVideo={handleOpenVideo} 
+        
+        // 🔥 PASSANDO NULL PARA OCULTAR O BOTÃO SE NÃO FOR ALUNO MASTER 🔥
+        handleOpenIA={isMasterStudent ? handleOpenIA : null} 
+        
+        handleOpenCalc={handleOpenCalc}
+        hasPremiumFeatures={data.userPlan === 'PREMIUM' || data.userPlan === 'ELITE'} 
+        workoutModel={data.workoutModel} 
+        TECH_GUIDE={data.techGuide} 
+        setTechModalVisible={setTechModalVisible} 
+        setSelectedTech={setSelectedTech}
+        handleSwap={data.handleSwap} 
+        isTimerRunning={timer.isTimerRunning} 
+        isVoiceEnabled={voice.isVoiceEnabled}
+        colors={{ 
+          bg: theme.bg, surface: theme.surface, border: theme.border, 
+          text: theme.text, textMuted: theme.textSecondary, primary: theme.accent, 
+          primaryText: theme.isDark ? '#000' : '#FFF', inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5', 
+          glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)' 
+        }}
+        userData={data.userData}
+      />
+    );
+  };
 
   return (
     <RootComponent style={rootStyle}>
@@ -329,7 +346,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
               keyboardShouldPersistTaps="handled"
               bounces={false}
               overScrollMode="never"
-              removeClippedSubviews={false} // 🔥 DEVE FICAR FALSE! Se ficar true, itens somem ao dar scroll e a tela pula.
+              removeClippedSubviews={false} 
             />
          </View>
       </View>

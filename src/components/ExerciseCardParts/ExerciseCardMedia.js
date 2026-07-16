@@ -55,10 +55,14 @@ export default function ExerciseCardMedia({
                 <MaterialCommunityIcons name="calculator" size={14} color="#FFF" />
                 <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold', includeFontPadding: false }}>CALCULAR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={setModalVisible}>
-                <MaterialCommunityIcons name="camera-metering-spot" size={14} color="#FFF" />
-                <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold', includeFontPadding: false }}>ANÁLISE IA</Text>
-              </TouchableOpacity>
+              
+              {/* 🔥 A TRAVA VEM AQUI! Só desenha o botão de IA se houver uma função válida! */}
+              {setModalVisible && (
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 20, gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' }} onPress={setModalVisible}>
+                  <MaterialCommunityIcons name="camera-metering-spot" size={14} color="#FFF" />
+                  <Text style={{ color: '#FFF', fontSize: 10, fontWeight: 'bold', includeFontPadding: false }}>ANÁLISE IA</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 

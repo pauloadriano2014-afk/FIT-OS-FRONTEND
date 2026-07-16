@@ -22,6 +22,13 @@ export default function RegisterScreen({ navigation, route }) {
       if (urlParams.get('plan')) initPlan = urlParams.get('plan');
   }
 
+  // 🔥 BIFURCAÇÃO: null = tela de escolha | 'STUDENT' | 'COACH'
+  // Se veio código pelo link de convite, já pula direto pro fluxo de aluno
+  const [profileType, setProfileType] = useState(initCode ? 'STUDENT' : null);
+
+  // 🔥 Tela de "aguardando aprovação" (pós-cadastro de coach)
+  const [coachPendingScreen, setCoachPendingScreen] = useState(false);
+
   const [form, setForm] = useState({
     accessCode: initCode, 
     name: '',
@@ -29,7 +36,10 @@ export default function RegisterScreen({ navigation, route }) {
     phone: '',
     gender: '',
     email: '',
-    password: ''
+    password: '',
+    // 🔥 Campos do fluxo COACH
+    cpf: '',
+    instagram: '',
   });
 
   // 🔥 ESTADOS DOS TERMOS JURÍDICOS
@@ -50,21 +60,40 @@ export default function RegisterScreen({ navigation, route }) {
       setForm({...form, phone: formatted});
   };
 
+  const handleCpfChange = (val) => {
+      let f = val.replace(/\D/g, '').substring(0, 11);
+      if (f.length > 9) f = `${f.substring(0,3)}.${f.substring(3,6)}.${f.substring(6,9)}-${f.substring(9)}`;
+      else if (f.length > 6) f = `${f.substring(0,3)}.${f.substring(3,6)}.${f.substring(6)}`;
+      else if (f.length > 3) f = `${f.substring(0,3)}.${f.substring(3)}`;
+      setForm({...form, cpf: f});
+  };
+
+  const notify = (title, msg) => {
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert(title, msg);
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // REGISTRO DE ALUNO (fluxo original, intacto)
+  // ═══════════════════════════════════════════════════════════
   const handleRegister = async () => {
     if (!form.accessCode) {
-        return Alert.alert("Acesso Negado 🔒", "O Código de Convite é obrigatório. Solicite ao seu treinador.");
+        return notify("Acesso Negado 🔒", "O Código de Convite é obrigatório. Solicite ao seu treinador.");
     }
 
     if (!form.email || !form.password || !form.name) {
-      Alert.alert("Campos Obrigatórios", "Por favor, preencha pelo menos Nome, E-mail e Senha.");
-      return;
+      return notify("Campos Obrigatórios", "Por favor, preencha pelo menos Nome, E-mail e Senha.");
+    }
+
+    // 🔥 CPF OBRIGATÓRIO (facilita a cobrança automática depois)
+    const studentCpfDigits = form.cpf.replace(/\D/g, '');
+    if (studentCpfDigits.length !== 11) {
+        return notify("CPF Inválido", "Digite os 11 números do seu CPF. Ele é necessário para a emissão das suas cobranças.");
     }
 
     // 🔥 TRAVA DE SEGURANÇA
     if (!acceptedTerms) {
-        const msg = "Você precisa ler e aceitar os Termos de Uso e Responsabilidade Técnica para criar sua conta.";
-        if (Platform.OS === 'web') return window.alert(msg);
-        return Alert.alert("Aceite Obrigatório", msg);
+        return notify("Aceite Obrigatório", "Você precisa ler e aceitar os Termos de Uso e Responsabilidade Técnica para criar sua conta.");
     }
 
     setLoading(true);
@@ -73,12 +102,14 @@ export default function RegisterScreen({ navigation, route }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
         body: JSON.stringify({
+          accountType: 'STUDENT',
           name: form.name.trim(),
           email: form.email.trim().toLowerCase(),
           password: form.password,
           birthDate: form.birthDate || "",
           phone: form.phone || "",
           gender: form.gender || "Não informado",
+          cpf: studentCpfDigits, // 🔥 CPF JÁ COLETADO NO CADASTRO
           inviteCode: form.accessCode.trim(),
           plan: initPlan // 🔥 GARANTIDO QUE VAI ENVIAR O PLANO CERTO
         })
@@ -97,10 +128,6 @@ export default function RegisterScreen({ navigation, route }) {
         if (isAutoPlan) {
             navigation.navigate('SetupTreino', { userData: data.user });
         } else {
-            // 🔥 PERFORMANCE e ELITE caem na MESMA TELA.
-            // O que manda se aparecem ou não as perguntas de nutrição
-            // é o campo 'dietModule' ou se o initPlan for 'ELITE'
-            
             // Força a injeção do dietModule no objeto userData se o plano for ELITE
             const isElite = ['ELITE', 'VIP'].includes(initPlan);
             if (isElite) {
@@ -111,13 +138,58 @@ export default function RegisterScreen({ navigation, route }) {
             navigation.navigate('Anamnese', { userData: data.user });
         } 
       } else {
-        const errorMsg = data.error || "Não foi possível realizar o cadastro.";
-        if(Platform.OS === 'web') window.alert(errorMsg);
-        else Alert.alert("Atenção", errorMsg);
+        notify("Atenção", data.error || "Não foi possível realizar o cadastro.");
       }
     } catch (error) {
-      if(Platform.OS === 'web') window.alert("Erro de Conexão. Verifique sua internet.");
-      else Alert.alert("Erro de Conexão", "Verifique sua internet ou tente novamente.");
+      notify("Erro de Conexão", "Verifique sua internet ou tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ═══════════════════════════════════════════════════════════
+  // 🔥 REGISTRO DE COACH (novo fluxo com aprovação)
+  // ═══════════════════════════════════════════════════════════
+  const handleRegisterCoach = async () => {
+    if (!form.name || !form.email || !form.password) {
+      return notify("Campos Obrigatórios", "Preencha pelo menos Nome, E-mail e Senha.");
+    }
+    const cpfDigits = form.cpf.replace(/\D/g, '');
+    if (cpfDigits.length !== 11) {
+      return notify("CPF Inválido", "Digite os 11 números do seu CPF.");
+    }
+    if (!form.phone) {
+      return notify("WhatsApp Obrigatório", "Precisamos do seu WhatsApp para entrar em contato na aprovação.");
+    }
+    if (!acceptedTerms) {
+        return notify("Aceite Obrigatório", "Você precisa ler e aceitar os Termos de Uso para criar sua conta.");
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('https://fitos-final.onrender.com/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          accountType: 'COACH',
+          name: form.name.trim(),
+          email: form.email.trim().toLowerCase(),
+          password: form.password,
+          phone: form.phone,
+          cpf: cpfDigits,
+          instagram: form.instagram.trim(),
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setCoachPendingScreen(true); // 🔥 mostra a tela de "aguardando aprovação"
+      } else {
+        notify("Atenção", data.error || "Não foi possível realizar o cadastro.");
+      }
+    } catch (error) {
+      notify("Erro de Conexão", "Verifique sua internet ou tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -130,6 +202,104 @@ export default function RegisterScreen({ navigation, route }) {
   const rootStyle = isWeb
     ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
     : { flex: 1, backgroundColor: theme.bg };
+
+  // ═══════════════════════════════════════════════════════════
+  // 🎉 TELA: CADASTRO DE COACH RECEBIDO (aguardando aprovação)
+  // ═══════════════════════════════════════════════════════════
+  if (coachPendingScreen) {
+    return (
+      <RootComponent style={rootStyle}>
+        <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, justifyContent: 'center', padding: 30, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+            <View style={{ alignItems: 'center' }}>
+                <View style={{ width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.accent + '22', marginBottom: 25 }}>
+                    <MaterialCommunityIcons name="clock-check-outline" size={44} color={theme.accent} />
+                </View>
+                <Text style={{ color: theme.text, fontSize: 24, fontWeight: '900', letterSpacing: 0.5, textAlign: 'center', marginBottom: 12 }}>
+                    CADASTRO RECEBIDO! 🎉
+                </Text>
+                <Text style={{ color: theme.textSecondary, fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 30 }}>
+                    Sua solicitação de acesso como <Text style={{ color: theme.accent, fontWeight: 'bold' }}>Coach</Text> foi enviada para análise.
+                    {'\n\n'}Nossa equipe vai revisar seu perfil e liberar seu acesso em até <Text style={{ color: theme.text, fontWeight: 'bold' }}>24 horas</Text>. Você será avisado pelo WhatsApp cadastrado.
+                </Text>
+                <TouchableOpacity 
+                    style={{ width: '100%', padding: 20, borderRadius: 16, backgroundColor: theme.accent, alignItems: 'center' }}
+                    onPress={() => navigation.goBack()}
+                >
+                    <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 15, letterSpacing: 1 }}>VOLTAR AO LOGIN</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </RootComponent>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 🔀 TELA: ESCOLHA DE PERFIL (bifurcação)
+  // ═══════════════════════════════════════════════════════════
+  if (!profileType) {
+    return (
+      <RootComponent style={rootStyle}>
+        <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center', backgroundColor: theme.bg, padding: 25, justifyContent: 'center', ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+            
+            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border, position: 'absolute', top: 25, left: 25 }]}>
+                <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
+            </TouchableOpacity>
+
+            <View style={{ marginBottom: 35 }}>
+                <Text style={[styles.title, { color: theme.text, textAlign: 'center' }]}>CRIAR <Text style={{color: theme.accent}}>CONTA</Text></Text>
+                <Text style={[styles.subtitle, { color: theme.textSecondary, textAlign: 'center' }]}>Como você quer usar o app?</Text>
+            </View>
+
+            {/* SOU ALUNO */}
+            <TouchableOpacity 
+                style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.accent }]}
+                onPress={() => setProfileType('STUDENT')}
+                activeOpacity={0.8}
+            >
+                <View style={[styles.profileIcon, { backgroundColor: theme.accent + '22' }]}>
+                    <MaterialCommunityIcons name="dumbbell" size={30} color={theme.accent} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 15 }}>
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>SOU ALUNO(A)</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 17 }}>
+                        Tenho um código de convite do meu treinador e quero começar meus treinos.
+                    </Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={26} color={theme.accent} />
+            </TouchableOpacity>
+
+            {/* SOU COACH */}
+            <TouchableOpacity 
+                style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 15 }]}
+                onPress={() => setProfileType('COACH')}
+                activeOpacity={0.8}
+            >
+                <View style={[styles.profileIcon, { backgroundColor: '#32ADE622' }]}>
+                    <MaterialCommunityIcons name="clipboard-account-outline" size={30} color="#32ADE6" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 15 }}>
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>SOU COACH / PERSONAL</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, marginTop: 3, lineHeight: 17 }}>
+                        Quero usar a plataforma para gerenciar e cobrar meus próprios alunos.
+                    </Text>
+                </View>
+                <MaterialCommunityIcons name="chevron-right" size={26} color="#32ADE6" />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 35}}>
+              <Text style={{color: theme.textSecondary, textAlign: 'center', fontSize: 13}}>
+                  Já tem conta? <Text style={{color: theme.accent, fontWeight: 'bold'}}>Faça Login</Text>
+              </Text>
+            </TouchableOpacity>
+        </View>
+      </RootComponent>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // 📝 FORMULÁRIOS (aluno = original | coach = novo)
+  // ═══════════════════════════════════════════════════════════
+  const isCoachFlow = profileType === 'COACH';
 
   return (
     <RootComponent style={rootStyle}>
@@ -144,84 +314,158 @@ export default function RegisterScreen({ navigation, route }) {
             keyboardShouldPersistTaps="handled"
           >
             
-            <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <TouchableOpacity onPress={() => setProfileType(null)} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
             </TouchableOpacity>
 
             <View style={{marginBottom: 30}}>
-                <Text style={[styles.title, { color: theme.text }]}>NOVO <Text style={{color: theme.accent}}>MEMBRO</Text></Text>
-                <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Seu primeiro passo rumo ao resultado</Text>
+                {isCoachFlow ? (
+                    <>
+                        <Text style={[styles.title, { color: theme.text }]}>NOVO <Text style={{color: '#32ADE6'}}>COACH</Text></Text>
+                        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Cadastre-se para análise e liberação do acesso</Text>
+                    </>
+                ) : (
+                    <>
+                        <Text style={[styles.title, { color: theme.text }]}>NOVO <Text style={{color: theme.accent}}>MEMBRO</Text></Text>
+                        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>Seu primeiro passo rumo ao resultado</Text>
+                    </>
+                )}
             </View>
 
             <View style={styles.inputGroup}>
               
-              <View style={[styles.vipCard, { borderColor: theme.accent, backgroundColor: theme.accent + '11' }]}>
-                  <Text style={[styles.labelHighlight, { color: theme.accent }]}>CÓDIGO DE CONVITE *</Text>
-                  <View style={styles.codeContainer}>
-                    <MaterialCommunityIcons name="shield-key" size={20} color={theme.accent} style={{marginRight: 10}} />
-                    <TextInput 
-                        style={[styles.codeInput, { color: theme.text }]} 
-                        placeholder="Ex: PATEAM ou CURVAS" 
-                        placeholderTextColor={theme.textSecondary}
-                        autoCapitalize="characters"
-                        value={form.accessCode}
-                        onChangeText={(val) => setForm({...form, accessCode: val})}
-                    />
-                  </View>
-              </View>
+              {/* CÓDIGO DE CONVITE — só no fluxo de aluno */}
+              {!isCoachFlow && (
+                <View style={[styles.vipCard, { borderColor: theme.accent, backgroundColor: theme.accent + '11' }]}>
+                    <Text style={[styles.labelHighlight, { color: theme.accent }]}>CÓDIGO DE CONVITE *</Text>
+                    <View style={styles.codeContainer}>
+                      <MaterialCommunityIcons name="shield-key" size={20} color={theme.accent} style={{marginRight: 10}} />
+                      <TextInput 
+                          style={[
+                              styles.codeInput, 
+                              { color: theme.text },
+                              initCode ? { opacity: 0.6 } : {} // Reduz opacidade visual se estiver bloqueado
+                          ]} 
+                          placeholder="Código do seu treinador" 
+                          placeholderTextColor={theme.textSecondary}
+                          autoCapitalize="characters"
+                          value={form.accessCode}
+                          editable={!initCode} // 🔥 BLOQUEIO DE SEGURANÇA AQUI
+                          onChangeText={(val) => setForm({...form, accessCode: val})}
+                      />
+                    </View>
+                </View>
+              )}
 
               <Text style={[styles.label, { color: theme.textSecondary }]}>NOME COMPLETO *</Text>
               <TextInput 
                 style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-                placeholder="Como quer ser chamado?" 
+                placeholder={isCoachFlow ? "Seu nome profissional" : "Como quer ser chamado?"} 
                 placeholderTextColor={theme.textSecondary}
                 value={form.name}
                 onChangeText={(val) => setForm({...form, name: val})}
               />
 
-              <View style={styles.row}>
-                <View style={{flex: 1, marginRight: 10}}>
-                  <Text style={[styles.label, { color: theme.textSecondary }]}>NASCIMENTO</Text>
+              {isCoachFlow ? (
+                <>
+                  {/* 🔥 FLUXO COACH: CPF + WhatsApp + Instagram */}
+                  <View style={styles.row}>
+                    <View style={{flex: 1, marginRight: 10}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>CPF *</Text>
+                      <TextInput 
+                        style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                        placeholder="000.000.000-00" 
+                        placeholderTextColor={theme.textSecondary}
+                        keyboardType="numeric"
+                        maxLength={14}
+                        value={form.cpf}
+                        onChangeText={handleCpfChange}
+                      />
+                    </View>
+                    <View style={{flex: 1}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>WHATSAPP *</Text>
+                      <TextInput 
+                        style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                        placeholder="(00) 00000-0000" 
+                        placeholderTextColor={theme.textSecondary}
+                        keyboardType="phone-pad"
+                        maxLength={15}
+                        value={form.phone}
+                        onChangeText={handlePhoneChange}
+                      />
+                    </View>
+                  </View>
+
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>INSTAGRAM PROFISSIONAL</Text>
                   <TextInput 
                     style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-                    placeholder="DD/MM/AAAA" 
+                    placeholder="@seu_perfil" 
+                    placeholderTextColor={theme.textSecondary}
+                    autoCapitalize="none"
+                    value={form.instagram}
+                    onChangeText={(val) => setForm({...form, instagram: val})}
+                  />
+                </>
+              ) : (
+                <>
+                  {/* FLUXO ALUNO: original */}
+                  <View style={styles.row}>
+                    <View style={{flex: 1, marginRight: 10}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>NASCIMENTO</Text>
+                      <TextInput 
+                        style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                        placeholder="DD/MM/AAAA" 
+                        placeholderTextColor={theme.textSecondary}
+                        keyboardType="numeric"
+                        maxLength={10}
+                        value={form.birthDate}
+                        onChangeText={handleDateChange}
+                      />
+                    </View>
+                    <View style={{flex: 1}}>
+                      <Text style={[styles.label, { color: theme.textSecondary }]}>WHATSAPP</Text>
+                      <TextInput 
+                        style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                        placeholder="(00) 00000-0000" 
+                        placeholderTextColor={theme.textSecondary}
+                        keyboardType="phone-pad"
+                        maxLength={15}
+                        value={form.phone}
+                        onChangeText={handlePhoneChange}
+                      />
+                    </View>
+                  </View>
+
+                  {/* 🔥 CPF DO ALUNO (usado nas cobranças automáticas) */}
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>CPF *</Text>
+                  <TextInput 
+                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
+                    placeholder="000.000.000-00" 
                     placeholderTextColor={theme.textSecondary}
                     keyboardType="numeric"
-                    maxLength={10}
-                    value={form.birthDate}
-                    onChangeText={handleDateChange}
+                    maxLength={14}
+                    value={form.cpf}
+                    onChangeText={handleCpfChange}
                   />
-                </View>
-                <View style={{flex: 1}}>
-                  <Text style={[styles.label, { color: theme.textSecondary }]}>WHATSAPP</Text>
-                  <TextInput 
-                    style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]} 
-                    placeholder="(00) 00000-0000" 
-                    placeholderTextColor={theme.textSecondary}
-                    keyboardType="phone-pad"
-                    maxLength={15}
-                    value={form.phone}
-                    onChangeText={handlePhoneChange}
-                  />
-                </View>
-              </View>
 
-              <Text style={[styles.label, { color: theme.textSecondary }]}>GÊNERO BIOLÓGICO</Text>
-              <View style={styles.genderRow}>
-                {['Masculino', 'Feminino'].map((g) => (
-                  <TouchableOpacity 
-                    key={g} 
-                    style={[
-                        styles.genderBtn, 
-                        { backgroundColor: theme.surface, borderColor: theme.border },
-                        form.gender === g && { backgroundColor: theme.accent, borderColor: theme.accent }
-                    ]}
-                    onPress={() => setForm({...form, gender: g})}
-                  >
-                    <Text style={[styles.genderText, { color: theme.text }, form.gender === g && {color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold'}]}>{g}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+                  <Text style={[styles.label, { color: theme.textSecondary }]}>GÊNERO BIOLÓGICO</Text>
+                  <View style={styles.genderRow}>
+                    {['Masculino', 'Feminino'].map((g) => (
+                      <TouchableOpacity 
+                        key={g} 
+                        style={[
+                            styles.genderBtn, 
+                            { backgroundColor: theme.surface, borderColor: theme.border },
+                            form.gender === g && { backgroundColor: theme.accent, borderColor: theme.accent }
+                        ]}
+                        onPress={() => setForm({...form, gender: g})}
+                      >
+                        <Text style={[styles.genderText, { color: theme.text }, form.gender === g && {color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold'}]}>{g}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
 
               <Text style={[styles.label, { color: theme.textSecondary }]}>E-MAIL DE ACESSO *</Text>
               <TextInput 
@@ -264,11 +508,16 @@ export default function RegisterScreen({ navigation, route }) {
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.button, { backgroundColor: theme.accent }, (loading || !acceptedTerms) && {opacity: 0.7}]} 
-              onPress={handleRegister}
+              style={[styles.button, { backgroundColor: isCoachFlow ? '#32ADE6' : theme.accent }, (loading || !acceptedTerms) && {opacity: 0.7}]} 
+              onPress={isCoachFlow ? handleRegisterCoach : handleRegister}
               disabled={loading || !acceptedTerms}
             >
-              {loading ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> : <Text style={[styles.buttonText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR CONTA</Text>}
+              {loading 
+                ? <ActivityIndicator color={theme.isDark ? "#000" : "#FFF"} /> 
+                : <Text style={[styles.buttonText, { color: isCoachFlow ? '#FFF' : (theme.isDark ? '#000' : '#FFF') }]}>
+                    {isCoachFlow ? 'ENVIAR PARA ANÁLISE' : 'CRIAR CONTA'}
+                  </Text>
+              }
             </TouchableOpacity>
 
             <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 30}}>
@@ -354,6 +603,10 @@ const styles = StyleSheet.create({
   genderRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 25, gap: 10 },
   genderBtn: { flex: 1, padding: 16, borderWidth: 1, borderRadius: 16, alignItems: 'center' },
   genderText: { fontSize: 14, fontWeight: '500' },
+
+  // 🔥 ESTILOS DA BIFURCAÇÃO
+  profileCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 2 },
+  profileIcon: { width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center' },
   
   // 🔥 ESTILOS DOS TERMOS
   termsContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 25, paddingHorizontal: 5 },

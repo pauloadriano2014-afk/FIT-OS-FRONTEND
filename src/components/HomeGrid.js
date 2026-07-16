@@ -1,11 +1,11 @@
 // src/components/HomeGrid.js
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 /**
  * Grid de 4 atalhos rápidos (Check-in, Evolução, Histórico, PA Flix)
- * e rodapé com a marca PA TEAM.
+ * e rodapé com a marca customizada do Coach (White-Label).
  */
 export default function HomeGrid({
     theme,
@@ -20,6 +20,10 @@ export default function HomeGrid({
 
     // Pulse exclusivo do check-in (só quando não há feedback pendente)
     pendingFeedback,
+
+    // 🔥 WHITE-LABEL 🔥
+    brandLogoUrl,
+    brandLogoSize // 🔥 NOVO: Recebendo o tamanho do banco
 }) {
     const canFreeCheckin = userPlan === 'PREMIUM' || disableCheckIn;
 
@@ -101,8 +105,22 @@ export default function HomeGrid({
 
             {/* Footer */}
             <View style={styles.footer}>
-                <Text style={[styles.footerBrand, { color: theme.text }]}>PA TEAM</Text>
-                <Text style={[styles.footerSub, { color: theme.textSecondary }]}>CONSULTORIA DE PERFORMANCE</Text>
+                {brandLogoUrl ? (
+                    <Image 
+                        source={{ uri: brandLogoUrl }} 
+                        style={{ 
+                            width: brandLogoSize || 220, 
+                            height: (brandLogoSize || 220) / 3, 
+                            opacity: 0.95 
+                        }} 
+                        resizeMode="contain" 
+                    />
+                ) : (
+                    <>
+                        <Text style={[styles.footerBrand, { color: theme.text }]}>PA TEAM</Text>
+                        <Text style={[styles.footerSub, { color: theme.textSecondary }]}>CONSULTORIA DE PERFORMANCE</Text>
+                    </>
+                )}
             </View>
         </>
     );

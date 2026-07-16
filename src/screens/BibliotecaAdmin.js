@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useBibliotecaAdmin } from '../hooks/useBibliotecaAdmin';
@@ -22,6 +23,12 @@ import BulkContentModal from '../components/BibliotecaAdmin/BulkContentModal';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
     UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+// 🔥 IDs MASTER PARA BLINDAGEM VISUAL
+const MASTER_IDS = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
 
 export default function BibliotecaAdmin({ navigation }) {
     const { width } = useWindowDimensions();
@@ -39,9 +46,27 @@ export default function BibliotecaAdmin({ navigation }) {
     const [showSubCatDropdown, setShowSubCatDropdown] = useState(false);
     const [currentVideoUrl, setCurrentVideoUrl] = useState('');
     const [editingExercise, setEditingExercise] = useState(null);
-    const [bulkContentModalVisible, setBulkContentModalVisible] = useState(false); // 🔥 NOVO
+    const [bulkContentModalVisible, setBulkContentModalVisible] = useState(false);
+
+    // 🔥 ESTADOS DAS ABAS E VERIFICAÇÃO DE COACH
+    const [activeTab, setActiveTab] = useState('MEUS'); // 'MEUS' | 'ELITE'
+    const [isMaster, setIsMaster] = useState(false); // Default true para não piscar a tela
+    const [coachId, setCoachId] = useState(null);
 
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+
+    // Verifica quem está logado para exibir ou não as abas
+    useEffect(() => {
+        const checkUser = async () => {
+            const userJson = await AsyncStorage.getItem('user');
+            if (userJson) {
+                const user = JSON.parse(userJson);
+                setCoachId(user.id);
+                setIsMaster(MASTER_IDS.includes(user.id));
+            }
+        };
+        checkUser();
+    }, []);
 
     // Ocultar scrollbar no Web
     useEffect(() => {
@@ -54,10 +79,10 @@ export default function BibliotecaAdmin({ navigation }) {
         }
     }, []);
 
-    // Animação suave ao filtrar
+    // Animação suave ao filtrar ou trocar de aba
     useEffect(() => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    }, [filteredList.length, selectedCat, selectedSubCat]);
+    }, [filteredList.length, selectedCat, selectedSubCat, activeTab]);
 
     const getNumColumns = () => (width > 800 && isWeb) ? 2 : 1; 
     const numColumns = getNumColumns();
@@ -83,6 +108,29 @@ export default function BibliotecaAdmin({ navigation }) {
         fetchLibrary(); 
     };
 
+    // 🔥 LÓGICA DE SEPARAÇÃO DA LISTA NO FRONTEND 🔥
+    let displayList = isMaster ? filteredList : filteredList.filter(ex => {
+        if (activeTab === 'MEUS') return ex.coachId === coachId;
+        if (activeTab === 'ELITE') return MASTER_IDS.includes(ex.coachId) || !ex.coachId;
+        return true;
+    });
+
+    // 🔥 FILTRO ANTI-DUPLICATAS GLOBAL (PARA MASTERS E BASE ELITE) 🔥
+    if (isMaster || activeTab === 'ELITE') {
+        const uniqueExercises = [];
+        const seenNames = new Set();
+
+        displayList.forEach(ex => {
+            const exerciseName = ex.name || ex.title || '';
+            const normName = exerciseName.toLowerCase().trim();
+            if (!seenNames.has(normName)) {
+                uniqueExercises.push(ex);
+                seenNames.add(normName);
+            }
+        });
+        displayList = uniqueExercises;
+    }
+
     // Componente de Skeleton
     const renderSkeleton = () => (
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: SPACING, justifyContent: 'space-between' }}>
@@ -106,7 +154,9 @@ export default function BibliotecaAdmin({ navigation }) {
                 <MaterialCommunityIcons name="dumbbell" size={48} color={theme.textSecondary} style={{ opacity: 0.5 }} />
             </View>
             <Text style={[styles.emptyStateTitle, { color: theme.text }]}>Nenhum exercício encontrado</Text>
-            <Text style={[styles.emptyStateSub, { color: theme.textSecondary }]}>Tente buscar por outro nome ou ajuste os filtros de categoria.</Text>
+            <Text style={[styles.emptyStateSub, { color: theme.textSecondary }]}>
+                {(!isMaster && activeTab === 'MEUS') ? "Você ainda não criou nenhum exercício personalizado." : "Tente buscar por outro nome ou ajuste os filtros de categoria."}
+            </Text>
             {(filterText !== '' || selectedCat !== 'TODOS') && (
                 <TouchableOpacity 
                     style={[styles.clearFilterBtn, { backgroundColor: theme.accent + '15' }]}
@@ -119,8 +169,6 @@ export default function BibliotecaAdmin({ navigation }) {
     );
 
     const RootComponent = isWeb ? View : SafeAreaView;
-
-    // CORREÇÃO DO SCROLL: height 100vh no Web
     const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
 
     return (
@@ -142,7 +190,7 @@ export default function BibliotecaAdmin({ navigation }) {
             <View style={{ flex: 1, width: '100%', alignSelf: 'center', backgroundColor: isWeb ? 'transparent' : theme.bg }}>
                 <FlatList
                     key={`grid-${numColumns}`} 
-                    data={loading ? [] : filteredList}
+                    data={loading ? [] : displayList} // 🔥 Renderizando a lista tratada e limpa!
                     keyExtractor={item => String(item.id)}
                     numColumns={numColumns}
                     style={{ flex: 1, width: '100%' }}
@@ -163,7 +211,6 @@ export default function BibliotecaAdmin({ navigation }) {
                                     </View>
                                 </View>
                                 <View style={{ flexDirection: 'row', gap: 10 }}>
-                                    {/* 🔥 NOVO: botão de aplicação de conteúdo em lote */}
                                     <TouchableOpacity onPress={() => setBulkContentModalVisible(true)} style={[styles.iconBtn, { backgroundColor: theme.surface }]}>
                                         <MaterialCommunityIcons name="text-box-multiple-outline" size={22} color={theme.accent} />
                                     </TouchableOpacity>
@@ -182,6 +229,24 @@ export default function BibliotecaAdmin({ navigation }) {
                                     value={filterText} onChangeText={setFilterText} 
                                 />
                             </View>
+
+                            {/* 🔥 ABAS EXCLUSIVAS PARA PARCEIROS */}
+                            {!isMaster && (
+                                <View style={[styles.tabContainer, { backgroundColor: theme.surface }]}>
+                                    <TouchableOpacity 
+                                        style={[styles.tabBtn, activeTab === 'MEUS' && { backgroundColor: theme.accent }]} 
+                                        onPress={() => setActiveTab('MEUS')}
+                                    >
+                                        <Text style={[styles.tabText, activeTab === 'MEUS' ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>MEUS EXERCÍCIOS</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.tabBtn, activeTab === 'ELITE' && { backgroundColor: theme.accent }]} 
+                                        onPress={() => setActiveTab('ELITE')}
+                                    >
+                                        <Text style={[styles.tabText, activeTab === 'ELITE' ? { color: theme.isDark ? '#000' : '#FFF' } : { color: theme.textSecondary }]}>BASE ELITE</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
 
                             <TouchableOpacity 
                                 style={[styles.catSelector, { backgroundColor: theme.surface, marginBottom: (selectedCat !== 'TODOS' && subCategoriesMap[selectedCat]) ? 10 : 20 }]}
@@ -236,7 +301,7 @@ export default function BibliotecaAdmin({ navigation }) {
                                     <View style={styles.coverOverlay}>
                                         <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
                                         <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
-                                            <Text style={[styles.coverCount, { color: theme.isDark ? '#000' : '#FFF' }]}>{filteredList.length} EXERCÍCIOS</Text>
+                                            <Text style={[styles.coverCount, { color: theme.isDark ? '#000' : '#FFF' }]}>{displayList.length} EXERCÍCIOS</Text>
                                         </View>
                                     </View>
                                 </ImageBackground>
@@ -249,7 +314,6 @@ export default function BibliotecaAdmin({ navigation }) {
                     )}
                 />
 
-                {/* BOTÃO DE ADICIONAR RESTAURADO */}
                 <View style={{ width: '100%', alignItems: 'center' }}>
                     <View style={[styles.footerBar, { width: '100%', maxWidth: containerWidth, backgroundColor: theme.bg }]}>
                         <TouchableOpacity style={[styles.btnPremium, { backgroundColor: theme.accent }]} onPress={handleAddNew}>
@@ -265,7 +329,6 @@ export default function BibliotecaAdmin({ navigation }) {
             <CategoryFilterModal visible={catModalVisible} onClose={() => setCatModalVisible(false)} selectedCat={selectedCat} onSelect={(cat) => { setSelectedCat(cat); setSelectedSubCat('Todos'); }} theme={theme} />
             <ExerciseFormModal visible={formModalVisible} onClose={() => setFormModalVisible(false)} initialData={editingExercise} onSaveSuccess={onSaveSuccess} theme={theme} />
             <VideoPreviewModal visible={videoModalVisible} videoUrl={currentVideoUrl} onClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(''); }} theme={theme} />
-            {/* 🔥 NOVO: modal de aplicação de conteúdo em lote */}
             <BulkContentModal visible={bulkContentModalVisible} onClose={() => setBulkContentModalVisible(false)} theme={theme} />
         </RootComponent>
     );
@@ -278,6 +341,11 @@ const styles = StyleSheet.create({
     iconBtn: { padding: 12, borderRadius: 16 },
     searchBox: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingHorizontal: 20, height: 60, borderRadius: 20 },
     searchInput: { flex: 1, marginLeft: 12, fontSize: 16, fontWeight: '600', outlineStyle: 'none' },
+    
+    tabContainer: { flexDirection: 'row', borderRadius: 16, padding: 4, marginBottom: 20 },
+    tabBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+    tabText: { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+
     catSelector: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderRadius: 20 },
     filterIconBox: { padding: 6, borderRadius: 8 },
     catSelectorVal: { fontSize: 15, fontWeight: '800' },
@@ -290,11 +358,9 @@ const styles = StyleSheet.create({
     btnPremium: { padding: 20, borderRadius: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.2, shadowRadius: 12, elevation: 5 },
     btnTextPremium: { fontWeight: '900', fontSize: 16, letterSpacing: 0.5 },
 
-    // Skeleton Styles
     skeletonCard: { flexDirection: 'row', padding: 14, borderRadius: 20, marginBottom: 14, opacity: 0.7 },
     skeletonThumb: { width: 70, height: 70, borderRadius: 16, marginRight: 16 },
 
-    // Empty State Styles
     emptyStateContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 20 },
     emptyStateIconBox: { width: 100, height: 100, borderRadius: 50, justifyContent: 'center', alignItems: 'center', marginBottom: 24 },
     emptyStateTitle: { fontSize: 20, fontWeight: '900', marginBottom: 10, textAlign: 'center' },

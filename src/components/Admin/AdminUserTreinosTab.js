@@ -1,8 +1,15 @@
 // src/components/Admin/AdminUserTreinosTab.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Switch, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import AdminUserWorkouts from '../AdminUserWorkouts';
+
+// IDs que pertencem ao time Master (Você e a Adri)
+const MASTER_IDS = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
 
 export default function AdminUserTreinosTab({
     theme,
@@ -22,9 +29,28 @@ export default function AdminUserTreinosTab({
     isRunningModule,
     handleToggleRunningModule,
     onOpenRunningModal,
-    onOpenEliteProtocol, // 🔥 FALTAVA ESSA
+    onOpenEliteProtocol, 
 }) {
     const [ferramentasOpen, setFerramentasOpen] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState(null);
+
+    // Carrega o ID do treinador logado para aplicar as travas de patente
+    useEffect(() => {
+        const loadUser = async () => {
+            try {
+                const userStr = await AsyncStorage.getItem('user');
+                if (userStr) {
+                    const user = JSON.parse(userStr);
+                    setCurrentUserId(user.id);
+                }
+            } catch (e) {
+                console.log("Erro ao carregar usuário atual:", e);
+            }
+        };
+        loadUser();
+    }, []);
+
+    const isMasterCoach = MASTER_IDS.includes(currentUserId);
 
     return (
         <View style={styles.tabContent}>
@@ -57,7 +83,7 @@ export default function AdminUserTreinosTab({
                     borderColor: theme.accent + '66',
                 }]}>
 
-                    {/* Protocolo ELITE */}
+                    {/* Protocolo ELITE - Liberado para todos */}
                     <TouchableOpacity
                         style={[styles.ferramentaRow, { borderBottomColor: theme.border }]}
                         onPress={() => onOpenEliteProtocol?.()}
@@ -72,41 +98,43 @@ export default function AdminUserTreinosTab({
                         <MaterialCommunityIcons name="chevron-right" size={18} color={theme.accent} />
                     </TouchableOpacity>
 
-                    {/* Protocolo de Corrida + toggle inline */}
-                    <View style={[styles.ferramentaRow, { borderBottomColor: theme.border }]}>
-                        <TouchableOpacity
-                            style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 0 }}
-                            onPress={() => { if (isRunningModule && onOpenRunningModal) onOpenRunningModal(); }}
-                            activeOpacity={isRunningModule ? 0.7 : 1}
-                        >
-                            <View style={[styles.ferramentaIconBox, { backgroundColor: '#22c55e18', marginRight: 12 }]}>
-                                <MaterialCommunityIcons
-                                    name="run-fast"
-                                    size={18}
-                                    color={isRunningModule ? '#22c55e' : theme.textSecondary}
-                                />
-                            </View>
-                            <View style={{ flex: 1 }}>
-                                <Text style={[styles.ferramentaLabel, { color: isRunningModule ? '#22c55e' : theme.textSecondary }]}>
-                                    Protocolo de Corrida
-                                </Text>
-                                <Text style={[styles.ferramentaDesc, { color: theme.textSecondary }]}>
-                                    {isRunningModule ? 'Anamnese, IA e acompanhamento' : 'Módulo desativado para este aluno'}
-                                </Text>
-                            </View>
-                            {isRunningModule && (
-                                <MaterialCommunityIcons name="chevron-right" size={18} color="#22c55e" style={{ marginRight: 8 }} />
-                            )}
-                        </TouchableOpacity>
-                        <Switch
-                            value={!!isRunningModule}
-                            onValueChange={handleToggleRunningModule}
-                            trackColor={{ false: theme.border, true: '#22c55e' }}
-                            thumbColor={Platform.OS === 'ios' ? '#FFF' : (isRunningModule ? '#000' : '#888')}
-                        />
-                    </View>
+                    {/* Protocolo de Corrida - 🔒 APENAS PARA O TIME MASTER */}
+                    {isMasterCoach && (
+                        <View style={[styles.ferramentaRow, { borderBottomColor: theme.border }]}>
+                            <TouchableOpacity
+                                style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 0 }}
+                                onPress={() => { if (isRunningModule && onOpenRunningModal) onOpenRunningModal(); }}
+                                activeOpacity={isRunningModule ? 0.7 : 1}
+                            >
+                                <View style={[styles.ferramentaIconBox, { backgroundColor: '#22c55e18', marginRight: 12 }]}>
+                                    <MaterialCommunityIcons
+                                        name="run-fast"
+                                        size={18}
+                                        color={isRunningModule ? '#22c55e' : theme.textSecondary}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={[styles.ferramentaLabel, { color: isRunningModule ? '#22c55e' : theme.textSecondary }]}>
+                                        Protocolo de Corrida
+                                    </Text>
+                                    <Text style={[styles.ferramentaDesc, { color: theme.textSecondary }]}>
+                                        {isRunningModule ? 'Anamnese, IA e acompanhamento' : 'Módulo desativado para este aluno'}
+                                    </Text>
+                                </View>
+                                {isRunningModule && (
+                                    <MaterialCommunityIcons name="chevron-right" size={18} color="#22c55e" style={{ marginRight: 8 }} />
+                                )}
+                            </TouchableOpacity>
+                            <Switch
+                                value={!!isRunningModule}
+                                onValueChange={handleToggleRunningModule}
+                                trackColor={{ false: theme.border, true: '#22c55e' }}
+                                thumbColor={Platform.OS === 'ios' ? '#FFF' : (isRunningModule ? '#000' : '#888')}
+                            />
+                        </View>
+                    )}
 
-                    {/* Histórico de Cargas */}
+                    {/* Histórico de Cargas - Liberado para todos */}
                     <TouchableOpacity
                         style={[styles.ferramentaRow, { borderBottomWidth: 0 }]}
                         onPress={handleAbrirRaioxCargas}

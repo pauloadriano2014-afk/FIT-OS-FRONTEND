@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
+// src/components/AdminInviteModal.js
+import React, { useState, useEffect } from 'react';
 import { 
     View, Text, StyleSheet, Modal, TouchableOpacity, 
-    ScrollView, TextInput, Linking, Platform, Alert 
+    ScrollView, TextInput, Linking, Platform, Alert, ActivityIndicator 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// IDs que pertencem ao time Master (Você e a Adri)
+const MASTER_IDS = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
 
 // ─── Promoções ativas ────────────────────────────────────────────────────────
 const PROMO_MAES_ATIVA       = false; // já encerrou
@@ -19,9 +27,66 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const [isPromoMaes,       setIsPromoMaes]       = useState(false);
     const [isPromoNavegantes, setIsPromoNavegantes] = useState(false);
 
+    // 🔥 Estados do SAAS / White-Label 🔥
+    const [isMasterCoach, setIsMasterCoach] = useState(true);
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const [coachPlans, setCoachPlans] = useState([]);
+    const [selectedSaaSPlan, setSelectedSaaSPlan] = useState(null);
+    const [loadingSaaS, setLoadingSaaS] = useState(false);
+
+    // 🔑 NOVO: código de convite do coach parceiro (usado no link /registro)
+    // Sem isso, o cadastro direto tentava usar o UUID do coach como código
+    // e a rota de registro (que busca por inviteCode) sempre recusava.
+    const [coachInviteCode, setCoachInviteCode] = useState(null);
+
+    // Identifica e carrega os planos SaaS ao abrir o modal
+    useEffect(() => {
+        if (visible) {
+            const loadUserAndPlans = async () => {
+                try {
+                    const userStr = await AsyncStorage.getItem('user');
+                    if (userStr) {
+                        const user = JSON.parse(userStr);
+                        setCurrentUserId(user.id);
+                        
+                        const isMaster = MASTER_IDS.includes(user.id);
+                        setIsMasterCoach(isMaster);
+
+                        if (!isMaster) {
+                            setLoadingSaaS(true);
+
+                            // 🔑 Busca o inviteCode atual do coach (pode ter sido
+                            // definido na aprovação ou editado depois) junto com os planos
+                            const [planRes, userRes] = await Promise.all([
+                                fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${user.id}`),
+                                fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}`),
+                            ]);
+
+                            if (planRes.ok) {
+                                const data = await planRes.json();
+                                setCoachPlans(data.plans || []);
+                                if (data.plans && data.plans.length > 0) {
+                                    setSelectedSaaSPlan(data.plans[0].id);
+                                }
+                            }
+
+                            if (userRes.ok) {
+                                const freshUser = await userRes.json();
+                                setCoachInviteCode(freshUser.inviteCode || null);
+                            }
+
+                            setLoadingSaaS(false);
+                        }
+                    }
+                } catch (e) {
+                    console.log("Erro ao carregar dados do usuário no Modal:", e);
+                }
+            };
+            loadUserAndPlans();
+        }
+    }, [visible]);
+
     // ── Identifica QUEM está logado (Paulo ou Adri) ──────────────────────────
-    // Isso decide: (1) qual coachCode vai no link de CADASTRO,
-    // (2) qual coach= vai no link de PROPOSTA (pra rotear o WhatsApp certo na página).
     const getCoachInfo = () => {
         let coachCode = 'PATEAM';   // padrão Paulo
         let coachSlug = 'paulo';    // usado na query string ?coach=
@@ -99,7 +164,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         },
     };
 
-    // ── Gera link + mensagem de proposta ─────────────────────────────────────
+    // ── Gera link + mensagem de proposta (MASTER) ─────────────────────────────────────
     const generatePropostaLink = () => {
         const finalName = leadName.trim() || 'Atleta';
         const baseUrl   = getBaseUrl();
@@ -114,14 +179,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
             routeName = promoConfig[promoAtiva].routeName;
         }
 
-        // 🔑 ID único do link — evita que o timer de expiração colida entre
-        // testes diferentes ou leads com o mesmo nome (ex: "João" testado 2x).
-        // Cada clique em "gerar link" cria um link com identidade própria.
         const uniqueId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-
-        // 🔑 Embute SEMPRE o coach de quem está gerando o link.
-        // Isso é o que faz o botão de WhatsApp dentro da página de vendas
-        // abrir no número de quem criou o link (Paulo ou Adri).
         const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}&coach=${coachSlug}&id=${uniqueId}`;
 
         let message = '';
@@ -137,7 +195,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         openWhatsApp(message);
     };
 
-    // ── Gera link de cadastro direto ─────────────────────────────────────────
+    // ── Gera link de cadastro direto (MASTER) ─────────────────────────────────────────
     const generateCadastroLink = (planType) => {
         const { coachCode, teamName } = getCoachInfo();
         const baseUrl    = getBaseUrl();
@@ -158,7 +216,51 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         openWhatsApp(message);
     };
 
-    // ── Cor, ícone e label do botão de envio (estado atual) ──────────────────
+    // ── Gera link de proposta (COACH PARCEIRO / SAAS) ──────────────────────────────
+    const generateSaaSProposta = () => {
+        if (!selectedSaaSPlan) {
+            Alert.alert('Aviso', 'Selecione um plano para gerar a proposta.');
+            return;
+        }
+
+        const finalName = leadName.trim() || 'Atleta';
+        const baseUrl   = getBaseUrl();
+        const plan = coachPlans.find(p => p.id === selectedSaaSPlan);
+        const planName = plan ? plan.name : 'Consultoria';
+        
+        // Rota oficial da página de vendas branca do parceiro (por ID — página, não cadastro)
+        const uniqueId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+        const inviteLink = `${baseUrl}/invite/${currentUserId}?planId=${selectedSaaSPlan}&id=${uniqueId}&nome=${encodeURIComponent(finalName)}`;
+
+        const message = `Fala, ${finalName}! Tudo bem?\n\nConforme conversamos, preparei todos os detalhes sobre a nossa metodologia e o plano *${planName}*.\n\nAcesse o link abaixo para ver como vamos trabalhar juntos para atingir os seus objetivos e os valores:\n\n🔗 ${inviteLink}\n\nDá uma olhada e me chama aqui para tirarmos qualquer dúvida e darmos o start! 💪🔥`;
+        
+        openWhatsApp(message);
+    };
+
+    // ── Gera link de cadastro (COACH PARCEIRO / SAAS) ──────────────────────────────
+    const generateSaaSCadastro = (plan) => {
+        // 🔑 CORREÇÃO: a rota /registro busca o coach pelo campo inviteCode
+        // (ex: "CARLOS742"), não pelo UUID. Sem o código, o cadastro do
+        // aluno sempre falhava com "Código de convite inválido".
+        if (!coachInviteCode) {
+            const msg = 'Seu código de convite ainda não foi definido. Fale com o suporte para gerar um.';
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert('Código não encontrado', msg);
+            return;
+        }
+
+        const finalName = leadName.trim() || 'Atleta';
+        const baseUrl   = getBaseUrl();
+        
+        const inviteLink = `${baseUrl}/registro?coach=${coachInviteCode}&plan=${plan.id}`;
+        
+        const message = `Opa, ${finalName}! Chegou a hora de iniciarmos o seu *${plan.name}*.\n\nPara darmos o start oficial, acesse o link abaixo para criar a sua conta:\n\n🔗 ${inviteLink}\n\n📲 Após finalizar o cadastro, a própria página vai te mostrar o passo a passo bem simples para instalar o meu aplicativo oficial direto no seu celular.\n\n🔑 Importante: Se o aplicativo pedir um Código de Convite no seu primeiro acesso, digite exatamente assim: *${coachInviteCode}*\n\nFaça o seu cadastro por lá e me avise aqui para eu liberar o seu acesso. Seja bem-vindo(a) ao time! 💪🔥`;
+        
+        openWhatsApp(message);
+    };
+
+
+    // ── Cor, ícone e label do botão de envio (Master) ──────────────────
     const activeBtnColor = propostaType === 'FAMILIA'
         ? '#34D399'
         : promoAtiva
@@ -181,9 +283,8 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
             ? promoConfig[promoAtiva].label
             : `ENVIAR PROPOSTA ${propostaType}`;
 
-    // Quem está logado, pra mostrar no rodapé do modal (transparência pro admin)
     const { coachSlug: loggedCoachSlug } = getCoachInfo();
-    const loggedCoachLabel = loggedCoachSlug === 'adri' ? 'Adri' : 'Paulo';
+    const loggedCoachLabel = isMasterCoach ? (loggedCoachSlug === 'adri' ? 'Adri' : 'Paulo') : 'Treinador Parceiro';
 
     // ────────────────────────────────────────────────────────────────────────
     return (
@@ -199,11 +300,11 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                         </TouchableOpacity>
                     </View>
 
-                    {/* Indicador de quem está logado — confirma o roteamento do WhatsApp */}
+                    {/* Indicador de quem está logado */}
                     <View style={[styles.loggedAsBadge, { borderColor: theme.border, backgroundColor: theme.bg }]}>
                         <MaterialCommunityIcons name="account-check" size={14} color={theme.textSecondary} />
                         <Text style={[styles.loggedAsText, { color: theme.textSecondary }]}>
-                            Links gerados como <Text style={{ fontWeight: '900', color: theme.text }}>{loggedCoachLabel}</Text> — o WhatsApp da página abrirá no número de {loggedCoachLabel}.
+                            Links gerados como <Text style={{ fontWeight: '900', color: theme.text }}>{loggedCoachLabel}</Text> — o WhatsApp da página abrirá no seu número.
                         </Text>
                     </View>
 
@@ -246,110 +347,123 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     onChangeText={setLeadName}
                                 />
 
-                                {/* Tipo de oferta */}
-                                <Text style={[styles.inputLabel, { color: theme.text, marginTop: 20 }]}>TIPO DE OFERTA:</Text>
-                                <View style={[styles.propostaTypeContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
-                                    <TouchableOpacity
-                                        style={[styles.propostaTypeBtn, propostaType === 'ELITE' && { backgroundColor: '#FFCC00' }]}
-                                        onPress={() => { setPropostaType('ELITE'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
-                                    >
-                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'ELITE' ? '#000' : theme.textSecondary }]}>
-                                            ELITE / PERF.
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.propostaTypeBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
-                                        onPress={() => { setPropostaType('START'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
-                                    >
-                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>
-                                            START
-                                        </Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.propostaTypeBtn, propostaType === 'FAMILIA' && { backgroundColor: '#34D399' }]}
-                                        onPress={() => { setPropostaType('FAMILIA'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
-                                    >
-                                        <Text style={[styles.propostaTypeText, { color: propostaType === 'FAMILIA' ? '#000' : theme.textSecondary }]}>
-                                            FAMÍLIA
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
-
-                                {/* ── Toggles de promoção (só aparecem no tipo ELITE) ── */}
-                                {propostaType === 'ELITE' && (
-                                    <View style={styles.promosWrapper}>
-                                        <Text style={[styles.promosLabel, { color: theme.textSecondary }]}>CAMPANHAS ATIVAS:</Text>
-
-                                        {PROMO_MAES_ATIVA && (
+                                {/* Lógica Master (PA TEAM) */}
+                                {isMasterCoach ? (
+                                    <>
+                                        <Text style={[styles.inputLabel, { color: theme.text, marginTop: 20 }]}>TIPO DE OFERTA:</Text>
+                                        <View style={[styles.propostaTypeContainer, { backgroundColor: theme.bg, borderColor: theme.border, marginBottom: 10 }]}>
                                             <TouchableOpacity
-                                                style={[
-                                                    styles.promoToggle,
-                                                    isPromoMaes && { backgroundColor: '#E91E6315', borderColor: '#E91E6340', borderWidth: 1 },
-                                                ]}
-                                                onPress={togglePromoMaes}
+                                                style={[styles.propostaTypeBtn, propostaType === 'ELITE' && { backgroundColor: '#FFCC00' }]}
+                                                onPress={() => { setPropostaType('ELITE'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
                                             >
-                                                <MaterialCommunityIcons
-                                                    name={isPromoMaes ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                                                    size={20}
-                                                    color={isPromoMaes ? '#E91E63' : theme.textSecondary}
-                                                />
-                                                <Text style={[styles.promoToggleText, { color: isPromoMaes ? '#E91E63' : theme.textSecondary }]}>
-                                                    {isPromoMaes ? '💖 PROMOÇÃO DIA DAS MÃES ATIVADA' : 'ATIVAR PROMOÇÃO DIA DAS MÃES'}
-                                                </Text>
+                                                <Text style={[styles.propostaTypeText, { color: propostaType === 'ELITE' ? '#000' : theme.textSecondary }]}>ELITE / PERF.</Text>
                                             </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.propostaTypeBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
+                                                onPress={() => { setPropostaType('START'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
+                                            >
+                                                <Text style={[styles.propostaTypeText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>START</Text>
+                                            </TouchableOpacity>
+                                            <TouchableOpacity
+                                                style={[styles.propostaTypeBtn, propostaType === 'FAMILIA' && { backgroundColor: '#34D399' }]}
+                                                onPress={() => { setPropostaType('FAMILIA'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
+                                            >
+                                                <Text style={[styles.propostaTypeText, { color: propostaType === 'FAMILIA' ? '#000' : theme.textSecondary }]}>FAMÍLIA</Text>
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {propostaType === 'ELITE' && (
+                                            <View style={styles.promosWrapper}>
+                                                <Text style={[styles.promosLabel, { color: theme.textSecondary }]}>CAMPANHAS ATIVAS:</Text>
+
+                                                {PROMO_MAES_ATIVA && (
+                                                    <TouchableOpacity
+                                                        style={[styles.promoToggle, isPromoMaes && { backgroundColor: '#E91E6315', borderColor: '#E91E6340', borderWidth: 1 }]}
+                                                        onPress={togglePromoMaes}
+                                                    >
+                                                        <MaterialCommunityIcons name={isPromoMaes ? 'checkbox-marked' : 'checkbox-blank-outline'} size={20} color={isPromoMaes ? '#E91E63' : theme.textSecondary} />
+                                                        <Text style={[styles.promoToggleText, { color: isPromoMaes ? '#E91E63' : theme.textSecondary }]}>
+                                                            {isPromoMaes ? '💖 PROMOÇÃO DIA DAS MÃES ATIVADA' : 'ATIVAR PROMOÇÃO DIA DAS MÃES'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+
+                                                {PROMO_NAMORADOS_ATIVA && (
+                                                    <TouchableOpacity
+                                                        style={[styles.promoToggle, isPromoNavegantes && { backgroundColor: '#E8003D15', borderColor: '#E8003D40', borderWidth: 1 }]}
+                                                        onPress={togglePromoNavegantes}
+                                                    >
+                                                        <MaterialCommunityIcons name={isPromoNavegantes ? 'checkbox-marked' : 'checkbox-blank-outline'} size={20} color={isPromoNavegantes ? '#E8003D' : theme.textSecondary} />
+                                                        <Text style={[styles.promoToggleText, { color: isPromoNavegantes ? '#E8003D' : theme.textSecondary }]}>
+                                                            {isPromoNavegantes ? '❤️‍🔥 PROMOÇÃO DIA DOS NAMORADOS ATIVADA' : 'ATIVAR PROMOÇÃO DIA DOS NAMORADOS'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+
+                                                {!PROMO_MAES_ATIVA && !PROMO_NAMORADOS_ATIVA && (
+                                                    <Text style={[styles.promoToggleText, { color: theme.textSecondary, paddingLeft: 4 }]}>Nenhuma campanha ativa no momento.</Text>
+                                                )}
+                                            </View>
                                         )}
 
-                                        {PROMO_NAMORADOS_ATIVA && (
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.promoToggle,
-                                                    isPromoNavegantes && { backgroundColor: '#E8003D15', borderColor: '#E8003D40', borderWidth: 1 },
-                                                ]}
-                                                onPress={togglePromoNavegantes}
-                                            >
-                                                <MaterialCommunityIcons
-                                                    name={isPromoNavegantes ? 'checkbox-marked' : 'checkbox-blank-outline'}
-                                                    size={20}
-                                                    color={isPromoNavegantes ? '#E8003D' : theme.textSecondary}
-                                                />
-                                                <Text style={[styles.promoToggleText, { color: isPromoNavegantes ? '#E8003D' : theme.textSecondary }]}>
-                                                    {isPromoNavegantes ? '❤️‍🔥 PROMOÇÃO DIA DOS NAMORADOS ATIVADA' : 'ATIVAR PROMOÇÃO DIA DOS NAMORADOS'}
-                                                </Text>
-                                            </TouchableOpacity>
-                                        )}
+                                        <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 15, textAlign: 'center' }}>
+                                            {propostaType === 'ELITE'
+                                                ? 'Página Principal (Treino + Dieta)'
+                                                : propostaType === 'START'
+                                                    ? 'Plano de Entrada (Ficha de Treino)'
+                                                    : 'Plano Família — condição fixa, sem data para expirar'}
+                                        </Text>
 
-                                        {!PROMO_MAES_ATIVA && !PROMO_NAMORADOS_ATIVA && (
-                                            <Text style={[styles.promoToggleText, { color: theme.textSecondary, paddingLeft: 4 }]}>
-                                                Nenhuma campanha ativa no momento.
+                                        <TouchableOpacity
+                                            style={[styles.optionCard, { borderColor: activeBtnColor, backgroundColor: `${activeBtnColor}11` }]}
+                                            onPress={generatePropostaLink}
+                                        >
+                                            <View style={styles.optionLeft}>
+                                                <MaterialCommunityIcons name={activeBtnIcon} size={24} color={activeBtnColor} />
+                                                <Text style={[styles.optionText, { color: activeBtnColor, fontWeight: '900' }]}>{activeBtnLabel}</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color={activeBtnColor} />
+                                        </TouchableOpacity>
+                                    </>
+                                ) : (
+                                    /* Lógica SaaS Parceiro */
+                                    <View style={{ marginTop: 20 }}>
+                                        <Text style={[styles.inputLabel, { color: theme.text }]}>SELECIONE O PLANO DA PÁGINA:</Text>
+                                        {loadingSaaS ? (
+                                            <ActivityIndicator size="small" color={theme.accent} style={{ marginVertical: 20 }} />
+                                        ) : coachPlans.length === 0 ? (
+                                            <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10, marginBottom: 20 }}>
+                                                Você ainda não criou nenhum plano. Acesse "Sistema {'>'} Vendas" para cadastrar seus planos.
                                             </Text>
+                                        ) : (
+                                            <View style={{ gap: 10, marginBottom: 20 }}>
+                                                {coachPlans.map(plan => (
+                                                    <TouchableOpacity 
+                                                        key={plan.id}
+                                                        style={[styles.propostaTypeBtn, { borderWidth: 1, borderColor: selectedSaaSPlan === plan.id ? theme.accent : theme.border, backgroundColor: selectedSaaSPlan === plan.id ? theme.accent + '22' : theme.surface }]}
+                                                        onPress={() => setSelectedSaaSPlan(plan.id)}
+                                                    >
+                                                        <Text style={[styles.propostaTypeText, { color: selectedSaaSPlan === plan.id ? theme.accent : theme.textSecondary, fontSize: 12 }]}>
+                                                            {plan.name} - R$ {plan.value.toFixed(2)}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
                                         )}
+
+                                        <TouchableOpacity
+                                            style={[styles.optionCard, { borderColor: theme.accent, backgroundColor: `${theme.accent}11`, opacity: coachPlans.length === 0 ? 0.5 : 1 }]}
+                                            onPress={generateSaaSProposta}
+                                            disabled={coachPlans.length === 0}
+                                        >
+                                            <View style={styles.optionLeft}>
+                                                <MaterialCommunityIcons name="link-variant" size={24} color={theme.accent} />
+                                                <Text style={[styles.optionText, { color: theme.accent, fontWeight: '900' }]}>GERAR LINK DA PÁGINA</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color={theme.accent} />
+                                        </TouchableOpacity>
                                     </View>
                                 )}
-
-                                <Text style={{ fontSize: 10, color: theme.textSecondary, marginBottom: 15, textAlign: 'center' }}>
-                                    {propostaType === 'ELITE'
-                                        ? 'Página Principal (Treino + Dieta)'
-                                        : propostaType === 'START'
-                                            ? 'Plano de Entrada (Ficha de Treino)'
-                                            : 'Plano Família — condição fixa, sem data para expirar'}
-                                </Text>
-
-                                {/* Botão de envio */}
-                                <TouchableOpacity
-                                    style={[styles.optionCard, {
-                                        borderColor:     activeBtnColor,
-                                        backgroundColor: `${activeBtnColor}11`,
-                                    }]}
-                                    onPress={generatePropostaLink}
-                                >
-                                    <View style={styles.optionLeft}>
-                                        <MaterialCommunityIcons name={activeBtnIcon} size={24} color={activeBtnColor} />
-                                        <Text style={[styles.optionText, { color: activeBtnColor, fontWeight: '900' }]}>
-                                            {activeBtnLabel}
-                                        </Text>
-                                    </View>
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color={activeBtnColor} />
-                                </TouchableOpacity>
                             </View>
                         )}
 
@@ -369,53 +483,97 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                     onChangeText={setLeadName}
                                 />
 
-                                <View style={{ gap: 10 }}>
-                                    <TouchableOpacity style={[styles.optionCard, { borderColor: '#FFCC00', backgroundColor: '#FFCC0011' }]} onPress={() => generateCadastroLink('ELITE')}>
-                                        <View style={styles.optionLeft}>
-                                            <MaterialCommunityIcons name="crown" size={24} color="#FFCC00" />
-                                            <View>
-                                                <Text style={[styles.optionText, { color: '#FFCC00' }]}>ELITE</Text>
-                                                <Text style={{ fontSize: 9, color: '#FFCC00', fontWeight: 'bold' }}>TREINO + DIETA</Text>
+                                {isMasterCoach ? (
+                                    <View style={{ gap: 10 }}>
+                                        <TouchableOpacity style={[styles.optionCard, { borderColor: '#FFCC00', backgroundColor: '#FFCC0011' }]} onPress={() => generateCadastroLink('ELITE')}>
+                                            <View style={styles.optionLeft}>
+                                                <MaterialCommunityIcons name="crown" size={24} color="#FFCC00" />
+                                                <View>
+                                                    <Text style={[styles.optionText, { color: '#FFCC00' }]}>ELITE</Text>
+                                                    <Text style={{ fontSize: 9, color: '#FFCC00', fontWeight: 'bold' }}>TREINO + DIETA</Text>
+                                                </View>
                                             </View>
-                                        </View>
-                                        <MaterialCommunityIcons name="whatsapp" size={20} color="#FFCC00" />
-                                    </TouchableOpacity>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color="#FFCC00" />
+                                        </TouchableOpacity>
 
-                                    <TouchableOpacity style={[styles.optionCard, { borderColor: '#FF3B30', backgroundColor: '#FF3B3011' }]} onPress={() => generateCadastroLink('PERFORMANCE')}>
-                                        <View style={styles.optionLeft}>
-                                            <MaterialCommunityIcons name="weight-lifter" size={24} color="#FF3B30" />
-                                            <View>
-                                                <Text style={[styles.optionText, { color: '#FF3B30' }]}>PERFORMANCE</Text>
-                                                <Text style={{ fontSize: 9, color: '#FF3B30', fontWeight: 'bold' }}>APENAS TREINO</Text>
+                                        <TouchableOpacity style={[styles.optionCard, { borderColor: '#FF3B30', backgroundColor: '#FF3B3011' }]} onPress={() => generateCadastroLink('PERFORMANCE')}>
+                                            <View style={styles.optionLeft}>
+                                                <MaterialCommunityIcons name="weight-lifter" size={24} color="#FF3B30" />
+                                                <View>
+                                                    <Text style={[styles.optionText, { color: '#FF3B30' }]}>PERFORMANCE</Text>
+                                                    <Text style={{ fontSize: 9, color: '#FF3B30', fontWeight: 'bold' }}>APENAS TREINO</Text>
+                                                </View>
                                             </View>
-                                        </View>
-                                        <MaterialCommunityIcons name="whatsapp" size={20} color="#FF3B30" />
-                                    </TouchableOpacity>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color="#FF3B30" />
+                                        </TouchableOpacity>
 
-                                    <TouchableOpacity style={[styles.optionCard, { borderColor: '#32ADE6', backgroundColor: '#32ADE611' }]} onPress={() => generateCadastroLink('LOW_COST')}>
-                                        <View style={styles.optionLeft}>
-                                            <MaterialCommunityIcons name="rocket-launch" size={24} color="#32ADE6" />
-                                            <Text style={[styles.optionText, { color: '#32ADE6' }]}>PLANO START</Text>
-                                        </View>
-                                        <MaterialCommunityIcons name="whatsapp" size={20} color="#32ADE6" />
-                                    </TouchableOpacity>
+                                        <TouchableOpacity style={[styles.optionCard, { borderColor: '#32ADE6', backgroundColor: '#32ADE611' }]} onPress={() => generateCadastroLink('LOW_COST')}>
+                                            <View style={styles.optionLeft}>
+                                                <MaterialCommunityIcons name="rocket-launch" size={24} color="#32ADE6" />
+                                                <Text style={[styles.optionText, { color: '#32ADE6' }]}>PLANO START</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color="#32ADE6" />
+                                        </TouchableOpacity>
 
-                                    <TouchableOpacity style={[styles.optionCard, { borderColor: '#AF52DE', backgroundColor: '#AF52DE11' }]} onPress={() => generateCadastroLink('FICHA_8S')}>
-                                        <View style={styles.optionLeft}>
-                                            <MaterialCommunityIcons name="lightning-bolt" size={24} color="#AF52DE" />
-                                            <Text style={[styles.optionText, { color: '#AF52DE' }]}>FICHA 8 SEMANAS</Text>
-                                        </View>
-                                        <MaterialCommunityIcons name="whatsapp" size={20} color="#AF52DE" />
-                                    </TouchableOpacity>
+                                        <TouchableOpacity style={[styles.optionCard, { borderColor: '#AF52DE', backgroundColor: '#AF52DE11' }]} onPress={() => generateCadastroLink('FICHA_8S')}>
+                                            <View style={styles.optionLeft}>
+                                                <MaterialCommunityIcons name="lightning-bolt" size={24} color="#AF52DE" />
+                                                <Text style={[styles.optionText, { color: '#AF52DE' }]}>FICHA 8 SEMANAS</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color="#AF52DE" />
+                                        </TouchableOpacity>
 
-                                    <TouchableOpacity style={[styles.optionCard, { borderColor: '#FF9500', backgroundColor: '#FF950011' }]} onPress={() => generateCadastroLink('CHALLENGE_21')}>
-                                        <View style={styles.optionLeft}>
-                                            <MaterialCommunityIcons name="fire" size={24} color="#FF9500" />
-                                            <Text style={[styles.optionText, { color: '#FF9500' }]}>DESAFIO 21 DIAS</Text>
-                                        </View>
-                                        <MaterialCommunityIcons name="whatsapp" size={20} color="#FF9500" />
-                                    </TouchableOpacity>
-                                </View>
+                                        <TouchableOpacity style={[styles.optionCard, { borderColor: '#FF9500', backgroundColor: '#FF950011' }]} onPress={() => generateCadastroLink('CHALLENGE_21')}>
+                                            <View style={styles.optionLeft}>
+                                                <MaterialCommunityIcons name="fire" size={24} color="#FF9500" />
+                                                <Text style={[styles.optionText, { color: '#FF9500' }]}>DESAFIO 21 DIAS</Text>
+                                            </View>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color="#FF9500" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : (
+                                    /* Cadastro Direto SaaS Parceiro */
+                                    <View style={{ gap: 10 }}>
+                                        {/* 🔑 Aviso do código de convite do coach parceiro */}
+                                        {!loadingSaaS && (
+                                            <View style={[styles.loggedAsBadge, { borderColor: coachInviteCode ? theme.border : '#FF9500', backgroundColor: coachInviteCode ? theme.bg : '#FF950011', marginBottom: 4 }]}>
+                                                <MaterialCommunityIcons
+                                                    name={coachInviteCode ? 'shield-key' : 'alert-circle-outline'}
+                                                    size={14}
+                                                    color={coachInviteCode ? theme.textSecondary : '#FF9500'}
+                                                />
+                                                <Text style={[styles.loggedAsText, { color: coachInviteCode ? theme.textSecondary : '#FF9500' }]}>
+                                                    {coachInviteCode
+                                                        ? <>Seu código de convite: <Text style={{ fontWeight: '900', color: theme.text }}>{coachInviteCode}</Text></>
+                                                        : 'Código de convite não definido — fale com o suporte antes de enviar links de cadastro.'}
+                                                </Text>
+                                            </View>
+                                        )}
+
+                                        {loadingSaaS ? (
+                                            <ActivityIndicator size="small" color={theme.accent} />
+                                        ) : coachPlans.length === 0 ? (
+                                            <Text style={{ color: theme.textSecondary, fontSize: 12, textAlign: 'center', marginTop: 10 }}>Nenhum plano cadastrado.</Text>
+                                        ) : (
+                                            coachPlans.map(plan => (
+                                                <TouchableOpacity 
+                                                    key={plan.id} 
+                                                    style={[styles.optionCard, { borderColor: theme.border, backgroundColor: theme.surface, opacity: coachInviteCode ? 1 : 0.5 }]} 
+                                                    onPress={() => generateSaaSCadastro(plan)}
+                                                >
+                                                    <View style={styles.optionLeft}>
+                                                        <MaterialCommunityIcons name="rocket-launch-outline" size={24} color={theme.text} />
+                                                        <View>
+                                                            <Text style={[styles.optionText, { color: theme.text }]}>{plan.name}</Text>
+                                                            <Text style={{ fontSize: 9, color: theme.textSecondary, fontWeight: 'bold' }}>{plan.durationInMonths} Meses</Text>
+                                                        </View>
+                                                    </View>
+                                                    <MaterialCommunityIcons name="whatsapp" size={20} color={theme.text} />
+                                                </TouchableOpacity>
+                                            ))
+                                        )}
+                                    </View>
+                                )}
                             </View>
                         )}
 
@@ -443,7 +601,6 @@ const styles = StyleSheet.create({
     propostaTypeBtn: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
     propostaTypeText: { fontWeight: '900', fontSize: 10, letterSpacing: 0.3 },
 
-    // ── Promoções
     promosWrapper: { marginBottom: 10, gap: 8 },
     promosLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4 },
     promoToggle: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, gap: 8, borderWidth: 1, borderColor: 'transparent' },

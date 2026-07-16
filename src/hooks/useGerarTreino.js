@@ -8,6 +8,12 @@ import {
 } from '../components/GerarTreino/_constants';
 import { buildDefaultDays, suggestPhase, dayNeedsCardio } from '../components/GerarTreino/_helpers';
 
+// IDs que pertencem ao time Master (Você e a Adri)
+const MASTER_IDS = [
+  '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+  'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
+
 export default function useGerarTreino(navigation, route) {
   const cameFromAluno = !!(route.params?.aluno?.id);
 
@@ -45,6 +51,7 @@ export default function useGerarTreino(navigation, route) {
 
   useEffect(() => {
     loadSavedPresets();
+    checkInitialAISelection();
     if (cameFromAluno) {
       setStep(STEP_CYCLE_CONFIG);
       setLoadingStudents(false);
@@ -53,6 +60,21 @@ export default function useGerarTreino(navigation, route) {
       fetchStudents();
     }
   }, []);
+
+  const checkInitialAISelection = async () => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        // Se for um Coach parceiro, a IA padrão dele será o Gemini Flash
+        if (!MASTER_IDS.includes(user.id)) {
+          setSelectedAI('GEMINI_FLASH');
+        }
+      }
+    } catch (e) {
+      console.log("Erro ao carregar usuário logado:", e);
+    }
+  };
 
   const loadSavedPresets = async () => {
     try {
@@ -156,6 +178,10 @@ export default function useGerarTreino(navigation, route) {
     try {
       const userJson = await AsyncStorage.getItem('user');
       const adminUser = userJson ? JSON.parse(userJson) : {};
+      
+      // Resgata a chave customizada caso o coach parceiro tenha escolhido OWN_KEY
+      const customKey = await AsyncStorage.getItem(`@own_api_key_${adminUser.id}`);
+
       const anamnese = studentDetail?.anamneses?.[0];
       const allLimits = [...(anamnese?.limitacoes || []), ...(anamnese?.cirurgias || [])].map(l => l.toLowerCase());
 
@@ -174,9 +200,10 @@ export default function useGerarTreino(navigation, route) {
           };
         });
 
-      // 🔥 CORREÇÃO CIRÚRGICA: Enviando o selectedAI para a API
+      // 🔥 ENVIANDO A SELEÇÃO E A CHAVE CUSTOMIZADA (SE HOUVER) PARA A API
       const cycleConfig = {
         selectedAI, 
+        customKey: selectedAI === 'OWN_KEY' ? customKey : null,
         phase: cyclePhase,
         techniques: selectedTechniques,
         techniqueScope,
@@ -219,7 +246,7 @@ export default function useGerarTreino(navigation, route) {
       prefillData: {
         workoutName: generatedData.workoutName,
         workoutModel: generatedData.workoutModel || 'CARGA',
-        trainingEnvironment: generatedData.trainingEnvironment, // 🔥 Adicione esta linha!
+        trainingEnvironment: generatedData.trainingEnvironment,
         exercisesByDay: generatedData.exercisesByDay,
         workoutTabs: generatedData.workoutTabs,
       },

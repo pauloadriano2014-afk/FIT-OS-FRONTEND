@@ -1,9 +1,10 @@
 // src/components/AdminFinanceSystem.js
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { View, Platform, Linking, Alert, useWindowDimensions } from 'react-native';
+import { View, Platform, Linking, Alert, useWindowDimensions, Text, StyleSheet } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Utilitários
 import { calcularProximaData, calcularDataAnterior, getDueDateStatus, forceMiddayUTC } from '../utils/financeUtils';
@@ -14,6 +15,20 @@ import FinanceFilters from './AdminFinance/FinanceFilters';
 import FinanceStudentList from './AdminFinance/FinanceStudentList';
 import FinanceEditModal from './AdminFinance/FinanceEditModal';
 import FinanceAddModal from './AdminFinance/FinanceAddModal';
+// 💰 NOVO: Modal de cobrança via Asaas
+import FinanceChargeModal from './AdminFinance/FinanceChargeModal';
+// 📊 NOVO: Painel de pagamentos Asaas (webhook em tempo real)
+import AsaasPaymentsPanel from './AdminFinance/AsaasPaymentsPanel';
+
+// 🔥 FUNÇÃO: Pega o intervalo em meses de acordo com o nome do contrato
+const getInterval = (type) => {
+    const t = (type || '').toLowerCase();
+    if (t.includes('trimestral')) return 3;
+    if (t.includes('semestral')) return 6;
+    if (t.includes('anual')) return 12;
+    if (t.includes('bimestral')) return 2;
+    return 1; // Mensal é o padrão
+};
 
 export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogCoach }) {
     const { width } = useWindowDimensions();
@@ -48,6 +63,9 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
     const [editPhotoUrl, setEditPhotoUrl] = useState(''); 
     const [isUploadingEditPhoto, setIsUploadingEditPhoto] = useState(false); 
     const [isSavingContract, setIsSavingContract] = useState(false);
+
+    // 💰 NOVO: Estado do Modal de Cobrança Asaas
+    const [chargeAluno, setChargeAluno] = useState(null);
 
     // Estados do Modal de Novo Aluno
     const [isAddModalVisible, setIsAddModalVisible] = useState(false);
@@ -103,9 +121,10 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         loadOfflineClients();
     }, []);
 
-    // Cálculos (useMemo)
+    // ─── LÓGICA DE FILTRAGEM INTELIGENTE DOS MESES ───
+    
+    // 1. Junta os alunos e filtra pelo Coach
     const todosAlunosFinanceiro = useMemo(() => {
-        // 🔥 Cópia profunda (deep copy) forçada aqui para o React não ignorar a atualização
         const mix = [...localAlunos.map(a => ({...a})), ...offlineClients.map(a => ({...a}))];
         return mix.filter(a => {
             if (a.isOffline) return a.assignedCoach === coachFilter;
@@ -115,36 +134,74 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             financeCategory: aluno.financeCategory || (aluno.isOffline ? aluno.plan : 'Consultoria Online'),
             isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true
         }));
-    }, [localAlunos, offlineClients, coachFilter, getLogCoach, renderTrigger]); // 🔥 renderTrigger adicionado na dependência
+    }, [localAlunos, offlineClients, coachFilter, getLogCoach, renderTrigger]);
 
-    const metrics = useMemo(() => {
-        let entrada = 0; let pendente = 0; let previsao = 0;
-        const endOfSelectedMonth = new Date(currentYear, selectedMonth + 1, 0);
-        endOfSelectedMonth.setHours(23, 59, 59, 999);
+    // 2. Filtra QUEM ESTÁ ATIVO e QUEM COBRA no mês selecionado
+    const enrichedStudentList = useMemo(() => {
+        const targetStart = new Date(currentYear, selectedMonth, 1);
+        const targetEnd = new Date(currentYear, selectedMonth + 1, 0, 23, 59, 59, 999);
 
-        todosAlunosFinanceiro.forEach(aluno => {
-            const valor = parseFloat(aluno.contractValue) || 0;
-            const isPaid = aluno.paymentDueDate ? new Date(aluno.paymentDueDate) > endOfSelectedMonth : false;
-            if (isPaid) { entrada += valor; previsao += valor; } 
-            else if (aluno.isFinanceActive) { pendente += valor; previsao += valor; }
-        });
-        return { entrada, pendente, previsao };
+        return todosAlunosFinanceiro.map(aluno => {
+            const anchorStartStr = aluno.startDate || aluno.createdAt || new Date().toISOString();
+            const startDate = new Date(anchorStartStr);
+            
+            const startMonth = startDate.getMonth();
+            const startYear = startDate.getFullYear();
+
+            const isNewThisMonth = startYear === currentYear && startMonth === selectedMonth;
+            const started = startDate <= targetEnd;
+
+            let isBillingMonth = false;
+            if (started) {
+                const diffMonths = (currentYear - startYear) * 12 + (selectedMonth - startMonth);
+                const interval = getInterval(aluno.contractType);
+                if (diffMonths >= 0 && diffMonths % interval === 0) {
+                    isBillingMonth = true;
+                }
+            }
+
+            const dueDateStr = aluno.paymentDueDate;
+            const isPaid = dueDateStr ? new Date(dueDateStr) > targetEnd : false;
+
+            return {
+                ...aluno,
+                isPaid,
+                isBillingMonth,
+                started,
+                isNewThisMonth
+            };
+        }).filter(a => a.started); 
     }, [todosAlunosFinanceiro, selectedMonth, currentYear]);
 
-    const studentList = useMemo(() => {
-        const endOfSelectedMonth = new Date(currentYear, selectedMonth + 1, 0);
-        endOfSelectedMonth.setHours(23, 59, 59, 999);
+    // 3. Calcula as Métricas (SÓ SOMA DINHEIRO SE FOR O MÊS DE COBRANÇA DELE)
+    const metrics = useMemo(() => {
+        let entrada = 0; let pendente = 0; let previsao = 0;
 
-        let list = todosAlunosFinanceiro.map(aluno => {
-            const isPaid = aluno.paymentDueDate ? new Date(aluno.paymentDueDate) > endOfSelectedMonth : false;
-            return { ...aluno, isPaid };
+        enrichedStudentList.forEach(aluno => {
+            if (aluno.isBillingMonth) {
+                const valor = parseFloat(aluno.contractValue) || 0;
+                if (aluno.isPaid) {
+                    entrada += valor; 
+                    previsao += valor;
+                } else if (aluno.isFinanceActive) {
+                    pendente += valor; 
+                    previsao += valor;
+                }
+            }
         });
+        return { entrada, pendente, previsao };
+    }, [enrichedStudentList]);
+
+    // 4. Constrói a lista visual aplicando os filtros dos botões
+    const studentList = useMemo(() => {
+        let list = [...enrichedStudentList];
 
         if (filterStatus === 'ATIVOS') list = list.filter(a => a.isFinanceActive);
         if (filterStatus === 'INATIVOS') list = list.filter(a => !a.isFinanceActive);
         if (filterStatus === 'PAGOS') list = list.filter(a => a.isPaid && a.isFinanceActive);
         if (filterStatus === 'PENDENTES') list = list.filter(a => !a.isPaid && a.isFinanceActive);
         if (filterCategory !== 'TODOS') list = list.filter(a => a.financeCategory === filterCategory);
+        
         if (filterPrazo !== 'TODOS') {
             list = list.filter(a => {
                 if (!a.paymentDueDate) return false;
@@ -161,7 +218,26 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             list = list.filter(a => (a.name || '').toLowerCase().includes(term));
         }
         return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [todosAlunosFinanceiro, selectedMonth, currentYear, filterStatus, filterCategory, filterPrazo, searchQuery, theme]);
+    }, [enrichedStudentList, filterStatus, filterCategory, filterPrazo, searchQuery, theme]);
+
+    // ─── DADOS DO GRÁFICO DE CRESCIMENTO ───
+    const totalAtivosNoMes = enrichedStudentList.filter(a => a.isFinanceActive).length;
+    const novosNoMes = enrichedStudentList.filter(a => a.isFinanceActive && a.isNewThisMonth).length;
+    const retidosNoMes = totalAtivosNoMes - novosNoMes;
+
+    const percNovos = totalAtivosNoMes > 0 ? (novosNoMes / totalAtivosNoMes) * 100 : 0;
+    const percRetidos = totalAtivosNoMes > 0 ? (retidosNoMes / totalAtivosNoMes) * 100 : 0;
+
+    // 💰 NOVO: Abre o modal de cobrança Asaas (apenas alunos online — offline não tem conta no app)
+    const openChargeModal = (aluno) => {
+        if (aluno?.isOffline) {
+            const msg = "Alunos offline não têm conta no app. Para cobrar via Asaas, o aluno precisa ter cadastro no ELITE FIT.";
+            if (Platform.OS === 'web') window.alert(msg);
+            else Alert.alert("Aluno offline", msg);
+            return;
+        }
+        setChargeAluno(aluno);
+    };
 
     // Funções de Ação
     const handleTogglePagamento = async (aluno) => {
@@ -176,7 +252,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 const novaDataISO = isCurrentlyPaid ? calcularDataAnterior(dataBase, tipoContrato) : calcularProximaData(dataBase, tipoContrato);
                 const updatedData = { paymentDueDate: novaDataISO };
 
-                // ATUALIZAÇÃO IMEDIATA NA TELA
                 if (aluno.isOffline) {
                     const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
                     setOfflineClients([...newList]);
@@ -188,10 +263,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 const parentRef = alunos.find(a => a.id === aluno.id);
                 if (parentRef) Object.assign(parentRef, updatedData);
 
-                // 🔥 FORÇA O RE-RENDER 🔥
                 setRenderTrigger(prev => prev + 1);
 
-                // ENVIO PARA O BANCO
                 await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: aluno.id, contractType: tipoContrato, contractValue: parseFloat(aluno.contractValue) || 0, paymentDueDate: novaDataISO, financeCategory: aluno.financeCategory || 'Consultoria Online', isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true }),
@@ -323,7 +396,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
             };
 
-            // ATUALIZAÇÃO IMEDIATA NA TELA
             if (editingAluno.isOffline) {
                 const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
                 setOfflineClients([...newList]);
@@ -335,10 +407,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             const parentRef = alunos.find(a => a.id === editingAluno.id);
             if (parentRef) Object.assign(parentRef, updatedData);
 
-            // 🔥 FORÇA O RE-RENDER 🔥
             setRenderTrigger(prev => prev + 1);
 
-            // ENVIO PARA O BANCO
             await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
             });
@@ -371,7 +441,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
                 };
 
-                // ATUALIZAÇÃO IMEDIATA NA TELA
                 if (editingAluno.isOffline) {
                     const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
                     setOfflineClients([...newList]);
@@ -383,10 +452,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 const parentRef = alunos.find(a => a.id === editingAluno.id);
                 if (parentRef) Object.assign(parentRef, updatedData);
 
-                // 🔥 FORÇA O RE-RENDER 🔥
                 setRenderTrigger(prev => prev + 1);
 
-                // ENVIO PARA O BANCO
                 await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
                 });
@@ -421,7 +488,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             setOfflineClients(newList);
             await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
 
-            // 🔥 FORÇA O RE-RENDER 🔥
             setRenderTrigger(prev => prev + 1);
 
             try {
@@ -449,7 +515,6 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 setOfflineClients(newList);
                 await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
 
-                // 🔥 FORÇA O RE-RENDER 🔥
                 setRenderTrigger(prev => prev + 1);
 
                 const res = await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
@@ -494,6 +559,47 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 metrics={metrics} setIsAddModalVisible={setIsAddModalVisible} isWebPC={isWebPC} 
             />
 
+            {/* 🔥 NOVO: GRÁFICO DE MÉTRICAS DE ALUNOS (RETENÇÃO E NOVOS) 🔥 */}
+            <View style={[styles.growthCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <MaterialCommunityIcons name="google-analytics" size={20} color={theme.text} />
+                        <Text style={[styles.growthTitle, { color: theme.text }]}>DESEMPENHO DA CARTEIRA</Text>
+                    </View>
+                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: theme.text }}>
+                        Total Ativos: {totalAtivosNoMes}
+                    </Text>
+                </View>
+
+                {totalAtivosNoMes > 0 ? (
+                    <>
+                        <View style={styles.barContainer}>
+                            <View style={[styles.barSegment, { width: `${percRetidos}%`, backgroundColor: theme.accent, borderTopLeftRadius: 8, borderBottomLeftRadius: 8, borderTopRightRadius: percNovos === 0 ? 8 : 0, borderBottomRightRadius: percNovos === 0 ? 8 : 0 }]} />
+                            <View style={[styles.barSegment, { width: `${percNovos}%`, backgroundColor: '#32ADE6', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderTopLeftRadius: percRetidos === 0 ? 8 : 0, borderBottomLeftRadius: percRetidos === 0 ? 8 : 0 }]} />
+                        </View>
+                        
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <View style={[styles.legendDot, { backgroundColor: theme.accent }]} />
+                                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                                    <Text style={{ fontWeight: 'bold', color: theme.text }}>{retidosNoMes}</Text> Retidos
+                                </Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <View style={[styles.legendDot, { backgroundColor: '#32ADE6' }]} />
+                                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                                    <Text style={{ fontWeight: 'bold', color: theme.text }}>{novosNoMes}</Text> Novos Cadastros
+                                </Text>
+                            </View>
+                        </View>
+                    </>
+                ) : (
+                    <Text style={{ fontSize: 12, color: theme.textSecondary, textAlign: 'center', paddingVertical: 10 }}>
+                        Nenhum aluno ativo encontrado neste mês.
+                    </Text>
+                )}
+            </View>
+
             <FinanceFilters 
                 theme={theme} isWebPC={isWebPC} searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
                 selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} 
@@ -501,6 +607,9 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 filterPrazo={filterPrazo} setFilterPrazo={setFilterPrazo} 
                 filterCategory={filterCategory} setFilterCategory={setFilterCategory} 
             />
+
+            {/* 📊 NOVO: Painel de Pagamentos Asaas */}
+            <AsaasPaymentsPanel theme={theme} isWebPC={isWebPC} />
 
             <FinanceStudentList 
                 theme={theme} isWebPC={isWebPC} studentList={studentList} loadingId={loadingId} 
@@ -520,6 +629,7 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 handlePickEditImage={handlePickEditImage} handleSaveModalContract={handleSaveModalContract}
                 isSavingContract={isSavingContract} handleReverterPagamento={handleReverterPagamento}
                 handleDeleteOfflineClient={handleDeleteOfflineClient}
+                openChargeModal={openChargeModal}
             />
 
             <FinanceAddModal 
@@ -530,6 +640,46 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 newDueDate={newDueDate} setNewDueDate={setNewDueDate} uploadingPhoto={uploadingPhoto} newPhotoUrl={newPhotoUrl}
                 handlePickImage={handlePickImage} handleSaveNewOfflineClient={handleSaveNewOfflineClient} isSavingNew={isSavingNew}
             />
+
+            {/* 💰 NOVO: Modal de Cobrança via Asaas */}
+            <FinanceChargeModal
+                theme={theme}
+                isWebPC={isWebPC}
+                aluno={chargeAluno}
+                visible={!!chargeAluno}
+                onClose={() => setChargeAluno(null)}
+            />
         </View>
     );
 }
+
+// Estilos adicionais para o novo Gráfico de Crescimento
+const styles = StyleSheet.create({
+    growthCard: {
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 16,
+    },
+    growthTitle: {
+        fontSize: 12,
+        fontWeight: '900',
+        letterSpacing: 0.5,
+    },
+    barContainer: {
+        width: '100%',
+        height: 12,
+        backgroundColor: 'rgba(0,0,0,0.05)',
+        borderRadius: 8,
+        flexDirection: 'row',
+        overflow: 'hidden',
+    },
+    barSegment: {
+        height: '100%',
+    },
+    legendDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+    }
+});

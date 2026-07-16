@@ -56,6 +56,8 @@ import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
 import GerarTreinoIA from './src/screens/GerarTreinoIA';
 // 🔥 NOVO: Tela de Técnicas Avançadas importada
 import AdminTechniquesScreen from './src/screens/AdminTechniquesScreen';
+// 🔑 NOVO: Tela de Redefinição de Senha (link enviado por e-mail)
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -125,8 +127,16 @@ function StudentTabs({ route }) {
     );
   }
 
+  // 🔒 MÓDULO DE DIETA: exclusivo do ecossistema master (Paulo/Adri).
+  // Alunos de coaches convidados NÃO veem a aba, mesmo com dietModule/plan ELITE.
+  const MASTER_COACH_IDS = ['3c82f763-66b4-48da-836e-16817d4f57c0', 'b7c0c181-41fd-4156-b8fe-963a267759a3'];
+  const belongsToMaster =
+    !userData?.coachId || // legado: alunos antigos sem coachId são seus
+    MASTER_COACH_IDS.includes(userData?.coachId) ||
+    MASTER_COACH_IDS.includes(userData?.nutritionistId);
+
   const isElite = userData?.plan === 'ELITE' || userData?.plan === 'VIP';
-  const showDiet = userData?.dietModule === true || isElite;
+  const showDiet = (userData?.dietModule === true || isElite) && belongsToMaster;
 
   return (
     <Tab.Navigator
@@ -199,6 +209,8 @@ function RootNavigator() {
       <Stack.Screen name="Install"       component={InstallScreen} />
       <Stack.Screen name="Login"         component={LoginScreen} />
       <Stack.Screen name="Register"      component={RegisterScreen} />
+      {/* 🔑 NOVO: Redefinição de senha via link do e-mail */}
+      <Stack.Screen name="RedefinirSenha" component={ResetPasswordScreen} />
       <Stack.Screen name="Anamnese"      component={AnamneseScreen} options={{ headerShown: false, tabBarVisible: false }} />
       <Stack.Screen name="AnamneseVIP"   component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino"   component={SetupTreinoScreen} />
@@ -271,6 +283,17 @@ const linking = {
       PropostaMaes:        { path: 'PropostaMaes' },
       PropostaNavegantes:  { path: 'PropostaNavegantes' },
       PropostaFamilia:     { path: 'PropostaFamilia' },
+
+      // 🔑 Redefinição de senha (link do e-mail: /redefinir-senha?token=...)
+      RedefinirSenha: {
+        path: 'redefinir-senha',
+        parse: {
+          token: (v) => String(v),
+        },
+        stringify: {
+          token: (v) => v,
+        },
+      },
 
       // ── Dashboard admin
       AdminDashboard: { path: 'admin' },

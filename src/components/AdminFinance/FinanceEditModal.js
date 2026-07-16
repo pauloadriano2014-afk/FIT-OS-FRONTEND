@@ -13,7 +13,8 @@ export default function FinanceEditModal({
     startDateEdit, setStartDateEdit,
     paymentDueDate, setPaymentDueDate,
     handleSaveModalContract, isSavingContract,
-    handleReverterPagamento, handleDeleteOfflineClient
+    handleReverterPagamento, handleDeleteOfflineClient,
+    openChargeModal // 💰 NOVO: abre o modal de cobrança Asaas
 }) {
     if (!editingAluno) return null;
 
@@ -204,6 +205,17 @@ export default function FinanceEditModal({
                                 </TouchableOpacity>
                             </View>
                         </View>
+
+                        {/* 💰 NOVO: BOTÃO GERAR COBRANÇA VIA ASAAS (só alunos com conta no app) */}
+                        {!isOfflineClient && openChargeModal && (
+                            <TouchableOpacity
+                                style={{ backgroundColor: '#009688', padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center' }}
+                                onPress={() => openChargeModal(editingAluno)}
+                            >
+                                <Ionicons name="qr-code-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                                <Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 16 }}>GERAR COBRANÇA (PIX/CARTÃO)</Text>
+                            </TouchableOpacity>
+                        )}
 
                         {/* BOTÕES DE AÇÃO */}
                         <TouchableOpacity

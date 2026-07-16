@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TouchableOpacity, Text } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Contextos e Hooks
 import { useTheme } from '../contexts/ThemeContext';
@@ -14,7 +15,7 @@ import { useAdminDashboard } from '../hooks/useAdminDashboard';
 // Utilitários
 import { getExpirationStatus, getCheckinStatus } from '../utils/adminHelpers';
 
-// Componentes Modulares (Os que acabamos de criar)
+// Componentes Modulares
 import AdminHeader from '../components/Admin/AdminHeader';
 import AdminNavigation from '../components/Admin/AdminNavigation';
 import TabAlunos from '../components/Admin/TabAlunos';
@@ -22,9 +23,7 @@ import TabCheckins from '../components/Admin/TabCheckins';
 import TabFeed from '../components/Admin/TabFeed';
 import TabGestao from '../components/Admin/TabGestao';
 import AdminFilterWizard from '../components/Admin/AdminFilterWizard';
-
-// 🎂 Banner de aniversariantes
-import BirthdayBanner from '../components/Admin/BirthdayBanner';
+import PendingCoachesPanel from '../components/Admin/PendingCoachesPanel';
 
 // Outros Componentes e Modais
 import SendNoticeModal from '../components/SendNoticeModal';
@@ -67,7 +66,7 @@ export default function AdminDashboard({ navigation }) {
   const {
       alunosAtivos, alunosInativos, feed, checkins, dietFeedbacks, surveys,
       loading, refreshing, adminEmail, adminId, coachFilter, setCoachFilter,
-      isAdriLogged, fetchData, handleMarkFeedbackRead, handleMarkSurveyRead,
+      isAdriLogged, isMaster, fetchData, handleMarkFeedbackRead, handleMarkSurveyRead, 
       handleDeleteFeedback, handleDeleteLog, getLogCoach
   } = useAdminDashboard();
 
@@ -121,9 +120,8 @@ export default function AdminDashboard({ navigation }) {
       try {
           const CACHE_KEY  = `@birthdays_cache_${adminId}`;
           const CACHE_DATE = `@birthdays_date_${adminId}`;
-          const today      = new Date().toISOString().split('T')[0]; // "YYYY-MM-DD"
+          const today      = new Date().toISOString().split('T')[0];
 
-          // Verifica se já buscou hoje — evita request desnecessário
           const lastDate = await AsyncStorage.getItem(CACHE_DATE);
           if (lastDate === today) {
               const cached = await AsyncStorage.getItem(CACHE_KEY);
@@ -140,7 +138,6 @@ export default function AdminDashboard({ navigation }) {
           await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data));
           await AsyncStorage.setItem(CACHE_DATE, today);
 
-          // Push notification se houver aniversariante hoje (1x por dia)
           const todayBirthdays = data.filter(b => b.daysUntil === 0);
           if (todayBirthdays.length > 0) {
               const pushKey  = `@birthday_push_${adminId}_${today}`;
@@ -179,7 +176,7 @@ export default function AdminDashboard({ navigation }) {
   if (filterIntensidade !== 'TODOS') activeFiltersCount++;
   if (filterPlano !== 'TODOS') activeFiltersCount++;
 
-  // 🔥 LÓGICA DE FILTRAGEM (Mantida aqui pois depende dos estados visuais locais) 🔥
+  // 🔥 LÓGICA DE FILTRAGEM
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
@@ -237,6 +234,73 @@ export default function AdminDashboard({ navigation }) {
     else navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
+  // 🔥 FUNÇÃO DE PERSONIFICAÇÃO (MODO ALUNO TESTE) BLINDADA PARA WEB 🔥
+  const impersonateTestStudent = async () => {
+      try {
+          const currentAdminStr = await AsyncStorage.getItem('user');
+          const currentRole = await AsyncStorage.getItem('role');
+          
+          if (!currentAdminStr) {
+              if (Platform.OS === 'web') window.alert("Erro: Sessão de admin não encontrada.");
+              else Alert.alert("Erro", "Sessão de admin não encontrada.");
+              return;
+          }
+
+          const parsedAdmin = JSON.parse(currentAdminStr);
+          const safeAdminId = adminId || parsedAdmin.id;
+
+          if (!safeAdminId) {
+              if (Platform.OS === 'web') window.alert("Erro: ID de Treinador inválido.");
+              else Alert.alert("Erro", "ID de Treinador inválido.");
+              return;
+          }
+
+          const executeImpersonation = async () => {
+              try {
+                  await AsyncStorage.setItem('original_admin_user', currentAdminStr);
+                  await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
+
+                  const apiUrl = `https://fitos-final.onrender.com/api/admin/impersonate?coachId=${safeAdminId}`;
+
+                  const res = await fetch(apiUrl);
+                  
+                  if (!res.ok) throw new Error("Erro na API");
+                  
+                  const testStudent = await res.json();
+                  
+                  await AsyncStorage.setItem('user', JSON.stringify(testStudent));
+                  await AsyncStorage.setItem('role', 'USER');
+                  
+                  if (Platform.OS === 'web') {
+                      window.location.replace('/');
+                  } else {
+                      navigation.reset({ index: 0, routes: [{ name: 'Main' }] }); 
+                  }
+              } catch (err) {
+                  if (Platform.OS === 'web') window.alert("Falha ao conectar com o servidor para criar o aluno fantasma.");
+                  else Alert.alert("Erro", "Falha ao conectar com o servidor.");
+              }
+          };
+
+          if (Platform.OS === 'web') {
+              if (window.confirm("Você entrará na visão do aluno fantasma. Para voltar ao painel Coach, clique no botão vermelho que aparecerá no app. Deseja entrar?")) {
+                  executeImpersonation();
+              }
+          } else {
+              Alert.alert(
+                  "Visualizar como Aluno",
+                  "Você entrará na visão do aluno fantasma. Para voltar ao painel Coach, um botão vermelho aparecerá na tela inicial do aluno.",
+                  [
+                      { text: "Cancelar", style: "cancel" },
+                      { text: "Entrar", onPress: executeImpersonation }
+                  ]
+              );
+          }
+      } catch (error) {
+          console.log("Erro ao tentar visualizar como aluno:", error);
+      }
+  };
+
   const toggleDarkMode = () => changeTheme(!theme.isDark, selectedColor);
   const selectThemeColor = (colorKey) => { setSelectedColor(colorKey); changeTheme(theme.isDark, colorKey); };
   const switchSubTab = (tab) => { setSubTabAlunos(tab); setSearch(''); setVisibleCount(15); };
@@ -277,21 +341,43 @@ export default function AdminDashboard({ navigation }) {
 
               <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={fetchData} handleLogout={handleLogout} />
 
-              {/* 🎂 BANNER DE ANIVERSARIANTES — aparece logo abaixo do header */}
+              {/* 🎂 ANIVERSARIANTES MINIMIZADO 🎂 */}
               {!birthdayDismissed && birthdays.length > 0 && (
-                  <BirthdayBanner
-                      birthdays={birthdays}
-                      theme={theme}
-                      onDismiss={() => setBirthdayDismissed(true)}
-                  />
+                  <View style={[styles.miniBirthdayPill, { backgroundColor: theme.accent + '20' }]}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                          <MaterialCommunityIcons name="cake-variant" size={14} color={theme.accent} />
+                          <Text style={[styles.miniBirthdayText, { color: theme.text }]}>
+                              {birthdays.length} {birthdays.length > 1 ? 'aniversariantes' : 'aniversariante'} nos próximos dias
+                          </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => setBirthdayDismissed(true)} style={{ padding: 4 }}>
+                          <MaterialCommunityIcons name="close" size={14} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                  </View>
               )}
+
+              {/* 🔥 BOTÃO DE VISUALIZAÇÃO COMO ALUNO 🔥 */}
+              <TouchableOpacity
+                  style={[styles.impersonateBtn, { backgroundColor: theme.accent, borderColor: theme.border }]}
+                  onPress={impersonateTestStudent}
+                  activeOpacity={0.8}
+              >
+                  <MaterialCommunityIcons name="account-switch" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                  <Text style={[styles.impersonateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>
+                      VISUALIZAR COMO ALUNO TESTE
+                  </Text>
+              </TouchableOpacity>
+
+              {/* 🔥 PAINEL DE COACHES PENDENTES (SÓ PARA MASTER) 🔥 */}
+              {isMaster && <PendingCoachesPanel theme={theme} />}
 
               <AdminNavigation 
                   theme={theme} isWebPC={isWebPC} activeTab={activeTab} setActiveTab={setActiveTab} 
                   totalAlerts={totalAlerts} MENU_TABS={MENU_TABS} isMenuVisible={isMenuVisible} setIsMenuVisible={setIsMenuVisible} 
               />
 
-              {activeTab !== 'GESTAO' && activeTab !== 'FINANCAS' && (
+              {/* 🔥 CONTROLE DE ABA: SÓ RENDERIZA SE FOR MASTER (PAULO OU ADRI) E NÃO ESTIVER NA GESTÃO 🔥 */}
+              {isMaster && activeTab !== 'GESTAO' && (
                   <View style={[styles.segmentedControl, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
                       <TouchableOpacity style={[styles.segmentBtn, coachFilter === ownerKey && { backgroundColor: theme.surface, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, borderWidth: 1, borderColor: theme.isDark ? theme.border : 'transparent'}]} onPress={() => setCoachFilter(ownerKey)}>
                           <Text style={[styles.segmentText, { color: coachFilter === ownerKey ? theme.text : theme.textSecondary }]}>MEUS ALUNOS</Text>
@@ -371,5 +457,9 @@ export default function AdminDashboard({ navigation }) {
 const styles = StyleSheet.create({
   segmentedControl: { flexDirection: 'row', marginBottom: 20, padding: 4, borderRadius: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 }
+  segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  impersonateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 16 },
+  impersonateBtnText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+  miniBirthdayPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, alignSelf: 'stretch', marginBottom: 16 },
+  miniBirthdayText: { fontSize: 11, fontWeight: '700' }
 });

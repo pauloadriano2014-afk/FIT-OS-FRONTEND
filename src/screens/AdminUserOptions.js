@@ -1,7 +1,8 @@
 // src/screens/AdminUserOptions.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar, Platform, Dimensions, Modal } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar, Platform, Dimensions, Modal, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 ADICIONADO PARA O IMPERSONATION
 import { useTheme } from '../contexts/ThemeContext';
 
 import useAdminUserOptions from '../hooks/useAdminUserOptions';
@@ -43,10 +44,60 @@ export default function AdminUserOptions({ route, navigation }) {
     const isWebPC = Platform.OS === 'web' && windowWidth > 768;
 
     const ops = useAdminUserOptions(aluno, navigation);
+    const targetStudent = ops.freshAluno || aluno; // O aluno que está na tela
+
+    // 🔥 FUNÇÃO DE PERSONIFICAÇÃO DE ALUNO REAL 🔥
+    const handleImpersonateRealStudent = async () => {
+        try {
+            const currentAdminStr = await AsyncStorage.getItem('user');
+            const currentRole = await AsyncStorage.getItem('role');
+            
+            if (!currentAdminStr) {
+                if (Platform.OS === 'web') window.alert("Erro: Sessão de admin não encontrada.");
+                else Alert.alert("Erro", "Sessão de admin não encontrada.");
+                return;
+            }
+
+            const executeImpersonation = async () => {
+                try {
+                    // 1. Salva sua sessão real na gaveta
+                    await AsyncStorage.setItem('original_admin_user', currentAdminStr);
+                    await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
+                    
+                    // 2. Coloca os dados deste aluno na sessão ativa e força o papel USER
+                    await AsyncStorage.setItem('user', JSON.stringify(targetStudent));
+                    await AsyncStorage.setItem('role', 'USER');
+                    
+                    // 3. Redireciona para o aplicativo dele
+                    if (Platform.OS === 'web') {
+                        window.location.replace('/');
+                    } else {
+                        navigation.reset({ index: 0, routes: [{ name: 'Main' }] }); 
+                    }
+                } catch (err) {
+                    console.log("Erro na troca de dados:", err);
+                    if (Platform.OS === 'web') window.alert("Falha ao efetuar o login na conta do aluno.");
+                    else Alert.alert("Erro", "Falha ao efetuar o login na conta do aluno.");
+                }
+            };
+
+            const confirmMessage = `Você entrará na conta de ${targetStudent.name.split(' ')[0]}. Para voltar, use o botão vermelho na tela inicial. Deseja prosseguir?`;
+
+            if (Platform.OS === 'web') {
+                if (window.confirm(confirmMessage)) executeImpersonation();
+            } else {
+                Alert.alert("Visualizar App", confirmMessage, [
+                    { text: "Cancelar", style: "cancel" },
+                    { text: "Entrar", onPress: executeImpersonation }
+                ]);
+            }
+        } catch (error) {
+            console.log("Erro ao tentar visualizar como aluno real:", error);
+        }
+    };
 
     const renderContent = () => {
         switch (ops.activeTab) {
-
             case 'RESUMO':
                 return (
                     <AdminUserSummaryTab
@@ -68,98 +119,71 @@ export default function AdminUserOptions({ route, navigation }) {
                         DIET_OPTIONS={DIET_OPTIONS}
                     />
                 );
-
             case 'ANAMNESE':
                 return (
-                    <AdminUserAnamneseTab
-                        theme={theme}
-                        aluno={ops.freshAluno || aluno}
-                        userPlan={ops.userPlan}
-                    />
+                    <AdminUserAnamneseTab theme={theme} aluno={targetStudent} userPlan={ops.userPlan} />
                 );
-
-            // 🏃 Aba TREINOS — ferramentas agora vivem dentro do AdminUserTreinosTab
             case 'TREINOS':
                 return (
                     <AdminUserTreinosTab
-                        theme={theme}
-                        handleAbrirRaioxCargas={ops.handleAbrirRaioxCargas}
-                        workoutTab={ops.workoutTab}
-                        setWorkoutTab={ops.setWorkoutTab}
-                        userPlan={ops.userPlan}
-                        loading={ops.loading}
-                        activeWorkouts={ops.activeWorkouts}
-                        archivedWorkouts={ops.archivedWorkouts}
-                        handleNewWorkout={ops.handleNewWorkout}
-                        handleEditWorkout={ops.handleEditWorkout}
-                        handleToggleArchiveWorkout={ops.handleToggleArchiveWorkout}
-                        handleDeleteWorkout={ops.handleDeleteWorkout}
-                        hasActiveFicha={ops.hasActiveFicha}
-                        fichaDaysElapsed={ops.fichaDaysElapsed}
-                        // 🏃 Corrida
-                        isRunningModule={ops.isRunningModule}
-                        handleToggleRunningModule={ops.handleToggleRunningModule}
+                        theme={theme} handleAbrirRaioxCargas={ops.handleAbrirRaioxCargas} workoutTab={ops.workoutTab}
+                        setWorkoutTab={ops.setWorkoutTab} userPlan={ops.userPlan} loading={ops.loading}
+                        activeWorkouts={ops.activeWorkouts} archivedWorkouts={ops.archivedWorkouts}
+                        handleNewWorkout={ops.handleNewWorkout} handleEditWorkout={ops.handleEditWorkout}
+                        handleToggleArchiveWorkout={ops.handleToggleArchiveWorkout} handleDeleteWorkout={ops.handleDeleteWorkout}
+                        hasActiveFicha={ops.hasActiveFicha} fichaDaysElapsed={ops.fichaDaysElapsed}
+                        isRunningModule={ops.isRunningModule} handleToggleRunningModule={ops.handleToggleRunningModule}
                         onOpenRunningModal={() => ops.setIsRunningModalVisible(true)}
-                        onOpenEliteProtocol={() => navigation.navigate('GerarTreinoIA', { aluno: ops.freshAluno || aluno })}
+                        onOpenEliteProtocol={() => navigation.navigate('GerarTreinoIA', { aluno: targetStudent })}
                     />
                 );
-
             case 'AVALIACOES':
                 return (
                     <View style={{ width: '100%', paddingBottom: 20 }}>
                         <AdminUserSystem
-                            currentTab="AVALIACOES" theme={theme} navigation={navigation}
-                            aluno={ops.freshAluno || aluno} userPlan={ops.userPlan}
+                            currentTab="AVALIACOES" theme={theme} navigation={navigation} aluno={targetStudent} userPlan={ops.userPlan}
                             isActiveUser={ops.isActiveUser} handleToggleStatus={ops.handleToggleStatus}
                             disableCheckIn={ops.disableCheckIn} handleToggleDisableCheckIn={ops.handleToggleDisableCheckIn}
                             nextCheckInDate={ops.nextCheckInDate} handleCheckInDateChange={ops.handleCheckInDateChange}
                             handleSaveCheckInDate={ops.handleSaveCheckInDate} evaluationUrl={ops.evaluationUrl}
                             setEvaluationUrl={ops.setEvaluationUrl} handleSaveEvaluation={ops.handleSaveEvaluation}
-                            handleDeleteUser={ops.handleDeleteUser}
-                            runningModule={ops.isRunningModule}
+                            handleDeleteUser={ops.handleDeleteUser} runningModule={ops.isRunningModule}
                             handleToggleRunningModule={ops.handleToggleRunningModule}
                         />
                     </View>
                 );
-
             case 'DIETA_IA':
                 return (
                     <AdminUserDietTab
-                        theme={theme} aluno={aluno} freshAluno={ops.freshAluno} userPlan={ops.userPlan}
-                        dietGoal={ops.dietGoal} setDietGoal={ops.setDietGoal} savingDiet={ops.savingDiet}
-                        handleSaveDietGoal={ops.handleSaveDietGoal} isDietTabVisible={ops.isDietTabVisible}
-                        handleToggleDietTab={ops.handleToggleDietTab} navigation={navigation}
+                        theme={theme} aluno={aluno} freshAluno={ops.freshAluno} userPlan={ops.userPlan} dietGoal={ops.dietGoal} 
+                        setDietGoal={ops.setDietGoal} savingDiet={ops.savingDiet} handleSaveDietGoal={ops.handleSaveDietGoal} 
+                        isDietTabVisible={ops.isDietTabVisible} handleToggleDietTab={ops.handleToggleDietTab} navigation={navigation}
                         DIET_OPTIONS={DIET_OPTIONS}
                     />
                 );
-
             case 'ACESSOS':
                 return (
                     <AdminUserAccessTab
                         theme={theme} userPlan={ops.userPlan} confirmChangePlan={ops.confirmChangePlan}
-                        loadingPaflix={ops.loadingPaflix} vipContents={ops.vipContents}
-                        userAccess={ops.userAccess} handleToggleAccess={ops.handleToggleAccess}
+                        loadingPaflix={ops.loadingPaflix} vipContents={ops.vipContents} userAccess={ops.userAccess} 
+                        handleToggleAccess={ops.handleToggleAccess}
                     />
                 );
-
             case 'SISTEMA':
                 return (
                     <View style={{ width: '100%', paddingBottom: 20 }}>
                         <AdminUserSystem
-                            currentTab="SISTEMA" theme={theme} navigation={navigation}
-                            aluno={ops.freshAluno || aluno} userPlan={ops.userPlan}
+                            currentTab="SISTEMA" theme={theme} navigation={navigation} aluno={targetStudent} userPlan={ops.userPlan}
                             isActiveUser={ops.isActiveUser} handleToggleStatus={ops.handleToggleStatus}
                             disableCheckIn={ops.disableCheckIn} handleToggleDisableCheckIn={ops.handleToggleDisableCheckIn}
                             nextCheckInDate={ops.nextCheckInDate} handleCheckInDateChange={ops.handleCheckInDateChange}
                             handleSaveCheckInDate={ops.handleSaveCheckInDate} evaluationUrl={ops.evaluationUrl}
                             setEvaluationUrl={ops.setEvaluationUrl} handleSaveEvaluation={ops.handleSaveEvaluation}
-                            handleDeleteUser={ops.handleDeleteUser}
-                            runningModule={ops.isRunningModule}
+                            handleDeleteUser={ops.handleDeleteUser} runningModule={ops.isRunningModule}
                             handleToggleRunningModule={ops.handleToggleRunningModule}
                         />
                     </View>
                 );
-
             default: return null;
         }
     };
@@ -173,14 +197,14 @@ export default function AdminUserOptions({ route, navigation }) {
             <View style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: webOuterBg, overflow: 'hidden' }}>
                 {/* Sidebar */}
                 <View style={{ width: 280, backgroundColor: theme.surface, borderRightWidth: 1, borderColor: theme.border, padding: 20 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40, marginTop: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 30, marginTop: 10 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                             <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
                                 <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
                             </TouchableOpacity>
                             <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text }}>ALUNO ELITE</Text>
                         </View>
-                        {/* 🔥 Botão de Solicitar Anamnese (Web) */}
+                        {/* Botão de Solicitar Anamnese (Web) */}
                         <TouchableOpacity 
                             onPress={ops.handleRequestAnamneseUpdate} 
                             style={{ padding: 8, backgroundColor: 'rgba(255, 149, 0, 0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255, 149, 0, 0.3)' }}
@@ -189,6 +213,19 @@ export default function AdminUserOptions({ route, navigation }) {
                             <MaterialCommunityIcons name="clipboard-edit-outline" size={20} color="#FF9500" />
                         </TouchableOpacity>
                     </View>
+
+                    {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (WEB) */}
+                    <TouchableOpacity
+                        style={[styles.impersonateBtnWeb, { backgroundColor: theme.accent, borderColor: theme.border }]}
+                        onPress={handleImpersonateRealStudent}
+                        activeOpacity={0.8}
+                    >
+                        <MaterialCommunityIcons name="account-eye" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                        <Text style={[styles.impersonateBtnTextWeb, { color: theme.isDark ? '#000' : '#FFF' }]}>
+                            VISUALIZAR APP DO ALUNO
+                        </Text>
+                    </TouchableOpacity>
+
                     <View style={{ gap: 10 }}>
                         {MENU_TABS.map(tabObj => {
                             const isActive = ops.activeTab === tabObj.id;
@@ -234,7 +271,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     <Text style={[styles.headerTitle, { color: theme.text }]}>GERENCIAR ALUNO</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {/* 🔥 Botão de Solicitar Anamnese (Mobile) */}
                     <TouchableOpacity onPress={ops.handleRequestAnamneseUpdate} style={{ padding: 8, marginRight: 4 }}>
                         <MaterialCommunityIcons name="clipboard-edit-outline" size={24} color="#FF9500" />
                     </TouchableOpacity>
@@ -245,6 +281,18 @@ export default function AdminUserOptions({ route, navigation }) {
             </View>
 
             <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
+                {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (MOBILE) */}
+                <TouchableOpacity
+                    style={[styles.impersonateBtnMobile, { backgroundColor: theme.accent, borderColor: theme.border }]}
+                    onPress={handleImpersonateRealStudent}
+                    activeOpacity={0.8}
+                >
+                    <MaterialCommunityIcons name="account-eye" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                    <Text style={[styles.impersonateBtnTextMobile, { color: theme.isDark ? '#000' : '#FFF' }]}>
+                        VISUALIZAR APP DO ALUNO
+                    </Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity
                     style={[styles.menuSelector, { backgroundColor: theme.surface, borderColor: theme.border }]}
                     onPress={() => ops.setIsMenuVisible(true)}
@@ -303,4 +351,9 @@ const styles = StyleSheet.create({
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
     sidebarBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
     sidebarBtnText: { fontSize: 14, fontWeight: 'bold' },
+    // 🔥 BOTÕES DE IMPERSONATION
+    impersonateBtnWeb: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 20 },
+    impersonateBtnTextWeb: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+    impersonateBtnMobile: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
+    impersonateBtnTextMobile: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 }
 });

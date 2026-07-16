@@ -1,11 +1,12 @@
 // src/screens/GerarTreinoIA.js
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, ActivityIndicator,
   StyleSheet, Platform, StatusBar, TextInput, Modal, Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
 import useGerarTreino from '../hooks/useGerarTreino';
@@ -20,6 +21,12 @@ import {
 } from '../components/GerarTreino/_constants';
 import { getGroupInfo, getLevelColor, dayNeedsCardio } from '../components/GerarTreino/_helpers';
 
+// IDs que pertencem ao time Master (Você e a Adri)
+const MASTER_IDS = [
+  '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+  'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
+
 export default function GerarTreinoIA({ navigation, route }) {
   const { theme } = useTheme();
   const isWeb = Platform.OS === 'web';
@@ -28,6 +35,39 @@ export default function GerarTreinoIA({ navigation, route }) {
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
   const g = useGerarTreino(navigation, route);
+
+  const [currentUserId, setCurrentUserId] = useState(null);
+  const [customKey, setCustomKey] = useState('');
+  const [showKeyTutorial, setShowTutorial] = useState(false);
+
+  // Carrega patentes e chaves de API salvas localmente
+  useEffect(() => {
+    const loadPermissions = async () => {
+      try {
+        const userStr = await AsyncStorage.getItem('user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          setCurrentUserId(user.id);
+          
+          const savedKey = await AsyncStorage.getItem(`@own_api_key_${user.id}`);
+          if (savedKey) setCustomKey(savedKey);
+        }
+      } catch (e) {
+        console.log("Erro ao carregar permissões da IA:", e);
+      }
+    };
+    loadPermissions();
+  }, []);
+
+  const isMasterCoach = MASTER_IDS.includes(currentUserId);
+
+  // Atualiza e persiste a chave customizada do parceiro
+  const handleSaveCustomKey = async (text) => {
+    setCustomKey(text);
+    if (currentUserId) {
+      await AsyncStorage.setItem(`@own_api_key_${currentUserId}`, text);
+    }
+  };
 
   // ─── HEADER ───
   const stepInfo = {
@@ -81,8 +121,16 @@ export default function GerarTreinoIA({ navigation, route }) {
 
   // ─── STEP 2: CONFIGURADOR ───
   const renderCycleConfig = () => {
-    const anamnese = g.anamnese;
-    const gender = g.studentDetail?.gender || '';
+    // Lista de modelos e pesos de custos baseada na patente do Coach logado
+    const aiOptions = isMasterCoach ? [
+      { id: 'GEMINI', label: 'Gemini 2.5', icon: 'google-circles-extended', color: '#8A2BE2' },
+      { id: 'GPT', label: 'GPT-4o', icon: 'robot-outline', color: '#10A37F' },
+      { id: 'CLAUDE', label: 'Claude 3.5', icon: 'brain', color: '#D97757' }
+    ] : [
+      { id: 'GEMINI_FLASH', label: 'Gemini Flash (1 pt)', icon: 'lightning-bolt', color: '#8A2BE2' },
+      { id: 'GPT_MINI', label: 'GPT-Mini (3 pts)', icon: 'robot-outline', color: '#10A37F' },
+      { id: 'OWN_KEY', label: 'Sua Chave (0 pts)', icon: 'key-outline', color: '#22c55e' }
+    ];
 
     return (
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
@@ -108,14 +156,10 @@ export default function GerarTreinoIA({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* 🔥 SELETOR DE INTELIGÊNCIA ARTIFICIAL 🔥 */}
+        {/* SELETOR DE INTELIGÊNCIA ARTIFICIAL */}
         <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>CÉREBRO DA IA</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20 }}>
-          {[
-            { id: 'GEMINI', label: 'Gemini 2.5', icon: 'google-circles-extended', color: '#8A2BE2' },
-            { id: 'GPT', label: 'GPT-4o', icon: 'robot-outline', color: '#10A37F' },
-            { id: 'CLAUDE', label: 'Claude 3.5', icon: 'brain', color: '#D97757' }
-          ].map(ai => {
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 15 }}>
+          {aiOptions.map(ai => {
             const isSel = g.selectedAI === ai.id;
             return (
               <TouchableOpacity 
@@ -130,6 +174,29 @@ export default function GerarTreinoIA({ navigation, route }) {
             );
           })}
         </View>
+
+        {/* FORMULÁRIO DE CHAVE PRÓPRIA (SE SELECIONADO) */}
+        {!isMasterCoach && g.selectedAI === 'OWN_KEY' && (
+          <View style={[S.customKeyBox, { backgroundColor: theme.surface, borderColor: '#22c55e40' }]}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 12, fontWeight: 'bold', color: theme.text }}>INSIRA SUA CHAVE DA OPENAI (API KEY)</Text>
+              <TouchableOpacity onPress={() => setShowTutorial(true)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialCommunityIcons name="help-circle-outline" size={14} color="#22c55e" />
+                <Text style={{ fontSize: 11, color: '#22c55e', fontWeight: 'bold' }}>Tutorial</Text>
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              style={[S.customKeyInput, { color: theme.text, borderColor: theme.border, backgroundColor: theme.bg }]}
+              placeholder="sk-proj-..."
+              placeholderTextColor={theme.textSecondary}
+              secureTextEntry
+              value={customKey}
+              onChangeText={handleSaveCustomKey}
+              outlineStyle="none"
+            />
+            <Text style={{ fontSize: 10, color: theme.textSecondary, marginTop: 5 }}>Sua chave fica criptografada e armazenada apenas no seu dispositivo.</Text>
+          </View>
+        )}
 
         {/* AMBIENTE DE TREINO */}
         <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>AMBIENTE DE TREINO</Text>
@@ -318,6 +385,17 @@ export default function GerarTreinoIA({ navigation, route }) {
           </View>
         )}
 
+        {/* 🔥 CARD DE AVISO COMPORTAMENTAL / DISCLAIMER MANDATÓRIO */}
+        <View style={[S.disclaimerBox, { backgroundColor: '#FF3B30' + '10', borderColor: '#FF3B30' + '30' }]}>
+          <MaterialCommunityIcons name="shield-alert-outline" size={16} color="#FF3B30" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#FF3B30', marginBottom: 2 }}>AVISO DE SEGURANÇA</Text>
+            <Text style={{ fontSize: 11, color: theme.textSecondary, lineHeight: 15 }}>
+              O treino gerado por IA pode conter erros estruturais ou de volume. É <Text style={{ fontWeight: 'bold', color: theme.text }}>obrigatório conferir e revisar</Text> as séries, repetições e técnicas no editor antes de liberar o acesso para o seu aluno.
+            </Text>
+          </View>
+        </View>
+
         {g.error ? (
           <View style={[S.errorBox, { backgroundColor: 'rgba(255,59,48,0.08)', borderColor: '#FF3B3040' }]}>
             <MaterialCommunityIcons name="alert-circle-outline" size={16} color="#FF3B30" />
@@ -353,19 +431,40 @@ export default function GerarTreinoIA({ navigation, route }) {
           </View>
         </Modal>
 
+        {/* 🔥 TUTORIAL DE CRIAÇÃO DE CHAVE */}
+        <Modal visible={showKeyTutorial} transparent animationType="fade" onRequestClose={() => setShowTutorial(false)}>
+          <View style={S.modalOverlayCenter}>
+            <View style={[S.tutorialCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[S.modalTitle, { color: theme.text, marginBottom: 10, textAlign: 'center' }]}>Como conseguir sua API Key?</Text>
+              <ScrollView style={{ maxHeight: 300 }}>
+                <Text style={[S.stepText, { color: theme.text }]}>1. Acesse o site <Text style={{ fontWeight: 'bold', color: '#10A37F' }}>platform.openai.com</Text> e faça login.</Text>
+                <Text style={[S.stepText, { color: theme.text }]}>2. No menu lateral, clique em <Text style={{ fontWeight: 'bold' }}>"API Keys"</Text>.</Text>
+                <Text style={[S.stepText, { color: theme.text }]}>3. Clique em <Text style={{ fontWeight: 'bold' }}>"+ Create new secret key"</Text>, dê um nome e gere a chave.</Text>
+                <Text style={[S.stepText, { color: theme.text }]}>4. Copie a chave (ela começa com <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }}>sk-</Text>) e cole no campo do painel.</Text>
+                <Text style={{ fontSize: 11, color: '#FF9500', fontWeight: 'bold', marginTop: 10 }}>Importante: Você precisa ter um cartão cadastrado na OpenAI para a chave funcionar (o custo médio é de apenas R$ 0,02 por treino).</Text>
+              </ScrollView>
+              <TouchableOpacity onPress={() => setShowTutorial(false)} style={[S.closeTutorialBtn, { backgroundColor: theme.accent }]}>
+                <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: 'bold' }}>ENTENDI</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
       </ScrollView>
     );
   };
 
   // ─── STEP 3: GERANDO ───
   const renderGenerating = () => {
-    // 🔥 MAPEAMENTO VISUAL DA IA SELECIONADA
     const aiInfo = {
       'GEMINI': { name: 'Gemini 2.5 Pro', color: '#8A2BE2', icon: 'google-circles-extended' },
-      'GPT':    { name: 'GPT-4o', color: '#10A37F', icon: 'robot-outline' },
-      'CLAUDE': { name: 'Claude 3.5 Sonnet', color: '#D97757', icon: 'brain' }
+      'GEMINI_FLASH': { name: 'Gemini Flash', color: '#8A2BE2', icon: 'lightning-bolt' },
+      'GPT':     { name: 'GPT-4o', color: '#10A37F', icon: 'robot-outline' },
+      'GPT_MINI': { name: 'GPT-4o Mini', color: '#10A37F', icon: 'robot-outline' },
+      'CLAUDE': { name: 'Claude 3.5 Sonnet', color: '#D97757', icon: 'brain' },
+      'OWN_KEY': { name: 'Sua Chave OpenAI', color: '#22c55e', icon: 'key-outline' }
     };
-    const activeAI = aiInfo[g.selectedAI] || aiInfo['GEMINI'];
+    const activeAI = aiInfo[g.selectedAI] || aiInfo['GEMINI_FLASH'];
 
     return (
       <View style={[S.center, { paddingHorizontal: 32 }]}>
@@ -379,7 +478,6 @@ export default function GerarTreinoIA({ navigation, route }) {
           Montando protocolo...
         </Text>
         
-        {/* 🔥 BADGE INFORMANDO QUAL IA ESTÁ TRABALHANDO */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary }}>Via</Text>
           <View style={{ backgroundColor: activeAI.color + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: activeAI.color + '40' }}>
@@ -456,18 +554,10 @@ const S = StyleSheet.create({
   center:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchBox:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 13, borderWidth: 1 },
   searchInput:  { flex: 1, fontSize: 14, outlineStyle: 'none' },
-  studentRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: 13, borderWidth: 1, marginBottom: 9 },
-  avatar:       { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  studentName:  { fontSize: 14, fontWeight: '800' },
-  badge:        { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
-  badgeText:    { fontSize: 10, fontWeight: '800' },
-  card:         { borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1 },
-  alertRow:     { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 8, borderRadius: 8, borderWidth: 1 },
   actionBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 11, borderWidth: 1 },
-  
-  // 🔥 ESTILO DO NOVO BOTÃO DA IA
   aiBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
-
+  customKeyBox: { padding: 14, borderRadius: 14, borderWidth: 1, borderStyle: 'solid', marginBottom: 20 },
+  customKeyInput:{ padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 13 },
   envDropdown:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 13, borderRadius: 13, borderWidth: 1, marginBottom: 20 },
   envIcon:      { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginBottom: 10 },
@@ -485,8 +575,13 @@ const S = StyleSheet.create({
   emptyState:   { alignItems: 'center', paddingVertical: 22, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 11 },
   addGroupBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 11, borderRadius: 9, borderWidth: 1.5, borderStyle: 'dashed', marginTop: 10 },
   groupDot:     { width: 8, height: 8, borderRadius: 4 },
+  disclaimerBox:{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 20 },
   errorBox:     { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12, borderRadius: 11, borderWidth: 1, marginTop: 4 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },
+  modalOverlayCenter: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  tutorialCard: { width: '100%', maxWidth: 400, borderRadius: 20, padding: 20, borderWidth: 1 },
+  stepText:     { fontSize: 13, marginBottom: 8, lineHeight: 18 },
+  closeTutorialBtn: { width: '100%', padding: 14, borderRadius: 12, alignItems: 'center', marginTop: 15 },
   modalSheet:   { borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, paddingBottom: 36 },
   modalHandle:  { width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(128,128,128,0.3)', alignSelf: 'center', marginBottom: 14 },
   modalTitle:   { fontSize: 16, fontWeight: '900' },

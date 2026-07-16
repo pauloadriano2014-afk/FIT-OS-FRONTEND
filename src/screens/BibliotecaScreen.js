@@ -150,10 +150,17 @@ export default function BibliotecaScreen({ navigation, route }) {
           const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
           setUserPlan(resolvedPlan);
 
-          let targetAdminId = user.adminId; 
-          
+          // 🔥 CORREÇÃO (2ª rodada): não adivinhamos mais o coachId no
+          // frontend. O valor salvo no AsyncStorage pode estar desatualizado
+          // (cache do celular), e um fallback local para PAULO_ID vazava
+          // conteúdo do master para alunos de coaches parceiros que, por
+          // qualquer motivo, tinham o campo coachId vazio no objeto em cache.
+          // Mandamos só o userId — a API já resolve o coachId direto no
+          // banco (fonte da verdade), o que é seguro tanto para alunos
+          // legados (sem coach = cai no fallback permissivo do master)
+          // quanto para alunos de coaches parceiros (coachId real deles).
           const [resContents, resAccess] = await Promise.all([
-              fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&adminId=${targetAdminId}&global=true&t=${Date.now()}`),
+              fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&t=${Date.now()}`),
               fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}&t=${Date.now()}`)
           ]);
 

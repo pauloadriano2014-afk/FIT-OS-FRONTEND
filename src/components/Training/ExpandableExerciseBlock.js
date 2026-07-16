@@ -5,6 +5,12 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av'; 
 import { ExerciseCard } from '../ExerciseCard'; 
 
+// 🔥 IDs MASTER PARA BLINDAGEM DO BOTÃO DE IA
+const MASTER_IDS = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
+
 export default function ExpandableExerciseBlock({
     block, isExpanded, onToggle, theme,
     lastWeights, historyWeights, handleSaveWeight, checkedSets, handleCheckSet,
@@ -16,6 +22,9 @@ export default function ExpandableExerciseBlock({
     const mainItem = block.items[0];
     
     const exerciseNumber = (mainItem?.originalIndex || 0) + 1;
+
+    // 🔥 VERIFICA SE É ALUNO MASTER (Para exibir a IA)
+    const isMasterStudent = !userData?.coachId || MASTER_IDS.includes(userData?.coachId);
 
     const exName = (mainItem?.exercise?.name || mainItem?.name || '').toLowerCase();
     const exCat = (mainItem?.exercise?.category || '').toUpperCase();
@@ -45,14 +54,6 @@ export default function ExpandableExerciseBlock({
     if (mainItem?.blocks && Array.isArray(mainItem.blocks)) {
         const totalExerciseSets = mainItem.blocks.reduce((a,blk) => a + (parseInt(blk.sets)||1), 0);
 
-        // 🔥 CORREÇÃO: agrupa blocos CONSECUTIVOS que têm a mesma técnica antes de
-        // gerar a mensagem de aviso. Isso resolve o caso de técnicas como GVT, que
-        // no banco são representadas como vários blocos de 1 série cada (em vez de
-        // um único bloco de 10 séries) — sem o agrupamento, isso gerava uma linha de
-        // aviso por série (10 linhas para um GVT 10x10), em vez de uma única linha
-        // "GVT em todas as séries". A lógica de range ("da 3ª à 7ª série") também
-        // passa a funcionar corretamente para blocos parciais consecutivos, não só
-        // para o caso de um bloco único cobrindo o trecho inteiro.
         const techSegments = [];
         let cumulativeSets = 0;
         mainItem.blocks.forEach((b) => {
@@ -63,7 +64,6 @@ export default function ExpandableExerciseBlock({
 
             const lastSegment = techSegments[techSegments.length - 1];
             if (lastSegment && lastSegment.tech === bTech) {
-                // Mesmo técnica do segmento anterior e consecutivo: estende o range
                 lastSegment.endSet = endSet;
             } else {
                 techSegments.push({ tech: bTech, startSet, endSet });
@@ -209,7 +209,10 @@ export default function ExpandableExerciseBlock({
                                     lastWeights={lastWeights} historyWeights={historyWeights} handleSaveWeight={handleSaveWeight}
                                     checkedSets={checkedSets} handleCheckSet={handleCheckSet} 
                                     handleOpenVideo={() => handleOpenVideo(item.exercise?.videoUrl)} 
-                                    setModalVisible={() => handleOpenIA(item)} 
+                                    
+                                    // 🔥 TRAVA DA IA INJETADA AQUI! Passa nulo se for aluno de Parceiro.
+                                    setModalVisible={(isMasterStudent && typeof handleOpenIA === 'function') ? () => handleOpenIA(item) : null} 
+                                    
                                     onOpenCalc={handleOpenCalc}
                                     hasPremiumFeatures={hasPremiumFeatures} 
                                     workoutModel={workoutModel}
