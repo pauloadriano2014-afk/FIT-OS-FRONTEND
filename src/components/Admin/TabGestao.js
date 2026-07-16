@@ -1,7 +1,8 @@
 // src/components/Admin/TabGestao.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 // Importa os sub-componentes que criamos
 import TabFerramentas from './TabFerramentas';
@@ -35,6 +36,64 @@ export default function TabGestao({
     const isMasterCoach = MASTER_IDS.includes(currentUserId);
     const flixName = isMasterCoach ? 'PA FLIX' : 'ELITE FLIX';
 
+    // 🔥 FUNÇÃO BLINDADA: SÓ GUARDA O "BILHETE DE COACH" SE O SERVIDOR RESPONDER COM SUCESSO
+    const impersonateTestStudent = async () => {
+        try {
+            const currentAdminStr = await AsyncStorage.getItem('user');
+            const currentRole = await AsyncStorage.getItem('role');
+            
+            if (!currentAdminStr || !currentUserId) {
+                if (Platform.OS === 'web') window.alert("Erro: Sessão de admin não encontrada.");
+                else Alert.alert("Erro", "Sessão de admin não encontrada.");
+                return;
+            }
+
+            const executeImpersonation = async () => {
+                try {
+                    const apiUrl = `https://fitos-final.onrender.com/api/admin/impersonate?coachId=${currentUserId}`;
+                    const res = await fetch(apiUrl);
+                    
+                    if (!res.ok) throw new Error("Erro na API");
+                    
+                    const testStudent = await res.json();
+                    
+                    // 🔥 A TRAVA DE SEGURANÇA AQUI: SÓ SALVA ISSO APÓS A API DAR "OK"
+                    await AsyncStorage.setItem('original_admin_user', currentAdminStr);
+                    await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
+                    
+                    await AsyncStorage.setItem('user', JSON.stringify(testStudent));
+                    await AsyncStorage.setItem('role', 'USER');
+                    
+                    if (Platform.OS === 'web') {
+                        window.location.replace('/');
+                    } else {
+                        navigation.reset({ index: 0, routes: [{ name: 'Main' }] }); 
+                    }
+                } catch (err) {
+                    if (Platform.OS === 'web') window.alert("Falha ao conectar com o servidor. Tente novamente.");
+                    else Alert.alert("Erro", "Falha ao conectar com o servidor. O login não foi efetuado.");
+                }
+            };
+
+            if (Platform.OS === 'web') {
+                if (window.confirm("Você entrará na visão do aluno fantasma. Para voltar ao painel Coach, clique no botão vermelho que aparecerá no app. Deseja entrar?")) {
+                    executeImpersonation();
+                }
+            } else {
+                Alert.alert(
+                    "Visualizar como Aluno",
+                    "Você entrará na visão do aluno fantasma. Para voltar, clique no botão vermelho na tela inicial.",
+                    [
+                        { text: "Cancelar", style: "cancel" },
+                        { text: "Entrar", onPress: executeImpersonation }
+                    ]
+                );
+            }
+        } catch (error) {
+            console.log("Erro ao tentar visualizar como aluno:", error);
+        }
+    };
+
     return (
         <View style={styles.gridGestao}>
             {/* SELETOR DE ABAS */}
@@ -57,6 +116,18 @@ export default function TabGestao({
                 </TouchableOpacity>
             </View>
 
+            {/* 🔥 BOTÃO DE VISUALIZAÇÃO COMO ALUNO MOVIDO PARA CÁ 🔥 */}
+            <TouchableOpacity
+                style={[styles.impersonateBtn, { backgroundColor: theme.accent, borderColor: theme.border }]}
+                onPress={impersonateTestStudent}
+                activeOpacity={0.8}
+            >
+                <MaterialCommunityIcons name="account-switch" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                <Text style={[styles.impersonateBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>
+                    VISUALIZAR COMO ALUNO TESTE
+                </Text>
+            </TouchableOpacity>
+
             {/* CONTEÚDO DAS ABAS (MODULARIZADO) */}
             {subTabGestao === 'FERRAMENTAS' && <TabFerramentas isMasterCoach={isMasterCoach} theme={theme} navigation={navigation} alunosAtivos={alunosAtivos} />}
             {subTabGestao === 'CONFIG' && <TabConfig isMasterCoach={isMasterCoach} theme={theme} navigation={navigation} flixName={flixName} setIsNpsModalOpen={setIsNpsModalOpen} setIsNoticeModalOpen={setIsNoticeModalOpen} toggleDarkMode={toggleDarkMode} />}
@@ -68,7 +139,9 @@ export default function TabGestao({
 
 const styles = StyleSheet.create({
     gridGestao: { gap: 15 },
-    subTabsContainer: { flexDirection: 'row', marginBottom: 15, gap: 10 },
+    subTabsContainer: { flexDirection: 'row', marginBottom: 10, gap: 10 },
     subTab: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' }, 
     subTabText: { fontSize: 11, fontWeight: 'bold', textAlign: 'center' },
+    impersonateBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 5 },
+    impersonateBtnText: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 }
 });
