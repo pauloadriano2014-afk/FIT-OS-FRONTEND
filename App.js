@@ -57,6 +57,9 @@ import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
 import GerarTreinoIA from './src/screens/GerarTreinoIA';
 import AdminTechniquesScreen from './src/screens/AdminTechniquesScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
+import AdminFoodManagerScreen from './src/screens/AdminFoodManagerScreen';
+import AdminSubstitutionGroupsScreen from './src/screens/AdminSubstitutionGroupsScreen';
+import AdminSubstitutionGroupDetailScreen from './src/screens/AdminSubstitutionGroupDetailScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -244,6 +247,9 @@ function RootNavigator() {
       <Stack.Screen name="LaboratoryFinalScreen" component={LaboratoryFinalScreen} />
       <Stack.Screen name="GerarTreinoIA" component={GerarTreinoIA} options={{ headerShown: false }} />
       <Stack.Screen name="AdminTechniquesScreen" component={AdminTechniquesScreen} />
+      <Stack.Screen name="AdminFoodManagerScreen" component={AdminFoodManagerScreen} />
+      <Stack.Screen name="AdminSubstitutionGroupsScreen" component={AdminSubstitutionGroupsScreen} />
+<Stack.Screen name="AdminSubstitutionGroupDetailScreen" component={AdminSubstitutionGroupDetailScreen} />
     </Stack.Navigator>
   );
 }

@@ -22,6 +22,7 @@ import ImportDietModal      from '../components/ImportDietModal';
 import ModelSelectorModal   from '../components/AdminDiet/ModelSelectorModal';
 import DietContextPanel     from '../components/AdminDiet/DietContextPanel';
 import { MealAnalyzerModal, DayAnalyzerModal } from '../components/AdminDiet/DietAnalyzerModal';
+import DietBuilderModal     from '../components/AdminDiet/DietBuilderModal';
 
 // Hooks e Utils
 import { useDietModals }  from '../hooks/useDietModals';
@@ -66,6 +67,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const [mealAnalyzerVisible,   setMealAnalyzerVisible]   = useState(false);
     const [dayAnalyzerVisible,    setDayAnalyzerVisible]    = useState(false);
     const [mealToAnalyze,         setMealToAnalyze]         = useState(null);
+    const [builderVisible,        setBuilderVisible]        = useState(false);
 
     // 🔥 ID do coach logado — lido do AsyncStorage
     const [loggedCoachId, setLoggedCoachId] = useState('');
@@ -97,6 +99,13 @@ export default function AdminDietScreen({ route, navigation }) {
             return plan.macrosByDay[actions.activeDayType] ?? null;
         } catch { return null; }
     }, [data.anamnese, aluno, actions.activeDayType]);
+
+    const handleBuilderConfirm = (meals) => {
+        actions.setMeals(prev => [
+            ...prev.filter(m => m.dayType !== actions.activeDayType),
+            ...meals,
+        ]);
+    };
 
     const handleOpenMealAnalyzer = (meal) => {
         setMealToAnalyze(meal);
@@ -385,9 +394,9 @@ export default function AdminDietScreen({ route, navigation }) {
                                 showRaioX={showRaioX}
                                 setShowRaioX={setShowRaioX}
                                 anamnese={data.anamnese}
-                                handleGenerateAI={() => setModelSelectorVisible(true)}
-                                isGenerating={data.isGenerating}
-                                generateProgress={generateProgress}
+                                handleGenerateAI={() => setBuilderVisible(true)}
+                                isGenerating={false}
+                                generateProgress={''}
                                 setImportModalVisible={modals.setImportModalVisible}
                                 activeDayType={actions.activeDayType}
                                 activeAccent={activeAccent}
@@ -547,6 +556,11 @@ export default function AdminDietScreen({ route, navigation }) {
                                 <Text style={[styles.fabText, { color: theme.text }]}>Salvar</Text>
                             </TouchableOpacity>
                             <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
+                            <TouchableOpacity style={styles.fabBtn} onPress={() => navigation.navigate('AdminFoodManagerScreen')}>
+                                <MaterialCommunityIcons name="food-apple" size={22} color={theme.accent} />
+                                <Text style={[styles.fabText, { color: theme.accent }]}>Alimentos</Text>
+                            </TouchableOpacity>
+                            <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
                             <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(handleCallGeneratePDF)}>
                                 <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
                                 <Text style={[styles.fabText, { color: theme.text }]}>PDF</Text>
@@ -647,6 +661,18 @@ export default function AdminDietScreen({ route, navigation }) {
                 generateProgress={generateProgress}
                 anamnese={data.anamnese}
                 aluno={aluno}
+            />
+
+            {/* ASSISTENTE DE MONTAGEM */}
+            <DietBuilderModal
+                visible={builderVisible}
+                onClose={() => setBuilderVisible(false)}
+                onConfirm={handleBuilderConfirm}
+                anamnese={data.anamnese}
+                aluno={aluno}
+                dayType={actions.activeDayType}
+                coachId={loggedCoachId}
+                theme={theme}
             />
 
             {/* ANALISADORES */}

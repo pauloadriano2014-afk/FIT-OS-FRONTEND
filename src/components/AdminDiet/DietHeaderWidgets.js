@@ -98,7 +98,7 @@ export default function DietHeaderWidgets({
                                 >
                                     <MaterialCommunityIcons name="robot-outline" size={18} color="#000" />
                                 </LinearGradient>
-                                <Text style={[styles.pillBtnText, { color: theme.text }]}>GERAR COM IA</Text>
+                                <Text style={[styles.pillBtnText, { color: theme.text }]}>MONTAGEM RÁPIDA</Text>
                             </>
                         )}
                     </LinearGradient>
