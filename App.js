@@ -22,7 +22,8 @@ import PropostaScreen from './src/screens/PropostaScreen';
 import PropostaStartScreen from './src/screens/PropostaStartScreen';
 import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
 import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen';
-import PropostaFamiliaScreen from './src/screens/PropostaFamiliaScreen'; // 🌿💜 Plano Família
+import PropostaFamiliaScreen from './src/screens/PropostaFamiliaScreen';
+import SaaSPropostaScreen from './src/screens/SaaSPropostaScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -54,9 +55,7 @@ import LaboratoryScreen from './src/screens/LaboratoryScreen';
 import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen';
 import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
 import GerarTreinoIA from './src/screens/GerarTreinoIA';
-// 🔥 NOVO: Tela de Técnicas Avançadas importada
 import AdminTechniquesScreen from './src/screens/AdminTechniquesScreen';
-// 🔑 NOVO: Tela de Redefinição de Senha (link enviado por e-mail)
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 
 Notifications.setNotificationHandler({
@@ -127,11 +126,9 @@ function StudentTabs({ route }) {
     );
   }
 
-  // 🔒 MÓDULO DE DIETA: exclusivo do ecossistema master (Paulo/Adri).
-  // Alunos de coaches convidados NÃO veem a aba, mesmo com dietModule/plan ELITE.
   const MASTER_COACH_IDS = ['3c82f763-66b4-48da-836e-16817d4f57c0', 'b7c0c181-41fd-4156-b8fe-963a267759a3'];
   const belongsToMaster =
-    !userData?.coachId || // legado: alunos antigos sem coachId são seus
+    !userData?.coachId ||
     MASTER_COACH_IDS.includes(userData?.coachId) ||
     MASTER_COACH_IDS.includes(userData?.nutritionistId);
 
@@ -205,61 +202,52 @@ function RootNavigator() {
 
   return (
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-      {/* ── Telas públicas / onboarding ───────────────────────────── */}
-      <Stack.Screen name="Install"       component={InstallScreen} />
-      <Stack.Screen name="Login"         component={LoginScreen} />
-      <Stack.Screen name="Register"      component={RegisterScreen} />
-      {/* 🔑 NOVO: Redefinição de senha via link do e-mail */}
+      <Stack.Screen name="Install" component={InstallScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="RedefinirSenha" component={ResetPasswordScreen} />
-      <Stack.Screen name="Anamnese"      component={AnamneseScreen} options={{ headerShown: false, tabBarVisible: false }} />
-      <Stack.Screen name="AnamneseVIP"   component={AnamneseVIPScreen} />
-      <Stack.Screen name="SetupTreino"   component={SetupTreinoScreen} />
-
-      {/* ── Páginas de proposta / vendas ──────────────────────────── */}
-      <Stack.Screen name="Proposta"           component={PropostaScreen} />
-      <Stack.Screen name="PropostaStart"      component={PropostaStartScreen} />
-      <Stack.Screen name="PropostaMaes"       component={PropostaMaesScreen} />
+      <Stack.Screen name="Anamnese" component={AnamneseScreen} options={{ headerShown: false, tabBarVisible: false }} />
+      <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
+      <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
+      <Stack.Screen name="Proposta" component={PropostaScreen} />
+      <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
+      <Stack.Screen name="PropostaMaes" component={PropostaMaesScreen} />
       <Stack.Screen name="PropostaNavegantes" component={PropostaNavegantesScreen} />
-      <Stack.Screen name="PropostaFamilia"    component={PropostaFamiliaScreen} />
-
-      {/* ── App do aluno ──────────────────────────────────────────── */}
-      <Stack.Screen name="Main"             component={StudentTabs} initialParams={{ userData: savedUser }} />
-      <Stack.Screen name="RoutineDetails"   component={RoutineDetailsScreen} />
+      <Stack.Screen name="PropostaFamilia" component={PropostaFamiliaScreen} />
+      <Stack.Screen name="SaaSProposta" component={SaaSPropostaScreen} />
+      <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
+      <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
-      <Stack.Screen name="DayWorkout"       component={DayWorkoutScreen} />
-      <Stack.Screen name="FinishScreen"     component={FinishScreen} />
-      <Stack.Screen name="CheckIn"          component={CheckInScreen} />
-      <Stack.Screen name="UserHistory"      component={UserHistoryScreen} />
-      <Stack.Screen name="ScannerIA"        component={AIScannerModal} />
-      <Stack.Screen name="Biblioteca"       component={BibliotecaScreen} />
-      <Stack.Screen name="PDFViewer"        component={PDFViewerScreen} />
-      <Stack.Screen name="VideoPlayer"      component={VideoPlayerScreen} />
-      <Stack.Screen name="AudioPlayer"      component={AudioPlayerScreen} />
-      <Stack.Screen name="PAFlix"           component={PAFlixScreen} />
-
-      {/* ── Painel admin ──────────────────────────────────────────── */}
-      <Stack.Screen name="AdminDashboard"          component={AdminDashboard} />
-      <Stack.Screen name="MontarTreinoAdmin"        component={MontarTreinoAdmin} />
-      <Stack.Screen name="BibliotecaAdmin"          component={BibliotecaAdmin} />
-      <Stack.Screen name="GerenciarTemplates"       component={GerenciarTemplates} />
-      <Stack.Screen name="AdminAlunoOptions"        component={AdminUserOptions} />
-      <Stack.Screen name="AdminEvolution"           component={AdminEvolutionScreen} />
-      <Stack.Screen name="AdminAddContent"          component={AdminAddContent} />
-      <Stack.Screen name="AdminStudentCheckins"     component={AdminStudentCheckinsScreen} />
-      <Stack.Screen name="AdminIALabScreen"         component={AdminIALabScreen} />
-      <Stack.Screen name="AdminDietScreen"          component={AdminDietScreen} />
-      <Stack.Screen name="AdminDietLibraryScreen"   component={AdminDietLibraryScreen} />
-      <Stack.Screen name="LaboratoryScreen"         component={LaboratoryScreen} />
-      <Stack.Screen name="LaboratoryBuilderScreen"  component={LaboratoryBuilderScreen} />
-      <Stack.Screen name="LaboratoryFinalScreen"    component={LaboratoryFinalScreen} />
-      <Stack.Screen name="GerarTreinoIA"            component={GerarTreinoIA} options={{ headerShown: false }} />
-      {/* 🔥 NOVO: Rota da Tela de Técnicas Avançadas */}
-      <Stack.Screen name="AdminTechniquesScreen"    component={AdminTechniquesScreen} />
+      <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
+      <Stack.Screen name="FinishScreen" component={FinishScreen} />
+      <Stack.Screen name="CheckIn" component={CheckInScreen} />
+      <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
+      <Stack.Screen name="ScannerIA" component={AIScannerModal} />
+      <Stack.Screen name="Biblioteca" component={BibliotecaScreen} />
+      <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
+      <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
+      <Stack.Screen name="PAFlix" component={PAFlixScreen} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+      <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
+      <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
+      <Stack.Screen name="GerenciarTemplates" component={GerenciarTemplates} />
+      <Stack.Screen name="AdminAlunoOptions" component={AdminUserOptions} />
+      <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
+      <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
+      <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
+      <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} />
+      <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} />
+      <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} />
+      <Stack.Screen name="LaboratoryScreen" component={LaboratoryScreen} />
+      <Stack.Screen name="LaboratoryBuilderScreen" component={LaboratoryBuilderScreen} />
+      <Stack.Screen name="LaboratoryFinalScreen" component={LaboratoryFinalScreen} />
+      <Stack.Screen name="GerarTreinoIA" component={GerarTreinoIA} options={{ headerShown: false }} />
+      <Stack.Screen name="AdminTechniquesScreen" component={AdminTechniquesScreen} />
     </Stack.Navigator>
   );
 }
 
-// ─── Linking: serializa parâmetros na URL para que o F5 restaure a tela corretamente
 const linking = {
   prefixes: [
     'https://www.pauloadrianoteam.com.br',
@@ -267,24 +255,27 @@ const linking = {
     'http://localhost:8081',
     'http://localhost:8082'
   ],
-
-  // 🏃 Rotas de corrida são páginas Next.js — não devem ser interceptadas pelo app
   filter: (url) => {
     if (url.includes('/corrida/')) return false;
     return true;
   },
-
   config: {
     screens: {
-      // ── Telas públicas
-      Install:             { path: 'registro' },
-      Proposta:            { path: 'Proposta' },
-      PropostaStart:       { path: 'PropostaStart' },
-      PropostaMaes:        { path: 'PropostaMaes' },
-      PropostaNavegantes:  { path: 'PropostaNavegantes' },
-      PropostaFamilia:     { path: 'PropostaFamilia' },
-
-      // 🔑 Redefinição de senha (link do e-mail: /redefinir-senha?token=...)
+      Install: { path: 'registro' },
+      Proposta: { path: 'Proposta' },
+      PropostaStart: { path: 'PropostaStart' },
+      PropostaMaes: { path: 'PropostaMaes' },
+      PropostaNavegantes: { path: 'PropostaNavegantes' },
+      PropostaFamilia: { path: 'PropostaFamilia' },
+      SaaSProposta: {
+        path: 'invite/:coachId',
+        parse: {
+          coachId: (v) => String(v),
+        },
+        stringify: {
+          coachId: (v) => v,
+        },
+      },
       RedefinirSenha: {
         path: 'redefinir-senha',
         parse: {
@@ -294,30 +285,26 @@ const linking = {
           token: (v) => v,
         },
       },
-
-      // ── Dashboard admin
       AdminDashboard: { path: 'admin' },
-
-      // ── Telas admin com parâmetros via query string
       AdminStudentCheckins: {
         path: 'admin-checkins',
         parse: {
-          alunoId:   (v) => String(v),
+          alunoId: (v) => String(v),
           alunoName: (v) => decodeURIComponent(v),
         },
         stringify: {
-          alunoId:   (v) => v,
+          alunoId: (v) => v,
           alunoName: (v) => encodeURIComponent(v),
         },
       },
       AdminEvolution: {
         path: 'admin-evolution',
         parse: {
-          alunoId:   (v) => String(v),
+          alunoId: (v) => String(v),
           alunoName: (v) => decodeURIComponent(v),
         },
         stringify: {
-          alunoId:   (v) => v,
+          alunoId: (v) => v,
           alunoName: (v) => encodeURIComponent(v),
         },
       },

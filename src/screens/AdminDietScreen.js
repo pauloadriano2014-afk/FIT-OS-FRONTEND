@@ -1,34 +1,35 @@
-// src/screens/AdminDietScreen.js — VERSÃO 4.1
-// Novidade: DietContextPanel lateral direito no web/PC
-import React, { useState, useRef, useMemo } from 'react';
+// src/screens/AdminDietScreen.js — VERSÃO 4.2
+// Novidade: coachId lido do AsyncStorage para FoodSearchModal
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
     Platform, KeyboardAvoidingView, useWindowDimensions,
     ActivityIndicator, Animated, Alert
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
 
 // Componentes
-import DietHeaderWidgets  from '../components/AdminDiet/DietHeaderWidgets';
-import MealCardAdmin      from '../components/AdminDiet/MealCardAdmin';
-import DietModalsAdmin    from '../components/AdminDiet/DietModalsAdmin';
-import DietActionModals   from '../components/AdminDiet/DietActionModals';
-import FoodSearchModal    from '../components/FoodSearchModal';
+import DietHeaderWidgets    from '../components/AdminDiet/DietHeaderWidgets';
+import MealCardAdmin        from '../components/AdminDiet/MealCardAdmin';
+import DietModalsAdmin      from '../components/AdminDiet/DietModalsAdmin';
+import DietActionModals     from '../components/AdminDiet/DietActionModals';
+import FoodSearchModal      from '../components/FoodSearchModal';
 import SmartSubstituteModal from '../components/SmartSubstituteModal';
-import ImportDietModal    from '../components/ImportDietModal';
-import ModelSelectorModal from '../components/AdminDiet/ModelSelectorModal';
-import DietContextPanel   from '../components/AdminDiet/DietContextPanel'; // 🔥 NOVO
-import { MealAnalyzerModal, DayAnalyzerModal } from '../components/AdminDiet/DietAnalyzerModal'; // 🔥 NOVO
+import ImportDietModal      from '../components/ImportDietModal';
+import ModelSelectorModal   from '../components/AdminDiet/ModelSelectorModal';
+import DietContextPanel     from '../components/AdminDiet/DietContextPanel';
+import { MealAnalyzerModal, DayAnalyzerModal } from '../components/AdminDiet/DietAnalyzerModal';
 
 // Hooks e Utils
-import { useDietModals }   from '../hooks/useDietModals';
-import { useDietData }     from '../hooks/useDietData';
-import { useDietActions }  from '../hooks/useDietActions';
-import * as DietService    from '../services/adminDietService';
+import { useDietModals }  from '../hooks/useDietModals';
+import { useDietData }    from '../hooks/useDietData';
+import { useDietActions } from '../hooks/useDietActions';
+import * as DietService   from '../services/adminDietService';
 import { toGrams, enrichMealsWithDatabase, generateDietPDF } from '../utils/dietUtils';
-import { calcWeeklyPlan }  from '../utils/macroPlanner';
+import { calcWeeklyPlan } from '../utils/macroPlanner';
 
 const DAY_TABS = [
     { key: 'TREINO',        label: 'TREINO',   icon: 'dumbbell'    },
@@ -50,24 +51,34 @@ export default function AdminDietScreen({ route, navigation }) {
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const isWebPC = isWeb && windowWidth > 768;
 
-    // No web/PC: layout de duas colunas. No mobile: coluna única.
-    const PANEL_WIDTH        = 276; // largura do painel lateral + border
-    const contentMaxWidth    = isWebPC ? 960 : '100%';
-    const containerBorders   = isWebPC
+    const contentMaxWidth  = isWebPC ? 960 : '100%';
+    const containerBorders = isWebPC
         ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border }
         : {};
 
     const RootComponent = isWeb ? View : SafeAreaView;
     const fadeAnim = useRef(new Animated.Value(1)).current;
-    const [showRaioX, setShowRaioX]                   = useState(false);
-    const [initialCategoryFilter, setInitialCategoryFilter] = useState('Todas');
-    const [modelSelectorVisible, setModelSelectorVisible]   = useState(false);
-    const [generateProgress, setGenerateProgress]           = useState('');
 
-    // 🔥 Estados do analisador
-    const [mealAnalyzerVisible, setMealAnalyzerVisible] = useState(false);
-    const [dayAnalyzerVisible,  setDayAnalyzerVisible]  = useState(false);
-    const [mealToAnalyze,       setMealToAnalyze]       = useState(null);
+    const [showRaioX,             setShowRaioX]             = useState(false);
+    const [initialCategoryFilter, setInitialCategoryFilter] = useState('Todas');
+    const [modelSelectorVisible,  setModelSelectorVisible]  = useState(false);
+    const [generateProgress,      setGenerateProgress]      = useState('');
+    const [mealAnalyzerVisible,   setMealAnalyzerVisible]   = useState(false);
+    const [dayAnalyzerVisible,    setDayAnalyzerVisible]    = useState(false);
+    const [mealToAnalyze,         setMealToAnalyze]         = useState(null);
+
+    // 🔥 ID do coach logado — lido do AsyncStorage
+    const [loggedCoachId, setLoggedCoachId] = useState('');
+    useEffect(() => {
+        AsyncStorage.getItem('user').then(json => {
+            if (json) {
+                try {
+                    const u = JSON.parse(json);
+                    setLoggedCoachId(u.id ?? '');
+                } catch {}
+            }
+        });
+    }, []);
 
     const rawAluno = route.params?.aluno;
     const aluno = (typeof rawAluno === 'string' && rawAluno.startsWith('{'))
@@ -79,7 +90,6 @@ export default function AdminDietScreen({ route, navigation }) {
     const data    = useDietData(userId);
     const actions = useDietActions(aluno, data.anamnese, data.initialMeals);
 
-    // 🔥 Macros alvo do dia ativo (para o painel lateral)
     const macroTargets = useMemo(() => {
         if (!data.anamnese) return null;
         try {
@@ -95,7 +105,6 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleApproveMealSuggestion = (refeicaoReescrita) => {
         if (!mealToAnalyze) return;
-        // Atualiza só a observação da refeição — os alimentos o coach ajusta manualmente
         actions.setMeals(prev => prev.map(m =>
             m.id === mealToAnalyze.id
                 ? { ...m, notes: refeicaoReescrita.notes || m.notes }
@@ -120,15 +129,15 @@ export default function AdminDietScreen({ route, navigation }) {
             }));
             const payload = {
                 userId,
-                name: `Plano Alimentar - ${data.dietConfig.goal}`,
-                goal: data.dietConfig.goal,
+                name:         `Plano Alimentar - ${data.dietConfig.goal}`,
+                goal:         data.dietConfig.goal,
                 totalKcal:    actions.currentMacros.kcal,
                 totalProtein: actions.currentMacros.prot,
                 totalCarbs:   actions.currentMacros.carb,
                 totalFats:    actions.currentMacros.fat,
                 waterIntake:  data.dietConfig.water,
                 generalNotes: data.dietConfig.notes,
-                meals: safeMeals,
+                meals:        safeMeals,
             };
             await DietService.saveDiet(payload);
             if (isWeb) window.alert('🚀 Dieta salva com sucesso!');
@@ -249,8 +258,8 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleCallGeneratePDF = () => {
         generateDietPDF({
-            visibleMeals: actions.visibleMeals,
-            dietConfig: data.dietConfig,
+            visibleMeals:  actions.visibleMeals,
+            dietConfig:    data.dietConfig,
             currentMacros: actions.currentMacros,
             activeDayType: actions.activeDayType,
             aluno,
@@ -259,8 +268,8 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleOpenTimeSelect = (mealId) => { actions.setActiveMealId(mealId); modals.setTimeModalVisible(true); };
     const handleOpenNameSelect = (mealId) => { actions.setActiveMealId(mealId); modals.setNameModalVisible(true); };
-    const handleSelectTime = (time) => { actions.handleUpdateMeal(actions.activeMealId, 'time', time); modals.setTimeModalVisible(false); };
-    const handleSelectName = (name) => {
+    const handleSelectTime     = (time)   => { actions.handleUpdateMeal(actions.activeMealId, 'time', time); modals.setTimeModalVisible(false); };
+    const handleSelectName     = (name)   => {
         if (name === 'Personalizado') {
             modals.setNameModalVisible(false);
             actions.setCustomNameInput('');
@@ -336,14 +345,13 @@ export default function AdminDietScreen({ route, navigation }) {
             overflow: 'hidden',
             backgroundColor: isWeb ? (theme.isDark ? '#0a0a0a' : '#E5E5EA') : theme.bg,
         }}>
-            {/* Container principal com max-width */}
             <View style={{
                 flex: 1,
                 width: '100%',
                 maxWidth: contentMaxWidth,
                 alignSelf: 'center',
                 backgroundColor: theme.bg,
-                flexDirection: 'row', // 🔥 row para painel lateral
+                flexDirection: 'row',
                 ...containerBorders,
             }}>
 
@@ -417,7 +425,7 @@ export default function AdminDietScreen({ route, navigation }) {
                                     })}
                                 </View>
 
-                                {/* REFEIÇÕES — agrupadas: principal + suas alternativas */}
+                                {/* REFEIÇÕES */}
                                 {actions.visibleMeals.length === 0 ? (
                                     <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                                         <View style={[styles.emptyIconBg, { backgroundColor: theme.surface }]}>
@@ -429,20 +437,17 @@ export default function AdminDietScreen({ route, navigation }) {
                                         </Text>
                                     </View>
                                 ) : (() => {
-                                    // FIX: isMainVersion pode ser false, 0 ou null — trata tudo
-                                    const isAlt = (m) => m.isMainVersion === false || m.isMainVersion === 0;
+                                    const isAlt     = (m) => m.isMainVersion === false || m.isMainVersion === 0;
                                     const mainMeals = actions.visibleMeals.filter(m => !isAlt(m));
                                     const altMeals  = actions.visibleMeals.filter(m => isAlt(m));
 
                                     return mainMeals.map((meal, mIdx) => {
-                                        // Alternativas desta refeição principal
                                         const myAlts = meal.alternativeGroupId
                                             ? altMeals.filter(a => a.alternativeGroupId === meal.alternativeGroupId)
                                             : [];
 
                                         return (
                                             <View key={meal.id}>
-                                                {/* Card principal */}
                                                 <MealCardAdmin
                                                     meal={meal}
                                                     index={mIdx}
@@ -465,11 +470,8 @@ export default function AdminDietScreen({ route, navigation }) {
                                                     allMeals={actions.visibleMeals}
                                                     onApplyAsAlternative={actions.handleApplyAsAlternative}
                                                 />
-
-                                                {/* Cards das versões alternativas com indent */}
                                                 {myAlts.map((alt, aIdx) => (
                                                     <View key={alt.id} style={{ paddingLeft: 16 }}>
-                                                        {/* Linha conectora visual */}
                                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, marginLeft: 8 }}>
                                                             <View style={{ width: 2, height: 16, backgroundColor: '#FF9500', borderRadius: 1 }} />
                                                             <Text style={{ fontSize: 9, fontWeight: '900', color: '#FF9500', letterSpacing: 0.5 }}>
@@ -563,19 +565,79 @@ export default function AdminDietScreen({ route, navigation }) {
                         currentMacros={actions.currentMacros}
                         macroTargets={macroTargets}
                         visibleMeals={actions.visibleMeals}
-                        onAnalyzeDay={() => setDayAnalyzerVisible(true)} // 🔥 NOVO
+                        onAnalyzeDay={() => setDayAnalyzerVisible(true)}
                     />
                 )}
             </View>
 
             {/* MODAIS */}
-            <DietModalsAdmin theme={theme} timeModalVisible={modals.timeModalVisible} setTimeModalVisible={modals.setTimeModalVisible} handleSelectTime={handleSelectTime} nameModalVisible={modals.nameModalVisible} setNameModalVisible={modals.setNameModalVisible} handleSelectName={handleSelectName} customNameModalVisible={modals.customNameModalVisible} setCustomNameModalVisible={modals.setCustomNameModalVisible} customNameInput={actions.customNameInput} setCustomNameInput={actions.setCustomNameInput} handleSaveCustomName={handleSaveCustomName} />
-            <DietActionModals theme={theme} isWeb={isWeb} modalCloneVisible={modals.modalCloneVisible} setModalCloneVisible={modals.setModalCloneVisible} studentsList={data.studentsList} handleCloneFromStudent={handleCloneFromStudent} modalTemplatesVisible={modals.modalTemplatesVisible} setModalTemplatesVisible={modals.setModalTemplatesVisible} templatesList={data.templatesList} handleApplyTemplate={handleApplyTemplate} modalSaveTemplateVisible={modals.modalSaveTemplateVisible} setModalSaveTemplateVisible={modals.setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate} modalMealOptionsVisible={modals.modalMealOptionsVisible} setModalMealOptionsVisible={modals.setModalMealOptionsVisible} modalSaveMealVisible={modals.modalSaveMealVisible} setModalSaveMealVisible={modals.setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate} modalImportMealVisible={modals.modalImportMealVisible} setModalImportMealVisible={modals.setModalImportMealVisible} mealTemplatesList={data.mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
+            <DietModalsAdmin
+                theme={theme}
+                timeModalVisible={modals.timeModalVisible}
+                setTimeModalVisible={modals.setTimeModalVisible}
+                handleSelectTime={handleSelectTime}
+                nameModalVisible={modals.nameModalVisible}
+                setNameModalVisible={modals.setNameModalVisible}
+                handleSelectName={handleSelectName}
+                customNameModalVisible={modals.customNameModalVisible}
+                setCustomNameModalVisible={modals.setCustomNameModalVisible}
+                customNameInput={actions.customNameInput}
+                setCustomNameInput={actions.setCustomNameInput}
+                handleSaveCustomName={handleSaveCustomName}
+            />
+            <DietActionModals
+                theme={theme}
+                isWeb={isWeb}
+                modalCloneVisible={modals.modalCloneVisible}
+                setModalCloneVisible={modals.setModalCloneVisible}
+                studentsList={data.studentsList}
+                handleCloneFromStudent={handleCloneFromStudent}
+                modalTemplatesVisible={modals.modalTemplatesVisible}
+                setModalTemplatesVisible={modals.setModalTemplatesVisible}
+                templatesList={data.templatesList}
+                handleApplyTemplate={handleApplyTemplate}
+                modalSaveTemplateVisible={modals.modalSaveTemplateVisible}
+                setModalSaveTemplateVisible={modals.setModalSaveTemplateVisible}
+                handleSaveAsTemplate={handleSaveAsTemplate}
+                modalMealOptionsVisible={modals.modalMealOptionsVisible}
+                setModalMealOptionsVisible={modals.setModalMealOptionsVisible}
+                modalSaveMealVisible={modals.modalSaveMealVisible}
+                setModalSaveMealVisible={modals.setModalSaveMealVisible}
+                handleSaveMealTemplate={handleSaveMealTemplate}
+                modalImportMealVisible={modals.modalImportMealVisible}
+                setModalImportMealVisible={modals.setModalImportMealVisible}
+                mealTemplatesList={data.mealTemplatesList}
+                handleApplyMealTemplate={handleApplyMealTemplate}
+            />
 
-            <FoodSearchModal visible={modals.searchModalVisible} onClose={() => { modals.setSearchModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }} onSelectFood={actions.handleAddFoodToMeal} targetGroup={actions.activeGroupId} theme={theme} initialCategoryFilter={initialCategoryFilter} />
-            <SmartSubstituteModal visible={modals.smartModalVisible} onClose={() => { modals.setSmartModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }} onSelectFood={actions.handleAddFoodToMeal} onManualSearch={handleSmartToManual} principalFood={actions.smartPrincipalFood} principalAmount={actions.smartPrincipalAmount} theme={theme} existingGroupItems={getExistingItemsInGroup()} />
-            {modals.importModalVisible && <ImportDietModal visible={modals.importModalVisible} onClose={() => modals.setImportModalVisible(false)} theme={theme} onImportSuccess={handleImportSuccess} />}
-
+            {/* 🔥 coachId vem do AsyncStorage — ID do coach logado */}
+            <FoodSearchModal
+                visible={modals.searchModalVisible}
+                onClose={() => { modals.setSearchModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
+                onSelectFood={actions.handleAddFoodToMeal}
+                targetGroup={actions.activeGroupId}
+                theme={theme}
+                initialCategoryFilter={initialCategoryFilter}
+                coachId={loggedCoachId}
+            />
+            <SmartSubstituteModal
+                visible={modals.smartModalVisible}
+                onClose={() => { modals.setSmartModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
+                onSelectFood={actions.handleAddFoodToMeal}
+                onManualSearch={handleSmartToManual}
+                principalFood={actions.smartPrincipalFood}
+                principalAmount={actions.smartPrincipalAmount}
+                theme={theme}
+                existingGroupItems={getExistingItemsInGroup()}
+            />
+            {modals.importModalVisible && (
+                <ImportDietModal
+                    visible={modals.importModalVisible}
+                    onClose={() => modals.setImportModalVisible(false)}
+                    theme={theme}
+                    onImportSuccess={handleImportSuccess}
+                />
+            )}
             <ModelSelectorModal
                 visible={modelSelectorVisible}
                 theme={theme}
@@ -587,7 +649,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 aluno={aluno}
             />
 
-            {/* 🔥 ANALISADORES */}
+            {/* ANALISADORES */}
             <MealAnalyzerModal
                 visible={mealAnalyzerVisible}
                 onClose={() => { setMealAnalyzerVisible(false); setMealToAnalyze(null); }}
