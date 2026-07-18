@@ -29,7 +29,8 @@ import SendNoticeModal from '../components/SendNoticeModal';
 import AdminInviteModal from '../components/AdminInviteModal'; 
 import AdminCheckinModal from '../components/Admin/AdminCheckinModal';
 import DisparoNPSModal from '../components/Admin/DisparoNPSModal';
-import AdminFinanceSystem from '../components/AdminFinanceSystem'; 
+import AdminFinanceSystem from '../components/AdminFinanceSystem';
+import EliteAssistant from '../components/Admin/EliteAssistant'; // ← NOVO
 
 const MENU_TABS = [
     { id: 'ALUNOS', label: 'GERENCIAR ALUNOS', shortLabel: 'ALUNOS', icon: 'account-group' },
@@ -289,7 +290,7 @@ export default function AdminDashboard({ navigation }) {
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
 
-      {/* 🔥 LATERAIS COM LOGOS NO PC 🔥 */}
+      {/* LATERAIS COM LOGOS NO PC */}
       {isWebPC && lateralSpace > 10 && (
           <View key={`lateral-${isMaster}-${theme.isDark}`} style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
               <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
@@ -317,10 +318,10 @@ export default function AdminDashboard({ navigation }) {
       >
           <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 30 : 20, paddingBottom: 40, minHeight: '100%' }}>
 
-              {/* 🔥 FAIXA DE BRANDING (BANNER CENTRAL) COM BOTÕES EMBUTIDOS 🔥 */}
+              {/* BANNER CENTRAL */}
               <View style={{ marginBottom: 20, borderRadius: 20, overflow: 'hidden', height: 200, backgroundColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.isDark ? theme.border : '#222' }}>
                   
-                  {/* 🔥 BOTÕES DE AÇÃO FLUTUANTES DENTRO DO BANNER (MUDAM PARA COLUNA NO MOBILE) 🔥 */}
+                  {/* BOTÕES FLUTUANTES DENTRO DO BANNER */}
                   <View style={{ position: 'absolute', top: 15, right: 15, flexDirection: windowWidth > 600 ? 'row' : 'column', gap: 8, zIndex: 10 }}>
                       <TouchableOpacity onPress={toggleDarkMode} style={[styles.bannerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                           <MaterialCommunityIcons name={theme.isDark ? 'white-balance-sunny' : 'moon-waning-crescent'} size={20} color={theme.text} />
@@ -340,7 +341,7 @@ export default function AdminDashboard({ navigation }) {
                   )}
               </View>
 
-              {/* 🎂 ANIVERSARIANTES EXPANSÍVEL 🎂 */}
+              {/* ANIVERSARIANTES */}
               {!birthdayDismissed && birthdays.length > 0 && (
                   <View style={[styles.miniBirthdayPill, { backgroundColor: theme.accent + '20' }]}>
                       <TouchableOpacity 
@@ -367,13 +368,11 @@ export default function AdminDashboard({ navigation }) {
                                       <Text style={{ color: theme.text, fontSize: 13, fontWeight: 'bold' }}>{b.name}</Text>
                                       <Text style={{ 
                                           color: b.daysUntil === 0 ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary, 
-                                          fontSize: 11, 
-                                          fontWeight: '900', 
+                                          fontSize: 11, fontWeight: '900', 
                                           backgroundColor: b.daysUntil === 0 ? theme.accent : 'transparent', 
                                           paddingHorizontal: b.daysUntil === 0 ? 8 : 0, 
                                           paddingVertical: b.daysUntil === 0 ? 4 : 0, 
-                                          borderRadius: 6, 
-                                          overflow: 'hidden' 
+                                          borderRadius: 6, overflow: 'hidden' 
                                       }}>
                                           {b.daysUntil === 0 ? 'HOJE 🎉' : `Em ${b.daysUntil} dias`}
                                       </Text>
@@ -466,15 +465,19 @@ export default function AdminDashboard({ navigation }) {
       <DisparoNPSModal visible={isNpsModalOpen} onClose={() => setIsNpsModalOpen(false)} alunos={alunosAtivos} theme={theme} />
       <AdminInviteModal visible={inviteModalVisible} onClose={() => setInviteModalVisible(false)} adminEmail={adminEmail} theme={theme} />
       <SendNoticeModal visible={isNoticeModalOpen} onClose={() => setIsNoticeModalOpen(false)} alunos={alunosAtivos} adminId={adminId} theme={theme} />
+
+      {/* ELITE ASSISTANT — botão flutuante ← NOVO */}
+      <EliteAssistant theme={theme} />
+
     </RootComponent>
   );
 }
 
 const styles = StyleSheet.create({
-  bannerBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
-  segmentedControl: { flexDirection: 'row', marginBottom: 20, padding: 4, borderRadius: 12 },
-  segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
-  miniBirthdayPill: { flexDirection: 'column', alignItems: 'stretch', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, marginBottom: 16 },
-  miniBirthdayText: { fontSize: 11, fontWeight: '700' }
+  bannerBtn:          { width: 40, height: 40, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+  segmentedControl:   { flexDirection: 'row', marginBottom: 20, padding: 4, borderRadius: 12 },
+  segmentBtn:         { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  segmentText:        { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  miniBirthdayPill:   { flexDirection: 'column', alignItems: 'stretch', paddingHorizontal: 14, paddingVertical: 12, borderRadius: 16, marginBottom: 16 },
+  miniBirthdayText:   { fontSize: 11, fontWeight: '700' },
 });
