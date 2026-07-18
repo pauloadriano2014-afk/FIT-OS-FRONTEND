@@ -1,12 +1,12 @@
 // src/screens/AdminDashboard.js
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ActivityIndicator, StatusBar, RefreshControl, ScrollView, Alert, Platform, Dimensions } from 'react-native';
+import { View, StyleSheet, ActivityIndicator, StatusBar, RefreshControl, ScrollView, Alert, Platform, TouchableOpacity, Text, Image, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { TouchableOpacity, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // Contextos e Hooks
 import { useTheme } from '../contexts/ThemeContext';
@@ -57,12 +57,24 @@ const OPT_PLANOS = [
 
 export default function AdminDashboard({ navigation }) {
   const { theme, changeTheme } = useTheme();
-  const { width: windowWidth } = Dimensions.get('window');
-  const isWebPC = Platform.OS === 'web' && windowWidth > 768;
+  const { width: windowWidth } = useWindowDimensions(); 
+  const isWeb = Platform.OS === 'web';
+  const isWebPC = isWeb && windowWidth > 768;
   const containerMaxWidth = isWebPC ? 960 : '100%'; 
-  const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
+  
+  // 🔥 ADICIONADO ARREDONDAMENTO E BORDA INFERIOR NO CONTAINER DO PC
+  const containerBorders = isWebPC ? { 
+      borderLeftWidth: 1, 
+      borderRightWidth: 1, 
+      borderBottomWidth: 1, 
+      borderBottomLeftRadius: 24, 
+      borderBottomRightRadius: 24, 
+      borderColor: theme.border 
+  } : {};
+  
+  const lateralSpace = isWebPC ? (windowWidth - 960) / 2 : 0; 
+  const webOuterBg = '#0a0a0a'; 
 
-  // 🔥 HOOK DE DADOS 🔥
   const {
       alunosAtivos, alunosInativos, feed, checkins, dietFeedbacks, surveys,
       loading, refreshing, adminEmail, adminId, coachFilter, setCoachFilter,
@@ -70,7 +82,6 @@ export default function AdminDashboard({ navigation }) {
       handleDeleteFeedback, handleDeleteLog, getLogCoach
   } = useAdminDashboard();
 
-  // 🔥 ESTADOS DE INTERFACE 🔥
   const [activeTab, setActiveTab] = useState('ALUNOS'); 
   const [isMenuVisible, setIsMenuVisible] = useState(false); 
   const [subTabAlunos, setSubTabAlunos] = useState('ATIVOS'); 
@@ -99,14 +110,12 @@ export default function AdminDashboard({ navigation }) {
   const [selectedColor, setSelectedColor] = useState('verde');
   const [inviteModalVisible, setInviteModalVisible] = useState(false);
 
-  // 🎂 ESTADOS DE ANIVERSARIANTES 🎂
+  const [partnerLogoUrl, setPartnerLogoUrl] = useState(null);
+
   const [birthdays, setBirthdays] = useState([]);
   const [birthdayDismissed, setBirthdayDismissed] = useState(false);
-  const [isBirthdaysExpanded, setIsBirthdaysExpanded] = useState(false); // 🔥 ESTADO NOVO PARA EXPANDIR
+  const [isBirthdaysExpanded, setIsBirthdaysExpanded] = useState(false);
 
-  // 🧑‍🏫 GATILHO DE RECARREGAMENTO DO PAINEL DE COACHES PENDENTES 🔥
-  // Só sobe quando o botão de recarregar do header é clicado. O painel também
-  // já refaz o check sozinho ao montar (ou seja, toda vez que você entra na aba ALUNOS).
   const [coachCheckTrigger, setCoachCheckTrigger] = useState(0);
 
   useFocusEffect(useCallback(() => { fetchData(false); }, []));
@@ -115,12 +124,20 @@ export default function AdminDashboard({ navigation }) {
       setVisibleCount(15); setVisibleCountCheckins(5); setVisibleCountDiet(5); setVisibleCountSurveys(5); setVisibleCountFeed(10);
   }, [subTabAlunos, subTabCheckins, activeTab, search, filterStatus, filterIntensidade, filterPlano, coachFilter]);
 
-  // 🎂 Busca aniversariantes assim que o adminId estiver disponível
   useEffect(() => {
-      if (adminId) fetchBirthdays();
-  }, [adminId]);
+      if (adminId) {
+          fetchBirthdays();
+          if (!isMaster) {
+              fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${adminId}`)
+                  .then(res => res.json())
+                  .then(data => {
+                      if (data && data.brandLogoUrl) setPartnerLogoUrl(data.brandLogoUrl);
+                  })
+                  .catch(e => console.log("Erro ao buscar logo parceiro:", e));
+          }
+      }
+  }, [adminId, isMaster]);
 
-  // 🎂 Busca aniversariantes dos próximos 7 dias com cache diário (1x por dia)
   const fetchBirthdays = async () => {
       if (!adminId) return;
       try {
@@ -182,7 +199,6 @@ export default function AdminDashboard({ navigation }) {
   if (filterIntensidade !== 'TODOS') activeFiltersCount++;
   if (filterPlano !== 'TODOS') activeFiltersCount++;
 
-  // 🔥 LÓGICA DE FILTRAGEM
   const displayList = useMemo(() => {
       let list = subTabAlunos === 'ATIVOS' ? alunosAtivos : alunosInativos;
       if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
@@ -233,7 +249,6 @@ export default function AdminDashboard({ navigation }) {
   const unreadSurveysCount = filteredSurveys.filter(s => !s.readByAdmin).length;
   const totalAlerts = filteredCheckins.length + unreadFeedbacksCount + unreadSurveysCount;
 
-  // 🔥 FUNÇÕES GLOBAIS DA TELA 🔥
   const handleLogout = async () => {
     await AsyncStorage.multiRemove(['user', 'role', '@dashboard_cache', '@global_exercises']);
     if (Platform.OS === 'web') window.location.replace('/');
@@ -244,9 +259,6 @@ export default function AdminDashboard({ navigation }) {
   const selectThemeColor = (colorKey) => { setSelectedColor(colorKey); changeTheme(theme.isDark, colorKey); };
   const switchSubTab = (tab) => { setSubTabAlunos(tab); setSearch(''); setVisibleCount(15); };
 
-  // 🔥 RECARREGAMENTO DO HEADER: mantém o fetchData normal e, além disso, avisa o
-  // painel de coaches pendentes pra refazer o check (via coachCheckTrigger).
-  // Funciona em qualquer args que o AdminHeader passe pro fetchData original.
   const handleHeaderReload = (...args) => {
       fetchData(...args);
       setCoachCheckTrigger(t => t + 1);
@@ -269,24 +281,52 @@ export default function AdminDashboard({ navigation }) {
       else { Alert.alert("Remover Alerta", "Marcar como 'Avaliado' para remover o aviso vermelho?", [ { text: "Cancelar", style: "cancel" }, { text: "Sim", onPress: confirmAction } ]); }
   };
 
-  const isWeb = Platform.OS === 'web';
-  const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
-  const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
+  const rootStyle = isWebPC ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
 
   return (
     <RootComponent style={rootStyle}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
 
+      {/* 🔥 LATERAIS COM LOGOS NO PC 🔥 */}
+      {isWebPC && lateralSpace > 10 && (
+          <View key={`lateral-${isMaster}-${theme.isDark}`} style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
+              <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
+                  {isMaster ? (
+                      <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                  ) : partnerLogoUrl ? (
+                      <Image source={{ uri: partnerLogoUrl }} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                  ) : null}
+              </View>
+              <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
+                  {isMaster ? (
+                      <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                  ) : partnerLogoUrl ? (
+                      <Image source={{ uri: partnerLogoUrl }} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                  ) : null}
+              </View>
+          </View>
+      )}
+
       <ScrollView 
-          style={{ flex: 1, width: '100%', backgroundColor: isWeb ? 'transparent' : theme.bg }} 
+          style={{ flex: 1, width: '100%', backgroundColor: isWebPC ? 'transparent' : theme.bg }} 
           contentContainerStyle={{ alignItems: 'center', paddingBottom: 150 }} 
           showsVerticalScrollIndicator={false}
           refreshControl={activeTab !== 'FINANCAS' ? <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} /> : undefined}
       >
-          <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, minHeight: '100%' }}>
+          {/* 🔥 ADICIONADO PADDING BOTTOM 40 AQUI NO CONTAINER CENTRAL */}
+          <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, paddingBottom: 40, minHeight: '100%' }}>
 
-              <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={handleHeaderReload} handleLogout={handleLogout} adminId={adminId} />
+              <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={handleHeaderReload} handleLogout={handleLogout} adminId={adminId} hideTitle={true} />
+
+              {/* 🔥 FAIXA DE BRANDING (BANNER CENTRAL) 🔥 */}
+              <View style={{ marginBottom: 20, borderRadius: 20, overflow: 'hidden', height: 200, backgroundColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.isDark ? theme.border : '#222' }}>
+                  {isMaster ? (
+                      <Image source={{ uri: "https://i.postimg.cc/DZb2WxSn/Design-sem-nome-(1).png" }} style={{ width: '100%', height: '100%', resizeMode: 'cover', zIndex: 2 }} />
+                  ) : (
+                      <Image source={{ uri: "https://i.postimg.cc/wxZqp84Z/Design-sem-nome.png" }} style={{ width: '100%', height: '100%', resizeMode: 'cover', zIndex: 2 }} />
+                  )}
+              </View>
 
               {/* 🎂 ANIVERSARIANTES EXPANSÍVEL 🎂 */}
               {!birthdayDismissed && birthdays.length > 0 && (
@@ -332,11 +372,6 @@ export default function AdminDashboard({ navigation }) {
                   </View>
               )}
 
-              {/* 🔥 PAINEL DE COACHES PENDENTES (SÓ PARA MASTER, SÓ NA ABA ALUNOS) 🔥
-                  Antes ficava sempre montado e checava coach novo em qualquer aba.
-                  Agora: só monta (e portanto só faz o fetch) quando activeTab === 'ALUNOS',
-                  e refaz o check quando o botão de recarregar do header é clicado
-                  (via coachCheckTrigger), não importa a aba em que você estiver. */}
               {isMaster && activeTab === 'ALUNOS' && (
                   <PendingCoachesPanel theme={theme} refreshTrigger={coachCheckTrigger} />
               )}
@@ -346,7 +381,6 @@ export default function AdminDashboard({ navigation }) {
                   totalAlerts={totalAlerts} MENU_TABS={MENU_TABS} isMenuVisible={isMenuVisible} setIsMenuVisible={setIsMenuVisible} 
               />
 
-              {/* 🔥 CONTROLE DE ABA: SÓ RENDERIZA SE FOR MASTER (PAULO OU ADRI) E NÃO ESTIVER NA GESTÃO 🔥 */}
               {isMaster && activeTab !== 'GESTAO' && (
                   <View style={[styles.segmentedControl, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}>
                       <TouchableOpacity style={[styles.segmentBtn, coachFilter === ownerKey && { backgroundColor: theme.surface, shadowColor: theme.isDark ? 'transparent' : '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2, borderWidth: 1, borderColor: theme.isDark ? theme.border : 'transparent'}]} onPress={() => setCoachFilter(ownerKey)}>
