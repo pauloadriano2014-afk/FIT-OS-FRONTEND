@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         paddingHorizontal: 14,
         paddingVertical:   10,
-        fontSize:     13,
+        fontSize:     16, // ← mínimo 16px evita zoom automático no iOS/web
         maxHeight:    80,
         outlineStyle: 'none',
     },
