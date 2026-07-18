@@ -62,7 +62,6 @@ export default function AdminDashboard({ navigation }) {
   const isWebPC = isWeb && windowWidth > 768;
   const containerMaxWidth = isWebPC ? 960 : '100%'; 
   
-  // 🔥 ADICIONADO ARREDONDAMENTO E BORDA INFERIOR NO CONTAINER DO PC
   const containerBorders = isWebPC ? { 
       borderLeftWidth: 1, 
       borderRightWidth: 1, 
@@ -282,7 +281,11 @@ export default function AdminDashboard({ navigation }) {
   };
 
   const RootComponent = isWeb ? View : SafeAreaView;
-  const rootStyle = isWebPC ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg };
+  
+  // 🔥 CORREÇÃO AQUI: Garante que navegadores web (inclusive no mobile) sempre tenham 100vh para permitir o scroll.
+  const rootStyle = isWeb 
+      ? { height: '100vh', width: '100%', backgroundColor: isWebPC ? webOuterBg : theme.bg } 
+      : { flex: 1, backgroundColor: theme.bg };
 
   return (
     <RootComponent style={rootStyle}>
@@ -314,7 +317,6 @@ export default function AdminDashboard({ navigation }) {
           showsVerticalScrollIndicator={false}
           refreshControl={activeTab !== 'FINANCAS' ? <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} /> : undefined}
       >
-          {/* 🔥 ADICIONADO PADDING BOTTOM 40 AQUI NO CONTAINER CENTRAL */}
           <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, paddingBottom: 40, minHeight: '100%' }}>
 
               <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={handleHeaderReload} handleLogout={handleLogout} adminId={adminId} hideTitle={true} />

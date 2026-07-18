@@ -54,7 +54,6 @@ export default function TabMarca({ theme }) {
 
     const handlePickLogo = async () => {
         try {
-            // 🔥 ATUALIZAÇÃO DO IMAGE PICKER: mediaTypes agora recebe ['images'] 🔥
             const result = await ImagePicker.launchImageLibraryAsync({ 
                 mediaTypes: ['images'], 
                 allowsEditing: true, 
@@ -85,7 +84,7 @@ export default function TabMarca({ theme }) {
             if (res.ok) {
                 const data = await res.json();
                 await AsyncStorage.setItem('user', JSON.stringify(data.user));
-                Alert.alert("Sucesso", "Sua marca e rodapé foram atualizados!");
+                Alert.alert("Sucesso", "Sua marca e identidades foram atualizadas!");
             }
         } catch (error) { Alert.alert("Erro", "Não foi possível salvar a marca."); } finally { setSavingBrand(false); }
     };
@@ -94,7 +93,7 @@ export default function TabMarca({ theme }) {
         <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 25 }]}>
             <View style={[styles.iconCircle, {backgroundColor: theme.accent + '22'}]}><MaterialCommunityIcons name="palette-swatch" size={32} color={theme.accent} /></View>
             <Text style={[styles.bigCardTitle, { color: theme.text }]}>IDENTIDADE VISUAL</Text>
-            <Text style={[styles.bigCardDesc, { marginBottom: 20 }]}>Personalize a interface enviando a logomarca da sua consultoria que aparecerá no rodapé do aplicativo do aluno.</Text>
+            <Text style={[styles.bigCardDesc, { marginBottom: 20 }]}>Personalize a interface enviando a logomarca da sua consultoria. Ela aparecerá no rodapé do app do seu aluno e nas laterais do seu painel gerencial.</Text>
 
             <View style={{ width: '100%', backgroundColor: theme.bg, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: theme.border, alignItems: 'center', marginBottom: 15 }}>
                 <Text style={[styles.cardHeaderSmall, { marginBottom: 10, textAlign: 'center' }]}>SUA LOGOMARCA</Text>
@@ -116,8 +115,43 @@ export default function TabMarca({ theme }) {
                 </View>
             </View>
 
+            {/* MOCKUP DESKTOP (PAINEL ADMIN) */}
             <View style={{ width: '100%', backgroundColor: theme.bg, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: theme.border, alignItems: 'center', marginBottom: 20 }}>
-                <Text style={[styles.cardHeaderSmall, { marginBottom: 15 }]}>COMO O ALUNO VERÁ O RODAPÉ:</Text>
+                <Text style={[styles.cardHeaderSmall, { marginBottom: 15, textAlign: 'center' }]}>COMO VOCÊ VERÁ O PAINEL (PC / WEB):</Text>
+                <View style={[styles.mockupDesktop, { borderColor: theme.border }]}>
+                    {/* Lateral Esquerda */}
+                    <View style={styles.mockupLateral}>
+                        {logoUrl ? <Image source={{ uri: logoUrl }} style={styles.mockupLateralLogo} resizeMode="contain" /> : <MaterialCommunityIcons name="image-outline" size={30} color="#333" />}
+                    </View>
+
+                    {/* Centro (Dashboard) */}
+                    <View style={[styles.mockupCenter, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', padding: 8, borderBottomWidth: 1, borderColor: theme.border }}>
+                            <View style={{ width: 40, height: 8, backgroundColor: theme.border, borderRadius: 4 }} />
+                            <View style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: theme.border }} />
+                        </View>
+                        <View style={{ margin: 10, height: 50, backgroundColor: '#000', borderRadius: 8, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#222' }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <MaterialCommunityIcons name="rocket-launch" size={14} color="#4DE38F" style={{ marginRight: 5 }} />
+                                <Text style={{ color: '#FFF', fontSize: 12, fontWeight: '900', letterSpacing: 1 }}>ELITE<Text style={{ color: '#4DE38F' }}>FIT</Text></Text>
+                            </View>
+                        </View>
+                        <View style={{ paddingHorizontal: 10, gap: 6 }}>
+                            <View style={{ width: '100%', height: 20, backgroundColor: theme.surface, borderRadius: 4 }} />
+                            <View style={{ width: '100%', height: 40, backgroundColor: theme.surface, borderRadius: 4 }} />
+                        </View>
+                    </View>
+
+                    {/* Lateral Direita */}
+                    <View style={styles.mockupLateral}>
+                        {logoUrl ? <Image source={{ uri: logoUrl }} style={styles.mockupLateralLogo} resizeMode="contain" /> : <MaterialCommunityIcons name="image-outline" size={30} color="#333" />}
+                    </View>
+                </View>
+            </View>
+
+            {/* MOCKUP MOBILE (APP DO ALUNO) */}
+            <View style={{ width: '100%', backgroundColor: theme.bg, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: theme.border, alignItems: 'center', marginBottom: 20 }}>
+                <Text style={[styles.cardHeaderSmall, { marginBottom: 15 }]}>COMO O ALUNO VERÁ O RODAPÉ DO APP:</Text>
                 <View style={[styles.mockupPhone, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={styles.mockupHeader}>
                         <View style={{ width: 100, height: 16, backgroundColor: theme.border, borderRadius: 4 }} />
@@ -157,4 +191,10 @@ const styles = StyleSheet.create({
     mockupPhone: { width: 260, height: 450, borderRadius: 30, borderWidth: 4, overflow: 'hidden', justifyContent: 'space-between' },
     mockupHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
     mockupBtn: { width: '100%', padding: 16, borderRadius: 16, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 10 },
+    
+    // 🔥 NOVOS ESTILOS DO MOCKUP DESKTOP 🔥
+    mockupDesktop: { width: '100%', height: 200, flexDirection: 'row', borderRadius: 16, overflow: 'hidden', borderWidth: 2 },
+    mockupLateral: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0a0a' },
+    mockupLateralLogo: { width: '80%', height: '50%' },
+    mockupCenter: { flex: 2, borderLeftWidth: 1, borderRightWidth: 1 }
 });

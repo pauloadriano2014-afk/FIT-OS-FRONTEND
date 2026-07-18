@@ -6,31 +6,33 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
 const ADRI_ID  = 'b7c0c181-41fd-4156-b8fe-963a267759a3';
 
-export default function AdminHeader({ theme, toggleDarkMode, fetchData, handleLogout, adminId }) {
+export default function AdminHeader({ theme, toggleDarkMode, fetchData, handleLogout, adminId, hideTitle }) {
 
     const isMaster = adminId === PAULO_ID || adminId === ADRI_ID;
 
     return (
         <View style={styles.header}>
             <View style={{ flex: 1, paddingRight: 10, overflow: 'hidden', minWidth: 0 }}>
-                {isMaster ? (
-                    // 🔥 MASTER (Paulo / Adri) — cores do logo PA ELITE TEAM
-                    <>
-                        <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
-                            <Text style={{ color: '#7B2FBE' }}>PA </Text>
-                            <Text style={{ color: '#6DBF1E' }}>ELITE </Text>
-                            <Text style={{ color: '#7B2FBE' }}>TEAM</Text>
-                        </Text>
-                        <Text style={styles.subtitle}>CONSULTORIA DE PERFORMANCE</Text>
-                    </>
-                ) : (
-                    // 🤝 COACH PARCEIRO
-                    <>
-                        <Text style={[styles.title, { color: theme.accent }]} numberOfLines={1} ellipsizeMode="tail">
-                            ELITE FIT
-                        </Text>
-                        <Text style={styles.subtitle}>CONSULTORIA DE PERFORMANCE — PAINEL ADMINISTRATIVO</Text>
-                    </>
+                {!hideTitle && (
+                    isMaster ? (
+                        // 🔥 MASTER (Paulo / Adri) — cores do logo PA ELITE TEAM
+                        <>
+                            <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+                                <Text style={{ color: '#7B2FBE' }}>PA </Text>
+                                <Text style={{ color: '#6DBF1E' }}>ELITE </Text>
+                                <Text style={{ color: '#7B2FBE' }}>TEAM</Text>
+                            </Text>
+                            <Text style={styles.subtitle}>CONSULTORIA DE PERFORMANCE</Text>
+                        </>
+                    ) : (
+                        // 🤝 COACH PARCEIRO
+                        <>
+                            <Text style={[styles.title, { color: theme.accent }]} numberOfLines={1} ellipsizeMode="tail">
+                                ELITE FIT
+                            </Text>
+                            <Text style={styles.subtitle}>CONSULTORIA DE PERFORMANCE — PAINEL ADMINISTRATIVO</Text>
+                        </>
+                    )
                 )}
             </View>
 

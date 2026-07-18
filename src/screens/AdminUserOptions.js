@@ -1,5 +1,5 @@
 // src/screens/AdminUserOptions.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar, Platform, Dimensions, Modal, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 ADICIONADO PARA O IMPERSONATION
@@ -15,6 +15,11 @@ import AdminUserSystem from '../components/AdminUserSystem';
 import RaioxCargasModal from '../components/RaioxCargasModal';
 import AdminUserAnamneseTab from '../components/Admin/AdminUserAnamneseTab';
 import RunningProtocolModal from '../components/Admin/RunningProtocolModal';
+
+const MASTER_IDS = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+];
 
 const DIET_OPTIONS = [
     { id: 'NONE', label: '🚫 Ocultar Botão', desc: 'Aluno não verá a sugestão alimentar.' },
@@ -45,6 +50,23 @@ export default function AdminUserOptions({ route, navigation }) {
 
     const ops = useAdminUserOptions(aluno, navigation);
     const targetStudent = ops.freshAluno || aluno; // O aluno que está na tela
+
+    const [currentUserId, setCurrentUserId] = useState(null);
+
+    useEffect(() => {
+        const loadAdminData = async () => {
+            try {
+                const userStr = await AsyncStorage.getItem('user');
+                if (userStr) {
+                    const userObj = JSON.parse(userStr);
+                    setCurrentUserId(userObj.id);
+                }
+            } catch (e) { console.log("Erro ao carregar sessão admin:", e); }
+        };
+        loadAdminData();
+    }, []);
+
+    const isMasterCoach = MASTER_IDS.includes(currentUserId);
 
     // 🔥 FUNÇÃO DE PERSONIFICAÇÃO DE ALUNO REAL COM TRAVA ANTI-BUG 🔥
     const handleImpersonateRealStudent = async () => {
@@ -221,17 +243,19 @@ export default function AdminUserOptions({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (WEB) */}
-                    <TouchableOpacity
-                        style={[styles.impersonateBtnWeb, { backgroundColor: theme.accent, borderColor: theme.border }]}
-                        onPress={handleImpersonateRealStudent}
-                        activeOpacity={0.8}
-                    >
-                        <MaterialCommunityIcons name="account-eye" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                        <Text style={[styles.impersonateBtnTextWeb, { color: theme.isDark ? '#000' : '#FFF' }]}>
-                            VISUALIZAR APP DO ALUNO
-                        </Text>
-                    </TouchableOpacity>
+                    {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (WEB) - APENAS MASTER COACH */}
+                    {isMasterCoach && (
+                        <TouchableOpacity
+                            style={[styles.impersonateBtnWeb, { backgroundColor: theme.accent, borderColor: theme.border }]}
+                            onPress={handleImpersonateRealStudent}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialCommunityIcons name="account-eye" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                            <Text style={[styles.impersonateBtnTextWeb, { color: theme.isDark ? '#000' : '#FFF' }]}>
+                                VISUALIZAR APP DO ALUNO
+                            </Text>
+                        </TouchableOpacity>
+                    )}
 
                     <View style={{ gap: 10 }}>
                         {MENU_TABS.map(tabObj => {
@@ -288,17 +312,19 @@ export default function AdminUserOptions({ route, navigation }) {
             </View>
 
             <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-                {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (MOBILE) */}
-                <TouchableOpacity
-                    style={[styles.impersonateBtnMobile, { backgroundColor: theme.accent, borderColor: theme.border }]}
-                    onPress={handleImpersonateRealStudent}
-                    activeOpacity={0.8}
-                >
-                    <MaterialCommunityIcons name="account-eye" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                    <Text style={[styles.impersonateBtnTextMobile, { color: theme.isDark ? '#000' : '#FFF' }]}>
-                        VISUALIZAR APP DO ALUNO
-                    </Text>
-                </TouchableOpacity>
+                {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (MOBILE) - APENAS MASTER COACH */}
+                {isMasterCoach && (
+                    <TouchableOpacity
+                        style={[styles.impersonateBtnMobile, { backgroundColor: theme.accent, borderColor: theme.border }]}
+                        onPress={handleImpersonateRealStudent}
+                        activeOpacity={0.8}
+                    >
+                        <MaterialCommunityIcons name="account-eye" size={20} color={theme.isDark ? '#000' : '#FFF'} />
+                        <Text style={[styles.impersonateBtnTextMobile, { color: theme.isDark ? '#000' : '#FFF' }]}>
+                            VISUALIZAR APP DO ALUNO
+                        </Text>
+                    </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                     style={[styles.menuSelector, { backgroundColor: theme.surface, borderColor: theme.border }]}

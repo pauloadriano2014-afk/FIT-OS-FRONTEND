@@ -77,7 +77,7 @@ export default function DietHeaderWidgets({
             {/* BOTÕES */}
             <View style={styles.assistantRow}>
 
-                {/* GERAR COM IA */}
+                {/* MONTAR DIETA */}
                 <TouchableOpacity
                     style={{ flex: 1 }}
                     onPress={handlePressAI}
@@ -96,7 +96,7 @@ export default function DietHeaderWidgets({
                                     colors={[theme.accent, theme.accent + '80']}
                                     style={styles.iconCircle}
                                 >
-                                    <MaterialCommunityIcons name="robot-outline" size={18} color="#000" />
+                                    <MaterialCommunityIcons name="pencil-ruler" size={18} color="#000" />
                                 </LinearGradient>
                                 <Text style={[styles.pillBtnText, { color: theme.text }]}>MONTAGEM RÁPIDA</Text>
                             </>
