@@ -315,14 +315,13 @@ export default function AdminDashboard({ navigation }) {
           showsVerticalScrollIndicator={false}
           refreshControl={activeTab !== 'FINANCAS' ? <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} /> : undefined}
       >
-          {/* 🔥 Padding top adicionado aqui para garantir o espaço onde ficava o antigo Header */}
           <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 30 : 20, paddingBottom: 40, minHeight: '100%' }}>
 
               {/* 🔥 FAIXA DE BRANDING (BANNER CENTRAL) COM BOTÕES EMBUTIDOS 🔥 */}
               <View style={{ marginBottom: 20, borderRadius: 20, overflow: 'hidden', height: 200, backgroundColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.isDark ? theme.border : '#222' }}>
                   
-                  {/* 🔥 BOTÕES DE AÇÃO FLUTUANTES DENTRO DO BANNER 🔥 */}
-                  <View style={{ position: 'absolute', top: 15, right: 15, flexDirection: 'row', gap: 8, zIndex: 10 }}>
+                  {/* 🔥 BOTÕES DE AÇÃO FLUTUANTES DENTRO DO BANNER (MUDAM PARA COLUNA NO MOBILE) 🔥 */}
+                  <View style={{ position: 'absolute', top: 15, right: 15, flexDirection: windowWidth > 600 ? 'row' : 'column', gap: 8, zIndex: 10 }}>
                       <TouchableOpacity onPress={toggleDarkMode} style={[styles.bannerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                           <MaterialCommunityIcons name={theme.isDark ? 'white-balance-sunny' : 'moon-waning-crescent'} size={20} color={theme.text} />
                       </TouchableOpacity>
