@@ -16,7 +16,6 @@ import { useAdminDashboard } from '../hooks/useAdminDashboard';
 import { getExpirationStatus, getCheckinStatus } from '../utils/adminHelpers';
 
 // Componentes Modulares
-import AdminHeader from '../components/Admin/AdminHeader';
 import AdminNavigation from '../components/Admin/AdminNavigation';
 import TabAlunos from '../components/Admin/TabAlunos';
 import TabCheckins from '../components/Admin/TabCheckins';
@@ -282,7 +281,6 @@ export default function AdminDashboard({ navigation }) {
 
   const RootComponent = isWeb ? View : SafeAreaView;
   
-  // 🔥 CORREÇÃO AQUI: Garante que navegadores web (inclusive no mobile) sempre tenham 100vh para permitir o scroll.
   const rootStyle = isWeb 
       ? { height: '100vh', width: '100%', backgroundColor: isWebPC ? webOuterBg : theme.bg } 
       : { flex: 1, backgroundColor: theme.bg };
@@ -317,12 +315,25 @@ export default function AdminDashboard({ navigation }) {
           showsVerticalScrollIndicator={false}
           refreshControl={activeTab !== 'FINANCAS' ? <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} tintColor={theme.accent} /> : undefined}
       >
-          <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, paddingBottom: 40, minHeight: '100%' }}>
+          {/* 🔥 Padding top adicionado aqui para garantir o espaço onde ficava o antigo Header */}
+          <View style={{ width: '100%', maxWidth: containerMaxWidth, backgroundColor: theme.bg, ...containerBorders, paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? 30 : 20, paddingBottom: 40, minHeight: '100%' }}>
 
-              <AdminHeader theme={theme} toggleDarkMode={toggleDarkMode} fetchData={handleHeaderReload} handleLogout={handleLogout} adminId={adminId} hideTitle={true} />
-
-              {/* 🔥 FAIXA DE BRANDING (BANNER CENTRAL) 🔥 */}
+              {/* 🔥 FAIXA DE BRANDING (BANNER CENTRAL) COM BOTÕES EMBUTIDOS 🔥 */}
               <View style={{ marginBottom: 20, borderRadius: 20, overflow: 'hidden', height: 200, backgroundColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 8}, shadowOpacity: 0.3, shadowRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: theme.isDark ? theme.border : '#222' }}>
+                  
+                  {/* 🔥 BOTÕES DE AÇÃO FLUTUANTES DENTRO DO BANNER 🔥 */}
+                  <View style={{ position: 'absolute', top: 15, right: 15, flexDirection: 'row', gap: 8, zIndex: 10 }}>
+                      <TouchableOpacity onPress={toggleDarkMode} style={[styles.bannerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                          <MaterialCommunityIcons name={theme.isDark ? 'white-balance-sunny' : 'moon-waning-crescent'} size={20} color={theme.text} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => handleHeaderReload(true)} style={[styles.bannerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                          <MaterialCommunityIcons name="refresh" size={20} color={theme.accent} />
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={handleLogout} style={[styles.bannerBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                          <MaterialCommunityIcons name="logout" size={20} color="#FF3B30" />
+                      </TouchableOpacity>
+                  </View>
+
                   {isMaster ? (
                       <Image source={{ uri: "https://i.postimg.cc/DZb2WxSn/Design-sem-nome-(1).png" }} style={{ width: '100%', height: '100%', resizeMode: 'cover', zIndex: 2 }} />
                   ) : (
@@ -461,6 +472,7 @@ export default function AdminDashboard({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  bannerBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
   segmentedControl: { flexDirection: 'row', marginBottom: 20, padding: 4, borderRadius: 12 },
   segmentBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   segmentText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
