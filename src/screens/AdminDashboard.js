@@ -31,6 +31,7 @@ import AdminCheckinModal from '../components/Admin/AdminCheckinModal';
 import DisparoNPSModal from '../components/Admin/DisparoNPSModal';
 import AdminFinanceSystem from '../components/AdminFinanceSystem';
 import EliteAssistant from '../components/Admin/EliteAssistant'; // ← NOVO
+import CoachOnboarding from '../components/Admin/CoachOnboarding'; // ← NOVO
 
 const MENU_TABS = [
     { id: 'ALUNOS', label: 'GERENCIAR ALUNOS', shortLabel: 'ALUNOS', icon: 'account-group' },
@@ -385,6 +386,16 @@ export default function AdminDashboard({ navigation }) {
 
               {isMaster && activeTab === 'ALUNOS' && (
                   <PendingCoachesPanel theme={theme} refreshTrigger={coachCheckTrigger} />
+              )}
+
+              {/* ONBOARDING — só para coaches parceiros, some quando concluído ← NOVO */}
+              {!isMaster && (
+                  <CoachOnboarding
+                      theme={theme}
+                      navigation={navigation}
+                      setActiveTab={setActiveTab}
+                      setSubTabGestao={setSubTabGestao}
+                  />
               )}
 
               <AdminNavigation 

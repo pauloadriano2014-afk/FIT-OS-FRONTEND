@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar, Platform, Dimensions, Modal, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 ADICIONADO PARA O IMPERSONATION
+import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { useTheme } from '../contexts/ThemeContext';
 
 import useAdminUserOptions from '../hooks/useAdminUserOptions';
@@ -15,6 +15,7 @@ import AdminUserSystem from '../components/AdminUserSystem';
 import RaioxCargasModal from '../components/RaioxCargasModal';
 import AdminUserAnamneseTab from '../components/Admin/AdminUserAnamneseTab';
 import RunningProtocolModal from '../components/Admin/RunningProtocolModal';
+import SelectAnamneseModal from '../components/Admin/SelectAnamneseModal'; // 🔥 NOVO MODAL SAAS
 
 const MASTER_IDS = [
     '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
@@ -49,9 +50,10 @@ export default function AdminUserOptions({ route, navigation }) {
     const isWebPC = Platform.OS === 'web' && windowWidth > 768;
 
     const ops = useAdminUserOptions(aluno, navigation);
-    const targetStudent = ops.freshAluno || aluno; // O aluno que está na tela
+    const targetStudent = ops.freshAluno || aluno; 
 
     const [currentUserId, setCurrentUserId] = useState(null);
+    const [isSelectAnamneseVisible, setIsSelectAnamneseVisible] = useState(false); // 🔥 ESTADO DO MODAL
 
     useEffect(() => {
         const loadAdminData = async () => {
@@ -68,7 +70,6 @@ export default function AdminUserOptions({ route, navigation }) {
 
     const isMasterCoach = MASTER_IDS.includes(currentUserId);
 
-    // 🔥 FUNÇÃO DE PERSONIFICAÇÃO DE ALUNO REAL COM TRAVA ANTI-BUG 🔥
     const handleImpersonateRealStudent = async () => {
         try {
             const currentAdminStr = await AsyncStorage.getItem('user');
@@ -82,15 +83,12 @@ export default function AdminUserOptions({ route, navigation }) {
 
             const executeImpersonation = async () => {
                 try {
-                    // 1. Salva sua sessão real na gaveta
                     await AsyncStorage.setItem('original_admin_user', currentAdminStr);
                     await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
                     
-                    // 2. Coloca os dados deste aluno na sessão ativa e força o papel USER
                     await AsyncStorage.setItem('user', JSON.stringify(targetStudent));
                     await AsyncStorage.setItem('role', 'USER');
                     
-                    // 3. Redireciona para o aplicativo dele
                     if (Platform.OS === 'web') {
                         window.location.replace('/');
                     } else {
@@ -99,7 +97,6 @@ export default function AdminUserOptions({ route, navigation }) {
                 } catch (err) {
                     console.log("Erro na troca de dados:", err);
                     
-                    // 🔥 TRAVA ANTI-BUG FANTASMA: Se falhar, destrói o bilhete falso na hora e restaura o original
                     await AsyncStorage.removeItem('original_admin_user');
                     await AsyncStorage.removeItem('original_admin_role');
                     await AsyncStorage.setItem('user', currentAdminStr);
@@ -220,11 +217,9 @@ export default function AdminUserOptions({ route, navigation }) {
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
     const currentTabObj = MENU_TABS.find(t => t.id === ops.activeTab) || MENU_TABS[0];
 
-    // ── Layout Web PC (sidebar) ──────────────────────────────────────────────
     if (isWebPC) {
         return (
             <View style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: webOuterBg, overflow: 'hidden' }}>
-                {/* Sidebar */}
                 <View style={{ width: 280, backgroundColor: theme.surface, borderRightWidth: 1, borderColor: theme.border, padding: 20 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 30, marginTop: 10 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -233,9 +228,9 @@ export default function AdminUserOptions({ route, navigation }) {
                             </TouchableOpacity>
                             <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text }}>ALUNO ELITE</Text>
                         </View>
-                        {/* Botão de Solicitar Anamnese (Web) */}
+                        {/* 🔥 GATILHO WEB */}
                         <TouchableOpacity 
-                            onPress={ops.handleRequestAnamneseUpdate} 
+                            onPress={() => setIsSelectAnamneseVisible(true)} 
                             style={{ padding: 8, backgroundColor: 'rgba(255, 149, 0, 0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255, 149, 0, 0.3)' }}
                             title="Solicitar Nova Anamnese"
                         >
@@ -243,7 +238,6 @@ export default function AdminUserOptions({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (WEB) - APENAS MASTER COACH */}
                     {isMasterCoach && (
                         <TouchableOpacity
                             style={[styles.impersonateBtnWeb, { backgroundColor: theme.accent, borderColor: theme.border }]}
@@ -274,7 +268,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* Conteúdo */}
                 <View style={{ flex: 1, backgroundColor: theme.bg }}>
                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 40, paddingBottom: 150 }} showsVerticalScrollIndicator={false}>
                         <View style={{ maxWidth: 900, width: '100%', alignSelf: 'center' }}>
@@ -285,11 +278,20 @@ export default function AdminUserOptions({ route, navigation }) {
 
                 <RaioxCargasModal visible={ops.isCargasModalVisible} onClose={() => ops.setIsCargasModalVisible(false)} historicoDeCargasList={ops.historicoDeCargasList} theme={theme} />
                 <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={ops.freshAluno || aluno} theme={theme} />
+                
+                <SelectAnamneseModal 
+                    visible={isSelectAnamneseVisible} 
+                    onClose={() => setIsSelectAnamneseVisible(false)} 
+                    theme={theme} 
+                    onSelect={(type) => {
+                        setIsSelectAnamneseVisible(false);
+                        ops.handleRequestAnamneseUpdate(type);
+                    }} 
+                />
             </View>
         );
     }
 
-    // ── Layout Mobile ────────────────────────────────────────────────────────
     return (
         <SafeAreaView style={{ height: Platform.OS === 'web' ? '100vh' : '100%', width: '100%', backgroundColor: theme.bg }}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -302,7 +304,8 @@ export default function AdminUserOptions({ route, navigation }) {
                     <Text style={[styles.headerTitle, { color: theme.text }]}>GERENCIAR ALUNO</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <TouchableOpacity onPress={ops.handleRequestAnamneseUpdate} style={{ padding: 8, marginRight: 4 }}>
+                    {/* 🔥 GATILHO MOBILE */}
+                    <TouchableOpacity onPress={() => setIsSelectAnamneseVisible(true)} style={{ padding: 8, marginRight: 4 }}>
                         <MaterialCommunityIcons name="clipboard-edit-outline" size={24} color="#FF9500" />
                     </TouchableOpacity>
                     <TouchableOpacity onPress={ops.fetchAllData} style={{ padding: 8 }}>
@@ -312,7 +315,6 @@ export default function AdminUserOptions({ route, navigation }) {
             </View>
 
             <View style={{ paddingHorizontal: 20, paddingTop: 20 }}>
-                {/* 🔥 BOTÃO DE PERSONIFICAR ALUNO (MOBILE) - APENAS MASTER COACH */}
                 {isMasterCoach && (
                     <TouchableOpacity
                         style={[styles.impersonateBtnMobile, { backgroundColor: theme.accent, borderColor: theme.border }]}
@@ -344,7 +346,6 @@ export default function AdminUserOptions({ route, navigation }) {
                 {renderContent()}
             </ScrollView>
 
-            {/* Menu dropdown */}
             <Modal visible={ops.isMenuVisible} transparent animationType="fade" onRequestClose={() => ops.setIsMenuVisible(false)}>
                 <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => ops.setIsMenuVisible(false)}>
                     <View style={[styles.menuModalContent, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -368,6 +369,16 @@ export default function AdminUserOptions({ route, navigation }) {
 
             <RaioxCargasModal visible={ops.isCargasModalVisible} onClose={() => ops.setIsCargasModalVisible(false)} historicoDeCargasList={ops.historicoDeCargasList} theme={theme} />
             <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={ops.freshAluno || aluno} theme={theme} />
+            
+            <SelectAnamneseModal 
+                visible={isSelectAnamneseVisible} 
+                onClose={() => setIsSelectAnamneseVisible(false)} 
+                theme={theme} 
+                onSelect={(type) => {
+                    setIsSelectAnamneseVisible(false);
+                    ops.handleRequestAnamneseUpdate(type);
+                }} 
+            />
         </SafeAreaView>
     );
 }
@@ -384,7 +395,6 @@ const styles = StyleSheet.create({
     modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center', padding: 20 },
     sidebarBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 15, borderRadius: 12, borderWidth: 1, borderColor: 'transparent' },
     sidebarBtnText: { fontSize: 14, fontWeight: 'bold' },
-    // 🔥 BOTÕES DE IMPERSONATION
     impersonateBtnWeb: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 20 },
     impersonateBtnTextWeb: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
     impersonateBtnMobile: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 15 },

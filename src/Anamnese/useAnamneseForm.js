@@ -28,6 +28,10 @@ export default function useAnamneseForm({ routeParams, navigation }) {
   const [loadingInitialData, setLoadingInitialData] = useState(true);
   const [timeModal, setTimeModal]                   = useState({ visible: false, target: '', step: 'hour', tempHour: '' });
 
+  // 🔥 NOVO ESTADO SAAS: TEMPLATE DINÂMICO 🔥
+  const [dynamicSchema, setDynamicSchema]           = useState(null);
+  const [dynamicTemplateId, setDynamicTemplateId]   = useState(null);
+
   // ─── DERIVADOS E REGRA DO PLANO ────────────────────────────────────────────
   const isFeminino = currentUser?.gender === 'Feminino';
   
@@ -36,11 +40,15 @@ export default function useAnamneseForm({ routeParams, navigation }) {
   const hasDiet = plan === 'ELITE' || plan === 'PREMIUM';
 
   const getActualStep = (visualStep) => {
+    // Se for um formulário dinâmico, o fluxo é linear, não pula passos hardcoded
+    if (dynamicSchema) return visualStep;
+
     if (!hasDiet || isFeminino) return visualStep;
     return visualStep >= 7 ? visualStep + 1 : visualStep;
   };
 
-  const totalSteps = !hasDiet ? 4 : isFeminino ? 11 : 10;
+  // Se houver schema dinâmico, usa os passos dele, caso contrário usa a regra legada
+  const totalSteps = dynamicSchema ? dynamicSchema.steps.length : (!hasDiet ? 4 : isFeminino ? 11 : 10);
 
   // ─── INIT E FIM DO LOADING INFINITO ────────────────────────────────────────
   useEffect(() => {
@@ -62,6 +70,28 @@ export default function useAnamneseForm({ routeParams, navigation }) {
           }
         }
         if (user?.id) {
+          // 🔥 TENTATIVA 1: MOTOR DINÂMICO (SAAS) 🔥
+          try {
+            const coachId = user.coachId || 'MASTER';
+            const formType = hasDiet ? 'FULL' : 'TRAINING'; // Avalia qual módulo o aluno precisa
+            
+            const resTemplate = await fetch(`https://fitos-final.onrender.com/api/form-template/active?coachId=${coachId}&type=${formType}`);
+            if (resTemplate.ok) {
+              const templateData = await resTemplate.json();
+              if (templateData && templateData.schema && Array.isArray(templateData.schema.steps)) {
+                if (isMounted) {
+                  setDynamicSchema(templateData.schema);
+                  setDynamicTemplateId(templateData.id);
+                }
+                await fetchDynamicExisting(templateData.id, user.id);
+                return; // 🛑 Se achou o dinâmico, interrompe e não roda o legado
+              }
+            }
+          } catch (dynamicError) {
+            console.log('Sem template dinâmico customizado, caindo para Motor Legado.', dynamicError);
+          }
+
+          // 🔥 TENTATIVA 2: MOTOR LEGADO (PA ELITE TEAM) 🔥
           await fetchExisting(user.id);
         }
       } catch (error) {
@@ -81,7 +111,23 @@ export default function useAnamneseForm({ routeParams, navigation }) {
     };
   }, []);
 
-  // ─── FETCH ANAMNESE EXISTENTE ──────────────────────────────────────────────
+  // ─── FETCH ANAMNESE DINÂMICA EXISTENTE (SAAS) ──────────────────────────────
+  const fetchDynamicExisting = async (templateId, userId) => {
+    try {
+      const res = await fetch(`https://fitos-final.onrender.com/api/form-response?userId=${userId}&templateId=${templateId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.answers) {
+          // Mescla as respostas dinâmicas com o form vazio para evitar campos undefined
+          setForm(prev => ({ ...prev, ...data.answers }));
+        }
+      }
+    } catch (e) {
+      console.log('Erro ao buscar anamnese dinâmica:', e);
+    }
+  };
+
+  // ─── FETCH ANAMNESE EXISTENTE (LEGADO) ─────────────────────────────────────
   const fetchExisting = async (userId) => {
     try {
       const controller = new AbortController();
@@ -198,6 +244,31 @@ export default function useAnamneseForm({ routeParams, navigation }) {
 
   // ─── VALIDAÇÃO CIRÚRGICA ───────────────────────────────────────────────────
   const validateStep = (step) => {
+    // 🔥 MOTOR DINÂMICO DE VALIDAÇÃO SAAS 🔥
+    if (dynamicSchema && dynamicSchema.steps) {
+      const currentStepData = dynamicSchema.steps[step - 1];
+      if (!currentStepData || !currentStepData.questions) return true;
+      
+      const errs = [];
+      currentStepData.questions.forEach(q => {
+        if (q.required) {
+          const val = form[q.id];
+          if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+            errs.push(q.label || q.question);
+          }
+        }
+      });
+      
+      if (errs.length > 0) {
+        const msg = `Por favor, preencha os seguintes campos:\n\n• ${errs.join('\n• ')}`;
+        if (Platform.OS === 'web') window.alert(`Faltam Dados!\n\n${msg}`);
+        else Alert.alert('Faltam Dados', msg);
+        return false;
+      }
+      return true;
+    }
+
+    // 🔥 MOTOR LEGADO DE VALIDAÇÃO PA ELITE TEAM 🔥
     const actual = getActualStep(step);
     const errs = [];
 
@@ -285,6 +356,37 @@ export default function useAnamneseForm({ routeParams, navigation }) {
       return;
     }
     setLoading(true);
+    
+    // 🔥 MOTOR DINÂMICO DE SUBMIT SAAS 🔥
+    if (dynamicSchema && dynamicTemplateId) {
+      try {
+        const payload = {
+          templateId: dynamicTemplateId,
+          userId: currentUser.id,
+          answers: form
+        };
+        const res = await fetch('https://fitos-final.onrender.com/api/form-response', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha ao salvar questionário dinâmico.');
+        
+        // Atualiza status do usuário localmente
+        const updatedUser = { ...currentUser, anamnesePendente: false };
+        await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+
+        const msg = 'Questionário finalizado! Aguarde o contato do seu treinador.';
+        if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Sucesso! 🚀', msg);
+        navigation.reset({ index: 0, routes: [{ name: 'Main', params: { userData: updatedUser } }] });
+      } catch (e) {
+        if (Platform.OS === 'web') window.alert(e.message); else Alert.alert('Erro', e.message);
+      } finally {
+        setLoading(false);
+      }
+      return; // Interrompe para não disparar o motor legado
+    }
+
+    // 🔥 MOTOR LEGADO DE SUBMIT PA ELITE TEAM 🔥
     try {
       const p    = parseFloat(form.peso.replace(',', '.'));
       const a    = parseFloat(form.altura.replace(',', '.'));
@@ -383,5 +485,7 @@ export default function useAnamneseForm({ routeParams, navigation }) {
     isFeminino, hasDiet, totalSteps, getActualStep,
     validateStep, salvar,
     timeModal, openTimePicker, handleSelectHour, handleSelectMinute, closeTimePicker,
+    // Exportando o schema dinâmico para a tela poder se desenhar sozinha
+    dynamicSchema 
   };
 }

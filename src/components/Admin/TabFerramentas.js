@@ -55,6 +55,13 @@ export default function TabFerramentas({ isMasterCoach, theme, navigation, aluno
                 <Text style={styles.bigCardDesc}>Crie combos e sequências de execução (Drops, Rest, etc).</Text>
             </TouchableOpacity>
 
+            {/* 🔥 NOVO: CONSTRUTOR DE ANAMNESE SAAS 🔥 */}
+            <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminAnamneseBuilderScreen')}>
+                <View style={[styles.iconCircle, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border }]}><MaterialCommunityIcons name="clipboard-edit-outline" size={32} color={theme.accent} /></View>
+                <Text style={[styles.bigCardTitle, { color: theme.text }]}>FORMULÁRIOS E ANAMNESE</Text>
+                <Text style={styles.bigCardDesc}>Personalize as perguntas dos seus questionários de Treino e Dieta.</Text>
+            </TouchableOpacity>
+
             {isMasterCoach && (
                 <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('AdminDietLibraryScreen')}>
                     <View style={[styles.iconCircle, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border }]}><MaterialCommunityIcons name="food-apple" size={32} color={theme.accent} /></View>

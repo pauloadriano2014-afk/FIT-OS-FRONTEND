@@ -61,6 +61,7 @@ import AdminFoodManagerScreen from './src/screens/AdminFoodManagerScreen';
 import AdminSubstitutionGroupsScreen from './src/screens/AdminSubstitutionGroupsScreen';
 import AdminSubstitutionGroupDetailScreen from './src/screens/AdminSubstitutionGroupDetailScreen';
 import AdminCoachesScreen from './src/screens/AdminCoachesScreen';
+import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -181,7 +182,11 @@ function RootNavigator() {
           const user = JSON.parse(userJson);
           setSavedUser(user);
           const finalRole = role || user.role || user.type || 'ALUNO';
-          if (finalRole.toLowerCase() === 'admin') {
+          // ← ADMIN e COACH vão para o painel admin
+          if (
+            finalRole.toLowerCase() === 'admin' ||
+            finalRole.toLowerCase() === 'coach'
+          ) {
             setInitialRoute('AdminDashboard');
           } else {
             setInitialRoute('Main');
@@ -250,8 +255,9 @@ function RootNavigator() {
       <Stack.Screen name="AdminTechniquesScreen" component={AdminTechniquesScreen} />
       <Stack.Screen name="AdminFoodManagerScreen" component={AdminFoodManagerScreen} />
       <Stack.Screen name="AdminSubstitutionGroupsScreen" component={AdminSubstitutionGroupsScreen} />
-<Stack.Screen name="AdminSubstitutionGroupDetailScreen" component={AdminSubstitutionGroupDetailScreen} />
-<Stack.Screen name="AdminCoachesScreen" component={AdminCoachesScreen} />
+      <Stack.Screen name="AdminSubstitutionGroupDetailScreen" component={AdminSubstitutionGroupDetailScreen} />
+      <Stack.Screen name="AdminCoachesScreen" component={AdminCoachesScreen} />
+      <Stack.Screen name="AdminAnamneseBuilderScreen" component={AdminAnamneseBuilderScreen} />
     </Stack.Navigator>
   );
 }
@@ -277,53 +283,29 @@ const linking = {
       PropostaFamilia: { path: 'PropostaFamilia' },
       SaaSProposta: {
         path: 'invite/:coachId',
-        parse: {
-          coachId: (v) => String(v),
-        },
-        stringify: {
-          coachId: (v) => v,
-        },
+        parse:     { coachId: (v) => String(v) },
+        stringify: { coachId: (v) => v },
       },
       RedefinirSenha: {
         path: 'redefinir-senha',
-        parse: {
-          token: (v) => String(v),
-        },
-        stringify: {
-          token: (v) => v,
-        },
+        parse:     { token: (v) => String(v) },
+        stringify: { token: (v) => v },
       },
       AdminDashboard: { path: 'admin' },
       AdminStudentCheckins: {
         path: 'admin-checkins',
-        parse: {
-          alunoId: (v) => String(v),
-          alunoName: (v) => decodeURIComponent(v),
-        },
-        stringify: {
-          alunoId: (v) => v,
-          alunoName: (v) => encodeURIComponent(v),
-        },
+        parse:     { alunoId: (v) => String(v), alunoName: (v) => decodeURIComponent(v) },
+        stringify: { alunoId: (v) => v,         alunoName: (v) => encodeURIComponent(v) },
       },
       AdminEvolution: {
         path: 'admin-evolution',
-        parse: {
-          alunoId: (v) => String(v),
-          alunoName: (v) => decodeURIComponent(v),
-        },
-        stringify: {
-          alunoId: (v) => v,
-          alunoName: (v) => encodeURIComponent(v),
-        },
+        parse:     { alunoId: (v) => String(v), alunoName: (v) => decodeURIComponent(v) },
+        stringify: { alunoId: (v) => v,         alunoName: (v) => encodeURIComponent(v) },
       },
       AdminAlunoOptions: {
         path: 'admin-aluno',
-        parse: {
-          alunoId: (v) => String(v),
-        },
-        stringify: {
-          alunoId: (v) => v,
-        },
+        parse:     { alunoId: (v) => String(v) },
+        stringify: { alunoId: (v) => v },
       },
     }
   }

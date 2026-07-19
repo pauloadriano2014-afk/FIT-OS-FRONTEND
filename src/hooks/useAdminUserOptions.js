@@ -176,38 +176,49 @@ export default function useAdminUserOptions(aluno, navigation) {
         } catch (error) { console.log("Erro no Motor:", error); } finally { setLoading(false); setLoadingPaflix(false); }
     };
 
-    // 🔥 GATILHO: Solicitar Atualização de Anamnese
-    const handleRequestAnamneseUpdate = () => {
-        const msg = "O aluno será obrigado a preencher os campos faltantes da anamnese no próximo login. Deseja confirmar?";
+    // 🔥 GATILHO: Solicitar Atualização de Anamnese (SAAS)
+    const handleRequestAnamneseUpdate = (formType) => {
+        // Se formType for 'FULL', nós ligamos o módulo de dieta do aluno (dietModule: true)
+        // para que o app saiba carregar a anamnese completa.
+        const shouldEnableDiet = formType === 'FULL';
+        
+        const typeLabel = shouldEnableDiet ? "Treino + Dieta (Completo)" : "Apenas Treino";
+        const msg = `O aluno será obrigado a preencher o formulário [${typeLabel}] no próximo acesso.\n\nDeseja confirmar?`;
         
         if (Platform.OS === 'web') {
-            if (window.confirm(msg)) executeAnamneseRequest();
+            if (window.confirm(msg)) executeAnamneseRequest(shouldEnableDiet);
         } else {
             Alert.alert(
-                "Solicitar Atualização", 
+                "Solicitar Anamnese", 
                 msg,
                 [
                     { text: "Cancelar", style: "cancel" },
-                    { text: "Sim, Solicitar", onPress: executeAnamneseRequest }
+                    { text: "Sim, Enviar", onPress: () => executeAnamneseRequest(shouldEnableDiet) }
                 ]
             );
         }
     };
 
-    const executeAnamneseRequest = async () => {
+    const executeAnamneseRequest = async (shouldEnableDiet) => {
         try {
+            const payload = { 
+                anamnesePendente: true,
+                // 🔥 Atualiza a chave de módulo do aluno para ele receber o formulário correto
+                dietModule: shouldEnableDiet 
+            };
+
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ anamnesePendente: true })
+                body: JSON.stringify(payload)
             });
 
             if (!res.ok) throw new Error('Falha ao atualizar o banco de dados');
             
             if (Platform.OS === 'web') window.alert("Sucesso! Anamnese solicitada.");
-            else Alert.alert("Sucesso", "O aluno foi notificado e deverá atualizar a anamnese.");
+            else Alert.alert("Sucesso", "O formulário foi disparado para o aluno.");
             
-            fetchAllData(); // Atualiza os dados na tela
+            fetchAllData(); // Atualiza os dados na tela (incluindo o status da dieta se mudou)
         } catch (e) {
             if (Platform.OS === 'web') window.alert("Erro ao solicitar anamnese.");
             else Alert.alert("Erro", "Não foi possível enviar a solicitação.");
@@ -444,6 +455,6 @@ export default function useAdminUserOptions(aluno, navigation) {
         handleEditWorkout, handleNewWorkout, handleToggleDisableCheckIn,
         handleCheckInDateChange, handleSaveCheckInDate, handleSaveDietGoal,
         handleDismissAlert, handleAbrirRaioxCargas, handleAddCheck, handleToggleCheck, handleRemoveCheck,
-        handleRequestAnamneseUpdate // 🔥 Exportando a nova função
+        handleRequestAnamneseUpdate
     };
 }

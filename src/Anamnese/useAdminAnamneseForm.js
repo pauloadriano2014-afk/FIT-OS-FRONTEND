@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 
-// ─── LISTAS ───────────────────────────────────────────────────────────────────
+// ─── LISTAS (MANTIDAS INTACTAS PARA O MOTOR LEGADO E UI) ──────────────────────
 export const OBJETIVOS_LIST   = ['Hipertrofia','Emagrecimento','Definição'];
 export const NIVEIS_LIST      = ['Iniciante','Intermediário','Avançado'];
 export const FREQUENCIAS_LIST = ['1','2','3','4','5','6','7'];
@@ -38,7 +38,7 @@ export const PREWORKOUT_LIST  = ['shake_rapido','ceia_pretreino','reforcar_pos']
 export const PREWORKOUT_LBL   = { shake_rapido:'🥤 Shake rápido 15-20min antes', ceia_pretreino:'🌙 Ceia pré-treino na noite anterior', reforcar_pos:'⏭️ Pular pré-treino e reforçar pós' };
 export const DAYS_OF_WEEK     = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado', 'Domingo', 'Nenhum'];
 
-// ─── VALIDAÇÃO ────────────────────────────────────────────────────────────────
+// ─── VALIDAÇÃO LEGADA ─────────────────────────────────────────────────────────
 export function validateAnamnese(f, hasDiet, isFeminino) {
     const miss = [];
     if (!f.name?.trim())       miss.push({ section:'Registro',        field:'Nome completo' });
@@ -112,7 +112,7 @@ const INITIAL_F = {
     allergies:'', foodPreferences:'', foodAversions:'', supplements:[], extraNotes:'',
 };
 
-// ─── HOOK ─────────────────────────────────────────────────────────────────────
+// ─── HOOK DUAL ENGINE (ADMIN) ─────────────────────────────────────────────────
 export default function useAdminAnamneseForm({ aluno }) {
     const [loading, setLoading]               = useState(true);
     const [saving,  setSaving]                = useState(false);
@@ -121,10 +121,12 @@ export default function useAdminAnamneseForm({ aluno }) {
     const [timePicker, setTimePicker]         = useState({ visible:false, field:'', label:'' });
     const [f, setF]                           = useState(INITIAL_F);
 
-    // 🔥 NOVA REGRA: Avalia o plano do aluno.
+    // 🔥 NOVO ESTADO SAAS: TEMPLATE DINÂMICO 🔥
+    const [dynamicSchema, setDynamicSchema]           = useState(null);
+    const [dynamicTemplateId, setDynamicTemplateId]   = useState(null);
+
     const plan = (aluno?.plan || aluno?.userPlan || '').toUpperCase();
     const hasDiet = plan === 'ELITE' || plan === 'PREMIUM';
-    
     const isFeminino = aluno?.gender === 'Feminino';
 
     // ── SET / TOGGLE ────────────────────────────────────────────────────────
@@ -147,16 +149,39 @@ export default function useAdminAnamneseForm({ aluno }) {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const [resUser, resA] = await Promise.all([
-                fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${aluno.id}&t=${Date.now()}`),
-                fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}`),
-            ]);
 
+            // 1. Busca os dados de registro (Nome, Email, etc)
+            const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${aluno.id}&t=${Date.now()}`);
             if (resUser.ok) {
                 const u = await resUser.json();
                 setF(prev => ({ ...prev, name:u?.name||'', email:u?.email||'', phone:u?.phone||'', gender:u?.gender||'', birthDate:u?.birthDate||'' }));
             }
 
+            // 🔥 TENTATIVA 1: VERIFICA SE O ALUNO TEM ANAMNESE DINÂMICA (SAAS) 🔥
+            const coachId = aluno.coachId || 'MASTER';
+            const formType = hasDiet ? 'FULL' : 'TRAINING';
+            
+            const resTemplate = await fetch(`https://fitos-final.onrender.com/api/form-template/active?coachId=${coachId}&type=${formType}`);
+            if (resTemplate.ok) {
+                const templateData = await resTemplate.json();
+                if (templateData && templateData.schema) {
+                    setDynamicSchema(templateData.schema);
+                    setDynamicTemplateId(templateData.id);
+                    
+                    // Busca as respostas dinâmicas
+                    const resDyn = await fetch(`https://fitos-final.onrender.com/api/form-response?userId=${aluno.id}&templateId=${templateData.id}`);
+                    if (resDyn.ok) {
+                        const d = await resDyn.json();
+                        if (d && d.answers) {
+                            setF(prev => ({ ...prev, ...d.answers }));
+                        }
+                    }
+                    return; // 🛑 Interrompe aqui, não puxa o legado.
+                }
+            }
+
+            // 🔥 TENTATIVA 2: MOTOR LEGADO (PA ELITE TEAM) 🔥
+            const resA = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}`);
             if (resA.ok) {
                 const d = await resA.json();
                 if (d?.id) setF(prev => ({
@@ -215,10 +240,35 @@ export default function useAdminAnamneseForm({ aluno }) {
 
     // ── SALVAR ──────────────────────────────────────────────────────────────
     const handleSave = async () => {
-        const miss = validateAnamnese(f, hasDiet, isFeminino);
-        if (miss.length > 0) { setMissingFields(miss); setMissingModal(true); return; }
+        // Verifica dados base sempre
+        if (!f.name?.trim() || !f.email?.trim()) {
+            setMissingFields([{ section:'Registro', field:'Nome e E-mail' }]);
+            setMissingModal(true); return;
+        }
+
+        // Validação Mágica: Dinâmica ou Legada
+        if (dynamicSchema) {
+            const miss = [];
+            dynamicSchema.steps.forEach(step => {
+                step.questions.forEach(q => {
+                    if (q.required) {
+                        const val = f[q.id];
+                        if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+                            miss.push({ section: step.title, field: q.label || q.question });
+                        }
+                    }
+                });
+            });
+            if (miss.length > 0) { setMissingFields(miss); setMissingModal(true); return; }
+        } else {
+            const miss = validateAnamnese(f, hasDiet, isFeminino);
+            if (miss.length > 0) { setMissingFields(miss); setMissingModal(true); return; }
+        }
+
         try {
             setSaving(true);
+            
+            // 1. Atualiza Cadastro (Comum)
             await fetch('https://fitos-final.onrender.com/api/admin/user', {
                 method:'PUT', headers:{'Content-Type':'application/json'},
                 body:JSON.stringify({
@@ -228,51 +278,66 @@ export default function useAdminAnamneseForm({ aluno }) {
                     birthDate:f.birthDate?.length===10 ? f.birthDate : undefined,
                 }),
             });
-            const res = await fetch('https://fitos-final.onrender.com/api/anamnese', {
-                method:'POST', headers:{'Content-Type':'application/json'},
-                body:JSON.stringify({
-                    userId:aluno.id,
-                    peso:f.peso.replace(',','.'), altura:f.altura.replace(',','.'),
-                    objetivo:f.objetivo, nivel:f.nivel,
-                    frequencia:parseInt(f.frequencia)||3,
-                    tempoDisponivel:parseInt(f.tempoDisponivel)||60,
-                    limitacoes:f.limitacoes, cirurgias:f.cirurgias,
-                    equipamentos:f.equipamentos ? f.equipamentos.split(',').map(i=>i.trim()).filter(Boolean) : [],
-                    ...(hasDiet && {
-                        trainFasted:f.trainFasted==='yes',
-                        healthConditions:f.healthConditions,
-                        healthConditionsObs:f.healthConditionsObs.trim(),
-                        bariatric:f.bariatric===true,
-                        bariatricType:f.bariatric===true?f.bariatricType:null,
-                        bariatricTime:f.bariatric===true?f.bariatricTime:null,
-                        bariatricIntolerances:f.bariatric===true?f.bariatricIntolerances:[],
-                        medications:f.medications, medicationsObs:f.medicationsObs.trim(),
-                        digestiveIssues:f.digestiveIssues, digestiveObs:f.digestiveObs.trim(),
-                        sleepHours:f.sleepHours, sleepQuality:f.sleepQuality,
-                        wakeHungry:f.wakeHungry==='yes',
-                        stressLevel:parseInt(f.stressLevel)||null,
-                        stressEating:f.stressEating==='yes',
-                        ...(isFeminino && { cycleRegular:f.cycleRegular, pmsSymptoms:f.pmsSymptoms, pmsObs:f.pmsObs.trim() }),
-                        mealsPerDay:parseInt(f.mealsPerDay)||null,
-                        wakeUpTime:f.wakeUpTime, sleepTime:f.sleepTime,
-                        workTime:f.workTimeStart&&f.workTimeEnd ? `${f.workTimeStart} às ${f.workTimeEnd}` : '',
-                        trainTime:f.trainTime,
-                        freeDays:f.freeDays,
-                        freeWakeUpTime:f.freeWakeUpTime,
-                        freeSleepTime:f.freeSleepTime,
-                        freeTrainTime:f.freeTrainTime,
-                        eatsOutPerWeek:f.eatsOutPerWeek, budget:f.budget,
-                        preworkoutStrategy:f.preworkoutStrategy||null,
-                        waterIntake:f.waterIntake, alcoholFreq:f.alcoholFreq, coffeePerDay:f.coffeePerDay,
-                        smoker:f.smoker==='yes', eatSpeed:f.eatSpeed, nightBinge:f.nightBinge,
-                        triedDiets:f.triedDiets, dietWorked:f.dietWorked.trim(), dietHated:f.dietHated.trim(),
-                        biggestChallenge:f.biggestChallenge,
-                        allergies:f.allergies.trim(), foodPreferences:f.foodPreferences.trim(),
-                        foodAversions:f.foodAversions.trim(),
-                        supplements:f.supplements.join(', '), extraNotes:f.extraNotes.trim(),
+
+            // 2. Salva Anamnese (Dinâmica ou Legada)
+            let res;
+            if (dynamicSchema && dynamicTemplateId) {
+                res = await fetch('https://fitos-final.onrender.com/api/form-response', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({
+                        templateId: dynamicTemplateId,
+                        userId: aluno.id,
+                        answers: f
                     }),
-                }),
-            });
+                });
+            } else {
+                res = await fetch('https://fitos-final.onrender.com/api/anamnese', {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body:JSON.stringify({
+                        userId:aluno.id,
+                        peso:f.peso.replace(',','.'), altura:f.altura.replace(',','.'),
+                        objetivo:f.objetivo, nivel:f.nivel,
+                        frequencia:parseInt(f.frequencia)||3,
+                        tempoDisponivel:parseInt(f.tempoDisponivel)||60,
+                        limitacoes:f.limitacoes, cirurgias:f.cirurgias,
+                        equipamentos:f.equipamentos ? f.equipamentos.split(',').map(i=>i.trim()).filter(Boolean) : [],
+                        ...(hasDiet && {
+                            trainFasted:f.trainFasted==='yes',
+                            healthConditions:f.healthConditions,
+                            healthConditionsObs:f.healthConditionsObs.trim(),
+                            bariatric:f.bariatric===true,
+                            bariatricType:f.bariatric===true?f.bariatricType:null,
+                            bariatricTime:f.bariatric===true?f.bariatricTime:null,
+                            bariatricIntolerances:f.bariatric===true?f.bariatricIntolerances:[],
+                            medications:f.medications, medicationsObs:f.medicationsObs.trim(),
+                            digestiveIssues:f.digestiveIssues, digestiveObs:f.digestiveObs.trim(),
+                            sleepHours:f.sleepHours, sleepQuality:f.sleepQuality,
+                            wakeHungry:f.wakeHungry==='yes',
+                            stressLevel:parseInt(f.stressLevel)||null,
+                            stressEating:f.stressEating==='yes',
+                            ...(isFeminino && { cycleRegular:f.cycleRegular, pmsSymptoms:f.pmsSymptoms, pmsObs:f.pmsObs.trim() }),
+                            mealsPerDay:parseInt(f.mealsPerDay)||null,
+                            wakeUpTime:f.wakeUpTime, sleepTime:f.sleepTime,
+                            workTime:f.workTimeStart&&f.workTimeEnd ? `${f.workTimeStart} às ${f.workTimeEnd}` : '',
+                            trainTime:f.trainTime,
+                            freeDays:f.freeDays,
+                            freeWakeUpTime:f.freeWakeUpTime,
+                            freeSleepTime:f.freeSleepTime,
+                            freeTrainTime:f.freeTrainTime,
+                            eatsOutPerWeek:f.eatsOutPerWeek, budget:f.budget,
+                            preworkoutStrategy:f.preworkoutStrategy||null,
+                            waterIntake:f.waterIntake, alcoholFreq:f.alcoholFreq, coffeePerDay:f.coffeePerDay,
+                            smoker:f.smoker==='yes', eatSpeed:f.eatSpeed, nightBinge:f.nightBinge,
+                            triedDiets:f.triedDiets, dietWorked:f.dietWorked.trim(), dietHated:f.dietHated.trim(),
+                            biggestChallenge:f.biggestChallenge,
+                            allergies:f.allergies.trim(), foodPreferences:f.foodPreferences.trim(),
+                            foodAversions:f.foodAversions.trim(),
+                            supplements:f.supplements.join(', '), extraNotes:f.extraNotes.trim(),
+                        }),
+                    }),
+                });
+            }
+
             if (res.ok) {
                 const msg = 'Cadastro e anamnese salvos!';
                 if (Platform.OS==='web') window.alert(msg); else Alert.alert('Sucesso ✅', msg);
@@ -288,5 +353,6 @@ export default function useAdminAnamneseForm({ aluno }) {
         timePicker, setTimePicker,
         missingModal, setMissingModal, missingFields,
         hasDiet, isFeminino,
+        dynamicSchema // 🔥 Exportado para o AdminUserAnamneseTab desenhar caso queira
     };
 }
