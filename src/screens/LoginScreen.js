@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -224,8 +225,23 @@ export default function LoginScreen({ navigation }) {
 
   const RootComponent = isWeb2 ? View : SafeAreaView;
 
+  const BG_IMAGE = 'https://i.postimg.cc/pLbCQ1GT/AB61F751-5B87-45B5-B142-0DDC109AAAFC.png';
+
   return (
     <RootComponent style={containerStyle}>
+      {/* Background full-screen */}
+      <Image
+        source={{ uri: BG_IMAGE }}
+        style={StyleSheet.absoluteFill}
+        resizeMode="cover"
+      />
+      {/* Gradiente sobre o fundo — transparente no topo, escuro embaixo */}
+      <LinearGradient
+        colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.97)']}
+        locations={[0.25, 0.55, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={innerStyle}
@@ -244,19 +260,13 @@ export default function LoginScreen({ navigation }) {
               },
             ]}
           >
-            {/* Banner / Logo */}
-            <Animated.View style={[styles.logoContainer, { transform: [{ scale: bounceAnim }] }]}>
-              <Image
-                source={{ uri: 'https://i.postimg.cc/DZb2WxSn/Design-sem-nome-(1).png' }}
-                style={styles.bannerImage}
-                resizeMode="cover"
-              />
-            </Animated.View>
+            {/* Espaço superior — logo já está na imagem de fundo */}
+            <View style={{ flex: 1, minHeight: windowHeight * 0.45 }} />
 
             {/* Botão voltar ao admin (impersonation) */}
             {hasOriginalAdmin && (
               <TouchableOpacity
-                style={[styles.restoreAdminBtn, { backgroundColor: '#FF3B3020', borderColor: '#FF3B3060' }]}
+                style={[styles.restoreAdminBtn, { backgroundColor: '#FF3B3040', borderColor: '#FF3B3080' }]}
                 onPress={handleRestoreOriginalAdmin}
               >
                 <MaterialCommunityIcons name="shield-account" size={18} color="#FF3B30" />
@@ -266,10 +276,10 @@ export default function LoginScreen({ navigation }) {
               </TouchableOpacity>
             )}
 
-            {/* Card do formulário */}
-            <View style={[styles.formCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text style={[styles.formTitle, { color: theme.text }]}>BEM-VINDO DE VOLTA 👋</Text>
-              <Text style={[styles.formSubtitle, { color: theme.textSecondary }]}>
+            {/* Card do formulário — fundo semi-transparente escuro */}
+            <View style={[styles.formCard, { backgroundColor: 'rgba(10,10,10,0.92)', borderColor: 'rgba(255,255,255,0.08)' }]}>
+              <Text style={[styles.formTitle, { color: '#fff' }]}>BEM-VINDO DE VOLTA 👋</Text>
+              <Text style={[styles.formSubtitle, { color: '#888' }]}>
                 Entre com seu e-mail e senha
               </Text>
 
@@ -282,13 +292,13 @@ export default function LoginScreen({ navigation }) {
               )}
 
               {/* E-mail */}
-              <Text style={[styles.label, { color: theme.textSecondary }]}>E-MAIL</Text>
-              <View style={[styles.inputBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                <MaterialCommunityIcons name="email-outline" size={18} color={theme.textSecondary} />
+              <Text style={[styles.label, { color: '#888' }]}>E-MAIL</Text>
+              <View style={[styles.inputBox, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)' }]}>
+                <MaterialCommunityIcons name="email-outline" size={18} color="#888" />
                 <TextInput
-                  style={[styles.input, { color: theme.text }]}
+                  style={[styles.input, { color: '#fff' }]}
                   placeholder="seu@email.com"
-                  placeholderTextColor={theme.textSecondary}
+                  placeholderTextColor="#555"
                   autoCapitalize="none"
                   keyboardType="email-address"
                   value={email}
@@ -299,13 +309,13 @@ export default function LoginScreen({ navigation }) {
               </View>
 
               {/* Senha */}
-              <Text style={[styles.label, { color: theme.textSecondary }]}>SENHA</Text>
-              <View style={[styles.inputBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                <MaterialCommunityIcons name="lock-outline" size={18} color={theme.textSecondary} />
+              <Text style={[styles.label, { color: '#888' }]}>SENHA</Text>
+              <View style={[styles.inputBox, { backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(255,255,255,0.12)' }]}>
+                <MaterialCommunityIcons name="lock-outline" size={18} color="#888" />
                 <TextInput
-                  style={[styles.input, { color: theme.text }]}
+                  style={[styles.input, { color: '#fff' }]}
                   placeholder="••••••••"
-                  placeholderTextColor={theme.textSecondary}
+                  placeholderTextColor="#555"
                   secureTextEntry={!showPass}
                   value={password}
                   onChangeText={v => { setPassword(v); setError(''); }}
@@ -316,7 +326,7 @@ export default function LoginScreen({ navigation }) {
                   <MaterialCommunityIcons
                     name={showPass ? 'eye-off-outline' : 'eye-outline'}
                     size={20}
-                    color={theme.textSecondary}
+                    color="#888"
                   />
                 </TouchableOpacity>
               </View>
@@ -339,11 +349,11 @@ export default function LoginScreen({ navigation }) {
                 activeOpacity={0.85}
               >
                 {loading ? (
-                  <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} />
+                  <ActivityIndicator color="#000" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="login" size={20} color={theme.isDark ? '#000' : '#FFF'} />
-                    <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
+                    <MaterialCommunityIcons name="login" size={20} color="#000" />
+                    <Text style={{ color: '#000', fontWeight: '900', fontSize: 16, letterSpacing: 0.5 }}>
                       ENTRAR
                     </Text>
                   </>
@@ -354,9 +364,9 @@ export default function LoginScreen({ navigation }) {
             {/* Cadastro */}
             <TouchableOpacity
               onPress={() => navigation.navigate('Register')}
-              style={{ marginTop: 20, alignItems: 'center' }}
+              style={{ marginTop: 16, alignItems: 'center' }}
             >
-              <Text style={{ color: theme.textSecondary, fontSize: 14 }}>
+              <Text style={{ color: '#aaa', fontSize: 14 }}>
                 Não tem conta?{' '}
                 <Text style={{ color: theme.accent, fontWeight: '900' }}>Cadastre-se</Text>
               </Text>
@@ -365,9 +375,9 @@ export default function LoginScreen({ navigation }) {
             {/* Seja Coach */}
             <TouchableOpacity
               onPress={() => navigation.navigate('CoachProposta')}
-              style={{ marginTop: 12, alignItems: 'center' }}
+              style={{ marginTop: 10, alignItems: 'center', paddingBottom: 20 }}
             >
-              <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
+              <Text style={{ color: '#777', fontSize: 13 }}>
                 É personal ou nutricionista?{' '}
                 <Text style={{ color: theme.accent, fontWeight: '900' }}>Seja um coach parceiro</Text>
               </Text>
@@ -381,10 +391,15 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  scroll:           { flexGrow: 1, justifyContent: 'center' },
-  content:          { padding: 24, paddingBottom: 40 },
-  logoContainer:    { alignItems: 'center', marginBottom: 24 },
-  bannerImage:      { width: '100%', height: 160, borderRadius: 20 },
+  scroll:           { flexGrow: 1 },
+  content:          { padding: 24, paddingBottom: 20, flex: 1 },
+  bgOverlay:        { background: 'transparent',
+                      // Gradiente do topo (transparente) para baixo (escuro) — legibilidade do form
+                      backgroundColor: 'transparent',
+                      backgroundImage: Platform.OS === 'web'
+                        ? 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0.97) 100%)'
+                        : undefined,
+                    },
   restoreAdminBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 16 },
   formCard:         { borderRadius: 20, borderWidth: 1, padding: 20, gap: 4 },
   formTitle:        { fontSize: 20, fontWeight: '900', marginBottom: 4, textAlign: 'center' },
@@ -392,6 +407,6 @@ const styles = StyleSheet.create({
   errorBox:         { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 12, borderWidth: 1, marginBottom: 12 },
   label:            { fontSize: 10, fontWeight: '800', letterSpacing: 1, marginBottom: 6, marginTop: 8 },
   inputBox:         { flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, marginBottom: 4 },
-  input:            { flex: 1, padding: 14, fontSize: 15, outlineStyle: 'none' },
+  input:            { flex: 1, padding: 14, fontSize: 16, outlineStyle: 'none' },
   loginBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 18, borderRadius: 16, marginTop: 4 },
 });
