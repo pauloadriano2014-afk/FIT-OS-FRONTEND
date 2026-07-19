@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -73,14 +72,12 @@ export default function LoginScreen({ navigation }) {
   const fadeAnim   = useRef(new Animated.Value(0)).current;
   const slideAnim  = useRef(new Animated.Value(40)).current;
   const bounceAnim = useRef(new Animated.Value(0.8)).current;
-  const scaleAnim  = useRef(new Animated.Value(0.95)).current;
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(fadeAnim,   { toValue: 1,    duration: 700, useNativeDriver: true }),
-      Animated.timing(slideAnim,  { toValue: 0,    duration: 700, useNativeDriver: true }),
-      Animated.spring(bounceAnim, { toValue: 1,    friction: 6,   useNativeDriver: true }),
-      Animated.timing(scaleAnim,  { toValue: 1,    duration: 500, useNativeDriver: true }),
+      Animated.timing(fadeAnim,   { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(slideAnim,  { toValue: 0, duration: 700, useNativeDriver: true }),
+      Animated.spring(bounceAnim, { toValue: 1, friction: 6,   useNativeDriver: true }),
     ]).start();
     checkOriginalAdmin();
   }, []);
@@ -211,15 +208,9 @@ export default function LoginScreen({ navigation }) {
   const innerStyle = isWebPC
     ? {
         width: 420,
-        backgroundColor: theme.bg,
+        backgroundColor: 'transparent',
         borderRadius: 24,
         overflow: 'hidden',
-        borderWidth: 1,
-        borderColor: theme.border,
-        shadowColor: '#000',
-        shadowOpacity: 0.4,
-        shadowRadius: 24,
-        shadowOffset: { width: 0, height: 12 },
       }
     : { flex: 1 };
 
@@ -242,21 +233,18 @@ export default function LoginScreen({ navigation }) {
         style={StyleSheet.absoluteFill}
       />
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={innerStyle}
-      >
-        <ScrollView
+      <ScrollView
           contentContainerStyle={[styles.scroll, !isWebPC && { minHeight: windowHeight }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          automaticallyAdjustKeyboardInsets={true}
         >
           <Animated.View
             style={[
               styles.content,
               {
                 opacity:   fadeAnim,
-                transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+                transform: [{ translateY: slideAnim }],
               },
             ]}
           >
@@ -385,7 +373,6 @@ export default function LoginScreen({ navigation }) {
 
           </Animated.View>
         </ScrollView>
-      </KeyboardAvoidingView>
     </RootComponent>
   );
 }
