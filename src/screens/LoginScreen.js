@@ -393,13 +393,6 @@ export default function LoginScreen({ navigation }) {
 const styles = StyleSheet.create({
   scroll:           { flexGrow: 1 },
   content:          { padding: 24, paddingBottom: 20, flex: 1 },
-  bgOverlay:        { background: 'transparent',
-                      // Gradiente do topo (transparente) para baixo (escuro) — legibilidade do form
-                      backgroundColor: 'transparent',
-                      backgroundImage: Platform.OS === 'web'
-                        ? 'linear-gradient(to bottom, transparent 30%, rgba(0,0,0,0.85) 60%, rgba(0,0,0,0.97) 100%)'
-                        : undefined,
-                    },
   restoreAdminBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 16 },
   formCard:         { borderRadius: 20, borderWidth: 1, padding: 20, gap: 4 },
   formTitle:        { fontSize: 20, fontWeight: '900', marginBottom: 4, textAlign: 'center' },
