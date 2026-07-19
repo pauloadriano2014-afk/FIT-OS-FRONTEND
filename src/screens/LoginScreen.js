@@ -15,6 +15,7 @@ import {
   Alert,
   Image,
   useWindowDimensions,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -57,7 +58,7 @@ async function registerForPushNotificationsAsync() {
 
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isWebPC = isWeb && windowWidth > 768;
 
@@ -199,41 +200,36 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // 🔥 MÁGICA CONTRA A TELA MOLENGA NO IOS/SAFARI 🔥
-  const containerStyle = isWebPC
-    ? { height: windowHeight, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }
-    : isWeb
-      ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, overflow: 'hidden' }
-      : { flex: 1, backgroundColor: theme.bg };
-
-  const RootComponent = isWeb ? View : SafeAreaView;
-
   const BG_IMAGE = 'https://i.postimg.cc/pLbCQ1GT/AB61F751-5B87-45B5-B142-0DDC109AAAFC.png';
 
   return (
-    <RootComponent style={containerStyle}>
-      {/* Background full-screen */}
-      <Image
-        source={{ uri: BG_IMAGE }}
-        style={StyleSheet.absoluteFill}
-        resizeMode="cover"
-      />
-      {/* Gradiente sobre o fundo — transparente no topo, escuro embaixo */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.97)']}
-        locations={[0.25, 0.55, 1]}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
+      
+      {/* 🔥 MÁGICA 1: FUNDO CHUMBADO (Não se move nem sob tortura do iOS) 🔥 */}
+      <View style={[StyleSheet.absoluteFill, isWeb && { position: 'fixed' }]}>
+        <Image
+          source={{ uri: BG_IMAGE }}
+          style={StyleSheet.absoluteFill}
+          resizeMode="cover"
+        />
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.97)']}
+          locations={[0.25, 0.55, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
 
-      <ScrollView
-          contentContainerStyle={[styles.scroll, !isWebPC && { minHeight: windowHeight }]}
+      {/* 🔥 MÁGICA 2: GESTÃO DO TECLADO SEM MEXER O FUNDO 🔥 */}
+      <KeyboardAvoidingView 
+        style={{ flex: 1, alignItems: isWebPC ? 'center' : 'stretch', justifyContent: 'center' }} 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', width: isWebPC ? 420 : '100%', alignSelf: 'center' }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          automaticallyAdjustKeyboardInsets={true}
-          // 🔥 DESLIGA O EFEITO DE ELÁSTICO (BOUNCE) NOS DISPOSITIVOS 🔥
-          bounces={false} 
-          alwaysBounceVertical={false}
-          overScrollMode="never"
+          bounces={false} // Desliga o elástico
+          overScrollMode="never" // Desliga o elástico no Android
         >
           <Animated.View
             style={[
@@ -244,8 +240,8 @@ export default function LoginScreen({ navigation }) {
               },
             ]}
           >
-            {/* Espaço superior — logo já está na imagem de fundo */}
-            <View style={{ flex: 1, minHeight: windowHeight * 0.45 }} />
+            {/* Espaço superior para a logo respirar (no mobile) */}
+            {!isWebPC && <View style={{ flex: 1, minHeight: 250 }} />}
 
             {/* Botão voltar ao admin (impersonation) */}
             {hasOriginalAdmin && (
@@ -260,7 +256,7 @@ export default function LoginScreen({ navigation }) {
               </TouchableOpacity>
             )}
 
-            {/* Card do formulário — fundo semi-transparente escuro */}
+            {/* Card do formulário */}
             <View style={[styles.formCard, { backgroundColor: 'rgba(10,10,10,0.92)', borderColor: 'rgba(255,255,255,0.08)' }]}>
               <Text style={[styles.formTitle, { color: '#fff' }]}>BEM-VINDO DE VOLTA 👋</Text>
               <Text style={[styles.formSubtitle, { color: '#888' }]}>
@@ -369,13 +365,13 @@ export default function LoginScreen({ navigation }) {
 
           </Animated.View>
         </ScrollView>
-    </RootComponent>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll:           { flexGrow: 1 },
-  content:          { padding: 24, paddingBottom: 20, flex: 1 },
+  content:          { padding: 24, paddingBottom: 20, flex: 1, justifyContent: 'flex-end' },
   restoreAdminBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 16 },
   formCard:         { borderRadius: 20, borderWidth: 1, padding: 20, gap: 4 },
   formTitle:        { fontSize: 20, fontWeight: '900', marginBottom: 4, textAlign: 'center' },
