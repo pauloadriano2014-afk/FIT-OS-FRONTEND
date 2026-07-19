@@ -1,14 +1,5 @@
 // src/components/FinancePaymentModal.js
-// 💳 MODAL DE PAGAMENTO DA ALUNA (PIX / Cartão / Boleto via Asaas)
-//
-// Fluxo:
-// 1. Abre → chama /api/payments/checkout
-// 2. Se o backend pedir CPF → mostra passo de coleta (uma vez só, salva no perfil)
-// 3. Mostra QR Code PIX + copia-e-cola + botão da fatura (cartão/boleto)
-// 4. Botão "Já paguei? Atualizar" reconsulta; quando o webhook confirmar,
-//    mostra sucesso e chama onPaid() para recarregar a Home destravada.
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View, Text, Modal, TouchableOpacity, TextInput, Image,
     ActivityIndicator, ScrollView, Platform, Alert, Linking
@@ -30,7 +21,8 @@ export default function FinancePaymentModal({ visible, onClose, theme, userId, o
         else Alert.alert('', msg);
     };
 
-    const fetchCheckout = useCallback(async (cpfToSend = null) => {
+    // Usamos isSilent para as buscas automáticas de fundo não mostrarem telas de erro
+    const fetchCheckout = async (cpfToSend = null, isSilent = false) => {
         try {
             const res = await fetch(`${API_URL}/api/payments/checkout`, {
                 method: 'POST',
@@ -45,7 +37,8 @@ export default function FinancePaymentModal({ visible, onClose, theme, userId, o
             }
             if (data.paid) {
                 setStep('PAID');
-                if (onPaid) onPaid();
+                // O onPaid() foi removido daqui para não causar bugs de renderização. 
+                // Será disparado apenas quando o aluno clicar no botão "Continuar".
                 return;
             }
             if (!res.ok || !data.success) {
@@ -56,12 +49,15 @@ export default function FinancePaymentModal({ visible, onClose, theme, userId, o
             setStep('CHARGE');
         } catch (err) {
             console.error('[FinancePaymentModal] Erro:', err);
-            setErrorMsg(err.message || 'Erro de conexão. Tente novamente.');
-            setStep('ERROR');
+            if (!isSilent) {
+                setErrorMsg(err.message || 'Erro de conexão. Tente novamente.');
+                setStep('ERROR');
+            }
         }
-    }, [userId, onPaid]);
+    };
 
-    // Carrega ao abrir
+    // 1. CARREGA AO ABRIR O MODAL
+    // Dependências limitadas para matar o bug do loop infinito de loading
     useEffect(() => {
         if (visible && userId) {
             setStep('LOADING');
@@ -69,7 +65,20 @@ export default function FinancePaymentModal({ visible, onClose, theme, userId, o
             setPayment(null);
             fetchCheckout();
         }
-    }, [visible, userId, fetchCheckout]);
+    }, [visible, userId]);
+
+    // 2. SMART POLLING (O Pulo do Gato pro PIX)
+    // Como o Asaas leva alguns segundos para gerar o QR Code, se chegar na tela e não tiver PIX,
+    // o app busca silenciosamente de novo 3 segundos depois.
+    useEffect(() => {
+        let timeout;
+        if (visible && step === 'CHARGE' && payment && !payment.pixCopyPaste) {
+            timeout = setTimeout(() => {
+                fetchCheckout(null, true);
+            }, 3000);
+        }
+        return () => clearTimeout(timeout);
+    }, [visible, step, payment]);
 
     const handleSubmitCpf = async () => {
         const digits = cpf.replace(/\D/g, '');
@@ -206,7 +215,13 @@ export default function FinancePaymentModal({ visible, onClose, theme, userId, o
                                             COPIAR CÓDIGO PIX
                                         </Text>
                                     </TouchableOpacity>
-                                ) : null}
+                                ) : (
+                                    /* MENSAGEM TEMPORÁRIA ENQUANTO O PIX GERA */
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 15, opacity: 0.7 }}>
+                                        <ActivityIndicator size="small" color={theme.accent} style={{ marginRight: 8 }} />
+                                        <Text style={{ color: theme.text, fontSize: 11 }}>Gerando código PIX...</Text>
+                                    </View>
+                                )}
 
                                 {/* FATURA (cartão / boleto / pix) */}
                                 {payment.invoiceUrl ? (
