@@ -1,685 +1,554 @@
-// src/components/AdminFinanceSystem.js
-
-import React, { useState, useMemo, useEffect } from 'react';
-import { View, Platform, Linking, Alert, useWindowDimensions, Text, StyleSheet } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// src/components/AdminFinanceSystem.js — v2
+// v2: aba COACHES para masters — MRR, status de billing, acesso ao CoachBillingModal
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+    View, Text, StyleSheet, TouchableOpacity, ScrollView,
+    TextInput, Modal, Switch, Platform, Alert, ActivityIndicator,
+    Linking,
+} from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import CoachBillingModal from './Admin/CoachBillingModal'; // ← v2
 
-// Utilitários
-import { calcularProximaData, calcularDataAnterior, getDueDateStatus, forceMiddayUTC } from '../utils/financeUtils';
+const BASE_URL = 'https://fitos-final.onrender.com';
 
-// Componentes Filhos
-import FinanceHeaderMetrics from './AdminFinance/FinanceHeaderMetrics';
-import FinanceFilters from './AdminFinance/FinanceFilters';
-import FinanceStudentList from './AdminFinance/FinanceStudentList';
-import FinanceEditModal from './AdminFinance/FinanceEditModal';
-import FinanceAddModal from './AdminFinance/FinanceAddModal';
-// 💰 NOVO: Modal de cobrança via Asaas
-import FinanceChargeModal from './AdminFinance/FinanceChargeModal';
-// 📊 NOVO: Painel de pagamentos Asaas (webhook em tempo real)
-import AsaasPaymentsPanel from './AdminFinance/AsaasPaymentsPanel';
+const MASTER_IDS = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0',
+    'b7c0c181-41fd-4156-b8fe-963a267759a3',
+];
 
-// 🔥 FUNÇÃO: Pega o intervalo em meses de acordo com o nome do contrato
-const getInterval = (type) => {
-    const t = (type || '').toLowerCase();
-    if (t.includes('trimestral')) return 3;
-    if (t.includes('semestral')) return 6;
-    if (t.includes('anual')) return 12;
-    if (t.includes('bimestral')) return 2;
-    return 1; // Mensal é o padrão
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const fmt = (v) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+
+const formatDate = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
 };
 
-export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogCoach }) {
-    const { width } = useWindowDimensions();
-    const isWebPC = Platform.OS === 'web' && width > 768;
+const daysUntil = (iso) => {
+    if (!iso) return null;
+    return Math.round((new Date(iso).getTime() - Date.now()) / (1000 * 3600 * 24));
+};
 
-    const currentMonthIndex = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+// ─── BILLING STATUS ──────────────────────────────────────────────────────────
+const BILLING_STATUS_COLORS = {
+    ACTIVE:    '#34C759',
+    PENDING:   '#FF9500',
+    OVERDUE:   '#FF3B30',
+    CANCELLED: '#8E8E93',
+};
+const BILLING_STATUS_LABELS = {
+    ACTIVE:    'ATIVO',
+    PENDING:   'PENDENTE',
+    OVERDUE:   'INADIMPLENTE',
+    CANCELLED: 'CANCELADO',
+};
 
-    // Estados de Filtros
-    const [selectedMonth, setSelectedMonth] = useState(currentMonthIndex);
-    const [filterStatus, setFilterStatus] = useState('ATIVOS'); 
-    const [filterCategory, setFilterCategory] = useState('TODOS'); 
-    const [filterPrazo, setFilterPrazo] = useState('TODOS'); 
-    const [searchQuery, setSearchQuery] = useState(''); 
+// ─── ABA COACHES — v2 ────────────────────────────────────────────────────────
+function CoachesFinanceTab({ coaches, loading, theme, onBilling }) {
+    const active      = coaches.filter(c => c.coachBillingStatus === 'ACTIVE');
+    const pending     = coaches.filter(c => c.coachBillingStatus === 'PENDING' || !c.coachBillingStatus);
+    const overdue     = coaches.filter(c => c.coachBillingStatus === 'OVERDUE');
+    const cancelled   = coaches.filter(c => c.coachBillingStatus === 'CANCELLED');
 
-    // Estados de Dados
-    const [localAlunos, setLocalAlunos] = useState([]);
-    const [offlineClients, setOfflineClients] = useState([]); 
-    const [loadingId, setLoadingId] = useState(null);
-
-    // 🔥 O TRIGGER QUE FORÇA A TELA A ATUALIZAR NA HORA 🔥
-    const [renderTrigger, setRenderTrigger] = useState(0);
-
-    // Estados do Modal de Edição
-    const [editingAluno, setEditingAluno] = useState(null);
-    const [contractType, setContractType] = useState('Mensal');
-    const [contractValue, setContractValue] = useState('0');
-    const [startDateEdit, setStartDateEdit] = useState(''); 
-    const [paymentDueDate, setPaymentDueDate] = useState('');
-    const [financeCategoryEdit, setFinanceCategoryEdit] = useState('Consultoria Online');
-    const [isFinanceActiveEdit, setIsFinanceActiveEdit] = useState(true);
-    const [editPhotoUrl, setEditPhotoUrl] = useState(''); 
-    const [isUploadingEditPhoto, setIsUploadingEditPhoto] = useState(false); 
-    const [isSavingContract, setIsSavingContract] = useState(false);
-
-    // 💰 NOVO: Estado do Modal de Cobrança Asaas
-    const [chargeAluno, setChargeAluno] = useState(null);
-
-    // Estados do Modal de Novo Aluno
-    const [isAddModalVisible, setIsAddModalVisible] = useState(false);
-    const [newPhotoUrl, setNewPhotoUrl] = useState('');
-    const [uploadingPhoto, setUploadingPhoto] = useState(false);
-    const [newName, setNewName] = useState('');
-    const [newPhone, setNewPhone] = useState('');
-    const [newCategory, setNewCategory] = useState('Consultoria Online');
-    const [newDuration, setNewDuration] = useState('Mensal');
-    const [newValue, setNewValue] = useState('');
-    const [newStartDate, setNewStartDate] = useState(new Date().toISOString().split('T')[0]);
-    const [newDueDate, setNewDueDate] = useState('');
-    const [isSavingNew, setIsSavingNew] = useState(false);
-
-    // Efeitos (Migração e Carregamento)
-    useEffect(() => {
-        const migrateOfflineClients = async () => {
-            try {
-                const cachedOffline = await AsyncStorage.getItem('@offline_clients');
-                if (cachedOffline) {
-                    const clients = JSON.parse(cachedOffline);
-                    if (clients.length > 0) {
-                        for (const client of clients) {
-                            await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
-                                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(client)
-                            });
-                        }
-                        await AsyncStorage.removeItem('@offline_clients');
-                        Alert.alert("Sucesso", "Seus alunos offline foram migrados para a nuvem!");
-                    }
-                }
-            } catch (e) { console.error("Erro na migração:", e); }
-        };
-        migrateOfflineClients();
-    }, []);
-
-    useEffect(() => {
-        fetch('https://fitos-final.onrender.com/api/admin/offline-clients/get')
-            .then(res => res.json())
-            .then(data => setOfflineClients(data))
-            .catch(e => console.error("Erro ao buscar offline:", e));
-    }, []);
-
-    useEffect(() => { setLocalAlunos(alunos); }, [alunos]);
-
-    useEffect(() => {
-        const loadOfflineClients = async () => {
-            try {
-                const saved = await AsyncStorage.getItem('@offline_clients');
-                if (saved) setOfflineClients(JSON.parse(saved));
-            } catch (e) { console.error("Erro ao carregar offline", e); }
-        };
-        loadOfflineClients();
-    }, []);
-
-    // ─── LÓGICA DE FILTRAGEM INTELIGENTE DOS MESES ───
-    
-    // 1. Junta os alunos e filtra pelo Coach
-    const todosAlunosFinanceiro = useMemo(() => {
-        const mix = [...localAlunos.map(a => ({...a})), ...offlineClients.map(a => ({...a}))];
-        return mix.filter(a => {
-            if (a.isOffline) return a.assignedCoach === coachFilter;
-            return getLogCoach(a) === coachFilter;
-        }).map(aluno => ({
-            ...aluno,
-            financeCategory: aluno.financeCategory || (aluno.isOffline ? aluno.plan : 'Consultoria Online'),
-            isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true
-        }));
-    }, [localAlunos, offlineClients, coachFilter, getLogCoach, renderTrigger]);
-
-    // 2. Filtra QUEM ESTÁ ATIVO e QUEM COBRA no mês selecionado
-    const enrichedStudentList = useMemo(() => {
-        const targetStart = new Date(currentYear, selectedMonth, 1);
-        const targetEnd = new Date(currentYear, selectedMonth + 1, 0, 23, 59, 59, 999);
-
-        return todosAlunosFinanceiro.map(aluno => {
-            const anchorStartStr = aluno.startDate || aluno.createdAt || new Date().toISOString();
-            const startDate = new Date(anchorStartStr);
-            
-            const startMonth = startDate.getMonth();
-            const startYear = startDate.getFullYear();
-
-            const isNewThisMonth = startYear === currentYear && startMonth === selectedMonth;
-            const started = startDate <= targetEnd;
-
-            let isBillingMonth = false;
-            if (started) {
-                const diffMonths = (currentYear - startYear) * 12 + (selectedMonth - startMonth);
-                const interval = getInterval(aluno.contractType);
-                if (diffMonths >= 0 && diffMonths % interval === 0) {
-                    isBillingMonth = true;
-                }
-            }
-
-            const dueDateStr = aluno.paymentDueDate;
-            const isPaid = dueDateStr ? new Date(dueDateStr) > targetEnd : false;
-
-            return {
-                ...aluno,
-                isPaid,
-                isBillingMonth,
-                started,
-                isNewThisMonth
-            };
-        }).filter(a => a.started); 
-    }, [todosAlunosFinanceiro, selectedMonth, currentYear]);
-
-    // 3. Calcula as Métricas (SÓ SOMA DINHEIRO SE FOR O MÊS DE COBRANÇA DELE)
-    const metrics = useMemo(() => {
-        let entrada = 0; let pendente = 0; let previsao = 0;
-
-        enrichedStudentList.forEach(aluno => {
-            if (aluno.isBillingMonth) {
-                const valor = parseFloat(aluno.contractValue) || 0;
-                if (aluno.isPaid) {
-                    entrada += valor; 
-                    previsao += valor;
-                } else if (aluno.isFinanceActive) {
-                    pendente += valor; 
-                    previsao += valor;
-                }
-            }
-        });
-        return { entrada, pendente, previsao };
-    }, [enrichedStudentList]);
-
-    // 4. Constrói a lista visual aplicando os filtros dos botões
-    const studentList = useMemo(() => {
-        let list = [...enrichedStudentList];
-
-        if (filterStatus === 'ATIVOS') list = list.filter(a => a.isFinanceActive);
-        if (filterStatus === 'INATIVOS') list = list.filter(a => !a.isFinanceActive);
-        if (filterStatus === 'PAGOS') list = list.filter(a => a.isPaid && a.isFinanceActive);
-        if (filterStatus === 'PENDENTES') list = list.filter(a => !a.isPaid && a.isFinanceActive);
-        if (filterCategory !== 'TODOS') list = list.filter(a => a.financeCategory === filterCategory);
-        
-        if (filterPrazo !== 'TODOS') {
-            list = list.filter(a => {
-                if (!a.paymentDueDate) return false;
-                const status = getDueDateStatus(a.paymentDueDate, theme);
-                if (filterPrazo === 'VENCIDOS') return status.days <= 0;
-                if (filterPrazo === 'ALERTA_3D') return status.days > 0 && status.days <= 3;
-                if (filterPrazo === 'ATENCAO_7D') return status.days >= 4 && status.days <= 7;
-                if (filterPrazo === 'NO_PRAZO') return status.days > 7;
-                return true;
-            });
-        }
-        if (searchQuery.trim() !== '') {
-            const term = searchQuery.toLowerCase();
-            list = list.filter(a => (a.name || '').toLowerCase().includes(term));
-        }
-        return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-    }, [enrichedStudentList, filterStatus, filterCategory, filterPrazo, searchQuery, theme]);
-
-    // ─── DADOS DO GRÁFICO DE CRESCIMENTO ───
-    const totalAtivosNoMes = enrichedStudentList.filter(a => a.isFinanceActive).length;
-    const novosNoMes = enrichedStudentList.filter(a => a.isFinanceActive && a.isNewThisMonth).length;
-    const retidosNoMes = totalAtivosNoMes - novosNoMes;
-
-    const percNovos = totalAtivosNoMes > 0 ? (novosNoMes / totalAtivosNoMes) * 100 : 0;
-    const percRetidos = totalAtivosNoMes > 0 ? (retidosNoMes / totalAtivosNoMes) * 100 : 0;
-
-    // 💰 NOVO: Abre o modal de cobrança Asaas (apenas alunos online — offline não tem conta no app)
-    const openChargeModal = (aluno) => {
-        if (aluno?.isOffline) {
-            const msg = "Alunos offline não têm conta no app. Para cobrar via Asaas, o aluno precisa ter cadastro no ELITE FIT.";
-            if (Platform.OS === 'web') window.alert(msg);
-            else Alert.alert("Aluno offline", msg);
-            return;
-        }
-        setChargeAluno(aluno);
+    // MRR estimado — soma dos planos ativos
+    const PLAN_MONTHLY: Record<string, number> = {
+        PERSONAL_MONTHLY:97,    PERSONAL_QUARTERLY:91,  PERSONAL_SEMIANNUAL:85, PERSONAL_ANNUAL:79,    PERSONAL_LAUNCH:69.9,
+        NUTRI_MONTHLY:97,       NUTRI_QUARTERLY:91,     NUTRI_SEMIANNUAL:85,    NUTRI_ANNUAL:79,       NUTRI_LAUNCH:69.9,
+        ELITE_MONTHLY:147,      ELITE_QUARTERLY:138,    ELITE_SEMIANNUAL:129,   ELITE_ANNUAL:119,      ELITE_LAUNCH:109.9,
     };
+    const mrr = active.reduce((sum, c) => sum + (PLAN_MONTHLY[c.coachBillingPlan] ?? 0), 0);
 
-    // Funções de Ação
-    const handleTogglePagamento = async (aluno) => {
-        const isCurrentlyPaid = aluno.isPaid;
-        const msg = isCurrentlyPaid ? `Deseja CANCELAR o pagamento de ${aluno.name}?` : `Deseja REGISTRAR o pagamento de ${aluno.name}?`;
-
-        const confirmAction = async () => {
-            setLoadingId(aluno.id);
-            try {
-                const tipoContrato = aluno.contractType || 'Mensal';
-                const dataBase = aluno.paymentDueDate ? aluno.paymentDueDate : new Date().toISOString();
-                const novaDataISO = isCurrentlyPaid ? calcularDataAnterior(dataBase, tipoContrato) : calcularProximaData(dataBase, tipoContrato);
-                const updatedData = { paymentDueDate: novaDataISO };
-
-                if (aluno.isOffline) {
-                    const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
-                    setOfflineClients([...newList]);
-                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-                } else {
-                    setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
-                }
-
-                const parentRef = alunos.find(a => a.id === aluno.id);
-                if (parentRef) Object.assign(parentRef, updatedData);
-
-                setRenderTrigger(prev => prev + 1);
-
-                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: aluno.id, contractType: tipoContrato, contractValue: parseFloat(aluno.contractValue) || 0, paymentDueDate: novaDataISO, financeCategory: aluno.financeCategory || 'Consultoria Online', isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true }),
-                });
-
-                if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
-            } catch (error) {
-                console.error("Erro:", error);
-                if (Platform.OS === 'web') window.alert("Erro ao processar.");
-            } finally { setLoadingId(null); }
-        };
-
-        if (Platform.OS === 'web') { if (window.confirm(msg)) confirmAction(); } 
-        else { Alert.alert(isCurrentlyPaid ? "Estornar" : "Confirmar", msg, [{ text: "Cancelar", style: "cancel" }, { text: "Sim", style: isCurrentlyPaid ? 'destructive' : 'default', onPress: confirmAction }]); }
-    };
-
-    const openWhatsApp = (phone, name) => {
-        if (!phone) return;
-        const message = `Olá ${name}, tudo bem? Estou entrando em contato para falar sobre sua consultoria...`;
-        const url = `whatsapp://send?phone=+55${phone.replace(/\D/g, '')}&text=${encodeURIComponent(message)}`;
-        Linking.openURL(url).catch(() => {
-            if (Platform.OS === 'web') window.alert("Instale o WhatsApp.");
-            else Alert.alert("Erro", "Não foi possível abrir o WhatsApp.");
-        });
-    };
-
-    const openEditModal = (aluno) => {
-        setEditingAluno(aluno);
-        setContractType(aluno.contractType || 'Mensal');
-        setContractValue(aluno.contractValue ? String(aluno.contractValue) : '0');
-        setStartDateEdit(aluno.startDate ? aluno.startDate.split('T')[0] : (aluno.createdAt ? new Date(aluno.createdAt).toISOString().split('T')[0] : ''));
-        setPaymentDueDate(aluno.paymentDueDate ? aluno.paymentDueDate.split('T')[0] : '');
-        setFinanceCategoryEdit(aluno.financeCategory || 'Consultoria Online');
-        setIsFinanceActiveEdit(aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true);
-        setEditPhotoUrl(aluno.photoUrl || ''); 
-    };
-
-    const closeEditModal = () => {
-        setEditingAluno(null); setContractType('Mensal'); setContractValue('0'); setStartDateEdit(''); setPaymentDueDate(''); setFinanceCategoryEdit('Consultoria Online'); setIsFinanceActiveEdit(true); setEditPhotoUrl('');
-    };
-
-    const handleUploadR2 = async (uri) => {
-        try {
-            const response = await fetch(uri);
-            const blob = await response.blob();
-
-            let ext = 'jpg';
-            if (blob.type) {
-                const mimeExt = blob.type.split('/')[1];
-                if (['jpg', 'jpeg', 'png', 'webp'].includes(mimeExt)) {
-                    ext = mimeExt === 'jpeg' ? 'jpg' : mimeExt;
-                }
-            }
-            const fileName = `upload_${Date.now()}.${ext}`;
-
-            const formData = new FormData();
-
-            if (Platform.OS === 'web') {
-                formData.append('file', blob, fileName);
-            } else {
-                formData.append('file', { uri, name: fileName, type: blob.type || 'image/jpeg' });
-            }
-
-            const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { 
-                method: 'POST', 
-                body: formData 
-            });
-
-            if (!res.ok) {
-                const errorData = await res.json().catch(() => ({}));
-                console.error("Erro do Backend:", errorData);
-                throw new Error(errorData.error || `Erro no servidor: Status ${res.status}`);
-            }
-
-            const data = await res.json();
-            return data.url; 
-        } catch (error) {
-            console.error("Falha no upload:", error);
-            throw error;
-        }
-    };
-
-    const handlePickEditImage = async () => {
-        try {
-            let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.5 });
-            if (!result.canceled && result.assets[0].uri) {
-                setIsUploadingEditPhoto(true);
-                const url = await handleUploadR2(result.assets[0].uri);
-                setEditPhotoUrl(url); 
-            }
-        } catch (error) { if (Platform.OS === 'web') window.alert("Erro no upload."); } 
-        finally { setIsUploadingEditPhoto(false); }
-    };
-
-    const handlePickImage = async () => {
-        try {
-            let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.5 });
-            if (!result.canceled && result.assets[0].uri) {
-                setUploadingPhoto(true);
-                const url = await handleUploadR2(result.assets[0].uri);
-                setNewPhotoUrl(url);
-            }
-        } catch (error) { if (Platform.OS === 'web') window.alert("Erro no upload."); } 
-        finally { setUploadingPhoto(false); }
-    };
-
-    const handleSaveModalContract = async () => {
-        if (!editingAluno) return;
-        setIsSavingContract(true);
-        try {
-            const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
-            
-            const formatarDataParaISO = (dataStr) => {
-                if (!dataStr) return null;
-                if (dataStr.includes('-')) return forceMiddayUTC(dataStr);
-                const [d, m, y] = dataStr.split('/');
-                if (y && m && d) return forceMiddayUTC(`${y}-${m}-${d}`);
-                return null;
-            };
-
-            const updatedData = {
-                userId: editingAluno.id, 
-                contractType, 
-                contractValue: parsedValue,
-                paymentDueDate: formatarDataParaISO(paymentDueDate), 
-                startDate: formatarDataParaISO(startDateEdit),       
-                financeCategory: financeCategoryEdit, 
-                isFinanceActive: isFinanceActiveEdit,
-                ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
-            };
-
-            if (editingAluno.isOffline) {
-                const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
-                setOfflineClients([...newList]);
-                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-            } else {
-                setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
-            }
-
-            const parentRef = alunos.find(a => a.id === editingAluno.id);
-            if (parentRef) Object.assign(parentRef, updatedData);
-
-            setRenderTrigger(prev => prev + 1);
-
-            await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
-            });
-
-            if (Platform.OS === 'web') window.alert("Sucesso!");
-            closeEditModal();
-        } catch (error) { if (Platform.OS === 'web') window.alert("Erro ao salvar."); } 
-        finally { setIsSavingContract(false); }
-    };
-
-    const handleReverterPagamento = async () => {
-        if (!editingAluno) return;
-        const confirmRevert = async () => {
-            setIsSavingContract(true);
-            try {
-                const parsedValue = parseFloat(String(contractValue).replace(',', '.')) || 0;
-                
-                const formatarDataParaISO = (dataStr) => {
-                    if (!dataStr) return null;
-                    if (dataStr.includes('-')) return forceMiddayUTC(dataStr);
-                    const [d, m, y] = dataStr.split('/');
-                    if (y && m && d) return forceMiddayUTC(`${y}-${m}-${d}`);
-                    return null;
-                };
-
-                const updatedData = {
-                    userId: editingAluno.id, contractType, contractValue: parsedValue,
-                    paymentDueDate: null, startDate: formatarDataParaISO(startDateEdit),
-                    financeCategory: financeCategoryEdit, isFinanceActive: isFinanceActiveEdit,
-                    ...(editingAluno.isOffline ? { photoUrl: editPhotoUrl } : {})
-                };
-
-                if (editingAluno.isOffline) {
-                    const newList = offlineClients.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a);
-                    setOfflineClients([...newList]);
-                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-                } else {
-                    setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
-                }
-
-                const parentRef = alunos.find(a => a.id === editingAluno.id);
-                if (parentRef) Object.assign(parentRef, updatedData);
-
-                setRenderTrigger(prev => prev + 1);
-
-                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
-                });
-
-                if (Platform.OS === 'web') window.alert("Pagamento Revertido!");
-                closeEditModal();
-            } catch (error) { if (Platform.OS === 'web') window.alert("Erro ao reverter."); } 
-            finally { setIsSavingContract(false); }
-        };
-
-        if (Platform.OS === 'web') { if (window.confirm(`Tem certeza que deseja REVERTER?`)) confirmRevert(); } 
-        else { Alert.alert("Reverter", `Tem certeza?`, [{ text: "Cancelar", style: "cancel" }, { text: "Sim", style: 'destructive', onPress: confirmRevert }]); }
-    };
-
-    const handleSaveNewOfflineClient = async () => {
-        if (!newName || !newPhone || !newValue || !newStartDate || !newDueDate) {
-            if (Platform.OS === 'web') window.alert("Preencha todos os campos obrigatórios.");
-            return;
-        }
-        setIsSavingNew(true);
-        try {
-            const parsedOfflineValue = parseFloat(String(newValue).replace(',', '.')) || 0;
-            const newClient = {
-                id: `offline_${Date.now()}`, name: newName, phone: newPhone, plan: newCategory,
-                financeCategory: newCategory, contractType: newDuration, contractValue: parsedOfflineValue,
-                startDate: forceMiddayUTC(newStartDate), paymentDueDate: forceMiddayUTC(newDueDate),
-                photoUrl: newPhotoUrl, isOffline: true, isFinanceActive: true, assignedCoach: coachFilter,
-                coachId: coachFilter === 'ADRI' ? 'b7c0c181-41fd-4156-b8fe-963a267759a3' : '3c82f763-66b4-48da-836e-16817d4f57c0'
-            };
-
-            const newList = [...offlineClients, newClient];
-            setOfflineClients(newList);
-            await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-
-            setRenderTrigger(prev => prev + 1);
-
-            try {
-                await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(newClient)
-                });
-            } catch (err) {
-                console.error("Erro ao salvar no banco, mas salvo no cache:", err);
-            }
-
-            if (Platform.OS === 'web') window.alert("Aluno offline cadastrado com sucesso.");
-            setIsAddModalVisible(false);
-            setNewName(''); setNewPhone(''); setNewCategory('Consultoria Online'); setNewDuration('Mensal'); setNewValue('');
-            setNewStartDate(new Date().toISOString().split('T')[0]); setNewDueDate(''); setNewPhotoUrl('');
-        } catch (error) { console.error(error); } 
-        finally { setIsSavingNew(false); }
-    };
-
-    const handleDeleteOfflineClient = async (id) => {
-        const confirmAction = async () => {
-            try {
-                const newList = offlineClients.filter(client => client.id !== id);
-                setOfflineClients(newList);
-                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-
-                setRenderTrigger(prev => prev + 1);
-
-                const res = await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
-                    method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ id })
-                });
-
-                if (!res.ok) throw new Error("Falha ao excluir no servidor");
-
-                if (Platform.OS === 'web') window.alert("Aluno excluído com sucesso!");
-
-                if (editingAluno && editingAluno.id === id) {
-                    closeEditModal();
-                }
-            } catch (error) {
-                console.error("Erro ao excluir aluno:", error);
-                if (Platform.OS === 'web') window.alert("Erro ao excluir aluno. Tente novamente.");
-            }
-        };
-
-        if (Platform.OS === 'web') {
-            if (window.confirm("Tem certeza que deseja excluir este aluno permanentemente?")) {
-                confirmAction();
-            }
-        } else {
-            Alert.alert(
-                "Excluir Aluno",
-                "Tem certeza que deseja excluir este aluno permanentemente?",
-                [
-                    { text: "Cancelar", style: "cancel" },
-                    { text: "Excluir", style: "destructive", onPress: confirmAction }
-                ]
-            );
-        }
-    };
+    if (loading) {
+        return (
+            <View style={{ padding: 40, alignItems: 'center' }}>
+                <ActivityIndicator size="large" color={theme.accent} />
+            </View>
+        );
+    }
 
     return (
-        <View style={{ flex: 1, paddingHorizontal: 20 }}>
-            <FinanceHeaderMetrics 
-                theme={theme} selectedMonth={selectedMonth} currentYear={currentYear} 
-                metrics={metrics} setIsAddModalVisible={setIsAddModalVisible} isWebPC={isWebPC} 
-            />
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
-            {/* 🔥 NOVO: GRÁFICO DE MÉTRICAS DE ALUNOS (RETENÇÃO E NOVOS) 🔥 */}
-            <View style={[styles.growthCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <MaterialCommunityIcons name="google-analytics" size={20} color={theme.text} />
-                        <Text style={[styles.growthTitle, { color: theme.text }]}>DESEMPENHO DA CARTEIRA</Text>
+            {/* Cards de resumo */}
+            <View style={[styles.summaryRow]}>
+                {[
+                    { label:'MRR',         value:`R$${mrr.toFixed(0)}`,      color: theme.accent,  icon:'cash-multiple'          },
+                    { label:'ATIVOS',      value:String(active.length),       color:'#34C759',      icon:'check-circle-outline'   },
+                    { label:'INADIMPL.',   value:String(overdue.length),      color:'#FF3B30',      icon:'alert-circle-outline'   },
+                    { label:'PENDENTES',   value:String(pending.length),      color:'#FF9500',      icon:'clock-outline'          },
+                ].map(({ label, value, color, icon }) => (
+                    <View key={label} style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: color + '40' }]}>
+                        <MaterialCommunityIcons name={icon} size={18} color={color} />
+                        <Text style={{ color, fontWeight:'900', fontSize:18, marginTop:4 }}>{value}</Text>
+                        <Text style={{ color: theme.textSecondary, fontSize:9, fontWeight:'800', letterSpacing:0.5 }}>{label}</Text>
                     </View>
-                    <Text style={{ fontSize: 13, fontWeight: 'bold', color: theme.text }}>
-                        Total Ativos: {totalAtivosNoMes}
+                ))}
+            </View>
+
+            {/* Lista de coaches */}
+            {[
+                { list: overdue,   title:'🔴 INADIMPLENTES',  color:'#FF3B30' },
+                { list: pending,   title:'🟡 PENDENTES',      color:'#FF9500' },
+                { list: active,    title:'🟢 ATIVOS',         color:'#34C759' },
+                { list: cancelled, title:'⚫ CANCELADOS',     color:'#8E8E93' },
+            ].map(({ list, title, color }) => list.length === 0 ? null : (
+                <View key={title} style={{ marginTop: 16 }}>
+                    <Text style={{ color: theme.textSecondary, fontSize:11, fontWeight:'900', letterSpacing:0.5, marginBottom:8 }}>
+                        {title}
+                    </Text>
+                    {list.map(coach => {
+                        const days      = daysUntil(coach.coachBillingEnd);
+                        const statusClr = BILLING_STATUS_COLORS[coach.coachBillingStatus] ?? '#8E8E93';
+                        const planLabel = (coach.coachBillingPlan ?? '—').replace(/_/g,' ');
+                        return (
+                            <View key={coach.id} style={[styles.coachCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                {/* Linha superior */}
+                                <View style={{ flexDirection:'row', alignItems:'center', gap:10, marginBottom:8 }}>
+                                    <View style={[styles.coachAvatar, { backgroundColor: statusClr + '20' }]}>
+                                        <MaterialCommunityIcons name="account-tie" size={18} color={statusClr} />
+                                    </View>
+                                    <View style={{ flex:1 }}>
+                                        <Text style={{ color: theme.text, fontWeight:'900', fontSize:14 }} numberOfLines={1}>
+                                            {coach.name}
+                                        </Text>
+                                        <Text style={{ color: theme.textSecondary, fontSize:11 }} numberOfLines={1}>
+                                            {coach.email}
+                                        </Text>
+                                    </View>
+                                    <View style={[styles.statusPill, { backgroundColor: statusClr + '20', borderColor: statusClr + '50' }]}>
+                                        <Text style={{ fontSize:9, fontWeight:'900', color: statusClr }}>
+                                            {BILLING_STATUS_LABELS[coach.coachBillingStatus] ?? 'SEM PLANO'}
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* Detalhes */}
+                                <View style={{ flexDirection:'row', gap:16, marginBottom:10 }}>
+                                    <View style={{ flexDirection:'row', alignItems:'center', gap:4 }}>
+                                        <MaterialCommunityIcons name="tag-outline" size:12 color={theme.textSecondary} />
+                                        <Text style={{ color: theme.textSecondary, fontSize:11 }}>{planLabel}</Text>
+                                    </View>
+                                    {coach.coachBillingEnd && (
+                                        <View style={{ flexDirection:'row', alignItems:'center', gap:4 }}>
+                                            <MaterialCommunityIcons name="calendar-outline" size={12} color={theme.textSecondary} />
+                                            <Text style={{
+                                                color:      days !== null && days < 7 ? '#FF3B30' : theme.textSecondary,
+                                                fontSize:   11,
+                                                fontWeight: days !== null && days < 7 ? '900' : '400',
+                                            }}>
+                                                {days !== null && days < 0
+                                                    ? `Venceu há ${Math.abs(days)}d`
+                                                    : days !== null && days === 0
+                                                        ? 'Vence hoje'
+                                                        : `Vence em ${days}d (${formatDate(coach.coachBillingEnd)})`
+                                                }
+                                            </Text>
+                                        </View>
+                                    )}
+                                    <View style={{ flexDirection:'row', alignItems:'center', gap:4 }}>
+                                        <MaterialCommunityIcons name="account-group" size={12} color={theme.textSecondary} />
+                                        <Text style={{ color: theme.textSecondary, fontSize:11 }}>
+                                            {coach._count?.students ?? 0} alunos
+                                        </Text>
+                                    </View>
+                                </View>
+
+                                {/* Ações */}
+                                <View style={{ flexDirection:'row', gap:8 }}>
+                                    <TouchableOpacity
+                                        style={[styles.coachActionBtn, { backgroundColor: theme.accent + '18', borderColor: theme.accent + '40' }]}
+                                        onPress={() => onBilling(coach)}
+                                    >
+                                        <MaterialCommunityIcons name="cash-multiple" size={13} color={theme.accent} />
+                                        <Text style={{ fontSize:11, fontWeight:'900', color: theme.accent }}>BILLING</Text>
+                                    </TouchableOpacity>
+
+                                    {coach.phone && (
+                                        <TouchableOpacity
+                                            style={[styles.coachActionBtn, { backgroundColor:'#25D36620', borderColor:'#25D36640' }]}
+                                            onPress={() => {
+                                                const msg = `Fala, ${coach.name.split(' ')[0]}! Tudo certo com seu plano ELITE FIT?`;
+                                                Linking.openURL(`whatsapp://send?phone=+55${coach.phone.replace(/\D/g,'')}&text=${encodeURIComponent(msg)}`).catch(() => {});
+                                            }}
+                                        >
+                                            <MaterialCommunityIcons name="whatsapp" size={13} color="#25D366" />
+                                            <Text style={{ fontSize:11, fontWeight:'900', color:'#25D366' }}>ZAPP</Text>
+                                        </TouchableOpacity>
+                                    )}
+
+                                    {coach.coachBillingStatus === 'OVERDUE' && (
+                                        <View style={[styles.coachActionBtn, { backgroundColor:'#FF3B3015', borderColor:'#FF3B3040' }]}>
+                                            <MaterialCommunityIcons name="alert" size={13} color="#FF3B30" />
+                                            <Text style={{ fontSize:11, fontWeight:'900', color:'#FF3B30' }}>INADIMPLENTE</Text>
+                                        </View>
+                                    )}
+                                </View>
+                            </View>
+                        );
+                    })}
+                </View>
+            ))}
+
+            {coaches.length === 0 && (
+                <View style={{ alignItems:'center', padding:48 }}>
+                    <MaterialCommunityIcons name="account-tie-outline" size={48} color={theme.textSecondary} />
+                    <Text style={{ color: theme.textSecondary, marginTop:16, fontSize:14, textAlign:'center' }}>
+                        Nenhum coach ativo ainda.
                     </Text>
                 </View>
+            )}
+        </ScrollView>
+    );
+}
 
-                {totalAtivosNoMes > 0 ? (
-                    <>
-                        <View style={styles.barContainer}>
-                            <View style={[styles.barSegment, { width: `${percRetidos}%`, backgroundColor: theme.accent, borderTopLeftRadius: 8, borderBottomLeftRadius: 8, borderTopRightRadius: percNovos === 0 ? 8 : 0, borderBottomRightRadius: percNovos === 0 ? 8 : 0 }]} />
-                            <View style={[styles.barSegment, { width: `${percNovos}%`, backgroundColor: '#32ADE6', borderTopRightRadius: 8, borderBottomRightRadius: 8, borderTopLeftRadius: percRetidos === 0 ? 8 : 0, borderBottomLeftRadius: percRetidos === 0 ? 8 : 0 }]} />
-                        </View>
-                        
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <View style={[styles.legendDot, { backgroundColor: theme.accent }]} />
-                                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                                    <Text style={{ fontWeight: 'bold', color: theme.text }}>{retidosNoMes}</Text> Retidos
+// ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
+export default function AdminFinanceSystem({ theme, alunos = [], coachFilter, getLogCoach, isWeb, adminId }) {
+    const isMaster = MASTER_IDS.includes(adminId);
+
+    const [activeTab, setActiveTab] = useState('ATIVOS');
+    const [search,    setSearch]    = useState('');
+
+    const [editingUser,   setEditingUser]   = useState(null);
+    const [modalVisible,  setModalVisible]  = useState(false);
+    const [contractType,  setContractType]  = useState('Mensal');
+    const [contractValue, setContractValue] = useState('');
+    const [paymentDue,    setPaymentDue]    = useState('');
+    const [startDate,     setStartDate]     = useState('');
+    const [financeCategory, setFinanceCategory] = useState('Consultoria Online');
+    const [isFinanceActive, setIsFinanceActive] = useState(true);
+    const [saving,        setSaving]        = useState(false);
+
+    // ← v2: coaches
+    const [coaches,        setCoaches]        = useState([]);
+    const [loadingCoaches, setLoadingCoaches] = useState(false);
+    const [billingCoach,   setBillingCoach]   = useState(null);
+
+    // Busca coaches quando aba COACHES é selecionada
+    useEffect(() => {
+        if (activeTab === 'COACHES' && isMaster) {
+            setLoadingCoaches(true);
+            fetch(`${BASE_URL}/api/admin/coaches?t=${Date.now()}`)
+                .then(r => r.json())
+                .then(data => setCoaches(Array.isArray(data) ? data : []))
+                .catch(() => {})
+                .finally(() => setLoadingCoaches(false));
+        }
+    }, [activeTab, isMaster]);
+
+    // Filtra alunos
+    const filteredAlunos = useMemo(() => {
+        let list = alunos;
+        if (coachFilter && getLogCoach) list = list.filter(a => getLogCoach(a) === coachFilter);
+        if (search) list = list.filter(a => (a.name || '').toLowerCase().includes(search.toLowerCase()));
+        return list;
+    }, [alunos, coachFilter, getLogCoach, search]);
+
+    const today = new Date(); today.setHours(0,0,0,0);
+
+    const ativos    = filteredAlunos.filter(a => a.isFinanceActive && a.contractValue > 0);
+    const vencendo  = ativos.filter(a => {
+        if (!a.paymentDueDate) return false;
+        const due = new Date(a.paymentDueDate); due.setHours(0,0,0,0);
+        const diff = Math.round((due - today) / (1000*3600*24));
+        return diff >= 0 && diff <= 7;
+    });
+    const inativos  = filteredAlunos.filter(a => !a.isFinanceActive || !a.contractValue);
+    const offline   = filteredAlunos.filter(a => a.id?.startsWith('offline_'));
+
+    const totalMRR = ativos.reduce((s, a) => s + (Number(a.contractValue) || 0), 0);
+
+    const openEdit = (user) => {
+        setEditingUser(user);
+        setContractType(user.contractType     || 'Mensal');
+        setContractValue(String(user.contractValue || ''));
+        setPaymentDue(user.paymentDueDate ? formatDate(user.paymentDueDate) : '');
+        setStartDate(user.startDate       ? formatDate(user.startDate)       : '');
+        setFinanceCategory(user.financeCategory || 'Consultoria Online');
+        setIsFinanceActive(user.isFinanceActive !== false);
+        setModalVisible(true);
+    };
+
+    const saveContract = async () => {
+        if (!editingUser) return;
+        setSaving(true);
+        try {
+            const parseDate = (str) => {
+                if (!str || str.length < 10) return null;
+                const [d, m, y] = str.split('/');
+                return new Date(`${y}-${m}-${d}T12:00:00Z`).toISOString();
+            };
+            const res = await fetch(`${BASE_URL}/api/admin/update-contract`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({
+                    userId:          editingUser.id,
+                    adminId,
+                    contractType,
+                    contractValue:   parseFloat(contractValue.replace(',','.')),
+                    paymentDueDate:  parseDate(paymentDue),
+                    startDate:       parseDate(startDate),
+                    financeCategory,
+                    isFinanceActive,
+                }),
+            });
+            if (!res.ok) throw new Error();
+            setModalVisible(false);
+            const msg = 'Contrato atualizado!';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Sucesso', msg);
+        } catch {
+            const msg = 'Erro ao salvar contrato.';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Erro', msg);
+        } finally { setSaving(false); }
+    };
+
+    // Abas — COACHES só para masters
+    const TABS = [
+        { id:'ATIVOS',   label:`Ativos (${ativos.length})`   },
+        { id:'VENCENDO', label:`Vencendo (${vencendo.length})` },
+        { id:'INATIVOS', label:`Inativos (${inativos.length})` },
+        { id:'OFFLINE',  label:`Offline (${offline.length})`  },
+        ...(isMaster ? [{ id:'COACHES', label:'Coaches' }] : []),
+    ];
+
+    const listForTab = activeTab === 'ATIVOS'   ? ativos
+                     : activeTab === 'VENCENDO' ? vencendo
+                     : activeTab === 'INATIVOS' ? inativos
+                     : activeTab === 'OFFLINE'  ? offline
+                     : [];
+
+    return (
+        <View style={[styles.container, { backgroundColor: theme.bg }]}>
+
+            {/* Header MRR */}
+            <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+                <View>
+                    <Text style={{ color: theme.textSecondary, fontSize:11, fontWeight:'800', letterSpacing:0.5 }}>MRR ESTIMADO</Text>
+                    <Text style={{ color: theme.accent, fontSize:26, fontWeight:'900', marginTop:2 }}>{fmt(totalMRR)}</Text>
+                </View>
+                <View style={[styles.searchBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                    <MaterialCommunityIcons name="magnify" size={16} color={theme.textSecondary} />
+                    <TextInput
+                        style={[styles.searchInput, { color: theme.text }]}
+                        placeholder="Buscar aluno..."
+                        placeholderTextColor={theme.textSecondary}
+                        value={search}
+                        onChangeText={setSearch}
+                    />
+                </View>
+            </View>
+
+            {/* Abas */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}
+                style={[styles.tabsRow, { borderBottomColor: theme.border }]}
+                contentContainerStyle={{ gap:4, paddingHorizontal:16, paddingVertical:8 }}
+            >
+                {TABS.map(tab => {
+                    const active = activeTab === tab.id;
+                    const isCoachTab = tab.id === 'COACHES';
+                    return (
+                        <TouchableOpacity
+                            key={tab.id}
+                            style={[styles.tab, {
+                                backgroundColor: active ? theme.accent : theme.surface,
+                                borderColor:     active ? theme.accent : (isCoachTab ? theme.accent + '50' : theme.border),
+                                borderWidth:     isCoachTab ? 1.5 : 1,
+                            }]}
+                            onPress={() => setActiveTab(tab.id)}
+                        >
+                            {isCoachTab && (
+                                <MaterialCommunityIcons name="account-tie" size={12} color={active ? '#000' : theme.accent} />
+                            )}
+                            <Text style={{
+                                color:      active ? '#000' : (isCoachTab ? theme.accent : theme.text),
+                                fontWeight: '800',
+                                fontSize:   11,
+                            }}>
+                                {tab.label}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+            </ScrollView>
+
+            {/* Conteúdo */}
+            <View style={{ flex:1, paddingHorizontal:16, paddingTop:12 }}>
+
+                {/* ABA COACHES */}
+                {activeTab === 'COACHES' && isMaster && (
+                    <CoachesFinanceTab
+                        coaches={coaches}
+                        loading={loadingCoaches}
+                        theme={theme}
+                        onBilling={(coach) => setBillingCoach(coach)}
+                    />
+                )}
+
+                {/* ABAS DE ALUNOS */}
+                {activeTab !== 'COACHES' && (
+                    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom:40 }}>
+                        {listForTab.length === 0 ? (
+                            <View style={{ alignItems:'center', padding:48 }}>
+                                <MaterialCommunityIcons name="cash-remove" size={48} color={theme.textSecondary} />
+                                <Text style={{ color: theme.textSecondary, marginTop:16, fontSize:14, textAlign:'center' }}>
+                                    Nenhum aluno nesta categoria.
                                 </Text>
                             </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <View style={[styles.legendDot, { backgroundColor: '#32ADE6' }]} />
-                                <Text style={{ fontSize: 12, color: theme.textSecondary }}>
-                                    <Text style={{ fontWeight: 'bold', color: theme.text }}>{novosNoMes}</Text> Novos Cadastros
-                                </Text>
-                            </View>
-                        </View>
-                    </>
-                ) : (
-                    <Text style={{ fontSize: 12, color: theme.textSecondary, textAlign: 'center', paddingVertical: 10 }}>
-                        Nenhum aluno ativo encontrado neste mês.
-                    </Text>
+                        ) : listForTab.map(user => {
+                            const due  = user.paymentDueDate ? new Date(user.paymentDueDate) : null;
+                            const days = due ? Math.round((due.setHours(0,0,0,0) - today) / (1000*3600*24)) : null;
+                            const isOverdue = days !== null && days < 0;
+                            const isWarning = days !== null && days >= 0 && days <= 7;
+
+                            return (
+                                <TouchableOpacity
+                                    key={user.id}
+                                    style={[styles.userCard, {
+                                        backgroundColor: theme.surface,
+                                        borderColor:     isOverdue ? '#FF3B3040' : isWarning ? '#FF950040' : theme.border,
+                                    }]}
+                                    onPress={() => openEdit(user)}
+                                    activeOpacity={0.75}
+                                >
+                                    <View style={{ flex:1 }}>
+                                        <Text style={{ color: theme.text, fontWeight:'800', fontSize:14 }} numberOfLines={1}>
+                                            {user.name}
+                                        </Text>
+                                        <Text style={{ color: theme.textSecondary, fontSize:11, marginTop:2 }}>
+                                            {user.financeCategory || 'Consultoria'} · {user.contractType || 'Mensal'}
+                                        </Text>
+                                        {due && (
+                                            <Text style={{
+                                                fontSize:   11,
+                                                fontWeight: isOverdue || isWarning ? '900' : '400',
+                                                color:      isOverdue ? '#FF3B30' : isWarning ? '#FF9500' : theme.textSecondary,
+                                                marginTop:  2,
+                                            }}>
+                                                {isOverdue
+                                                    ? `⚠️ Venceu há ${Math.abs(days)}d`
+                                                    : days === 0
+                                                        ? '⚡ Vence hoje'
+                                                        : `Vence em ${days}d (${formatDate(user.paymentDueDate)})`
+                                                }
+                                            </Text>
+                                        )}
+                                    </View>
+                                    <View style={{ alignItems:'flex-end' }}>
+                                        <Text style={{ color: theme.accent, fontWeight:'900', fontSize:16 }}>
+                                            {fmt(user.contractValue)}
+                                        </Text>
+                                        <View style={[styles.statusPill, {
+                                            backgroundColor: user.isFinanceActive ? '#34C75920' : '#FF3B3020',
+                                            borderColor:     user.isFinanceActive ? '#34C75950' : '#FF3B3050',
+                                            marginTop:4,
+                                        }]}>
+                                            <Text style={{
+                                                fontSize:9, fontWeight:'900',
+                                                color: user.isFinanceActive ? '#34C759' : '#FF3B30',
+                                            }}>
+                                                {user.isFinanceActive ? 'ATIVO' : 'INATIVO'}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </ScrollView>
                 )}
             </View>
 
-            <FinanceFilters 
-                theme={theme} isWebPC={isWebPC} searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
-                selectedMonth={selectedMonth} setSelectedMonth={setSelectedMonth} 
-                filterStatus={filterStatus} setFilterStatus={setFilterStatus} 
-                filterPrazo={filterPrazo} setFilterPrazo={setFilterPrazo} 
-                filterCategory={filterCategory} setFilterCategory={setFilterCategory} 
-            />
+            {/* Modal de edição de contrato */}
+            <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+                <View style={styles.modalBackdrop}>
+                    <View style={[styles.modalBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                        <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+                            <Text style={{ color: theme.text, fontWeight:'900', fontSize:15 }}>
+                                {editingUser?.name}
+                            </Text>
+                            <TouchableOpacity onPress={() => setModalVisible(false)}>
+                                <MaterialCommunityIcons name="close" size={22} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        </View>
 
-            {/* 📊 NOVO: Painel de Pagamentos Asaas */}
-            <AsaasPaymentsPanel theme={theme} isWebPC={isWebPC} />
+                        <ScrollView contentContainerStyle={{ padding:20, gap:14 }}>
+                            {/* Status */}
+                            <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center' }}>
+                                <Text style={{ color: theme.text, fontWeight:'700' }}>Contrato ativo</Text>
+                                <Switch
+                                    value={isFinanceActive}
+                                    onValueChange={setIsFinanceActive}
+                                    trackColor={{ false: theme.border, true: theme.accent + '60' }}
+                                    thumbColor={isFinanceActive ? theme.accent : theme.textSecondary}
+                                />
+                            </View>
 
-            <FinanceStudentList 
-                theme={theme} isWebPC={isWebPC} studentList={studentList} loadingId={loadingId} 
-                openEditModal={openEditModal} handleTogglePagamento={handleTogglePagamento} openWhatsApp={openWhatsApp} 
-                handleDeleteOfflineClient={handleDeleteOfflineClient}
-            />
+                            {[
+                                { label:'TIPO DE CONTRATO', value:contractType, setter:setContractType, placeholder:'Mensal, Trimestral...' },
+                                { label:'VALOR (R$)',        value:contractValue, setter:setContractValue, placeholder:'0,00', keyboard:'decimal-pad' },
+                                { label:'VENCIMENTO',        value:paymentDue,   setter:setPaymentDue,   placeholder:'DD/MM/AAAA', keyboard:'numeric' },
+                                { label:'INÍCIO',            value:startDate,    setter:setStartDate,    placeholder:'DD/MM/AAAA', keyboard:'numeric' },
+                                { label:'CATEGORIA',         value:financeCategory, setter:setFinanceCategory, placeholder:'Consultoria Online' },
+                            ].map(({ label, value, setter, placeholder, keyboard }) => (
+                                <View key={label}>
+                                    <Text style={{ color: theme.textSecondary, fontSize:10, fontWeight:'800', letterSpacing:0.5, marginBottom:6 }}>
+                                        {label}
+                                    </Text>
+                                    <TextInput
+                                        style={[styles.modalInput, { backgroundColor: theme.surface, borderColor: theme.border, color: theme.text }]}
+                                        value={value}
+                                        onChangeText={setter}
+                                        placeholder={placeholder}
+                                        placeholderTextColor={theme.textSecondary}
+                                        keyboardType={keyboard}
+                                    />
+                                </View>
+                            ))}
 
-            <FinanceEditModal 
-                theme={theme} isWebPC={isWebPC} editingAluno={editingAluno} closeEditModal={closeEditModal}
-                isFinanceActiveEdit={isFinanceActiveEdit} setIsFinanceActiveEdit={setIsFinanceActiveEdit}
-                financeCategoryEdit={financeCategoryEdit} setFinanceCategoryEdit={setFinanceCategoryEdit}
-                contractType={contractType} setContractType={setContractType}
-                contractValue={contractValue} setContractValue={setContractValue}
-                startDateEdit={startDateEdit} setStartDateEdit={setStartDateEdit}
-                paymentDueDate={paymentDueDate} setPaymentDueDate={setPaymentDueDate}
-                isUploadingEditPhoto={isUploadingEditPhoto} editPhotoUrl={editPhotoUrl}
-                handlePickEditImage={handlePickEditImage} handleSaveModalContract={handleSaveModalContract}
-                isSavingContract={isSavingContract} handleReverterPagamento={handleReverterPagamento}
-                handleDeleteOfflineClient={handleDeleteOfflineClient}
-                openChargeModal={openChargeModal}
-            />
+                            <TouchableOpacity
+                                style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                                onPress={saveContract}
+                                disabled={saving}
+                            >
+                                {saving
+                                    ? <ActivityIndicator color="#000" />
+                                    : <Text style={{ color:'#000', fontWeight:'900', fontSize:14 }}>SALVAR</Text>
+                                }
+                            </TouchableOpacity>
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
 
-            <FinanceAddModal 
-                theme={theme} isWebPC={isWebPC} isAddModalVisible={isAddModalVisible} setIsAddModalVisible={setIsAddModalVisible}
-                newName={newName} setNewName={setNewName} newCategory={newCategory} setNewCategory={setNewCategory}
-                newPhone={newPhone} setNewPhone={setNewPhone} newDuration={newDuration} setNewDuration={setNewDuration}
-                newValue={newValue} setNewValue={setNewValue} newStartDate={newStartDate} setNewStartDate={setNewStartDate}
-                newDueDate={newDueDate} setNewDueDate={setNewDueDate} uploadingPhoto={uploadingPhoto} newPhotoUrl={newPhotoUrl}
-                handlePickImage={handlePickImage} handleSaveNewOfflineClient={handleSaveNewOfflineClient} isSavingNew={isSavingNew}
-            />
-
-            {/* 💰 NOVO: Modal de Cobrança via Asaas */}
-            <FinanceChargeModal
+            {/* CoachBillingModal — v2 */}
+            <CoachBillingModal
+                visible={!!billingCoach}
+                onClose={() => setBillingCoach(null)}
+                coach={billingCoach}
                 theme={theme}
-                isWebPC={isWebPC}
-                aluno={chargeAluno}
-                visible={!!chargeAluno}
-                onClose={() => setChargeAluno(null)}
             />
         </View>
     );
 }
 
-// Estilos adicionais para o novo Gráfico de Crescimento
 const styles = StyleSheet.create({
-    growthCard: {
-        padding: 16,
-        borderRadius: 16,
-        borderWidth: 1,
-        marginBottom: 16,
-    },
-    growthTitle: {
-        fontSize: 12,
-        fontWeight: '900',
-        letterSpacing: 0.5,
-    },
-    barContainer: {
-        width: '100%',
-        height: 12,
-        backgroundColor: 'rgba(0,0,0,0.05)',
-        borderRadius: 8,
-        flexDirection: 'row',
-        overflow: 'hidden',
-    },
-    barSegment: {
-        height: '100%',
-    },
-    legendDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-    }
+    container:     { flex:1 },
+    header:        { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:16, borderBottomWidth:1 },
+    searchBox:     { flexDirection:'row', alignItems:'center', gap:8, padding:10, borderRadius:12, borderWidth:1, flex:1, marginLeft:16, maxWidth:220 },
+    searchInput:   { flex:1, fontSize:13, outlineStyle:'none' },
+    tabsRow:       { flexGrow:0, borderBottomWidth:1 },
+    tab:           { flexDirection:'row', alignItems:'center', gap:4, paddingHorizontal:12, paddingVertical:8, borderRadius:20, borderWidth:1 },
+    userCard:      { flexDirection:'row', alignItems:'center', padding:14, borderRadius:16, borderWidth:1, marginBottom:10 },
+    statusPill:    { paddingHorizontal:8, paddingVertical:3, borderRadius:8, borderWidth:1 },
+    // coaches
+    summaryRow:    { flexDirection:'row', gap:8, marginBottom:16 },
+    summaryCard:   { flex:1, alignItems:'center', padding:12, borderRadius:14, borderWidth:1 },
+    coachCard:     { borderRadius:16, borderWidth:1, padding:14, marginBottom:10 },
+    coachAvatar:   { width:36, height:36, borderRadius:10, alignItems:'center', justifyContent:'center' },
+    coachActionBtn:{ flexDirection:'row', alignItems:'center', gap:4, paddingHorizontal:10, paddingVertical:7, borderRadius:10, borderWidth:1 },
+    // modal
+    modalBackdrop: { flex:1, backgroundColor:'rgba(0,0,0,0.6)', justifyContent:'flex-end', alignItems:'center' },
+    modalBox:      { width:'100%', maxWidth:480, borderTopLeftRadius:24, borderTopRightRadius:24, borderWidth:1, borderBottomWidth:0, maxHeight:'85%', overflow:'hidden' },
+    modalHeader:   { flexDirection:'row', justifyContent:'space-between', alignItems:'center', padding:18, borderBottomWidth:1 },
+    modalInput:    { borderWidth:1, borderRadius:12, padding:13, fontSize:14 },
+    saveBtn:       { padding:16, borderRadius:14, alignItems:'center', marginTop:8 },
 });
