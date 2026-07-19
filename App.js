@@ -138,7 +138,12 @@ function StudentTabs({ route }) {
     MASTER_COACH_IDS.includes(userData?.nutritionistId);
 
   const isElite = userData?.plan === 'ELITE' || userData?.plan === 'VIP';
-  const showDiet = (userData?.dietModule === true || isElite) && belongsToMaster;
+
+  // ← v2: showDiet considera studentModules para alunos de coaches parceiros
+  const showDiet =
+    (belongsToMaster && (userData?.dietModule === true || isElite)) ||
+    userData?.studentModules === 'DIETA' ||
+    userData?.studentModules === 'AMBOS';
 
   return (
     <Tab.Navigator
