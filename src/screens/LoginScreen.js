@@ -199,22 +199,14 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // Layout
-  const isWeb2 = Platform.OS === 'web';
+  // 🔥 MÁGICA CONTRA A TELA MOLENGA NO IOS/SAFARI 🔥
   const containerStyle = isWebPC
-    ? { height: windowHeight, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center' }
-    : { flex: 1, backgroundColor: theme.bg };
+    ? { height: windowHeight, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }
+    : isWeb
+      ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, overflow: 'hidden' }
+      : { flex: 1, backgroundColor: theme.bg };
 
-  const innerStyle = isWebPC
-    ? {
-        width: 420,
-        backgroundColor: 'transparent',
-        borderRadius: 24,
-        overflow: 'hidden',
-      }
-    : { flex: 1 };
-
-  const RootComponent = isWeb2 ? View : SafeAreaView;
+  const RootComponent = isWeb ? View : SafeAreaView;
 
   const BG_IMAGE = 'https://i.postimg.cc/pLbCQ1GT/AB61F751-5B87-45B5-B142-0DDC109AAAFC.png';
 
@@ -238,6 +230,10 @@ export default function LoginScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           automaticallyAdjustKeyboardInsets={true}
+          // 🔥 DESLIGA O EFEITO DE ELÁSTICO (BOUNCE) NOS DISPOSITIVOS 🔥
+          bounces={false} 
+          alwaysBounceVertical={false}
+          overScrollMode="never"
         >
           <Animated.View
             style={[
