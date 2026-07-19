@@ -58,7 +58,8 @@ async function registerForPushNotificationsAsync() {
 
 export default function LoginScreen({ navigation }) {
   const { theme } = useTheme();
-  const { width: windowWidth } = useWindowDimensions();
+  // 🔥 CORREÇÃO: Recuperamos a altura dinâmica da tela (windowHeight)
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const isWeb = Platform.OS === 'web';
   const isWebPC = isWeb && windowWidth > 768;
 
@@ -202,10 +203,18 @@ export default function LoginScreen({ navigation }) {
 
   const BG_IMAGE = 'https://i.postimg.cc/pLbCQ1GT/AB61F751-5B87-45B5-B142-0DDC109AAAFC.png';
 
+  const containerStyle = isWebPC
+    ? { height: windowHeight, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }
+    : isWeb
+      ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, overflow: 'hidden' }
+      : { flex: 1, backgroundColor: theme.bg };
+
+  const RootComponent = isWeb ? View : SafeAreaView;
+
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
+    <RootComponent style={containerStyle}>
       
-      {/* 🔥 MÁGICA 1: FUNDO CHUMBADO (Não se move nem sob tortura do iOS) 🔥 */}
+      {/* FUNDO CHUMBADO */}
       <View style={[StyleSheet.absoluteFill, isWeb && { position: 'fixed' }]}>
         <Image
           source={{ uri: BG_IMAGE }}
@@ -219,7 +228,7 @@ export default function LoginScreen({ navigation }) {
         />
       </View>
 
-      {/* 🔥 MÁGICA 2: GESTÃO DO TECLADO SEM MEXER O FUNDO 🔥 */}
+      {/* GESTÃO DO TECLADO */}
       <KeyboardAvoidingView 
         style={{ flex: 1, alignItems: isWebPC ? 'center' : 'stretch', justifyContent: 'center' }} 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -228,8 +237,9 @@ export default function LoginScreen({ navigation }) {
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-end', width: isWebPC ? 420 : '100%', alignSelf: 'center' }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          bounces={false} // Desliga o elástico
-          overScrollMode="never" // Desliga o elástico no Android
+          bounces={false} 
+          alwaysBounceVertical={false}
+          overScrollMode="never" 
         >
           <Animated.View
             style={[
@@ -240,8 +250,8 @@ export default function LoginScreen({ navigation }) {
               },
             ]}
           >
-            {/* Espaço superior para a logo respirar (no mobile) */}
-            {!isWebPC && <View style={{ flex: 1, minHeight: 250 }} />}
+            {/* 🔥 CORREÇÃO: O espaço superior agora exige no mínimo 50% da tela dinamicamente, liberando a logo! 🔥 */}
+            {!isWebPC && <View style={{ flex: 1, minHeight: windowHeight * 0.50 }} />}
 
             {/* Botão voltar ao admin (impersonation) */}
             {hasOriginalAdmin && (
@@ -366,7 +376,7 @@ export default function LoginScreen({ navigation }) {
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </View>
+    </RootComponent>
   );
 }
 
