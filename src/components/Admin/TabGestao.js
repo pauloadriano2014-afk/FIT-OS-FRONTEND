@@ -1,6 +1,6 @@
 // src/components/Admin/TabGestao.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -8,7 +8,7 @@ import TabFerramentas from './TabFerramentas';
 import TabConfig from './TabConfig';
 import TabSaaS from './TabSaaS';
 import TabMarca from './TabMarca';
-import TabIA from './TabIA'; // ← NOVO
+import TabIA from './TabIA';
 
 const MASTER_IDS = [
     '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
@@ -21,6 +21,10 @@ export default function TabGestao({
     selectThemeColor, selectedColor
 }) {
     const [currentUserId, setCurrentUserId] = useState(null);
+    const { width } = useWindowDimensions();
+    
+    // Identifica se está no celular (ou tela estreita)
+    const isMobile = Platform.OS !== 'web' || width <= 768;
 
     useEffect(() => {
         const loadUser = async () => {
@@ -36,6 +40,16 @@ export default function TabGestao({
 
     const isMasterCoach = MASTER_IDS.includes(currentUserId);
     const flixName = isMasterCoach ? 'PA FLIX' : 'ELITE FLIX';
+
+    // 🚀 NOVO: Array inteligente de abas (Filtra automaticamente o que cada um pode ver)
+    const TABS = [
+        { id: 'FERRAMENTAS', label: 'TREINO E DIETA',   show: true },
+        { id: 'CONFIG',      label: 'SISTEMA E AVISOS', show: true },
+        { id: 'SAAS',        label: 'VENDAS',           show: !isMasterCoach },
+        { id: 'IA',          label: 'MINHA IA',         show: !isMasterCoach },
+        { id: 'MARCA',       label: 'MINHA MARCA',      show: true },
+        { id: 'ASSINATURA',  label: 'MINHA ASSINATURA', show: !isMasterCoach }, // ← NOVA ABA DE ASSINATURA
+    ].filter(tab => tab.show);
 
     const impersonateTestStudent = async () => {
         try {
@@ -93,76 +107,52 @@ export default function TabGestao({
         }
     };
 
+    // Renderizador dos Botões de Aba
+    const renderTabButtons = () => (
+        TABS.map(tab => {
+            const isActive = subTabGestao === tab.id;
+            return (
+                <TouchableOpacity
+                    key={tab.id}
+                    style={[
+                        styles.subTab,
+                        !isMobile && { flex: 1 }, // No desktop, eles dividem o espaço
+                        isMobile && { paddingHorizontal: 16 }, // No mobile, eles têm largura flexível
+                        isActive
+                            ? { backgroundColor: theme.surface, borderColor: theme.border }
+                            : { borderColor: 'transparent' }
+                    ]}
+                    onPress={() => setSubTabGestao(tab.id)}
+                >
+                    <Text style={[styles.subTabText, { color: isActive ? theme.text : theme.textSecondary }]}>
+                        {tab.label}
+                    </Text>
+                </TouchableOpacity>
+            );
+        })
+    );
+
     return (
         <View style={styles.gridGestao}>
-            {/* SELETOR DE ABAS */}
-            <View style={styles.subTabsContainer}>
-                <TouchableOpacity
-                    style={[styles.subTab, subTabGestao === 'FERRAMENTAS'
-                        ? { backgroundColor: theme.surface, borderColor: theme.border }
-                        : { borderColor: 'transparent' }
-                    ]}
-                    onPress={() => setSubTabGestao('FERRAMENTAS')}
-                >
-                    <Text style={[styles.subTabText, { color: subTabGestao === 'FERRAMENTAS' ? theme.text : theme.textSecondary }]}>
-                        TREINO E DIETA
-                    </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.subTab, subTabGestao === 'CONFIG'
-                        ? { backgroundColor: theme.surface, borderColor: theme.border }
-                        : { borderColor: 'transparent' }
-                    ]}
-                    onPress={() => setSubTabGestao('CONFIG')}
-                >
-                    <Text style={[styles.subTabText, { color: subTabGestao === 'CONFIG' ? theme.text : theme.textSecondary }]}>
-                        SISTEMA E AVISOS
-                    </Text>
-                </TouchableOpacity>
-
-                {/* VENDAS — só parceiro */}
-                {!isMasterCoach && (
-                    <TouchableOpacity
-                        style={[styles.subTab, subTabGestao === 'SAAS'
-                            ? { backgroundColor: theme.surface, borderColor: theme.border }
-                            : { borderColor: 'transparent' }
-                        ]}
-                        onPress={() => setSubTabGestao('SAAS')}
+            
+            {/* SELETOR DE ABAS DINÂMICO (Carrossel no Mobile, Grid no Desktop) */}
+            {isMobile ? (
+                <View style={{ marginHorizontal: -5 }}>
+                    <ScrollView 
+                        horizontal 
+                        showsHorizontalScrollIndicator={false} 
+                        contentContainerStyle={styles.scrollTabsContainer}
+                        overScrollMode="never"
+                        bounces={false}
                     >
-                        <Text style={[styles.subTabText, { color: subTabGestao === 'SAAS' ? theme.text : theme.textSecondary }]}>
-                            VENDAS
-                        </Text>
-                    </TouchableOpacity>
-                )}
-
-                {/* MINHA IA — só parceiro ← NOVO */}
-                {!isMasterCoach && (
-                    <TouchableOpacity
-                        style={[styles.subTab, subTabGestao === 'IA'
-                            ? { backgroundColor: theme.surface, borderColor: theme.border }
-                            : { borderColor: 'transparent' }
-                        ]}
-                        onPress={() => setSubTabGestao('IA')}
-                    >
-                        <Text style={[styles.subTabText, { color: subTabGestao === 'IA' ? theme.text : theme.textSecondary }]}>
-                            MINHA IA
-                        </Text>
-                    </TouchableOpacity>
-                )}
-
-                <TouchableOpacity
-                    style={[styles.subTab, subTabGestao === 'MARCA'
-                        ? { backgroundColor: theme.surface, borderColor: theme.border }
-                        : { borderColor: 'transparent' }
-                    ]}
-                    onPress={() => setSubTabGestao('MARCA')}
-                >
-                    <Text style={[styles.subTabText, { color: subTabGestao === 'MARCA' ? theme.text : theme.textSecondary }]}>
-                        MINHA MARCA
-                    </Text>
-                </TouchableOpacity>
-            </View>
+                        {renderTabButtons()}
+                    </ScrollView>
+                </View>
+            ) : (
+                <View style={styles.subTabsContainer}>
+                    {renderTabButtons()}
+                </View>
+            )}
 
             {/* BOTÃO VISUALIZAR COMO ALUNO */}
             <TouchableOpacity
@@ -178,14 +168,15 @@ export default function TabGestao({
 
             {/* CONTEÚDO DAS ABAS */}
             {subTabGestao === 'FERRAMENTAS' && (
-      <TabFerramentas
-          isMasterCoach={isMasterCoach}
-          theme={theme}
-          navigation={navigation}
-          alunosAtivos={alunosAtivos}
-          currentUserId={currentUserId}
-      />
-  )}
+                <TabFerramentas
+                    isMasterCoach={isMasterCoach}
+                    theme={theme}
+                    navigation={navigation}
+                    alunosAtivos={alunosAtivos}
+                    currentUserId={currentUserId}
+                />
+            )}
+            
             {subTabGestao === 'CONFIG' && (
                 <TabConfig
                     isMasterCoach={isMasterCoach}
@@ -199,25 +190,40 @@ export default function TabGestao({
                     selectedColor={selectedColor}
                 />
             )}
+            
             {subTabGestao === 'SAAS' && !isMasterCoach && (
                 <TabSaaS theme={theme} currentUserId={currentUserId} />
             )}
-            {/* MINHA IA — só parceiro ← NOVO */}
+            
             {subTabGestao === 'IA' && !isMasterCoach && (
                 <TabIA theme={theme} currentUserId={currentUserId} />
             )}
+            
             {subTabGestao === 'MARCA' && (
                 <TabMarca theme={theme} />
+            )}
+
+            {/* 🚀 NOVA ABA PROVISÓRIA DE ASSINATURA */}
+            {subTabGestao === 'ASSINATURA' && !isMasterCoach && (
+                <View style={[styles.provisoryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <MaterialCommunityIcons name="shield-star" size={40} color={theme.accent} style={{ marginBottom: 10 }} />
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>MINHA ASSINATURA</Text>
+                    <Text style={{ color: theme.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 8 }}>
+                        Seu painel de gerenciamento de faturas e plano está sendo construído.
+                    </Text>
+                </View>
             )}
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    gridGestao:        { gap: 15 },
-    subTabsContainer:  { flexDirection: 'row', marginBottom: 10, gap: 10, flexWrap: 'wrap' },
-    subTab:            { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
-    subTabText:        { fontSize: 11, fontWeight: 'bold', textAlign: 'center' },
-    impersonateBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 5 },
-    impersonateBtnText:{ fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+    gridGestao:          { gap: 15 },
+    subTabsContainer:    { flexDirection: 'row', marginBottom: 10, gap: 10, flexWrap: 'wrap' },
+    scrollTabsContainer: { paddingHorizontal: 5, paddingBottom: 10, gap: 8, flexDirection: 'row' },
+    subTab:              { padding: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+    subTabText:          { fontSize: 11, fontWeight: 'bold', textAlign: 'center' },
+    impersonateBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 5 },
+    impersonateBtnText:  { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
+    provisoryCard:       { padding: 30, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginTop: 10 }
 });
