@@ -62,8 +62,8 @@ import AdminSubstitutionGroupsScreen from './src/screens/AdminSubstitutionGroups
 import AdminSubstitutionGroupDetailScreen from './src/screens/AdminSubstitutionGroupDetailScreen';
 import AdminCoachesScreen from './src/screens/AdminCoachesScreen';
 import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen';
-import CoachBlockedScreen from './src/screens/CoachBlockedScreen'; // ← v2
-import CoachPropostaScreen from './src/screens/CoachPropostaScreen'; // ← v2
+import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
+import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -149,7 +149,6 @@ function StudentTabs({ route }) {
 
   const isElite = userData?.plan === 'ELITE' || userData?.plan === 'VIP';
 
-  // ← v2: showDiet considera studentModules para alunos de coaches parceiros
   const showDiet =
     (belongsToMaster && (userData?.dietModule === true || isElite)) ||
     userData?.studentModules === 'DIETA' ||
@@ -170,68 +169,34 @@ function StudentTabs({ route }) {
         tabBarInactiveTintColor: theme.textSecondary,
       }}
     >
-      <Tab.Screen
-        name="Início"
-        component={HomeScreen}
-        initialParams={{ userData }}
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} /> }}
-      />
-      <Tab.Screen
-        name="Treinos"
-        component={TrainingScreen}
-        initialParams={{ userData }}
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="dumbbell" size={size} color={color} /> }}
-      />
+      <Tab.Screen name="Início" component={HomeScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} /> }} />
+      <Tab.Screen name="Treinos" component={TrainingScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="dumbbell" size={size} color={color} /> }} />
       {showDiet && (
-        <Tab.Screen
-          name="Dieta"
-          component={DietScreen}
-          initialParams={{ userData }}
-          options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="food-apple" size={size} color={color} /> }}
-        />
+        <Tab.Screen name="Dieta" component={DietScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="food-apple" size={size} color={color} /> }} />
       )}
-      <Tab.Screen
-        name="Biblioteca"
-        component={BibliotecaScreen}
-        initialParams={{ userData }}
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="play-box-multiple" size={size} color={color} /> }}
-      />
-      <Tab.Screen
-        name="Evolução"
-        component={EvolutionScreen}
-        initialParams={{ userData }}
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" size={size} color={color} /> }}
-      />
-      <Tab.Screen
-        name="Perfil"
-        component={ProfileScreen}
-        initialParams={{ userData }}
-        options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} /> }}
-      />
+      <Tab.Screen name="Biblioteca" component={BibliotecaScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="play-box-multiple" size={size} color={color} /> }} />
+      <Tab.Screen name="Evolução" component={EvolutionScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" size={size} color={color} /> }} />
+      <Tab.Screen name="Perfil" component={ProfileScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} /> }} />
     </Tab.Navigator>
   );
 }
 
 function RootNavigator() {
-  const [loading,       setLoading]       = useState(true);
-  const [initialRoute,  setInitialRoute]  = useState('Install');
-  const [savedUser,     setSavedUser]     = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [initialRoute, setInitialRoute] = useState('Install');
+  const [savedUser, setSavedUser] = useState(null);
   const { theme, loadingTheme } = useTheme();
 
   useEffect(() => {
     const restoreSession = async () => {
       try {
         const userJson = await AsyncStorage.getItem('user');
-        const role     = await AsyncStorage.getItem('role');
+        const role = await AsyncStorage.getItem('role');
         if (userJson) {
-          const user      = JSON.parse(userJson);
+          const user = JSON.parse(userJson);
           const finalRole = role || user.role || user.type || 'ALUNO';
           setSavedUser(user);
-          // ← v2: ADMIN e COACH vão para o painel admin
-          if (
-            finalRole.toLowerCase() === 'admin' ||
-            finalRole.toLowerCase() === 'coach'
-          ) {
+          if (finalRole.toLowerCase() === 'admin' || finalRole.toLowerCase() === 'coach') {
             setInitialRoute('AdminDashboard');
           } else {
             setInitialRoute('Main');
@@ -256,55 +221,55 @@ function RootNavigator() {
 
   return (
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Install"              component={InstallScreen} />
-      <Stack.Screen name="Login"                component={LoginScreen} />
-      <Stack.Screen name="Register"             component={RegisterScreen} />
-      <Stack.Screen name="RedefinirSenha"       component={ResetPasswordScreen} />
-      <Stack.Screen name="Anamnese"             component={AnamneseScreen}      options={{ headerShown: false, tabBarVisible: false }} />
-      <Stack.Screen name="AnamneseVIP"          component={AnamneseVIPScreen} />
-      <Stack.Screen name="SetupTreino"          component={SetupTreinoScreen} />
-      <Stack.Screen name="Proposta"             component={PropostaScreen} />
-      <Stack.Screen name="PropostaStart"        component={PropostaStartScreen} />
-      <Stack.Screen name="PropostaMaes"         component={PropostaMaesScreen} />
-      <Stack.Screen name="PropostaNavegantes"   component={PropostaNavegantesScreen} />
-      <Stack.Screen name="PropostaFamilia"      component={PropostaFamiliaScreen} />
-      <Stack.Screen name="SaaSProposta"         component={SaaSPropostaScreen} />
-      <Stack.Screen name="CoachProposta"        component={CoachPropostaScreen} /> {/* ← v2 */}
-      <Stack.Screen name="Main"                 component={StudentTabs}          initialParams={{ userData: savedUser }} />
-      <Stack.Screen name="RoutineDetails"       component={RoutineDetailsScreen} />
-      <Stack.Screen name="DayWorkoutScreen"     component={DayWorkoutScreen} />
-      <Stack.Screen name="DayWorkout"           component={DayWorkoutScreen} />
-      <Stack.Screen name="FinishScreen"         component={FinishScreen} />
-      <Stack.Screen name="CheckIn"              component={CheckInScreen} />
-      <Stack.Screen name="UserHistory"          component={UserHistoryScreen} />
-      <Stack.Screen name="ScannerIA"            component={AIScannerModal} />
-      <Stack.Screen name="Biblioteca"           component={BibliotecaScreen} />
-      <Stack.Screen name="PDFViewer"            component={PDFViewerScreen} />
-      <Stack.Screen name="VideoPlayer"          component={VideoPlayerScreen} />
-      <Stack.Screen name="AudioPlayer"          component={AudioPlayerScreen} />
-      <Stack.Screen name="PAFlix"               component={PAFlixScreen} />
-      <Stack.Screen name="AdminDashboard"       component={AdminDashboard} />
-      <Stack.Screen name="MontarTreinoAdmin"    component={MontarTreinoAdmin} />
-      <Stack.Screen name="BibliotecaAdmin"      component={BibliotecaAdmin} />
-      <Stack.Screen name="GerenciarTemplates"   component={GerenciarTemplates} />
-      <Stack.Screen name="AdminAlunoOptions"    component={AdminUserOptions} />
-      <Stack.Screen name="AdminEvolution"       component={AdminEvolutionScreen} />
-      <Stack.Screen name="AdminAddContent"      component={AdminAddContent} />
+      <Stack.Screen name="Install" component={InstallScreen} />
+      <Stack.Screen name="Login" component={LoginScreen} />
+      <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="RedefinirSenha" component={ResetPasswordScreen} />
+      <Stack.Screen name="Anamnese" component={AnamneseScreen} options={{ headerShown: false, tabBarVisible: false }} />
+      <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
+      <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
+      <Stack.Screen name="Proposta" component={PropostaScreen} />
+      <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
+      <Stack.Screen name="PropostaMaes" component={PropostaMaesScreen} />
+      <Stack.Screen name="PropostaNavegantes" component={PropostaNavegantesScreen} />
+      <Stack.Screen name="PropostaFamilia" component={PropostaFamiliaScreen} />
+      <Stack.Screen name="SaaSProposta" component={SaaSPropostaScreen} />
+      <Stack.Screen name="CoachProposta" component={CoachPropostaScreen} />
+      <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
+      <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
+      <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
+      <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
+      <Stack.Screen name="FinishScreen" component={FinishScreen} />
+      <Stack.Screen name="CheckIn" component={CheckInScreen} />
+      <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
+      <Stack.Screen name="ScannerIA" component={AIScannerModal} />
+      <Stack.Screen name="Biblioteca" component={BibliotecaScreen} />
+      <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
+      <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
+      <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
+      <Stack.Screen name="PAFlix" component={PAFlixScreen} />
+      <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
+      <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
+      <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
+      <Stack.Screen name="GerenciarTemplates" component={GerenciarTemplates} />
+      <Stack.Screen name="AdminAlunoOptions" component={AdminUserOptions} />
+      <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
+      <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
       <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
-      <Stack.Screen name="AdminIALabScreen"     component={AdminIALabScreen} />
-      <Stack.Screen name="AdminDietScreen"      component={AdminDietScreen} />
+      <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} />
+      <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} />
       <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} />
-      <Stack.Screen name="LaboratoryScreen"     component={LaboratoryScreen} />
+      <Stack.Screen name="LaboratoryScreen" component={LaboratoryScreen} />
       <Stack.Screen name="LaboratoryBuilderScreen" component={LaboratoryBuilderScreen} />
-      <Stack.Screen name="LaboratoryFinalScreen"   component={LaboratoryFinalScreen} />
-      <Stack.Screen name="GerarTreinoIA"        component={GerarTreinoIA}        options={{ headerShown: false }} />
-      <Stack.Screen name="AdminTechniquesScreen"   component={AdminTechniquesScreen} />
-      <Stack.Screen name="AdminFoodManagerScreen"  component={AdminFoodManagerScreen} />
-      <Stack.Screen name="AdminSubstitutionGroupsScreen"       component={AdminSubstitutionGroupsScreen} />
-      <Stack.Screen name="AdminSubstitutionGroupDetailScreen"  component={AdminSubstitutionGroupDetailScreen} />
-      <Stack.Screen name="AdminCoachesScreen"   component={AdminCoachesScreen} />
+      <Stack.Screen name="LaboratoryFinalScreen" component={LaboratoryFinalScreen} />
+      <Stack.Screen name="GerarTreinoIA" component={GerarTreinoIA} options={{ headerShown: false }} />
+      <Stack.Screen name="AdminTechniquesScreen" component={AdminTechniquesScreen} />
+      <Stack.Screen name="AdminFoodManagerScreen" component={AdminFoodManagerScreen} />
+      <Stack.Screen name="AdminSubstitutionGroupsScreen" component={AdminSubstitutionGroupsScreen} />
+      <Stack.Screen name="AdminSubstitutionGroupDetailScreen" component={AdminSubstitutionGroupDetailScreen} />
+      <Stack.Screen name="AdminCoachesScreen" component={AdminCoachesScreen} />
       <Stack.Screen name="AdminAnamneseBuilderScreen" component={AdminAnamneseBuilderScreen} />
-      <Stack.Screen name="CoachBlockedScreen"   component={CoachBlockedScreen} /> {/* ← v2 */}
+      <Stack.Screen name="CoachBlockedScreen" component={CoachBlockedScreen} />
     </Stack.Navigator>
   );
 }
@@ -322,37 +287,37 @@ const linking = {
   },
   config: {
     screens: {
-      Install:         { path: 'registro' },
-      Proposta:        { path: 'Proposta' },
-      PropostaStart:   { path: 'PropostaStart' },
-      PropostaMaes:    { path: 'PropostaMaes' },
+      Install: { path: 'registro' },
+      Proposta: { path: 'Proposta' },
+      PropostaStart: { path: 'PropostaStart' },
+      PropostaMaes: { path: 'PropostaMaes' },
       PropostaNavegantes: { path: 'PropostaNavegantes' },
       PropostaFamilia: { path: 'PropostaFamilia' },
-      CoachProposta:   { path: 'seja-coach' }, // ← v2
+      CoachProposta: { path: 'seja-coach' },
       SaaSProposta: {
         path: 'invite/:coachId',
-        parse:     { coachId: (v) => String(v) },
+        parse: { coachId: (v) => String(v) },
         stringify: { coachId: (v) => v },
       },
       RedefinirSenha: {
         path: 'redefinir-senha',
-        parse:     { token: (v) => String(v) },
+        parse: { token: (v) => String(v) },
         stringify: { token: (v) => v },
       },
       AdminDashboard: { path: 'admin' },
       AdminStudentCheckins: {
         path: 'admin-checkins',
-        parse:     { alunoId: (v) => String(v), alunoName: (v) => decodeURIComponent(v) },
-        stringify: { alunoId: (v) => v,         alunoName: (v) => encodeURIComponent(v) },
+        parse: { alunoId: (v) => String(v), alunoName: (v) => decodeURIComponent(v) },
+        stringify: { alunoId: (v) => v, alunoName: (v) => encodeURIComponent(v) },
       },
       AdminEvolution: {
         path: 'admin-evolution',
-        parse:     { alunoId: (v) => String(v), alunoName: (v) => decodeURIComponent(v) },
-        stringify: { alunoId: (v) => v,         alunoName: (v) => encodeURIComponent(v) },
+        parse: { alunoId: (v) => String(v), alunoName: (v) => decodeURIComponent(v) },
+        stringify: { alunoId: (v) => v, alunoName: (v) => encodeURIComponent(v) },
       },
       AdminAlunoOptions: {
         path: 'admin-aluno',
-        parse:     { alunoId: (v) => String(v) },
+        parse: { alunoId: (v) => String(v) },
         stringify: { alunoId: (v) => v },
       },
     },
