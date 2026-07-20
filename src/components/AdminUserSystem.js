@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' },
     aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 15 },
 
-    dashCard: { flexGrow: 1, flexBasis: '48%', minWidth: 280, padding: 20, borderRadius: 16, borderWidth: 1, justifyContent: 'space-between' },
+    dashCard: { flexGroccw: 1, flexBasis: '48%', minWidth: 280, padding: 20, borderRadius: 16, borderWidth: 1, justifyContent: 'space-between' },
     dashCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
     dashCardTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
     dashCardValue: { fontSize: 16, fontWeight: '900', marginBottom: 4 },

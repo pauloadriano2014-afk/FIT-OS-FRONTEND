@@ -12,19 +12,24 @@ export default function RegisterScreen({ navigation, route }) {
 
   const [loading, setLoading] = useState(false);
   
-  // 🔥 BLINDAGEM CONTRA O VAZAMENTO DE URL NA WEB
+  // 🔥 BLINDAGEM CONTRA O VAZAMENTO DE URL NA WEB E RECEPÇÃO DOS DADOS DA PROPOSTA
   let initCode = route.params?.coach || '';
-  let initPlan = route.params?.plan || 'PREMIUM';
+  let routePlan = route.params?.plan || route.params?.coachPlan || null;
 
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       if (urlParams.get('coach')) initCode = urlParams.get('coach');
-      if (urlParams.get('plan')) initPlan = urlParams.get('plan');
+      if (urlParams.get('plan')) routePlan = urlParams.get('plan');
   }
 
-  // 🔥 BIFURCAÇÃO: null = tela de escolha | 'STUDENT' | 'COACH'
-  // Se veio código pelo link de convite, já pula direto pro fluxo de aluno
-  const [profileType, setProfileType] = useState(initCode ? 'STUDENT' : null);
+  // 🔥 BIFURCAÇÃO AUTOMÁTICA: Pula a escolha se já veio da página de propostas como COACH
+  const initialProfile = route.params?.accountType === 'COACH' ? 'COACH' : (initCode ? 'STUDENT' : null);
+  const [profileType, setProfileType] = useState(initialProfile);
+
+  // 🔥 GERENCIAMENTO DO PLANO DO COACH (Força o ELITE se não tiver escolhido)
+  const [selectedCoachPlan, setSelectedCoachPlan] = useState(
+      ['PERSONAL', 'ELITE', 'NUTRICIONISTA'].includes(routePlan) ? routePlan : 'ELITE'
+  );
 
   // 🔥 Tela de "aguardando aprovação" (pós-cadastro de coach)
   const [coachPendingScreen, setCoachPendingScreen] = useState(false);
@@ -98,6 +103,8 @@ export default function RegisterScreen({ navigation, route }) {
 
     setLoading(true);
     try {
+      const studentPlan = routePlan || 'PREMIUM';
+
       const response = await fetch('https://fitos-final.onrender.com/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -111,7 +118,7 @@ export default function RegisterScreen({ navigation, route }) {
           gender: form.gender || "Não informado",
           cpf: studentCpfDigits, // 🔥 CPF JÁ COLETADO NO CADASTRO
           inviteCode: form.accessCode.trim(),
-          plan: initPlan // 🔥 GARANTIDO QUE VAI ENVIAR O PLANO CERTO
+          plan: studentPlan // 🔥 GARANTIDO QUE VAI ENVIAR O PLANO CERTO
         })
       });
 
@@ -122,14 +129,14 @@ export default function RegisterScreen({ navigation, route }) {
         else Alert.alert("Sucesso! 🦁", "Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         
         // 🔥 LÓGICA DE ROTEAMENTO (Agora ciente da sua tela unificada) 🔥
-        const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(initPlan);
+        const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(studentPlan);
 
         // Se for plano "Self-Service", vai direto pro setup de treino e pula a Anamnese
         if (isAutoPlan) {
             navigation.navigate('SetupTreino', { userData: data.user });
         } else {
             // Força a injeção do dietModule no objeto userData se o plano for ELITE
-            const isElite = ['ELITE', 'VIP'].includes(initPlan);
+            const isElite = ['ELITE', 'VIP'].includes(studentPlan);
             if (isElite) {
                 data.user.dietModule = true; 
             }
@@ -148,7 +155,7 @@ export default function RegisterScreen({ navigation, route }) {
   };
 
   // ═══════════════════════════════════════════════════════════
-  // 🔥 REGISTRO DE COACH (novo fluxo com aprovação)
+  // 🔥 REGISTRO DE COACH (novo fluxo com aprovação e plano)
   // ═══════════════════════════════════════════════════════════
   const handleRegisterCoach = async () => {
     if (!form.name || !form.email || !form.password) {
@@ -178,6 +185,7 @@ export default function RegisterScreen({ navigation, route }) {
           phone: form.phone,
           cpf: cpfDigits,
           instagram: form.instagram.trim(),
+          plan: selectedCoachPlan // 🔥 ENVIA O PLANO ESCOLHIDO VISUALMENTE
         })
       });
 
@@ -314,11 +322,18 @@ export default function RegisterScreen({ navigation, route }) {
             keyboardShouldPersistTaps="handled"
           >
             
-            <TouchableOpacity onPress={() => setProfileType(null)} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <TouchableOpacity onPress={() => {
+                // Se veio direto da landing page, voltar manda para o login. Senão, volta para a bifurcação.
+                if (route.params?.accountType === 'COACH') {
+                    navigation.goBack();
+                } else {
+                    setProfileType(null);
+                }
+            }} style={[styles.backBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
             </TouchableOpacity>
 
-            <View style={{marginBottom: 30}}>
+            <View style={{marginBottom: 20}}>
                 {isCoachFlow ? (
                     <>
                         <Text style={[styles.title, { color: theme.text }]}>NOVO <Text style={{color: '#32ADE6'}}>COACH</Text></Text>
@@ -333,6 +348,45 @@ export default function RegisterScreen({ navigation, route }) {
             </View>
 
             <View style={styles.inputGroup}>
+
+              {/* 🔥 SELETOR DE PLANOS (EXCLUSIVO PARA COACHES) 🔥 */}
+              {isCoachFlow && (
+                  <View style={{ marginBottom: 25 }}>
+                      <Text style={[styles.label, { color: theme.textSecondary, marginBottom: 12 }]}>PLANO ESCOLHIDO *</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                          {[
+                              { id: 'PERSONAL', label: 'Personal', color: '#32ADE6' },
+                              { id: 'ELITE', label: 'Elite', color: '#FFCC00', badge: 'MAIS COMPLETO' },
+                              { id: 'NUTRICIONISTA', label: 'Nutri', color: '#8BC34A' }
+                          ].map((p, index) => (
+                              <TouchableOpacity 
+                                  key={p.id}
+                                  activeOpacity={0.8}
+                                  style={[
+                                      { flex: 1, paddingVertical: 14, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+                                      index === 1 ? { marginHorizontal: 8 } : {}, // margem apenas no botão central
+                                      selectedCoachPlan === p.id 
+                                          ? { backgroundColor: p.color + '22', borderColor: p.color }
+                                          : { backgroundColor: theme.surface, borderColor: theme.border }
+                                  ]}
+                                  onPress={() => setSelectedCoachPlan(p.id)}
+                              >
+                                  {p.badge && (
+                                      <View style={{ position: 'absolute', top: -10, backgroundColor: p.color, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, zIndex: 10 }}>
+                                          <Text style={{ fontSize: 9, fontWeight: '900', color: '#000', letterSpacing: 0.5 }}>{p.badge}</Text>
+                                      </View>
+                                  )}
+                                  <Text style={[
+                                      { fontSize: 13, fontWeight: 'bold' },
+                                      selectedCoachPlan === p.id ? { color: p.color } : { color: theme.textSecondary }
+                                  ]}>
+                                      {p.label}
+                                  </Text>
+                              </TouchableOpacity>
+                          ))}
+                      </View>
+                  </View>
+              )}
               
               {/* CÓDIGO DE CONVITE — só no fluxo de aluno */}
               {!isCoachFlow && (
@@ -520,7 +574,7 @@ export default function RegisterScreen({ navigation, route }) {
               }
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => navigation.goBack()} style={{marginTop: 30}}>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} style={{marginTop: 30}}>
               <Text style={{color: theme.textSecondary, textAlign: 'center', fontSize: 13}}>
                   Já tem conta? <Text style={{color: theme.accent, fontWeight: 'bold'}}>Faça Login</Text>
               </Text>

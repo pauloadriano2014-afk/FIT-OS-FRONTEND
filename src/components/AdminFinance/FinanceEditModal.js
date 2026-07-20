@@ -1,8 +1,8 @@
+// src/components/AdminFinance/FinanceEditModal.js
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, Platform, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-// Importe as categorias e a função de cálculo de data do seu financeUtils.js
-import { CATEGORIAS_OFFLINE, calcularProximaData } from '../../utils/financeUtils'; // Ajuste o caminho conforme necessário
+import { CATEGORIAS_OFFLINE, calcularProximaData } from '../../utils/financeUtils';
 
 export default function FinanceEditModal({
     theme, isWebPC, editingAluno, closeEditModal,
@@ -14,16 +14,14 @@ export default function FinanceEditModal({
     paymentDueDate, setPaymentDueDate,
     handleSaveModalContract, isSavingContract,
     handleReverterPagamento, handleDeleteOfflineClient,
-    openChargeModal // 💰 NOVO: abre o modal de cobrança Asaas
+    openChargeModal,
+    updateCoachLocal // 🔥 NOVO: Recebe a função para atualizar a UI do coach em tempo real
 }) {
-    // 🚀 NOVO: Estados locais exclusivos para a gestão SaaS do Coach
     const [localCoachPlan, setLocalCoachPlan] = useState('PERSONAL');
     const [localCoachStatus, setLocalCoachStatus] = useState('ACTIVE');
 
-    // 🔥 Identifica se o usuário atual do modal é um Coach
     const isCoach = (editingAluno?.role || editingAluno?.type || '').toUpperCase() === 'COACH';
 
-    // Sincroniza os dados do banco quando o modal abre
     useEffect(() => {
         if (editingAluno && isCoach) {
             setLocalCoachPlan(editingAluno.coachPlan || 'PERSONAL');
@@ -33,10 +31,8 @@ export default function FinanceEditModal({
 
     if (!editingAluno) return null;
 
-    // Garante que o botão de excluir apareça verificando o ID
     const isOfflineClient = String(editingAluno?.id).startsWith('offline_');
 
-    // Opções de duração padrão
     const defaultContractTypes = [
         { label: "Mensal", value: "Mensal" },
         { label: "Trimestral", value: "Trimestral" },
@@ -46,27 +42,25 @@ export default function FinanceEditModal({
         { label: "Ficha 8 Semanas", value: "Ficha 8 Semanas" }, 
     ];
 
-    // Opções de duração para "Projeto Especial / Desafio"
     const specialProjectContractTypes = [
         { label: "8 Semanas", value: "8 Semanas" },
         { label: "21 Dias", value: "21 Dias" },
     ];
 
-    // 🚀 NOVO: Opções de Plano do SaaS
     const PLAN_OPTIONS = [
         { value: 'PERSONAL', label: 'Personal Trainer' },
         { value: 'NUTRICIONISTA', label: 'Nutricionista' },
         { value: 'ELITE', label: 'Elite (Completo)' },
     ];
 
-    // Determine quais opções de duração mostrar
     const currentContractTypeOptions = financeCategoryEdit === "Projeto Especial / Desafio"
         ? specialProjectContractTypes
         : defaultContractTypes;
 
-    // 🚀 NOVO: Funções de API exclusivas para o SaaS
+    // 🔥 Ao clicar no plano, já salva na API do coach e reflete na tela
     const handleChangeCoachPlan = async (newPlan) => {
         setLocalCoachPlan(newPlan);
+        if (updateCoachLocal) updateCoachLocal(editingAluno.id, { coachPlan: newPlan, financeCategory: newPlan });
         try {
             await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -75,19 +69,22 @@ export default function FinanceEditModal({
         } catch (e) { console.log(e); }
     };
 
+    // 🔥 Ao clicar em bloquear, já salva na API do coach e reflete na tela
     const handleToggleCoachBlock = async () => {
         const isActive = localCoachStatus === 'ACTIVE';
         const action = isActive ? 'BLOCK' : 'UNBLOCK';
         const newStatus = isActive ? 'REJECTED' : 'ACTIVE';
         
-        setLocalCoachStatus(newStatus); // Atualização otimista na tela
+        setLocalCoachStatus(newStatus); 
+        if (updateCoachLocal) updateCoachLocal(editingAluno.id, { accountStatus: newStatus });
         try {
             await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
                 method: 'PATCH', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ coachId: editingAluno.id, action })
             });
         } catch (e) { 
-            setLocalCoachStatus(isActive ? 'ACTIVE' : 'REJECTED'); // Reverte se der erro
+            setLocalCoachStatus(isActive ? 'ACTIVE' : 'REJECTED');
+            if (updateCoachLocal) updateCoachLocal(editingAluno.id, { accountStatus: isActive ? 'ACTIVE' : 'REJECTED' });
         }
     };
 
@@ -140,27 +137,31 @@ export default function FinanceEditModal({
                             />
                         </View>
 
-                        {/* CATEGORIA */}
-                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#888', marginBottom: 5, textTransform: 'uppercase' }}>Categoria no Financeiro</Text>
-                        <View style={{ backgroundColor: theme === 'dark' ? '#2A2A2A' : '#FFF', borderRadius: 8, borderWidth: 1, borderColor: theme === 'dark' ? '#444' : '#DDD', marginBottom: 15 }}>
-                            {Platform.OS === 'web' ? (
-                                <select
-                                    value={financeCategoryEdit}
-                                    onChange={(e) => setFinanceCategoryEdit(e.target.value)}
-                                    style={{ width: '100%', padding: 12, backgroundColor: 'transparent', color: theme === 'dark' ? '#FFF' : '#333', border: 'none', outline: 'none', fontSize: 14, fontWeight: 'bold' }}
-                                >
-                                    {CATEGORIAS_OFFLINE.map(category => (
-                                        <option key={category} value={category}>{category}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <TextInput
-                                    style={{ padding: 12, color: theme === 'dark' ? '#FFF' : '#333', fontSize: 14, fontWeight: 'bold' }}
-                                    value={financeCategoryEdit}
-                                    onChangeText={setFinanceCategoryEdit}
-                                />
-                            )}
-                        </View>
+                        {/* CATEGORIA (só mostra para aluno comum) */}
+                        {!isCoach && (
+                            <>
+                                <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#888', marginBottom: 5, textTransform: 'uppercase' }}>Categoria no Financeiro</Text>
+                                <View style={{ backgroundColor: theme === 'dark' ? '#2A2A2A' : '#FFF', borderRadius: 8, borderWidth: 1, borderColor: theme === 'dark' ? '#444' : '#DDD', marginBottom: 15 }}>
+                                    {Platform.OS === 'web' ? (
+                                        <select
+                                            value={financeCategoryEdit}
+                                            onChange={(e) => setFinanceCategoryEdit(e.target.value)}
+                                            style={{ width: '100%', padding: 12, backgroundColor: 'transparent', color: theme === 'dark' ? '#FFF' : '#333', border: 'none', outline: 'none', fontSize: 14, fontWeight: 'bold' }}
+                                        >
+                                            {CATEGORIAS_OFFLINE.map(category => (
+                                                <option key={category} value={category}>{category}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <TextInput
+                                            style={{ padding: 12, color: theme === 'dark' ? '#FFF' : '#333', fontSize: 14, fontWeight: 'bold' }}
+                                            value={financeCategoryEdit}
+                                            onChangeText={setFinanceCategoryEdit}
+                                        />
+                                    )}
+                                </View>
+                            </>
+                        )}
 
                         {/* DURAÇÃO E VALOR */}
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 }}>
@@ -251,7 +252,7 @@ export default function FinanceEditModal({
                             </View>
                         </View>
 
-                        {/* 🚀 INÍCIO: ZONA EXCLUSIVA DO SAAS (Aparece apenas se for um Coach) 🚀 */}
+                        {/* 🚀 ZONA EXCLUSIVA DO SAAS 🚀 */}
                         {isCoach && (
                             <View style={{ marginBottom: 20, backgroundColor: theme === 'dark' ? '#2A2A2A' : '#F4F0F9', padding: 15, borderRadius: 10, borderWidth: 1, borderColor: '#BF5AF250' }}>
                                 <Text style={{ fontSize: 12, fontWeight: '900', color: '#BF5AF2', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 0.5 }}>
@@ -307,10 +308,9 @@ export default function FinanceEditModal({
                                 </View>
                             </View>
                         )}
-                        {/* 🚀 FIM: ZONA EXCLUSIVA DO SAAS 🚀 */}
+                        {/* 🚀 FIM ZONA EXCLUSIVA DO SAAS 🚀 */}
 
-                        {/* 💰 NOVO: BOTÃO GERAR COBRANÇA VIA ASAAS (só alunos com conta no app) */}
-                        {!isOfflineClient && openChargeModal && (
+                        {!isOfflineClient && openChargeModal && !isCoach && (
                             <TouchableOpacity
                                 style={{ backgroundColor: '#009688', padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 10, flexDirection: 'row', justifyContent: 'center' }}
                                 onPress={() => openChargeModal(editingAluno)}
@@ -320,7 +320,6 @@ export default function FinanceEditModal({
                             </TouchableOpacity>
                         )}
 
-                        {/* BOTÕES DE AÇÃO */}
                         <TouchableOpacity
                             style={{ backgroundColor: '#8BC34A', padding: 15, borderRadius: 10, alignItems: 'center', marginBottom: 10 }}
                             onPress={handleSaveModalContract}
@@ -336,7 +335,6 @@ export default function FinanceEditModal({
                             <Text style={{ color: '#F44336', fontWeight: 'bold', fontSize: 14 }}>↩ REVERTER PAGAMENTO</Text>
                         </TouchableOpacity>
 
-                        {/* 🔥 BOTÃO DE EXCLUIR */}
                         {isOfflineClient && (
                             <TouchableOpacity
                                 style={{ backgroundColor: '#F44336', padding: 15, borderRadius: 10, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}

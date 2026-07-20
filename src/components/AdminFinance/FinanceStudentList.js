@@ -4,8 +4,6 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Pla
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getDueDateStatus, formatCurrency } from '../../utils/financeUtils';
 
-// 🔥 Resolve o claim de pagamento de um aluno (confirmar ou recusar)
-// Chamado pelos botões do badge "Pagamento a Confirmar"
 async function resolvePaymentClaim(userId, action, onSuccess, onError, setResolvingId) {
     setResolvingId(`${userId}_${action}`);
     try {
@@ -24,20 +22,16 @@ async function resolvePaymentClaim(userId, action, onSuccess, onError, setResolv
     }
 }
 
-export default function FinanceStudentList({ theme, isWebPC, studentList, loadingId, openEditModal, handleTogglePagamento, openWhatsApp, handleDeleteOfflineClient }) {
+export default function FinanceStudentList({ theme, isWebPC, viewMode, studentList, loadingId, openEditModal, handleTogglePagamento, openWhatsApp, handleDeleteOfflineClient }) {
 
-    // 🔥 Estado local de loading dos botões de claim
     const [resolvingId, setResolvingId] = useState(null);
 
-    // 🔥 Handler de confirmação de pagamento (abre EditModal para o coach registrar a renovação)
     const handleConfirmClaim = (aluno) => {
         const confirm = async () => {
             await resolvePaymentClaim(
                 aluno.id,
                 'confirm',
                 (action) => {
-                    // Após confirmar o claim, abre o modal de edição
-                    // para o coach clicar "RENOVOU" e registrar a nova data.
                     openEditModal(aluno);
                     if (Platform.OS === 'web') {
                         window.alert(`✅ Pagamento confirmado!\nAgora registre a renovação: clique em "RENOVOU" e salve.`);
@@ -64,7 +58,6 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
         }
     };
 
-    // 🔥 Handler de recusa de pagamento
     const handleRejectClaim = (aluno) => {
         const reject = async () => {
             await resolvePaymentClaim(
@@ -72,9 +65,9 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                 'reject',
                 () => {
                     if (Platform.OS === 'web') {
-                        window.alert(`❌ Reivindicação recusada.\nO treino de ${aluno.name} voltará a ser bloqueado e ele será informado que deve entrar em contato direto.`);
+                        window.alert(`❌ Reivindicação recusada.\nO acesso de ${aluno.name} voltará a ser bloqueado.`);
                     } else {
-                        Alert.alert("Recusado", `O treino de ${aluno.name} voltará a ser bloqueado.`);
+                        Alert.alert("Recusado", `O acesso de ${aluno.name} voltará a ser bloqueado.`);
                     }
                 },
                 (err) => {
@@ -85,7 +78,7 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
             );
         };
 
-        const msg = `Recusar a alegação de pagamento de ${aluno.name}?\n\nO treino voltará a ser bloqueado e ele não poderá tentar de novo neste ciclo.`;
+        const msg = `Recusar a alegação de pagamento de ${aluno.name}?\n\nO acesso voltará a ser bloqueado.`;
         if (Platform.OS === 'web') {
             if (window.confirm(msg)) reject();
         } else {
@@ -101,7 +94,7 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
 
             {isWebPC && (
                 <View style={[styles.listHeader, { borderBottomColor: theme.border }]}>
-                    <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 2 }]}>ALUNO E PLANO</Text>
+                    <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 2 }]}>{viewMode === 'COACHES' ? "COACH PARCEIRO E PLANO" : "ALUNO E PLANO"}</Text>
                     <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, width: 150, textAlign: 'center' }]}>STATUS</Text>
                     <Text style={[styles.listHeaderTitle, { color: theme.textSecondary, flex: 1, textAlign: 'right' }]}>AÇÕES RÁPIDAS</Text>
                 </View>
@@ -111,15 +104,23 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                 const dueStatus = getDueDateStatus(aluno.paymentDueDate, theme);
                 const isInactive = !aluno.isFinanceActive;
 
-                // 🔥 Estado do claim de pagamento deste aluno
-                const hasPendingClaim = aluno.paymentClaimStatus === 'PENDING';
+                // Esconde alegações de pagamento manuais na visão de Coaches (já que os coaches usam Asaas Automático)
+                const hasPendingClaim = viewMode !== 'COACHES' && aluno.paymentClaimStatus === 'PENDING';
                 const isConfirming = resolvingId === `${aluno.id}_confirm`;
                 const isRejecting  = resolvingId === `${aluno.id}_reject`;
+
+                // Tratativa de layout do nome da Categoria/Plano do coach
+                const defaultPlanName = viewMode === 'COACHES' ? 'Personal Trainer' : 'Consultoria Online';
+                let displayPlan = aluno.financeCategory || defaultPlanName;
+                if (viewMode === 'COACHES') {
+                    if (displayPlan === 'PERSONAL') displayPlan = 'Personal Trainer';
+                    if (displayPlan === 'NUTRICIONISTA') displayPlan = 'Nutricionista';
+                    if (displayPlan === 'ELITE') displayPlan = 'Elite (Completo)';
+                }
 
                 return isWebPC ? (
                     <View key={aluno.id} style={[styles.listItem, { borderBottomColor: theme.border, flexDirection: 'column', opacity: isInactive ? 0.5 : 1 }]}>
 
-                        {/* 🔥 BADGE "PAGAMENTO A CONFIRMAR" — aparece acima da linha normal quando há claim pendente */}
                         {hasPendingClaim && (
                             <View style={[styles.claimBadge, { backgroundColor: '#32ADE622', borderColor: '#32ADE6' }]}>
                                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -158,7 +159,6 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                             </View>
                         )}
 
-                        {/* Linha normal do aluno */}
                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                             <View style={{ flex: 2, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                                 {aluno.photoUrl ? (
@@ -169,13 +169,12 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                                 <View style={{ flex: 1 }}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                                         <Text style={[styles.studentName, { color: theme.text }, isInactive && { textDecorationLine: 'line-through' }]} numberOfLines={1}>{aluno.name}</Text>
-                                        {aluno.isOffline && <MaterialCommunityIcons name="cloud-off-outline" size={12} color={theme.textSecondary} title="Aluno Offline" />}
+                                        {aluno.isOffline && <MaterialCommunityIcons name="cloud-off-outline" size={12} color={theme.textSecondary} title="Offline" />}
                                         {isInactive && <MaterialCommunityIcons name="power-plug-off" size={12} color="#FF3B30" title="Inativo" />}
-                                        {/* 🔥 Bolinha azul indicando claim ativo */}
                                         {hasPendingClaim && <MaterialCommunityIcons name="circle" size={10} color="#32ADE6" title="Pagamento a confirmar" />}
                                     </View>
                                     <Text style={styles.studentPlan} numberOfLines={1}>
-                                        {aluno.financeCategory || 'Consultoria Online'} - {formatCurrency(aluno.contractValue || 0)}
+                                        {displayPlan} - {formatCurrency(aluno.contractValue || 0)}
                                     </Text>
 
                                     {aluno.paymentDueDate && !isInactive && (
@@ -226,10 +225,8 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                         </View>
                     </View>
                 ) : (
-                    // ─── CARD MOBILE ──────────────────────────────────────
                     <View key={aluno.id} style={[styles.mobileCard, { backgroundColor: theme.surface, borderColor: hasPendingClaim ? '#32ADE6' : theme.border, shadowColor: theme.isDark ? 'transparent' : '#000', opacity: isInactive ? 0.6 : 1 }]}>
 
-                        {/* 🔥 BADGE MOBILE "PAGAMENTO A CONFIRMAR" */}
                         {hasPendingClaim && (
                             <View style={[styles.mobileClaimBadge, { backgroundColor: '#32ADE622', borderColor: '#32ADE6' }]}>
                                 <MaterialCommunityIcons name="cash-check" size={16} color="#32ADE6" />
@@ -247,7 +244,7 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                             )}
                             <View style={styles.mobileCardInfo}>
                                 <Text style={[styles.mobileStudentName, { color: theme.text }, isInactive && { textDecorationLine: 'line-through' }]} numberOfLines={1}>{aluno.name}</Text>
-                                <Text style={styles.mobileStudentCategory}>{aluno.financeCategory || 'Consultoria Online'}</Text>
+                                <Text style={styles.mobileStudentCategory}>{displayPlan}</Text>
 
                                 {aluno.paymentDueDate && !isInactive && (
                                     <View style={[styles.dueDateBadge, { borderColor: dueStatus.border, backgroundColor: dueStatus.color + '15' }]}>
@@ -264,7 +261,7 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                                 {isInactive && (
                                     <View style={[styles.dueDateBadge, { borderColor: theme.border, backgroundColor: theme.bg }]}>
                                         <MaterialCommunityIcons name="power-plug-off" size={12} color={theme.textSecondary} />
-                                        <Text style={{color: theme.textSecondary, fontSize: 9, fontWeight: '900', marginLeft: 4}}>ALUNO INATIVO</Text>
+                                        <Text style={{color: theme.textSecondary, fontSize: 9, fontWeight: '900', marginLeft: 4}}>INATIVO</Text>
                                     </View>
                                 )}
                             </View>
@@ -277,7 +274,6 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                             </Text>
                         </View>
 
-                        {/* 🔥 BOTÕES CONFIRMAR/RECUSAR MOBILE */}
                         {hasPendingClaim && (
                             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
                                 <TouchableOpacity
@@ -333,7 +329,7 @@ export default function FinanceStudentList({ theme, isWebPC, studentList, loadin
                 );
             })}
 
-            {studentList.length === 0 && <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhum aluno encontrado neste filtro.</Text>}
+            {studentList.length === 0 && <Text style={[styles.emptyText, { color: theme.textSecondary }]}>{viewMode === 'COACHES' ? "Nenhum coach parceiro encontrado neste filtro." : "Nenhum aluno encontrado neste filtro."}</Text>}
         </View>
     );
 }
@@ -345,12 +341,10 @@ const styles = StyleSheet.create({
     listItem: { padding: 15, borderBottomWidth: 1, gap: 10 },
     dueDateBadge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1, marginTop: 8, alignSelf: 'flex-start', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
 
-    // 🔥 Badge de claim — web
     claimBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 10, borderRadius: 10, borderWidth: 1, gap: 10, flexWrap: 'wrap' },
     claimBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 8, minWidth: 110, justifyContent: 'center' },
     claimBtnText: { color: '#FFF', fontWeight: '900', fontSize: 11, letterSpacing: 0.3 },
 
-    // 🔥 Badge de claim — mobile
     mobileClaimBadge: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 12 },
 
     mobileCard: { borderRadius: 20, padding: 20, marginBottom: 20, borderWidth: 1, elevation: 3, shadowOffset: {width: 0, height: 4}, shadowOpacity: 0.1, shadowRadius: 6 },

@@ -11,8 +11,8 @@ export default function TabAssinatura({ theme, currentUserId }) {
     useEffect(() => {
         const fetchCoachData = async () => {
             try {
-                // Busca os dados atualizados do coach (usuário atual)
-                const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${currentUserId}`);
+                // Ajustada a URL para garantir que busca pelo parâmetro correto na API de usuário
+                const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${currentUserId}&t=${Date.now()}`);
                 if (res.ok) {
                     const data = await res.json();
                     setCoachData(data);
@@ -43,17 +43,26 @@ export default function TabAssinatura({ theme, currentUserId }) {
     const handleGenerateCharge = async () => {
         setLoadingCharge(true);
         try {
-            // Se o plano de cobrança não estiver definido no banco, joga um fallback de segurança
-            const planToCharge = coachData?.coachBillingPlan || 'PERSONAL_MENSAL'; 
+            // 🔥 RESOLVE O ERRO 400: Garante o nome correto do plano em INGLÊS conforme o Backend
+            let planToCharge = coachData?.coachBillingPlan;
+            
+            // Se o plano estiver vazio ou incompleto (ex: apenas "PERSONAL")
+            if (!planToCharge || !planToCharge.includes('_')) {
+                const basePlan = coachData?.coachPlan || 'PERSONAL';
+                if (basePlan === 'PERSONAL') planToCharge = 'PERSONAL_MONTHLY';
+                else if (basePlan === 'NUTRICIONISTA') planToCharge = 'NUTRI_MONTHLY';
+                else if (basePlan === 'ELITE') planToCharge = 'ELITE_MONTHLY';
+                else planToCharge = 'PERSONAL_MONTHLY';
+            }
 
             const res = await fetch('https://fitos-final.onrender.com/api/admin/coach-billing/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    adminId: currentUserId, // O Coach está gerando para ele mesmo
+                    adminId: currentUserId,
                     coachId: currentUserId,
                     billingPlan: planToCharge,
-                    paymentMethod: 'PIX'
+                    paymentMethod: 'UNDEFINED' // 🔥 "UNDEFINED" força o Asaas a mostrar PIX e Cartão na mesma tela!
                 })
             });
 
@@ -89,7 +98,7 @@ export default function TabAssinatura({ theme, currentUserId }) {
 
     const planName = getPlanName(coachData?.coachPlan);
     const contractValue = coachData?.contractValue || 0;
-    const dueDate = formatDate(coachData?.paymentDueDate || coachData?.coachBillingEnd); // Tenta pegar a data de vencimento do SaaS
+    const dueDate = formatDate(coachData?.paymentDueDate || coachData?.coachBillingEnd);
 
     return (
         <View style={[styles.container, { borderColor: theme.border, backgroundColor: theme.surface }]}>

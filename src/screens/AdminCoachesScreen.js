@@ -1,21 +1,24 @@
 // src/screens/AdminCoachesScreen.js
 // Gestão completa de coaches parceiros — visível só para Paulo (master, não Adri)
 // Mostra: ativos, pendentes, bloqueados
-// Ações: alterar plano, bloquear/desbloquear, ver qtd de alunos, WhatsApp
+// Ações: alterar plano, gerar cobrança (Asaas), bloquear/desbloquear, ver qtd de alunos, WhatsApp
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, FlatList,
     ActivityIndicator, Alert, Platform, SafeAreaView,
-    useWindowDimensions, Linking, Modal, TextInput,
+    useWindowDimensions, Linking, Modal,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+
+// Importando o modal que estava desconectado! Ajuste o caminho se necessário.
+import CoachBillingModal from '../components/Admin/CoachBillingModal'; 
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
 const PLAN_OPTIONS = [
     { value: 'PERSONAL',      label: 'PERSONAL TRAINER',       icon: 'dumbbell',   color: '#32ADE6', desc: 'Módulo de treinos' },
-    { value: 'NUTRICIONISTA', label: 'NUTRICIONISTA',           icon: 'food-apple', color: '#34C759', desc: 'Módulo de dietas'  },
+    { value: 'NUTRICIONISTA', label: 'NUTRICIONISTA',          icon: 'food-apple', color: '#34C759', desc: 'Módulo de dietas'  },
     { value: 'ELITE',         label: 'ELITE (PERSONAL + NUTRI)',icon: 'trophy',     color: '#FFCC00', desc: 'Treinos + dietas'  },
 ];
 
@@ -45,10 +48,13 @@ export default function AdminCoachesScreen({ navigation }) {
     const [activeTab,   setActiveTab]   = useState('ACTIVE');
     const [processing,  setProcessing]  = useState(null);
 
-    // Modal de edição de plano
+    // Modal de edição de plano manual
     const [editingCoach, setEditingCoach] = useState(null);
     const [editPlan,     setEditPlan]     = useState('PERSONAL');
     const [savingPlan,   setSavingPlan]   = useState(false);
+
+    // 🚀 NOVO: Controle do Modal de Billing do Asaas
+    const [billingCoach, setBillingCoach] = useState(null);
 
     const fetchCoaches = useCallback(async () => {
         setLoading(true);
@@ -172,7 +178,16 @@ export default function AdminCoachesScreen({ navigation }) {
                 </View>
 
                 {/* Ações */}
-                <View style={{ flexDirection:'row', gap:8 }}>
+                <View style={{ flexDirection:'row', gap:8, flexWrap: 'wrap' }}>
+                    {/* 🚀 NOVO BOTÃO: Gerar Cobrança Asaas */}
+                    <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: '#8BC34A20', borderColor: '#8BC34A50' }]}
+                        onPress={() => setBillingCoach(coach)}
+                    >
+                        <MaterialCommunityIcons name="cash-check" size={14} color="#8BC34A" />
+                        <Text style={{ fontSize:11, fontWeight:'800', color: '#8BC34A' }}>COBRAR</Text>
+                    </TouchableOpacity>
+
                     {/* Alterar plano */}
                     <TouchableOpacity
                         style={[styles.actionBtn, { backgroundColor: plan.color+'18', borderColor: plan.color+'50' }]}
@@ -289,7 +304,7 @@ export default function AdminCoachesScreen({ navigation }) {
                 />
             )}
 
-            {/* Modal de edição de plano */}
+            {/* Modal de edição de plano manual */}
             <Modal visible={!!editingCoach} transparent animationType="fade" onRequestClose={() => setEditingCoach(null)}>
                 <View style={{ flex:1, backgroundColor:'rgba(0,0,0,0.6)', justifyContent:'center', alignItems:'center', padding:20 }}>
                     <View style={{ width:'100%', maxWidth:420, backgroundColor: theme.surface, borderRadius:20, padding:22, borderWidth:1, borderColor: theme.border, gap:14 }}>
@@ -343,6 +358,18 @@ export default function AdminCoachesScreen({ navigation }) {
                     </View>
                 </View>
             </Modal>
+
+            {/* 🚀 O MODAL DO ASAAS AGORA ESTÁ CONECTADO AQUI */}
+            <CoachBillingModal
+                visible={!!billingCoach}
+                onClose={() => {
+                    setBillingCoach(null);
+                    fetchCoaches(); // Recarrega a lista para mostrar o novo status de pagamento, se houver
+                }}
+                coach={billingCoach}
+                theme={theme}
+            />
+
         </RootView>
     );
 }

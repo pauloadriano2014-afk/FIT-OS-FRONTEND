@@ -1,10 +1,10 @@
 // src/screens/CoachBlockedScreen.js
 // Tela exibida quando o coach está inadimplente
-// Mostra mensagem clara + botão para regularizar + botão de suporte
+// Mostra mensagem clara + botão para regularizar + botão de atualização e suporte
 import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
-    SafeAreaView, Platform, Linking, ActivityIndicator,
+    SafeAreaView, Platform, Linking, ActivityIndicator, Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,11 +15,13 @@ const PAULO_WHATSAPP = '5541999999999'; // ← substitua pelo número real
 export default function CoachBlockedScreen({ navigation, route }) {
     const { theme }    = useTheme();
     const [loading, setLoading] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
 
     const invoiceUrl   = route.params?.invoiceUrl   ?? null;
     const coachName    = route.params?.coachName    ?? 'Coach';
     const billingPlan  = route.params?.billingPlan  ?? '';
     const billingEnd   = route.params?.billingEnd   ?? null;
+    const coachId      = route.params?.coachId      ?? null;
 
     const formatDate = (iso) => {
         if (!iso) return '—';
@@ -34,6 +36,44 @@ export default function CoachBlockedScreen({ navigation, route }) {
     const handleContactSupport = () => {
         const msg = `Olá! Sou o coach ${coachName} e preciso regularizar meu acesso ao ELITE FIT.`;
         Linking.openURL(`whatsapp://send?phone=${PAULO_WHATSAPP}&text=${encodeURIComponent(msg)}`).catch(() => {});
+    };
+
+    // 🚀 NOVO: Verifica se o pagamento já compensou via API e libera a tela instantaneamente
+    const handleCheckPayment = async () => {
+        if (!coachId) {
+            const msgFallback = "Atualize o aplicativo ou faça login novamente para checar seu acesso.";
+            if (Platform.OS === 'web') window.alert(msgFallback);
+            else Alert.alert("Aviso", msgFallback);
+            return;
+        }
+        
+        setRefreshing(true);
+        try {
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${coachId}&t=${Date.now()}`);
+            const data = await res.json();
+            
+            if (data.accountStatus === 'ACTIVE') {
+                if (Platform.OS === 'web') window.alert("Pagamento identificado! Acesso liberado.");
+                else Alert.alert("Sucesso", "Pagamento identificado! Acesso liberado.");
+                
+                // Volta para o fluxo normal do app limpando o histórico de bloqueio
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'AdminDashboard' }]
+                });
+            } else {
+                const msg = "Ainda não identificamos o pagamento. Se você pagou via Boleto, pode levar até 3 dias úteis para compensar no sistema.";
+                if (Platform.OS === 'web') window.alert(msg);
+                else Alert.alert("Aguardando compensação", msg);
+            }
+        } catch (error) {
+            console.error("Erro ao verificar status do pagamento:", error);
+            const errMsg = "Erro de conexão ao verificar o pagamento. Tente novamente.";
+            if (Platform.OS === 'web') window.alert(errMsg);
+            else Alert.alert("Erro", errMsg);
+        } finally {
+            setRefreshing(false);
+        }
     };
 
     const handleLogout = async () => {
@@ -101,6 +141,24 @@ export default function CoachBlockedScreen({ navigation, route }) {
                             </Text>
                         </TouchableOpacity>
                     )}
+
+                    {/* Botão de atualização pós-pagamento */}
+                    <TouchableOpacity
+                        style={[styles.secondaryBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        onPress={handleCheckPayment}
+                        disabled={refreshing}
+                    >
+                        {refreshing ? (
+                            <ActivityIndicator size="small" color={theme.text} />
+                        ) : (
+                            <>
+                                <MaterialCommunityIcons name="refresh" size={18} color={theme.text} />
+                                <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13 }}>
+                                    JÁ PAGUEI / ATUALIZAR
+                                </Text>
+                            </>
+                        )}
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[styles.secondaryBtn, { backgroundColor: '#25D36620', borderColor: '#25D36650' }]}
