@@ -9,6 +9,7 @@ import TabConfig from './TabConfig';
 import TabSaaS from './TabSaaS';
 import TabMarca from './TabMarca';
 import TabIA from './TabIA';
+import TabAssinatura from './TabAssinatura'; // ← NOVO IMPORT
 
 const MASTER_IDS = [
     '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
@@ -41,14 +42,14 @@ export default function TabGestao({
     const isMasterCoach = MASTER_IDS.includes(currentUserId);
     const flixName = isMasterCoach ? 'PA FLIX' : 'ELITE FLIX';
 
-    // 🚀 NOVO: Array inteligente de abas (Filtra automaticamente o que cada um pode ver)
+    // Array inteligente de abas (Filtra automaticamente o que cada um pode ver)
     const TABS = [
         { id: 'FERRAMENTAS', label: 'TREINO E DIETA',   show: true },
         { id: 'CONFIG',      label: 'SISTEMA E AVISOS', show: true },
         { id: 'SAAS',        label: 'VENDAS',           show: !isMasterCoach },
         { id: 'IA',          label: 'MINHA IA',         show: !isMasterCoach },
         { id: 'MARCA',       label: 'MINHA MARCA',      show: true },
-        { id: 'ASSINATURA',  label: 'MINHA ASSINATURA', show: !isMasterCoach }, // ← NOVA ABA DE ASSINATURA
+        { id: 'ASSINATURA',  label: 'MINHA ASSINATURA', show: !isMasterCoach }, 
     ].filter(tab => tab.show);
 
     const impersonateTestStudent = async () => {
@@ -116,8 +117,8 @@ export default function TabGestao({
                     key={tab.id}
                     style={[
                         styles.subTab,
-                        !isMobile && { flex: 1 }, // No desktop, eles dividem o espaço
-                        isMobile && { paddingHorizontal: 16 }, // No mobile, eles têm largura flexível
+                        !isMobile && { flex: 1 }, 
+                        isMobile && { paddingHorizontal: 16 }, 
                         isActive
                             ? { backgroundColor: theme.surface, borderColor: theme.border }
                             : { borderColor: 'transparent' }
@@ -203,15 +204,9 @@ export default function TabGestao({
                 <TabMarca theme={theme} />
             )}
 
-            {/* 🚀 NOVA ABA PROVISÓRIA DE ASSINATURA */}
+            {/* 🚀 ABA DE ASSINATURA REAL */}
             {subTabGestao === 'ASSINATURA' && !isMasterCoach && (
-                <View style={[styles.provisoryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <MaterialCommunityIcons name="shield-star" size={40} color={theme.accent} style={{ marginBottom: 10 }} />
-                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', letterSpacing: 0.5 }}>MINHA ASSINATURA</Text>
-                    <Text style={{ color: theme.textSecondary, fontSize: 13, textAlign: 'center', marginTop: 8 }}>
-                        Seu painel de gerenciamento de faturas e plano está sendo construído.
-                    </Text>
-                </View>
+                <TabAssinatura theme={theme} currentUserId={currentUserId} />
             )}
         </View>
     );
@@ -225,5 +220,4 @@ const styles = StyleSheet.create({
     subTabText:          { fontSize: 11, fontWeight: 'bold', textAlign: 'center' },
     impersonateBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 5 },
     impersonateBtnText:  { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
-    provisoryCard:       { padding: 30, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', marginTop: 10 }
 });
