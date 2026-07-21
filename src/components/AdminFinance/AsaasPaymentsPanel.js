@@ -1,13 +1,4 @@
 // src/components/AdminFinance/AsaasPaymentsPanel.js
-// 📊 PAINEL DE PAGAMENTOS ASAAS (dentro do Financeiro admin)
-//
-// Mostra as cobranças geradas via Asaas (app da aluna ou modal do admin),
-// com status atualizado em tempo real pelo webhook: quem pagou, quem tá
-// pendente, quem venceu. Métricas do mês no topo.
-//
-// Uso no AdminFinanceSystem:
-//   <AsaasPaymentsPanel theme={theme} isWebPC={isWebPC} />
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, TouchableOpacity, ActivityIndicator,
@@ -41,7 +32,8 @@ const FILTERS = [
     { key: 'OVERDUE',   label: 'Vencidos' },
 ];
 
-export default function AsaasPaymentsPanel({ theme, isWebPC }) {
+// 🔥 RECEBENDO selectedMonth E currentYear COMO PROPS
+export default function AsaasPaymentsPanel({ theme, isWebPC, selectedMonth, currentYear }) {
     const isDark = theme === 'dark';
     const c = {
         bg: isDark ? '#1E1E1E' : '#F9F9F9',
@@ -51,6 +43,7 @@ export default function AsaasPaymentsPanel({ theme, isWebPC }) {
         border: isDark ? '#444' : '#DDD',
         primary: '#8BC34A',
         blue: '#32ADE6',
+        red: '#F44336' // Cor para o botão de deletar
     };
 
     const [loading, setLoading] = useState(true);
@@ -67,10 +60,15 @@ export default function AsaasPaymentsPanel({ theme, isWebPC }) {
     const fetchPayments = useCallback(async () => {
         try {
             setLoading(true);
-            // 🔒 Busca o adminId do AsyncStorage para filtrar por coach
             const userStr = await AsyncStorage.getItem('user');
             const adminId = userStr ? JSON.parse(userStr).id : null;
-            const query = adminId ? `adminId=${adminId}&t=${Date.now()}` : `t=${Date.now()}`;
+            
+            // 🔥 AGORA ENVIA O MÊS E O ANO SELECIONADOS PARA A API FILTRAR LÁ NO SERVIDOR
+            let query = `t=${Date.now()}`;
+            if (adminId) query += `&adminId=${adminId}`;
+            if (selectedMonth) query += `&month=${selectedMonth}`;
+            if (currentYear) query += `&year=${currentYear}`;
+
             const res = await fetch(`${API_URL}/api/admin/payments?${query}`);
             if (res.ok) {
                 const data = await res.json();
@@ -82,15 +80,52 @@ export default function AsaasPaymentsPanel({ theme, isWebPC }) {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [selectedMonth, currentYear]); // 🔥 Recarrega sempre que o mês/ano mudar
 
     useEffect(() => { fetchPayments(); }, [fetchPayments]);
+
+    // 🔥 NOVA FUNÇÃO: CANCELAR COBRANÇA
+    const handleDeleteCharge = async (paymentId) => {
+        const confirmMsg = "Deseja realmente cancelar esta cobrança no Asaas? O aluno não poderá mais pagá-la.";
+        
+        const runDelete = async () => {
+            try {
+                // Remove visualmente da tela na hora para dar velocidade pro usuário (Optimistic UI)
+                setPayments(prev => prev.filter(p => p.id !== paymentId));
+
+                const res = await fetch(`${API_URL}/api/admin/payments`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ paymentId })
+                });
+
+                if (!res.ok) {
+                    notify("Erro ao cancelar a cobrança no Asaas.");
+                    fetchPayments(); // Se deu erro, recarrega a lista original
+                }
+            } catch (e) {
+                notify("Erro de conexão ao cancelar.");
+                fetchPayments();
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(confirmMsg)) runDelete();
+        } else {
+            Alert.alert("Atenção", confirmMsg, [
+                { text: "Não", style: "cancel" },
+                { text: "Sim, Cancelar", style: "destructive", onPress: runDelete }
+            ]);
+        }
+    };
 
     const money = (v) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`;
     const dateBR = (iso) => {
         if (!iso) return '—';
         try {
             const d = new Date(iso);
+            // Ajustando fuso horário brasileiro
+            d.setMinutes(d.getMinutes() + d.getTimezoneOffset());
             return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getFullYear()).slice(2)}`;
         } catch { return '—'; }
     };
@@ -249,6 +284,12 @@ export default function AsaasPaymentsPanel({ theme, isWebPC }) {
                                                         {!isPaid && (
                                                             <TouchableOpacity onPress={() => copyLink(p.invoiceUrl)} style={{ padding: 4 }}>
                                                                 <Ionicons name="copy-outline" size={17} color={c.sub} />
+                                                            </TouchableOpacity>
+                                                        )}
+                                                        {/* 🔥 BOTÃO DE EXCLUIR FATURA */}
+                                                        {!isPaid && (
+                                                            <TouchableOpacity onPress={() => handleDeleteCharge(p.id)} style={{ padding: 4 }}>
+                                                                <Ionicons name="trash-outline" size={17} color={c.red} />
                                                             </TouchableOpacity>
                                                         )}
                                                     </View>

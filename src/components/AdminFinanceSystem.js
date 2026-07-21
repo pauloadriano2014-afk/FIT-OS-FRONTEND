@@ -12,6 +12,7 @@ import FinanceEditModal from './AdminFinance/FinanceEditModal';
 import FinanceAddModal from './AdminFinance/FinanceAddModal';
 import FinanceChargeModal from './AdminFinance/FinanceChargeModal';
 import AsaasPaymentsPanel from './AdminFinance/AsaasPaymentsPanel';
+import FinanceWithdrawalPanel from './AdminFinance/FinanceWithdrawalPanel'; // 🚀 NOVO PAINEL DE SAQUE IMPORTADO
 
 // Hook de Inteligência que modularizamos
 import useAdminFinance from '../hooks/useAdminFinance';
@@ -119,8 +120,20 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                 filterCategory={filterCategory} setFilterCategory={setFilterCategory} 
             />
 
+            {/* 🚀 PAINEL DE SAQUE E PAGAMENTOS (Aparece apenas quando não está gerindo coaches) */}
             {viewMode === 'ALUNOS' && (
-                <AsaasPaymentsPanel theme={theme} isWebPC={isWebPC} />
+                <>
+                    {/* Componente Novo de Saque */}
+                    <FinanceWithdrawalPanel theme={theme} isWebPC={isWebPC} isMaster={isMaster} />
+                    
+                    {/* 🔥 AGORA O PAINEL DE PAGAMENTOS RECEBE O MÊS E O ANO */}
+                    <AsaasPaymentsPanel 
+                        theme={theme} 
+                        isWebPC={isWebPC} 
+                        selectedMonth={selectedMonth} 
+                        currentYear={currentYear} 
+                    />
+                </>
             )}
 
             <FinanceStudentList 

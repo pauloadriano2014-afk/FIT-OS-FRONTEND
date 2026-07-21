@@ -1,7 +1,7 @@
 // src/screens/AdminCoachesScreen.js
 // Gestão completa de coaches parceiros — visível só para Paulo (master, não Adri)
 // Mostra: ativos, pendentes, bloqueados
-// Ações: alterar plano, gerar cobrança (Asaas), bloquear/desbloquear, ver qtd de alunos, WhatsApp
+// Ações: alterar plano, gerar cobrança (Asaas), perfil, bloquear/desbloquear, WhatsApp
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, FlatList,
@@ -11,8 +11,8 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 
-// Importando o modal que estava desconectado! Ajuste o caminho se necessário.
 import CoachBillingModal from '../components/Admin/CoachBillingModal'; 
+import EditCoachProfileModal from '../components/Admin/EditCoachProfileModal'; // 🚀 NOVO MODAL IMPORTADO
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -53,8 +53,11 @@ export default function AdminCoachesScreen({ navigation }) {
     const [editPlan,     setEditPlan]     = useState('PERSONAL');
     const [savingPlan,   setSavingPlan]   = useState(false);
 
-    // 🚀 NOVO: Controle do Modal de Billing do Asaas
+    // Controle do Modal de Billing do Asaas
     const [billingCoach, setBillingCoach] = useState(null);
+
+    // 🚀 NOVO: Controle do Modal de Perfil
+    const [editingProfileCoach, setEditingProfileCoach] = useState(null);
 
     const fetchCoaches = useCallback(async () => {
         setLoading(true);
@@ -179,7 +182,17 @@ export default function AdminCoachesScreen({ navigation }) {
 
                 {/* Ações */}
                 <View style={{ flexDirection:'row', gap:8, flexWrap: 'wrap' }}>
-                    {/* 🚀 NOVO BOTÃO: Gerar Cobrança Asaas */}
+                    
+                    {/* Botão de Perfil */}
+                    <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: theme.border, borderColor: theme.border }]}
+                        onPress={() => setEditingProfileCoach(coach)}
+                    >
+                        <MaterialCommunityIcons name="card-account-details-outline" size={14} color={theme.text} />
+                        <Text style={{ fontSize:11, fontWeight:'800', color: theme.text }}>PERFIL</Text>
+                    </TouchableOpacity>
+
+                    {/* Gerar Cobrança Asaas */}
                     <TouchableOpacity
                         style={[styles.actionBtn, { backgroundColor: '#8BC34A20', borderColor: '#8BC34A50' }]}
                         onPress={() => setBillingCoach(coach)}
@@ -359,15 +372,24 @@ export default function AdminCoachesScreen({ navigation }) {
                 </View>
             </Modal>
 
-            {/* 🚀 O MODAL DO ASAAS AGORA ESTÁ CONECTADO AQUI */}
+            {/* O MODAL DO ASAAS */}
             <CoachBillingModal
                 visible={!!billingCoach}
                 onClose={() => {
                     setBillingCoach(null);
-                    fetchCoaches(); // Recarrega a lista para mostrar o novo status de pagamento, se houver
+                    fetchCoaches();
                 }}
                 coach={billingCoach}
                 theme={theme}
+            />
+
+            {/* 🚀 O NOVO MODAL DE PERFIL */}
+            <EditCoachProfileModal
+                visible={!!editingProfileCoach}
+                onClose={() => setEditingProfileCoach(null)}
+                coach={editingProfileCoach}
+                theme={theme}
+                onSuccess={fetchCoaches} // recarrega a lista para mostrar o nome/dados atualizados
             />
 
         </RootView>

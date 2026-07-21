@@ -11,7 +11,6 @@ export default function TabAssinatura({ theme, currentUserId }) {
     useEffect(() => {
         const fetchCoachData = async () => {
             try {
-                // Ajustada a URL para garantir que busca pelo parâmetro correto na API de usuário
                 const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${currentUserId}&t=${Date.now()}`);
                 if (res.ok) {
                     const data = await res.json();
@@ -43,7 +42,6 @@ export default function TabAssinatura({ theme, currentUserId }) {
     const handleGenerateCharge = async () => {
         setLoadingCharge(true);
         try {
-            // 🔥 RESOLVE O ERRO 400: Garante o nome correto do plano em INGLÊS conforme o Backend
             let planToCharge = coachData?.coachBillingPlan;
             
             // Se o plano estiver vazio ou incompleto (ex: apenas "PERSONAL")
@@ -55,6 +53,9 @@ export default function TabAssinatura({ theme, currentUserId }) {
                 else planToCharge = 'PERSONAL_MONTHLY';
             }
 
+            // 🔥 A MÁGICA AQUI: Pega o valor do contrato personalizado, se existir e for maior que zero
+            const customValuePayload = coachData?.contractValue > 0 ? coachData.contractValue : undefined;
+
             const res = await fetch('https://fitos-final.onrender.com/api/admin/coach-billing/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -62,7 +63,8 @@ export default function TabAssinatura({ theme, currentUserId }) {
                     adminId: currentUserId,
                     coachId: currentUserId,
                     billingPlan: planToCharge,
-                    paymentMethod: 'UNDEFINED' // 🔥 "UNDEFINED" força o Asaas a mostrar PIX e Cartão na mesma tela!
+                    paymentMethod: 'UNDEFINED',
+                    customValue: customValuePayload // Envia para a API o valor exato de R$ 5,00
                 })
             });
 
