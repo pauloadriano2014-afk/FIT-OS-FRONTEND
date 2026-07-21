@@ -9,11 +9,26 @@ const QUICK_QUESTIONS = [
     "🏋️‍♂️ Como marco as séries no treino?",
     "📈 Onde vejo minha Evolução?",
     "📸 Como fazer o Check-in?",
-    "🚨 Estou com dor na articulação!"
+    "🚨 Estou com dor na articulação!",
+    "🎬 O que é o PA FLIX?",
+    "🍽️ Como troco de refeição na dieta?",
+    "🩸 Como funciona o Deload Menstrual?",
+    "🎨 Como mudo o tema do app?",
+    "💳 Como faço o pagamento?",
+    "📅 Onde vejo o vencimento do meu plano?",
+    "🔑 Esqueci minha senha, e agora?",
 ];
 
 // 🔥 ID DO PAULO (MASTER) PARA SALVAR ALUNOS ÓRFÃOS 🔥
 const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
+
+// 🔥 MASTER TEAM — usado pra saber o nome do assistente e acesso à IA de Vídeo
+const MASTER_TEAM = [
+    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+    'b7c0c181-41fd-4156-b8fe-963a267759a3', // Adri
+];
+
+const getAssistantName = (coachId) => MASTER_TEAM.includes(coachId) ? 'PA ELITE COACH' : 'ASSISTENTE ELITE';
 
 export function useHomeData() {
     const [loading, setLoading]           = useState(true);
@@ -68,6 +83,7 @@ export function useHomeData() {
     const [messages, setMessages]   = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [isTyping, setIsTyping]   = useState(false);
+    const [assistantName, setAssistantName] = useState('PA ELITE COACH'); // 🔥 novo — nome dinâmico do assistente
     const flatListRef               = useRef(null);
 
     // ─── Derivações de nível ───────────────────────────────────────────────
@@ -141,10 +157,14 @@ export function useHomeData() {
             const firstName = user.name?.split(' ')[0] || 'Atleta';
             setUserName(firstName);
 
+            // 🔥 Nome do assistente já calculado aqui, antes da mensagem de boas-vindas
+            const resolvedAssistantName = getAssistantName(user.coachId);
+            setAssistantName(resolvedAssistantName);
+
             if (messages.length === 0) {
                 setMessages([{
                     id: 1,
-                    text: `Fala, ${firstName}! 👊 Sou o PA Coach AI. Use os botões abaixo se tiver alguma dúvida sobre o app ou treino.`,
+                    text: `Fala, ${firstName}! 👊 Sou o ${resolvedAssistantName}. Use os botões abaixo se tiver alguma dúvida sobre o app ou treino.`,
                     sender: 'ai'
                 }]);
             }
@@ -324,6 +344,10 @@ export function useHomeData() {
                                 setFichaDaysElapsed(diffDays);
                             }
                         }
+
+                        // 🔥 Recalcula o nome do assistente caso o coachId real (vindo do servidor)
+                        // seja diferente do que estava salvo localmente
+                        setAssistantName(getAssistantName(fetchedUser.coachId));
 
                         await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
                         setUserData(fetchedUser);
@@ -527,13 +551,19 @@ export function useHomeData() {
                     userName,
                     userGender: gender,
                     userGoal:   goal,
-                    userLevel:  levelData.title
+                    userLevel:  levelData.title,
+                    userPlan,                          // 🔥 novo
+                    coachId:    userData?.coachId || '' // 🔥 novo
                 })
             });
             const data = await res.json();
 
-            if (data.reply) setMessages(prev => [...prev, { id: Date.now() + 1, text: data.reply, sender: 'ai' }]);
-            else throw new Error("Sem resposta");
+            if (data.reply) {
+                if (data.assistantName) setAssistantName(data.assistantName); // 🔥 mantém sincronizado com o backend
+                setMessages(prev => [...prev, { id: Date.now() + 1, text: data.reply, sender: 'ai' }]);
+            } else {
+                throw new Error("Sem resposta");
+            }
         } catch {
             setMessages(prev => [...prev, { id: Date.now() + 1, text: "Falha na comunicação com a base, atleta.", sender: 'ai' }]);
         } finally {
@@ -593,6 +623,7 @@ export function useHomeData() {
 
         // Chat
         messages, chatInput, setChatInput, isTyping, flatListRef, handleSendChat,
+        assistantName, // 🔥 novo — repassar pro modal
 
         // Helpers
         getCoachInfo, detectIsFemale, getPhotoModalContent,

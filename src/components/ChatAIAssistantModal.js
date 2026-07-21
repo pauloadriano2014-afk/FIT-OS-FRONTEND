@@ -5,13 +5,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function ChatAIAssistantModal({ 
     visible, onClose, theme, isWeb, messages, flatListRef, 
-    chatInput, setChatInput, handleSendChat, isTyping, QUICK_QUESTIONS 
+    chatInput, setChatInput, handleSendChat, isTyping, QUICK_QUESTIONS,
+    assistantName // 🔥 novo
 }) {
     const renderChatMessage = ({ item }) => {
         const isAi = item.sender === 'ai';
         return (
             <View style={[styles.chatBubble, isAi ? [styles.chatBubbleAi, { backgroundColor: theme.surface, borderColor: theme.border }] : [styles.chatBubbleUser, { backgroundColor: theme.accent }]]}>
-                {isAi && <Text style={[styles.chatSenderName, { color: theme.accent }]}>PA COACH</Text>}
+                {isAi && <Text style={[styles.chatSenderName, { color: theme.accent }]}>{assistantName}</Text>}
                 <Text style={[styles.chatText, isAi ? {color: theme.text} : {color: theme.isDark ? '#000' : '#FFF'}]}>{item.text}</Text>
             </View>
         );
@@ -28,7 +29,7 @@ export default function ChatAIAssistantModal({
                                     <MaterialCommunityIcons name="robot" size={24} color={theme.isDark ? '#000' : '#FFF'} />
                                 </View>
                                 <View>
-                                    <Text style={[styles.chatTitle, { color: theme.text }]}>PA COACH AI</Text>
+                                    <Text style={[styles.chatTitle, { color: theme.text }]}>{assistantName}</Text>
                                     <Text style={[styles.chatStatus, { color: theme.accent }]}>Online agora</Text>
                                 </View>
                             </View>
