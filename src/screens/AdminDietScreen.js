@@ -1,5 +1,5 @@
-// src/screens/AdminDietScreen.js — VERSÃO 4.2
-// Novidade: coachId lido do AsyncStorage para FoodSearchModal
+// src/screens/AdminDietScreen.js — VERSÃO 4.3
+// Novidade: PDF gerado via backend (puppeteer) + compartilhamento nativo (expo-sharing)
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
@@ -10,6 +10,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 // Componentes
 import DietHeaderWidgets    from '../components/AdminDiet/DietHeaderWidgets';
@@ -29,8 +31,9 @@ import { useDietModals }  from '../hooks/useDietModals';
 import { useDietData }    from '../hooks/useDietData';
 import { useDietActions } from '../hooks/useDietActions';
 import * as DietService   from '../services/adminDietService';
-import { toGrams, enrichMealsWithDatabase, generateDietPDF } from '../utils/dietUtils';
+import { toGrams, enrichMealsWithDatabase } from '../utils/dietUtils';
 import { calcWeeklyPlan } from '../utils/macroPlanner';
+import { API_URL } from '../services/api';
 
 const DAY_TABS = [
     { key: 'TREINO',        label: 'TREINO',   icon: 'dumbbell'    },
@@ -68,6 +71,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const [dayAnalyzerVisible,    setDayAnalyzerVisible]    = useState(false);
     const [mealToAnalyze,         setMealToAnalyze]         = useState(null);
     const [builderVisible,        setBuilderVisible]        = useState(false);
+    const [isExportingPdf,        setIsExportingPdf]        = useState(false);
 
     // 🔥 ID do coach logado — lido do AsyncStorage
     const [loggedCoachId, setLoggedCoachId] = useState('');
@@ -265,14 +269,51 @@ export default function AdminDietScreen({ route, navigation }) {
         modals.setImportModalVisible(false);
     };
 
-    const handleCallGeneratePDF = () => {
-        generateDietPDF({
-            visibleMeals:  actions.visibleMeals,
-            dietConfig:    data.dietConfig,
-            currentMacros: actions.currentMacros,
-            activeDayType: actions.activeDayType,
-            aluno,
-        });
+    // ─── EXPORTAR PDF (novo fluxo) ────────────────────────────────────────────
+    const handleExportPdf = async () => {
+        if (!userId) return Alert.alert('Erro', 'ID do aluno não encontrado.');
+        setIsExportingPdf(true);
+        try {
+            const response = await fetch(
+                `${API_URL}/api/admin/diet/${userId}/export-pdf`,
+                { method: 'GET' }
+            );
+
+            if (!response.ok) {
+                const err = await response.json().catch(() => ({}));
+                throw new Error(err.error ?? `Erro ${response.status} ao gerar PDF`);
+            }
+
+            const result = await response.json();
+            if (!result.base64) throw new Error('PDF não retornado pelo servidor');
+
+            const filename = result.filename ?? `dieta_${userId}.pdf`;
+            const localUri = FileSystem.cacheDirectory + filename;
+
+            await FileSystem.writeAsStringAsync(localUri, result.base64, {
+                encoding: FileSystem.EncodingType.Base64,
+            });
+
+            const canShare = await Sharing.isAvailableAsync();
+            if (!canShare) {
+                Alert.alert(
+                    'Compartilhamento indisponível',
+                    'Este dispositivo não suporta compartilhamento de arquivos.'
+                );
+                return;
+            }
+
+            await Sharing.shareAsync(localUri, {
+                mimeType: 'application/pdf',
+                dialogTitle: `Dieta de ${aluno?.name ?? 'Aluno'}`,
+                UTI: 'com.adobe.pdf',
+            });
+        } catch (error) {
+            console.error('[handleExportPdf]', error);
+            Alert.alert('Erro ao gerar PDF', error.message ?? 'Tente novamente.');
+        } finally {
+            setIsExportingPdf(false);
+        }
     };
 
     const handleOpenTimeSelect = (mealId) => { actions.setActiveMealId(mealId); modals.setTimeModalVisible(true); };
@@ -561,9 +602,20 @@ export default function AdminDietScreen({ route, navigation }) {
                                 <Text style={[styles.fabText, { color: theme.accent }]}>Alimentos</Text>
                             </TouchableOpacity>
                             <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
-                            <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(handleCallGeneratePDF)}>
-                                <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
-                                <Text style={[styles.fabText, { color: theme.text }]}>PDF</Text>
+
+                            {/* 🔥 BOTÃO PDF — novo fluxo via backend + expo-sharing */}
+                            <TouchableOpacity
+                                style={styles.fabBtn}
+                                onPress={() => handleActionPress(handleExportPdf)}
+                                disabled={isExportingPdf}
+                            >
+                                {isExportingPdf
+                                    ? <ActivityIndicator size="small" color={theme.text} />
+                                    : <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
+                                }
+                                <Text style={[styles.fabText, { color: theme.text }]}>
+                                    {isExportingPdf ? '...' : 'PDF'}
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
