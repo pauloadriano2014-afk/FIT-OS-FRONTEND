@@ -1,5 +1,5 @@
-// src/screens/AdminDietScreen.js — VERSÃO 4.3
-// Novidade: PDF gerado via backend (puppeteer) + compartilhamento nativo (expo-sharing)
+// src/screens/AdminDietScreen.js — VERSÃO 4.4
+// Novidade: PDF via expo-print (mesmo padrão do treino) — sem backend, sem puppeteer
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
@@ -10,8 +10,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import * as Haptics from 'expo-haptics';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 
 // Componentes
 import DietHeaderWidgets    from '../components/AdminDiet/DietHeaderWidgets';
@@ -33,7 +31,7 @@ import { useDietActions } from '../hooks/useDietActions';
 import * as DietService   from '../services/adminDietService';
 import { toGrams, enrichMealsWithDatabase } from '../utils/dietUtils';
 import { calcWeeklyPlan } from '../utils/macroPlanner';
-import { API_URL } from '../services/api';
+import { generateDietPDF } from '../utils/dietPdfUtils';
 
 const DAY_TABS = [
     { key: 'TREINO',        label: 'TREINO',   icon: 'dumbbell'    },
@@ -269,44 +267,16 @@ export default function AdminDietScreen({ route, navigation }) {
         modals.setImportModalVisible(false);
     };
 
-    // ─── EXPORTAR PDF (novo fluxo) ────────────────────────────────────────────
+    // ─── EXPORTAR PDF ─────────────────────────────────────────────────────────
+    // Usa expo-print — mesmo padrão do PDF de treino, funciona web + mobile
     const handleExportPdf = async () => {
-        if (!userId) return Alert.alert('Erro', 'ID do aluno não encontrado.');
         setIsExportingPdf(true);
         try {
-            const response = await fetch(
-                `${API_URL}/api/admin/diet/${userId}/export-pdf`,
-                { method: 'GET' }
-            );
-
-            if (!response.ok) {
-                const err = await response.json().catch(() => ({}));
-                throw new Error(err.error ?? `Erro ${response.status} ao gerar PDF`);
-            }
-
-            const result = await response.json();
-            if (!result.base64) throw new Error('PDF não retornado pelo servidor');
-
-            const filename = result.filename ?? `dieta_${userId}.pdf`;
-            const localUri = FileSystem.cacheDirectory + filename;
-
-            await FileSystem.writeAsStringAsync(localUri, result.base64, {
-                encoding: FileSystem.EncodingType.Base64,
-            });
-
-            const canShare = await Sharing.isAvailableAsync();
-            if (!canShare) {
-                Alert.alert(
-                    'Compartilhamento indisponível',
-                    'Este dispositivo não suporta compartilhamento de arquivos.'
-                );
-                return;
-            }
-
-            await Sharing.shareAsync(localUri, {
-                mimeType: 'application/pdf',
-                dialogTitle: `Dieta de ${aluno?.name ?? 'Aluno'}`,
-                UTI: 'com.adobe.pdf',
+            await generateDietPDF({
+                meals:         actions.meals,
+                dietConfig:    data.dietConfig,
+                currentMacros: actions.currentMacros,
+                aluno,
             });
         } catch (error) {
             console.error('[handleExportPdf]', error);
@@ -603,7 +573,7 @@ export default function AdminDietScreen({ route, navigation }) {
                             </TouchableOpacity>
                             <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
 
-                            {/* 🔥 BOTÃO PDF — novo fluxo via backend + expo-sharing */}
+                            {/* 🔥 BOTÃO PDF — expo-print, sem backend */}
                             <TouchableOpacity
                                 style={styles.fabBtn}
                                 onPress={() => handleActionPress(handleExportPdf)}
@@ -676,7 +646,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 handleApplyMealTemplate={handleApplyMealTemplate}
             />
 
-            {/* 🔥 coachId vem do AsyncStorage — ID do coach logado */}
             <FoodSearchModal
                 visible={modals.searchModalVisible}
                 onClose={() => { modals.setSearchModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
@@ -714,8 +683,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 anamnese={data.anamnese}
                 aluno={aluno}
             />
-
-            {/* ASSISTENTE DE MONTAGEM */}
             <DietBuilderModal
                 visible={builderVisible}
                 onClose={() => setBuilderVisible(false)}
@@ -726,8 +693,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 coachId={loggedCoachId}
                 theme={theme}
             />
-
-            {/* ANALISADORES */}
             <MealAnalyzerModal
                 visible={mealAnalyzerVisible}
                 onClose={() => { setMealAnalyzerVisible(false); setMealToAnalyze(null); }}
