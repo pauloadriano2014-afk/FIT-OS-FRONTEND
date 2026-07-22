@@ -150,6 +150,26 @@ function DeleteDownloadModal({ visible, onConfirm, onCancel, theme }) {
 // Componente: banner de download no topo da lista
 // ─────────────────────────────────────────────────────────────
 function OfflineBanner({ downloadStatus, downloadProgress, onPressDownload, onPressDelete, theme }) {
+  // Na web (incluindo PWA no browser) o download de arquivo não é suportado
+  // O recurso funciona apenas no app instalado (Android/iOS)
+  if (downloadStatus === 'web') {
+    return (
+      <View style={{ backgroundColor: theme.surface, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.accent + '20', justifyContent: 'center', alignItems: 'center' }}>
+          <MaterialCommunityIcons name="cellphone-arrow-down" size={22} color={theme.accent} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+            Modo offline disponível no app
+          </Text>
+          <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+            Instale o app no celular para salvar treinos e assistir vídeos sem internet
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
   if (downloadStatus === 'downloading') {
     return (
       <View style={{ backgroundColor: theme.surface, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.accent + '60' }}>
@@ -421,8 +441,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
     <View style={{ marginBottom: 20 }}>
 
       {/* 🔥 Banner offline — não aparece no modo espião nem na web */}
-      {!isPreviewMode && (
-  <OfflineBanner
+      {!isPreviewMode && !isWeb && (
+        <OfflineBanner
           downloadStatus={downloadStatus}
           downloadProgress={downloadProgress}
           onPressDownload={() => setDownloadConfirmVisible(true)}

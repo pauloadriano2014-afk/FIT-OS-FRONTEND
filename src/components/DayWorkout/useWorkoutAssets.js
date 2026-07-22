@@ -1,21 +1,21 @@
 // src/components/DayWorkout/useWorkoutAssets.js
-//
-// Responsabilidade:
-//   - Baixar e cachear em disco thumbs + vídeos R2 do treino sob demanda
-//   - Expor progresso do download para exibir na UI
-//   - Permitir exclusão dos assets de um treino específico
-//   - resolveAsset(uri) → path local se existir, uri original se não
-
 import { useState, useEffect, useRef, useCallback } from 'react';
-import * as FileSystem from 'expo-file-system';
+import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
 
-const ASSETS_DIR = `${FileSystem.documentDirectory}workout_assets/`;
-const MAP_KEY = '@workout_asset_map'; // mapa global uri → localPath
-const INDEX_KEY = '@workout_asset_index'; // índice workoutId_day → [uri, uri, ...]
+// FileSystem e NetInfo são nativos — importados condicionalmente
+let FileSystem = null;
+let NetInfo = null;
 
-// Vídeos YouTube/Stream nunca são baixados
+if (Platform.OS !== 'web') {
+  FileSystem = require('expo-file-system');
+  NetInfo = require('@react-native-community/netinfo').default;
+}
+
+const ASSETS_DIR = FileSystem ? `${FileSystem.documentDirectory}workout_assets/` : null;
+const MAP_KEY = '@workout_asset_map';
+const INDEX_KEY = '@workout_asset_index';
+
 const isYouTube = (url) =>
   !url ? true : url.includes('youtube.com') || url.includes('youtu.be') || url.includes('cloudflarestream.com');
 
@@ -31,6 +31,7 @@ const uriToFilename = (uri) => {
 };
 
 const ensureDir = async () => {
+  if (!FileSystem) return;
   const info = await FileSystem.getInfoAsync(ASSETS_DIR);
   if (!info.exists) await FileSystem.makeDirectoryAsync(ASSETS_DIR, { intermediates: true });
 };
@@ -38,16 +39,18 @@ const ensureDir = async () => {
 export default function useWorkoutAssets(exercises, workoutId, day) {
   const mapRef = useRef({});
   const indexRef = useRef({});
+  const isDownloading = useRef(false);
 
-  // 'idle' | 'downloading' | 'done' | 'error'
-  const [downloadStatus, setDownloadStatus] = useState('idle');
-  const [downloadProgress, setDownloadProgress] = useState(0); // 0-100
-  const isCancelled = useRef(false);
+  // 'idle' | 'downloading' | 'done' | 'error' | 'web'
+  const [downloadStatus, setDownloadStatus] = useState(Platform.OS === 'web' ? 'web' : 'idle');
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   const workoutKey = `${workoutId}_${day}`;
 
-  // Carrega mapa e índice salvos
+  // Na web não faz nada
   useEffect(() => {
+    if (Platform.OS === 'web') return;
+
     const load = async () => {
       try {
         const [rawMap, rawIndex] = await Promise.all([
@@ -57,7 +60,6 @@ export default function useWorkoutAssets(exercises, workoutId, day) {
         if (rawMap) mapRef.current = JSON.parse(rawMap);
         if (rawIndex) indexRef.current = JSON.parse(rawIndex);
 
-        // Verifica se esse treino já está salvo (e se os arquivos ainda existem em disco)
         const uris = indexRef.current[workoutKey] || [];
         if (uris.length > 0) {
           const checks = await Promise.all(
@@ -68,22 +70,16 @@ export default function useWorkoutAssets(exercises, workoutId, day) {
               return info.exists;
             })
           );
-          const allExist = checks.every(Boolean);
-          if (allExist && uris.length > 0) setDownloadStatus('done');
+          if (checks.every(Boolean)) setDownloadStatus('done');
         }
       } catch (e) {}
     };
     load();
   }, [workoutKey]);
 
-  const persistMap = async () => {
-    await AsyncStorage.setItem(MAP_KEY, JSON.stringify(mapRef.current));
-  };
-  const persistIndex = async () => {
-    await AsyncStorage.setItem(INDEX_KEY, JSON.stringify(indexRef.current));
-  };
+  const persistMap = async () => AsyncStorage.setItem(MAP_KEY, JSON.stringify(mapRef.current));
+  const persistIndex = async () => AsyncStorage.setItem(INDEX_KEY, JSON.stringify(indexRef.current));
 
-  // Coleta todas as URIs do treino (thumbs + vídeos R2)
   const collectUris = useCallback(() => {
     const uris = [];
     (exercises || []).forEach((item) => {
@@ -98,34 +94,42 @@ export default function useWorkoutAssets(exercises, workoutId, day) {
       const video = item.exercise?.videoUrl || item.videoUrl;
       if (video && !isYouTube(video)) uris.push(video);
     });
-    // Remove duplicatas
     return [...new Set(uris)];
   }, [exercises]);
 
-  // Download principal — chamado pelo botão
   const startDownload = useCallback(async () => {
-    const netState = await NetInfo.fetch();
-    if (!netState.isConnected) return { success: false, reason: 'no_network' };
+    // Web: não suporta download de arquivo
+    if (Platform.OS === 'web') {
+      return { success: false, reason: 'web_not_supported' };
+    }
 
-    isCancelled.current = false;
+    if (isDownloading.current) return { success: false, reason: 'already_downloading' };
+
+    // Verifica rede
+    if (NetInfo) {
+      const netState = await NetInfo.fetch();
+      if (!netState.isConnected) return { success: false, reason: 'no_network' };
+    }
+
+    isDownloading.current = true;
     setDownloadStatus('downloading');
     setDownloadProgress(0);
 
     try {
       await ensureDir();
       const uris = collectUris();
+
       if (uris.length === 0) {
         setDownloadStatus('done');
         return { success: true };
       }
 
       const downloadedUris = [];
-      for (let i = 0; i < uris.length; i++) {
-        if (isCancelled.current) break;
 
+      for (let i = 0; i < uris.length; i++) {
         const uri = uris[i];
 
-        // Já em disco — conta como feito
+        // Já em disco
         if (mapRef.current[uri]) {
           const info = await FileSystem.getInfoAsync(mapRef.current[uri]);
           if (info.exists) {
@@ -143,14 +147,11 @@ export default function useWorkoutAssets(exercises, workoutId, day) {
             mapRef.current[uri] = localPath;
             downloadedUris.push(uri);
           }
-        } catch (e) {
-          // Falha num asset individual não cancela o resto
-        }
+        } catch (e) {}
 
         setDownloadProgress(Math.round(((i + 1) / uris.length) * 100));
       }
 
-      // Salva índice desse treino e mapa global
       indexRef.current[workoutKey] = downloadedUris;
       await Promise.all([persistMap(), persistIndex()]);
 
@@ -159,11 +160,14 @@ export default function useWorkoutAssets(exercises, workoutId, day) {
     } catch (e) {
       setDownloadStatus('error');
       return { success: false, reason: 'error' };
+    } finally {
+      isDownloading.current = false;
     }
   }, [collectUris, workoutKey]);
 
-  // Exclui os assets desse treino específico
   const deleteDownload = useCallback(async () => {
+    if (Platform.OS === 'web') return;
+
     try {
       const uris = indexRef.current[workoutKey] || [];
       await Promise.all(
@@ -185,16 +189,16 @@ export default function useWorkoutAssets(exercises, workoutId, day) {
     } catch (e) {}
   }, [workoutKey]);
 
-  // resolveAsset: devolve path local se existir, URI original se não
   const resolveAsset = useCallback((uri) => {
     if (!uri) return null;
+    if (Platform.OS === 'web') return uri; // web sempre usa URI remota
     return mapRef.current[uri] || uri;
   }, []);
 
   return {
     resolveAsset,
-    downloadStatus,   // 'idle' | 'downloading' | 'done' | 'error'
-    downloadProgress, // 0-100
+    downloadStatus,   // 'idle' | 'downloading' | 'done' | 'error' | 'web'
+    downloadProgress,
     startDownload,
     deleteDownload,
   };
