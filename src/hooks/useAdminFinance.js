@@ -64,19 +64,27 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
     
     const isMaster = currentUserId === '3c82f763-66b4-48da-836e-16817d4f57c0' || currentUserId === 'b7c0c181-41fd-4156-b8fe-963a267759a3';
 
-    // 🔥 BUSCA ANTI-CACHE: Ignora a lista desatualizada do F5 e busca a real no banco
+    // 🔥 BUSCA ANTI-CACHE ALTERADA PARA FILTRAR APENAS ALUNOS ATIVOS DA PLATAFORMA
     useEffect(() => {
-        // Inicializa com a prop do painel principal (pode estar em cache)
-        setLocalAlunos(alunos || []);
+        if (alunos) {
+            // Inicializa apenas com os alunos que não foram inativados no sistema geral
+            const ativosIniciais = alunos.filter(u => u.accountStatus === 'ACTIVE' || u.active !== false);
+            setLocalAlunos(ativosIniciais);
+        }
 
-        // Logo em seguida, força uma busca fresca para atualizar as datas financeiras!
         if (currentUserId) {
             fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${currentUserId}&t=${Date.now()}`)
                 .then(res => res.json())
                 .then(data => {
                     if (Array.isArray(data)) {
-                        const alunosOnly = data.filter(u => (u.role || u.type || '').toUpperCase() !== 'COACH' && (u.role || u.type || '').toUpperCase() !== 'ADMIN');
-                        setLocalAlunos(alunosOnly); // Injeta os dados limpos sem cache!
+                        // 🔥 TRAVA: Além de remover Coach/Admin, remove contas bloqueadas ou inativas do sistema
+                        const alunosOnly = data.filter(u => 
+                            (u.role || u.type || '').toUpperCase() !== 'COACH' && 
+                            (u.role || u.type || '').toUpperCase() !== 'ADMIN' &&
+                            u.accountStatus === 'ACTIVE' &&
+                            u.active !== false
+                        );
+                        setLocalAlunos(alunosOnly); 
                     }
                 })
                 .catch(e => console.error("Erro no anti-cache de alunos:", e));
@@ -166,6 +174,7 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
             if (aluno.isBillingMonth) {
                 const valor = parseFloat(aluno.contractValue) || 0;
                 if (aluno.isPaid) { entrada += valor; previsao += valor; } 
+                // 🔥 TRAVA: As métricas de previsão e pendentes ignoram totalmente quem está desativado no financeiro
                 else if (aluno.isFinanceActive) { pendente += valor; previsao += valor; }
             }
         });
@@ -198,8 +207,13 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
         return list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
     }, [enrichedStudentList, filterStatus, filterCategory, filterPrazo, searchQuery, theme]);
 
-    const totalAtivosNoMes = (enrichedStudentList || []).filter(a => a.isFinanceActive).length;
-    const novosNoMes = (enrichedStudentList || []).filter(a => a.isFinanceActive && a.isNewThisMonth).length;
+    // 🔥 TRAVA: O contador do topo e os percentuais agora são calculados com base na lista final filtrada por padrão
+    const listagemExibida = useMemo(() => {
+        return (enrichedStudentList || []).filter(a => a.isFinanceActive);
+    }, [enrichedStudentList]);
+
+    const totalAtivosNoMes = listagemExibida.length;
+    const novosNoMes = listagemExibida.filter(a => a.isNewThisMonth).length;
     const retidosNoMes = totalAtivosNoMes - novosNoMes;
     const percNovos = totalAtivosNoMes > 0 ? (novosNoMes / totalAtivosNoMes) * 100 : 0;
     const percRetidos = totalAtivosNoMes > 0 ? (retidosNoMes / totalAtivosNoMes) * 100 : 0;
@@ -383,7 +397,6 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
                 });
             } else {
-                // 🔥 Injeta a data no front-end local do aluno instantaneamente
                 setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
                 
                 await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {

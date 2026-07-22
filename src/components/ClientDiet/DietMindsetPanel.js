@@ -78,8 +78,25 @@ const MINDSET_CARDS = {
     ],
 };
 
-export default function DietMindsetPanel({ theme, userId, goalType }) {
-    const cards = MINDSET_CARDS[goalType] ?? MINDSET_CARDS.HIPERTROFIA;
+export default function DietMindsetPanel({ theme, userId, goalType, diet }) {
+    // 🔥 Leitura dinâmica da estratégia e observações
+    const isRestricted = diet?.isStrategy && /finaliza|cutting|low carb|detox|secagem/i.test(diet?.strategyName || '');
+    const coachNotes = diet?.generalNotes;
+
+    // Clonamos os cards originais para poder modificar a regra do álcool dinamicamente
+    let cards = JSON.parse(JSON.stringify(MINDSET_CARDS[goalType] ?? MINDSET_CARDS.HIPERTROFIA));
+
+    if (isRestricted) {
+        const alcoholIndex = cards.findIndex(c => c.icon === 'glass-wine');
+        if (alcoholIndex !== -1) {
+            cards[alcoholIndex] = {
+                icon: 'alert-octagon',
+                color: '#FF3B30',
+                title: 'Álcool PROIBIDO',
+                desc: `Na estratégia "${diet.strategyName}", o consumo de álcool vai travar completamente a sua resposta metabólica. Reta final, não jogue o seu esforço no lixo! Tolerância zero.`,
+            };
+        }
+    }
 
     return (
         <View>
@@ -90,15 +107,26 @@ export default function DietMindsetPanel({ theme, userId, goalType }) {
                 <Text style={[s.sectionTitle, { color: theme.textSecondary }]}>MENTALIDADE DA DIETA</Text>
             </View>
 
+            {/* 🔥 AVISO DO COACH (Aparece apenas se houver observações) */}
+            {coachNotes ? (
+                <View style={[s.infoCard, { backgroundColor: theme.accent + '15', borderColor: theme.accent, borderWidth: 2 }]}>
+                    <View style={s.cardHeader}>
+                        <MaterialCommunityIcons name="bullhorn-outline" size={20} color={theme.accent} />
+                        <Text style={[s.cardTitle, { color: theme.accent, letterSpacing: 0.5 }]}>AVISO DO COACH</Text>
+                    </View>
+                    <Text style={[s.cardDesc, { color: theme.text, fontWeight: 'bold' }]}>{coachNotes}</Text>
+                </View>
+            ) : null}
+
             {cards.map((card, i) => (
-                <View key={i} style={[s.infoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View key={i} style={[s.infoCard, { backgroundColor: theme.surface, borderColor: theme.border, borderWidth: card.icon === 'alert-octagon' ? 2 : 1 }]}>
                     <View style={s.cardHeader}>
                         <MaterialCommunityIcons
                             name={card.icon}
                             size={20}
                             color={card.color ?? theme.accent}
                         />
-                        <Text style={[s.cardTitle, { color: theme.text }]}>{card.title}</Text>
+                        <Text style={[s.cardTitle, { color: card.icon === 'alert-octagon' ? '#FF3B30' : theme.text }]}>{card.title}</Text>
                     </View>
                     <Text style={[s.cardDesc, { color: theme.textSecondary }]}>{card.desc}</Text>
                 </View>
@@ -112,7 +140,7 @@ const s = StyleSheet.create({
     strip:         { width: 4, height: 16, borderRadius: 2 },
     sectionTitle:  { fontSize: 12, fontWeight: '900', fontStyle: 'italic', letterSpacing: 1 },
 
-    infoCard:   { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12 },
+    infoCard:   { padding: 16, borderRadius: 16, marginBottom: 12 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
     cardTitle:  { fontSize: 14, fontWeight: '900' },
     cardDesc:   { fontSize: 12, lineHeight: 18 },

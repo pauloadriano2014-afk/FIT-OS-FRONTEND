@@ -66,7 +66,11 @@ export default function AsaasPaymentsPanel({ theme, isWebPC, selectedMonth, curr
             // 🔥 AGORA ENVIA O MÊS E O ANO SELECIONADOS PARA A API FILTRAR LÁ NO SERVIDOR
             let query = `t=${Date.now()}`;
             if (adminId) query += `&adminId=${adminId}`;
-            if (selectedMonth) query += `&month=${selectedMonth}`;
+            
+            // Corrige o bug do index do JS onde Janeiro = 0 e compensa o +1 para a API
+            if (selectedMonth !== undefined && selectedMonth !== null) {
+                query += `&month=${selectedMonth + 1}`;
+            }
             if (currentYear) query += `&year=${currentYear}`;
 
             const res = await fetch(`${API_URL}/api/admin/payments?${query}`);

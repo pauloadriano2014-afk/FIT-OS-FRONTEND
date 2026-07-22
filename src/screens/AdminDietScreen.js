@@ -1,5 +1,4 @@
-// src/screens/AdminDietScreen.js — VERSÃO 4.4
-// Novidade: PDF via expo-print (mesmo padrão do treino) — sem backend, sem puppeteer
+// src/screens/AdminDietScreen.js
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
@@ -23,6 +22,7 @@ import ModelSelectorModal   from '../components/AdminDiet/ModelSelectorModal';
 import DietContextPanel     from '../components/AdminDiet/DietContextPanel';
 import { MealAnalyzerModal, DayAnalyzerModal } from '../components/AdminDiet/DietAnalyzerModal';
 import DietBuilderModal     from '../components/AdminDiet/DietBuilderModal';
+import PdfNotesModal        from '../components/AdminDiet/PdfNotesModal';
 
 // Hooks e Utils
 import { useDietModals }  from '../hooks/useDietModals';
@@ -61,7 +61,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const RootComponent = isWeb ? View : SafeAreaView;
     const fadeAnim = useRef(new Animated.Value(1)).current;
 
-    const [showRaioX,             setShowRaioX]             = useState(false);
+    const [showRaioX,               setShowRaioX]             = useState(false);
     const [initialCategoryFilter, setInitialCategoryFilter] = useState('Todas');
     const [modelSelectorVisible,  setModelSelectorVisible]  = useState(false);
     const [generateProgress,      setGenerateProgress]      = useState('');
@@ -70,16 +70,13 @@ export default function AdminDietScreen({ route, navigation }) {
     const [mealToAnalyze,         setMealToAnalyze]         = useState(null);
     const [builderVisible,        setBuilderVisible]        = useState(false);
     const [isExportingPdf,        setIsExportingPdf]        = useState(false);
+    const [pdfNotesVisible,       setPdfNotesVisible]       = useState(false);
 
-    // 🔥 ID do coach logado — lido do AsyncStorage
     const [loggedCoachId, setLoggedCoachId] = useState('');
     useEffect(() => {
         AsyncStorage.getItem('user').then(json => {
             if (json) {
-                try {
-                    const u = JSON.parse(json);
-                    setLoggedCoachId(u.id ?? '');
-                } catch {}
+                try { const u = JSON.parse(json); setLoggedCoachId(u.id ?? ''); } catch {}
             }
         });
     }, []);
@@ -90,8 +87,13 @@ export default function AdminDietScreen({ route, navigation }) {
     const userId = (aluno?.id && aluno.id !== '[object Object]')
         ? aluno.id : route.params?.alunoId;
 
+    // 🔥 RECEBENDO O ID DA ESTRATÉGIA PARA LIGAR AS TELAS
+    const strategyId = route.params?.strategyId;
+    const strategyName = route.params?.strategyName;
+
     const modals  = useDietModals();
-    const data    = useDietData(userId);
+    // 🔥 REPASSANDO O STRATEGY_ID PARA O HOOK QUE BUSCA OS DADOS
+    const data    = useDietData(userId, strategyId); 
     const actions = useDietActions(aluno, data.anamnese, data.initialMeals);
 
     const macroTargets = useMemo(() => {
@@ -109,17 +111,12 @@ export default function AdminDietScreen({ route, navigation }) {
         ]);
     };
 
-    const handleOpenMealAnalyzer = (meal) => {
-        setMealToAnalyze(meal);
-        setMealAnalyzerVisible(true);
-    };
+    const handleOpenMealAnalyzer = (meal) => { setMealToAnalyze(meal); setMealAnalyzerVisible(true); };
 
     const handleApproveMealSuggestion = (refeicaoReescrita) => {
         if (!mealToAnalyze) return;
         actions.setMeals(prev => prev.map(m =>
-            m.id === mealToAnalyze.id
-                ? { ...m, notes: refeicaoReescrita.notes || m.notes }
-                : m
+            m.id === mealToAnalyze.id ? { ...m, notes: refeicaoReescrita.notes || m.notes } : m
         ));
     };
 
@@ -140,7 +137,8 @@ export default function AdminDietScreen({ route, navigation }) {
             }));
             const payload = {
                 userId,
-                name:         `Plano Alimentar - ${data.dietConfig.goal}`,
+                strategyId, // 🔥 GARANTINDO QUE VAI SALVAR NA ESTRATÉGIA SE ELA EXISTIR
+                name:         strategyName || `Plano Alimentar - ${data.dietConfig.goal}`,
                 goal:         data.dietConfig.goal,
                 totalKcal:    actions.currentMacros.kcal,
                 totalProtein: actions.currentMacros.prot,
@@ -163,17 +161,14 @@ export default function AdminDietScreen({ route, navigation }) {
     // ─── GERAR COM IA ─────────────────────────────────────────────────────────
     const handleGenerateAI = async (provider = 'anthropic', activeDayTypes = ['TREINO', 'TREINO_CARDIO', 'CARDIO', 'DESCANSO'], weekDist = null) => {
         if (!data.anamnese || Object.keys(data.anamnese).length === 0) {
-            return isWeb
-                ? window.alert('Preencha a anamnese primeiro.')
-                : Alert.alert('Atenção', 'Preencha a anamnese primeiro.');
+            return isWeb ? window.alert('Preencha a anamnese primeiro.') : Alert.alert('Atenção', 'Preencha a anamnese primeiro.');
         }
         data.setIsGenerating(true);
         setGenerateProgress('Calculando macros por aba...');
         try {
             const plan = calcWeeklyPlan(data.anamnese, aluno?.birthDate, aluno?.gender, weekDist);
-            const macrosByDay = plan.macrosByDay;
             const allMeals = await DietService.generateAllDayTypes(
-                data.anamnese, provider, aluno, activeDayTypes, macrosByDay,
+                data.anamnese, provider, aluno, activeDayTypes, plan.macrosByDay,
                 (progressMsg) => setGenerateProgress(progressMsg)
             );
             actions.setMeals(prev => {
@@ -182,15 +177,12 @@ export default function AdminDietScreen({ route, navigation }) {
             });
             actions.setActiveDayType(activeDayTypes[0]);
             setModelSelectorVisible(false);
-            const resumo = activeDayTypes
-                .map(d => `${d}: ${allMeals.filter(m => m.dayType === d).length} refeições`)
-                .join('\n');
+            const resumo = activeDayTypes.map(d => `${d}: ${allMeals.filter(m => m.dayType === d).length} refeições`).join('\n');
             const msg = `✅ Dieta gerada!\n\n${resumo}\n\nRevise e salve.`;
             if (isWeb) window.alert(msg); else Alert.alert('Estratégia Pronta!', msg);
         } catch (error) {
             console.error('[handleGenerateAI]', error);
-            const errMsg = 'Falha na IA. Tente novamente.';
-            if (isWeb) window.alert(errMsg); else Alert.alert('Erro', errMsg);
+            if (isWeb) window.alert('Falha na IA. Tente novamente.'); else Alert.alert('Erro', 'Falha na IA. Tente novamente.');
         } finally {
             data.setIsGenerating(false);
             setGenerateProgress('');
@@ -204,10 +196,7 @@ export default function AdminDietScreen({ route, navigation }) {
             if (res?.meals) {
                 const currentDay = actions.activeDayTypeRef.current;
                 const mapped = res.meals.map(m => ({ ...m, id: Math.random().toString(), dayType: currentDay }));
-                actions.setMeals(prev => [
-                    ...prev.filter(m => m.dayType !== currentDay),
-                    ...enrichMealsWithDatabase(mapped),
-                ]);
+                actions.setMeals(prev => [...prev.filter(m => m.dayType !== currentDay), ...enrichMealsWithDatabase(mapped)]);
                 modals.setModalCloneVisible(false);
             }
         } catch { Alert.alert('Erro', 'Falha ao clonar.'); }
@@ -217,20 +206,14 @@ export default function AdminDietScreen({ route, navigation }) {
         const currentDay = actions.activeDayTypeRef.current;
         const parsedMeals = typeof template.meals === 'string' ? JSON.parse(template.meals) : template.meals;
         const mapped = parsedMeals.map(m => ({ ...m, id: Math.random().toString(), dayType: currentDay }));
-        actions.setMeals(prev => [
-            ...prev.filter(m => m.dayType !== currentDay),
-            ...enrichMealsWithDatabase(mapped),
-        ]);
+        actions.setMeals(prev => [...prev.filter(m => m.dayType !== currentDay), ...enrichMealsWithDatabase(mapped)]);
         modals.setModalTemplatesVisible(false);
     };
 
     const handleSaveAsTemplate = async (templateName) => {
         try {
             const mealsToSave = actions.meals.filter(m => m.dayType === actions.activeDayTypeRef.current);
-            const newTemplate = await DietService.saveDietTemplate({
-                name: templateName, goal: data.dietConfig.goal,
-                totalKcal: actions.currentMacros.kcal, meals: mealsToSave,
-            });
+            const newTemplate = await DietService.saveDietTemplate({ name: templateName, goal: data.dietConfig.goal, totalKcal: actions.currentMacros.kcal, meals: mealsToSave });
             data.setTemplatesList(prev => [newTemplate, ...prev]);
             modals.setModalSaveTemplateVisible(false);
         } catch { Alert.alert('Erro', 'Falha ao salvar.'); }
@@ -240,9 +223,7 @@ export default function AdminDietScreen({ route, navigation }) {
         const mealToSave = actions.meals.find(m => m.id === actions.selectedMealForAction.id);
         if (!mealToSave) return;
         try {
-            const newTemp = await DietService.saveMealTemplate({
-                name: templateName, category: mealToSave.name, items: mealToSave.items,
-            });
+            const newTemp = await DietService.saveMealTemplate({ name: templateName, category: mealToSave.name, items: mealToSave.items });
             data.setMealTemplatesList(prev => [newTemp, ...prev]);
             modals.setModalSaveMealVisible(false);
         } catch { Alert.alert('Erro', 'Falha ao salvar.'); }
@@ -251,8 +232,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const handleApplyMealTemplate = (template) => {
         const parsedItems = typeof template.items === 'string' ? JSON.parse(template.items) : template.items;
         actions.setMeals(prev => prev.map(m =>
-            m.id === actions.selectedMealForAction.id
-                ? { ...m, name: template.category || m.name, items: parsedItems } : m
+            m.id === actions.selectedMealForAction.id ? { ...m, name: template.category || m.name, items: parsedItems } : m
         ));
         modals.setModalImportMealVisible(false);
     };
@@ -260,26 +240,27 @@ export default function AdminDietScreen({ route, navigation }) {
     const handleImportSuccess = (importedMeals) => {
         const currentDay = actions.activeDayTypeRef.current;
         const mapped = importedMeals.map(m => ({ ...m, id: Math.random().toString(), dayType: currentDay }));
-        actions.setMeals(prev => [
-            ...prev.filter(m => m.dayType !== currentDay),
-            ...enrichMealsWithDatabase(mapped),
-        ]);
+        actions.setMeals(prev => [...prev.filter(m => m.dayType !== currentDay), ...enrichMealsWithDatabase(mapped)]);
         modals.setImportModalVisible(false);
     };
 
     // ─── EXPORTAR PDF ─────────────────────────────────────────────────────────
-    // Usa expo-print — mesmo padrão do PDF de treino, funciona web + mobile
-    const handleExportPdf = async () => {
+    const handlePdfButtonPress = () => {
+        setPdfNotesVisible(true);
+    };
+
+    const handlePdfConfirm = async (pdfNotes) => {
+        setPdfNotesVisible(false);
         setIsExportingPdf(true);
         try {
             await generateDietPDF({
-                meals:         actions.meals,
-                dietConfig:    data.dietConfig,
-                currentMacros: actions.currentMacros,
+                meals:      actions.meals,
+                dietConfig: data.dietConfig,
                 aluno,
+                pdfNotes,
             });
         } catch (error) {
-            console.error('[handleExportPdf]', error);
+            console.error('[handlePdfConfirm]', error);
             Alert.alert('Erro ao gerar PDF', error.message ?? 'Tente novamente.');
         } finally {
             setIsExportingPdf(false);
@@ -288,8 +269,8 @@ export default function AdminDietScreen({ route, navigation }) {
 
     const handleOpenTimeSelect = (mealId) => { actions.setActiveMealId(mealId); modals.setTimeModalVisible(true); };
     const handleOpenNameSelect = (mealId) => { actions.setActiveMealId(mealId); modals.setNameModalVisible(true); };
-    const handleSelectTime     = (time)   => { actions.handleUpdateMeal(actions.activeMealId, 'time', time); modals.setTimeModalVisible(false); };
-    const handleSelectName     = (name)   => {
+    const handleSelectTime = (time) => { actions.handleUpdateMeal(actions.activeMealId, 'time', time); modals.setTimeModalVisible(false); };
+    const handleSelectName = (name) => {
         if (name === 'Personalizado') {
             modals.setNameModalVisible(false);
             actions.setCustomNameInput('');
@@ -300,8 +281,7 @@ export default function AdminDietScreen({ route, navigation }) {
         }
     };
     const handleSaveCustomName = () => {
-        if (actions.customNameInput.trim())
-            actions.handleUpdateMeal(actions.activeMealId, 'name', actions.customNameInput.trim());
+        if (actions.customNameInput.trim()) actions.handleUpdateMeal(actions.activeMealId, 'name', actions.customNameInput.trim());
         modals.setCustomNameModalVisible(false);
     };
 
@@ -366,16 +346,10 @@ export default function AdminDietScreen({ route, navigation }) {
             backgroundColor: isWeb ? (theme.isDark ? '#0a0a0a' : '#E5E5EA') : theme.bg,
         }}>
             <View style={{
-                flex: 1,
-                width: '100%',
-                maxWidth: contentMaxWidth,
-                alignSelf: 'center',
-                backgroundColor: theme.bg,
-                flexDirection: 'row',
-                ...containerBorders,
+                flex: 1, width: '100%', maxWidth: contentMaxWidth,
+                alignSelf: 'center', backgroundColor: theme.bg,
+                flexDirection: 'row', ...containerBorders,
             }}>
-
-                {/* ── COLUNA PRINCIPAL ──────────────────────────────────────── */}
                 <View style={{ flex: 1, overflow: 'hidden' }}>
                     {/* HEADER */}
                     <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
@@ -383,20 +357,19 @@ export default function AdminDietScreen({ route, navigation }) {
                             <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
                         </TouchableOpacity>
                         <View style={{ alignItems: 'center', flex: 1 }}>
-                            <Text style={[styles.headerTitle, { color: theme.text }]}>MESA DE OPERAÇÕES</Text>
+                            {/* 🔥 MOSTRANDO QUE É UMA ESTRATÉGIA NO TÍTULO */}
+                            <Text style={[styles.headerTitle, { color: theme.text }]}>
+                                {strategyId ? `ESTRATÉGIA: ${strategyName?.toUpperCase()}` : 'MESA DE OPERAÇÕES'}
+                            </Text>
                             <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: 'bold', marginTop: 2 }}>{aluno?.name}</Text>
                         </View>
                         <TouchableOpacity onPress={handleSaveDiet} disabled={data.isSaving} style={[styles.iconBtn, { backgroundColor: theme.accent, borderColor: theme.accent }]}>
-                            {data.isSaving
-                                ? <ActivityIndicator color="#000" size="small" />
-                                : <MaterialCommunityIcons name="content-save-check" size={22} color="#000" />
-                            }
+                            {data.isSaving ? <ActivityIndicator color="#000" size="small" /> : <MaterialCommunityIcons name="content-save-check" size={22} color="#000" />}
                         </TouchableOpacity>
                     </View>
 
                     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} enabled={!isWeb}>
                         <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingBottom: 140 }} keyboardShouldPersistTaps="handled">
-
                             <DietHeaderWidgets
                                 theme={theme}
                                 currentMacros={actions.currentMacros}
@@ -414,27 +387,17 @@ export default function AdminDietScreen({ route, navigation }) {
                             />
 
                             <View style={{ paddingHorizontal: 16 }}>
-                                {/* 4 ABAS */}
                                 <View style={styles.daysTabsContainer}>
                                     {DAY_TABS.map(tab => {
                                         const isActive = actions.activeDayType === tab.key;
                                         const accent   = DAY_ACCENT[tab.key];
                                         const count    = actions.meals.filter(m => m.dayType === tab.key).length;
                                         return (
-                                            <TouchableOpacity
-                                                key={tab.key}
-                                                style={[
-                                                    styles.dayTab,
-                                                    isActive
-                                                        ? { backgroundColor: accent + '20', borderColor: accent }
-                                                        : { backgroundColor: theme.surface, borderColor: theme.border },
-                                                ]}
-                                                onPress={() => { Haptics.selectionAsync(); actions.setActiveDayType(tab.key); }}
-                                            >
+                                            <TouchableOpacity key={tab.key}
+                                                style={[styles.dayTab, isActive ? { backgroundColor: accent + '20', borderColor: accent } : { backgroundColor: theme.surface, borderColor: theme.border }]}
+                                                onPress={() => { Haptics.selectionAsync(); actions.setActiveDayType(tab.key); }}>
                                                 <MaterialCommunityIcons name={tab.icon} size={14} color={isActive ? accent : theme.textSecondary} />
-                                                <Text style={{ color: isActive ? accent : theme.textSecondary, fontWeight: '900', fontSize: 9, marginTop: 3 }}>
-                                                    {tab.label}
-                                                </Text>
+                                                <Text style={{ color: isActive ? accent : theme.textSecondary, fontWeight: '900', fontSize: 9, marginTop: 3 }}>{tab.label}</Text>
                                                 {count > 0 && (
                                                     <View style={[styles.tabBadge, { backgroundColor: accent }]}>
                                                         <Text style={styles.tabBadgeText}>{count}</Text>
@@ -445,51 +408,31 @@ export default function AdminDietScreen({ route, navigation }) {
                                     })}
                                 </View>
 
-                                {/* REFEIÇÕES */}
                                 {actions.visibleMeals.length === 0 ? (
                                     <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                                         <View style={[styles.emptyIconBg, { backgroundColor: theme.surface }]}>
                                             <MaterialCommunityIcons name="silverware-fork-knife" size={32} color={theme.textSecondary} />
                                         </View>
                                         <Text style={[styles.emptyTitle, { color: theme.text }]}>Aba sem refeições</Text>
-                                        <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>
-                                            Clique em "GERAR COM IA" ou adicione manualmente.
-                                        </Text>
+                                        <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>Clique em "GERAR COM IA" ou adicione manualmente.</Text>
                                     </View>
                                 ) : (() => {
                                     const isAlt     = (m) => m.isMainVersion === false || m.isMainVersion === 0;
                                     const mainMeals = actions.visibleMeals.filter(m => !isAlt(m));
                                     const altMeals  = actions.visibleMeals.filter(m => isAlt(m));
-
                                     return mainMeals.map((meal, mIdx) => {
-                                        const myAlts = meal.alternativeGroupId
-                                            ? altMeals.filter(a => a.alternativeGroupId === meal.alternativeGroupId)
-                                            : [];
-
+                                        const myAlts = meal.alternativeGroupId ? altMeals.filter(a => a.alternativeGroupId === meal.alternativeGroupId) : [];
                                         return (
                                             <View key={meal.id}>
-                                                <MealCardAdmin
-                                                    meal={meal}
-                                                    index={mIdx}
-                                                    totalMeals={mainMeals.length}
-                                                    theme={theme}
-                                                    toGrams={toGrams}
-                                                    handleOpenNameSelect={handleOpenNameSelect}
-                                                    handleOpenTimeSelect={handleOpenTimeSelect}
-                                                    handleDeleteMeal={actions.handleDeleteMeal}
-                                                    handleMoveMeal={actions.handleMoveMeal}
-                                                    handleUpdateFoodAmount={actions.handleUpdateFoodAmount}
-                                                    handleToggleUnit={actions.handleToggleUnit}
-                                                    handleDeleteFood={actions.handleDeleteFood}
-                                                    handleOpenSearch={handleOpenSearch}
-                                                    handleMealOptions={handleMealOptions}
-                                                    handleSwapBaseFood={handleSwapBaseFood}
-                                                    handleUpdateMeal={actions.handleUpdateMeal}
-                                                    onAnalyzeMeal={handleOpenMealAnalyzer}
-                                                    mealTemplatesList={data.mealTemplatesList}
-                                                    allMeals={actions.visibleMeals}
-                                                    onApplyAsAlternative={actions.handleApplyAsAlternative}
-                                                />
+                                                <MealCardAdmin meal={meal} index={mIdx} totalMeals={mainMeals.length} theme={theme} toGrams={toGrams}
+                                                    handleOpenNameSelect={handleOpenNameSelect} handleOpenTimeSelect={handleOpenTimeSelect}
+                                                    handleDeleteMeal={actions.handleDeleteMeal} handleMoveMeal={actions.handleMoveMeal}
+                                                    handleUpdateFoodAmount={actions.handleUpdateFoodAmount} handleToggleUnit={actions.handleToggleUnit}
+                                                    handleDeleteFood={actions.handleDeleteFood} handleOpenSearch={handleOpenSearch}
+                                                    handleMealOptions={handleMealOptions} handleSwapBaseFood={handleSwapBaseFood}
+                                                    handleUpdateMeal={actions.handleUpdateMeal} onAnalyzeMeal={handleOpenMealAnalyzer}
+                                                    mealTemplatesList={data.mealTemplatesList} allMeals={actions.visibleMeals}
+                                                    onApplyAsAlternative={actions.handleApplyAsAlternative} />
                                                 {myAlts.map((alt, aIdx) => (
                                                     <View key={alt.id} style={{ paddingLeft: 16 }}>
                                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, marginLeft: 8 }}>
@@ -498,28 +441,15 @@ export default function AdminDietScreen({ route, navigation }) {
                                                                 VERSÃO ALTERNATIVA {aIdx + 1} — {alt.alternativeLabel?.toUpperCase()}
                                                             </Text>
                                                         </View>
-                                                        <MealCardAdmin
-                                                            meal={alt}
-                                                            index={aIdx}
-                                                            totalMeals={myAlts.length}
-                                                            theme={theme}
-                                                            toGrams={toGrams}
-                                                            handleOpenNameSelect={handleOpenNameSelect}
-                                                            handleOpenTimeSelect={handleOpenTimeSelect}
-                                                            handleDeleteMeal={actions.handleDeleteMeal}
-                                                            handleMoveMeal={actions.handleMoveMeal}
-                                                            handleUpdateFoodAmount={actions.handleUpdateFoodAmount}
-                                                            handleToggleUnit={actions.handleToggleUnit}
-                                                            handleDeleteFood={actions.handleDeleteFood}
-                                                            handleOpenSearch={handleOpenSearch}
-                                                            handleMealOptions={handleMealOptions}
-                                                            handleSwapBaseFood={handleSwapBaseFood}
-                                                            handleUpdateMeal={actions.handleUpdateMeal}
-                                                            onAnalyzeMeal={handleOpenMealAnalyzer}
-                                                            mealTemplatesList={data.mealTemplatesList}
-                                                            allMeals={actions.visibleMeals}
-                                                            onApplyAsAlternative={actions.handleApplyAsAlternative}
-                                                        />
+                                                        <MealCardAdmin meal={alt} index={aIdx} totalMeals={myAlts.length} theme={theme} toGrams={toGrams}
+                                                            handleOpenNameSelect={handleOpenNameSelect} handleOpenTimeSelect={handleOpenTimeSelect}
+                                                            handleDeleteMeal={actions.handleDeleteMeal} handleMoveMeal={actions.handleMoveMeal}
+                                                            handleUpdateFoodAmount={actions.handleUpdateFoodAmount} handleToggleUnit={actions.handleToggleUnit}
+                                                            handleDeleteFood={actions.handleDeleteFood} handleOpenSearch={handleOpenSearch}
+                                                            handleMealOptions={handleMealOptions} handleSwapBaseFood={handleSwapBaseFood}
+                                                            handleUpdateMeal={actions.handleUpdateMeal} onAnalyzeMeal={handleOpenMealAnalyzer}
+                                                            mealTemplatesList={data.mealTemplatesList} allMeals={actions.visibleMeals}
+                                                            onApplyAsAlternative={actions.handleApplyAsAlternative} />
                                                     </View>
                                                 ))}
                                             </View>
@@ -528,19 +458,13 @@ export default function AdminDietScreen({ route, navigation }) {
                                 })()}
 
                                 <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
-                                    <TouchableOpacity
-                                        style={[styles.addMealBtn, { flex: 1, borderColor: activeAccent + '50', backgroundColor: activeAccent + '08' }]}
-                                        onPress={() => handleActionPress(actions.handleAddMeal)}
-                                        activeOpacity={0.75}
-                                    >
+                                    <TouchableOpacity style={[styles.addMealBtn, { flex: 1, borderColor: activeAccent + '50', backgroundColor: activeAccent + '08' }]}
+                                        onPress={() => handleActionPress(actions.handleAddMeal)} activeOpacity={0.75}>
                                         <MaterialCommunityIcons name="plus-circle-outline" size={20} color={activeAccent} />
                                         <Text style={[styles.addMealText, { color: activeAccent }]}>ADICIONAR REFEIÇÃO</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.addMealBtn, { flex: 1, borderColor: '#FF3B3050', backgroundColor: '#FF3B3008' }]}
-                                        onPress={() => handleActionPress(actions.handleClearDay)}
-                                        activeOpacity={0.75}
-                                    >
+                                    <TouchableOpacity style={[styles.addMealBtn, { flex: 1, borderColor: '#FF3B3050', backgroundColor: '#FF3B3008' }]}
+                                        onPress={() => handleActionPress(actions.handleClearDay)} activeOpacity={0.75}>
                                         <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
                                         <Text style={[styles.addMealText, { color: '#FF3B30' }]}>LIMPAR ABA</Text>
                                     </TouchableOpacity>
@@ -573,10 +497,10 @@ export default function AdminDietScreen({ route, navigation }) {
                             </TouchableOpacity>
                             <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
 
-                            {/* 🔥 BOTÃO PDF — expo-print, sem backend */}
+                            {/* 🔥 PDF — abre modal de obs antes de gerar */}
                             <TouchableOpacity
                                 style={styles.fabBtn}
-                                onPress={() => handleActionPress(handleExportPdf)}
+                                onPress={() => handleActionPress(handlePdfButtonPress)}
                                 disabled={isExportingPdf}
                             >
                                 {isExportingPdf
@@ -591,127 +515,68 @@ export default function AdminDietScreen({ route, navigation }) {
                     </View>
                 </View>
 
-                {/* ── PAINEL LATERAL DIREITO (só web/PC) ───────────────────── */}
                 {isWebPC && (
-                    <DietContextPanel
-                        theme={theme}
-                        anamnese={data.anamnese}
-                        aluno={aluno}
-                        activeDayType={actions.activeDayType}
-                        currentMacros={actions.currentMacros}
-                        macroTargets={macroTargets}
-                        visibleMeals={actions.visibleMeals}
-                        onAnalyzeDay={() => setDayAnalyzerVisible(true)}
-                    />
+                    <DietContextPanel theme={theme} anamnese={data.anamnese} aluno={aluno}
+                        activeDayType={actions.activeDayType} currentMacros={actions.currentMacros}
+                        macroTargets={macroTargets} visibleMeals={actions.visibleMeals}
+                        onAnalyzeDay={() => setDayAnalyzerVisible(true)} />
                 )}
             </View>
 
             {/* MODAIS */}
-            <DietModalsAdmin
-                theme={theme}
-                timeModalVisible={modals.timeModalVisible}
-                setTimeModalVisible={modals.setTimeModalVisible}
-                handleSelectTime={handleSelectTime}
-                nameModalVisible={modals.nameModalVisible}
-                setNameModalVisible={modals.setNameModalVisible}
-                handleSelectName={handleSelectName}
-                customNameModalVisible={modals.customNameModalVisible}
-                setCustomNameModalVisible={modals.setCustomNameModalVisible}
-                customNameInput={actions.customNameInput}
-                setCustomNameInput={actions.setCustomNameInput}
-                handleSaveCustomName={handleSaveCustomName}
-            />
-            <DietActionModals
-                theme={theme}
-                isWeb={isWeb}
-                modalCloneVisible={modals.modalCloneVisible}
-                setModalCloneVisible={modals.setModalCloneVisible}
-                studentsList={data.studentsList}
-                handleCloneFromStudent={handleCloneFromStudent}
-                modalTemplatesVisible={modals.modalTemplatesVisible}
-                setModalTemplatesVisible={modals.setModalTemplatesVisible}
-                templatesList={data.templatesList}
-                handleApplyTemplate={handleApplyTemplate}
-                modalSaveTemplateVisible={modals.modalSaveTemplateVisible}
-                setModalSaveTemplateVisible={modals.setModalSaveTemplateVisible}
-                handleSaveAsTemplate={handleSaveAsTemplate}
-                modalMealOptionsVisible={modals.modalMealOptionsVisible}
-                setModalMealOptionsVisible={modals.setModalMealOptionsVisible}
-                modalSaveMealVisible={modals.modalSaveMealVisible}
-                setModalSaveMealVisible={modals.setModalSaveMealVisible}
-                handleSaveMealTemplate={handleSaveMealTemplate}
-                modalImportMealVisible={modals.modalImportMealVisible}
-                setModalImportMealVisible={modals.setModalImportMealVisible}
-                mealTemplatesList={data.mealTemplatesList}
-                handleApplyMealTemplate={handleApplyMealTemplate}
-            />
+            <DietModalsAdmin theme={theme}
+                timeModalVisible={modals.timeModalVisible} setTimeModalVisible={modals.setTimeModalVisible} handleSelectTime={handleSelectTime}
+                nameModalVisible={modals.nameModalVisible} setNameModalVisible={modals.setNameModalVisible} handleSelectName={handleSelectName}
+                customNameModalVisible={modals.customNameModalVisible} setCustomNameModalVisible={modals.setCustomNameModalVisible}
+                customNameInput={actions.customNameInput} setCustomNameInput={actions.setCustomNameInput} handleSaveCustomName={handleSaveCustomName} />
 
-            <FoodSearchModal
-                visible={modals.searchModalVisible}
+            <DietActionModals theme={theme} isWeb={isWeb}
+                modalCloneVisible={modals.modalCloneVisible} setModalCloneVisible={modals.setModalCloneVisible} studentsList={data.studentsList} handleCloneFromStudent={handleCloneFromStudent}
+                modalTemplatesVisible={modals.modalTemplatesVisible} setModalTemplatesVisible={modals.setModalTemplatesVisible} templatesList={data.templatesList} handleApplyTemplate={handleApplyTemplate}
+                modalSaveTemplateVisible={modals.modalSaveTemplateVisible} setModalSaveTemplateVisible={modals.setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate}
+                modalMealOptionsVisible={modals.modalMealOptionsVisible} setModalMealOptionsVisible={modals.setModalMealOptionsVisible}
+                modalSaveMealVisible={modals.modalSaveMealVisible} setModalSaveMealVisible={modals.setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate}
+                modalImportMealVisible={modals.modalImportMealVisible} setModalImportMealVisible={modals.setModalImportMealVisible} mealTemplatesList={data.mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
+
+            <FoodSearchModal visible={modals.searchModalVisible}
                 onClose={() => { modals.setSearchModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
-                onSelectFood={actions.handleAddFoodToMeal}
-                targetGroup={actions.activeGroupId}
-                theme={theme}
-                initialCategoryFilter={initialCategoryFilter}
-                coachId={loggedCoachId}
-            />
-            <SmartSubstituteModal
-                visible={modals.smartModalVisible}
+                onSelectFood={actions.handleAddFoodToMeal} targetGroup={actions.activeGroupId}
+                theme={theme} initialCategoryFilter={initialCategoryFilter} coachId={loggedCoachId} />
+
+            <SmartSubstituteModal visible={modals.smartModalVisible}
                 onClose={() => { modals.setSmartModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
-                onSelectFood={actions.handleAddFoodToMeal}
-                onManualSearch={handleSmartToManual}
-                principalFood={actions.smartPrincipalFood}
-                principalAmount={actions.smartPrincipalAmount}
-                theme={theme}
-                existingGroupItems={getExistingItemsInGroup()}
-            />
+                onSelectFood={actions.handleAddFoodToMeal} onManualSearch={handleSmartToManual}
+                principalFood={actions.smartPrincipalFood} principalAmount={actions.smartPrincipalAmount}
+                theme={theme} existingGroupItems={getExistingItemsInGroup()} />
+
             {modals.importModalVisible && (
-                <ImportDietModal
-                    visible={modals.importModalVisible}
-                    onClose={() => modals.setImportModalVisible(false)}
-                    theme={theme}
-                    onImportSuccess={handleImportSuccess}
-                />
+                <ImportDietModal visible={modals.importModalVisible} onClose={() => modals.setImportModalVisible(false)} theme={theme} onImportSuccess={handleImportSuccess} />
             )}
-            <ModelSelectorModal
-                visible={modelSelectorVisible}
-                theme={theme}
+
+            <ModelSelectorModal visible={modelSelectorVisible} theme={theme}
                 onClose={() => !data.isGenerating && setModelSelectorVisible(false)}
-                onGenerate={handleGenerateAI}
-                isGenerating={data.isGenerating}
-                generateProgress={generateProgress}
-                anamnese={data.anamnese}
-                aluno={aluno}
-            />
-            <DietBuilderModal
-                visible={builderVisible}
-                onClose={() => setBuilderVisible(false)}
-                onConfirm={handleBuilderConfirm}
-                anamnese={data.anamnese}
-                aluno={aluno}
-                dayType={actions.activeDayType}
-                coachId={loggedCoachId}
-                theme={theme}
-            />
-            <MealAnalyzerModal
-                visible={mealAnalyzerVisible}
+                onGenerate={handleGenerateAI} isGenerating={data.isGenerating}
+                generateProgress={generateProgress} anamnese={data.anamnese} aluno={aluno} />
+
+            <DietBuilderModal visible={builderVisible} onClose={() => setBuilderVisible(false)}
+                onConfirm={handleBuilderConfirm} anamnese={data.anamnese} aluno={aluno}
+                dayType={actions.activeDayType} coachId={loggedCoachId} theme={theme} />
+
+            <MealAnalyzerModal visible={mealAnalyzerVisible}
                 onClose={() => { setMealAnalyzerVisible(false); setMealToAnalyze(null); }}
-                onApprove={handleApproveMealSuggestion}
-                meal={mealToAnalyze}
-                anamnese={data.anamnese}
-                macroTargets={macroTargets}
-                dayType={actions.activeDayType}
-                theme={theme}
-            />
-            <DayAnalyzerModal
-                visible={dayAnalyzerVisible}
-                onClose={() => setDayAnalyzerVisible(false)}
+                onApprove={handleApproveMealSuggestion} meal={mealToAnalyze}
+                anamnese={data.anamnese} macroTargets={macroTargets} dayType={actions.activeDayType} theme={theme} />
+
+            <DayAnalyzerModal visible={dayAnalyzerVisible} onClose={() => setDayAnalyzerVisible(false)}
                 onAnalyzeMeal={(meal) => { setDayAnalyzerVisible(false); handleOpenMealAnalyzer(meal); }}
-                meals={actions.visibleMeals}
-                anamnese={data.anamnese}
-                macroTargets={macroTargets}
-                currentMacros={actions.currentMacros}
-                dayType={actions.activeDayType}
+                meals={actions.visibleMeals} anamnese={data.anamnese} macroTargets={macroTargets}
+                currentMacros={actions.currentMacros} dayType={actions.activeDayType} theme={theme} />
+
+            {/* 🔥 MODAL DE OBSERVAÇÕES DO PDF */}
+            <PdfNotesModal
+                visible={pdfNotesVisible}
+                onClose={() => setPdfNotesVisible(false)}
+                onConfirm={handlePdfConfirm}
                 theme={theme}
             />
         </RootComponent>

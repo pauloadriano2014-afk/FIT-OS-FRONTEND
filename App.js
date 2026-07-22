@@ -64,6 +64,8 @@ import AdminCoachesScreen from './src/screens/AdminCoachesScreen';
 import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen';
 import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
 import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
+// 🔥 ESTRATÉGIAS
+import AdminStrategiesScreen from './src/screens/AdminStrategiesScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -270,6 +272,8 @@ function RootNavigator() {
       <Stack.Screen name="AdminCoachesScreen" component={AdminCoachesScreen} />
       <Stack.Screen name="AdminAnamneseBuilderScreen" component={AdminAnamneseBuilderScreen} />
       <Stack.Screen name="CoachBlockedScreen" component={CoachBlockedScreen} />
+      {/* 🔥 ESTRATÉGIAS DE DIETA */}
+      <Stack.Screen name="AdminStrategiesScreen" component={AdminStrategiesScreen} />
     </Stack.Navigator>
   );
 }

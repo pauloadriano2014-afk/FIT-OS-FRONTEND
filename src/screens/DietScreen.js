@@ -100,7 +100,49 @@ export default function DietScreen({ route }) {
         initialize();
     }, [route.params]);
 
+    // 🔥 NOVA FUNÇÃO DE BUSCA INTELIGENTE (ESTRATÉGIA > DIETA BASE)
     const fetchDiet = async (userId) => {
+        try {
+            // Tenta buscar a lista de estratégias do aluno primeiro
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/strategies/${userId}?t=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                const strategies = data.strategies || [];
+                const baseDiets = data.baseDiets || [];
+                
+                // Validação rigorosa de tempo e status
+                const now = new Date();
+                const activeStrategy = strategies.find(s => {
+                    if (!s.strategyActive) return false;
+                    const start = s.strategyStartDate ? new Date(s.strategyStartDate) : null;
+                    const end   = s.strategyEndDate   ? new Date(s.strategyEndDate)   : null;
+                    if (start && now < start) return false;
+                    if (end && now > end) return false;
+                    return true;
+                });
+
+                let selectedDiet = null;
+
+                if (activeStrategy && activeStrategy.meals?.length > 0) {
+                    // Tem estratégia ativa com refeições!
+                    selectedDiet = { ...activeStrategy, isStrategy: true };
+                } else if (baseDiets.length > 0 && baseDiets[0].meals?.length > 0) {
+                    // Cai no plano padrão
+                    selectedDiet = baseDiets[0];
+                }
+
+                if (selectedDiet) {
+                    setDiet(selectedDiet);
+                    Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
+                    setLoading(false);
+                    return; // Sucesso com a inteligência nova, não precisa do fallback
+                }
+            }
+        } catch (e) {
+            console.log('Falha na rota inteligente, ativando fallback normal...', e);
+        }
+
+        // Fallback blindado caso a rota de estratégias falhe (para não quebrar o app do aluno)
         try {
             const res = await fetch(`https://fitos-final.onrender.com/api/diet/${userId}?t=${Date.now()}`);
             if (res.ok) {
@@ -246,6 +288,17 @@ export default function DietScreen({ route }) {
 
                         // ── ABA CARDÁPIO ─────────────────────────────────────
                         <>
+                            {/* 🔥 TARJA DE ESTRATÉGIA ATIVA (Aparece automaticamente) */}
+                            {diet?.isStrategy && (
+                                <View style={[styles.strategyBanner, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+                                    <MaterialCommunityIcons name="lightning-bolt" size={24} color={theme.accent} />
+                                    <View style={{ flex: 1, marginLeft: 12 }}>
+                                        <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 10, letterSpacing: 1 }}>ESTRATÉGIA ATIVA</Text>
+                                        <Text style={{ color: theme.text, fontSize: 14, fontWeight: 'bold', marginTop: 2 }}>{diet.strategyName}</Text>
+                                    </View>
+                                </View>
+                            )}
+
                             {/* Header contextual */}
                             <DietHeader
                                 theme={theme}
@@ -343,20 +396,25 @@ export default function DietScreen({ route }) {
                             </View>
 
                             {/* ── BLOCO 2: GUIAS E EDUCAÇÃO ────────────────── */}
-                            <View style={[styles.panelSection, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                                <View style={styles.panelSectionHeader}>
-                                    <MaterialCommunityIcons name="book-open-outline" size={14} color={theme.accent} />
-                                    <Text style={[styles.panelSectionTitle, { color: theme.text }]}>
-                                        GUIAS E ESTRATÉGIAS
-                                    </Text>
-                                </View>
-                                <FreeMealGuide theme={theme} />
-                                <DietMindsetPanel
-                                    theme={theme}
-                                    userId={user?.id}
-                                    goalType={goalType}
-                                />
-                            </View>
+<View style={[styles.panelSection, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View style={styles.panelSectionHeader}>
+        <MaterialCommunityIcons name="book-open-outline" size={14} color={theme.accent} />
+        <Text style={[styles.panelSectionTitle, { color: theme.text }]}>
+            GUIAS E ESTRATÉGIAS
+        </Text>
+    </View>
+    
+    {/* 🔥 Prop diet adicionada aqui */}
+    <FreeMealGuide theme={theme} diet={diet} />
+    
+    {/* 🔥 Prop diet adicionada aqui também */}
+    <DietMindsetPanel
+        theme={theme}
+        userId={user?.id}
+        goalType={goalType}
+        diet={diet}
+    />
+</View>
                         </>
                     )}
                 </Animated.ScrollView>
@@ -406,6 +464,15 @@ const styles = StyleSheet.create({
     tabText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
 
     scrollContent: { paddingHorizontal: 16, paddingBottom: 120 },
+
+    strategyBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 16,
+        borderWidth: 1,
+        marginBottom: 16,
+    },
 
     emptyBox:   { alignItems: 'center', padding: 40, borderStyle: 'dashed', borderWidth: 1, borderRadius: 24, marginTop: 10 },
     emptyTitle: { fontSize: 16, fontWeight: '900', marginTop: 10 },

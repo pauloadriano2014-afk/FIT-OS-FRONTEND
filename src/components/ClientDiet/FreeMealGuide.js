@@ -38,8 +38,12 @@ const OPTIONS = [
     },
 ];
 
-export default function FreeMealGuide({ theme }) {
+export default function FreeMealGuide({ theme, diet }) {
     const [expanded, setExpanded] = useState(false);
+
+    // 🔥 Identifica se é uma estratégia restritiva
+    const isRestricted = diet?.isStrategy && /finaliza|cutting|low carb|detox|secagem/i.test(diet?.strategyName || '');
+    const activeColor = isRestricted ? '#FF3B30' : theme.accent;
 
     return (
         <View style={{ marginTop: 10, marginBottom: 20 }}>
@@ -48,7 +52,7 @@ export default function FreeMealGuide({ theme }) {
                     styles.header,
                     {
                         backgroundColor: theme.surface,
-                        borderColor: theme.accent,
+                        borderColor: activeColor,
                         borderBottomLeftRadius:  expanded ? 0 : 16,
                         borderBottomRightRadius: expanded ? 0 : 16,
                         borderBottomWidth: expanded ? 0 : 2,
@@ -57,95 +61,110 @@ export default function FreeMealGuide({ theme }) {
                 onPress={() => setExpanded(!expanded)}
                 activeOpacity={0.8}
             >
-                <View style={[styles.iconBox, { backgroundColor: theme.accent }]}>
-                    <MaterialCommunityIcons name="pizza" size={24} color="#000" />
+                <View style={[styles.iconBox, { backgroundColor: activeColor }]}>
+                    <MaterialCommunityIcons name={isRestricted ? "lock" : "pizza"} size={24} color={isRestricted ? "#FFF" : "#000"} />
                 </View>
                 <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text, fontStyle: 'italic' }}>
                         REFEIÇÃO LIVRE
                     </Text>
-                    <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: 'bold', marginTop: 2 }}>
-                        TOQUE PARA VER REGRAS E OPÇÕES
+                    <Text style={{ fontSize: 11, color: isRestricted ? '#FF3B30' : theme.textSecondary, fontWeight: 'bold', marginTop: 2 }}>
+                        {isRestricted ? 'BLOQUEADA NESTA FASE' : 'TOQUE PARA VER REGRAS E OPÇÕES'}
                     </Text>
                 </View>
                 <MaterialCommunityIcons
                     name={expanded ? 'chevron-up' : 'chevron-down'}
                     size={26}
-                    color={theme.accent}
+                    color={activeColor}
                 />
             </TouchableOpacity>
 
             {expanded && (
-                <View style={[styles.body, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
+                <View style={[styles.body, { backgroundColor: theme.surface, borderColor: activeColor }]}>
 
-                    {/* REGRAS */}
-                    <View style={[styles.section, { borderBottomColor: theme.border }]}>
-                        <View style={styles.sectionTitle}>
-                            <MaterialCommunityIcons name="gavel" size={18} color={theme.accent} />
-                            <Text style={[styles.sectionTitleText, { color: theme.text }]}>AS REGRAS DO JOGO</Text>
-                        </View>
-                        <Text style={[styles.intro, { color: theme.textSecondary }]}>
-                            A refeição livre é uma estratégia mental e metabólica. Ela ajuda a acelerar um
-                            metabolismo estagnado e dar alívio psicológico, mas{' '}
-                            <Text style={{ color: theme.text, fontWeight: 'bold' }}>
-                                não é desculpa para chutar o balde e estragar a semana inteira
-                            </Text>.
-                        </Text>
-                        {[
-                            ['A Regra do Merecimento', 'Só está liberada se você seguiu a dieta 100% à risca nos outros dias. Furou? Perdeu o direito.'],
-                            ['É UMA Refeição',         'Escolha apenas uma refeição do dia (ex: jantar). As outras continuam na balança.'],
-                            ['Até a Saciedade',        'O objetivo é matar a vontade, não passar mal. Sentiu o estômago encher? Pare.'],
-                            ['Retorno Imediato',       'Na refeição seguinte, volte ao plano imediatamente. Aumente a água para limpar a retenção.'],
-                        ].map(([title, desc], i) => (
-                            <View key={i} style={styles.ruleRow}>
-                                <Text style={[styles.ruleNum, { color: theme.accent }]}>{i + 1}.</Text>
-                                <Text style={[styles.ruleText, { color: theme.text }]}>
-                                    <Text style={{ fontWeight: 'bold' }}>{title}: </Text>{desc}
-                                </Text>
-                            </View>
-                        ))}
-                    </View>
-
-                    {/* OPÇÕES */}
-                    <View style={{ padding: 20 }}>
-                        <View style={styles.sectionTitle}>
-                            <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={theme.accent} />
-                            <Text style={[styles.sectionTitleText, { color: theme.text }]}>OPÇÕES INTELIGENTES</Text>
-                        </View>
-                        <View style={{ gap: 12 }}>
-                            {OPTIONS.map((opt, i) => (
-                                <View
-                                    key={i}
-                                    style={[styles.optionCard, { backgroundColor: theme.bg, borderColor: theme.border }]}
-                                >
-                                    <Text style={[styles.optionTitle, { color: theme.text }]}>
-                                        {opt.icon} {opt.title}
-                                    </Text>
-                                    <Text style={[styles.optionDesc, { color: theme.textSecondary }]}>
-                                        {opt.desc}
-                                    </Text>
-                                    {opt.avoid && (
-                                        <Text style={[styles.optionDesc, { color: theme.textSecondary }]}>
-                                            <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Evite: </Text>
-                                            {opt.avoid}
-                                        </Text>
-                                    )}
-                                </View>
-                            ))}
-                        </View>
-
-                        <TouchableOpacity
-                            style={[styles.wppBtn, { backgroundColor: theme.accent + '20', borderColor: theme.accent }]}
-                            onPress={() => Linking.openURL(
-                                `https://wa.me/${WPP_NUMBER}?text=Fala%20Coach!%20Estou%20vendo%20as%20op%C3%A7%C3%B5es%20da%20refei%C3%A7%C3%A3o%20livre%20e%20queria%20tirar%20uma%20d%C3%BAvida.`
-                            )}
-                        >
-                            <MaterialCommunityIcons name="whatsapp" size={20} color={theme.accent} />
-                            <Text style={[styles.wppText, { color: theme.accent }]}>
-                                QUER OUTRA OPÇÃO? FALE COM O COACH
+                    {/* 🔥 TELA DE BLOQUEIO SE A ESTRATÉGIA FOR RESTRITA 🔥 */}
+                    {isRestricted ? (
+                        <View style={{ padding: 30, alignItems: 'center' }}>
+                            <MaterialCommunityIcons name="shield-lock-outline" size={48} color="#FF3B30" />
+                            <Text style={{ color: '#FF3B30', fontWeight: '900', fontSize: 16, marginTop: 15, letterSpacing: 0.5 }}>
+                                FOCO TOTAL EXIGIDO
                             </Text>
-                        </TouchableOpacity>
-                    </View>
+                            <Text style={{ color: theme.textSecondary, textAlign: 'center', marginTop: 10, fontSize: 13, lineHeight: 22 }}>
+                                Como você está na estratégia <Text style={{ fontWeight: 'bold', color: theme.text }}>"{diet?.strategyName}"</Text>, a refeição livre está suspensa para maximizar a sua resposta metabólica. Não fure o plano!
+                            </Text>
+                        </View>
+                    ) : (
+                        <>
+                            {/* REGRAS NORMAIS */}
+                            <View style={[styles.section, { borderBottomColor: theme.border }]}>
+                                <View style={styles.sectionTitle}>
+                                    <MaterialCommunityIcons name="gavel" size={18} color={theme.accent} />
+                                    <Text style={[styles.sectionTitleText, { color: theme.text }]}>AS REGRAS DO JOGO</Text>
+                                </View>
+                                <Text style={[styles.intro, { color: theme.textSecondary }]}>
+                                    A refeição livre é uma estratégia mental e metabólica. Ela ajuda a acelerar um
+                                    metabolismo estagnado e dar alívio psicológico, mas{' '}
+                                    <Text style={{ color: theme.text, fontWeight: 'bold' }}>
+                                        não é desculpa para chutar o balde e estragar a semana inteira
+                                    </Text>.
+                                </Text>
+                                {[
+                                    ['A Regra do Merecimento', 'Só está liberada se você seguiu a dieta 100% à risca nos outros dias. Furou? Perdeu o direito.'],
+                                    ['É UMA Refeição',         'Escolha apenas uma refeição do dia (ex: jantar). As outras continuam na balança.'],
+                                    ['Até a Saciedade',        'O objetivo é matar a vontade, não passar mal. Sentiu o estômago encher? Pare.'],
+                                    ['Retorno Imediato',       'Na refeição seguinte, volte ao plano imediatamente. Aumente a água para limpar a retenção.'],
+                                ].map(([title, desc], i) => (
+                                    <View key={i} style={styles.ruleRow}>
+                                        <Text style={[styles.ruleNum, { color: theme.accent }]}>{i + 1}.</Text>
+                                        <Text style={[styles.ruleText, { color: theme.text }]}>
+                                            <Text style={{ fontWeight: 'bold' }}>{title}: </Text>{desc}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </View>
+
+                            {/* OPÇÕES */}
+                            <View style={{ padding: 20 }}>
+                                <View style={styles.sectionTitle}>
+                                    <MaterialCommunityIcons name="lightbulb-on-outline" size={18} color={theme.accent} />
+                                    <Text style={[styles.sectionTitleText, { color: theme.text }]}>OPÇÕES INTELIGENTES</Text>
+                                </View>
+                                <View style={{ gap: 12 }}>
+                                    {OPTIONS.map((opt, i) => (
+                                        <View
+                                            key={i}
+                                            style={[styles.optionCard, { backgroundColor: theme.bg, borderColor: theme.border }]}
+                                        >
+                                            <Text style={[styles.optionTitle, { color: theme.text }]}>
+                                                {opt.icon} {opt.title}
+                                            </Text>
+                                            <Text style={[styles.optionDesc, { color: theme.textSecondary }]}>
+                                                {opt.desc}
+                                            </Text>
+                                            {opt.avoid && (
+                                                <Text style={[styles.optionDesc, { color: theme.textSecondary }]}>
+                                                    <Text style={{ color: '#FF3B30', fontWeight: 'bold' }}>Evite: </Text>
+                                                    {opt.avoid}
+                                                </Text>
+                                            )}
+                                        </View>
+                                    ))}
+                                </View>
+
+                                <TouchableOpacity
+                                    style={[styles.wppBtn, { backgroundColor: theme.accent + '20', borderColor: theme.accent }]}
+                                    onPress={() => Linking.openURL(
+                                        `https://wa.me/${WPP_NUMBER}?text=Fala%20Coach!%20Estou%20vendo%20as%20op%C3%A7%C3%B5es%20da%20refei%C3%A7%C3%A3o%20livre%20e%20queria%20tirar%20uma%20d%C3%BAvida.`
+                                    )}
+                                >
+                                    <MaterialCommunityIcons name="whatsapp" size={20} color={theme.accent} />
+                                    <Text style={[styles.wppText, { color: theme.accent }]}>
+                                        QUER OUTRA OPÇÃO? FALE COM O COACH
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        </>
+                    )}
                 </View>
             )}
         </View>

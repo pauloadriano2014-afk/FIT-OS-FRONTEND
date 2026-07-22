@@ -76,7 +76,7 @@ export default function AdminUserDietTab({
                         />
                     </View>
 
-                    <TouchableOpacity style={[styles.aiDietBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]} onPress={() => navigation.navigate('AdminDietScreen', { aluno: freshAluno || aluno, alunoId: (freshAluno || aluno).id })}>
+                    <TouchableOpacity style={[styles.aiDietBtn, { backgroundColor: theme.accent + '15', borderColor: theme.accent, marginBottom: 10 }]} onPress={() => navigation.navigate('AdminDietScreen', { aluno: freshAluno || aluno, alunoId: (freshAluno || aluno).id })}>
                         <View style={[styles.iconBox, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="view-dashboard-edit-outline" size={22} color={theme.accent} /></View>
                         <View style={{ flex: 1, marginLeft: 15 }}>
                             <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>ABRIR MESA DE OPERAÇÕES</Text>
@@ -84,11 +84,21 @@ export default function AdminUserDietTab({
                         </View>
                         <MaterialCommunityIcons name="chevron-right" size={24} color={theme.accent} />
                     </TouchableOpacity>
+
+                    {/* 🔥 NOVO BOTÃO DE ESTRATÉGIAS ADICIONADO AQUI 🔥 */}
+                    <TouchableOpacity style={[styles.aiDietBtn, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 15 }]} onPress={() => navigation.navigate('AdminStrategiesScreen', { aluno: freshAluno || aluno, alunoId: (freshAluno || aluno).id })}>
+                        <View style={[styles.iconBox, { backgroundColor: theme.bg }]}><MaterialCommunityIcons name="lightning-bolt-outline" size={22} color={theme.text} /></View>
+                        <View style={{ flex: 1, marginLeft: 15 }}>
+                            <Text style={{ color: theme.text, fontWeight: '900', fontSize: 14, letterSpacing: 0.5 }}>GERENCIAR ESTRATÉGIAS</Text>
+                            <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>Crie fases, ciclos e protocolos com datas</Text>
+                        </View>
+                        <MaterialCommunityIcons name="chevron-right" size={24} color={theme.textSecondary} />
+                    </TouchableOpacity>
                 </>
             )}
 
             {/* 🔥 BLOCO 3: ESTRATÉGIA GENÉRICA (PDF) - LIBERADA PARA TODO MUNDO 🔥 */}
-            <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: safeIsMaster ? 15 : 0 }]}>
+            <View style={[styles.premiumCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: safeIsMaster ? 5 : 0 }]}>
                 <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
                     <View style={[styles.iconBoxSmall, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }]}><MaterialCommunityIcons name="clipboard-text-outline" size={18} color={theme.textSecondary} /></View>
                     <View style={{ flex: 1 }}>
@@ -132,7 +142,7 @@ const styles = StyleSheet.create({
     iconBoxSmall: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
     accessTitle: { fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
     accessCategory: { fontSize: 10, color: '#888', fontWeight: 'bold' },
-    aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1, marginBottom: 15 },
+    aiDietBtn: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 20, borderWidth: 1 },
     premiumCard: { borderRadius: 20, marginBottom: 20, borderWidth: 1, overflow: 'hidden', elevation: 2 },
     cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 15, padding: 15, borderBottomWidth: 1 },
     cardTitle: { fontSize: 14, fontWeight: '900', letterSpacing: 0.5, marginBottom: 2 },
