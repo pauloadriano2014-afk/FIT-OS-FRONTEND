@@ -34,13 +34,11 @@ export default function TrainingScreen({ navigation }) {
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
   const [pendingWorkoutNav, setPendingWorkoutNav] = useState(null);
 
-  // 🔥 FINANCEIRO + CLAIM DE PAGAMENTO — centralizado, igual à Home
+  // 🔥 FINANCEIRO + CLAIM DE PAGAMENTO
   const finance = useFinanceLock();
 
   // 🏃 ABA ATIVA — musculação ou corrida
   const [activeTab, setActiveTab] = useState('MUSCULACAO');
-
-  // 🏃 Hook de corrida
   const runningHook = useRunning();
 
   // Estados dos Modais
@@ -49,7 +47,6 @@ export default function TrainingScreen({ navigation }) {
   const [monthlyModalVisible, setMonthlyModalVisible] = useState(false);
 
   const [fullHistory, setFullHistory] = useState([]);
-
   const coachWhatsappNumber = '5541997991346';
 
   const generateWeeklyView = (history = []) => {
@@ -82,32 +79,14 @@ export default function TrainingScreen({ navigation }) {
       const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
       setUserPlan(resolvedPlan);
 
-      // 🔥 CHECAGEM FINANCEIRA — busca sempre a versão mais atual do backend
-      // (inclui paymentDueDate, isFinanceActive e o estado do claim "Já paguei"),
-      // em vez de confiar só no que está salvo localmente no AsyncStorage.
-      const financeResult = await finance.fetchFinanceStatus(user.id);
+      // Chaves de Cache
+      const cacheWorkoutsKey = `@cached_training_workouts_${user.id}`;
+      const cacheHistoryKey = `@cached_training_history_${user.id}`;
+      const cachePhotosKey = `@cached_training_photos_${user.id}`;
 
-      if (financeResult?.isFinanceLocked) {
-        setLoading(false);
-        return;
-      }
-
-      const [response, historyRes, checkinRes] = await Promise.all([
-        fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`),
-        fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`),
-        fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
-      ]);
-
-      let hasPhotosInDb = false;
-      if (checkinRes.ok) {
-        const checkinsData = await checkinRes.json();
-        if (Array.isArray(checkinsData) && checkinsData.length > 0) hasPhotosInDb = true;
-      }
-
-      const data = await response.json();
-      const now = new Date();
-
-      if (response.ok && Array.isArray(data)) {
+      // 🔥 FUNÇÃO DE PROCESSAMENTO CENTRALIZADA
+      const processProgramsLogic = async (data, planToUse, hasPhotos) => {
+        const now = new Date();
         const activeList = data.filter(w => {
           if (w.archived) return false;
           if (w.startDate) {
@@ -149,30 +128,92 @@ export default function TrainingScreen({ navigation }) {
 
         setActivePrograms(processedPrograms);
 
-        if (processedPrograms.length > 0 && resolvedPlan !== 'PREMIUM') {
+        if (processedPrograms.length > 0 && planToUse !== 'PREMIUM') {
           let startD = new Date(processedPrograms[0].startDate);
           startD.setHours(0, 0, 0, 0);
           const todayD = new Date(); todayD.setHours(0, 0, 0, 0);
           const diffTime = todayD.getTime() - startD.getTime();
           const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
           const isPlaceholder = processedPrograms[0].name.includes("CONSTRUÇÃO") || processedPrograms[0].routineDays.length === 0;
-          if (!hasPhotosInDb && diffDays >= 0 && !isPlaceholder) setHasSentInitialPhotos(false);
+          if (!hasPhotos && diffDays >= 0 && !isPlaceholder) setHasSentInitialPhotos(false);
           else setHasSentInitialPhotos(true);
         } else {
           setHasSentInitialPhotos(true);
         }
-      } else {
-        setActivePrograms([]);
+      };
+
+      // ==========================================
+      // 1. CARREGAMENTO OFFLINE (CACHE PRIMEIRO)
+      // ==========================================
+      let currentHasPhotos = true;
+      try {
+        const cachedPhotos = await AsyncStorage.getItem(cachePhotosKey);
+        if (cachedPhotos !== null) currentHasPhotos = JSON.parse(cachedPhotos);
+
+        const cachedHistory = await AsyncStorage.getItem(cacheHistoryKey);
+        if (cachedHistory) {
+          const parsedHistory = JSON.parse(cachedHistory);
+          setWeeklyHistoryData(generateWeeklyView(parsedHistory));
+          setFullHistory(parsedHistory);
+        }
+
+        const cachedWorkouts = await AsyncStorage.getItem(cacheWorkoutsKey);
+        if (cachedWorkouts) {
+          const parsedWorkouts = JSON.parse(cachedWorkouts);
+          await processProgramsLogic(parsedWorkouts, resolvedPlan, currentHasPhotos);
+        }
+      } catch (e) {
+        console.log("Erro ao carregar cache da TrainingScreen", e);
       }
 
-      const historyData = await historyRes.json();
-      if (Array.isArray(historyData)) {
-        setWeeklyHistoryData(generateWeeklyView(historyData));
-        setFullHistory(historyData);
+      // ==========================================
+      // 2. BUSCA NA INTERNET (ATUALIZA O CACHE)
+      // ==========================================
+      try {
+        const financeResult = await finance.fetchFinanceStatus(user.id);
+        if (financeResult?.isFinanceLocked) {
+          setLoading(false);
+          return;
+        }
+
+        const [response, historyRes, checkinRes] = await Promise.all([
+          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`),
+          fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`),
+          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+        ]);
+
+        if (checkinRes.ok) {
+          const checkinsData = await checkinRes.json();
+          const hasPhotosInDb = Array.isArray(checkinsData) && checkinsData.length > 0;
+          await AsyncStorage.setItem(cachePhotosKey, JSON.stringify(hasPhotosInDb));
+          currentHasPhotos = hasPhotosInDb;
+        }
+
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            await AsyncStorage.setItem(cacheWorkoutsKey, JSON.stringify(data));
+            await processProgramsLogic(data, resolvedPlan, currentHasPhotos);
+          } else {
+            setActivePrograms([]);
+          }
+        }
+
+        if (historyRes.ok) {
+          const historyData = await historyRes.json();
+          if (Array.isArray(historyData)) {
+            await AsyncStorage.setItem(cacheHistoryKey, JSON.stringify(historyData));
+            setWeeklyHistoryData(generateWeeklyView(historyData));
+            setFullHistory(historyData);
+          }
+        }
+      } catch (e) {
+        // Falhou por falta de internet. Ignoramos e mantemos os dados do cache carregados na Etapa 1.
+        console.log("Modo offline: Falha ao buscar dados novos, mantendo tela carregada pelo cache.");
       }
 
     } catch (error) {
-      console.log("Erro fetchWorkouts:", error);
+      console.log("Erro fatal fetchWorkouts:", error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -215,7 +256,6 @@ export default function TrainingScreen({ navigation }) {
     }
   };
 
-  // 🔥 "Já paguei" — se der certo, recarrega a tela inteira (libera o conteúdo)
   const handlePressClaimPayment = async () => {
     const ok = await finance.confirmAndClaimPayment();
     if (ok) {
@@ -228,7 +268,6 @@ export default function TrainingScreen({ navigation }) {
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
   const RootComponent = isWeb ? View : SafeAreaView;
 
-  // 🔥 TELA DE BLOQUEIO FINANCEIRO
   if (!loading && finance.isFinanceLocked) {
     return (
       <RootComponent style={[styles.centeredFinanceBlock, { backgroundColor: theme.bg }]}>
@@ -239,7 +278,6 @@ export default function TrainingScreen({ navigation }) {
           {"\n\n"}Fale com o Coach para realizar a renovação e liberar o sistema.
         </Text>
 
-        {/* 🔥 Prazo de carência esgotado */}
         {finance.paymentClaimExpired && (
           <View style={[styles.claimExpiredBox, { backgroundColor: '#FF950022', borderColor: '#FF9500' }]}>
             <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#FF9500" />
@@ -249,7 +287,6 @@ export default function TrainingScreen({ navigation }) {
           </View>
         )}
 
-        {/* 🔥 Botão "Já paguei" */}
         {finance.canClaimPayment && (
           <TouchableOpacity
             style={{ backgroundColor: theme.surface, borderWidth: 1, borderColor: '#32ADE6', paddingVertical: 15, paddingHorizontal: 30, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12, width: '100%', justifyContent: 'center', maxWidth: 320 }}
@@ -284,8 +321,6 @@ export default function TrainingScreen({ navigation }) {
 
   const shadowOpt = { distance: 12, startColor: theme.isDark ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.04)', offset: [0, 6] };
 
-  // 🔥 A PORTA ESTÁ ABERTA! 🔥
-  // Todos os alunos, Free e Pro, enxergam a seleção de abas.
   return (
     <RootComponent style={[styles.container, { backgroundColor: isWeb ? webOuterBg : theme.bg }]}>
       <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
@@ -305,7 +340,7 @@ export default function TrainingScreen({ navigation }) {
             </Text>
           </View>
 
-          {/* 🔥 BANNER: PAGAMENTO EM ANÁLISE (claim ativo, dentro da janela) */}
+          {/* 🔥 BANNER: PAGAMENTO EM ANÁLISE */}
           {finance.isPaymentClaimActive && (
             <View style={[styles.claimReviewBanner, { backgroundColor: '#32ADE622', borderColor: '#32ADE6', marginHorizontal: 20 }]}>
               <MaterialCommunityIcons name="clock-check-outline" size={22} color="#32ADE6" />
@@ -320,7 +355,7 @@ export default function TrainingScreen({ navigation }) {
             </View>
           )}
 
-          {/* 🏃 ABAS GLOBAIS (Sempre visíveis) */}
+          {/* 🏃 ABAS GLOBAIS */}
           <View style={[styles.tabRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <TouchableOpacity
               style={[styles.tabBtn, activeTab === 'MUSCULACAO' && { borderBottomColor: theme.accent }]}
@@ -342,16 +377,12 @@ export default function TrainingScreen({ navigation }) {
             </TouchableOpacity>
           </View>
 
-          {/* ════════════════════════════════════════
-              ABA: CORRIDA
-          ════════════════════════════════════════ */}
+          {/* ABA: CORRIDA */}
           {activeTab === 'CORRIDA' && (
             <RunningTab theme={theme} useRunningHook={runningHook} />
           )}
 
-          {/* ════════════════════════════════════════
-              ABA: MUSCULAÇÃO (conteúdo original)
-          ════════════════════════════════════════ */}
+          {/* ABA: MUSCULAÇÃO */}
           {activeTab === 'MUSCULACAO' && (
             <>
               {/* Calendário semanal */}
@@ -494,11 +525,9 @@ const styles = StyleSheet.create({
   headerTitleLimpado: { fontSize: 28, fontWeight: '800' },
   sectionContainerMod: { marginHorizontal: 20, marginBottom: 30, alignItems: 'center' },
 
-  // 🔥 Banner de pagamento em análise
   claimReviewBanner: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 20 },
   claimExpiredBox: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 15, width: '100%', maxWidth: 320 },
 
-  // 🏃 Abas Globais
   tabRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 20, borderRadius: 16, borderWidth: 1, overflow: 'hidden' },
   tabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderBottomWidth: 3, borderBottomColor: 'transparent' },
   tabBtnText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },

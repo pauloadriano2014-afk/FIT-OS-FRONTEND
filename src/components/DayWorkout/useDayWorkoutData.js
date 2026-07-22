@@ -6,44 +6,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getInitialTechGuide } from './techGuideData';
 import { applyMaskToString, applyIntensityMaskToBlocks } from './workoutMaskUtils';
 
-// 🔥 TTL (tempo de vida) do cache local, em milissegundos. Depois desse tempo,
-// o cache é tratado como expirado e ignorado, forçando busca fresca do servidor.
-// Resolve casos onde o coach edita uma técnica/exercício e o cache local do
-// aluno (gravado antes da edição) ficaria "preso" indefinidamente, já que antes
-// o cache nunca expirava por conta própria — só era sobrescrito se o fetch
-// fresco funcionasse, mas continuava sendo MOSTRADO otimisticamente até lá.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
-// Helper: embrulha um valor com o timestamp de quando foi salvo.
 const wrapWithTimestamp = (value) => ({ value, cachedAt: Date.now() });
 
-// Helper: lê um cache embrulhado e devolve o valor só se ainda estiver dentro
-// do TTL. Cache no formato ANTIGO (sem `cachedAt`, gravado por versões
-// anteriores do app) é tratado como expirado automaticamente — isso garante
-// que, assim que essa atualização entra em produção, qualquer cache antigo já
-// gravado no dispositivo do aluno deixa de ser usado na hora, sem precisar
-// esperar o TTL contar a partir de agora.
-const readIfFresh = (rawJson) => {
+// 🔥 Modificado: agora aceita ignorar o vencimento (TTL) se estivermos offline!
+// Se a internet cair, a gente prefere mostrar um cache "vencido" do que uma tela em branco.
+const readCache = (rawJson, ignoreTTL = false) => {
   if (!rawJson) return null;
   try {
     const parsed = JSON.parse(rawJson);
-    if (!parsed || typeof parsed !== 'object' || !('cachedAt' in parsed)) {
-      return null; // formato antigo ou inválido → trata como expirado
+    if (!parsed || typeof parsed !== 'object') return null;
+    if ('cachedAt' in parsed) {
+      const age = Date.now() - parsed.cachedAt;
+      if (!ignoreTTL && age > CACHE_TTL_MS) return null;
+      return parsed.value;
     }
-    const age = Date.now() - parsed.cachedAt;
-    if (age > CACHE_TTL_MS) return null; // expirado
-    return parsed.value;
+    return ignoreTTL ? parsed : null; // Se for offline, aceita até cache antigo
   } catch (e) {
     return null;
   }
 };
 
-// Hook responsável por:
-// - buscar o treino do dia (com cache + draft, exceto no modo espião)
-// - montar o techGuide dinâmico (técnicas estáticas + customizadas do laboratório)
-// - processar os exercícios (resolver blocos, traduzir customTechniqueId, aplicar
-//   máscara de intensidade quando deload/choque estiver ativo)
-// - expor handlers de interação: trocar exercício, salvar peso, marcar set, finalizar treino
 export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme, navigation, workoutName, focus, onBeforeNavigateAway }) {
   const [techGuide, setTechGuide] = useState(getInitialTechGuide(theme));
   const [loading, setLoading] = useState(true);
@@ -61,234 +45,224 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
   const fetchWorkoutData = async () => {
     try {
       setLoading(true);
-      if (!workoutId) { setLoading(false); return; }
+      if (!workoutId) return;
 
       const stored = await AsyncStorage.getItem('user');
-      if (!stored) { setLoading(false); return; }
+      if (!stored) return;
       const user = JSON.parse(stored);
       setUserData(user);
 
       const dbPlan = user.plan || 'PREMIUM';
       setUserPlan(['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM');
 
-      // 🔥 PUXA AS TÉCNICAS DO LABORATÓRIO E FUNDE COM AS GLOBAIS 🔥
       const coachIdToUse = user.coachId || user.id;
       let currentTechGuide = getInitialTechGuide(theme);
 
-      // 🔥 busca os overrides de vídeo das 9 técnicas FIXAS do sistema.
-      // Esses vídeos agora são escopados por TIME do coach (não mais globais
-      // pra todo mundo) — por isso o coachId aqui é obrigatório, senão a API
-      // devolve 400. Usamos o mesmo coachIdToUse já resolvido acima (coach do
-      // aluno, ou o próprio id se ele for o coach em modo preview).
-      // Fallback silencioso: se falhar, as técnicas fixas simplesmente
-      // não ganham `videoUrl` nesta sessão (modal continua funcionando
-      // normal, só sem a aba de vídeo). Esse cache também tem TTL de 24h e
-      // agora é escopado por coachIdToUse, pra não misturar vídeo de times
-      // diferentes no mesmo aparelho.
+      // Chaves de Cache
       const sysVideoCacheKey = `@cached_system_tech_videos_${coachIdToUse}`;
+      const customTechCacheKey = `@cached_techs_${coachIdToUse}`;
+      const workoutCacheKey = `@cached_workout_full_${workoutId}_${day}`; // NOVO CACHE COMPLETO
+      const historyCacheKey = `@cached_history_${workoutId}_${day}`;
+      const draftKey = `draft_workout_${workoutId}_${day}`;
+
+      // ==================================================================
+      // 1. TENTA CARREGAR TUDO DO CACHE PRIMEIRO (MODO OFFLINE GARANTIDO)
+      // ==================================================================
+      if (!isPreviewMode) {
+        try {
+          // Técnicas fixas
+          const cachedSysVideos = readCache(await AsyncStorage.getItem(sysVideoCacheKey), true);
+          if (cachedSysVideos) {
+            cachedSysVideos.forEach(v => {
+              if (currentTechGuide[v.key]) currentTechGuide[v.key].videoUrl = v.videoUrl;
+            });
+          }
+
+          // Técnicas customizadas
+          const cachedCustomTechs = readCache(await AsyncStorage.getItem(customTechCacheKey), true);
+          if (cachedCustomTechs) {
+            cachedCustomTechs.forEach(t => {
+              currentTechGuide[t.id] = {
+                id: t.id, title: t.name, color: theme.accent, icon: 'flask-outline',
+                desc: t.description || '', steps: t.steps, videoUrl: t.videoUrl || null, isCustom: true
+              };
+            });
+          }
+          setTechGuide(currentTechGuide);
+
+          // Dados do Treino (Textos, Séries, Máscaras)
+          const cachedWorkout = readCache(await AsyncStorage.getItem(workoutCacheKey), true);
+          if (cachedWorkout && cachedWorkout.exercises) {
+            setExercisesToShow(cachedWorkout.exercises);
+            setWorkoutModel(cachedWorkout.workoutModel || 'CARGA');
+            setActiveIntensityMultiplier(cachedWorkout.multiplier || 1.0);
+            setIsIntensityMaskActive(cachedWorkout.isMaskActive || false);
+            setHasSentInitialPhotos(cachedWorkout.hasSentInitialPhotos ?? true);
+          } else {
+            // Fallback para o cache antigo caso o aluno ainda não tenha salvo no novo formato
+            const oldWorkoutCache = readCache(await AsyncStorage.getItem(`@cached_workout_${workoutId}_${day}`), true);
+            if (oldWorkoutCache) setExercisesToShow(oldWorkoutCache);
+          }
+
+          // Histórico e Rascunho
+          const histCache = await AsyncStorage.getItem(historyCacheKey);
+          if (histCache) setHistoryWeights(JSON.parse(histCache));
+
+          const draft = await AsyncStorage.getItem(draftKey);
+          if (draft) {
+            const parsedDraft = JSON.parse(draft);
+            if (parsedDraft.weights) {
+              setLastWeights(parsedDraft.weights);
+              setCheckedSets(parsedDraft.checks || {});
+            } else {
+              setLastWeights(parsedDraft);
+            }
+          }
+        } catch (e) {
+          console.log('Erro ao carregar cache offline', e);
+        }
+      }
+
+      // ==================================================================
+      // 2. TENTA BUSCAR DADOS FRESCOS DA INTERNET (ATUALIZA O CACHE)
+      // ==================================================================
       try {
         const sysVideosRes = await fetch(`https://fitos-final.onrender.com/api/admin/system-technique-videos?coachId=${coachIdToUse}`);
         if (sysVideosRes.ok) {
           const sysVideos = await sysVideosRes.json();
-          if (Array.isArray(sysVideos)) {
-            sysVideos.forEach(v => {
-              if (currentTechGuide[v.key]) {
-                currentTechGuide[v.key] = { ...currentTechGuide[v.key], videoUrl: v.videoUrl };
-              }
-            });
-            if (!isPreviewMode) await AsyncStorage.setItem(sysVideoCacheKey, JSON.stringify(wrapWithTimestamp(sysVideos)));
-          }
-        } else {
-          throw new Error("Failed to fetch system videos");
+          sysVideos.forEach(v => {
+            if (currentTechGuide[v.key]) currentTechGuide[v.key] = { ...currentTechGuide[v.key], videoUrl: v.videoUrl };
+          });
+          if (!isPreviewMode) await AsyncStorage.setItem(sysVideoCacheKey, JSON.stringify(wrapWithTimestamp(sysVideos)));
         }
-      } catch (e) {
-        try {
-          const cachedSysVideosStr = await AsyncStorage.getItem(sysVideoCacheKey);
-          const sysVideos = readIfFresh(cachedSysVideosStr);
-          if (sysVideos) {
-            sysVideos.forEach(v => {
-              if (currentTechGuide[v.key]) {
-                currentTechGuide[v.key] = { ...currentTechGuide[v.key], videoUrl: v.videoUrl };
-              }
-            });
-          }
-        } catch (e2) {}
-      }
 
-      // 🔥 TÉCNICAS CUSTOMIZADAS DO LABORATÓRIO — cache com TTL de 24h. Cache
-      // gravado por versões antigas do app (sem `cachedAt`) é descartado
-      // automaticamente por readIfFresh, eliminando o problema de uma técnica
-      // recém-criada/editada ficar "escondida" atrás de um cache antigo.
-      try {
-        let customTechs = [];
         const techRes = await fetch(`https://fitos-final.onrender.com/api/admin/techniques?coachId=${coachIdToUse}`);
         if (techRes.ok) {
-          customTechs = await techRes.json();
-          if (!isPreviewMode) await AsyncStorage.setItem(`@cached_techs_${coachIdToUse}`, JSON.stringify(wrapWithTimestamp(customTechs)));
-        } else {
-          throw new Error("Failed to fetch");
-        }
-
-        customTechs.forEach(t => {
-          currentTechGuide[t.id] = {
-            id: t.id,
-            title: t.name,
-            color: theme.accent, // Verde Neon Profissional
-            icon: 'flask-outline', // Ícone de laboratório
-            desc: t.description || 'Técnica avançada personalizada pelo seu treinador. Siga o passo a passo da linha do tempo.',
-            steps: t.steps,
-            videoUrl: t.videoUrl || null,
-            isCustom: true
-          };
-        });
-      } catch (e) {
-        const cachedTechsStr = await AsyncStorage.getItem(`@cached_techs_${coachIdToUse}`);
-        const customTechs = readIfFresh(cachedTechsStr);
-        if (customTechs) {
+          const customTechs = await techRes.json();
           customTechs.forEach(t => {
             currentTechGuide[t.id] = {
-              id: t.id,
-              title: t.name,
-              color: theme.accent,
-              icon: 'flask-outline',
-              desc: t.description || 'Técnica avançada personalizada pelo seu treinador. Siga o passo a passo da linha do tempo.',
-              steps: t.steps,
-              videoUrl: t.videoUrl || null,
-              isCustom: true
+              id: t.id, title: t.name, color: theme.accent, icon: 'flask-outline',
+              desc: t.description || '', steps: t.steps, videoUrl: t.videoUrl || null, isCustom: true
             };
           });
+          if (!isPreviewMode) await AsyncStorage.setItem(customTechCacheKey, JSON.stringify(wrapWithTimestamp(customTechs)));
         }
-      }
-      // Salva o dicionário completo e atualizado no estado!
-      setTechGuide(currentTechGuide);
+        setTechGuide({ ...currentTechGuide });
 
-      // 🔥 CACHE DO TREINO — também com TTL de 24h. Esse é o cache que causava
-      // o sintoma mais visível: o exercício aparecendo otimisticamente com o
-      // nome da técnica já resolvido de uma sessão de teste anterior (antes da
-      // técnica customizada existir de fato), antes do fetch fresco substituir.
-      const cacheKey = `@cached_workout_${workoutId}_${day}`;
-      const cachedDataStr = await AsyncStorage.getItem(cacheKey);
-      const cachedData = readIfFresh(cachedDataStr);
-      if (cachedData && !isPreviewMode) setExercisesToShow(cachedData); // Modo espião sempre pega fresco
+        const [resWorkout, resCheckin] = await Promise.all([
+          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`),
+          isPreviewMode ? Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: 'mock' }]) }) : fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+        ]);
 
-      const draftKey = `draft_workout_${workoutId}_${day}`;
-      const draft = await AsyncStorage.getItem(draftKey);
-      if (draft && !isPreviewMode) {
-        try {
-          const parsed = JSON.parse(draft);
-          if (parsed.weights) {
-            setLastWeights(parsed.weights);
-            setCheckedSets(parsed.checks || {});
-          } else {
-            setLastWeights(parsed);
+        if (resWorkout.ok) {
+          const data = await resWorkout.json();
+          
+          let hasPhotos = true;
+          if (resCheckin.ok) {
+            const checkinsData = await resCheckin.json();
+            hasPhotos = Array.isArray(checkinsData) && checkinsData.length > 0;
+            setHasSentInitialPhotos(hasPhotos);
           }
-        } catch (e) {}
-      }
 
-      // 🔥 No Modo Espião, não precisa buscar checkin do aluno 🔥
-      const [resWorkout, resCheckin] = await Promise.all([
-        fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`),
-        isPreviewMode ? Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: 'mock' }]) }) : fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
-      ]);
+          if (data && data.exercises) {
+            const wModel = data.workoutModel || 'CARGA';
+            setWorkoutModel(wModel);
 
-      const data = await resWorkout.json();
-      if (resCheckin.ok) {
-        const checkinsData = await resCheckin.json();
-        setHasSentInitialPhotos(Array.isArray(checkinsData) && checkinsData.length > 0);
-      }
+            let multiplier = data.intensityMultiplier || 1.0;
+            let isMaskActive = false;
 
-      if (resWorkout.ok && data && data.exercises) {
-        setWorkoutModel(data.workoutModel || 'CARGA');
+            if (multiplier !== 1.0 && data.intensityEndDate) {
+              const expirationDate = new Date(data.intensityEndDate);
+              if (new Date() <= expirationDate) isMaskActive = true;
+              else multiplier = 1.0;
+            }
 
-        let multiplier = data.intensityMultiplier || 1.0;
-        let isMaskActive = false;
+            setActiveIntensityMultiplier(multiplier);
+            setIsIntensityMaskActive(isMaskActive);
 
-        if (multiplier !== 1.0 && data.intensityEndDate) {
-          const expirationDate = new Date(data.intensityEndDate);
-          if (new Date() <= expirationDate) {
-            isMaskActive = true;
-          } else {
-            multiplier = 1.0;
-          }
-        }
+            const filteredExercises = data.exercises
+              .filter(item => item.day === day)
+              .map(item => {
+                let realBlocks = item.blocks;
+                let realTech = item.technique;
+                let realObs = item.observation;
+                try {
+                  if (item.technique && typeof item.technique === 'string' && item.technique.trim().startsWith('{')) {
+                    const parsed = JSON.parse(item.technique);
+                    if (parsed && parsed.b) {
+                      realBlocks = parsed.b;
+                      realTech = parsed.t;
+                      realObs = parsed.o || realObs;
+                    }
+                  }
+                } catch (e) {}
 
-        setActiveIntensityMultiplier(multiplier);
-        setIsIntensityMaskActive(isMaskActive);
-
-        const filteredExercises = data.exercises
-          .filter(item => item.day === day)
-          .map(item => {
-            let realBlocks = item.blocks;
-            let realTech = item.technique;
-            let realObs = item.observation;
-            try {
-              if (item.technique && typeof item.technique === 'string' && item.technique.trim().startsWith('{')) {
-                const parsed = JSON.parse(item.technique);
-                if (parsed && parsed.b) {
-                  realBlocks = parsed.b;
-                  realTech = parsed.t;
-                  realObs = parsed.o || realObs;
+                if (!realBlocks || !Array.isArray(realBlocks) || realBlocks.length === 0) {
+                  realBlocks = [{ sets: String(item.sets || '3'), reps: String(item.reps || '12'), restTime: String(item.restTime || '60'), technique: realTech || '' }];
                 }
-              }
-            } catch (e) {}
 
-            if (!realBlocks || !Array.isArray(realBlocks) || realBlocks.length === 0) {
-              realBlocks = [{ sets: String(item.sets || '3'), reps: String(item.reps || '12'), restTime: String(item.restTime || '60'), technique: realTech || '' }];
-            }
+                realBlocks = realBlocks.map(block => {
+                  let newBlock = { ...block };
+                  if (newBlock.customTechniqueId) {
+                    const nomeDaTecnica = currentTechGuide[newBlock.customTechniqueId]?.title || 'Técnica Customizada';
+                    newBlock.technique = nomeDaTecnica;
+                  }
+                  return newBlock;
+                });
 
-            // 🔥 CIRURGIA 1 CORRIGIDA: Traduz o ID da técnica para o NOME VISUAL
-            realBlocks = realBlocks.map(block => {
-              let newBlock = { ...block };
-              if (newBlock.customTechniqueId) {
-                // Busca o nome lá no dicionário que acabamos de montar e entrega mastigado pra interface
-                const nomeDaTecnica = currentTechGuide[newBlock.customTechniqueId]?.title || 'Técnica Customizada';
-                newBlock.technique = nomeDaTecnica;
-              }
-              return newBlock;
-            });
+                if (realBlocks[0]?.technique) realTech = realBlocks[0].technique;
 
-            // Atualiza a técnica raiz do exercício com base no bloco 1
-            if (realBlocks[0]?.technique) {
-              realTech = realBlocks[0].technique;
-            }
+                if (isMaskActive && wModel === 'CARGA') {
+                  const masked = applyIntensityMaskToBlocks(realBlocks, multiplier, realObs);
+                  realBlocks = masked.blocks;
+                  realObs = masked.observation;
+                }
 
-            if (isMaskActive && data.workoutModel === 'CARGA') {
-              const masked = applyIntensityMaskToBlocks(realBlocks, multiplier, realObs);
-              realBlocks = masked.blocks;
-              realObs = masked.observation;
-            }
-
-            return { ...item, blocks: realBlocks, technique: realTech, observation: realObs };
-          });
-
-        setExercisesToShow(filteredExercises);
-
-        if (data.lastWeights) {
-          let maskedWeights = { ...data.lastWeights };
-          if (isMaskActive && data.workoutModel === 'CARGA') {
-            Object.keys(maskedWeights).forEach(exId => {
-              Object.keys(maskedWeights[exId]).forEach(setIdx => {
-                let originalWeight = maskedWeights[exId][setIdx];
-                maskedWeights[exId][setIdx] = applyMaskToString(originalWeight, multiplier);
+                return { ...item, blocks: realBlocks, technique: realTech, observation: realObs };
               });
-            });
+
+            setExercisesToShow(filteredExercises);
+
+            if (data.lastWeights) {
+              let maskedWeights = { ...data.lastWeights };
+              if (isMaskActive && wModel === 'CARGA') {
+                Object.keys(maskedWeights).forEach(exId => {
+                  Object.keys(maskedWeights[exId]).forEach(setIdx => {
+                    let originalWeight = maskedWeights[exId][setIdx];
+                    maskedWeights[exId][setIdx] = applyMaskToString(originalWeight, multiplier);
+                  });
+                });
+              }
+              setHistoryWeights(maskedWeights);
+              if (!isPreviewMode) await AsyncStorage.setItem(historyCacheKey, JSON.stringify(maskedWeights));
+            }
+
+            if (!isPreviewMode) {
+              const fullCacheData = {
+                exercises: filteredExercises,
+                workoutModel: wModel,
+                multiplier,
+                isMaskActive,
+                hasSentInitialPhotos: hasPhotos
+              };
+              await AsyncStorage.setItem(workoutCacheKey, JSON.stringify(wrapWithTimestamp(fullCacheData)));
+            }
           }
-          setHistoryWeights(maskedWeights);
-          if (!isPreviewMode) await AsyncStorage.setItem(`@cached_history_${workoutId}_${day}`, JSON.stringify(maskedWeights));
         }
-        if (!isPreviewMode) await AsyncStorage.setItem(cacheKey, JSON.stringify(wrapWithTimestamp(filteredExercises)));
+      } catch (e) {
+        // Fetch falhou (SEM INTERNET). Como já carregamos do cache na Etapa 1, a tela não ficará em branco.
+        console.log('Sem internet. Mantendo os textos do treino que foram carregados no cache offline.');
       }
+
     } catch (error) {
-      if (!isPreviewMode) {
-        const histCache = await AsyncStorage.getItem(`@cached_history_${workoutId}_${day}`);
-        if (histCache) setHistoryWeights(JSON.parse(histCache));
-      }
-    } finally { setLoading(false); }
+      console.error("Erro fatal no carregamento do treino:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Auto-save do rascunho (peso + checks) — 500ms de debounce, igual ao original
   useEffect(() => {
-    if (isPreviewMode) return; // 🔥 MODO ESPIÃO NÃO SALVA RASCUNHO 🔥
+    if (isPreviewMode) return;
 
     const saveProgress = async () => {
       if (Object.keys(lastWeights).length > 0 || Object.keys(checkedSets).length > 0) {
@@ -355,14 +329,11 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
             const val = userInputs[setKey];
             if (val !== undefined && val !== null && val !== '') {
               const cleanIndex = parseInt(setKey);
-
               const repsVal = ex.blocks?.[cleanIndex]?.reps || ex.blocks?.[0]?.reps || ex.reps || 10;
-
               let realWeightToSave = val;
               if (isIntensityMaskActive && workoutModel === 'CARGA' && activeIntensityMultiplier !== 1.0) {
                 realWeightToSave = applyMaskToString(val, (1 / activeIntensityMultiplier));
               }
-
               setsData.push({ index: isNaN(cleanIndex) ? 1 : cleanIndex, weight: realWeightToSave, reps: String(repsVal) });
             }
           });
@@ -380,10 +351,6 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
       const json = await res.json();
 
       if (res.ok) {
-        // 🔒 Marca o guard de saída como "liberado" ANTES de navegar — replica a ordem
-        // exata do original, onde isFinishingRef.current = true vinha primeiro no bloco
-        // res.ok, evitando que o beforeRemove dispare o alerta de "treino em andamento"
-        // durante a navegação de sucesso pro FinishScreen.
         onBeforeNavigateAway?.();
 
         await AsyncStorage.removeItem(`draft_workout_${workoutId}_${day}`);

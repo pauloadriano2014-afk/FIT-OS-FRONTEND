@@ -349,8 +349,11 @@ export function useHomeData() {
                         // seja diferente do que estava salvo localmente
                         setAssistantName(getAssistantName(fetchedUser.coachId));
 
-                        await AsyncStorage.setItem('user', JSON.stringify(fetchedUser));
-                        setUserData(fetchedUser);
+                        // 🔥 LIPOASPIRAÇÃO ANTI-EXPLOSÃO DE MEMÓRIA 🔥
+                        // Arranca as listas gigantes que o backend manda (para não estourar o limite de 5MB)
+                        const { diets, workouts, anamneses, ...leanFetchedUser } = fetchedUser;
+                        await AsyncStorage.setItem('user', JSON.stringify(leanFetchedUser));
+                        setUserData(leanFetchedUser);
                     }
                 }
 
@@ -486,7 +489,7 @@ export function useHomeData() {
                 }
             }
         } catch (e) {
-            console.log("Erro de rede ao salvar:", e);
+            console.log("Sinalização Menstrual salva localmente. Sincronizará depois quando houver rede.");
         } finally {
             setTogglingMenstrual(false);
         }
@@ -552,8 +555,8 @@ export function useHomeData() {
                     userGender: gender,
                     userGoal:   goal,
                     userLevel:  levelData.title,
-                    userPlan,                          // 🔥 novo
-                    coachId:    userData?.coachId || '' // 🔥 novo
+                    userPlan,                          
+                    coachId:    userData?.coachId || '' 
                 })
             });
             const data = await res.json();
@@ -565,7 +568,7 @@ export function useHomeData() {
                 throw new Error("Sem resposta");
             }
         } catch {
-            setMessages(prev => [...prev, { id: Date.now() + 1, text: "Falha na comunicação com a base, atleta.", sender: 'ai' }]);
+            setMessages(prev => [...prev, { id: Date.now() + 1, text: "Falha na comunicação com a base. Você pode estar sem internet.", sender: 'ai' }]);
         } finally {
             setIsTyping(false);
             setTimeout(() => flatListRef.current?.scrollToEnd(), 100);

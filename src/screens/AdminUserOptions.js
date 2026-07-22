@@ -15,7 +15,7 @@ import AdminUserSystem from '../components/AdminUserSystem';
 import RaioxCargasModal from '../components/RaioxCargasModal';
 import AdminUserAnamneseTab from '../components/Admin/AdminUserAnamneseTab';
 import RunningProtocolModal from '../components/Admin/RunningProtocolModal';
-import SelectAnamneseModal from '../components/Admin/SelectAnamneseModal'; // 🔥 NOVO MODAL SAAS
+import SelectAnamneseModal from '../components/Admin/SelectAnamneseModal'; 
 
 const MASTER_IDS = [
     '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
@@ -53,7 +53,7 @@ export default function AdminUserOptions({ route, navigation }) {
     const targetStudent = ops.freshAluno || aluno; 
 
     const [currentUserId, setCurrentUserId] = useState(null);
-    const [isSelectAnamneseVisible, setIsSelectAnamneseVisible] = useState(false); // 🔥 ESTADO DO MODAL
+    const [isSelectAnamneseVisible, setIsSelectAnamneseVisible] = useState(false); 
 
     useEffect(() => {
         const loadAdminData = async () => {
@@ -86,7 +86,12 @@ export default function AdminUserOptions({ route, navigation }) {
                     await AsyncStorage.setItem('original_admin_user', currentAdminStr);
                     await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
                     
-                    await AsyncStorage.setItem('user', JSON.stringify(targetStudent));
+                    // 🔥 LÓGICA ANTI-EXPLOSÃO DE MEMÓRIA (QuotaExceededError) 🔥
+                    // Arrancamos as listas gigantes (treinos, dietas, anamneses) do objeto
+                    // O aplicativo do aluno vai puxar isso da internet na Home, não precisamos socar na memória de login!
+                    const { diets, workouts, anamneses, ...leanStudentData } = targetStudent;
+
+                    await AsyncStorage.setItem('user', JSON.stringify(leanStudentData));
                     await AsyncStorage.setItem('role', 'USER');
                     
                     if (Platform.OS === 'web') {
