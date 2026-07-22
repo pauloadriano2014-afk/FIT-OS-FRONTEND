@@ -37,6 +37,9 @@ const MASTER_IDS = [
   'b7c0c181-41fd-4156-b8fe-963a267759a3'
 ];
 
+// 🔥 Feature flag — mudar para true quando o app estiver na Apple Store e Play Store
+const OFFLINE_DOWNLOAD_ENABLED = false;
+
 const RPE_OPTIONS = [
   { val: 10, label: 'FALHA TOTAL', desc: 'Não subia mais nada', color: '#BF5AF2' },
   { val: 9, label: 'MUITO INTENSO', desc: 'Sobrou 1 repetição', color: '#FF3B30' },
@@ -440,8 +443,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const ListHeader = () => (
     <View style={{ marginBottom: 20 }}>
 
-      {/* 🔥 Banner offline — não aparece no modo espião nem na web */}
-      {!isPreviewMode && !isWeb && (
+      {/* 🔥 Banner offline — ativado via OFFLINE_DOWNLOAD_ENABLED quando app estiver na store */}
+      {!isPreviewMode && OFFLINE_DOWNLOAD_ENABLED && (
         <OfflineBanner
           downloadStatus={downloadStatus}
           downloadProgress={downloadProgress}
