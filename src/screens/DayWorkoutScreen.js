@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import {
   View, Text, SafeAreaView, TouchableOpacity,
   ActivityIndicator, Alert, StatusBar, Platform, Dimensions,
-  UIManager, FlatList, Modal, ScrollView
+  UIManager, FlatList, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -37,8 +37,8 @@ const MASTER_IDS = [
   'b7c0c181-41fd-4156-b8fe-963a267759a3'
 ];
 
-// 🔥 Feature flag — mudar para true quando o app estiver na Apple Store e Play Store
-const OFFLINE_DOWNLOAD_ENABLED = false;
+// 🔥 Feature flag — ATIVADA PARA PWA!
+const OFFLINE_DOWNLOAD_ENABLED = true;
 
 const RPE_OPTIONS = [
   { val: 10, label: 'FALHA TOTAL', desc: 'Não subia mais nada', color: '#BF5AF2' },
@@ -57,7 +57,6 @@ function DownloadConfirmModal({ visible, onConfirm, onCancel, theme }) {
       <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
         <View style={{ backgroundColor: theme.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, borderWidth: 1, borderColor: theme.border }}>
           
-          {/* Ícone */}
           <View style={{ alignItems: 'center', marginBottom: 16 }}>
             <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: theme.accent + '20', justifyContent: 'center', alignItems: 'center' }}>
               <MaterialCommunityIcons name="download-circle-outline" size={32} color={theme.accent} />
@@ -68,7 +67,6 @@ function DownloadConfirmModal({ visible, onConfirm, onCancel, theme }) {
             SALVAR TREINO OFFLINE
           </Text>
 
-          {/* Mensagem PA ELITE TEAM */}
           <View style={{ backgroundColor: theme.accent + '15', borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: theme.accent }}>
             <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 6 }}>
               💪 PA ELITE TEAM
@@ -78,7 +76,6 @@ function DownloadConfirmModal({ visible, onConfirm, onCancel, theme }) {
             </Text>
           </View>
 
-          {/* Aviso sobre espaço */}
           <View style={{ backgroundColor: '#FF950015', borderRadius: 10, padding: 12, marginBottom: 20, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
             <MaterialCommunityIcons name="information-outline" size={16} color="#FF9500" style={{ marginTop: 1 }} />
             <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 18, flex: 1 }}>
@@ -86,7 +83,6 @@ function DownloadConfirmModal({ visible, onConfirm, onCancel, theme }) {
             </Text>
           </View>
 
-          {/* Botões */}
           <TouchableOpacity
             onPress={onConfirm}
             style={{ backgroundColor: theme.accent, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 10 }}
@@ -153,26 +149,8 @@ function DeleteDownloadModal({ visible, onConfirm, onCancel, theme }) {
 // Componente: banner de download no topo da lista
 // ─────────────────────────────────────────────────────────────
 function OfflineBanner({ downloadStatus, downloadProgress, onPressDownload, onPressDelete, theme }) {
-  // Na web (incluindo PWA no browser) o download de arquivo não é suportado
-  // O recurso funciona apenas no app instalado (Android/iOS)
-  if (downloadStatus === 'web') {
-    return (
-      <View style={{ backgroundColor: theme.surface, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.accent + '20', justifyContent: 'center', alignItems: 'center' }}>
-          <MaterialCommunityIcons name="cellphone-arrow-down" size={22} color={theme.accent} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
-            Modo offline disponível no app
-          </Text>
-          <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
-            Instale o app no celular para salvar treinos e assistir vídeos sem internet
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
+  // 🔥 Removi o bloqueio falso que impedia a visualização na web/PWA
+  
   if (downloadStatus === 'downloading') {
     return (
       <View style={{ backgroundColor: theme.surface, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.accent + '60' }}>
@@ -182,7 +160,6 @@ function OfflineBanner({ downloadStatus, downloadProgress, onPressDownload, onPr
             Baixando treino... {downloadProgress}%
           </Text>
         </View>
-        {/* Barra de progresso */}
         <View style={{ height: 4, backgroundColor: theme.border, borderRadius: 2, overflow: 'hidden' }}>
           <View style={{ height: 4, width: `${downloadProgress}%`, backgroundColor: theme.accent, borderRadius: 2 }} />
         </View>
@@ -212,7 +189,6 @@ function OfflineBanner({ downloadStatus, downloadProgress, onPressDownload, onPr
     );
   }
 
-  // idle ou error
   return (
     <TouchableOpacity
       onPress={onPressDownload}
@@ -266,7 +242,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const [upsellType, setUpsellType] = useState('ia');
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
 
-  // 🔥 Estados dos modais de offline
   const [downloadConfirmVisible, setDownloadConfirmVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
@@ -281,7 +256,7 @@ export default function DayWorkoutScreen({ route, navigation }) {
   });
   const voice = useTechVoice(data.techGuide);
 
-  // 🔥 Hook de assets offline — recebe workoutId e day para isolar por treino
+  // 🔥 Hook de assets offline ligado
   const { resolveAsset, downloadStatus, downloadProgress, startDownload, deleteDownload } =
     useWorkoutAssets(data.exercisesToShow, workoutId, day);
 
@@ -332,8 +307,13 @@ export default function DayWorkoutScreen({ route, navigation }) {
     setTechModalVisible(false);
   };
 
+  // 🔥 Aqui é onde a magia acontece. Se a URL estiver no cache offline, o resolveAsset devolve o arquivo do celular!
   const handleOpenVideo = (url) => {
-    if (url && url.length > 5) { setCurrentVideoUrl(url); setVideoModalVisible(true); }
+    const finalUrl = resolveAsset(url);
+    if (finalUrl && finalUrl.length > 5) { 
+        setCurrentVideoUrl(finalUrl); 
+        setVideoModalVisible(true); 
+    }
     else {
       if (Platform.OS === 'web') window.alert("Sem vídeo cadastrado.");
       else Alert.alert("Indisponível", "Sem vídeo cadastrado.");
@@ -390,7 +370,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const openDynamicUpsell = (type) => { setUpsellType(type); setUpsellModalVisible(true); };
 
-  // 🔥 Handlers offline
   const handleConfirmDownload = async () => {
     setDownloadConfirmVisible(false);
     await startDownload();
@@ -443,7 +422,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const ListHeader = () => (
     <View style={{ marginBottom: 20 }}>
 
-      {/* 🔥 Banner offline — ativado via OFFLINE_DOWNLOAD_ENABLED quando app estiver na store */}
       {!isPreviewMode && OFFLINE_DOWNLOAD_ENABLED && (
         <OfflineBanner
           downloadStatus={downloadStatus}
@@ -454,7 +432,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
         />
       )}
 
-      {/* Botão iniciar / cronômetro */}
       {!timer.isTimerRunning && timer.elapsedSeconds === 0 && !isPreviewMode ? (
         <TouchableOpacity
           style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }}

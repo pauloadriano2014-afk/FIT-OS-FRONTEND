@@ -122,7 +122,7 @@ export default function ExpandableExerciseBlock({
 
   const rawVideoUrl = mainItem?.exercise?.videoUrl || mainItem?.videoUrl;
 
-  // resolveAsset vem do useWorkoutAssets — devolve path local ou URI original
+  // resolveAsset vem do useWorkoutAssets — devolve path local/blob ou URI original
   const imageUrl = resolveAsset ? resolveAsset(rawImageUrl) : rawImageUrl;
   const videoUrl = resolveAsset ? resolveAsset(rawVideoUrl) : rawVideoUrl;
 
@@ -146,14 +146,12 @@ export default function ExpandableExerciseBlock({
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <View style={[styles.thumbnailContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
             {derivedThumbUrl ? (
-              // 🔥 expo-image: cache automático em disco, sem flash branco, suporta path local
+              // 🔥 expo-image: cache automático em disco, sem flash branco, suporta path local/blob
               <Image
                 source={{ uri: derivedThumbUrl }}
                 style={styles.thumbnailImage}
                 contentFit="cover"
-                // cachePolicy="disk" garante que a imagem fica salva entre sessões
                 cachePolicy="disk"
-                // placeholder enquanto carrega (ou offline antes do cache)
                 placeholder={null}
                 transition={150}
               />
@@ -244,7 +242,7 @@ export default function ExpandableExerciseBlock({
             if (item.substitutes && Array.isArray(item.substitutes)) substitutesList.push(...item.substitutes);
             else if (item.substitute) substitutesList.push(item.substitute);
 
-            // 🔥 Resolve o vídeo do item expandido também
+            // 🔥 Resolve o vídeo do item expandido também (para passar para o modal)
             const itemVideoUrl = resolveAsset
               ? resolveAsset(item.exercise?.videoUrl || item.videoUrl)
               : (item.exercise?.videoUrl || item.videoUrl);
