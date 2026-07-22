@@ -3,7 +3,7 @@ import React, { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import {
   View, Text, SafeAreaView, TouchableOpacity,
   ActivityIndicator, Alert, StatusBar, Platform, Dimensions,
-  UIManager, FlatList
+  UIManager, FlatList, Modal, ScrollView
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -21,6 +21,7 @@ import CalculatorModal from '../components/Training/CalculatorModal';
 import useDayWorkoutTimer from '../components/DayWorkout/useDayWorkoutTimer';
 import useDayWorkoutData from '../components/DayWorkout/useDayWorkoutData';
 import useTechVoice from '../components/DayWorkout/useTechVoice';
+import useWorkoutAssets from '../components/DayWorkout/useWorkoutAssets';
 import DayWorkoutHeader from '../components/DayWorkout/DayWorkoutHeader';
 import WorkoutStatusBanners from '../components/DayWorkout/WorkoutStatusBanners';
 import VideoPlayerModal from '../components/DayWorkout/VideoPlayerModal';
@@ -31,10 +32,9 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { width } = Dimensions.get('window');
 
-// 🔥 IDs do time Master para a trava do botão de IA 🔥
 const MASTER_IDS = [
-  '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
-  'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+  '3c82f763-66b4-48da-836e-16817d4f57c0',
+  'b7c0c181-41fd-4156-b8fe-963a267759a3'
 ];
 
 const RPE_OPTIONS = [
@@ -45,6 +45,176 @@ const RPE_OPTIONS = [
   { val: 4, label: 'LEVE', desc: 'Aquecimento', color: '#32ADE6' },
 ];
 
+// ─────────────────────────────────────────────────────────────
+// Modal: confirmar download
+// ─────────────────────────────────────────────────────────────
+function DownloadConfirmModal({ visible, onConfirm, onCancel, theme }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <View style={{ backgroundColor: theme.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, borderWidth: 1, borderColor: theme.border }}>
+          
+          {/* Ícone */}
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: theme.accent + '20', justifyContent: 'center', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="download-circle-outline" size={32} color={theme.accent} />
+            </View>
+          </View>
+
+          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, marginBottom: 12 }}>
+            SALVAR TREINO OFFLINE
+          </Text>
+
+          {/* Mensagem PA ELITE TEAM */}
+          <View style={{ backgroundColor: theme.accent + '15', borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: theme.accent }}>
+            <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 6 }}>
+              💪 PA ELITE TEAM
+            </Text>
+            <Text style={{ color: theme.text, fontSize: 13, lineHeight: 20 }}>
+              No PA Elite Team ninguém fica sem treino! Se a academia onde você treina tem sinal de internet ruim, baixe o treino antes de sair de casa e tenha acesso completo — incluindo os vídeos de demonstração — mesmo sem conexão.
+            </Text>
+          </View>
+
+          {/* Aviso sobre espaço */}
+          <View style={{ backgroundColor: '#FF950015', borderRadius: 10, padding: 12, marginBottom: 20, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <MaterialCommunityIcons name="information-outline" size={16} color="#FF9500" style={{ marginTop: 1 }} />
+            <Text style={{ color: theme.textSecondary, fontSize: 12, lineHeight: 18, flex: 1 }}>
+              Os vídeos serão salvos no seu celular e podem ocupar alguns MB de armazenamento. Você pode excluir os treinos salvos a qualquer momento.
+            </Text>
+          </View>
+
+          {/* Botões */}
+          <TouchableOpacity
+            onPress={onConfirm}
+            style={{ backgroundColor: theme.accent, padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 10 }}
+          >
+            <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>
+              BAIXAR AGORA
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onCancel} style={{ padding: 12, alignItems: 'center' }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Agora não</Text>
+          </TouchableOpacity>
+
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Modal: confirmar exclusão
+// ─────────────────────────────────────────────────────────────
+function DeleteDownloadModal({ visible, onConfirm, onCancel, theme }) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <View style={{ backgroundColor: theme.surface, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, borderWidth: 1, borderColor: theme.border }}>
+
+          <View style={{ alignItems: 'center', marginBottom: 16 }}>
+            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: '#FF3B3020', justifyContent: 'center', alignItems: 'center' }}>
+              <MaterialCommunityIcons name="trash-can-outline" size={32} color="#FF3B30" />
+            </View>
+          </View>
+
+          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, marginBottom: 12 }}>
+            EXCLUIR TREINO SALVO
+          </Text>
+
+          <View style={{ backgroundColor: '#FF3B3015', borderRadius: 12, padding: 14, marginBottom: 20, flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
+            <MaterialCommunityIcons name="alert-outline" size={16} color="#FF3B30" style={{ marginTop: 1 }} />
+            <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 20, flex: 1 }}>
+              Os vídeos e imagens deste treino serão removidos do seu celular. Se o celular estiver pesando, isso pode liberar espaço. Você pode baixar novamente a qualquer momento enquanto tiver internet.
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={onConfirm}
+            style={{ backgroundColor: '#FF3B30', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 10 }}
+          >
+            <Text style={{ color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>
+              SIM, EXCLUIR
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onCancel} style={{ padding: 12, alignItems: 'center' }}>
+            <Text style={{ color: theme.textSecondary, fontSize: 14 }}>Cancelar</Text>
+          </TouchableOpacity>
+
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Componente: banner de download no topo da lista
+// ─────────────────────────────────────────────────────────────
+function OfflineBanner({ downloadStatus, downloadProgress, onPressDownload, onPressDelete, theme }) {
+  if (downloadStatus === 'downloading') {
+    return (
+      <View style={{ backgroundColor: theme.surface, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.accent + '60' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+          <ActivityIndicator size="small" color={theme.accent} />
+          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', flex: 1 }}>
+            Baixando treino... {downloadProgress}%
+          </Text>
+        </View>
+        {/* Barra de progresso */}
+        <View style={{ height: 4, backgroundColor: theme.border, borderRadius: 2, overflow: 'hidden' }}>
+          <View style={{ height: 4, width: `${downloadProgress}%`, backgroundColor: theme.accent, borderRadius: 2 }} />
+        </View>
+        <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 8 }}>
+          Não feche o app durante o download
+        </Text>
+      </View>
+    );
+  }
+
+  if (downloadStatus === 'done') {
+    return (
+      <View style={{ backgroundColor: theme.surface, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.accent + '40' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <MaterialCommunityIcons name="check-circle" size={22} color={theme.accent} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.accent, fontSize: 13, fontWeight: '900' }}>Treino salvo offline ✓</Text>
+            <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+              Vídeos e imagens disponíveis sem internet
+            </Text>
+          </View>
+          <TouchableOpacity onPress={onPressDelete} style={{ padding: 6 }}>
+            <MaterialCommunityIcons name="trash-can-outline" size={20} color={theme.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // idle ou error
+  return (
+    <TouchableOpacity
+      onPress={onPressDownload}
+      style={{ backgroundColor: theme.surface, borderRadius: 14, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', gap: 12 }}
+      activeOpacity={0.7}
+    >
+      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.accent + '20', justifyContent: 'center', alignItems: 'center' }}>
+        <MaterialCommunityIcons name="download-outline" size={22} color={theme.accent} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+          Salvar treino offline
+        </Text>
+        <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+          Para academias com sinal fraco ou sem internet
+        </Text>
+      </View>
+      <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
+    </TouchableOpacity>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tela principal
+// ─────────────────────────────────────────────────────────────
 export default function DayWorkoutScreen({ route, navigation }) {
   const params = route?.params || {};
   const workoutId = params.workoutId || '';
@@ -52,33 +222,30 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const rawName = params.workoutName || 'Treino';
   const focus = params.focus || 'GERAL';
   const workoutName = rawName.replace(' |#BASE#', '');
-
   const isPreviewMode = params.isPreview || false;
 
   const { theme } = useTheme();
 
-  // 🔥 SOLUÇÃO SCROLL: Agora é um objeto que guarda todos os que estão abertos
   const [expandedBlocks, setExpandedBlocks] = useState({});
-
   const [techModalVisible, setTechModalVisible] = useState(false);
   const [selectedTech, setSelectedTech] = useState(null);
-
   const [videoModalVisible, setVideoModalVisible] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState('');
   const videoRef = useRef(null);
-
   const [calcModalVisible, setCalcModalVisible] = useState(false);
   const [calcWeight, setCalcWeight] = useState('');
   const [calcReps, setCalcReps] = useState('');
   const oneRM = calculate1RM(parseFloat(calcWeight), parseFloat(calcReps));
-
   const [finishModalVisible, setFinishModalVisible] = useState(false);
   const [rpe, setRpe] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
-
   const [upsellModalVisible, setUpsellModalVisible] = useState(false);
   const [upsellType, setUpsellType] = useState('ia');
   const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
+
+  // 🔥 Estados dos modais de offline
+  const [downloadConfirmVisible, setDownloadConfirmVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   const isWeb = Platform.OS === 'web';
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
@@ -89,8 +256,11 @@ export default function DayWorkoutScreen({ route, navigation }) {
     workoutId, day, isPreviewMode, theme, navigation, workoutName, focus,
     onBeforeNavigateAway: timer.markFinishing,
   });
-
   const voice = useTechVoice(data.techGuide);
+
+  // 🔥 Hook de assets offline — recebe workoutId e day para isolar por treino
+  const { resolveAsset, downloadStatus, downloadProgress, startDownload, deleteDownload } =
+    useWorkoutAssets(data.exercisesToShow, workoutId, day);
 
   useFocusEffect(useCallback(() => { data.fetchWorkoutData(); }, []));
 
@@ -101,23 +271,17 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const groupedExercises = useMemo(() => {
     const groups = [];
     let tempGroup = [];
-
     data.exercisesToShow.forEach((item, index) => {
       let rawTech = item.blocks?.[0]?.technique || item.technique || 'NORMAL';
       let safeTechnique = 'NORMAL';
-
       if (data.techGuide[rawTech]) {
         safeTechnique = rawTech;
       } else {
         let normalized = typeof rawTech === 'string' ? rawTech.trim().toUpperCase() : 'NORMAL';
-        if (data.techGuide[normalized]) {
-          safeTechnique = normalized;
-        }
+        if (data.techGuide[normalized]) safeTechnique = normalized;
       }
-
       let isBiSet = safeTechnique.includes('BISET');
       const itemWithMeta = { ...item, safeTechnique, originalIndex: index };
-
       if (isBiSet) {
         tempGroup.push(itemWithMeta);
         if (tempGroup.length === 2) {
@@ -132,18 +296,12 @@ export default function DayWorkoutScreen({ route, navigation }) {
         groups.push({ id: `group_${index}`, type: 'NORMAL', items: [itemWithMeta] });
       }
     });
-    if (tempGroup.length > 0) {
-      groups.push({ id: `group_end`, type: 'BISET', items: tempGroup });
-    }
+    if (tempGroup.length > 0) groups.push({ id: `group_end`, type: 'BISET', items: tempGroup });
     return groups;
   }, [data.exercisesToShow, data.techGuide]);
 
-  // 🔥 SOLUÇÃO SCROLL: Inverte o estado do bloco clicado, sem fechar os outros
   const toggleBlock = (blockId) => {
-    setExpandedBlocks(prev => ({
-      ...prev,
-      [blockId]: !prev[blockId]
-    }));
+    setExpandedBlocks(prev => ({ ...prev, [blockId]: !prev[blockId] }));
   };
 
   const closeTechModal = () => {
@@ -160,7 +318,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
   };
 
   const handleOpenIA = (item) => {
-    // 🔥 Permite acesso se for ELITE ou PREMIUM
     if (data.userPlan === 'PREMIUM' || data.userPlan === 'ELITE') {
       try {
         const refVideo = item.exercise?.videoUrl || item.videoUrl || '';
@@ -197,17 +354,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
     }
     const rpeOption = RPE_OPTIONS.find(opt => opt.val === rpe);
     const selectedRpeLabel = rpeOption ? rpeOption.label : 'MÁXIMA';
-
     const result = await data.submitFinish({
-      rpe,
-      feedbackText,
-      rpeLabel: selectedRpeLabel,
-      elapsedSeconds: timer.elapsedSeconds,
+      rpe, feedbackText, rpeLabel: selectedRpeLabel, elapsedSeconds: timer.elapsedSeconds,
     });
-    if (result.success) {
-      timer.stopTimerAfterFinish();
-      setFinishModalVisible(false);
-    }
+    if (result.success) { timer.stopTimerAfterFinish(); setFinishModalVisible(false); }
   };
 
   const handleStartTimerRequest = () => {
@@ -217,9 +367,20 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const openDynamicUpsell = (type) => { setUpsellType(type); setUpsellModalVisible(true); };
 
+  // 🔥 Handlers offline
+  const handleConfirmDownload = async () => {
+    setDownloadConfirmVisible(false);
+    await startDownload();
+  };
+
+  const handleConfirmDelete = async () => {
+    setDeleteConfirmVisible(false);
+    await deleteDownload();
+  };
+
   const getPhotoModalContent = () => {
     switch (data.userPlan) {
-      case 'PREMIUM': 
+      case 'PREMIUM':
       case 'ELITE': return { title: 'REGISTRE SEU PONTO DE PARTIDA 📸', desc: 'Para mapear sua evolução na Consultoria Elite, faça o seu primeiro registro. É rápido e 100% sigiloso.', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'FAZER DEPOIS', showEscape: true };
       case 'LOW_COST': return { title: 'FOTOS DE EVOLUÇÃO PENDENTES 📸', desc: 'Para acompanharmos sua progressão no plano, precisamos do seu registro inicial. Sem ele, a evolução não existe!', btnText: 'ENVIAR FOTOS AGORA', escapeText: 'IR PARA O TREINO', showEscape: false };
       case 'FICHA_8S': return { title: 'FOTOS DO DIA 1 PENDENTES ⚠️', desc: 'Suas fotos de ponto de partida são essenciais para a avaliação de encerramento do Projeto. O envio é obrigatório para começar!', btnText: 'ENVIAR FOTOS DO DIA 1', escapeText: 'TREINAR MESMO ASSIM', showEscape: false };
@@ -230,32 +391,63 @@ export default function DayWorkoutScreen({ route, navigation }) {
   const photoModal = getPhotoModalContent();
 
   const RootComponent = isWeb ? View : SafeAreaView;
-  const rootStyle = isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 };
+  const rootStyle = isWeb
+    ? { height: '100vh', width: '100%', backgroundColor: webOuterBg }
+    : { flex: 1, backgroundColor: theme.bg, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight + 10 : 0 };
 
   if (!workoutId && !data.loading && data.exercisesToShow.length === 0) {
     return (
       <View style={{ flex: 1, backgroundColor: theme.bg, justifyContent: 'center', alignItems: 'center', padding: 20 }}>
-        <Text style={{ color: theme.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>Você está sem internet para carregar o treino pela primeira vez.</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('Main')} style={{ marginTop: 30, padding: 15, backgroundColor: theme.accent, borderRadius: 10, width: '100%', alignItems: 'center' }}>
+        <Text style={{ color: theme.text, fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>
+          Você está sem internet para carregar o treino pela primeira vez.
+        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Main')}
+          style={{ marginTop: 30, padding: 15, backgroundColor: theme.accent, borderRadius: 10, width: '100%', alignItems: 'center' }}
+        >
           <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 16 }}>VOLTAR PARA O INÍCIO</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  if (data.loading && data.exercisesToShow.length === 0) return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg }}><ActivityIndicator size="large" color={theme.accent} /></View>;
+  if (data.loading && data.exercisesToShow.length === 0) return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.bg }}>
+      <ActivityIndicator size="large" color={theme.accent} />
+    </View>
+  );
 
   const ListHeader = () => (
     <View style={{ marginBottom: 20 }}>
+
+      {/* 🔥 Banner offline — não aparece no modo espião nem na web */}
+      {!isPreviewMode && (
+  <OfflineBanner
+          downloadStatus={downloadStatus}
+          downloadProgress={downloadProgress}
+          onPressDownload={() => setDownloadConfirmVisible(true)}
+          onPressDelete={() => setDeleteConfirmVisible(true)}
+          theme={theme}
+        />
+      )}
+
+      {/* Botão iniciar / cronômetro */}
       {!timer.isTimerRunning && timer.elapsedSeconds === 0 && !isPreviewMode ? (
-        <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }} onPress={handleStartTimerRequest}>
+        <TouchableOpacity
+          style={{ backgroundColor: theme.accent, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 20, borderRadius: 16, gap: 10, elevation: 5 }}
+          onPress={handleStartTimerRequest}
+        >
           <MaterialCommunityIcons name="play" size={30} color={theme.isDark ? '#000' : '#FFF'} />
           <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontSize: 18, fontWeight: '900', letterSpacing: 1 }}>INICIAR TREINO</Text>
         </TouchableOpacity>
       ) : (
         <View style={{ backgroundColor: theme.surface, padding: 20, borderRadius: 16, borderWidth: 1, borderColor: theme.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 5 }}>{isPreviewMode ? "CRONÔMETRO (ESPIÃO)" : "TEMPO DECORRIDO"}</Text>
-          <Text style={{ color: theme.text, fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] }}>{formatTime(timer.elapsedSeconds)}</Text>
+          <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginBottom: 5 }}>
+            {isPreviewMode ? "CRONÔMETRO (ESPIÃO)" : "TEMPO DECORRIDO"}
+          </Text>
+          <Text style={{ color: theme.text, fontSize: 40, fontWeight: '900', fontVariant: ['tabular-nums'] }}>
+            {formatTime(timer.elapsedSeconds)}
+          </Text>
         </View>
       )}
     </View>
@@ -263,7 +455,10 @@ export default function DayWorkoutScreen({ route, navigation }) {
 
   const ListFooter = () => (
     !isPreviewMode ? (
-      <TouchableOpacity style={{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginTop: 20, gap: 10 }} onPress={validateAndFinish}>
+      <TouchableOpacity
+        style={{ backgroundColor: theme.accent, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16, borderRadius: 12, marginTop: 20, gap: 10 }}
+        onPress={validateAndFinish}
+      >
         <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 }}>FINALIZAR TREINO</Text>
         <MaterialCommunityIcons name="check-all" size={24} color={theme.isDark ? '#000' : '#FFF'} />
       </TouchableOpacity>
@@ -271,40 +466,37 @@ export default function DayWorkoutScreen({ route, navigation }) {
   );
 
   const renderExerciseBlock = ({ item }) => {
-    // 🔥 VERIFICA SE O ALUNO PERTENCE AO TIME MASTER 🔥
     const currentCoachId = data.userData?.coachId || data.userData?.nutritionistId;
     const isMasterStudent = currentCoachId ? MASTER_IDS.includes(currentCoachId) : false;
 
     return (
       <ExpandableExerciseBlock
-        block={item} 
-        isExpanded={!!expandedBlocks[item.id]} 
-        onToggle={() => toggleBlock(item.id)} 
+        block={item}
+        isExpanded={!!expandedBlocks[item.id]}
+        onToggle={() => toggleBlock(item.id)}
         theme={theme}
-        lastWeights={data.lastWeights} 
-        historyWeights={data.historyWeights} 
-        handleSaveWeight={data.handleSaveWeight} 
-        checkedSets={data.checkedSets} 
+        lastWeights={data.lastWeights}
+        historyWeights={data.historyWeights}
+        handleSaveWeight={data.handleSaveWeight}
+        checkedSets={data.checkedSets}
         handleCheckSet={data.handleCheckSet}
-        handleOpenVideo={handleOpenVideo} 
-        
-        // 🔥 PASSANDO NULL PARA OCULTAR O BOTÃO SE NÃO FOR ALUNO MASTER 🔥
-        handleOpenIA={isMasterStudent ? handleOpenIA : null} 
-        
+        handleOpenVideo={handleOpenVideo}
+        handleOpenIA={isMasterStudent ? handleOpenIA : null}
         handleOpenCalc={handleOpenCalc}
-        hasPremiumFeatures={data.userPlan === 'PREMIUM' || data.userPlan === 'ELITE'} 
-        workoutModel={data.workoutModel} 
-        TECH_GUIDE={data.techGuide} 
-        setTechModalVisible={setTechModalVisible} 
+        hasPremiumFeatures={data.userPlan === 'PREMIUM' || data.userPlan === 'ELITE'}
+        workoutModel={data.workoutModel}
+        TECH_GUIDE={data.techGuide}
+        setTechModalVisible={setTechModalVisible}
         setSelectedTech={setSelectedTech}
-        handleSwap={data.handleSwap} 
-        isTimerRunning={timer.isTimerRunning} 
+        handleSwap={data.handleSwap}
+        resolveAsset={resolveAsset}
+        isTimerRunning={timer.isTimerRunning}
         isVoiceEnabled={voice.isVoiceEnabled}
-        colors={{ 
-          bg: theme.bg, surface: theme.surface, border: theme.border, 
-          text: theme.text, textMuted: theme.textSecondary, primary: theme.accent, 
-          primaryText: theme.isDark ? '#000' : '#FFF', inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5', 
-          glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)' 
+        colors={{
+          bg: theme.bg, surface: theme.surface, border: theme.border,
+          text: theme.text, textMuted: theme.textSecondary, primary: theme.accent,
+          primaryText: theme.isDark ? '#000' : '#FFF', inputBg: theme.isDark ? '#1C1C1E' : '#F5F5F5',
+          glass: theme.isDark ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.85)'
         }}
         userData={data.userData}
       />
@@ -334,23 +526,30 @@ export default function DayWorkoutScreen({ route, navigation }) {
       </View>
 
       <View style={{ flex: 1, position: 'relative', alignItems: 'center' }}>
-         <View style={{ width: isWeb ? '100%' : width, maxWidth: isWeb ? 480 : width, flex: 1, backgroundColor: theme.bg, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
-            <FlatList
-              data={groupedExercises}
-              keyExtractor={(item) => item.id}
-              renderItem={renderExerciseBlock}
-              ListHeaderComponent={ListHeader}
-              ListFooterComponent={ListFooter}
-              contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 150 }}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              bounces={false}
-              overScrollMode="never"
-              removeClippedSubviews={false} 
-            />
-         </View>
+        <View style={{
+          width: isWeb ? '100%' : width,
+          maxWidth: isWeb ? 480 : width,
+          flex: 1,
+          backgroundColor: theme.bg,
+          ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {})
+        }}>
+          <FlatList
+            data={groupedExercises}
+            keyExtractor={(item) => item.id}
+            renderItem={renderExerciseBlock}
+            ListHeaderComponent={ListHeader}
+            ListFooterComponent={ListFooter}
+            contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 15, paddingBottom: 150 }}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+            overScrollMode="never"
+            removeClippedSubviews={false}
+          />
+        </View>
       </View>
 
+      {/* Modais existentes */}
       <InitialPhotosModal
         visible={initialPhotosModalVisible}
         onClose={() => { setInitialPhotosModalVisible(false); timer.executeStartTimer(); }}
@@ -363,7 +562,6 @@ export default function DayWorkoutScreen({ route, navigation }) {
       <TechGuideModal visible={techModalVisible} onClose={closeTechModal} theme={theme} selectedTech={selectedTech} TECH_GUIDE={data.techGuide} isPlayingTechVoice={voice.isPlayingTechVoice} handlePlayTechVoice={voice.handlePlayTechVoice} isWeb={isWeb} />
       <FinishWorkoutModal visible={finishModalVisible} onClose={() => setFinishModalVisible(false)} theme={theme} RPE_OPTIONS={RPE_OPTIONS} rpe={rpe} setRpe={setRpe} feedbackText={feedbackText} setFeedbackText={setFeedbackText} submitFinish={submitFinish} isWeb={isWeb} />
       <CalculatorModal visible={calcModalVisible} onClose={() => setCalcModalVisible(false)} theme={theme} calcWeight={calcWeight} setCalcWeight={setCalcWeight} calcReps={calcReps} setCalcReps={setCalcReps} oneRM={oneRM} isWeb={isWeb} />
-
       <VideoPlayerModal
         visible={videoModalVisible}
         onClose={() => { setVideoModalVisible(false); setCurrentVideoUrl(null); }}
@@ -371,6 +569,20 @@ export default function DayWorkoutScreen({ route, navigation }) {
         videoRef={videoRef}
         isWeb={isWeb}
         isIOSWeb={isIOSWeb}
+      />
+
+      {/* 🔥 Modais offline */}
+      <DownloadConfirmModal
+        visible={downloadConfirmVisible}
+        onConfirm={handleConfirmDownload}
+        onCancel={() => setDownloadConfirmVisible(false)}
+        theme={theme}
+      />
+      <DeleteDownloadModal
+        visible={deleteConfirmVisible}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirmVisible(false)}
+        theme={theme}
       />
 
     </RootComponent>
