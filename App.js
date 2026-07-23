@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
@@ -121,7 +122,9 @@ function StudentTabs({ route }) {
           if (res.ok) {
             const fresh = await res.json();
             setUserData(fresh);
-            AsyncStorage.setItem('user', JSON.stringify(fresh));
+            // 🔥 LIPOASPIRAÇÃO DE MEMÓRIA: Remove os arrays gigantes antes de salvar no celular
+            const { diets, workouts, anamneses, ...leanFresh } = fresh;
+            AsyncStorage.setItem('user', JSON.stringify(leanFresh)).catch(() => {});
           }
         } catch (e) {
           console.log('Erro refresh user', e);
@@ -272,7 +275,8 @@ function RootNavigator() {
       <Stack.Screen name="AdminCoachesScreen" component={AdminCoachesScreen} />
       <Stack.Screen name="AdminAnamneseBuilderScreen" component={AdminAnamneseBuilderScreen} />
       <Stack.Screen name="CoachBlockedScreen" component={CoachBlockedScreen} />
-      {/* 🔥 ESTRATÉGIAS DE DIETA */}
+      <Stack.Screen name="CoachPropostaScreen" component={CoachPropostaScreen} />
+      {/* 🔥 ESTRATÉGIAS */}
       <Stack.Screen name="AdminStrategiesScreen" component={AdminStrategiesScreen} />
     </Stack.Navigator>
   );

@@ -2,12 +2,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity,
-    StatusBar, RefreshControl, ActivityIndicator, Platform, Modal, Animated, Linking, Alert
+    StatusBar, RefreshControl, ActivityIndicator, Platform, Animated
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 
 // ── Hook de dados ──────────────────────────────────────────────────────────
@@ -17,25 +15,15 @@ import { useHomeData } from '../hooks/useHomeData';
 import HomeBanners    from '../components/HomeBanners';
 import HomeMainAction from '../components/HomeMainAction';
 import HomeGrid       from '../components/HomeGrid';
-
-// ── Modais externos (já existentes) ───────────────────────────────────────
-import LevelUpModal           from '../components/LevelUpModal';
-import HomeNoticeModal        from '../components/HomeNoticeModal';
-import ChatAIAssistantModal   from '../components/ChatAIAssistantModal';
-import DietGuideModal         from '../components/DietGuideModal';
-import StudentReportModal     from '../components/StudentReportModal';
-import InitialPhotosModal     from '../components/InitialPhotosModal';
-import SatisfactionSurveyModal from '../components/SatisfactionSurveyModal';
-// 💳 NOVO: Modal de pagamento via Asaas (PIX/Cartão/Boleto)
-import FinancePaymentModal    from '../components/FinancePaymentModal';
+import ImpersonateExitButton from '../components/ImpersonateExitButton';
+import HomeFloatingChat      from '../components/HomeFloatingChat';
+import HomeModalsManager     from '../components/HomeModalsManager';
 
 export default function HomeScreen({ navigation }) {
     const { theme } = useTheme();
-
-    // ── Todos os dados e lógica de negócio vêm do hook ────────────────────
     const home = useHomeData();
 
-    // ── Estados de UI (só controlam visibilidade de modais) ───────────────
+    // ── Estados de UI (Modais) ───────────────
     const [fichaExpiredModalVisible, setFichaExpiredModalVisible] = useState(false);
     const [dietModalVisible,         setDietModalVisible]         = useState(false);
     const [initialPhotosModalVisible, setInitialPhotosModalVisible] = useState(false);
@@ -46,58 +34,16 @@ export default function HomeScreen({ navigation }) {
     const [chatVisible,              setChatVisible]              = useState(false);
     const [upsellModalVisible,       setUpsellModalVisible]       = useState(false);
     const [upsellFeature,            setUpsellFeature]            = useState('');
-
-    // 💳 NOVO: Modal de pagamento (checkout Asaas)
     const [paymentModalVisible,      setPaymentModalVisible]      = useState(false);
-
     const [anamnesePendingModalVisible, setAnamnesePendingModalVisible] = useState(false);
 
-    // 🔥 Estado do Modo Coach (Impersonation)
-    const [isImpersonating, setIsImpersonating] = useState(false);
-
-    // ── Animação de pulso ─────────────────────────────────────────────────
     const pulseAnim = useRef(new Animated.Value(1)).current;
 
-    // 🔥 VERIFICAÇÃO BLINDADA DO MODO COACH (RODA ASSIM QUE A TELA ABRE) 🔥
-    useEffect(() => {
-        const checkImpersonation = async () => {
-            try {
-                const originalAdmin = await AsyncStorage.getItem('original_admin_user');
-                // Se a chave estiver no aparelho, ativa o modo Admin/Coach na hora
-                if (originalAdmin) {
-                    // 🔥 DESFIBRILADOR DE MEMÓRIA: Verifica se o bilhete é válido e não um lixo corrompido
-                    JSON.parse(originalAdmin);
-                    setIsImpersonating(true);
-                } else {
-                    setIsImpersonating(false);
-                }
-            } catch (e) {
-                console.error("Erro na validação de segurança do impersonate", e);
-                // 🔥 Se estiver corrompido, destrói imediatamente o bilhete preso
-                await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
-                setIsImpersonating(false);
-            }
-        };
-        checkImpersonation();
-    }, []);
+    useEffect(() => { if (home.activeNotice) setNoticeModalVisible(true); }, [home.activeNotice]);
+    useEffect(() => { if (home.pendingFeedback) setFeedbackModalVisible(true); }, [home.pendingFeedback]);
 
-    // Abre modal de notice automaticamente quando activeNotice muda
     useEffect(() => {
-        if (home.activeNotice) setNoticeModalVisible(true);
-    }, [home.activeNotice]);
-
-    // Abre modal de feedback automaticamente quando pendingFeedback chega
-    useEffect(() => {
-        if (home.pendingFeedback) setFeedbackModalVisible(true);
-    }, [home.pendingFeedback]);
-
-    // Intercepta o aluno se tiver Anamnese Pendente
-    useEffect(() => {
-        if (home.userData?.anamnesePendente === true) {
-            setAnamnesePendingModalVisible(true);
-        } else {
-            setAnamnesePendingModalVisible(false);
-        }
+        setAnamnesePendingModalVisible(home.userData?.anamnesePendente === true);
     }, [home.userData?.anamnesePendente]);
 
     useEffect(() => {
@@ -132,96 +78,46 @@ export default function HomeScreen({ navigation }) {
         return () => sub.remove();
     }, []);
 
-    // ── Hard reload ───────────────────────────────────────────────────────
     const handleHardReload = () => {
         home.setLoading(true);
         if (Platform.OS === 'web') window.location.reload(true);
         else home.loadHomeData();
     };
 
-    // 🔥 VOLTAR AO MODO COACH E APAGAR RASTROS (COM TRAVA DE SEGURANÇA) ──────────────────────────────
-    const handleStopImpersonating = async () => {
-        try {
-            const originalUserStr = await AsyncStorage.getItem('original_admin_user');
-            const originalRole = await AsyncStorage.getItem('original_admin_role');
-
-            if (originalUserStr) {
-                const adminData = JSON.parse(originalUserStr);
-                
-                // 🔥 TRAVA DE SEGURANÇA EXTRA: Pede confirmação mostrando o nome real do Coach
-                const confirmAction = async () => {
-                    // Restaura os dados do Admin
-                    await AsyncStorage.setItem('user', originalUserStr);
-                    await AsyncStorage.setItem('role', originalRole || 'ADMIN');
-
-                    // O MAIS IMPORTANTE: Apaga o rastro. Sem isso aqui, o botão não some!
-                    await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
-
-                    // Redireciona de volta
-                    if (Platform.OS === 'web') {
-                        window.location.replace('/admin'); 
-                    } else {
-                        navigation.reset({ index: 0, routes: [{ name: 'AdminDashboard' }] });
-                    }
-                };
-
-                if (Platform.OS === 'web') {
-                    if (window.confirm(`Deseja encerrar a visualização e voltar para o painel de ${adminData.name || 'Coach'}?`)) {
-                        confirmAction();
-                    }
-                } else {
-                    Alert.alert(
-                        "Encerrar Visualização",
-                        `Deseja voltar para o painel de ${adminData.name || 'Coach'}?`,
-                        [
-                            { text: "Cancelar", style: "cancel" },
-                            { text: "Sim, Voltar", onPress: confirmAction }
-                        ]
-                    );
-                }
-            } else {
-                // 🔥 DESFIBRILADOR: Se o botão apareceu mas não tem dados válidos, ele se autodestrói
-                await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
-                setIsImpersonating(false);
-            }
-        } catch (e) {
-            console.log("Erro ao restaurar admin:", e);
-            // 🔥 DESFIBRILADOR: Limpa qualquer rastro em caso de erro fatal
-            await AsyncStorage.multiRemove(['original_admin_user', 'original_admin_role']);
-            setIsImpersonating(false);
-        }
+    // ── Helpers derivados ─────────────────────────────────────────────────
+    const helpers = {
+        coachNameLabel: home.getCoachInfo(home.userData).coachNameLabel,
+        coachWhatsappNumber: home.getCoachInfo(home.userData).coachWhatsappNumber,
+        photoModal: home.getPhotoModalContent(home.userPlan),
     };
 
-    // ── Helpers derivados ─────────────────────────────────────────────────
-    const { coachNameLabel, coachWhatsappNumber } = home.getCoachInfo(home.userData);
     const isFemale    = home.detectIsFemale(home.userData);
-    const photoModal  = home.getPhotoModalContent(home.userPlan);
-
     const limitDays      = home.userPlan === 'CHALLENGE_21' ? 21 : 56;
-    const isFichaExpired = ['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan)
-        && home.fichaDaysElapsed >= limitDays
-        && !home.isFichaPlaceholder;
-    const isWaitingStart = ['FICHA_8S', 'CHALLENGE_21', 'LOW_COST'].includes(home.userPlan)
-        && home.daysToStart > 0;
-
+    const isFichaExpired = ['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan) && home.fichaDaysElapsed >= limitDays && !home.isFichaPlaceholder;
+    const isWaitingStart = ['FICHA_8S', 'CHALLENGE_21', 'LOW_COST'].includes(home.userPlan) && home.daysToStart > 0;
     const needsInitialPhoto = !home.hasSentInitialPhotos;
-    
     const isBlockedTotal    = isFichaExpired || isWaitingStart || needsInitialPhoto || home.isFinanceLocked;
 
     const openUpsell = (featureName) => { setUpsellFeature(featureName); setUpsellModalVisible(true); };
 
-    const handlePressClaimPayment = () => home.handleClaimPayment();
-
-    // 💳 NOVO: abre o checkout Asaas (fecha o modal de aviso antes)
-    const handleOpenPayment = () => {
-        setFinanceModalVisible(false);
-        setPaymentModalVisible(true);
-    };
-
-    // ── Layout ────────────────────────────────────────────────────────────
     const isWeb         = Platform.OS === 'web';
     const webOuterBg    = theme.isDark ? '#0a0a0a' : '#E5E5EA';
     const RootComponent = isWeb ? View : SafeAreaView;
+
+    const states = {
+        fichaExpiredModalVisible, setFichaExpiredModalVisible,
+        dietModalVisible, setDietModalVisible,
+        initialPhotosModalVisible, setInitialPhotosModalVisible,
+        financeModalVisible, setFinanceModalVisible,
+        feedbackModalVisible, setFeedbackModalVisible,
+        noticeModalVisible, setNoticeModalVisible,
+        levelModalVisible, setLevelModalVisible,
+        chatVisible, setChatVisible,
+        upsellModalVisible, setUpsellModalVisible,
+        upsellFeature, setUpsellFeature,
+        paymentModalVisible, setPaymentModalVisible,
+        anamnesePendingModalVisible, setAnamnesePendingModalVisible,
+    };
 
     if (home.loading) {
         return (
@@ -242,35 +138,18 @@ export default function HomeScreen({ navigation }) {
                 <ScrollView
                     style={{ flex: 1, width: '100%' }}
                     contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-                    refreshControl={
-                        <RefreshControl
-                            refreshing={home.refreshing}
-                            onRefresh={() => { home.setRefreshing(true); home.loadHomeData(); }}
-                            tintColor={theme.accent}
-                        />
-                    }
+                    refreshControl={ <RefreshControl refreshing={home.refreshing} onRefresh={() => { home.setRefreshing(true); home.loadHomeData(); }} tintColor={theme.accent} /> }
                     showsVerticalScrollIndicator={false}
                 >
-                    {/* 🔥 BOTÃO DE SAÍDA DO MODO TESTE (Aparece no topo) 🔥 */}
-                    {isImpersonating && (
-                        <TouchableOpacity
-                            style={[styles.btnStopImpersonating, { shadowColor: '#FF3B30', marginTop: 10 }]}
-                            onPress={handleStopImpersonating}
-                            activeOpacity={0.8}
-                        >
-                            <MaterialCommunityIcons name="logout-variant" size={20} color="#FFF" />
-                            <Text style={styles.btnStopImpersonatingText}>VOLTAR PARA O PAINEL COACH</Text>
-                        </TouchableOpacity>
-                    )}
+                    <ImpersonateExitButton navigation={navigation} />
 
-                    {/* ── Header ─────────────────────────────────────────── */}
                     <View style={styles.header}>
                         <View style={{ flex: 1, paddingRight: 10 }}>
                             <Text style={[styles.greeting, { color: theme.textSecondary }]} numberOfLines={1}>
                                 BEM-VINDO AO {
-                                    home.userPlan === 'LOW_COST'     ? 'PLANO BÁSICO'       :
-                                    home.userPlan === 'FICHA_8S'     ? 'PROJETO DE FICHAS'  :
-                                    home.userPlan === 'CHALLENGE_21' ? 'DESAFIO 21 DIAS'    :
+                                    home.userPlan === 'LOW_COST'      ? 'PLANO BÁSICO'       :
+                                    home.userPlan === 'FICHA_8S'      ? 'PROJETO DE FICHAS'  :
+                                    home.userPlan === 'CHALLENGE_21'  ? 'DESAFIO 21 DIAS'    :
                                     'ELITE'
                                 }
                             </Text>
@@ -280,58 +159,37 @@ export default function HomeScreen({ navigation }) {
                         </View>
 
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                            <TouchableOpacity
-                                style={[styles.reloadBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                onPress={handleHardReload}
-                            >
+                            <TouchableOpacity style={[styles.reloadBtn, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={handleHardReload}>
                                 <MaterialCommunityIcons name="refresh" size={20} color={theme.textSecondary} />
                             </TouchableOpacity>
 
-                            <TouchableOpacity
-                                style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                onPress={() => setLevelModalVisible(true)}
-                            >
+                            <TouchableOpacity style={[styles.statusBadge, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setLevelModalVisible(true)}>
                                 <Text style={[styles.statusText, { color: theme.accent }]}>{home.levelData.title}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
 
-                    {/* ── Banners de status ───────────────────────────────── */}
                     <HomeBanners
-                        theme={theme}
-                        navigation={navigation}
-                        daysToPay={home.daysToPay}
-                        isFinanceLocked={home.isFinanceLocked}
-                        isPaymentClaimActive={home.isPaymentClaimActive}
-                        disableCheckIn={home.disableCheckIn}
+                        theme={theme} navigation={navigation}
+                        daysToPay={home.daysToPay} isFinanceLocked={home.isFinanceLocked}
+                        isPaymentClaimActive={home.isPaymentClaimActive} disableCheckIn={home.disableCheckIn}
                         onOpenFinanceModal={() => setFinanceModalVisible(true)}
-                        showVideoAlert={home.showVideoAlert}
-                        newVideoContent={home.newVideoContent}
-                        pulseAnim={pulseAnim}
-                        onDismissVideo={home.handleDismissVideoAlert}
-                        isFemale={isFemale}
-                        isMenstruating={home.isMenstruating}
-                        togglingMenstrual={home.toggleMenstrualCycle}
-                        onToggleMenstrual={home.toggleMenstrualCycle}
-                        needsInitialPhoto={needsInitialPhoto}
-                        pendingFeedback={home.pendingFeedback}
+                        showVideoAlert={home.showVideoAlert} newVideoContent={home.newVideoContent}
+                        pulseAnim={pulseAnim} onDismissVideo={home.handleDismissVideoAlert}
+                        isFemale={isFemale} isMenstruating={home.isMenstruating}
+                        togglingMenstrual={home.togglingMenstrual} onToggleMenstrual={home.toggleMenstrualCycle}
+                        needsInitialPhoto={needsInitialPhoto} pendingFeedback={home.pendingFeedback}
                         onOpenInitialPhotos={() => setInitialPhotosModalVisible(true)}
-                        isCheckinPending={home.isCheckinPending}
-                        isCheckinLate={home.isCheckinLate}
-                        isEliteAwaitingCoach={home.isEliteAwaitingCoach}
-                        scheduledCheckInDate={home.scheduledCheckInDate}
-                        userPlan={home.userPlan}
-                        hasSentInitialPhotos={home.hasSentInitialPhotos}
+                        isCheckinPending={home.isCheckinPending} isCheckinLate={home.isCheckinLate}
+                        isEliteAwaitingCoach={home.isEliteAwaitingCoach} scheduledCheckInDate={home.scheduledCheckInDate}
+                        userPlan={home.userPlan} hasSentInitialPhotos={home.hasSentInitialPhotos}
                     />
 
-                    {/* 🔥 BANNER: PAGAMENTO EM ANÁLISE (claim ativo, dentro da janela) */}
                     {home.isPaymentClaimActive && (
                         <View style={[styles.claimReviewBanner, { backgroundColor: '#32ADE622', borderColor: '#32ADE6' }]}>
                             <MaterialCommunityIcons name="clock-check-outline" size={22} color="#32ADE6" />
                             <View style={{ flex: 1, marginLeft: 10 }}>
-                                <Text style={{ color: '#32ADE6', fontWeight: '900', fontSize: 12, letterSpacing: 0.3 }}>
-                                    PAGAMENTO EM ANÁLISE
-                                </Text>
+                                <Text style={{ color: '#32ADE6', fontWeight: '900', fontSize: 12, letterSpacing: 0.3 }}>PAGAMENTO EM ANÁLISE</Text>
                                 <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
                                     Seu treino está liberado enquanto seu coach confirma{home.paymentClaimDaysLeft != null ? ` (até ${home.paymentClaimDaysLeft} dia${home.paymentClaimDaysLeft === 1 ? '' : 's'})` : ''}.
                                 </Text>
@@ -339,14 +197,9 @@ export default function HomeScreen({ navigation }) {
                         </View>
                     )}
 
-                    {/* 🔥 BANNER DE URGÊNCIA: ANAMNESE PENDENTE */}
                     {home.userData?.anamnesePendente === true && (
                         <Animated.View style={{ transform: [{ scale: pulseAnim }], marginBottom: 15 }}>
-                            <TouchableOpacity
-                                style={[styles.urgentBanner, { backgroundColor: '#FF9500' }]}
-                                onPress={() => navigation.navigate('Anamnese')}
-                                activeOpacity={0.8}
-                            >
+                            <TouchableOpacity style={[styles.urgentBanner, { backgroundColor: '#FF9500' }]} onPress={() => navigation.navigate('Anamnese')} activeOpacity={0.8}>
                                 <MaterialCommunityIcons name="alert-octagon" size={28} color="#000" />
                                 <View style={{ flex: 1, marginLeft: 12 }}>
                                     <Text style={{ color: '#000', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>FICHA DESATUALIZADA!</Text>
@@ -357,30 +210,16 @@ export default function HomeScreen({ navigation }) {
                         </Animated.View>
                     )}
 
-                    {/* ── Card de XP / Ficha ──────────────────────────────── */}
                     {['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan) && !isFichaExpired ? (
                         <View style={[styles.xpCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                                <Text style={[styles.levelText, { color: theme.accent }]}>
-                                    {home.userPlan === 'CHALLENGE_21' ? 'CRONOGRAMA DO DESAFIO' : 'FICHA 8 SEMANAS'}
-                                </Text>
+                                <Text style={[styles.levelText, { color: theme.accent }]}>{home.userPlan === 'CHALLENGE_21' ? 'CRONOGRAMA DO DESAFIO' : 'FICHA 8 SEMANAS'}</Text>
                                 <Text style={[styles.xpText, { color: theme.textSecondary }]}>
-                                    {isWaitingStart
-                                        ? `INICIA EM ${home.daysToStart} DIAS`
-                                        : home.isFichaPlaceholder
-                                            ? 'PREPARANDO TREINO'
-                                            : home.userPlan === 'CHALLENGE_21'
-                                                ? `DIA ${home.fichaDaysElapsed + 1} DE 21`
-                                                : `SEMANA ${Math.min(8, Math.max(1, Math.ceil(home.fichaDaysElapsed / 7)))} DE 8`}
+                                    {isWaitingStart ? `INICIA EM ${home.daysToStart} DIAS` : home.isFichaPlaceholder ? 'PREPARANDO TREINO' : home.userPlan === 'CHALLENGE_21' ? `DIA ${home.fichaDaysElapsed + 1} DE 21` : `SEMANA ${Math.min(8, Math.max(1, Math.ceil(home.fichaDaysElapsed / 7)))} DE 8`}
                                 </Text>
                             </View>
                             <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                                {home.fichaDaysElapsed > 0 && (
-                                    <View style={[styles.xpBarFill, {
-                                        width: `${Math.min(100, (home.fichaDaysElapsed / limitDays) * 100)}%`,
-                                        backgroundColor: theme.accent,
-                                    }]} />
-                                )}
+                                {home.fichaDaysElapsed > 0 && <View style={[styles.xpBarFill, { width: `${Math.min(100, (home.fichaDaysElapsed / limitDays) * 100)}%`, backgroundColor: theme.accent }]} />}
                             </View>
                         </View>
                     ) : !['FICHA_8S', 'CHALLENGE_21'].includes(home.userPlan) ? (
@@ -390,286 +229,42 @@ export default function HomeScreen({ navigation }) {
                                 <Text style={[styles.xpText, { color: theme.textSecondary }]}>{home.currentLevelProgress} / {home.nextLevelXP} XP</Text>
                             </View>
                             <View style={[styles.xpBarBg, { backgroundColor: theme.border }]}>
-                                {home.currentLevelProgress > 0 && (
-                                    <View style={[styles.xpBarFill, {
-                                        width: `${(home.currentLevelProgress / home.nextLevelXP) * 100}%`,
-                                        backgroundColor: theme.accent,
-                                    }]} />
-                                )}
+                                {home.currentLevelProgress > 0 && <View style={[styles.xpBarFill, { width: `${(home.currentLevelProgress / home.nextLevelXP) * 100}%`, backgroundColor: theme.accent }]} />}
                             </View>
                         </View>
                     ) : null}
 
-                    {/* ── Ação principal + Dieta ──────────────────────────── */}
                     <HomeMainAction
-                        theme={theme}
-                        navigation={navigation}
-                        isBlockedTotal={isBlockedTotal}
-                        isFinanceLocked={home.isFinanceLocked}
-                        isFichaExpired={isFichaExpired}
-                        isWaitingStart={isWaitingStart}
-                        needsInitialPhoto={needsInitialPhoto}
-                        daysToStart={home.daysToStart}
-                        pendingFeedback={home.pendingFeedback}
-                        pulseAnim={pulseAnim}
-                        onOpenFeedback={() => setFeedbackModalVisible(true)}
+                        theme={theme} navigation={navigation} isBlockedTotal={isBlockedTotal}
+                        isFinanceLocked={home.isFinanceLocked} isFichaExpired={isFichaExpired}
+                        isWaitingStart={isWaitingStart} needsInitialPhoto={needsInitialPhoto}
+                        daysToStart={home.daysToStart} pendingFeedback={home.pendingFeedback}
+                        pulseAnim={pulseAnim} onOpenFeedback={() => setFeedbackModalVisible(true)}
                         onOpenFinanceModal={() => setFinanceModalVisible(true)}
                         onOpenFichaExpiredModal={() => setFichaExpiredModalVisible(true)}
                         onOpenInitialPhotos={() => setInitialPhotosModalVisible(true)}
-                        userPlan={home.userPlan}
-                        userData={home.userData}
+                        userPlan={home.userPlan} userData={home.userData}
                         onOpenDiet={() => setDietModalVisible(true)}
                     />
 
-                    {/* ── Grid de atalhos ────────────────────────────────── */}
                     <HomeGrid
-                        theme={theme}
-                        navigation={navigation}
-                        pulseAnim={pulseAnim}
-                        userPlan={home.userPlan}
-                        disableCheckIn={home.disableCheckIn}
-                        needsInitialPhoto={needsInitialPhoto}
-                        isCheckinPending={home.isCheckinPending}
-                        pendingFeedback={home.pendingFeedback}
-                        brandLogoUrl={home.brandLogoUrl}
-                        brandLogoSize={home.brandLogoSize}
+                        theme={theme} navigation={navigation} pulseAnim={pulseAnim} userPlan={home.userPlan}
+                        disableCheckIn={home.disableCheckIn} needsInitialPhoto={needsInitialPhoto}
+                        isCheckinPending={home.isCheckinPending} pendingFeedback={home.pendingFeedback}
+                        brandLogoUrl={home.brandLogoUrl} brandLogoSize={home.brandLogoSize}
                     />
                 </ScrollView>
 
-                {/* ── FAB Chat ───────────────────────────────────────────── */}
-                <TouchableOpacity
-                    style={[styles.fabChat, { shadowColor: home.userPlan === 'PREMIUM' ? theme.accent : '#000' }]}
-                    onPress={() => home.userPlan === 'PREMIUM' ? setChatVisible(true) : openUpsell('Chat Direto com o Coach')}
-                >
-                    <LinearGradient
-                        colors={home.userPlan === 'PREMIUM' ? [theme.accent, theme.accent] : [theme.surface, theme.surface]}
-                        style={[styles.fabGradient, home.userPlan !== 'PREMIUM' && { borderWidth: 1, borderColor: theme.border }]}
-                    >
-                        {home.userPlan === 'PREMIUM'
-                            ? <MaterialCommunityIcons name="robot" size={32} color={theme.isDark ? '#000' : '#FFF'} />
-                            : <MaterialCommunityIcons name="lock"  size={28} color={theme.textSecondary} />}
-                    </LinearGradient>
-                </TouchableOpacity>
+                <HomeFloatingChat 
+                    theme={theme} userPlan={home.userPlan} 
+                    onOpenChat={() => setChatVisible(true)} 
+                    onOpenUpsell={openUpsell} 
+                />
             </View>
 
-            {/* ════════════════════════════════════════════════════════════
-                MODAIS
-            ════════════════════════════════════════════════════════════ */}
-
-            {/* 🔥 Modal de Anamnese Pendente (Com Alerta Estratégico) */}
-            <Modal visible={anamnesePendingModalVisible} transparent animationType="fade" onRequestClose={() => setAnamnesePendingModalVisible(false)}>
-                <View style={styles.overlay}>
-                    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                        <View style={[styles.iconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
-                            <MaterialCommunityIcons name="clipboard-alert-outline" size={36} color={theme.accent} />
-                        </View>
-                        <Text style={[styles.cardTitle, { color: theme.text }]}>ATUALIZAÇÃO NECESSÁRIA</Text>
-                        
-                        <Text style={[styles.cardDesc, { color: theme.textSecondary, marginBottom: 25 }]}>
-                            Seu Treinador solicitou uma <Text style={{ color: theme.text, fontWeight: 'bold' }}>atualização na sua ficha</Text>.
-                            {'\n\n'}
-                            ⚠️ <Text style={{ color: theme.accent, fontWeight: 'bold' }}>Atenção:</Text> Sem esses dados, sua estratégia ficará paralisada e seus resultados podem ser comprometidos. Preencha assim que possível para receber a sua nova periodização!
-                        </Text>
-                        
-                        <TouchableOpacity
-                            style={[styles.btn, { backgroundColor: theme.accent, marginBottom: 15 }]}
-                            onPress={() => {
-                                setAnamnesePendingModalVisible(false);
-                                navigation.navigate('Anamnese'); 
-                            }}
-                        >
-                            <Text style={[styles.btnText, { color: '#000' }]}>PREENCHER AGORA</Text>
-                            <MaterialCommunityIcons name="arrow-right" size={20} color="#000" style={{ marginLeft: 8 }} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={{ padding: 10 }}
-                            onPress={() => setAnamnesePendingModalVisible(false)}
-                        >
-                            <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' }}>
-                                Entendi os riscos, responder depois
-                            </Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-
-            {/* Modal Financeiro */}
-            {home.isFinanceLocked && (
-                <Modal visible={financeModalVisible} transparent animationType="fade" onRequestClose={() => setFinanceModalVisible(false)}>
-                    <View style={styles.overlay}>
-                        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: '#FF3B30' }]}>
-                            <View style={[styles.iconBox, { backgroundColor: '#FF3B3022', marginBottom: 20 }]}>
-                                <MaterialCommunityIcons name="lock-alert" size={36} color="#FF3B30" />
-                            </View>
-                            <Text style={[styles.cardTitle, { color: theme.text }]}>ACESSO SUSPENSO</Text>
-
-                            <Text style={[styles.cardDesc, { color: theme.textSecondary, marginBottom: 15 }]}>
-                                O seu plano venceu e o acesso à área de treinos foi suspenso temporariamente.
-                                {'\n'}Pague agora mesmo pelo app e libere seu acesso em segundos.
-                            </Text>
-
-                            {/* 💳 NOVO: PAGAR AGORA (PIX/CARTÃO/BOLETO via Asaas) */}
-                            <TouchableOpacity
-                                style={[styles.btn, { backgroundColor: theme.accent, marginBottom: 10 }]}
-                                onPress={handleOpenPayment}
-                            >
-                                <Text style={[styles.btnText, { color: '#000' }]}>PAGAR AGORA (PIX/CARTÃO)</Text>
-                                <MaterialCommunityIcons name="qrcode-scan" size={20} color="#000" style={{ marginLeft: 8 }} />
-                            </TouchableOpacity>
-
-                            {home.paymentClaimExpired && (
-                                <View style={[styles.claimExpiredBox, { backgroundColor: '#FF950022', borderColor: '#FF9500' }]}>
-                                    <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#FF9500" />
-                                    <Text style={{ color: theme.text, fontSize: 12, marginLeft: 8, flex: 1, lineHeight: 17 }}>
-                                        O prazo para confirmação automática acabou. Fale direto com seu coach para liberar seu treino.
-                                    </Text>
-                                </View>
-                            )}
-
-                            {home.canClaimPayment && (
-                                <TouchableOpacity
-                                    style={[styles.btn, { backgroundColor: theme.surface, borderWidth: 1, borderColor: '#32ADE6', marginBottom: 10 }]}
-                                    onPress={handlePressClaimPayment}
-                                    disabled={home.isClaimingPayment}
-                                >
-                                    {home.isClaimingPayment ? <ActivityIndicator color="#32ADE6" /> : (
-                                        <>
-                                            <Text style={[styles.btnText, { color: '#32ADE6' }]}>PAGUEI POR FORA, REGISTRAR</Text>
-                                            <MaterialCommunityIcons name="check-circle-outline" size={20} color="#32ADE6" style={{ marginLeft: 8 }} />
-                                        </>
-                                    )}
-                                </TouchableOpacity>
-                            )}
-
-                            <TouchableOpacity
-                                style={[styles.btn, { backgroundColor: '#25D366', marginBottom: 10 }]}
-                                onPress={() => Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Acabei de verificar o painel e preciso falar sobre a renovação da minha assinatura!")}`)}
-                            >
-                                <Text style={[styles.btnText, { color: '#FFF' }]}>FALAR COM {coachNameLabel}</Text>
-                                <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" style={{ marginLeft: 8 }} />
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.btn, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border, shadowOpacity: 0, elevation: 0 }]}
-                                onPress={() => setFinanceModalVisible(false)}
-                            >
-                                <Text style={[styles.btnText, { color: theme.text }]}>FECHAR PAINEL</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
-            )}
-
-            {/* 💳 NOVO: Modal de Checkout Asaas (QR PIX + CPF + fatura) */}
-            <FinancePaymentModal
-                visible={paymentModalVisible}
-                onClose={() => setPaymentModalVisible(false)}
-                theme={theme}
-                userId={home.userData?.id}
-                onPaid={() => home.loadHomeData()}
-            />
-
-            {/* Modal Upsell */}
-            <Modal visible={upsellModalVisible} transparent animationType="fade">
-                <View style={styles.overlay}>
-                    <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.accent }]}>
-                        <TouchableOpacity style={styles.closeBtn} onPress={() => setUpsellModalVisible(false)}>
-                            <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
-                        </TouchableOpacity>
-                        <View style={[styles.iconBox, { backgroundColor: theme.accent + '22', marginBottom: 20 }]}>
-                            <MaterialCommunityIcons name="crown" size={36} color={theme.accent} />
-                        </View>
-                        <Text style={[styles.cardTitle, { color: theme.text }]}>FUNCIONALIDADE ELITE</Text>
-                        <Text style={[styles.cardDesc, { color: theme.textSecondary }]}>
-                            O recurso de <Text style={{ color: theme.accent, fontWeight: 'bold' }}>{upsellFeature}</Text> é exclusivo para atletas da Consultoria Elite.
-                        </Text>
-                        <View style={[styles.benefitsBox, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                            {['Ajuste de Treino Sob Medida', 'Avaliação Quinzenal do Shape', 'Acesso direto ao Coach'].map(b => (
-                                <View key={b} style={styles.benefitRow}>
-                                    <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
-                                    <Text style={[styles.benefitText, { color: theme.text }]}>{b}</Text>
-                                </View>
-                            ))}
-                        </View>
-                        <TouchableOpacity
-                            style={styles.btn}
-                            onPress={() => {
-                                setUpsellModalVisible(false);
-                                Linking.openURL(`https://wa.me/${coachWhatsappNumber}?text=${encodeURIComponent("Coach, quero subir de nível e migrar meu plano para a Consultoria Elite!")}`);
-                            }}
-                        >
-                            <Text style={styles.btnText}>SER ELITE AGORA</Text>
-                            <MaterialCommunityIcons name="whatsapp" size={20} color="#000" style={{ marginLeft: 8 }} />
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
-
-            {/* Modais externos */}
-            <StudentReportModal
-                visible={feedbackModalVisible}
-                onClose={() => setFeedbackModalVisible(false)}
-                pendingFeedback={home.pendingFeedback}
-                userName={home.userName}
-                markFeedbackAsRead={() => home.markFeedbackAsRead(() => setFeedbackModalVisible(false))}
-                isMarkingAsRead={home.isMarkingAsRead}
-            />
-
-            <InitialPhotosModal
-                visible={initialPhotosModalVisible}
-                onClose={() => setInitialPhotosModalVisible(false)}
-                theme={theme}
-                photoModal={photoModal}
-                userPlan={home.userPlan}
-                onNavigate={() => { setInitialPhotosModalVisible(false); navigation.navigate('CheckIn'); }}
-            />
-
-            <SatisfactionSurveyModal
-                visible={home.isSurveyVisible}
-                onClose={() => home.setIsSurveyVisible(false)}
-                userId={home.userData?.id}
-                theme={theme}
-                isPremium={home.userPlan === 'PREMIUM' || home.userPlan === 'ELITE'}
-            />
-
-            <DietGuideModal
-                visible={dietModalVisible}
-                onClose={() => setDietModalVisible(false)}
-                theme={theme}
-                dietGoal={home.userPlan === 'CHALLENGE_21' ? 'WEIGHT_LOSS' : home.userData?.dietGoal}
-            />
-
-            <LevelUpModal
-                visible={levelModalVisible}
-                onClose={() => setLevelModalVisible(false)}
-                theme={theme}
-                levelData={home.levelData}
-                currentLevel={home.currentLevel}
-                currentLevelProgress={home.currentLevelProgress}
-                nextLevelXP={home.nextLevelXP}
-            />
-
-            <HomeNoticeModal
-                visible={noticeModalVisible}
-                onClose={() => home.handleReadNotice(() => setNoticeModalVisible(false))}
-                theme={theme}
-                activeNotice={home.activeNotice}
-            />
-
-            <ChatAIAssistantModal
-                visible={chatVisible}
-                onClose={() => setChatVisible(false)}
-                theme={theme}
-                isWeb={isWeb}
-                messages={home.messages}
-                flatListRef={home.flatListRef}
-                chatInput={home.chatInput}
-                setChatInput={home.setChatInput}
-                handleSendChat={home.handleSendChat}
-                isTyping={home.isTyping}
-                QUICK_QUESTIONS={home.QUICK_QUESTIONS}
+            <HomeModalsManager 
+                theme={theme} navigation={navigation} isWeb={isWeb} 
+                home={home} states={states} helpers={helpers} 
             />
         </RootComponent>
     );
@@ -679,29 +274,6 @@ const styles = StyleSheet.create({
     container:  { flex: 1, paddingTop: Platform.OS === 'android' ? require('react-native').StatusBar.currentHeight + 10 : 0 },
     center:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
     inner:      { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
-    
-    // 🔥 ESTILO DO BOTÃO DE SAÍDA
-    btnStopImpersonating: {
-        backgroundColor: '#FF3B30',
-        padding: 16,
-        marginBottom: 20,
-        borderRadius: 14,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        elevation: 6,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5
-    },
-    btnStopImpersonatingText: {
-        color: '#FFF',
-        fontWeight: '900',
-        marginLeft: 10,
-        fontSize: 13,
-        letterSpacing: 0.5
-    },
-
     header:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, marginTop: 10 },
     greeting:   { fontSize: 12, fontWeight: 'bold', letterSpacing: 1 },
     name:       { fontSize: 24, fontWeight: '900', letterSpacing: -0.5 },
@@ -710,25 +282,9 @@ const styles = StyleSheet.create({
     statusText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
     urgentBanner:{ flexDirection: 'row', alignItems: 'center', padding: 16, borderRadius: 16, elevation: 4, shadowColor: '#FF9500', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5 },
     claimReviewBanner: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 15 },
-    claimExpiredBox: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 12, borderWidth: 1, marginBottom: 15 },
     xpCard:     { padding: 20, borderRadius: 24, marginBottom: 20, borderWidth: 1 },
     levelText:  { fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
     xpText:     { fontSize: 11, fontWeight: 'bold' },
     xpBarBg:    { height: 8, borderRadius: 4, overflow: 'hidden' },
     xpBarFill:  { height: '100%', borderRadius: 4 },
-    fabChat:    { position: 'absolute', bottom: 30, right: 20, width: 64, height: 64, borderRadius: 32, zIndex: 999, elevation: 10, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10 },
-    fabGradient:{ width: '100%', height: '100%', borderRadius: 32, justifyContent: 'center', alignItems: 'center' },
-    // Modais
-    overlay:    { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center' },
-    card:       { width: '90%', maxWidth: 420, alignSelf: 'center', padding: 25, borderRadius: 24, borderWidth: 2, alignItems: 'center' },
-    closeBtn:   { position: 'absolute', top: 15, right: 15, padding: 5, zIndex: 10 },
-    iconBox:    { width: 64, height: 64, borderRadius: 32, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
-    cardTitle:  { fontSize: 22, fontWeight: '900', marginBottom: 10, letterSpacing: 1, textAlign: 'center' },
-    cardDesc:   { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },
-    pixBox:     { width: '100%', padding: 14, borderRadius: 16, borderWidth: 1, marginBottom: 15, alignItems: 'center' },
-    benefitsBox:{ width: '100%', padding: 15, borderRadius: 16, borderWidth: 1, gap: 12, marginBottom: 25 },
-    benefitRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    benefitText:{ fontSize: 13, fontWeight: 'bold' },
-    btn:        { width: '100%', padding: 18, borderRadius: 12, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 5, marginBottom: 0 },
-    btnText:    { fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 });

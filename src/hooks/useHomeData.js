@@ -60,7 +60,7 @@ export function useHomeData() {
 
     // 🔥 WHITE-LABEL (LOGO DO COACH) 🔥
     const [brandLogoUrl, setBrandLogoUrl] = useState(null);
-    const [brandLogoSize, setBrandLogoSize] = useState(220); // Estado novo guardando o tamanho
+    const [brandLogoSize, setBrandLogoSize] = useState(220);
 
     // 🔥 FINANCEIRO + CLAIM DE PAGAMENTO
     const finance = useFinanceLock();
@@ -83,7 +83,7 @@ export function useHomeData() {
     const [messages, setMessages]   = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [isTyping, setIsTyping]   = useState(false);
-    const [assistantName, setAssistantName] = useState('PA ELITE COACH'); // 🔥 novo — nome dinâmico do assistente
+    const [assistantName, setAssistantName] = useState('PA ELITE COACH'); 
     const flatListRef               = useRef(null);
 
     // ─── Derivações de nível ───────────────────────────────────────────────
@@ -157,7 +157,6 @@ export function useHomeData() {
             const firstName = user.name?.split(' ')[0] || 'Atleta';
             setUserName(firstName);
 
-            // 🔥 Nome do assistente já calculado aqui, antes da mensagem de boas-vindas
             const resolvedAssistantName = getAssistantName(user.coachId);
             setAssistantName(resolvedAssistantName);
 
@@ -185,7 +184,7 @@ export function useHomeData() {
                     const adminObj = JSON.parse(originalAdminStr);
                     fetchCoachId = adminObj.id; // Força buscar a logo de quem tá testando
                     if (adminObj.brandLogoUrl) cachedAdminLogo = adminObj.brandLogoUrl;
-                    if (adminObj.brandLogoSize) cachedAdminLogoSize = adminObj.brandLogoSize;
+                    if (adminObj.brandLogoSize) cachedAdminLogoSize = Number(adminObj.brandLogoSize);
                 }
 
                 const [homeRes, checkinRes, noticeRes, resUserDirect, resContents, resCoach] = await Promise.all([
@@ -201,15 +200,15 @@ export function useHomeData() {
                 let hasPhotosInDb   = false;
                 let unreadFeedback  = null;
 
-                // ── Marca (White-Label) Absoluta ──────────────────────────
+                // 🔥 A SUA LÓGICA DE MARCA (WHITE-LABEL) ABSOLUTA RESTAURADA 100% 🔥
                 if (cachedAdminLogo) {
                     setBrandLogoUrl(cachedAdminLogo);
-                    setBrandLogoSize(cachedAdminLogoSize); // 🔥 PEGA TAMANHO DO CACHE
+                    setBrandLogoSize(cachedAdminLogoSize); 
                 } else if (resCoach.ok) {
                     const coachData = await resCoach.json();
                     if (coachData && coachData.brandLogoUrl) {
                         setBrandLogoUrl(coachData.brandLogoUrl);
-                        setBrandLogoSize(coachData.brandLogoSize || 220); // 🔥 PEGA TAMANHO DO BANCO
+                        setBrandLogoSize(coachData.brandLogoSize ? Number(coachData.brandLogoSize) : 220); 
                     } else {
                         setBrandLogoUrl(null);
                         setBrandLogoSize(220);
@@ -345,12 +344,10 @@ export function useHomeData() {
                             }
                         }
 
-                        // 🔥 Recalcula o nome do assistente caso o coachId real (vindo do servidor)
-                        // seja diferente do que estava salvo localmente
+                        // Nome do assistente caso o coachId real seja diferente
                         setAssistantName(getAssistantName(fetchedUser.coachId));
 
-                        // 🔥 LIPOASPIRAÇÃO ANTI-EXPLOSÃO DE MEMÓRIA 🔥
-                        // Arranca as listas gigantes que o backend manda (para não estourar o limite de 5MB)
+                        // 🔥 LIPOASPIRAÇÃO ANTI-EXPLOSÃO DE MEMÓRIA (Salvando a Vida) 🔥
                         const { diets, workouts, anamneses, ...leanFetchedUser } = fetchedUser;
                         await AsyncStorage.setItem('user', JSON.stringify(leanFetchedUser));
                         setUserData(leanFetchedUser);
@@ -424,8 +421,9 @@ export function useHomeData() {
         setTogglingMenstrual(true);
 
         const newValue  = !isMenstruating;
+        
+        // 1. Atualiza a UI imediatamente (Otimista e Offline-First)
         setIsMenstruating(newValue);
-
         const cachedUser = {
             ...userData,
             isMenstruating: newValue,
@@ -434,65 +432,69 @@ export function useHomeData() {
         await AsyncStorage.setItem('user', JSON.stringify(cachedUser));
         setUserData(cachedUser);
 
-        try {
-            let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userData.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    isMenstruating: newValue,
-                    menstruationStartDate: newValue ? new Date().toISOString() : null
-                })
-            });
+        // 2. Tira o Loading na mesma hora para não travar a tela
+        setTogglingMenstrual(false);
 
-            if (!res.ok) {
-                res = await fetch('https://fitos-final.onrender.com/api/admin/user', {
+        if (newValue) {
+            const title = "Sinalização Ativa 🩸";
+            const msg   = "Seu Coach foi notificado. Pegue leve, beba água e se cuide nesses dias!";
+            if (Platform.OS === 'web') window.setTimeout(() => window.alert(title + "\n\n" + msg), 50);
+            else Alert.alert(title, msg);
+        }
+
+        // 3. Manda para o servidor em Background (Fire and Forget)
+        (async () => {
+            try {
+                let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userData.id}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        id: userData.id,
                         isMenstruating: newValue,
                         menstruationStartDate: newValue ? new Date().toISOString() : null
                     })
                 });
-            }
 
-            if (res.ok) {
-                try {
-                    const fetchCoachId = userData.coachId || '';
-                    if (fetchCoachId) {
-                        const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}`);
-                        if (adminRes.ok) {
-                            const adminData = await adminRes.json();
-                            if (adminData.pushToken) {
-                                await fetch('https://exp.host/--/api/v2/push/send', {
-                                    method: 'POST',
-                                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        to:    adminData.pushToken,
-                                        sound: 'default',
-                                        title: newValue ? '🩸 Alerta Menstrual!' : '✅ Fim do Protocolo Menstrual',
-                                        body:  newValue
-                                            ? `A aluna ${userData.name} sinalizou o protocolo. Reajuste ou ative o Deload se necessário.`
-                                            : `A aluna ${userData.name} encerrou o período.`,
-                                    }),
-                                });
+                if (!res.ok) {
+                    res = await fetch('https://fitos-final.onrender.com/api/admin/user', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            id: userData.id,
+                            isMenstruating: newValue,
+                            menstruationStartDate: newValue ? new Date().toISOString() : null
+                        })
+                    });
+                }
+
+                if (res.ok) {
+                    try {
+                        const fetchCoachId = userData.coachId || '';
+                        if (fetchCoachId) {
+                            const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}`);
+                            if (adminRes.ok) {
+                                const adminData = await adminRes.json();
+                                if (adminData.pushToken) {
+                                    await fetch('https://exp.host/--/api/v2/push/send', {
+                                        method: 'POST',
+                                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            to:    adminData.pushToken,
+                                            sound: 'default',
+                                            title: newValue ? '🩸 Alerta Menstrual!' : '✅ Fim do Protocolo Menstrual',
+                                            body:  newValue
+                                                ? `A aluna ${userData.name} sinalizou o protocolo. Reajuste ou ative o Deload se necessário.`
+                                                : `A aluna ${userData.name} encerrou o período.`,
+                                        }),
+                                    });
+                                }
                             }
                         }
-                    }
-                } catch (e) { console.log("Erro na notificação Push:", e); }
-
-                if (newValue) {
-                    const title = "Sinalização Ativa 🩸";
-                    const msg   = "Seu Coach foi notificado. Pegue leve, beba água e se cuide nesses dias!";
-                    if (Platform.OS === 'web') window.alert(title + "\n\n" + msg);
-                    else Alert.alert(title, msg);
+                    } catch (e) { console.log("Erro na notificação Push:", e); }
                 }
+            } catch (e) {
+                console.log("Sinalização Menstrual salva localmente. Sincronizará com o banco depois.");
             }
-        } catch (e) {
-            console.log("Sinalização Menstrual salva localmente. Sincronizará depois quando houver rede.");
-        } finally {
-            setTogglingMenstrual(false);
-        }
+        })();
     };
 
     // ─── Marcar feedback como lido ────────────────────────────────────────
@@ -562,7 +564,7 @@ export function useHomeData() {
             const data = await res.json();
 
             if (data.reply) {
-                if (data.assistantName) setAssistantName(data.assistantName); // 🔥 mantém sincronizado com o backend
+                if (data.assistantName) setAssistantName(data.assistantName); 
                 setMessages(prev => [...prev, { id: Date.now() + 1, text: data.reply, sender: 'ai' }]);
             } else {
                 throw new Error("Sem resposta");
@@ -576,32 +578,19 @@ export function useHomeData() {
     };
 
     return {
-        // Estado de carregamento
         loading, setLoading,
         refreshing, setRefreshing,
-
-        // Usuário
         userName, userData, userPlan,
         xp, currentLevel, nextLevelXP, currentLevelProgress, levelData,
-
-        // Ficha
         fichaDaysElapsed, daysToStart, isFichaPlaceholder,
-
-        // Fotos
         hasSentInitialPhotos,
-
-        // Menstrual
         isMenstruating, togglingMenstrual, toggleMenstrualCycle,
-
-        // Check-in
         isCheckinPending, isCheckinLate, scheduledCheckInDate,
         isEliteAwaitingCoach, disableCheckIn,
 
-        // 🔥 BRANDING (Logomarca e Tamanho)
         brandLogoUrl,
         brandLogoSize, 
 
-        // 🔥 Financeiro + Claim ("Já paguei") — vindos do useFinanceLock
         daysToPay: finance.daysToPay,
         isFinanceLocked: finance.isFinanceLocked,
         paymentClaimStatus: finance.paymentClaimStatus,
@@ -612,27 +601,14 @@ export function useHomeData() {
         isClaimingPayment: finance.isClaimingPayment,
         handleClaimPayment: finance.confirmAndClaimPayment,
 
-        // Feedback
         pendingFeedback, isMarkingAsRead, markFeedbackAsRead,
-
-        // Notice
         activeNotice, handleReadNotice,
-
-        // Vídeo
         newVideoContent, showVideoAlert, handleDismissVideoAlert,
-
-        // NPS
         isSurveyVisible, setIsSurveyVisible,
-
-        // Chat
         messages, chatInput, setChatInput, isTyping, flatListRef, handleSendChat,
-        assistantName, // 🔥 novo — repassar pro modal
-
-        // Helpers
+        assistantName, 
         getCoachInfo, detectIsFemale, getPhotoModalContent,
         QUICK_QUESTIONS,
-
-        // Ações
         loadHomeData,
     };
 }
