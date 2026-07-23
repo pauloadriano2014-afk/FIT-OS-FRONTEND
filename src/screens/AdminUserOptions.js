@@ -70,6 +70,16 @@ export default function AdminUserOptions({ route, navigation }) {
 
     const isMasterCoach = MASTER_IDS.includes(currentUserId);
 
+    // 🔥 FUNÇÃO BLINDADA PARA O BOTÃO VOLTAR
+    const handleGoBack = () => {
+        if (navigation.canGoBack()) {
+            navigation.goBack();
+        } else {
+            // Se o histórico foi apagado pelo F5, força a navegação de volta para a lista
+            navigation.replace('AdminDashboard'); 
+        }
+    };
+
     const handleImpersonateRealStudent = async () => {
         try {
             const currentAdminStr = await AsyncStorage.getItem('user');
@@ -86,9 +96,6 @@ export default function AdminUserOptions({ route, navigation }) {
                     await AsyncStorage.setItem('original_admin_user', currentAdminStr);
                     await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
                     
-                    // 🔥 LÓGICA ANTI-EXPLOSÃO DE MEMÓRIA (QuotaExceededError) 🔥
-                    // Arrancamos as listas gigantes (treinos, dietas, anamneses) do objeto
-                    // O aplicativo do aluno vai puxar isso da internet na Home, não precisamos socar na memória de login!
                     const { diets, workouts, anamneses, ...leanStudentData } = targetStudent;
 
                     await AsyncStorage.setItem('user', JSON.stringify(leanStudentData));
@@ -132,7 +139,8 @@ export default function AdminUserOptions({ route, navigation }) {
             case 'RESUMO':
                 return (
                     <AdminUserSummaryTab
-                        theme={theme} aluno={aluno} freshAluno={ops.freshAluno} isWebPC={isWebPC}
+                        // 🔥 PASSANDO targetStudent AQUI PARA PREVENIR O BUG DO F5
+                        theme={theme} aluno={targetStudent} freshAluno={ops.freshAluno} isWebPC={isWebPC}
                         handlePickImage={ops.handlePickImage} uploadingPhoto={ops.uploadingPhoto}
                         photoUrl={ops.photoUrl} isActiveUser={ops.isActiveUser}
                         studentAlerts={ops.studentAlerts} isAlertsExpanded={ops.isAlertsExpanded}
@@ -186,7 +194,8 @@ export default function AdminUserOptions({ route, navigation }) {
             case 'DIETA_IA':
                 return (
                     <AdminUserDietTab
-                        theme={theme} aluno={aluno} freshAluno={ops.freshAluno} userPlan={ops.userPlan} dietGoal={ops.dietGoal} 
+                        // 🔥 PASSANDO targetStudent AQUI PARA PREVENIR O BUG DO F5
+                        theme={theme} aluno={targetStudent} freshAluno={ops.freshAluno} userPlan={ops.userPlan} dietGoal={ops.dietGoal} 
                         setDietGoal={ops.setDietGoal} savingDiet={ops.savingDiet} handleSaveDietGoal={ops.handleSaveDietGoal} 
                         isDietTabVisible={ops.isDietTabVisible} handleToggleDietTab={ops.handleToggleDietTab} navigation={navigation}
                         DIET_OPTIONS={DIET_OPTIONS}
@@ -228,12 +237,12 @@ export default function AdminUserOptions({ route, navigation }) {
                 <View style={{ width: 280, backgroundColor: theme.surface, borderRightWidth: 1, borderColor: theme.border, padding: 20 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 30, marginTop: 10 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                            {/* 🔥 ADICIONADO O handleGoBack AQUI */}
+                            <TouchableOpacity onPress={handleGoBack} style={{ padding: 8, backgroundColor: theme.bg, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
                                 <MaterialCommunityIcons name="arrow-left" size={20} color={theme.text} />
                             </TouchableOpacity>
                             <Text style={{ fontSize: 16, fontWeight: '900', color: theme.text }}>ALUNO ELITE</Text>
                         </View>
-                        {/* 🔥 GATILHO WEB */}
                         <TouchableOpacity 
                             onPress={() => setIsSelectAnamneseVisible(true)} 
                             style={{ padding: 8, backgroundColor: 'rgba(255, 149, 0, 0.1)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255, 149, 0, 0.3)' }}
@@ -282,7 +291,7 @@ export default function AdminUserOptions({ route, navigation }) {
                 </View>
 
                 <RaioxCargasModal visible={ops.isCargasModalVisible} onClose={() => ops.setIsCargasModalVisible(false)} historicoDeCargasList={ops.historicoDeCargasList} theme={theme} />
-                <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={ops.freshAluno || aluno} theme={theme} />
+                <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={targetStudent} theme={theme} />
                 
                 <SelectAnamneseModal 
                     visible={isSelectAnamneseVisible} 
@@ -302,14 +311,14 @@ export default function AdminUserOptions({ route, navigation }) {
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
 
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
+                {/* 🔥 ADICIONADO O handleGoBack AQUI NO MOBILE TAMBÉM */}
+                <TouchableOpacity onPress={handleGoBack} style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border }}>
                     <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
                 </TouchableOpacity>
                 <View style={{ alignItems: 'center' }}>
                     <Text style={[styles.headerTitle, { color: theme.text }]}>GERENCIAR ALUNO</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    {/* 🔥 GATILHO MOBILE */}
                     <TouchableOpacity onPress={() => setIsSelectAnamneseVisible(true)} style={{ padding: 8, marginRight: 4 }}>
                         <MaterialCommunityIcons name="clipboard-edit-outline" size={24} color="#FF9500" />
                     </TouchableOpacity>
@@ -373,7 +382,7 @@ export default function AdminUserOptions({ route, navigation }) {
             </Modal>
 
             <RaioxCargasModal visible={ops.isCargasModalVisible} onClose={() => ops.setIsCargasModalVisible(false)} historicoDeCargasList={ops.historicoDeCargasList} theme={theme} />
-            <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={ops.freshAluno || aluno} theme={theme} />
+            <RunningProtocolModal visible={ops.isRunningModalVisible} onClose={() => ops.setIsRunningModalVisible(false)} aluno={targetStudent} theme={theme} />
             
             <SelectAnamneseModal 
                 visible={isSelectAnamneseVisible} 

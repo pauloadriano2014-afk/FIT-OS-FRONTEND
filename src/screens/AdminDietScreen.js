@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
     Platform, KeyboardAvoidingView, useWindowDimensions,
-    ActivityIndicator, Animated, Alert
+    ActivityIndicator, Animated, Alert, ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -497,50 +497,55 @@ export default function AdminDietScreen({ route, navigation }) {
                         </Animated.ScrollView>
                     </KeyboardAvoidingView>
 
-                    {/* FAB */}
+                    {/* 🔥 FAB - REFEITO COM SCROLLVIEW HORIZONTAL */}
                     <View style={styles.fabContainer}>
-                        <View style={[styles.fabPill, { backgroundColor: theme.isDark ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)' }]}>
-                            {/* 🔥 NOVO BOTÃO DE AJUSTE FINO (MACRO TUNING) */}
-                            <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => setMacroTuningVisible(true))}>
-                                <MaterialCommunityIcons name="tune" size={22} color={theme.accent} />
-                                <Text style={[styles.fabText, { color: theme.accent }]}>Ajuste Fino</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
-                            
-                            <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalCloneVisible(true))}>
-                                <MaterialCommunityIcons name="account-switch-outline" size={22} color={theme.text} />
-                                <Text style={[styles.fabText, { color: theme.text }]}>Clonar</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
-                            <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalTemplatesVisible(true))}>
-                                <MaterialCommunityIcons name="folder-star-outline" size={22} color={theme.text} />
-                                <Text style={[styles.fabText, { color: theme.text }]}>Bases</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
-                            <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalSaveTemplateVisible(true))}>
-                                <MaterialCommunityIcons name="content-save-all" size={22} color={theme.text} />
-                                <Text style={[styles.fabText, { color: theme.text }]}>Salvar</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
-                            <TouchableOpacity style={styles.fabBtn} onPress={() => navigation.navigate('AdminFoodManagerScreen')}>
-                                <MaterialCommunityIcons name="food-apple" size={22} color={theme.text} />
-                                <Text style={[styles.fabText, { color: theme.text }]}>Alimentos</Text>
-                            </TouchableOpacity>
-                            <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
+                        <View style={[styles.fabPill, { backgroundColor: theme.isDark ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)', paddingHorizontal: 0, maxWidth: '95%' }]}>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' }}>
+                                
+                                <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => setMacroTuningVisible(true))}>
+                                    <MaterialCommunityIcons name="tune" size={22} color={theme.accent} />
+                                    <Text style={[styles.fabText, { color: theme.accent }]}>Ajuste Fino</Text>
+                                </TouchableOpacity>
+                                <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
+                                
+                                <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalCloneVisible(true))}>
+                                    <MaterialCommunityIcons name="account-switch-outline" size={22} color={theme.text} />
+                                    <Text style={[styles.fabText, { color: theme.text }]}>Clonar</Text>
+                                </TouchableOpacity>
+                                <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
+                                
+                                <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalTemplatesVisible(true))}>
+                                    <MaterialCommunityIcons name="folder-star-outline" size={22} color={theme.text} />
+                                    <Text style={[styles.fabText, { color: theme.text }]}>Bases</Text>
+                                </TouchableOpacity>
+                                <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
+                                
+                                <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalSaveTemplateVisible(true))}>
+                                    <MaterialCommunityIcons name="content-save-all" size={22} color={theme.text} />
+                                    <Text style={[styles.fabText, { color: theme.text }]}>Salvar</Text>
+                                </TouchableOpacity>
+                                <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
+                                
+                                <TouchableOpacity style={styles.fabBtn} onPress={() => navigation.navigate('AdminFoodManagerScreen')}>
+                                    <MaterialCommunityIcons name="food-apple" size={22} color={theme.text} />
+                                    <Text style={[styles.fabText, { color: theme.text }]}>Alimentos</Text>
+                                </TouchableOpacity>
+                                <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
 
-                            <TouchableOpacity
-                                style={styles.fabBtn}
-                                onPress={() => handleActionPress(handlePdfButtonPress)}
-                                disabled={isExportingPdf}
-                            >
-                                {isExportingPdf
-                                    ? <ActivityIndicator size="small" color={theme.text} />
-                                    : <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
-                                }
-                                <Text style={[styles.fabText, { color: theme.text }]}>
-                                    {isExportingPdf ? '...' : 'PDF'}
-                                </Text>
-                            </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={styles.fabBtn}
+                                    onPress={() => handleActionPress(handlePdfButtonPress)}
+                                    disabled={isExportingPdf}
+                                >
+                                    {isExportingPdf
+                                        ? <ActivityIndicator size="small" color={theme.text} />
+                                        : <MaterialCommunityIcons name="file-pdf-box" size={22} color={theme.text} />
+                                    }
+                                    <Text style={[styles.fabText, { color: theme.text }]}>
+                                        {isExportingPdf ? '...' : 'PDF'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </ScrollView>
                         </View>
                     </View>
                 </View>
@@ -609,7 +614,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 theme={theme}
             />
 
-            {/* 🔥 NOVO: Modal de Ajuste Fino */}
+            {/* Modal de Ajuste Fino */}
             <MacroTuningModal
                 visible={macroTuningVisible}
                 onClose={() => setMacroTuningVisible(false)}
@@ -638,7 +643,7 @@ const styles = StyleSheet.create({
     addMealBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, padding: 16, borderRadius: 16, borderWidth: 1 },
     addMealText:       { fontWeight: '900', fontSize: 12, letterSpacing: 1 },
     fabContainer:      { position: 'absolute', bottom: 30, left: 0, right: 0, alignItems: 'center', zIndex: 50 },
-    fabPill:           { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 40, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
+    fabPill:           { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderRadius: 40, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 8 },
     fabBtn:            { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
     fabText:           { fontSize: 9, fontWeight: '800', marginTop: 4, letterSpacing: 0.5 },
     fabDivider:        { width: 1, height: 24, marginHorizontal: 4, opacity: 0.5 },
