@@ -24,6 +24,9 @@ import { MealAnalyzerModal, DayAnalyzerModal } from '../components/AdminDiet/Die
 import DietBuilderModal     from '../components/AdminDiet/DietBuilderModal';
 import PdfNotesModal        from '../components/AdminDiet/PdfNotesModal';
 
+// 🔥 NOVO: Motor de Ajuste Fino
+import MacroTuningModal     from '../components/AdminDiet/MacroTuningModal';
+
 // Hooks e Utils
 import { useDietModals }  from '../hooks/useDietModals';
 import { useDietData }    from '../hooks/useDietData';
@@ -72,6 +75,10 @@ export default function AdminDietScreen({ route, navigation }) {
     const [isExportingPdf,        setIsExportingPdf]        = useState(false);
     const [pdfNotesVisible,       setPdfNotesVisible]       = useState(false);
 
+    // 🔥 NOVO: Estado do Ajuste Fino e Backup de Desfazer
+    const [macroTuningVisible,    setMacroTuningVisible]    = useState(false);
+    const [tuningBackup,          setTuningBackup]          = useState(null); 
+
     const [loggedCoachId, setLoggedCoachId] = useState('');
     useEffect(() => {
         AsyncStorage.getItem('user').then(json => {
@@ -87,12 +94,10 @@ export default function AdminDietScreen({ route, navigation }) {
     const userId = (aluno?.id && aluno.id !== '[object Object]')
         ? aluno.id : route.params?.alunoId;
 
-    // 🔥 RECEBENDO O ID DA ESTRATÉGIA PARA LIGAR AS TELAS
     const strategyId = route.params?.strategyId;
     const strategyName = route.params?.strategyName;
 
     const modals  = useDietModals();
-    // 🔥 REPASSANDO O STRATEGY_ID PARA O HOOK QUE BUSCA OS DADOS
     const data    = useDietData(userId, strategyId); 
     const actions = useDietActions(aluno, data.anamnese, data.initialMeals);
 
@@ -121,8 +126,26 @@ export default function AdminDietScreen({ route, navigation }) {
     };
 
     const handleActionPress = (action) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         action();
+    };
+
+    // ─── LÓGICA DO AJUSTE FINO (COM UNDO) ────────────────────────────────────
+    const handleApplyMacroTuning = (tunedVisibleMeals) => {
+        // Tira a foto de backup se for o primeiro ajuste
+        if (!tuningBackup) setTuningBackup(actions.meals);
+
+        actions.setMeals(prev => {
+            const otherDaysMeals = prev.filter(m => m.dayType !== actions.activeDayType);
+            return [...otherDaysMeals, ...tunedVisibleMeals];
+        });
+    };
+
+    const handleUndoTuning = () => {
+        if (tuningBackup) {
+            actions.setMeals(tuningBackup);
+            setTuningBackup(null); // Limpa o backup
+        }
     };
 
     // ─── SALVAR DIETA ─────────────────────────────────────────────────────────
@@ -137,7 +160,7 @@ export default function AdminDietScreen({ route, navigation }) {
             }));
             const payload = {
                 userId,
-                strategyId, // 🔥 GARANTINDO QUE VAI SALVAR NA ESTRATÉGIA SE ELA EXISTIR
+                strategyId,
                 name:         strategyName || `Plano Alimentar - ${data.dietConfig.goal}`,
                 goal:         data.dietConfig.goal,
                 totalKcal:    actions.currentMacros.kcal,
@@ -149,6 +172,8 @@ export default function AdminDietScreen({ route, navigation }) {
                 meals:        safeMeals,
             };
             await DietService.saveDiet(payload);
+            setTuningBackup(null); // 🔥 Limpa o backup após salvar no banco
+
             if (isWeb) window.alert('🚀 Dieta salva com sucesso!');
             else Alert.alert('Sucesso', 'Dieta salva!');
         } catch (error) {
@@ -357,7 +382,6 @@ export default function AdminDietScreen({ route, navigation }) {
                             <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
                         </TouchableOpacity>
                         <View style={{ alignItems: 'center', flex: 1 }}>
-                            {/* 🔥 MOSTRANDO QUE É UMA ESTRATÉGIA NO TÍTULO */}
                             <Text style={[styles.headerTitle, { color: theme.text }]}>
                                 {strategyId ? `ESTRATÉGIA: ${strategyName?.toUpperCase()}` : 'MESA DE OPERAÇÕES'}
                             </Text>
@@ -395,7 +419,7 @@ export default function AdminDietScreen({ route, navigation }) {
                                         return (
                                             <TouchableOpacity key={tab.key}
                                                 style={[styles.dayTab, isActive ? { backgroundColor: accent + '20', borderColor: accent } : { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                                onPress={() => { Haptics.selectionAsync(); actions.setActiveDayType(tab.key); }}>
+                                                onPress={() => { if(Platform.OS !== 'web') Haptics.selectionAsync(); actions.setActiveDayType(tab.key); }}>
                                                 <MaterialCommunityIcons name={tab.icon} size={14} color={isActive ? accent : theme.textSecondary} />
                                                 <Text style={{ color: isActive ? accent : theme.textSecondary, fontWeight: '900', fontSize: 9, marginTop: 3 }}>{tab.label}</Text>
                                                 {count > 0 && (
@@ -475,7 +499,14 @@ export default function AdminDietScreen({ route, navigation }) {
 
                     {/* FAB */}
                     <View style={styles.fabContainer}>
-                        <View style={[styles.fabPill, { backgroundColor: theme.isDark ? 'rgba(30,30,30,0.9)' : 'rgba(255,255,255,0.9)' }]}>
+                        <View style={[styles.fabPill, { backgroundColor: theme.isDark ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)' }]}>
+                            {/* 🔥 NOVO BOTÃO DE AJUSTE FINO (MACRO TUNING) */}
+                            <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => setMacroTuningVisible(true))}>
+                                <MaterialCommunityIcons name="tune" size={22} color={theme.accent} />
+                                <Text style={[styles.fabText, { color: theme.accent }]}>Ajuste Fino</Text>
+                            </TouchableOpacity>
+                            <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
+                            
                             <TouchableOpacity style={styles.fabBtn} onPress={() => handleActionPress(() => modals.setModalCloneVisible(true))}>
                                 <MaterialCommunityIcons name="account-switch-outline" size={22} color={theme.text} />
                                 <Text style={[styles.fabText, { color: theme.text }]}>Clonar</Text>
@@ -492,12 +523,11 @@ export default function AdminDietScreen({ route, navigation }) {
                             </TouchableOpacity>
                             <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
                             <TouchableOpacity style={styles.fabBtn} onPress={() => navigation.navigate('AdminFoodManagerScreen')}>
-                                <MaterialCommunityIcons name="food-apple" size={22} color={theme.accent} />
-                                <Text style={[styles.fabText, { color: theme.accent }]}>Alimentos</Text>
+                                <MaterialCommunityIcons name="food-apple" size={22} color={theme.text} />
+                                <Text style={[styles.fabText, { color: theme.text }]}>Alimentos</Text>
                             </TouchableOpacity>
                             <View style={[styles.fabDivider, { backgroundColor: theme.border }]} />
 
-                            {/* 🔥 PDF — abre modal de obs antes de gerar */}
                             <TouchableOpacity
                                 style={styles.fabBtn}
                                 onPress={() => handleActionPress(handlePdfButtonPress)}
@@ -572,12 +602,22 @@ export default function AdminDietScreen({ route, navigation }) {
                 meals={actions.visibleMeals} anamnese={data.anamnese} macroTargets={macroTargets}
                 currentMacros={actions.currentMacros} dayType={actions.activeDayType} theme={theme} />
 
-            {/* 🔥 MODAL DE OBSERVAÇÕES DO PDF */}
             <PdfNotesModal
                 visible={pdfNotesVisible}
                 onClose={() => setPdfNotesVisible(false)}
                 onConfirm={handlePdfConfirm}
                 theme={theme}
+            />
+
+            {/* 🔥 NOVO: Modal de Ajuste Fino */}
+            <MacroTuningModal
+                visible={macroTuningVisible}
+                onClose={() => setMacroTuningVisible(false)}
+                theme={theme}
+                visibleMeals={actions.visibleMeals}
+                onApply={handleApplyMacroTuning}
+                canUndo={!!tuningBackup}
+                onUndo={handleUndoTuning}
             />
         </RootComponent>
     );
