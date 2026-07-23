@@ -19,7 +19,7 @@ import MonthlyFrequencyModal from '../components/Training/MonthlyFrequencyModal'
 import RunningTab from '../components/Training/RunningTab';
 import useRunning from '../hooks/useRunning';
 
-// 🔥 LÓGICA FINANCEIRA CENTRALIZADA (mesma usada na Home e na Dieta)
+// 🔥 LÓGICA FINANCEIRA CENTRALIZADA
 import { useFinanceLock } from '../hooks/useFinanceLock';
 
 export default function TrainingScreen({ navigation }) {
@@ -101,7 +101,8 @@ export default function TrainingScreen({ navigation }) {
         });
 
         const processedPrograms = await Promise.all(activeList.map(async (workout) => {
-          const localCompleted = await AsyncStorage.getItem(`@completed_days_${workout.id}`);
+          let localCompleted = null;
+          try { localCompleted = await AsyncStorage.getItem(`@completed_days_${workout.id}`); } catch(e){}
           let completedDays = localCompleted ? JSON.parse(localCompleted) : [];
           completedDays = completedDays.map(d => String(d).trim().toUpperCase());
 
@@ -167,7 +168,7 @@ export default function TrainingScreen({ navigation }) {
       }
 
       // ==========================================
-      // 2. BUSCA NA INTERNET (ATUALIZA O CACHE)
+      // 2. BUSCA NA INTERNET (ATUALIZA A TELA E O CACHE)
       // ==========================================
       try {
         const financeResult = await finance.fetchFinanceStatus(user.id);
@@ -185,15 +186,18 @@ export default function TrainingScreen({ navigation }) {
         if (checkinRes.ok) {
           const checkinsData = await checkinRes.json();
           const hasPhotosInDb = Array.isArray(checkinsData) && checkinsData.length > 0;
-          await AsyncStorage.setItem(cachePhotosKey, JSON.stringify(hasPhotosInDb));
           currentHasPhotos = hasPhotosInDb;
+          // 🔥 Tenta salvar no cache, mas se estiver lotado engole o erro!
+          try { await AsyncStorage.setItem(cachePhotosKey, JSON.stringify(hasPhotosInDb)); } catch (e) {}
         }
 
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
-            await AsyncStorage.setItem(cacheWorkoutsKey, JSON.stringify(data));
+            // 🔥 1º PASSO: ATUALIZA A TELA IMEDIATAMENTE (Garante que os treinos apareçam)
             await processProgramsLogic(data, resolvedPlan, currentHasPhotos);
+            // 🔥 2º PASSO: TENTA SALVAR O CACHE (Se a memória estiver cheia e dar erro, a tela não quebra!)
+            try { await AsyncStorage.setItem(cacheWorkoutsKey, JSON.stringify(data)); } catch (e) {}
           } else {
             setActivePrograms([]);
           }
@@ -202,13 +206,14 @@ export default function TrainingScreen({ navigation }) {
         if (historyRes.ok) {
           const historyData = await historyRes.json();
           if (Array.isArray(historyData)) {
-            await AsyncStorage.setItem(cacheHistoryKey, JSON.stringify(historyData));
+            // 🔥 1º PASSO: ATUALIZA A TELA IMEDIATAMENTE
             setWeeklyHistoryData(generateWeeklyView(historyData));
             setFullHistory(historyData);
+            // 🔥 2º PASSO: TENTA SALVAR O CACHE
+            try { await AsyncStorage.setItem(cacheHistoryKey, JSON.stringify(historyData)); } catch (e) {}
           }
         }
       } catch (e) {
-        // Falhou por falta de internet. Ignoramos e mantemos os dados do cache carregados na Etapa 1.
         console.log("Modo offline: Falha ao buscar dados novos, mantendo tela carregada pelo cache.");
       }
 
@@ -234,7 +239,7 @@ export default function TrainingScreen({ navigation }) {
 
   const handleResetCycle = async (workoutId) => {
     const execReset = async () => {
-      await AsyncStorage.removeItem(`@completed_days_${workoutId}`);
+      try { await AsyncStorage.removeItem(`@completed_days_${workoutId}`); } catch(e){}
       fetchWorkouts();
     };
     if (Platform.OS === 'web') {
