@@ -1,22 +1,22 @@
-// src/components/Checkins/EvaluationModal.js — v3
-// v3: fotos do check-in atual visíveis em AMBOS os modos (initial + comparison),
-//     seletor de modelo de IA (só masters), contextText corrigido
+// src/components/Checkins/EvaluationModal.js — v4
+// v4: campo de texto vira botão que abre FeedbackEditorModal fullscreen
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, ActivityIndicator, Image, Platform, Dimensions
+    TextInput, ActivityIndicator, Image, Platform,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import FeedbackEditorModal from './FeedbackEditorModal';
 
 const AI_MODELS = [
-    { key: 'gemini-flash', label: 'Gemini Flash', sub: 'Rápido · Barato',  icon: 'lightning-bolt' },
-    { key: 'gemini-pro',   label: 'Gemini Pro',   sub: 'Mais detalhado',   icon: 'star-outline'   },
-    { key: 'claude-haiku', label: 'Claude Haiku', sub: 'Melhor em PT-BR',  icon: 'brain'          },
-    { key: 'gpt-4o-mini',  label: 'GPT-4o mini',  sub: 'Ultra barato',     icon: 'robot'          },
+    { key: 'gemini-flash', label: 'Gemini Flash', sub: 'Rápido · Barato', icon: 'lightning-bolt' },
+    { key: 'gemini-pro',   label: 'Gemini Pro',   sub: 'Mais detalhado',  icon: 'star-outline'   },
+    { key: 'claude-haiku', label: 'Claude Haiku', sub: 'Melhor em PT-BR', icon: 'brain'          },
+    { key: 'gpt-4o-mini',  label: 'GPT-4o mini',  sub: 'Ultra barato',    icon: 'robot'          },
 ];
 
-// ─── Subcomponente: grid de fotos do check-in atual (sempre visível) ─────────
+// ─── Fotos atuais — sempre visíveis em ambos os modos ────────────────────────
 function CurrentPhotosGrid({ checkin, theme, onPressPhoto }) {
     if (!checkin) return null;
     const photos = [
@@ -24,7 +24,6 @@ function CurrentPhotosGrid({ checkin, theme, onPressPhoto }) {
         { uri: checkin.photoSide,  label: 'LADO'   },
         { uri: checkin.photoBack,  label: 'COSTAS' },
     ].filter(p => p.uri);
-
     if (!photos.length) return null;
 
     return (
@@ -37,19 +36,9 @@ function CurrentPhotosGrid({ checkin, theme, onPressPhoto }) {
             </View>
             <View style={{ flexDirection: 'row', gap: 8 }}>
                 {photos.map(({ uri, label }) => (
-                    <TouchableOpacity
-                        key={label}
-                        style={{ flex: 1, alignItems: 'center' }}
-                        onPress={() => onPressPhoto?.(uri)}
-                    >
-                        <Image
-                            source={{ uri }}
-                            style={[styles.currentPhoto, { borderColor: theme.accent }]}
-                            resizeMode="cover"
-                        />
-                        <Text style={{ fontSize: 9, fontWeight: 'bold', color: theme.textSecondary, marginTop: 4 }}>
-                            {label}
-                        </Text>
+                    <TouchableOpacity key={label} style={{ flex: 1, alignItems: 'center' }} onPress={() => onPressPhoto?.(uri)}>
+                        <Image source={{ uri }} style={[styles.currentPhoto, { borderColor: theme.accent }]} resizeMode="cover" />
+                        <Text style={{ fontSize: 9, fontWeight: 'bold', color: theme.textSecondary, marginTop: 4 }}>{label}</Text>
                     </TouchableOpacity>
                 ))}
             </View>
@@ -57,45 +46,27 @@ function CurrentPhotosGrid({ checkin, theme, onPressPhoto }) {
     );
 }
 
-// ─── Subcomponente: fotos lado a lado no comparativo ─────────────────────────
+// ─── Comparativo lado a lado ──────────────────────────────────────────────────
 function ComparePhotosGrid({ theme, hookData }) {
-    const { evaluationType, compareSource, getOldCheckin, savedCompareUrls, currentCheckinForEval } = hookData;
-
+    const { evaluationType, getOldCheckin, savedCompareUrls, currentCheckinForEval } = hookData;
     if (evaluationType !== 'comparison') return null;
-
     const oldCheckin = getOldCheckin();
-    const hasOld     = !!(oldCheckin || savedCompareUrls);
-    if (!hasOld) return null;
-
+    if (!oldCheckin && !savedCompareUrls) return null;
     const oldFrontUri = oldCheckin?.photoFront ?? (savedCompareUrls ? savedCompareUrls.split('|')[0] : null);
 
     return (
         <View style={{ flexDirection: 'row', gap: 12, marginBottom: 20 }}>
-            {/* ANTES */}
             <View style={{ flex: 1, alignItems: 'center' }}>
                 <View style={[styles.compareBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <Text style={[styles.compareLabel, { color: theme.textSecondary }]}>
-                        ANTES: {oldCheckin?.weight ? `${oldCheckin.weight}kg` : '--'}
-                    </Text>
+                    <Text style={[styles.compareLabel, { color: theme.textSecondary }]}>ANTES: {oldCheckin?.weight ? `${oldCheckin.weight}kg` : '--'}</Text>
                 </View>
-                <Image
-                    source={{ uri: oldFrontUri }}
-                    style={[styles.comparePhotoImg, { borderColor: theme.border }]}
-                    resizeMode="contain"
-                />
+                <Image source={{ uri: oldFrontUri }} style={[styles.comparePhotoImg, { borderColor: theme.border }]} resizeMode="contain" />
             </View>
-            {/* ATUAL */}
             <View style={{ flex: 1, alignItems: 'center' }}>
                 <View style={[styles.compareBadge, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
-                    <Text style={[styles.compareLabel, { color: theme.accent }]}>
-                        ATUAL: {currentCheckinForEval?.weight ?? '--'}kg
-                    </Text>
+                    <Text style={[styles.compareLabel, { color: theme.accent }]}>ATUAL: {currentCheckinForEval?.weight ?? '--'}kg</Text>
                 </View>
-                <Image
-                    source={{ uri: currentCheckinForEval?.photoFront }}
-                    style={[styles.comparePhotoImg, { borderColor: theme.accent }]}
-                    resizeMode="contain"
-                />
+                <Image source={{ uri: currentCheckinForEval?.photoFront }} style={[styles.comparePhotoImg, { borderColor: theme.accent }]} resizeMode="contain" />
             </View>
         </View>
     );
@@ -123,9 +94,13 @@ export default function EvaluationModal({ theme, hookData }) {
         openPhoto,
     } = hookData;
 
+    // ── v4: estado do editor fullscreen ──────────────────────────────────────
+    const [editorOpen, setEditorOpen] = useState(false);
+
     if (!evaluationModalVisible) return null;
 
     const selectedModelLabel = AI_MODELS.find(m => m.key === aiModel)?.label ?? 'IA';
+    const wordCount = feedbackText.trim() ? feedbackText.trim().split(/\s+/).length : 0;
 
     return (
         <View style={styles.modalBg}>
@@ -166,17 +141,12 @@ export default function EvaluationModal({ theme, hookData }) {
                         ))}
                     </View>
 
-                    {/* ── Fotos ATUAIS — sempre visíveis em ambos os modos ── */}
-                    <CurrentPhotosGrid
-                        checkin={currentCheckinForEval}
-                        theme={theme}
-                        onPressPhoto={(uri) => openPhoto?.(uri)}
-                    />
+                    {/* ── Fotos atuais — sempre visíveis ── */}
+                    <CurrentPhotosGrid checkin={currentCheckinForEval} theme={theme} onPressPhoto={(uri) => openPhoto?.(uri)} />
 
-                    {/* ── Bloco comparativo (só no modo comparison) ── */}
+                    {/* ── Bloco comparativo ── */}
                     {evaluationType === 'comparison' && (
                         <View style={{ marginBottom: 20, padding: 15, backgroundColor: theme.surface, borderRadius: 16, borderWidth: 1, borderColor: theme.border }}>
-                            {/* Toggle SISTEMA / GALERIA */}
                             <View style={{ flexDirection: 'row', backgroundColor: theme.bg, borderRadius: 8, padding: 4, marginBottom: 15, borderWidth: 1, borderColor: theme.border }}>
                                 {['system', 'gallery'].map(src => (
                                     <TouchableOpacity
@@ -193,9 +163,7 @@ export default function EvaluationModal({ theme, hookData }) {
 
                             {compareSource === 'system' ? (
                                 <>
-                                    <Text style={{ fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5 }}>
-                                        SELECIONE A FOTO BASE DO APLICATIVO
-                                    </Text>
+                                    <Text style={{ fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5 }}>SELECIONE A FOTO BASE DO APLICATIVO</Text>
                                     <TouchableOpacity
                                         style={[styles.dateDropdown, { backgroundColor: theme.bg, borderColor: theme.border }]}
                                         onPress={() => setShowDatePicker(!showDatePicker)}
@@ -220,9 +188,7 @@ export default function EvaluationModal({ theme, hookData }) {
                                                     <Text style={{ color: theme.text, fontSize: 13, fontWeight: '600' }}>
                                                         {safeDate(c.date || c.createdAt).toLocaleDateString('pt-BR')}
                                                     </Text>
-                                                    {selectedOldCheckinId === c.id && (
-                                                        <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />
-                                                    )}
+                                                    {selectedOldCheckinId === c.id && <MaterialCommunityIcons name="check-circle" size={18} color={theme.accent} />}
                                                 </TouchableOpacity>
                                             ))}
                                         </View>
@@ -230,27 +196,18 @@ export default function EvaluationModal({ theme, hookData }) {
                                 </>
                             ) : (
                                 <>
-                                    <Text style={{ fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5 }}>
-                                        SELECIONE FOTOS EXTERNAS
-                                    </Text>
+                                    <Text style={{ fontSize: 10, fontWeight: '900', color: theme.accent, marginBottom: 10, letterSpacing: 0.5 }}>SELECIONE FOTOS EXTERNAS</Text>
                                     <View style={styles.slotsContainer}>
                                         {[
                                             { slot: 'front', icon: 'account',           label: 'FRENTE', state: oldFront },
                                             { slot: 'side',  icon: 'human-male-height',  label: 'LADO',   state: oldSide  },
                                             { slot: 'back',  icon: 'account-arrow-left', label: 'COSTAS', state: oldBack  },
                                         ].map(({ slot, icon, label, state }) => (
-                                            <TouchableOpacity
-                                                key={slot}
-                                                style={styles.slotBox}
-                                                onPress={() => pickCustomOldImage(slot)}
-                                            >
+                                            <TouchableOpacity key={slot} style={styles.slotBox} onPress={() => pickCustomOldImage(slot)}>
                                                 {state ? (
                                                     <>
                                                         <Image source={{ uri: state.uri }} style={styles.slotImg} />
-                                                        <TouchableOpacity
-                                                            style={styles.slotRemove}
-                                                            onPress={() => removeCustomOldImage(slot)}
-                                                        >
+                                                        <TouchableOpacity style={styles.slotRemove} onPress={() => removeCustomOldImage(slot)}>
                                                             <MaterialCommunityIcons name="close-circle" size={20} color="#FF3B30" />
                                                         </TouchableOpacity>
                                                     </>
@@ -263,11 +220,10 @@ export default function EvaluationModal({ theme, hookData }) {
                                             </TouchableOpacity>
                                         ))}
                                     </View>
-
                                     <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
                                         {[
-                                            { label: 'DATA (OPCIONAL)',  ph: 'Ex: 10/01/26', val: customOldDate,   set: setCustomOldDate,   kb: 'default' },
-                                            { label: 'PESO (OPCIONAL)',  ph: 'Ex: 85.5',     val: customOldWeight, set: setCustomOldWeight, kb: 'numeric' },
+                                            { label: 'DATA (OPCIONAL)', ph: 'Ex: 10/01/26', val: customOldDate,   set: setCustomOldDate,   kb: 'default' },
+                                            { label: 'PESO (OPCIONAL)', ph: 'Ex: 85.5',     val: customOldWeight, set: setCustomOldWeight, kb: 'numeric' },
                                         ].map(({ label, ph, val, set, kb }) => (
                                             <View key={label} style={{ flex: 1 }}>
                                                 <Text style={{ fontSize: 10, fontWeight: '900', color: theme.textSecondary, marginBottom: 5, letterSpacing: 0.5 }}>{label}</Text>
@@ -287,7 +243,7 @@ export default function EvaluationModal({ theme, hookData }) {
                         </View>
                     )}
 
-                    {/* ── Side-by-side (comparativo: frente da foto antiga vs atual) ── */}
+                    {/* ── Side-by-side comparativo ── */}
                     <ComparePhotosGrid theme={theme} hookData={hookData} />
 
                     {/* ── Direcionamento ── */}
@@ -317,19 +273,10 @@ export default function EvaluationModal({ theme, hookData }) {
                                                 borderColor:     selected ? theme.accent         : theme.border,
                                             }]}
                                         >
-                                            <MaterialCommunityIcons
-                                                name={m.icon}
-                                                size={13}
-                                                color={selected ? theme.accent : theme.textSecondary}
-                                                style={{ marginRight: 5 }}
-                                            />
+                                            <MaterialCommunityIcons name={m.icon} size={13} color={selected ? theme.accent : theme.textSecondary} style={{ marginRight: 5 }} />
                                             <View>
-                                                <Text style={{ fontSize: 11, fontWeight: '900', color: selected ? theme.accent : theme.text, letterSpacing: 0.3 }}>
-                                                    {m.label}
-                                                </Text>
-                                                <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 1 }}>
-                                                    {m.sub}
-                                                </Text>
+                                                <Text style={{ fontSize: 11, fontWeight: '900', color: selected ? theme.accent : theme.text, letterSpacing: 0.3 }}>{m.label}</Text>
+                                                <Text style={{ fontSize: 9, color: theme.textSecondary, marginTop: 1 }}>{m.sub}</Text>
                                             </View>
                                         </TouchableOpacity>
                                     );
@@ -354,28 +301,51 @@ export default function EvaluationModal({ theme, hookData }) {
                         ) : (
                             <>
                                 <MaterialCommunityIcons name="robot-outline" size={22} color={theme.accent} />
-                                <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 13, marginLeft: 10, letterSpacing: 0.5 }}>
-                                    GERAR FEEDBACK COM IA
-                                </Text>
+                                <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 13, marginLeft: 10, letterSpacing: 0.5 }}>GERAR FEEDBACK COM IA</Text>
                             </>
                         )}
                     </TouchableOpacity>
 
-                    {/* ── Texto da avaliação ── */}
+                    {/* ── v4: campo de texto → abre editor fullscreen ── */}
                     <Text style={{ fontSize: 11, fontWeight: '900', color: theme.textSecondary, marginBottom: 10, marginTop: 30, letterSpacing: 0.5 }}>
                         TEXTO DA AVALIAÇÃO (Enviado ao Aluno)
                     </Text>
-                    <View style={[styles.evalInputContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                        <MaterialCommunityIcons name="format-quote-open" size={20} color={theme.accent} style={{ marginBottom: 8 }} />
-                        <TextInput
-                            style={[styles.evalInput, { color: theme.text }]}
-                            multiline
-                            placeholder="Digite a avaliação ou deixe a IA fazer o trabalho pesado..."
-                            placeholderTextColor={theme.textSecondary}
-                            value={feedbackText}
-                            onChangeText={setFeedbackText}
-                        />
-                    </View>
+
+                    <TouchableOpacity
+                        onPress={() => setEditorOpen(true)}
+                        activeOpacity={0.85}
+                        style={[styles.feedbackPreview, {
+                            backgroundColor: theme.surface,
+                            borderColor: feedbackText ? theme.accent + '60' : theme.border,
+                        }]}
+                    >
+                        {/* Linha superior: ícone de aspas + badge EDITAR */}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <MaterialCommunityIcons name="format-quote-open" size={20} color={theme.accent} />
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                {feedbackText ? (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                                        <MaterialCommunityIcons name="check-circle-outline" size={12} color={theme.accent} />
+                                        <Text style={{ fontSize: 10, color: theme.accent, fontWeight: '700' }}>
+                                            {wordCount} {wordCount === 1 ? 'palavra' : 'palavras'}
+                                        </Text>
+                                    </View>
+                                ) : null}
+                                <View style={[styles.editBadge, { backgroundColor: theme.accent + '15' }]}>
+                                    <MaterialCommunityIcons name="pencil" size={11} color={theme.accent} />
+                                    <Text style={{ fontSize: 10, color: theme.accent, fontWeight: '900', marginLeft: 4, letterSpacing: 0.3 }}>EDITAR</Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        {/* Preview do texto (4 linhas) */}
+                        <Text
+                            style={{ color: feedbackText ? theme.text : theme.textSecondary, fontSize: 13, lineHeight: 20 }}
+                            numberOfLines={4}
+                        >
+                            {feedbackText || 'Toque para digitar a avaliação ou gere com a IA acima...'}
+                        </Text>
+                    </TouchableOpacity>
 
                     {/* ── Submit ── */}
                     <TouchableOpacity
@@ -397,6 +367,17 @@ export default function EvaluationModal({ theme, hookData }) {
                     </TouchableOpacity>
                 </ScrollView>
             </View>
+
+            {/* ── v4: editor fullscreen ── */}
+            <FeedbackEditorModal
+                visible={editorOpen}
+                value={feedbackText}
+                onChange={setFeedbackText}
+                onClose={() => setEditorOpen(false)}
+                onConfirm={() => setEditorOpen(false)}
+                checkin={currentCheckinForEval}
+                theme={theme}
+            />
         </View>
     );
 }
@@ -404,46 +385,46 @@ export default function EvaluationModal({ theme, hookData }) {
 const isWeb = Platform.OS === 'web';
 
 const styles = StyleSheet.create({
-    modalBg:            { position: isWeb ? 'fixed' : 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-    modalContent:       { width: '100%', maxWidth: 960, maxHeight: '90vh', borderRadius: 30, borderWidth: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-    scrollView:         { flex: 1, minHeight: 0, ...(Platform.OS === 'web' ? { overflowY: 'auto' } : {}) },
-    modalHeader:        { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, flexShrink: 0 },
-    modalTitle:         { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
+    modalBg:           { position: isWeb ? 'fixed' : 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    modalContent:      { width: '100%', maxWidth: 960, maxHeight: '90vh', borderRadius: 30, borderWidth: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+    scrollView:        { flex: 1, minHeight: 0, ...(Platform.OS === 'web' ? { overflowY: 'auto' } : {}) },
+    modalHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 25, borderBottomWidth: 1, flexShrink: 0 },
+    modalTitle:        { fontSize: 18, fontWeight: '900', letterSpacing: 1 },
 
-    tabBtn:             { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
-    tabBtnText:         { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+    tabBtn:            { flex: 1, padding: 12, borderRadius: 10, alignItems: 'center' },
+    tabBtnText:        { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
 
-    // Fotos atuais
-    currentPhotoBadge:  { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginBottom: 10 },
-    currentPhoto:       { width: '100%', aspectRatio: 0.6, borderRadius: 12, borderWidth: 2, backgroundColor: '#000' },
+    currentPhotoBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginBottom: 10 },
+    currentPhoto:      { width: '100%', aspectRatio: 0.6, borderRadius: 12, borderWidth: 2, backgroundColor: '#000' },
 
-    // Comparativo side-by-side
-    compareBadge:       { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginBottom: 8, alignSelf: 'center' },
-    compareLabel:       { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-    comparePhotoImg:    { width: '100%', height: 220, borderRadius: 14, borderWidth: 2, backgroundColor: '#000' },
+    compareBadge:      { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, borderWidth: 1, marginBottom: 8, alignSelf: 'center' },
+    compareLabel:      { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+    comparePhotoImg:   { width: '100%', height: 220, borderRadius: 14, borderWidth: 2, backgroundColor: '#000' },
 
-    sourceBtn:          { flex: 1, padding: 8, borderRadius: 6, alignItems: 'center' },
-    sourceBtnText:      { fontWeight: 'bold', fontSize: 10, letterSpacing: 0.5 },
+    sourceBtn:         { flex: 1, padding: 8, borderRadius: 6, alignItems: 'center' },
+    sourceBtnText:     { fontWeight: 'bold', fontSize: 10, letterSpacing: 0.5 },
 
-    slotsContainer:     { flexDirection: 'row', gap: 10 },
-    slotBox:            { flex: 1, height: 110, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: '#333', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' },
-    slotEmpty:          { alignItems: 'center' },
-    slotLabel:          { fontSize: 10, fontWeight: 'bold', color: '#555', marginTop: 4 },
-    slotImg:            { width: '100%', height: '100%', resizeMode: 'cover' },
-    slotRemove:         { position: 'absolute', top: 5, right: 5, backgroundColor: '#FFF', borderRadius: 10 },
+    slotsContainer:    { flexDirection: 'row', gap: 10 },
+    slotBox:           { flex: 1, height: 110, backgroundColor: '#1A1A1A', borderRadius: 12, borderWidth: 1, borderColor: '#333', justifyContent: 'center', alignItems: 'center', position: 'relative', overflow: 'hidden' },
+    slotEmpty:         { alignItems: 'center' },
+    slotLabel:         { fontSize: 10, fontWeight: 'bold', color: '#555', marginTop: 4 },
+    slotImg:           { width: '100%', height: '100%', resizeMode: 'cover' },
+    slotRemove:        { position: 'absolute', top: 5, right: 5, backgroundColor: '#FFF', borderRadius: 10 },
 
-    inputSmall:         { padding: 10, borderRadius: 8, borderWidth: 1, outlineStyle: 'none', fontSize: 13 },
-    dateDropdown:       { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1 },
-    dateList:           { borderWidth: 1, borderRadius: 12, marginTop: 5, maxHeight: 150, overflow: 'hidden' },
-    dateListItem:       { flexDirection: 'row', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1 },
+    inputSmall:        { padding: 10, borderRadius: 8, borderWidth: 1, outlineStyle: 'none', fontSize: 13 },
+    dateDropdown:      { flexDirection: 'row', alignItems: 'center', padding: 15, borderRadius: 12, borderWidth: 1 },
+    dateList:          { borderWidth: 1, borderRadius: 12, marginTop: 5, maxHeight: 150, overflow: 'hidden' },
+    dateListItem:      { flexDirection: 'row', justifyContent: 'space-between', padding: 14, borderBottomWidth: 1 },
 
-    sectionLabel:       { fontSize: 11, fontWeight: '900', marginTop: 10, marginBottom: 5 },
-    inputContext:       { padding: 15, borderRadius: 12, borderWidth: 1, minHeight: 75, textAlignVertical: 'top', outlineStyle: 'none', marginBottom: 20, fontSize: 14, marginTop: 8 },
+    sectionLabel:      { fontSize: 11, fontWeight: '900', marginTop: 10, marginBottom: 5 },
+    inputContext:      { padding: 15, borderRadius: 12, borderWidth: 1, minHeight: 75, textAlignVertical: 'top', outlineStyle: 'none', marginBottom: 20, fontSize: 14, marginTop: 8 },
 
-    modelChip:          { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
+    modelChip:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
+    generateBtn:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
 
-    generateBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
-    evalInputContainer: { padding: 20, borderRadius: 20, borderWidth: 1 },
-    evalInput:          { minHeight: 120, fontSize: 15, lineHeight: 24, textAlignVertical: 'top', outlineStyle: 'none' },
-    submitBtn:          { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 28, elevation: 4 },
+    // v4: preview clicável
+    feedbackPreview:   { padding: 20, borderRadius: 20, borderWidth: 1.5, minHeight: 110 },
+    editBadge:         { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+
+    submitBtn:         { padding: 20, borderRadius: 16, alignItems: 'center', marginTop: 28, elevation: 4 },
 });
