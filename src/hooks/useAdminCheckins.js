@@ -1,6 +1,8 @@
-// src/hooks/useAdminCheckins.js — v2
-// v2: passa coachId para o backend, trata already_evaluated e ai_unavailable,
-//     forceRetry para quando a IA falhou antes
+// src/hooks/useAdminCheckins.js — v3
+// v3: aiModel (seletor de modelo para masters), isMaster exposto,
+//     fotos do check-in atual disponíveis em todos os modos (initial + comparison),
+//     contextText corrigido para ambos os modos
+
 import { useState, useEffect } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -15,20 +17,21 @@ const MASTER_IDS = [
 ];
 
 export const useAdminCheckins = (aluno) => {
-    const [loading, setLoading]                   = useState(true);
-    const [checkins, setCheckins]                 = useState([]);
-    const [hasPermission, setHasPermission]       = useState(false);
-    const [visibleCount, setVisibleCount]         = useState(3);
-    const [adminId, setAdminId]                   = useState(''); // ← v2: guarda coachId logado
+    const [loading, setLoading]             = useState(true);
+    const [checkins, setCheckins]           = useState([]);
+    const [hasPermission, setHasPermission] = useState(false);
+    const [visibleCount, setVisibleCount]   = useState(3);
+    const [adminId, setAdminId]             = useState('');
+    const [isMaster, setIsMaster]           = useState(false); // ← v3: exposto pro modal
 
-    const [modalVisible, setModalVisible]         = useState(false);
-    const [selectedPhoto, setSelectedPhoto]       = useState(null);
-    const [selectedCheckinId, setSelectedCheckinId]   = useState(null);
-    const [selectedPhotoField, setSelectedPhotoField] = useState(null);
+    const [modalVisible, setModalVisible]               = useState(false);
+    const [selectedPhoto, setSelectedPhoto]             = useState(null);
+    const [selectedCheckinId, setSelectedCheckinId]     = useState(null);
+    const [selectedPhotoField, setSelectedPhotoField]   = useState(null);
 
     const [evaluationModalVisible, setEvaluationModalVisible] = useState(false);
-    const [isGeneratingAI, setIsGeneratingAI]     = useState(false);
-    const [evaluationType, setEvaluationType]     = useState('initial');
+    const [isGeneratingAI, setIsGeneratingAI]   = useState(false);
+    const [evaluationType, setEvaluationType]   = useState('initial');
     const [currentCheckinForEval, setCurrentCheckinForEval] = useState(null);
 
     const [selectedOldCheckinId, setSelectedOldCheckinId] = useState(null);
@@ -38,13 +41,16 @@ export const useAdminCheckins = (aluno) => {
     const [isResolving, setIsResolving]                   = useState(false);
     const [showDatePicker, setShowDatePicker]             = useState(false);
 
-    const [compareSource, setCompareSource]   = useState('system');
-    const [oldFront, setOldFront]             = useState(null);
-    const [oldSide, setOldSide]               = useState(null);
-    const [oldBack, setOldBack]               = useState(null);
+    const [compareSource, setCompareSource]     = useState('system');
+    const [oldFront, setOldFront]               = useState(null);
+    const [oldSide, setOldSide]                 = useState(null);
+    const [oldBack, setOldBack]                 = useState(null);
     const [customOldWeight, setCustomOldWeight] = useState('');
     const [customOldDate, setCustomOldDate]     = useState('');
     const [contextText, setContextText]         = useState('');
+
+    // ── v3: seletor de modelo ────────────────────────────────────────────────
+    const [aiModel, setAiModel] = useState('gemini-flash');
 
     useEffect(() => { checkPermissionAndFetch(); }, [aluno.id]);
 
@@ -56,9 +62,10 @@ export const useAdminCheckins = (aluno) => {
                 const loggedId   = userObj.id;
                 const adminEmail = userObj.email.toLowerCase();
                 const isAdri     = adminEmail === 'adri.personal@hotmail.com';
-                const isMaster   = MASTER_IDS.includes(loggedId);
+                const master     = MASTER_IDS.includes(loggedId);
 
-                setAdminId(loggedId); // ← v2: persiste para usar nas chamadas
+                setAdminId(loggedId);
+                setIsMaster(master); // ← v3
 
                 let realCoachId = aluno.coachId;
                 const cachedData = await AsyncStorage.getItem('@dashboard_cache');
@@ -68,7 +75,7 @@ export const useAdminCheckins = (aluno) => {
                     if (found?.coachId) realCoachId = found.coachId;
                 }
 
-                const isMyStudent = isMaster
+                const isMyStudent = master
                     ? (isAdri ? realCoachId === loggedId : (realCoachId === loggedId || !realCoachId))
                     : realCoachId === loggedId;
 
@@ -94,6 +101,7 @@ export const useAdminCheckins = (aluno) => {
 
     const safeDate = (d) => { const dt = new Date(d); return isNaN(dt) ? new Date() : dt; };
 
+    // ── Delete ───────────────────────────────────────────────────────────────
     const handleDelete = (id) => {
         const run = async () => {
             try {
@@ -118,6 +126,7 @@ export const useAdminCheckins = (aluno) => {
         }
     };
 
+    // ── Foto ─────────────────────────────────────────────────────────────────
     const openPhoto = (uri, checkinId = null, field = null) => {
         if (!uri) return;
         setSelectedPhoto(uri);
@@ -195,6 +204,7 @@ export const useAdminCheckins = (aluno) => {
         if (slot === 'back')  setOldBack(null);
     };
 
+    // ── Abrir painel de avaliação ─────────────────────────────────────────────
     const openEvaluationPanel = (checkin, initialType) => {
         let rawFb = checkin.coachFeedback || '';
         let extractedOldUrls = null;
@@ -241,13 +251,12 @@ export const useAdminCheckins = (aluno) => {
 
     const getOldCheckin = () => checkins.find(c => c.id === selectedOldCheckinId) ?? null;
 
-    // ── v2: generateAIFeedback com coachId, lock e forceRetry ────────────────
+    // ── v3: generateAIFeedback com aiModel ───────────────────────────────────
     const generateAIFeedback = async ({ forceRetry = false } = {}) => {
         if (evaluationType === 'comparison' && compareSource === 'gallery' && !oldFront && !oldSide && !oldBack) {
             Alert.alert('Atenção', 'Adicione pelo menos uma foto antiga da galeria.'); return;
         }
 
-        // Verifica se já tem avaliação e não é forceRetry
         if (!forceRetry && currentCheckinForEval?.aiEvaluatedAt) {
             const confirmMsg = 'Este check-in já foi avaliado pela IA. Deseja gerar uma nova análise?';
             const proceed = await new Promise(resolve => {
@@ -275,21 +284,20 @@ export const useAdminCheckins = (aluno) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    checkInId:      currentCheckinForEval.id,
-                    oldCheckInId:   (evaluationType === 'comparison' && compareSource === 'system') ? selectedOldCheckinId : null,
+                    checkInId:       currentCheckinForEval.id,
+                    oldCheckInId:    (evaluationType === 'comparison' && compareSource === 'system') ? selectedOldCheckinId : null,
                     customOldPhotos: customPhotos,
                     customOldWeight: (evaluationType === 'comparison' && compareSource === 'gallery') ? customOldWeight : null,
                     contextText,
-                    coachId:        adminId,     // ← v2: isolamento
-                    forceRetry:     forceRetry || !!currentCheckinForEval?.aiEvaluatedAt, // ← v2: override lock se já aprovado acima
+                    coachId:         adminId,
+                    forceRetry:      forceRetry || !!currentCheckinForEval?.aiEvaluatedAt,
+                    aiModel,         // ← v3: modelo escolhido
                 }),
             });
 
             const data = await res.json();
 
-            // ── Tratamento de respostas específicas ──
             if (res.status === 409 && data.error === 'already_evaluated') {
-                // Lock disparado no backend sem forceRetry — pede confirmação
                 const confirmMsg = 'Este check-in já foi avaliado pela IA. Deseja reprocessar?';
                 const proceed = await new Promise(resolve => {
                     if (Platform.OS === 'web') { resolve(window.confirm(confirmMsg)); }
@@ -303,7 +311,7 @@ export const useAdminCheckins = (aluno) => {
             }
 
             if (res.status === 503 && data.error === 'ai_unavailable') {
-                const msg = 'O motor de IA está sobrecarregado no momento. Tente novamente em alguns instantes.';
+                const msg = 'O motor de IA está sobrecarregado. Tente novamente em alguns instantes.';
                 if (Platform.OS === 'web') window.alert(msg); else Alert.alert('IA indisponível', msg);
                 return;
             }
@@ -312,7 +320,6 @@ export const useAdminCheckins = (aluno) => {
 
             if (data.analysis) {
                 setFeedbackText(data.analysis);
-                // Atualiza aiEvaluatedAt localmente para refletir o lock
                 setCheckins(prev => prev.map(c =>
                     c.id === currentCheckinForEval.id ? { ...c, aiEvaluatedAt: new Date().toISOString() } : c
                 ));
@@ -327,6 +334,7 @@ export const useAdminCheckins = (aluno) => {
         }
     };
 
+    // ── Submit avaliação ─────────────────────────────────────────────────────
     const submitEvaluation = async () => {
         if (!feedbackText.trim()) {
             const msg = 'O texto não pode estar vazio.';
@@ -381,6 +389,7 @@ export const useAdminCheckins = (aluno) => {
         }
     };
 
+    // ── Baixa silenciosa ─────────────────────────────────────────────────────
     const handleResolveSilently = (checkinId) => {
         const run = async () => {
             setIsResolving(true);
@@ -415,7 +424,7 @@ export const useAdminCheckins = (aluno) => {
 
     return {
         loading, checkins, hasPermission, visibleCount, setVisibleCount,
-        adminId,                                   // ← v2: exposto para uso externo se necessário
+        adminId, isMaster,                                   // ← v3: isMaster exposto
         modalVisible, setModalVisible, selectedPhoto, openPhoto,
         selectedCheckinId, selectedPhotoField,
         updateCheckinPhoto, updateCheckinFeedback,
@@ -430,6 +439,7 @@ export const useAdminCheckins = (aluno) => {
         customOldWeight, setCustomOldWeight,
         customOldDate,   setCustomOldDate,
         contextText,     setContextText,
+        aiModel, setAiModel,                                 // ← v3: modelo de IA
         fetchCheckins, safeDate, handleDelete, restoreCheckinPhoto,
         pickCustomOldImage, removeCustomOldImage,
         openEvaluationPanel, handleTabChange, getOldCheckin,

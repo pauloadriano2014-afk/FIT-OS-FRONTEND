@@ -1,4 +1,6 @@
-// src/screens/AdminStudentCheckinsScreen.js
+// src/screens/AdminStudentCheckinsScreen.js — v3
+// v3: isMaster passado pro EvaluationModal, sem outros deps novos
+
 import React from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
@@ -36,31 +38,25 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
         modalVisible, setModalVisible, selectedPhoto,
         selectedCheckinId, selectedPhotoField,
         fetchCheckins, updateCheckinPhoto, updateCheckinFeedback,
+        isMaster,   // ← v3
     } = hookData;
 
-    const isWeb = Platform.OS === 'web';
+    const isWeb      = Platform.OS === 'web';
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
     const RootComponent = isWeb ? View : SafeAreaView;
 
-    // ── Voltar: usa goBack() se possível, senão vai pro AdminDashboard ────────
     const handleGoBack = () => {
-        if (navigation.canGoBack()) {
-            navigation.goBack();
-        } else {
-            // Chegou aqui via deep link (F5 / URL direta) — volta pro dashboard
-            navigation.navigate('AdminDashboard');
-        }
+        if (navigation.canGoBack()) navigation.goBack();
+        else navigation.navigate('AdminDashboard');
     };
 
     const handlePhotoSave = async ({ mode, uri, compareCheckinId: cmpId }) => {
         setModalVisible(false);
-
         if (!selectedCheckinId) {
             const msg = 'Não foi possível identificar o check-in.';
             Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Erro', msg);
             return;
         }
-
         try {
             const result = await uploadEditedPhoto({
                 mode:             mode ?? 'single',
@@ -69,20 +65,16 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 imageBase64:      uri,
                 compareCheckinId: cmpId ?? null,
             });
-
             if (mode === 'single') {
                 updateCheckinPhoto(selectedCheckinId, selectedPhotoField, result.newUrl);
             } else {
                 updateCheckinFeedback(selectedCheckinId, result.updatedFeedback);
             }
-
             const msg = mode === 'compare'
                 ? 'Comparação salva! O aluno poderá ver no relatório.'
                 : 'Marcação salva com sucesso!';
             Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Sucesso', msg);
-
         } catch (err) {
-            console.error('Erro ao salvar foto editada:', err);
             const msg = `Erro ao salvar: ${err.message}`;
             Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Erro', msg);
         }
@@ -96,7 +88,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 ...(isWeb ? { height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' } : {})
             }
         ]}>
-            <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
+            <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
 
             <View style={{
                 flex: 1, minHeight: 0, width: '100%',
@@ -104,11 +96,12 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 backgroundColor: theme.bg, overflow: 'hidden',
                 ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {})
             }}>
-                {/* Header */}
+                {/* ── Header ── */}
                 <View style={[styles.header, { borderBottomColor: theme.border }]}>
-                    {/* ✅ Usa handleGoBack em vez de navigation.goBack() direto */}
-                    <TouchableOpacity onPress={handleGoBack}
-                        style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexShrink: 0 }}>
+                    <TouchableOpacity
+                        onPress={handleGoBack}
+                        style={{ padding: 8, backgroundColor: theme.surface, borderRadius: 8, borderWidth: 1, borderColor: theme.border, flexShrink: 0 }}
+                    >
                         <MaterialCommunityIcons name="arrow-left" size={24} color={theme.text} />
                     </TouchableOpacity>
                     <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 15 }}>
@@ -122,24 +115,29 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                {/* Lista */}
+                {/* ── Lista ── */}
                 <View style={{ flex: 1, position: 'relative' }}>
                     <ScrollView
                         style={isWeb
                             ? { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflowY: 'auto' }
                             : { flex: 1 }
                         }
-                        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+                        contentContainerStyle={{ padding: 20, paddingBottom: 60 }}
+                    >
                         {loading ? (
                             <ActivityIndicator color={theme.accent} size="large" style={{ marginTop: 50 }} />
+
                         ) : !hasPermission ? (
                             <View style={{ marginTop: 80, alignItems: 'center', paddingHorizontal: 30 }}>
                                 <MaterialCommunityIcons name="shield-lock" size={80} color={theme.border} />
-                                <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900', marginTop: 20, textAlign: 'center' }}>ACESSO RESTRITO</Text>
+                                <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900', marginTop: 20, textAlign: 'center' }}>
+                                    ACESSO RESTRITO
+                                </Text>
                                 <Text style={{ color: theme.textSecondary, fontSize: 14, textAlign: 'center', marginTop: 10, lineHeight: 22 }}>
                                     Por questões de privacidade, este check-in só pode ser visualizado pelo Coach responsável.
                                 </Text>
                             </View>
+
                         ) : checkins.length === 0 ? (
                             <View style={[styles.emptyBox, { borderColor: theme.border }]}>
                                 <MaterialCommunityIcons name="camera-off" size={48} color={theme.textSecondary} />
@@ -147,6 +145,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                     Este aluno ainda não enviou nenhum check-in.
                                 </Text>
                             </View>
+
                         ) : (
                             <>
                                 {checkins.slice(0, visibleCount).map((item) => {
@@ -162,10 +161,12 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                                         />
                                     );
                                 })}
+
                                 {visibleCount < checkins.length && (
                                     <TouchableOpacity
                                         style={[styles.loadMoreBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                                        onPress={() => setVisibleCount(prev => prev + 3)}>
+                                        onPress={() => setVisibleCount(prev => prev + 3)}
+                                    >
                                         <MaterialCommunityIcons name="history" size={20} color={theme.text} />
                                         <Text style={[styles.loadMoreText, { color: theme.text }]}>Carregar Mais Antigos</Text>
                                     </TouchableOpacity>
@@ -176,6 +177,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 </View>
             </View>
 
+            {/* ── Modais ── */}
             <EvaluationModal theme={theme} hookData={hookData} />
 
             <PhotoEditorModal
