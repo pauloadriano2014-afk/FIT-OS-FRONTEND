@@ -13,6 +13,7 @@ import useGerarTreino from '../hooks/useGerarTreino';
 import DayGroupCard from '../components/GerarTreino/DayGroupCard';
 import ComparisonModal from '../components/GerarTreino/ComparisonModal';
 import TemplatePickerModal from '../components/GerarTreino/TemplatePickerModal';
+import MobilityPickerModal from '../components/GerarTreino/MobilityPickerModal';
 import { SavePresetModal, LoadPresetModal } from '../components/GerarTreino/PresetsModal';
 import { StudentCard, StudentListItem } from '../components/GerarTreino/StudentCard';
 import {
@@ -21,7 +22,6 @@ import {
 } from '../components/GerarTreino/_constants';
 import { getGroupInfo, getLevelColor, dayNeedsCardio } from '../components/GerarTreino/_helpers';
 
-// IDs que pertencem ao time Master (Você e a Adri)
 const MASTER_IDS = [
   '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
   'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
@@ -40,7 +40,6 @@ export default function GerarTreinoIA({ navigation, route }) {
   const [customKey, setCustomKey] = useState('');
   const [showKeyTutorial, setShowTutorial] = useState(false);
 
-  // Carrega patentes e chaves de API salvas localmente
   useEffect(() => {
     const loadPermissions = async () => {
       try {
@@ -48,7 +47,6 @@ export default function GerarTreinoIA({ navigation, route }) {
         if (userStr) {
           const user = JSON.parse(userStr);
           setCurrentUserId(user.id);
-          
           const savedKey = await AsyncStorage.getItem(`@own_api_key_${user.id}`);
           if (savedKey) setCustomKey(savedKey);
         }
@@ -61,7 +59,6 @@ export default function GerarTreinoIA({ navigation, route }) {
 
   const isMasterCoach = MASTER_IDS.includes(currentUserId);
 
-  // Atualiza e persiste a chave customizada do parceiro
   const handleSaveCustomKey = async (text) => {
     setCustomKey(text);
     if (currentUserId) {
@@ -121,11 +118,9 @@ export default function GerarTreinoIA({ navigation, route }) {
 
   // ─── STEP 2: CONFIGURADOR ───
   const renderCycleConfig = () => {
-    // Lista de modelos e pesos de custos baseada na patente do Coach logado
     const aiOptions = isMasterCoach ? [
-      { id: 'GEMINI', label: 'Gemini 2.5', icon: 'google-circles-extended', color: '#8A2BE2' },
-      { id: 'GPT', label: 'GPT-4o', icon: 'robot-outline', color: '#10A37F' },
-      { id: 'CLAUDE', label: 'Claude 3.5', icon: 'brain', color: '#D97757' }
+      { id: 'GEMINI', label: 'Gemini Flash', icon: 'lightning-bolt', color: '#8A2BE2' },
+      { id: 'GEMINI_PRO', label: 'Gemini Pro', icon: 'google-circles-extended', color: '#4285F4' },
     ] : [
       { id: 'GEMINI_FLASH', label: 'Gemini Flash (1 pt)', icon: 'lightning-bolt', color: '#8A2BE2' },
       { id: 'GPT_MINI', label: 'GPT-Mini (3 pts)', icon: 'robot-outline', color: '#10A37F' },
@@ -156,15 +151,15 @@ export default function GerarTreinoIA({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* SELETOR DE INTELIGÊNCIA ARTIFICIAL */}
+        {/* SELETOR DE IA */}
         <Text style={[S.sectionTitle, { color: theme.textSecondary }]}>CÉREBRO DA IA</Text>
         <View style={{ flexDirection: 'row', gap: 8, marginBottom: 15 }}>
           {aiOptions.map(ai => {
             const isSel = g.selectedAI === ai.id;
             return (
-              <TouchableOpacity 
-                key={ai.id} 
-                style={[S.aiBtn, { backgroundColor: isSel ? ai.color + '20' : theme.surface, borderColor: isSel ? ai.color : theme.border }]} 
+              <TouchableOpacity
+                key={ai.id}
+                style={[S.aiBtn, { backgroundColor: isSel ? ai.color + '20' : theme.surface, borderColor: isSel ? ai.color : theme.border }]}
                 onPress={() => g.setSelectedAI(ai.id)}
                 activeOpacity={0.8}
               >
@@ -175,7 +170,6 @@ export default function GerarTreinoIA({ navigation, route }) {
           })}
         </View>
 
-        {/* FORMULÁRIO DE CHAVE PRÓPRIA (SE SELECIONADO) */}
         {!isMasterCoach && g.selectedAI === 'OWN_KEY' && (
           <View style={[S.customKeyBox, { backgroundColor: theme.surface, borderColor: '#22c55e40' }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -336,6 +330,11 @@ export default function GerarTreinoIA({ navigation, route }) {
                 <MaterialCommunityIcons name="lightning-bolt" size={13} color={theme.textSecondary} />
                 <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary }}>Template</Text>
               </TouchableOpacity>
+              {/* 🔥 NOVO: Duplicar dia — copia toda a estrutura para um novo dia */}
+              <TouchableOpacity style={[S.smallBtn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)', borderColor: theme.border }]}
+                onPress={() => g.duplicateDay(g.activeDay.id)}>
+                <MaterialCommunityIcons name="content-copy" size={13} color={theme.textSecondary} />
+              </TouchableOpacity>
               {g.days.length > 1 && (
                 <TouchableOpacity onPress={() => g.removeDay(g.activeDay.id)} style={{ padding: 6 }}>
                   <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
@@ -372,6 +371,8 @@ export default function GerarTreinoIA({ navigation, route }) {
                       onUpdateQty={(qty) => g.updateGroupQty(g.activeDay.id, group.id, qty)}
                       onUpdateSets={(sets) => g.updateGroupSets(g.activeDay.id, group.id, sets)}
                       onUpdateRest={(rest) => g.updateGroupRest(g.activeDay.id, group.id, rest)}
+                      onEditManualSelection={() => g.openMobilityPicker(g.activeDay.id)}
+                      onRemoveManualExercise={(exId) => g.removeManualExercise(g.activeDay.id, exId)}
                     />
                   );
                 })}
@@ -385,7 +386,7 @@ export default function GerarTreinoIA({ navigation, route }) {
           </View>
         )}
 
-        {/* 🔥 CARD DE AVISO COMPORTAMENTAL / DISCLAIMER MANDATÓRIO */}
+        {/* AVISO DE SEGURANÇA */}
         <View style={[S.disclaimerBox, { backgroundColor: '#FF3B30' + '10', borderColor: '#FF3B30' + '30' }]}>
           <MaterialCommunityIcons name="shield-alert-outline" size={16} color="#FF3B30" />
           <View style={{ flex: 1 }}>
@@ -422,6 +423,12 @@ export default function GerarTreinoIA({ navigation, route }) {
                       onPress={() => { if (!added) { g.addGroupToDay(mg.id); g.setShowGroupPicker(false); } }}>
                       <View style={[S.groupDot, { backgroundColor: mg.color }]} />
                       <Text style={{ fontSize: 13, fontWeight: '700', color: theme.text, flex: 1 }}>{mg.label}</Text>
+                      {mg.manualPick && (
+                        <View style={[S.manualPickBadge, { backgroundColor: mg.color + '20' }]}>
+                          <MaterialCommunityIcons name="hand-pointing-up" size={9} color={mg.color} />
+                          <Text style={{ fontSize: 9, fontWeight: '900', color: mg.color }}>MANUAL</Text>
+                        </View>
+                      )}
                       {added && <MaterialCommunityIcons name="check" size={15} color={theme.accent} />}
                     </TouchableOpacity>
                   );
@@ -450,6 +457,20 @@ export default function GerarTreinoIA({ navigation, route }) {
           </View>
         </Modal>
 
+        {/* 🔥 NOVO: MODAL DE SELEÇÃO MANUAL DE MOBILIDADE */}
+        <MobilityPickerModal
+          visible={g.showMobilityPicker}
+          onClose={g.closeMobilityPicker}
+          theme={theme}
+          loading={g.loadingLibrary}
+          exercises={g.filteredMobilityExercises}
+          search={g.mobilitySearch}
+          setSearch={g.setMobilitySearch}
+          selection={g.mobilitySelection}
+          onToggle={g.toggleMobilityExercise}
+          onConfirm={g.confirmMobilitySelection}
+        />
+
       </ScrollView>
     );
   };
@@ -457,11 +478,12 @@ export default function GerarTreinoIA({ navigation, route }) {
   // ─── STEP 3: GERANDO ───
   const renderGenerating = () => {
     const aiInfo = {
-      'GEMINI': { name: 'Gemini 2.5 Pro', color: '#8A2BE2', icon: 'google-circles-extended' },
+      'GEMINI': { name: 'Gemini 2.5 Flash', color: '#8A2BE2', icon: 'lightning-bolt' },
+      'GEMINI_PRO': { name: 'Gemini 2.5 Pro', color: '#4285F4', icon: 'google-circles-extended' },
       'GEMINI_FLASH': { name: 'Gemini Flash', color: '#8A2BE2', icon: 'lightning-bolt' },
       'GPT':     { name: 'GPT-4o', color: '#10A37F', icon: 'robot-outline' },
       'GPT_MINI': { name: 'GPT-4o Mini', color: '#10A37F', icon: 'robot-outline' },
-      'CLAUDE': { name: 'Claude 3.5 Sonnet', color: '#D97757', icon: 'brain' },
+      'CLAUDE': { name: 'Claude Sonnet', color: '#D97757', icon: 'brain' },
       'OWN_KEY': { name: 'Sua Chave OpenAI', color: '#22c55e', icon: 'key-outline' }
     };
     const activeAI = aiInfo[g.selectedAI] || aiInfo['GEMINI_FLASH'];
@@ -471,13 +493,13 @@ export default function GerarTreinoIA({ navigation, route }) {
         <View style={[S.generatingBox, { backgroundColor: activeAI.color + '15', borderColor: activeAI.color + '40' }]}>
           <MaterialCommunityIcons name={activeAI.icon} size={38} color={activeAI.color} />
         </View>
-        
+
         <ActivityIndicator size="large" color={activeAI.color} style={{ marginTop: 24 }} />
-        
+
         <Text style={{ fontSize: 19, fontWeight: '900', marginTop: 18, textAlign: 'center', color: theme.text }}>
           Montando protocolo...
         </Text>
-        
+
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}>
           <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary }}>Via</Text>
           <View style={{ backgroundColor: activeAI.color + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, borderWidth: 1, borderColor: activeAI.color + '40' }}>
@@ -488,7 +510,7 @@ export default function GerarTreinoIA({ navigation, route }) {
         <Text style={{ fontSize: 13, marginTop: 16, textAlign: 'center', lineHeight: 20, color: theme.textSecondary }}>
           {g.generatingMsg}
         </Text>
-        
+
         <Text style={{ fontSize: 11, color: theme.textSecondary + '60', marginTop: 14, textAlign: 'center' }}>
           Isso pode levar até 30 segundos
         </Text>
@@ -554,6 +576,13 @@ const S = StyleSheet.create({
   center:       { flex: 1, justifyContent: 'center', alignItems: 'center' },
   searchBox:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 13, paddingVertical: 10, borderRadius: 13, borderWidth: 1 },
   searchInput:  { flex: 1, fontSize: 14, outlineStyle: 'none' },
+  studentRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 13, borderRadius: 13, borderWidth: 1, marginBottom: 9 },
+  avatar:       { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  studentName:  { fontSize: 14, fontWeight: '800' },
+  badge:        { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
+  badgeText:    { fontSize: 10, fontWeight: '800' },
+  card:         { borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1 },
+  alertRow:     { flexDirection: 'row', alignItems: 'center', gap: 7, padding: 8, borderRadius: 8, borderWidth: 1 },
   actionBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 10, borderRadius: 11, borderWidth: 1 },
   aiBtn:        { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
   customKeyBox: { padding: 14, borderRadius: 14, borderWidth: 1, borderStyle: 'solid', marginBottom: 20 },
@@ -575,6 +604,7 @@ const S = StyleSheet.create({
   emptyState:   { alignItems: 'center', paddingVertical: 22, borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 11 },
   addGroupBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 11, borderRadius: 9, borderWidth: 1.5, borderStyle: 'dashed', marginTop: 10 },
   groupDot:     { width: 8, height: 8, borderRadius: 4 },
+  manualPickBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginRight: 8 },
   disclaimerBox:{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 20 },
   errorBox:     { flexDirection: 'row', alignItems: 'center', gap: 9, padding: 12, borderRadius: 11, borderWidth: 1, marginTop: 4 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' },

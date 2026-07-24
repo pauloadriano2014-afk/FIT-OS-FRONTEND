@@ -26,6 +26,8 @@ export const MUSCLE_GROUPS = [
   { id: 'TRICEPS',       label: 'Tríceps',          color: '#85C1E9', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO' },
   { id: 'ABDOMEN',       label: 'Abdômen',          color: '#F1948A', defaultRest: 30, defaultSets: 3, restType: 'ISOLADO' },
   { id: 'CARDIO',        label: 'Cardio',           color: '#FF6B6B', defaultRest: 0,  defaultSets: 1, restType: 'CARDIO'  },
+  // 🔥 NOVO: Mobilidade — seleção manual, não passa pela IA
+  { id: 'MOBILIDADE',    label: 'Mobilidade',       color: '#5AC8FA', defaultRest: 30, defaultSets: 2, restType: 'ISOLADO', manualPick: true },
 ];
 
 export const REST_OPTIONS_BY_TYPE = {

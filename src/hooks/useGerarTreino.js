@@ -8,7 +8,6 @@ import {
 } from '../components/GerarTreino/_constants';
 import { buildDefaultDays, suggestPhase, dayNeedsCardio } from '../components/GerarTreino/_helpers';
 
-// IDs que pertencem ao time Master (Você e a Adri)
 const MASTER_IDS = [
   '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
   'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
@@ -49,9 +48,18 @@ export default function useGerarTreino(navigation, route) {
   const [showPresetSaver, setShowPresetSaver] = useState(false);
   const [showPresetsLoader, setShowPresetsLoader] = useState(false);
 
+  // ─── 🔥 NOVO: BIBLIOTECA DE EXERCÍCIOS (para seleção manual de mobilidade) ───
+  const [libraryExercises, setLibraryExercises] = useState([]);
+  const [loadingLibrary, setLoadingLibrary] = useState(false);
+  const [showMobilityPicker, setShowMobilityPicker] = useState(false);
+  const [mobilityPickerDayId, setMobilityPickerDayId] = useState(null);
+  const [mobilitySelection, setMobilitySelection] = useState([]); // array de {id, name, videoUrl, category, subCategory}
+  const [mobilitySearch, setMobilitySearch] = useState('');
+
   useEffect(() => {
     loadSavedPresets();
     checkInitialAISelection();
+    fetchLibraryExercises();
     if (cameFromAluno) {
       setStep(STEP_CYCLE_CONFIG);
       setLoadingStudents(false);
@@ -66,7 +74,6 @@ export default function useGerarTreino(navigation, route) {
       const userStr = await AsyncStorage.getItem('user');
       if (userStr) {
         const user = JSON.parse(userStr);
-        // Se for um Coach parceiro, a IA padrão dele será o Gemini Flash
         if (!MASTER_IDS.includes(user.id)) {
           setSelectedAI('GEMINI_FLASH');
         }
@@ -74,6 +81,19 @@ export default function useGerarTreino(navigation, route) {
     } catch (e) {
       console.log("Erro ao carregar usuário logado:", e);
     }
+  };
+
+  // 🔥 Busca a biblioteca de exercícios do coach (usada no seletor de mobilidade)
+  const fetchLibraryExercises = async () => {
+    setLoadingLibrary(true);
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (!userStr) return;
+      const user = JSON.parse(userStr);
+      const res = await fetch(`${API_URL}/api/exercise?adminId=${user.id}&t=${Date.now()}`);
+      if (res.ok) setLibraryExercises(await res.json());
+    } catch (_) {}
+    finally { setLoadingLibrary(false); }
   };
 
   const loadSavedPresets = async () => {
@@ -163,7 +183,7 @@ export default function useGerarTreino(navigation, route) {
   const handleGenerate = async () => {
     if (!selectedStudent) return;
     if (!days.some(d => d.groups.length > 0)) {
-      setError('Configure pelo menos um grupo muscular.');
+      setError('Configure pelo menos um grupo muscular ou exercícios de mobilidade.');
       return;
     }
     setStep(STEP_GENERATING);
@@ -178,17 +198,18 @@ export default function useGerarTreino(navigation, route) {
     try {
       const userJson = await AsyncStorage.getItem('user');
       const adminUser = userJson ? JSON.parse(userJson) : {};
-      
-      // Resgata a chave customizada caso o coach parceiro tenha escolhido OWN_KEY
+
       const customKey = await AsyncStorage.getItem(`@own_api_key_${adminUser.id}`);
 
       const anamnese = studentDetail?.anamneses?.[0];
       const allLimits = [...(anamnese?.limitacoes || []), ...(anamnese?.cirurgias || [])].map(l => l.toLowerCase());
 
+      // 🔥 Grupos de MOBILIDADE são manuais e NÃO vão para a IA — são filtrados aqui
       const daysWithCardio = days
-        .filter(d => d.groups.length > 0)
         .map(d => {
-          const groups = [...d.groups];
+          const aiGroups = d.groups.filter(g => g.id !== 'MOBILIDADE');
+          if (aiGroups.length === 0) return null; // dia só com mobilidade manual — IA não precisa gerar nada
+          const groups = [...aiGroups];
           if (dayNeedsCardio(groups, cyclePhase)) groups.push({ id: 'CARDIO', qty: 1, rest: 0, autoAdded: true });
           return {
             name: d.name,
@@ -198,11 +219,20 @@ export default function useGerarTreino(navigation, route) {
               rest: g.rest ?? MUSCLE_GROUPS.find(mg => mg.id === g.id)?.defaultRest ?? 60,
             })),
           };
-        });
+        })
+        .filter(Boolean);
 
-      // 🔥 ENVIANDO A SELEÇÃO E A CHAVE CUSTOMIZADA (SE HOUVER) PARA A API
+      // 🔥 Monta o mapa de exercícios manuais de mobilidade por dia (bypassa a IA)
+      const manualExercisesByDay = {};
+      days.forEach(d => {
+        const mobilityGroup = d.groups.find(g => g.id === 'MOBILIDADE');
+        if (mobilityGroup?.manualExercises?.length > 0) {
+          manualExercisesByDay[d.name] = mobilityGroup.manualExercises.map(e => ({ exerciseId: e.id, name: e.name }));
+        }
+      });
+
       const cycleConfig = {
-        selectedAI, 
+        selectedAI,
         customKey: selectedAI === 'OWN_KEY' ? customKey : null,
         phase: cyclePhase,
         techniques: selectedTechniques,
@@ -210,6 +240,7 @@ export default function useGerarTreino(navigation, route) {
         gender: studentDetail?.gender || 'Não informado',
         trainingEnvironment,
         days: daysWithCardio,
+        manualExercisesByDay, // 🔥 NOVO
         limitationRules: limitationRules.filter(rule =>
           allLimits.some(l => l.includes(rule.trigger.toLowerCase()))
         ),
@@ -268,10 +299,34 @@ export default function useGerarTreino(navigation, route) {
     if (activeDayId === id) setActiveDayId(filtered[0].id);
   };
 
+  // 🔥 NOVO: Duplicar dia — copia toda a estrutura (grupos + mobilidade manual) para um novo dia
+  const duplicateDay = (id) => {
+    const source = days.find(d => d.id === id);
+    if (!source) return;
+    const newDay = {
+      id: Date.now().toString(),
+      name: `${source.name} (Cópia)`,
+      editingName: false,
+      groups: source.groups.map(g => ({
+        ...g,
+        manualExercises: g.manualExercises ? g.manualExercises.map(e => ({ ...e })) : undefined,
+      })),
+    };
+    setDays([...days, newDay]);
+    setActiveDayId(newDay.id);
+  };
+
   const updateDayName = (id, name) => setDays(days.map(d => d.id === id ? { ...d, name } : d));
 
   const addGroupToDay = (groupId) => {
     const info = MUSCLE_GROUPS.find(g => g.id === groupId);
+
+    // 🔥 Grupo de seleção manual (Mobilidade) — abre o seletor em vez de adicionar direto
+    if (info?.manualPick) {
+      openMobilityPicker(activeDayId);
+      return;
+    }
+
     setDays(days.map(d => {
       if (d.id !== activeDayId || d.groups.some(g => g.id === groupId)) return d;
       return { ...d, groups: [...d.groups, { id: groupId, qty: 3, sets: info?.defaultSets ?? 4, rest: info?.defaultRest ?? 60 }] };
@@ -282,6 +337,58 @@ export default function useGerarTreino(navigation, route) {
   const updateGroupQty = (dayId, groupId, qty) => setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, qty } : g) } : d));
   const updateGroupSets = (dayId, groupId, sets) => setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, sets } : g) } : d));
   const updateGroupRest = (dayId, groupId, rest) => setDays(days.map(d => d.id === dayId ? { ...d, groups: d.groups.map(g => g.id === groupId ? { ...g, rest } : g) } : d));
+
+  // ─── 🔥 NOVO: SELEÇÃO MANUAL DE EXERCÍCIOS DE MOBILIDADE ───
+  const mobilityExercises = libraryExercises.filter(ex => ex.category === 'Mobilidade');
+  const filteredMobilityExercises = mobilityExercises.filter(ex =>
+    ex.name.toLowerCase().includes(mobilitySearch.toLowerCase())
+  );
+
+  const openMobilityPicker = (dayId) => {
+    const day = days.find(d => d.id === dayId);
+    const existingGroup = day?.groups.find(g => g.id === 'MOBILIDADE');
+    setMobilitySelection(existingGroup?.manualExercises || []);
+    setMobilityPickerDayId(dayId);
+    setMobilitySearch('');
+    setShowMobilityPicker(true);
+  };
+
+  const closeMobilityPicker = () => {
+    setShowMobilityPicker(false);
+    setMobilityPickerDayId(null);
+  };
+
+  const toggleMobilityExercise = (exercise) => {
+    setMobilitySelection(prev => {
+      const exists = prev.some(e => e.id === exercise.id);
+      if (exists) return prev.filter(e => e.id !== exercise.id);
+      return [...prev, { id: exercise.id, name: exercise.name, videoUrl: exercise.videoUrl, category: exercise.category, subCategory: exercise.subCategory }];
+    });
+  };
+
+  const confirmMobilitySelection = () => {
+    if (!mobilityPickerDayId) return;
+    setDays(prevDays => prevDays.map(d => {
+      if (d.id !== mobilityPickerDayId) return d;
+      const withoutMobility = d.groups.filter(g => g.id !== 'MOBILIDADE');
+      if (mobilitySelection.length === 0) return { ...d, groups: withoutMobility };
+      return { ...d, groups: [...withoutMobility, { id: 'MOBILIDADE', manualExercises: mobilitySelection }] };
+    }));
+    closeMobilityPicker();
+  };
+
+  const removeManualExercise = (dayId, exerciseId) => {
+    setDays(prevDays => prevDays.map(d => {
+      if (d.id !== dayId) return d;
+      const group = d.groups.find(g => g.id === 'MOBILIDADE');
+      if (!group) return d;
+      const updatedExercises = group.manualExercises.filter(e => e.id !== exerciseId);
+      if (updatedExercises.length === 0) {
+        return { ...d, groups: d.groups.filter(g => g.id !== 'MOBILIDADE') };
+      }
+      return { ...d, groups: d.groups.map(g => g.id === 'MOBILIDADE' ? { ...g, manualExercises: updatedExercises } : g) };
+    }));
+  };
 
   const applyTemplate = (tmpl) => {
     setDays(days.map(d => d.id !== activeDayId ? d : {
@@ -342,14 +449,19 @@ export default function useGerarTreino(navigation, route) {
     generatedData, cyclePhase, setCyclePhase, selectedTechniques,
     techniqueScope, setTechniqueScope, trainingEnvironment, setTrainingEnvironment,
     days, activeDayId, setActiveDayId, savedPresets, presetName, setPresetName,
-    selectedAI, setSelectedAI, 
+    selectedAI, setSelectedAI,
     showGroupPicker, setShowGroupPicker, showTemplatePicker, setShowTemplatePicker,
     showEnvPicker, setShowEnvPicker, showComparison, setShowComparison,
     showPresetSaver, setShowPresetSaver, showPresetsLoader, setShowPresetsLoader,
     activeDay, anamnese, activeRules, filteredStudents,
     handleBack, handleGenerate, handleConfirmAndOpen, handleSelectStudent, fetchStudents,
-    savePreset, loadPreset, deletePreset, addDay, removeDay, updateDayName,
+    savePreset, loadPreset, deletePreset, addDay, removeDay, duplicateDay, updateDayName,
     addGroupToDay, removeGroupFromDay, updateGroupQty, updateGroupSets, updateGroupRest,
     applyTemplate, moveGroupUp, moveGroupDown, toggleTechnique,
+    // 🔥 NOVO: seletor de mobilidade
+    libraryExercises, loadingLibrary, mobilityExercises, filteredMobilityExercises,
+    showMobilityPicker, mobilitySelection, mobilitySearch, setMobilitySearch,
+    openMobilityPicker, closeMobilityPicker, toggleMobilityExercise,
+    confirmMobilitySelection, removeManualExercise,
   };
 }
