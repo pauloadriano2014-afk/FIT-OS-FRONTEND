@@ -266,15 +266,24 @@ export default function PropostaScreen({ route }) {
 
                 <View style={styles.planItems}>
                     {card.itensInclusos.map((item, i) => (
-                        <Text key={`inc-${i}`} style={[styles.planItem, card.destaque && { color: '#FFF' }]}>✓ {item}</Text>
+                        <View key={`inc-${i}`} style={styles.planItemRow}>
+                            <MaterialCommunityIcons name="check-circle" size={16} color="#4DE38F" style={styles.planItemIcon} />
+                            <Text style={[styles.planItemText, card.destaque && { color: '#FFF' }]}>{item}</Text>
+                        </View>
                     ))}
-                    {card.itemDestaque ? (
-                        <Text style={[styles.planItem, { color: '#4DE38F', fontWeight: 'bold' }]}>{card.itemDestaque}</Text>
-                    ) : null}
                     {card.itensExcluidos.map((item, i) => (
-                        <Text key={`exc-${i}`} style={[styles.planItem, { color: '#666', textDecorationLine: 'line-through' }]}>✗ {item}</Text>
+                        <View key={`exc-${i}`} style={styles.planItemRow}>
+                            <MaterialCommunityIcons name="close-circle-outline" size={16} color="#555" style={styles.planItemIcon} />
+                            <Text style={[styles.planItemText, { color: '#666', textDecorationLine: 'line-through' }]}>{item}</Text>
+                        </View>
                     ))}
                 </View>
+
+                {card.itemDestaque ? (
+                    <View style={styles.itemDestaqueBox}>
+                        <Text style={styles.itemDestaqueText}>{card.itemDestaque}</Text>
+                    </View>
+                ) : null}
 
                 {card.bonusTitulo ? (
                     <View style={[styles.bonusSection, card.destaque && { borderColor: 'rgba(77, 227, 143, 0.2)' }]}>
@@ -569,8 +578,12 @@ const styles = StyleSheet.create({
     planCard: { backgroundColor: '#161616', padding: 25, borderRadius: 24, borderWidth: 1, position: 'relative' },
     planName: { fontSize: 24, fontWeight: '900', letterSpacing: 1, marginBottom: 5, textAlign: 'center' },
     planDesc: { fontSize: 13, color: '#888', textAlign: 'center', lineHeight: 22, marginTop: 6, marginBottom: 26, paddingHorizontal: 6 },
-    planItems: { gap: 12, marginBottom: 25 },
-    planItem: { fontSize: 14, color: '#AAA', fontWeight: '500' },
+    planItems: { gap: 14, marginBottom: 20 },
+    planItemRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+    planItemIcon: { marginTop: 3 },
+    planItemText: { flex: 1, fontSize: 14, color: '#AAA', fontWeight: '500', lineHeight: 21 },
+    itemDestaqueBox: { backgroundColor: '#4DE38F15', borderRadius: 12, borderLeftWidth: 3, borderLeftColor: '#4DE38F', padding: 14, marginBottom: 25 },
+    itemDestaqueText: { color: '#4DE38F', fontSize: 13, fontWeight: 'bold', lineHeight: 20 },
     bonusSection: { backgroundColor: '#222', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#333', marginBottom: 25 },
     bonusTitle: { fontSize: 12, fontWeight: '900', color: '#FFF', letterSpacing: 0.5, marginBottom: 10 },
     bonusItem: { fontSize: 12, color: '#888', marginBottom: 4, fontStyle: 'italic' },
