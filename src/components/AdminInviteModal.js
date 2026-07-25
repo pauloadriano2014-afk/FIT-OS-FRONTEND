@@ -27,6 +27,12 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const [isPromoMaes,       setIsPromoMaes]       = useState(false);
     const [isPromoNavegantes, setIsPromoNavegantes] = useState(false);
 
+    // 💎 Ofertas dinâmicas de preço (criadas em TabPropostaOfertas) — só
+    // fazem sentido pro MASTER, no tipo ELITE, sem campanha Mães/Namorados
+    // ativa (essas campanhas usam suas próprias telas fixas).
+    const [ofertas, setOfertas]               = useState([]);
+    const [selectedOferta, setSelectedOferta] = useState(''); // '' = preço padrão
+
     // 🔥 Estados do SAAS / White-Label 🔥
     const [isMasterCoach, setIsMasterCoach] = useState(true);
     const [currentUserId, setCurrentUserId] = useState(null);
@@ -39,7 +45,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     // e a rota de registro (que busca por inviteCode) sempre recusava.
     const [coachInviteCode, setCoachInviteCode] = useState(null);
 
-    // Identifica e carrega os planos SaaS ao abrir o modal
+    // Identifica e carrega os planos SaaS (ou as Ofertas, se for master) ao abrir o modal
     useEffect(() => {
         if (visible) {
             const loadUserAndPlans = async () => {
@@ -76,6 +82,17 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                             }
 
                             setLoadingSaaS(false);
+                        } else {
+                            // 💎 Master: busca as Ofertas de Proposta ativas para o seletor
+                            try {
+                                const ofertasRes = await fetch('https://fitos-final.onrender.com/api/admin/proposta-ofertas');
+                                if (ofertasRes.ok) {
+                                    const data = await ofertasRes.json();
+                                    setOfertas((data.ofertas || []).filter(o => o.ativa));
+                                }
+                            } catch (e) {
+                                console.log('Erro ao buscar ofertas de proposta', e);
+                            }
                         }
                     }
                 } catch (e) {
@@ -104,6 +121,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         setLeadName('');
         setIsPromoMaes(false);
         setIsPromoNavegantes(false);
+        setSelectedOferta('');
         onClose();
     };
 
@@ -124,15 +142,17 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         return 'https://www.pauloadrianoteam.com.br';
     };
 
-    // ── Ativa uma promo e desativa a outra ───────────────────────────────────
+    // ── Ativa uma promo e desativa a outra (e limpa a oferta, mutuamente exclusivas) ──
     const togglePromoMaes = () => {
         setIsPromoMaes(prev => !prev);
         setIsPromoNavegantes(false);
+        setSelectedOferta('');
     };
 
     const togglePromoNavegantes = () => {
         setIsPromoNavegantes(prev => !prev);
         setIsPromoMaes(false);
+        setSelectedOferta('');
     };
 
     // ── Qual promo está ativa? ───────────────────────────────────────────────
@@ -180,7 +200,14 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
         }
 
         const uniqueId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}&coach=${coachSlug}&id=${uniqueId}`;
+
+        // 💎 Oferta de preço customizada — só entra na URL quando a rota é a
+        // "Proposta" padrão (ELITE, sem campanha ativa) e uma oferta foi escolhida.
+        const ofertaParam = (routeName === 'Proposta' && selectedOferta)
+            ? `&oferta=${encodeURIComponent(selectedOferta)}`
+            : '';
+
+        const inviteLink = `${baseUrl}/${routeName}?nome=${encodeURIComponent(finalName)}&plan=${propostaType}&coach=${coachSlug}&id=${uniqueId}${ofertaParam}`;
 
         let message = '';
         if (propostaType === 'ELITE' && promoAtiva) {
@@ -360,13 +387,13 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 style={[styles.propostaTypeBtn, propostaType === 'START' && { backgroundColor: '#32ADE6' }]}
-                                                onPress={() => { setPropostaType('START'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
+                                                onPress={() => { setPropostaType('START'); setIsPromoMaes(false); setIsPromoNavegantes(false); setSelectedOferta(''); }}
                                             >
                                                 <Text style={[styles.propostaTypeText, { color: propostaType === 'START' ? '#FFF' : theme.textSecondary }]}>START</Text>
                                             </TouchableOpacity>
                                             <TouchableOpacity
                                                 style={[styles.propostaTypeBtn, propostaType === 'FAMILIA' && { backgroundColor: '#34D399' }]}
-                                                onPress={() => { setPropostaType('FAMILIA'); setIsPromoMaes(false); setIsPromoNavegantes(false); }}
+                                                onPress={() => { setPropostaType('FAMILIA'); setIsPromoMaes(false); setIsPromoNavegantes(false); setSelectedOferta(''); }}
                                             >
                                                 <Text style={[styles.propostaTypeText, { color: propostaType === 'FAMILIA' ? '#000' : theme.textSecondary }]}>FAMÍLIA</Text>
                                             </TouchableOpacity>
@@ -403,6 +430,43 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                                 {!PROMO_MAES_ATIVA && !PROMO_NAMORADOS_ATIVA && (
                                                     <Text style={[styles.promoToggleText, { color: theme.textSecondary, paddingLeft: 4 }]}>Nenhuma campanha ativa no momento.</Text>
                                                 )}
+                                            </View>
+                                        )}
+
+                                        {/* 💎 Seletor de Oferta de preço (só ELITE, sem campanha ativa) */}
+                                        {propostaType === 'ELITE' && !isPromoMaes && !isPromoNavegantes && ofertas.length > 0 && (
+                                            <View style={styles.promosWrapper}>
+                                                <Text style={[styles.promosLabel, { color: theme.textSecondary }]}>OFERTA DE PREÇO:</Text>
+                                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
+                                                    <TouchableOpacity
+                                                        style={[
+                                                            styles.ofertaPill,
+                                                            { borderColor: theme.border },
+                                                            selectedOferta === '' && { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
+                                                        ]}
+                                                        onPress={() => setSelectedOferta('')}
+                                                    >
+                                                        <Text style={[styles.ofertaPillText, { color: selectedOferta === '' ? theme.accent : theme.textSecondary }]}>
+                                                            Padrão
+                                                        </Text>
+                                                    </TouchableOpacity>
+
+                                                    {ofertas.map((oferta) => (
+                                                        <TouchableOpacity
+                                                            key={oferta.id}
+                                                            style={[
+                                                                styles.ofertaPill,
+                                                                { borderColor: theme.border },
+                                                                selectedOferta === oferta.slug && { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
+                                                            ]}
+                                                            onPress={() => setSelectedOferta(oferta.slug)}
+                                                        >
+                                                            <Text style={[styles.ofertaPillText, { color: selectedOferta === oferta.slug ? theme.accent : theme.textSecondary }]}>
+                                                                {oferta.nome}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </ScrollView>
                                             </View>
                                         )}
 
@@ -605,6 +669,10 @@ const styles = StyleSheet.create({
     promosLabel: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4 },
     promoToggle: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 12, borderRadius: 8, gap: 8, borderWidth: 1, borderColor: 'transparent' },
     promoToggleText: { fontWeight: 'bold', fontSize: 11, letterSpacing: 0.5 },
+
+    // ── Pills de seleção de oferta
+    ofertaPill: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1 },
+    ofertaPillText: { fontSize: 11, fontWeight: '900' },
 
     tabSection: { paddingTop: 5 },
     sectionDesc: { fontSize: 13, lineHeight: 18, marginBottom: 20 },

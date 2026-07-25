@@ -9,7 +9,8 @@ import TabConfig from './TabConfig';
 import TabSaaS from './TabSaaS';
 import TabMarca from './TabMarca';
 import TabIA from './TabIA';
-import TabAssinatura from './TabAssinatura'; // ← NOVO IMPORT
+import TabAssinatura from './TabAssinatura';
+import TabPropostaOfertas from './TabPropostaOfertas'; // 💎 Ofertas de Proposta (só master)
 
 const MASTER_IDS = [
     '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
@@ -43,10 +44,13 @@ export default function TabGestao({
     const flixName = isMasterCoach ? 'PA FLIX' : 'ELITE FLIX';
 
     // Array inteligente de abas (Filtra automaticamente o que cada um pode ver)
+    // 🔑 A aba "VENDAS" agora é sempre visível — o conteúdo renderizado
+    // dentro dela é que muda conforme o papel (master vê Ofertas de
+    // Proposta; parceiro vê o construtor de página SaaS dele).
     const TABS = [
         { id: 'FERRAMENTAS', label: 'TREINO E DIETA',   show: true },
         { id: 'CONFIG',      label: 'SISTEMA E AVISOS', show: true },
-        { id: 'SAAS',        label: 'VENDAS',           show: !isMasterCoach },
+        { id: 'SAAS',        label: 'VENDAS',           show: true },
         { id: 'IA',          label: 'MINHA IA',         show: !isMasterCoach },
         { id: 'MARCA',       label: 'MINHA MARCA',      show: true },
         { id: 'ASSINATURA',  label: 'MINHA ASSINATURA', show: !isMasterCoach }, 
@@ -192,8 +196,11 @@ export default function TabGestao({
                 />
             )}
             
-            {subTabGestao === 'SAAS' && !isMasterCoach && (
-                <TabSaaS theme={theme} currentUserId={currentUserId} />
+            {/* 💎 Aba VENDAS — master vê Ofertas de Proposta, parceiro vê o SaaS dele */}
+            {subTabGestao === 'SAAS' && (
+                isMasterCoach
+                    ? <TabPropostaOfertas theme={theme} currentUserId={currentUserId} />
+                    : <TabSaaS theme={theme} currentUserId={currentUserId} />
             )}
             
             {subTabGestao === 'IA' && !isMasterCoach && (

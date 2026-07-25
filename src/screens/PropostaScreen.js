@@ -19,6 +19,8 @@ const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 const { width } = Dimensions.get('window');
 
+const API_BASE = 'https://fitos-final.onrender.com';
+
 const faqList = [
     { q: "Para quem é a Consultoria Elite?", a: "Funciona tanto pra quem está começando e não sabe por onde ir… quanto pra quem já treina mas não vê mais resultado. No nosso app exclusivo, você tem a direção exata do que fazer, sem treinos genéricos de papel." },
     { q: "E se eu não tiver tempo para treinar todos os dias?", a: "A culpa de não ter resultados não é a falta de tempo, é a falta de estratégia. Se você só tem 3 dias na semana ou 45 minutos por dia, seu treino será cirurgicamente montado para hipertrofiar ou secar dentro dessa janela de tempo. O plano se adapta à sua rotina, não o contrário." },
@@ -27,6 +29,80 @@ const faqList = [
     { q: "Em quanto tempo eu vejo resultados no meu corpo?", a: "A ciência não falha. Nossos alunos, quando seguem a direção certa que entregamos, costumam relatar mudanças visíveis no espelho e na balança logo nas primeiras semanas." },
     { q: "O suporte é com um robô ou diretamente com você?", a: "Os dois! Você tem o bot PA Coach AI 24h para dúvidas rápidas, e no plano Elite VIP, você tem acesso ao meu WhatsApp pessoal para ajustes, garantindo que você nunca fique travado no processo." }
 ];
+
+// ─── CARDS PADRÃO (fallback) ─────────────────────────────────────────────
+// Exatamente os mesmos planos/preços/textos que a página sempre teve.
+// Usado quando nenhuma ?oferta= é passada na URL, ou quando a busca falha.
+// Isso garante que TODOS os links já em circulação continuam funcionando
+// exatamente como sempre funcionaram, sem nenhum risco.
+const DEFAULT_CARDS = [
+    {
+        id: 'default-performance',
+        nome: 'PERFORMANCE',
+        descricao: "O motor de arranque para mudar o seu shape.\n\nSe você já treina, mas sente que está fazendo tudo 'meio no escuro', esse é o ponto de virada.",
+        destaque: false,
+        badgeTexto: '',
+        itensInclusos: [
+            'Você sabe exatamente o que fazer em cada treino — sem dúvida, sem improviso',
+            'Cada repetição passa a ter direção, corrigindo falhas e extraindo resultado real',
+            'O resultado não para — toda vez que estagnar, ajustamos a rota antes',
+            'O acompanhamento garante o seu próximo passo, para você nunca mais ficar perdido',
+            'A carga certa destrava a hipertrofia, obrigando o seu músculo a crescer (sem achismos)',
+            'Acesso ao PA Flix Básico (Dicas Ocultas)',
+        ],
+        itensExcluidos: ['Estratégia Alimentar Específica'],
+        itemDestaque: '',
+        bonusTitulo: '🎁 BÔNUS DE ACORDO COM O PLANO:',
+        bonusItens: [
+            'Mensal: E-books 5 Dicas + Receitas (Whey e Salgadas)',
+            'Trimestral: Tudo acima + Shape Natural + Pernas',
+            'Semestral/Anual: Tudo acima + Todos os Audiobooks',
+        ],
+        precos: { mensal: { valor: 197, descontoPerc: 0 }, trimestral: { valor: 397, descontoPerc: 0 }, semestral: { valor: 697, descontoPerc: 0 }, anual: { valor: 1197, descontoPerc: 0 } },
+        ctaTexto: 'QUERO PARAR DE TREINAR NO ESCURO',
+    },
+    {
+        id: 'default-elite',
+        nome: 'ELITE VIP',
+        descricao: 'Para quem cansou de tentar, errar e continuar no mesmo corpo.\n\nO acompanhamento definitivo para você parar de perder tempo e acelerar o seu resultado.',
+        destaque: true,
+        badgeTexto: 'EXPERIÊNCIA COMPLETA',
+        itensInclusos: [
+            'A direção exata do que fazer em cada treino — sem dúvida, sem improviso',
+            'Cada repetição passa a ter correção biomecânica, extraindo o máximo do músculo',
+            'Seu corpo não trava — toda vez que estagnar, ajustamos a rota antes',
+            'O suporte lado a lado garante que você nunca mais se sinta sozinho no processo',
+            'A intensidade certa para mudar o corpo, usando a ciência ao invés de adivinhar a carga',
+            'Acesso livre ao PA Flix VIP (Todo o Arsenal)',
+        ],
+        itensExcluidos: [],
+        itemDestaque: '🔥 O espelho começa a refletir a mudança, porque a alimentação e o treino finalmente estão alinhados',
+        bonusTitulo: '🎁 BÔNUS DE ACORDO COM O PLANO:',
+        bonusItens: [
+            'Mensal: E-books 5 Dicas + Receitas (Whey e Salgadas)',
+            'Trimestral: Tudo acima + Shape Natural + Pernas',
+            'Semestral/Anual: Tudo acima + Todos os Audiobooks',
+        ],
+        precos: { mensal: { valor: 297, descontoPerc: 0 }, trimestral: { valor: 597, descontoPerc: 0 }, semestral: { valor: 1097, descontoPerc: 0 }, anual: { valor: 1890, descontoPerc: 0 } },
+        ctaTexto: 'QUERO VER RESULTADO DE VERDADE',
+    },
+];
+
+// Normaliza o preço de um período — aceita tanto o formato novo
+// ({valor, descontoPerc}) quanto um número solto (ofertas eventualmente
+// criadas antes do desconto existir), sempre devolvendo o mesmo shape.
+function getPeriodoPreco(card, periodo) {
+    const raw = card?.precos?.[periodo];
+    if (raw == null) return null;
+    if (typeof raw === 'object') return { valor: raw.valor, descontoPerc: raw.descontoPerc || 0 };
+    return { valor: raw, descontoPerc: 0 };
+}
+
+const PERIOD_LABELS = { mensal: 'Mensal', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
+
+function formatBRL(value) {
+    return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
 
 export default function PropostaScreen({ route }) {
     const rawName = route?.params?.nome?.trim() || '';
@@ -53,6 +129,32 @@ export default function PropostaScreen({ route }) {
     } else if (['adri', 'adriele', 'japinha'].includes(coachParam)) {
         waNumber = '5541998465582'; // Redireciona para a Adri
     }
+
+    // 💎 OFERTA DINÂMICA (?oferta=slug) — busca cards/preços customizados.
+    // Se não vier parâmetro, ou a busca falhar, usa DEFAULT_CARDS (igual sempre foi).
+    const ofertaSlug = route?.params?.oferta?.trim() || '';
+    const [cards, setCards] = useState(DEFAULT_CARDS);
+
+    useEffect(() => {
+        if (!ofertaSlug) return; // sem parâmetro → mantém os cards padrão
+
+        let cancelado = false;
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/proposta-ofertas?slug=${encodeURIComponent(ofertaSlug)}`);
+                if (!res.ok) return; // 404 ou erro → mantém DEFAULT_CARDS
+                const data = await res.json();
+                if (!cancelado && data?.oferta?.cards?.length) {
+                    setCards(data.oferta.cards);
+                }
+            } catch (e) {
+                console.log('Erro ao buscar oferta, usando preços padrão', e);
+                // silenciosamente mantém DEFAULT_CARDS — a página nunca quebra
+            }
+        })();
+
+        return () => { cancelado = true; };
+    }, [ofertaSlug]);
 
     const [timeLeft, setTimeLeft] = useState(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
@@ -149,6 +251,97 @@ export default function PropostaScreen({ route }) {
         );
     }
 
+    // ── Renderiza um card de plano dinâmico (Performance/Elite ou qualquer
+    //    nome customizado vindo de uma Oferta) ────────────────────────────
+    const renderPlanCard = (card) => {
+        const periodosComPreco = Object.keys(PERIOD_LABELS).filter(p => getPeriodoPreco(card, p)?.valor);
+
+        const cardContent = (
+            <>
+                {card.destaque && card.badgeTexto ? (
+                    <View style={styles.recommendedBadge}><Text style={styles.recommendedText}>{card.badgeTexto}</Text></View>
+                ) : null}
+                <Text style={[styles.planName, { color: card.destaque ? '#4DE38F' : '#FFF' }]}>{card.nome}</Text>
+                <Text style={[styles.planDesc, card.destaque && { color: '#CCC' }]}>{card.descricao}</Text>
+
+                <View style={styles.planItems}>
+                    {card.itensInclusos.map((item, i) => (
+                        <Text key={`inc-${i}`} style={[styles.planItem, card.destaque && { color: '#FFF' }]}>✓ {item}</Text>
+                    ))}
+                    {card.itemDestaque ? (
+                        <Text style={[styles.planItem, { color: '#4DE38F', fontWeight: 'bold' }]}>{card.itemDestaque}</Text>
+                    ) : null}
+                    {card.itensExcluidos.map((item, i) => (
+                        <Text key={`exc-${i}`} style={[styles.planItem, { color: '#666', textDecorationLine: 'line-through' }]}>✗ {item}</Text>
+                    ))}
+                </View>
+
+                {card.bonusTitulo ? (
+                    <View style={[styles.bonusSection, card.destaque && { borderColor: 'rgba(77, 227, 143, 0.2)' }]}>
+                        <Text style={[styles.bonusTitle, card.destaque && { color: '#4DE38F' }]}>{card.bonusTitulo}</Text>
+                        {card.bonusItens.map((item, i) => (
+                            <Text key={i} style={[styles.bonusItem, card.destaque && { color: '#CCC' }]}>• {item}</Text>
+                        ))}
+                    </View>
+                ) : null}
+
+                <View style={styles.pricingGrid}>
+                    {periodosComPreco.map((periodo) => {
+                        const p = getPeriodoPreco(card, periodo);
+                        const hasDiscount = p.descontoPerc > 0;
+                        const precoFinal = hasDiscount ? p.valor * (1 - p.descontoPerc / 100) : p.valor;
+                        return (
+                            <View key={periodo} style={styles.priceRow}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <Text style={[styles.pricePeriod, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
+                                        {PERIOD_LABELS[periodo]}
+                                    </Text>
+                                    {hasDiscount ? (
+                                        <View style={styles.discountBadge}>
+                                            <Text style={styles.discountBadgeText}>{p.descontoPerc}% OFF</Text>
+                                        </View>
+                                    ) : null}
+                                </View>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                    {hasDiscount ? (
+                                        <Text style={styles.priceStriked}>De: R$ {formatBRL(p.valor)}</Text>
+                                    ) : null}
+                                    <Text style={[styles.priceValue, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
+                                        R$ {formatBRL(precoFinal)}
+                                    </Text>
+                                </View>
+                            </View>
+                        );
+                    })}
+                </View>
+
+                <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
+            </>
+        );
+
+        if (card.destaque) {
+            return (
+                <Animated.View key={card.id} style={[styles.planCard, { borderColor: '#4DE38F', borderWidth: 2, transform: [{ scale: pulseAnim }] }]}>
+                    {cardContent}
+                    <TouchableOpacity onPress={() => handleWhatsAppCTA(card.nome)}>
+                        <LinearGradient colors={['#4DE38F', '#2bb368']} style={styles.buyBtnGradient}>
+                            <Text style={[styles.buyBtnText, { color: '#000' }]}>{card.ctaTexto}</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </Animated.View>
+            );
+        }
+
+        return (
+            <View key={card.id} style={[styles.planCard, { borderColor: '#333' }]}>
+                {cardContent}
+                <TouchableOpacity style={[styles.buyBtn, { backgroundColor: '#222', borderColor: '#444', borderWidth: 1 }]} onPress={() => handleWhatsAppCTA(card.nome)}>
+                    <Text style={[styles.buyBtnText, { color: '#FFF' }]}>{card.ctaTexto}</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    };
+
     return (
         <RootComponent style={styles.container}>
             <Image source={{ uri: linksAlunos.background }} style={styles.backgroundImage} blurRadius={2} />
@@ -202,83 +395,11 @@ export default function PropostaScreen({ route }) {
                         </View>
                     </ScrollView>
 
-                    {/* 🔥 PREÇOS ANTECIPADOS PARA QUEM TEM PRESSA 🔥 */}
+                    {/* 🔥 PREÇOS — AGORA DINÂMICOS (cards da oferta ou padrão) 🔥 */}
                     <Text style={[styles.sectionTitle, {marginTop: 40}]}>ESCOLHA SEU ARSENAL</Text>
                     <Text style={styles.sectionSub}>Você pode continuar tentando sozinho, errando e perdendo tempo… ou pode finalmente seguir um método que faz seu corpo responder.</Text>
                     <View style={styles.plansContainer}>
-                        
-                        {/* PERFORMANCE */}
-                        <View style={[styles.planCard, { borderColor: '#333' }]}>
-                            <Text style={[styles.planName, { color: '#FFF' }]}>PERFORMANCE</Text>
-                            <Text style={styles.planDesc}>O motor de arranque para mudar o seu shape.{"\n\n"}Se você já treina, mas sente que está fazendo tudo ‘meio no escuro’, esse é o ponto de virada.</Text>
-                            
-                            <View style={styles.planItems}>
-                                <Text style={styles.planItem}>✓ Você sabe exatamente o que fazer em cada treino — sem dúvida, sem improviso</Text>
-                                <Text style={styles.planItem}>✓ Cada repetição passa a ter direção, corrigindo falhas e extraindo resultado real</Text>
-                                <Text style={styles.planItem}>✓ O resultado não para — toda vez que estagnar, ajustamos a rota antes</Text>
-                                <Text style={styles.planItem}>✓ O acompanhamento garante o seu próximo passo, para você nunca mais ficar perdido</Text>
-                                <Text style={styles.planItem}>✓ A carga certa destrava a hipertrofia, obrigando o seu músculo a crescer (sem achismos)</Text>
-                                <Text style={styles.planItem}>✓ Acesso ao PA Flix Básico (Dicas Ocultas)</Text>
-                                <Text style={[styles.planItem, { color: '#666', textDecorationLine: 'line-through' }]}>✗ Estratégia Alimentar Específica</Text>
-                            </View>
-                            
-                            <View style={styles.bonusSection}>
-                                <Text style={styles.bonusTitle}>🎁 BÔNUS DE ACORDO COM O PLANO:</Text>
-                                <Text style={styles.bonusItem}>• Mensal: E-books 5 Dicas + Receitas (Whey e Salgadas)</Text>
-                                <Text style={styles.bonusItem}>• Trimestral: Tudo acima + Shape Natural + Pernas</Text>
-                                <Text style={styles.bonusItem}>• Semestral/Anual: Tudo acima + Todos os Audiobooks</Text>
-                            </View>
-
-                            <View style={styles.pricingGrid}>
-                                <View style={styles.priceRow}><Text style={styles.pricePeriod}>Mensal</Text><Text style={styles.priceValue}>R$ 197</Text></View>
-                                <View style={styles.priceRow}><Text style={styles.pricePeriod}>Trimestral</Text><Text style={styles.priceValue}>R$ 397</Text></View>
-                                <View style={styles.priceRow}><Text style={styles.pricePeriod}>Semestral</Text><Text style={styles.priceValue}>R$ 697</Text></View>
-                                <View style={styles.priceRow}><Text style={[styles.pricePeriod, {color: '#FFF'}]}>Anual</Text><Text style={[styles.priceValue, {color: '#FFF'}]}>R$ 1.197</Text></View>
-                            </View>
-
-                            <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
-                            <TouchableOpacity style={[styles.buyBtn, { backgroundColor: '#222', borderColor: '#444', borderWidth: 1 }]} onPress={() => handleWhatsAppCTA('Performance')}>
-                                <Text style={[styles.buyBtnText, { color: '#FFF' }]}>QUERO PARAR DE TREINAR NO ESCURO</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* ELITE VIP */}
-                        <Animated.View style={[styles.planCard, { borderColor: '#4DE38F', borderWidth: 2, transform: [{ scale: pulseAnim }] }]}>
-                            <View style={styles.recommendedBadge}><Text style={styles.recommendedText}>EXPERIÊNCIA COMPLETA</Text></View>
-                            <Text style={[styles.planName, { color: '#4DE38F' }]}>ELITE VIP</Text>
-                            <Text style={[styles.planDesc, { color: '#CCC' }]}>Para quem cansou de tentar, errar e continuar no mesmo corpo.{"\n\n"}O acompanhamento definitivo para você parar de perder tempo e acelerar o seu resultado.</Text>
-                            
-                            <View style={styles.planItems}>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A direção exata do que fazer em cada treino — sem dúvida, sem improviso</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Cada repetição passa a ter correção biomecânica, extraindo o máximo do músculo</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Seu corpo não trava — toda vez que estagnar, ajustamos a rota antes</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ O suporte lado a lado garante que você nunca mais se sinta sozinho no processo</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ A intensidade certa para mudar o corpo, usando a ciência ao invés de adivinhar a carga</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Acesso livre ao PA Flix VIP (Todo o Arsenal)</Text>
-                                <Text style={[styles.planItem, { color: '#4DE38F', fontWeight: 'bold' }]}>🔥 O espelho começa a refletir a mudança, porque a alimentação e o treino finalmente estão alinhados</Text>
-                            </View>
-
-                            <View style={[styles.bonusSection, { borderColor: 'rgba(77, 227, 143, 0.2)' }]}>
-                                <Text style={[styles.bonusTitle, { color: '#4DE38F' }]}>🎁 BÔNUS DE ACORDO COM O PLANO:</Text>
-                                <Text style={[styles.bonusItem, { color: '#CCC' }]}>• Mensal: E-books 5 Dicas + Receitas (Whey e Salgadas)</Text>
-                                <Text style={[styles.bonusItem, { color: '#CCC' }]}>• Trimestral: Tudo acima + Shape Natural + Pernas</Text>
-                                <Text style={[styles.bonusItem, { color: '#CCC' }]}>• Semestral/Anual: Tudo acima + Todos os Audiobooks</Text>
-                            </View>
-
-                            <View style={styles.pricingGrid}>
-                                <View style={styles.priceRow}><Text style={styles.pricePeriod}>Mensal</Text><Text style={styles.priceValue}>R$ 297</Text></View>
-                                <View style={styles.priceRow}><Text style={styles.pricePeriod}>Trimestral</Text><Text style={styles.priceValue}>R$ 597</Text></View>
-                                <View style={styles.priceRow}><Text style={styles.pricePeriod}>Semestral</Text><Text style={styles.priceValue}>R$ 1.097</Text></View>
-                                <View style={styles.priceRow}><Text style={[styles.pricePeriod, {color: '#4DE38F'}]}>Anual</Text><Text style={[styles.priceValue, {color: '#4DE38F'}]}>R$ 1.890</Text></View>
-                            </View>
-
-                            <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
-                            <TouchableOpacity onPress={() => handleWhatsAppCTA('Elite VIP')}>
-                                <LinearGradient colors={['#4DE38F', '#2bb368']} style={styles.buyBtnGradient}>
-                                    <Text style={[styles.buyBtnText, { color: '#000' }]}>QUERO VER RESULTADO DE VERDADE</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Animated.View>
+                        {cards.map((card) => renderPlanCard(card))}
                     </View>
 
                     {/* MENTOR (Rebaixado e com a nova frase de autoridade) */}
@@ -447,7 +568,7 @@ const styles = StyleSheet.create({
     plansContainer: { gap: 25, marginTop: 10 },
     planCard: { backgroundColor: '#161616', padding: 25, borderRadius: 24, borderWidth: 1, position: 'relative' },
     planName: { fontSize: 24, fontWeight: '900', letterSpacing: 1, marginBottom: 5, textAlign: 'center' },
-    planDesc: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 25 },
+    planDesc: { fontSize: 13, color: '#888', textAlign: 'center', lineHeight: 22, marginTop: 6, marginBottom: 26, paddingHorizontal: 6 },
     planItems: { gap: 12, marginBottom: 25 },
     planItem: { fontSize: 14, color: '#AAA', fontWeight: '500' },
     bonusSection: { backgroundColor: '#222', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#333', marginBottom: 25 },
@@ -457,6 +578,9 @@ const styles = StyleSheet.create({
     priceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#222', paddingBottom: 8 },
     pricePeriod: { color: '#888', fontSize: 14, fontWeight: '600' },
     priceValue: { color: '#FFF', fontSize: 16, fontWeight: '900' },
+    discountBadge: { backgroundColor: '#4DE38F20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: '#4DE38F' },
+    discountBadgeText: { color: '#4DE38F', fontSize: 9, fontWeight: '900' },
+    priceStriked: { color: '#666', fontSize: 11, textDecorationLine: 'line-through', fontWeight: 'bold' },
     
     urgencyText: { color: '#FF3B30', fontSize: 11, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, fontStyle: 'italic' },
     
