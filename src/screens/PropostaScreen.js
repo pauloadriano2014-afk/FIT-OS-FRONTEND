@@ -104,7 +104,7 @@ function formatBRL(value) {
     return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-export default function PropostaScreen({ route }) {
+export default function PropostaScreen({ route, navigation }) {
     const rawName = route?.params?.nome?.trim() || '';
     const genericNames = ['novo aluno', 'nova aluna', 'aluno', 'aluna', 'teste', 'atleta', 'lead', 'cliente'];
     const isGeneric = !rawName || genericNames.includes(rawName.toLowerCase());
@@ -117,6 +117,20 @@ export default function PropostaScreen({ route }) {
     // por causa do timer salvo de outro teste anterior no mesmo navegador.
     const linkId = route?.params?.id?.trim() || '';
     const storageKeyName = linkId || (isGeneric ? 'default_lead' : rawName.toLowerCase());
+
+    // 👁️ Modo preview — só ativo quando aberto internamente pelo admin
+    // (TabPropostaOfertas), nunca por um link real enviado a um lead.
+    // Aceita tanto boolean (navegação em memória) quanto string "true"
+    // (caso a URL seja recarregada e o param venha reparsed da query string).
+    const isPreview = ['true', true].includes(route?.params?.preview);
+
+    const handlePreviewBack = () => {
+        if (navigation?.canGoBack?.()) {
+            navigation.goBack();
+        } else if (navigation?.navigate) {
+            navigation.navigate('AdminDashboard');
+        }
+    };
 
     // 🔥 ROTEAMENTO INTELIGENTE DE WHATSAPP (PAULO OU ADRI) 🔥
     // Lê o parâmetro ?coach= embutido pelo AdminInviteModal na hora de gerar o link.
@@ -239,6 +253,12 @@ export default function PropostaScreen({ route }) {
     if (timeLeft === 0) {
         return (
             <RootComponent style={styles.container}>
+                {isPreview && (
+                    <TouchableOpacity style={styles.previewBackBtn} onPress={handlePreviewBack} activeOpacity={0.8}>
+                        <MaterialCommunityIcons name="arrow-left" size={18} color="#FFF" />
+                        <Text style={styles.previewBackBtnText}>VOLTAR AO ADMIN</Text>
+                    </TouchableOpacity>
+                )}
                 <View style={styles.expiredBox}>
                     <MaterialCommunityIcons name="clock-alert-outline" size={64} color="#FF3B30" />
                     <Text style={styles.expiredTitle}>OFERTA EXPIRADA</Text>
@@ -354,6 +374,13 @@ export default function PropostaScreen({ route }) {
     return (
         <RootComponent style={styles.container}>
             <Image source={{ uri: linksAlunos.background }} style={styles.backgroundImage} blurRadius={2} />
+
+            {isPreview && (
+                <TouchableOpacity style={styles.previewBackBtn} onPress={handlePreviewBack} activeOpacity={0.8}>
+                    <MaterialCommunityIcons name="arrow-left" size={18} color="#FFF" />
+                    <Text style={styles.previewBackBtnText}>VOLTAR AO ADMIN</Text>
+                </TouchableOpacity>
+            )}
 
             <View style={styles.webWrapper}>
                 <ScrollView style={{ flex: 1, width: '100%' }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -534,6 +561,22 @@ export default function PropostaScreen({ route }) {
 
 const styles = StyleSheet.create({
     container: { height: isWeb ? '100vh' : '100%', backgroundColor: '#0a0a0a', position: 'relative' },
+    previewBackBtn: {
+        position: 'absolute',
+        top: isWeb ? 16 : 55,
+        left: 16,
+        zIndex: 999,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(0,0,0,0.8)',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 30,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.2)',
+    },
+    previewBackBtnText: { color: '#FFF', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
     backgroundImage: { width: '100%', height: '100%', resizeMode: 'cover', position: 'absolute', top: 0, left: 0, opacity: 0.15 }, 
     webWrapper: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center', borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#222', backgroundColor: 'rgba(17,17,17,0.9)' }, 
     scrollContent: { flexGrow: 1, padding: 25, paddingBottom: 120 },

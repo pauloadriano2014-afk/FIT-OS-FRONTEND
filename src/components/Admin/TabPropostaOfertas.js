@@ -13,7 +13,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Alert, Platform, ActivityIndicator, Switch, Linking
+    TextInput, Alert, Platform, ActivityIndicator, Switch
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -149,7 +149,7 @@ function calcPrecoFinal(valorStr, descontoStr) {
     return desconto > 0 ? valor * (1 - desconto / 100) : valor;
 }
 
-export default function TabPropostaOfertas({ theme, currentUserId }) {
+export default function TabPropostaOfertas({ theme, currentUserId, navigation }) {
     const [ofertas, setOfertas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -177,17 +177,20 @@ export default function TabPropostaOfertas({ theme, currentUserId }) {
     useEffect(() => { fetchOfertas(); }, [fetchOfertas]);
 
     // ── Preview da página de vendas ──────────────────────────────────────
-    const getBaseUrl = () => {
-        if (Platform.OS === 'web') return window.location.origin;
-        return 'https://www.pauloadrianoteam.com.br';
-    };
-
+    // Usa navegação INTERNA (navigation.navigate) em vez de Linking.openURL.
+    // Isso empilha a Proposta por cima da tela de admin na mesma stack do
+    // app — essencial no PWA instalado, onde window.open/Linking abre na
+    // MESMA janela (sem abas) e deixa o usuário sem como voltar.
+    // O parâmetro preview=true faz a PropostaScreen mostrar um botão
+    // flutuante de "Voltar" que nunca aparece pra alunos reais.
     const openPreviewPadrao = () => {
-        Linking.openURL(`${getBaseUrl()}/Proposta`);
+        const previewId = `preview_${Date.now().toString(36)}`;
+        navigation?.navigate('Proposta', { preview: true, id: previewId });
     };
 
     const openPreviewOferta = (oferta) => {
-        Linking.openURL(`${getBaseUrl()}/Proposta?oferta=${encodeURIComponent(oferta.slug)}`);
+        const previewId = `preview_${Date.now().toString(36)}`;
+        navigation?.navigate('Proposta', { oferta: oferta.slug, preview: true, id: previewId });
     };
 
     // ── Abrir formulário (novo em branco, novo a partir do padrão, ou edição) ─

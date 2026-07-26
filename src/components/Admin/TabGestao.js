@@ -199,7 +199,7 @@ export default function TabGestao({
             {/* 💎 Aba VENDAS — master vê Ofertas de Proposta, parceiro vê o SaaS dele */}
             {subTabGestao === 'SAAS' && (
                 isMasterCoach
-                    ? <TabPropostaOfertas theme={theme} currentUserId={currentUserId} />
+                    ? <TabPropostaOfertas theme={theme} currentUserId={currentUserId} navigation={navigation} />
                     : <TabSaaS theme={theme} currentUserId={currentUserId} />
             )}
             

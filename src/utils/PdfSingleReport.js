@@ -79,6 +79,7 @@ const getStyles = () => `
     .avoid-break { page-break-inside: avoid; }
     .list-item { display: flex; align-items: flex-start; margin-bottom: 8px; font-size: 12px; color: #555; line-height: 1.5; }
     .list-icon { margin-right: 8px; font-size: 14px; }
+    .ai-badge { display: inline-block; background: #111; color: #4DE38F; font-size: 8px; font-weight: 900; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px; margin-left: 8px; vertical-align: middle; }
 `;
 
 const getBaseHtml = (content) => `
@@ -116,6 +117,9 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
     
     const heightDisplay = assessment.height ? ` | Altura: <strong>${assessment.height}m</strong>` : '';
     const bf = assessment.bodyFat ? parseFloat(assessment.bodyFat) : null;
+
+    // 🔥 FLAG: essa avaliação já tem diagnóstico gerado por IA? 🔥
+    const hasAI = !!assessment.aiGeneratedAt;
 
     let asymmetries = [];
     const checkAsym = (r, l, name) => { if (r && l && Math.abs(parseFloat(r) - parseFloat(l)) >= 1.0) asymmetries.push(name); };
@@ -219,14 +223,22 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
             ${(assessment.calves || assessment.calfLeft) ? `<tr><td class="label-left">Panturrilhas</td><td>${assessment.calves || '-'}</td><td>${assessment.calfLeft || '-'}</td></tr>` : ''}
         </table></div>`;
 
-        const radarScores = isFemale ? [6, 6, 5, 9, 8, 6] : [8, 8, 7, 5, 6, 5]; 
+        // 🔥 RADAR: usa notas geradas pela IA quando existem, senão cai no padrão fixo por gênero 🔥
+        const radarScores = [
+            assessment.aiMapaOmbros ?? (isFemale ? 6 : 8),
+            assessment.aiMapaCostas ?? (isFemale ? 6 : 8),
+            assessment.aiMapaBracos ?? (isFemale ? 5 : 7),
+            assessment.aiMapaGluteos ?? (isFemale ? 9 : 5),
+            assessment.aiMapaCoxas ?? (isFemale ? 8 : 6),
+            assessment.aiMapaPanturrilhas ?? (isFemale ? 6 : 5)
+        ];
         const interpText = isFemale 
             ? "Os membros inferiores (glúteos e coxas) são o grande destaque. Contudo, é fundamental dar a devida atenção ao desenvolvimento de ombros e dorsais para construir o formato 'ampulheta', harmonizando o físico como um todo e afinando visualmente a cintura."
             : "O tronco apresenta um excelente volume, com destaque para a linha de ombros e costas. O foco crítico agora é garantir que os membros inferiores (coxas e panturrilhas) acompanhem esse desenvolvimento, evitando qualquer desproporção visual no conjunto da obra.";
 
         html += `
         <div class="avoid-break" style="margin-bottom: 25px; padding-top: 20px;">
-            <div class="section-title" style="margin-top: 0;">🎯 MAPA DE DESENVOLVIMENTO MUSCULAR</div>
+            <div class="section-title" style="margin-top: 0;">🎯 MAPA DE DESENVOLVIMENTO MUSCULAR${hasAI ? '<span class="ai-badge">IA</span>' : ''}</div>
             <p style="font-size: 12px; color: #666; margin: 0 0 20px 0;">Visualização estratégica dos grupos musculares com maior e menor desenvolvimento relativo (Escala 0-10).</p>
             ${generateRadarChart(radarScores)}
             <div style="background-color: #f8f9fa; border-left: 4px solid #4DE38F; padding: 15px; margin-top: 20px; border-radius: 8px;">
@@ -321,59 +333,76 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
     diagHtml += `</div>`;
     html += diagHtml;
 
-    const asymText = asymmetries.length > 0 ? `<div class="list-item"><span class="list-icon">⚠️</span> Assimetria muscular leve identificada em: ${asymmetries.join(', ')}</div>` : '';
-    const defText = isFemale ? 'Excelente definição corporal e linha de cintura' : 'Excelente base muscular e densidade no tronco';
-    const volumeText = isFemale ? 'Boa base de volume nos glúteos e coxas' : 'Bom nível de hipertrofia e proporção em ombros e dorsais';
-    const attText = isFemale ? 'Necessidade de maior volume e tônus muscular em membros superiores (braços/costas)' : 'Sinal de alerta: membros inferiores podem não estar acompanhando o forte desenvolvimento do tronco';
-    const prio1 = isFemale ? 'Glúteos e Quadríceps (Volume)' : 'Membros Inferiores (Equilíbrio)';
-    const prio2 = isFemale ? 'Ombros e Dorsais (Proporção X)' : 'Costas e Ombros (Lapidação)';
+    // 🔥 DIAGNÓSTICO ESTÉTICO — usa texto da IA quando existe, senão cai no padrão por gênero 🔥
+    const defTextDefault = isFemale ? 'Excelente definição corporal e linha de cintura' : 'Excelente base muscular e densidade no tronco';
+    const volumeTextDefault = isFemale ? 'Boa base de volume nos glúteos e coxas' : 'Bom nível de hipertrofia e proporção em ombros e dorsais';
+    const attTextDefault = isFemale ? 'Necessidade de maior volume e tônus muscular em membros superiores (braços/costas)' : 'Sinal de alerta: membros inferiores podem não estar acompanhando o forte desenvolvimento do tronco';
+    const prio1Default = isFemale ? 'Glúteos e Quadríceps (Volume)' : 'Membros Inferiores (Equilíbrio)';
+    const prio2Default = isFemale ? 'Ombros e Dorsais (Proporção X)' : 'Costas e Ombros (Lapidação)';
+
+    const pontosFortes = (assessment.aiPontosFortes && assessment.aiPontosFortes.length > 0)
+        ? assessment.aiPontosFortes
+        : [
+            'Percentual de gordura corporal perfeitamente controlado',
+            'Boa relação de simetria estrutural',
+            defTextDefault,
+            volumeTextDefault,
+            'Elevado potencial estético e metabólico'
+          ];
+
+    const pontosAtencao = (assessment.aiPontosAtencao && assessment.aiPontosAtencao.length > 0)
+        ? assessment.aiPontosAtencao
+        : [
+            ...(asymmetries.length > 0 ? [`Assimetria muscular leve identificada em: ${asymmetries.join(', ')}`] : []),
+            'Desenvolvimento de alguns grupamentos abaixo do potencial ideal',
+            attTextDefault
+          ];
+
+    const prioridadesTreino = (assessment.aiPrioridades && assessment.aiPrioridades.length > 0)
+        ? assessment.aiPrioridades
+        : [prio1Default, prio2Default, 'Foco em Simetria'];
 
     html += `
     <div style="margin-bottom: 30px;">
-        <div class="section-title" style="margin-top: 0;">🔍 DIAGNÓSTICO ESTÉTICO</div>
+        <div class="section-title" style="margin-top: 0;">🔍 DIAGNÓSTICO ESTÉTICO${hasAI ? '<span class="ai-badge">IA</span>' : ''}</div>
         <div style="display: flex; gap: 15px;">
             <div style="flex: 1; border: 1px solid #e5e5ea; border-radius: 10px; padding: 15px; background: #fff;">
                 <h5 style="color: #4DE38F; font-size: 11px; margin: 0 0 10px 0; text-transform: uppercase;">PONTOS FORTES</h5>
-                <div class="list-item"><span class="list-icon">✅</span> Percentual de gordura corporal perfeitamente controlado</div>
-                <div class="list-item"><span class="list-icon">✅</span> Boa relação de simetria estrutural</div>
-                <div class="list-item"><span class="list-icon">✅</span> ${defText}</div>
-                <div class="list-item"><span class="list-icon">✅</span> ${volumeText}</div>
-                <div class="list-item"><span class="list-icon">✅</span> Elevado potencial estético e metabólico</div>
+                ${pontosFortes.map(p => `<div class="list-item"><span class="list-icon">✅</span> ${p}</div>`).join('')}
             </div>
             <div style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
                 <div style="border: 1px solid #e5e5ea; border-radius: 10px; padding: 15px; background: #fff;">
                     <h5 style="color: #FF3B30; font-size: 11px; margin: 0 0 10px 0; text-transform: uppercase;">PONTOS DE ATENÇÃO</h5>
-                    ${asymText}
-                    <div class="list-item"><span class="list-icon">⚠️</span> Desenvolvimento de alguns grupamentos abaixo do potencial ideal</div>
-                    <div class="list-item"><span class="list-icon">⚠️</span> ${attText}</div>
+                    ${pontosAtencao.map(p => `<div class="list-item"><span class="list-icon">⚠️</span> ${p}</div>`).join('')}
                 </div>
                 <div style="border: 1px solid #9D00FF; border-radius: 10px; padding: 15px; background: rgba(157,0,255,0.02);">
                     <h5 style="color: #9D00FF; font-size: 11px; margin: 0 0 10px 0; text-transform: uppercase;">PRIORIDADES DE TREINO</h5>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        <span style="background: #111; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: 900;">🎯 ${prio1}</span>
-                        <span style="background: #111; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: 900;">🎯 ${prio2}</span>
-                        <span style="background: #111; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: 900;">🎯 Foco em Simetria</span>
+                        ${prioridadesTreino.map(p => `<span style="background: #111; color: #fff; padding: 4px 8px; border-radius: 4px; font-size: 9px; font-weight: 900;">🎯 ${p}</span>`).join('')}
                     </div>
                 </div>
             </div>
         </div>
     </div>`;
 
+    // 🔥 OBJETIVOS ESTRATÉGICOS — objetivo principal e secundários vêm da IA quando existem 🔥
+    const objetivoPrincipal = assessment.aiObjetivoPrincipal || 'Desenvolvimento muscular sólido com manutenção (ou melhora) da definição corporal.';
+    const objetivosSecundarios = (assessment.aiObjetivosSecundarios && assessment.aiObjetivosSecundarios.length > 0)
+        ? assessment.aiObjetivosSecundarios
+        : ['Melhorar simetria corporal global', 'Aumentar volume nos grupamentos prioritários', 'Aprimorar a proporção e estética da linha de cintura', 'Manter o percentual de gordura estritamente controlado'];
+
     html += `
     <div class="avoid-break" style="background: #111; padding: 25px; border-radius: 12px; margin-bottom: 40px; border-left: 4px solid #4DE38F;">
-        <h3 style="color: #fff; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase;">🎯 OBJETIVOS ESTRATÉGICOS ATUAIS</h3>
+        <h3 style="color: #fff; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase;">🎯 OBJETIVOS ESTRATÉGICOS ATUAIS${hasAI ? '<span class="ai-badge">IA</span>' : ''}</h3>
         
         <strong style="color: #4DE38F; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Objetivo Principal</strong>
-        <p style="color: #eee; font-size: 12px; margin: 5px 0 15px 0;">Desenvolvimento muscular sólido com manutenção (ou melhora) da definição corporal.</p>
+        <p style="color: #eee; font-size: 12px; margin: 5px 0 15px 0;">${objetivoPrincipal}</p>
         
         <div style="display: flex; gap: 20px;">
             <div style="flex: 1;">
                 <strong style="color: #888; font-size: 10px; text-transform: uppercase;">Objetivos Secundários</strong>
                 <ul style="color: #ccc; font-size: 11px; margin: 5px 0 0 0; padding-left: 15px; line-height: 1.6;">
-                    <li>Melhorar simetria corporal global</li>
-                    <li>Aumentar volume nos grupamentos prioritários</li>
-                    <li>Aprimorar a proporção e estética da linha de cintura</li>
-                    <li>Manter o percentual de gordura estritamente controlado</li>
+                    ${objetivosSecundarios.map(o => `<li>${o}</li>`).join('')}
                 </ul>
             </div>
             <div style="flex: 1;">
@@ -399,13 +428,14 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
             if (assessment.photos[2]) html += `<div class="photo-box"><img src="${assessment.photos[2]}"/><div class="photo-label">COSTAS</div></div>`;
             html += `</div></div>`;
 
-            const frontTxt = isFemale ? 'Excelente alinhamento estrutural. Volume visível na região do quadríceps e linha de cintura fina. A proporção está bem direcionada.' : 'Boa densidade no peitoral e linha de ombros. É vital monitorar o volume do quadríceps para manter a proporção com o tronco.';
-            const sideTxt = isFemale ? 'Destaque para a projeção glútea e desenho do posterior de coxa. Perfil atlético bem consolidado.' : 'Espessura de tronco e braços bem desenvolvida. A linha de pernas precisa acompanhar esse progresso.';
-            const backTxt = isFemale ? 'Contorno de glúteos e panturrilhas em destaque. Oportunidade para focar mais na expansão dorsal e ombros, fechando a estética em X.' : 'Expansão dorsal evidente. O foco em posteriores de coxa e panturrilhas será o diferencial para um físico completo e sem falhas.';
+            // 🔥 ANÁLISE VISUAL — texto por foto vem da IA quando existe, senão cai no padrão por gênero 🔥
+            const frontTxt = assessment.aiAnaliseFrontal || (isFemale ? 'Excelente alinhamento estrutural. Volume visível na região do quadríceps e linha de cintura fina. A proporção está bem direcionada.' : 'Boa densidade no peitoral e linha de ombros. É vital monitorar o volume do quadríceps para manter a proporção com o tronco.');
+            const sideTxt = assessment.aiAnaliseLateral || (isFemale ? 'Destaque para a projeção glútea e desenho do posterior de coxa. Perfil atlético bem consolidado.' : 'Espessura de tronco e braços bem desenvolvida. A linha de pernas precisa acompanhar esse progresso.');
+            const backTxt = assessment.aiAnalisePosterior || (isFemale ? 'Contorno de glúteos e panturrilhas em destaque. Oportunidade para focar mais na expansão dorsal e ombros, fechando a estética em X.' : 'Expansão dorsal evidente. O foco em posteriores de coxa e panturrilhas será o diferencial para um físico completo e sem falhas.');
             
             html += `
             <div class="avoid-break" style="margin-bottom: 30px;">
-                <div class="section-title" style="margin-top: 0; font-size: 14px;">📸 ANÁLISE VISUAL</div>
+                <div class="section-title" style="margin-top: 0; font-size: 14px;">📸 ANÁLISE VISUAL${hasAI ? '<span class="ai-badge">IA</span>' : ''}</div>
                 <div style="display: flex; gap: 15px;">
                     <div style="flex: 1; background: #f8f9fa; border: 1px solid #e5e5ea; padding: 12px; border-radius: 8px;">
                         <strong style="font-size: 10px; color: #111; display: block; margin-bottom: 5px;">VISTA FRONTAL</strong>
@@ -430,18 +460,21 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
         }
     }
 
+    // 🔥 CONCLUSÃO TÉCNICA — vem da IA quando existe, senão cai no padrão por gênero 🔥
     const conclusaoFoco = isFemale 
         ? 'à lapidação e ganho de volume nos membros inferiores (glúteos e pernas), sem negligenciar o trabalho de ombros e costas, que são essenciais para harmonizar o físico e criar a proporção em ampulheta' 
         : 'ao desenvolvimento global e simétrico. É fundamental redobrar a atenção aos membros inferiores para garantir que o volume das pernas acompanhe a excelente densidade do tronco';
+
+    const conclusaoTexto = assessment.aiConclusaoTecnica || `${pron} apresenta composição corporal de nível avançado, percentual de gordura muito bem controlado e excelente potencial para evolução estética. O foco atual do planejamento deve ser direcionado ${conclusaoFoco}. O rigor no acompanhamento contínuo e a execução impecável do plano permitirão o refinamento progressivo do físico e a maximização dos resultados nos próximos ciclos.`;
 
     html += `
     <div class="avoid-break" style="margin-top: 40px; padding: 20px; background: rgba(77, 227, 143, 0.05); border: 1px solid #4DE38F; border-radius: 12px;">
         <div style="display: flex; align-items: center; margin-bottom: 10px;">
             <span style="font-size: 20px; margin-right: 10px;">🏆</span>
-            <h3 style="margin: 0; color: #111; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">CONCLUSÃO TÉCNICA</h3>
+            <h3 style="margin: 0; color: #111; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">CONCLUSÃO TÉCNICA${hasAI ? '<span class="ai-badge">IA</span>' : ''}</h3>
         </div>
         <p style="font-size: 12px; color: #333; line-height: 1.6; margin: 0;">
-            ${pron} apresenta composição corporal de nível avançado, percentual de gordura muito bem controlado e excelente potencial para evolução estética. O foco atual do planejamento deve ser direcionado ${conclusaoFoco}. O rigor no acompanhamento contínuo e a execução impecável do plano permitirão o refinamento progressivo do físico e a maximização dos resultados nos próximos ciclos.
+            ${conclusaoTexto}
         </p>
     </div>`;
 

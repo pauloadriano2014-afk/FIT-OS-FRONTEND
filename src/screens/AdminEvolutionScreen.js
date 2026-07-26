@@ -58,7 +58,10 @@ export default function AdminEvolutionScreen({ route, navigation }) {
         handleDateChange,
         resetForm,
         handleEdit,
-        handleSaveAssessment
+        handleSaveAssessment,
+        // 🔥 NOVO: geração do diagnóstico por IA 🔥
+        generatingAI,
+        generateAIReport
     } = useAdminEvolution(aluno);
 
     // 3. RESPONSIVIDADE E LARGURA DO GRÁFICO
@@ -203,7 +206,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
                 photos={photos} setPhotos={setPhotos} 
             />
 
-            {/* 🔥 REPASSE DO GÊNERO CORRIGIDO PARA O LAUDO ÚNICO 🔥 */}
+            {/* 🔥 REPASSE DO GÊNERO CORRIGIDO PARA O LAUDO ÚNICO + BOTÃO DE DIAGNÓSTICO IA 🔥 */}
             <AssessmentDetailsModal 
                 visible={detailsVisible} 
                 assessment={selectedAssessment} 
@@ -211,6 +214,8 @@ export default function AdminEvolutionScreen({ route, navigation }) {
                 onEdit={() => handleEdit(selectedAssessment)} 
                 onDelete={() => handleDelete(selectedAssessment?.id)} 
                 onGeneratePDF={() => generateSinglePDF(selectedAssessment, { ...aluno, gender: currentGender || selectedAssessment?.user?.gender || aluno.gender })} 
+                onGenerateAI={() => generateAIReport(selectedAssessment?.id)}
+                generatingAI={generatingAI}
                 theme={theme} 
             />
 

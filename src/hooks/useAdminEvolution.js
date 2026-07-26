@@ -36,6 +36,9 @@ export default function useAdminEvolution(aluno) {
 
     const [photos, setPhotos] = useState({ front: null, back: null, side: null });
 
+    // 🔥 NOVO: estado de loading da geração do diagnóstico por IA 🔥
+    const [generatingAI, setGeneratingAI] = useState(false);
+
     useEffect(() => {
         if (aluno?.birthDate || aluno?.dataNascimento) {
             setStudentBirthDate(aluno.birthDate || aluno.dataNascimento);
@@ -380,6 +383,35 @@ export default function useAdminEvolution(aluno) {
         }
     };
 
+    // 🔥 NOVO: dispara a geração do diagnóstico por IA para uma avaliação específica 🔥
+    const generateAIReport = async (assessmentId) => {
+        if (!assessmentId) return false;
+        try {
+            setGeneratingAI(true);
+            const res = await fetch(`https://fitos-final.onrender.com/api/assessment/${assessmentId}/generate-ai-report`, {
+                method: 'POST'
+            });
+            const json = await res.json();
+
+            if (!res.ok) {
+                const msg = json.error || "Não foi possível gerar o diagnóstico com IA.";
+                if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Erro", msg);
+                return false;
+            }
+
+            // Atualiza a avaliação aberta no modal com os novos campos de IA, sem fechar a tela
+            setSelectedAssessment(prev => (prev && prev.id === assessmentId) ? { ...prev, ...json.assessment } : prev);
+            await loadData();
+            return true;
+        } catch (e) {
+            const msg = "Falha de conexão ao gerar diagnóstico com IA.";
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Erro", msg);
+            return false;
+        } finally {
+            setGeneratingAI(false);
+        }
+    };
+
     return {
         loading, assessmentHistory, workoutLogs, checkinHistory,
         modalVisible, setModalVisible, detailsVisible, setDetailsVisible,
@@ -389,6 +421,7 @@ export default function useAdminEvolution(aluno) {
         currentAge, setCurrentAge, currentGender, setCurrentGender,
         measures, setMeasures, folds, setFolds, photos, setPhotos,
         loadData, handleDelete, openDetails, handleDateChange, resetForm,
-        handleEdit, handleSaveAssessment
+        handleEdit, handleSaveAssessment,
+        generatingAI, generateAIReport
     };
 }
