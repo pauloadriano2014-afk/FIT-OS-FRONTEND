@@ -2,12 +2,12 @@
 //
 // Página pública de inscrição no Desafio (ex: "Desafio 90 Dias"). Fluxo:
 // 1. Busca os dados do desafio pelo slug (?desafio=slug na URL)
-// 2. Formulário simples: nome, data de nascimento, email, telefone, CPF
-// 3. Gera cobrança PIX via backend (Asaas)
-// 4. Fica consultando o status a cada 5s
-// 5. Assim que o pagamento é confirmado (webhook da Asaas atualiza o
-//    backend), a tela detecta e libera o link do grupo automaticamente —
-//    sem nenhuma ação manual do coach.
+// 2. Explica o processo, o que a aluna recebe, tira dúvidas (FAQ)
+// 3. Formulário: nome, data de nascimento, email, telefone, CPF
+// 4. Gera cobrança PIX via backend (Asaas)
+// 5. Fica consultando o status a cada 5s
+// 6. Assim que o pagamento é confirmado, a tela detecta e libera o link
+//    do grupo automaticamente — sem nenhuma ação manual do coach.
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -15,13 +15,36 @@ import {
     TextInput, Image, Platform, SafeAreaView, ActivityIndicator, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
+import FaqAccordion from '../components/FaqAccordion';
 
 const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 
 const API_BASE = 'https://fitos-final.onrender.com';
-const MAIN_COLOR = '#4DE38F';
+
+// 🟣 Paleta Roxo/Lilás
+const MAIN_COLOR = '#8B5CF6';   // violeta principal
+const LIGHT_COLOR = '#C4B5FD';  // lilás claro (acentos)
+const DARK_COLOR = '#6D28D9';   // roxo escuro (gradiente)
+
+// ── FAQ genérico — aplica a qualquer desafio por WhatsApp ────────────────
+const faqList = [
+    { q: 'Como eu recebo o conteúdo do desafio?', a: 'Direto no grupo do WhatsApp. Assim que a gente confirma o seu pagamento, o link é liberado automaticamente nesta página — você entra e já começa a receber o conteúdo.' },
+    { q: 'É acompanhamento individual ou em grupo?', a: 'É uma experiência em grupo: todo mundo recebe o mesmo conteúdo, na mesma comunidade, se motivando e trocando experiências junto.' },
+    { q: 'Preciso de equipamento específico?', a: 'Não necessariamente. O conteúdo é pensado pra funcionar com o que você já tem disponível no seu dia a dia.' },
+    { q: 'Quando o desafio começa pra mim?', a: 'Assim que você entra no grupo. A partir daí, você acompanha tudo que for postado dali em diante.' },
+    { q: 'O pagamento é seguro?', a: 'Sim. O PIX é processado por um parceiro de pagamentos homologado — seus dados não ficam expostos nem armazenados na página.' },
+];
+
+// ── Fallback caso o desafio não tenha benefícios customizados cadastrados ─
+const BENEFICIOS_PADRAO = [
+    'Mensagens diárias de motivação direto no seu WhatsApp',
+    'Dicas práticas de rotina, alimentação e mentalidade',
+    'Comunidade de apoio — você não passa por isso sozinha',
+    'Conteúdo pensado pra caber na sua vida real, sem complicação',
+];
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 function onlyDigits(v) { return (v || '').replace(/\D/g, ''); }
@@ -190,6 +213,13 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
         if (linkGrupo) Linking.openURL(linkGrupo);
     };
 
+    const scrollToFormRef = useRef(null);
+    const scrollToForm = () => {
+        // No RN Web isso desce a página até o formulário; em nativo o botão
+        // já leva pro final da ScrollView de forma suave o bastante.
+        scrollToFormRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    };
+
     // ── Botão flutuante de voltar (só em modo preview, aberto pelo admin) ─
     const previewBackButton = isPreview ? (
         <TouchableOpacity style={styles.previewBackBtn} onPress={handlePreviewBack} activeOpacity={0.8}>
@@ -223,27 +253,112 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
         );
     }
 
+    const beneficios = desafio.beneficios?.length ? desafio.beneficios : BENEFICIOS_PADRAO;
+
     return (
         <RootComponent style={styles.container}>
             {previewBackButton}
             <View style={styles.webWrapper}>
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 
-                    {/* ── STEP: FORM ─────────────────────────────────────────── */}
                     {step === 'form' && (
                         <>
+                            {/* ── HERO ──────────────────────────────────────────── */}
                             <View style={styles.heroSection}>
-                                <MaterialCommunityIcons name="whatsapp" size={40} color={MAIN_COLOR} />
+                                <View style={styles.heroIconBox}>
+                                    <MaterialCommunityIcons name="whatsapp" size={32} color={MAIN_COLOR} />
+                                </View>
                                 <Text style={styles.heroTitle}>{desafio.nome}</Text>
                                 {desafio.descricao ? <Text style={styles.heroDesc}>{desafio.descricao}</Text> : null}
                                 <View style={styles.valorBadge}>
                                     <Text style={styles.valorBadgeText}>R$ {formatBRL(desafio.valor)}</Text>
                                 </View>
+
+                                <TouchableOpacity onPress={scrollToForm} activeOpacity={0.85} style={{ width: '100%' }}>
+                                    <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={styles.heroCta}>
+                                        <Text style={styles.heroCtaText}>QUERO GARANTIR MINHA VAGA</Text>
+                                        <MaterialCommunityIcons name="arrow-down" size={16} color="#FFF" />
+                                    </LinearGradient>
+                                </TouchableOpacity>
                             </View>
 
-                            <View style={styles.formCard}>
-                                <Text style={styles.formTitle}>SEUS DADOS</Text>
+                            {/* ── COMO FUNCIONA ─────────────────────────────────── */}
+                            <Text style={styles.sectionTitle}>COMO FUNCIONA</Text>
+                            <Text style={styles.sectionSub}>Do pagamento até o primeiro conteúdo no seu WhatsApp — sem espera, sem burocracia.</Text>
 
+                            <View style={styles.stepsContainer}>
+                                <View style={styles.stepRow}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>1</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>Você se inscreve e paga com PIX</Text>
+                                        <Text style={styles.stepDesc}>Preenche seus dados aqui embaixo e paga na hora — rápido e seguro.</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.stepRow}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>2</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>O pagamento é confirmado automaticamente</Text>
+                                        <Text style={styles.stepDesc}>Assim que o PIX cai, esta mesma página já detecta a confirmação — sem você precisar avisar ninguém.</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.stepRow}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>3</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>O link do grupo é liberado na hora</Text>
+                                        <Text style={styles.stepDesc}>Aparece um botão pra você entrar direto no grupo do WhatsApp, sem esperar resposta de ninguém.</Text>
+                                    </View>
+                                </View>
+                                <View style={[styles.stepRow, { marginBottom: 0 }]}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>4</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>Você começa a receber o conteúdo</Text>
+                                        <Text style={styles.stepDesc}>Motivação, dicas e rotina direto no grupo, junto com quem está na mesma jornada.</Text>
+                                    </View>
+                                </View>
+                            </View>
+
+                            {/* ── O QUE VOCÊ VAI RECEBER ────────────────────────── */}
+                            <Text style={[styles.sectionTitle, { marginTop: 40 }]}>O QUE VOCÊ VAI RECEBER</Text>
+                            <View style={styles.beneficiosBox}>
+                                {beneficios.map((item, i) => (
+                                    <View key={i} style={styles.beneficioRow}>
+                                        <MaterialCommunityIcons name="check-circle" size={18} color={MAIN_COLOR} style={{ marginTop: 2 }} />
+                                        <Text style={styles.beneficioText}>{item}</Text>
+                                    </View>
+                                ))}
+                            </View>
+
+                            {/* ── MENTOR / AUTORIDADE ───────────────────────────── */}
+                            <View style={styles.mentorBox}>
+                                <View style={styles.mentorIconRow}>
+                                    <MaterialCommunityIcons name="card-account-details-star-outline" size={22} color={MAIN_COLOR} />
+                                    <Text style={styles.mentorLabel}>QUEM CONDUZ ESSE DESAFIO</Text>
+                                </View>
+                                <Text style={styles.mentorName}>PAULO ADRIANO</Text>
+                                <Text style={styles.mentorDesc}>
+                                    "Eu já fui um 'ex-gordo' com 97kg e usei ciência e disciplina pra virar
+                                    Campeão Natural com 77kg. Esse desafio nasceu pra levar direção e
+                                    consistência pra dentro do seu dia a dia — sem complicação, direto no
+                                    seu WhatsApp."
+                                </Text>
+                            </View>
+
+                            {/* ── FAQ ────────────────────────────────────────────── */}
+                            <Text style={[styles.sectionTitle, { marginTop: 40, marginBottom: 20 }]}>AINDA TEM DÚVIDAS?</Text>
+                            <FaqAccordion faqs={faqList} />
+                        </>
+                    )}
+
+                    {/* ── STEP: FORM (dados) ─────────────────────────────────── */}
+                    {step === 'form' && (
+                        <View
+                            style={{ marginTop: 40 }}
+                            ref={(r) => { scrollToFormRef.current = r; }}
+                        >
+                            <Text style={styles.sectionTitle}>GARANTA SUA VAGA</Text>
+                            <Text style={styles.sectionSub}>Preencha seus dados abaixo pra gerar o PIX e começar.</Text>
+
+                            <View style={styles.formCard}>
                                 <Text style={styles.inputLabel}>Nome completo</Text>
                                 <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Seu nome completo" placeholderTextColor="#666" />
 
@@ -262,14 +377,21 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
 
                                 {formError ? <Text style={styles.formErrorText}>{formError}</Text> : null}
 
-                                <TouchableOpacity style={[styles.submitBtn, submitting && { opacity: 0.6 }]} onPress={handleSubmit} disabled={submitting}>
-                                    {submitting
-                                        ? <ActivityIndicator color="#000" size="small" />
-                                        : <Text style={styles.submitBtnText}>GERAR PIX E GARANTIR MINHA VAGA</Text>
-                                    }
+                                <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
+                                    <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={[styles.submitBtn, submitting && { opacity: 0.6 }]}>
+                                        {submitting
+                                            ? <ActivityIndicator color="#FFF" size="small" />
+                                            : <Text style={styles.submitBtnText}>GERAR PIX E GARANTIR MINHA VAGA</Text>
+                                        }
+                                    </LinearGradient>
                                 </TouchableOpacity>
+
+                                <View style={styles.securityRow}>
+                                    <MaterialCommunityIcons name="lock-outline" size={13} color="#666" />
+                                    <Text style={styles.securityText}>Pagamento processado com segurança via PIX</Text>
+                                </View>
                             </View>
-                        </>
+                        </View>
                     )}
 
                     {/* ── STEP: PAGAMENTO (PIX) ──────────────────────────────── */}
@@ -310,9 +432,11 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                                 no grupo do WhatsApp e começar.
                             </Text>
 
-                            <TouchableOpacity style={styles.entrarGrupoBtn} onPress={handleEntrarGrupo}>
-                                <MaterialCommunityIcons name="whatsapp" size={20} color="#000" />
-                                <Text style={styles.submitBtnText}>ENTRAR NO GRUPO DO WHATSAPP</Text>
+                            <TouchableOpacity onPress={handleEntrarGrupo} activeOpacity={0.85}>
+                                <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={styles.entrarGrupoBtn}>
+                                    <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
+                                    <Text style={styles.submitBtnText}>ENTRAR NO GRUPO DO WHATSAPP</Text>
+                                </LinearGradient>
                             </TouchableOpacity>
                         </View>
                     )}
@@ -335,19 +459,50 @@ const styles = StyleSheet.create({
         borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
     },
     previewBackBtnText: { color: '#FFF', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-    webWrapper: { flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center' },
+
+    webWrapper: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center' },
     scrollContent: { flexGrow: 1, padding: 25, paddingBottom: 60 },
 
     centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
     notFoundTitle: { color: '#FFF', fontSize: 18, fontWeight: '900', marginTop: 16, letterSpacing: 0.5 },
     notFoundDesc: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 8 },
 
-    heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 30 },
-    heroTitle: { color: '#FFF', fontSize: 26, fontWeight: '900', textAlign: 'center', marginTop: 12, marginBottom: 10 },
-    heroDesc: { color: '#AAA', fontSize: 14, textAlign: 'center', lineHeight: 21, marginBottom: 16, paddingHorizontal: 6 },
-    valorBadge: { backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8 },
-    valorBadgeText: { color: MAIN_COLOR, fontSize: 18, fontWeight: '900' },
+    // ── Hero
+    heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
+    heroIconBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: `${MAIN_COLOR}40`, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    heroTitle: { color: '#FFF', fontSize: 28, fontWeight: '900', textAlign: 'center', marginBottom: 10 },
+    heroDesc: { color: '#AAA', fontSize: 14, textAlign: 'center', lineHeight: 21, marginBottom: 18, paddingHorizontal: 6 },
+    valorBadge: { backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8, marginBottom: 24 },
+    valorBadgeText: { color: LIGHT_COLOR, fontSize: 18, fontWeight: '900' },
+    heroCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 16 },
+    heroCtaText: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
 
+    // ── Seções
+    sectionTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', textAlign: 'center', letterSpacing: 0.3, marginBottom: 6 },
+    sectionSub: { color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 20, paddingHorizontal: 10, lineHeight: 19 },
+
+    // ── Como funciona
+    stepsContainer: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 20 },
+    stepRow: { flexDirection: 'row', gap: 14, marginBottom: 22 },
+    stepIconBox: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${MAIN_COLOR}20`, borderWidth: 1, borderColor: MAIN_COLOR, justifyContent: 'center', alignItems: 'center' },
+    stepNumber: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 13 },
+    stepTextBox: { flex: 1 },
+    stepTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', marginBottom: 4 },
+    stepDesc: { color: '#999', fontSize: 12, lineHeight: 18 },
+
+    // ── Benefícios
+    beneficiosBox: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 20, gap: 14 },
+    beneficioRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+    beneficioText: { flex: 1, color: '#CCC', fontSize: 14, lineHeight: 20 },
+
+    // ── Mentor
+    mentorBox: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 22, marginTop: 40 },
+    mentorIconRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+    mentorLabel: { color: '#888', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
+    mentorName: { color: '#FFF', fontSize: 18, fontWeight: '900', marginBottom: 10 },
+    mentorDesc: { color: '#BBB', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
+
+    // ── Formulário
     formCard: { backgroundColor: '#161616', borderRadius: 24, borderWidth: 1, borderColor: '#2A2A2A', padding: 24 },
     formTitle: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: 0.5, textAlign: 'center', marginBottom: 20 },
 
@@ -357,18 +512,21 @@ const styles = StyleSheet.create({
 
     formErrorText: { color: '#FF3B30', fontSize: 12, fontWeight: '700', marginTop: 16, textAlign: 'center' },
 
-    submitBtn: { backgroundColor: MAIN_COLOR, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
-    submitBtnText: { color: '#000', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+    submitBtn: { borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
+    submitBtnText: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+
+    securityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 },
+    securityText: { color: '#666', fontSize: 10 },
 
     pixHelper: { color: '#AAA', fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
     pixImage: { width: 220, height: 220, alignSelf: 'center', borderRadius: 12, backgroundColor: '#FFF', marginBottom: 20 },
     copyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 14, paddingVertical: 14, marginBottom: 20 },
-    copyBtnText: { color: MAIN_COLOR, fontWeight: '900', fontSize: 12, letterSpacing: 0.3 },
+    copyBtnText: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 12, letterSpacing: 0.3 },
 
     waitingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     waitingText: { color: '#888', fontSize: 12, fontStyle: 'italic' },
 
-    entrarGrupoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: MAIN_COLOR, borderRadius: 16, paddingVertical: 16 },
+    entrarGrupoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, paddingVertical: 16 },
 
     footer: { marginTop: 40, alignItems: 'center' },
     footerText: { color: '#444', fontSize: 10, fontWeight: '900', letterSpacing: 1 },

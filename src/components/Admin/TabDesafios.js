@@ -24,6 +24,7 @@ const emptyDesafio = (defaultCoachId) => ({
     slug: '',
     nome: '',
     descricao: '',
+    beneficios: [''],
     valor: '',
     linkGrupoWhats: '',
     coachId: defaultCoachId,
@@ -95,6 +96,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setEditingDesafio({
             ...desafio,
             valor: String(desafio.valor),
+            beneficios: desafio.beneficios?.length ? desafio.beneficios : [''],
         });
         setView('form');
     };
@@ -107,6 +109,23 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     const updateField = (field, value) => {
         setEditingDesafio(prev => ({ ...prev, [field]: value }));
+    };
+
+    // ── Lista dinâmica de benefícios ("o que você vai receber") ──────────
+    const addBeneficio = () => {
+        setEditingDesafio(prev => ({ ...prev, beneficios: [...prev.beneficios, ''] }));
+    };
+
+    const updateBeneficio = (index, value) => {
+        setEditingDesafio(prev => {
+            const nova = [...prev.beneficios];
+            nova[index] = value;
+            return { ...prev, beneficios: nova };
+        });
+    };
+
+    const removeBeneficio = (index) => {
+        setEditingDesafio(prev => ({ ...prev, beneficios: prev.beneficios.filter((_, i) => i !== index) }));
     };
 
     // ── Salvar (criar ou atualizar) ────────────────────────────────────────
@@ -132,6 +151,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             const body = {
                 nome: editingDesafio.nome,
                 descricao: editingDesafio.descricao,
+                beneficios: editingDesafio.beneficios.filter(b => b.trim() !== ''),
                 valor: parseFloat(editingDesafio.valor.replace(',', '.')),
                 linkGrupoWhats: editingDesafio.linkGrupoWhats,
                 ativo: editingDesafio.ativo,
@@ -329,6 +349,26 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         placeholderTextColor="#666"
                     />
 
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>O que a aluna vai receber (aparece como lista na página)</Text>
+                    {editingDesafio.beneficios.map((item, i) => (
+                        <View key={i} style={styles.beneficioRow}>
+                            <TextInput
+                                style={[styles.saasInput, { flex: 1, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                value={item}
+                                onChangeText={(v) => updateBeneficio(i, v)}
+                                placeholder="Ex: Mensagem diária de motivação no grupo"
+                                placeholderTextColor="#666"
+                            />
+                            <TouchableOpacity onPress={() => removeBeneficio(i)}>
+                                <MaterialCommunityIcons name="close-circle-outline" size={20} color="#FF3B30" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    <TouchableOpacity style={styles.addBeneficioBtn} onPress={addBeneficio}>
+                        <MaterialCommunityIcons name="plus" size={14} color={theme.accent} />
+                        <Text style={{ color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.3 }}>ADICIONAR ITEM</Text>
+                    </TouchableOpacity>
+
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Valor (R$)</Text>
                     <TextInput
                         style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
@@ -470,6 +510,8 @@ const styles = StyleSheet.create({
     helperText: { fontSize: 10, fontStyle: 'italic', color: '#888', marginTop: 6 },
 
     coachOption: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
+    beneficioRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+    addBeneficioBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
 
     formActions: { flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' },
     cancelBtn: { flex: 1, padding: 16, borderRadius: 14, borderWidth: 1, alignItems: 'center' },

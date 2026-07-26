@@ -1,5 +1,5 @@
 // src/screens/AdminStudentCheckinsScreen.js — v3
-// v3: isMaster passado pro EvaluationModal, sem outros deps novos
+// v3: isMaster passado pro EvaluationModal, sem outros deps novos, com Blindagem Tripla
 
 import React from 'react';
 import {
@@ -7,6 +7,7 @@ import {
     TouchableOpacity, ActivityIndicator, Platform, StatusBar, Alert
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // 🔥 Adicionado para o cache check
 import { useTheme } from '../contexts/ThemeContext';
 import { useAdminCheckins } from '../hooks/useAdminCheckins';
 import StudentCheckinCard from '../components/Checkins/StudentCheckinCard';
@@ -33,13 +34,77 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
     const aluno        = { id: rawId, name: rawName, coachId: alunoCoachId };
 
     const hookData = useAdminCheckins(aluno);
+    
+    // Substituímos o hook original hasPermission para fazermos o override blindado aqui mesmo
     const {
-        loading, checkins, hasPermission, visibleCount, setVisibleCount,
+        loading: hookLoading, checkins, visibleCount, setVisibleCount,
         modalVisible, setModalVisible, selectedPhoto,
         selectedCheckinId, selectedPhotoField,
         fetchCheckins, updateCheckinPhoto, updateCheckinFeedback,
         isMaster,   // ← v3
     } = hookData;
+
+    const [hasPermission, setHasPermission] = React.useState(false);
+    const [loadingAuth, setLoadingAuth] = React.useState(true);
+
+    const loading = hookLoading || loadingAuth;
+
+    React.useEffect(() => {
+        checkPermissionAndFetch();
+    }, [aluno.id]);
+
+    const checkPermissionAndFetch = async () => {
+        try {
+            setLoadingAuth(true);
+            const userJson = await AsyncStorage.getItem('user');
+            if (userJson) {
+                const userObj = JSON.parse(userJson);
+                const adminId = userObj.id;
+                const adminEmail = userObj.email?.toLowerCase() || '';
+                const adminRole = userObj.role?.toUpperCase() || '';
+                
+                // 🔥 OS DEUSES DO OLIMPO: PAULO E ADRI
+                const MASTER_IDS = [
+                    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+                    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+                ];
+                
+                let realCoachId = aluno.coachId;
+                const cachedData = await AsyncStorage.getItem('@dashboard_cache');
+                if (cachedData) {
+                    const { cacheAtivos, cacheInativos } = JSON.parse(cachedData);
+                    const allUsers = [...(cacheAtivos || []), ...(cacheInativos || [])];
+                    const foundUser = allUsers.find(u => u.id === aluno.id);
+                    if (foundUser && foundUser.coachId) {
+                        realCoachId = foundUser.coachId;
+                    }
+                }
+
+                // 🔥 BLINDAGEM TRIPLA: Se for Admin por Role, por Email ou por ID, o acesso é garantido!
+                let isMyStudent = false;
+                if (
+                    adminRole === 'ADMIN' ||
+                    MASTER_IDS.includes(adminId) ||
+                    adminEmail === 'adri.personal@hotmail.com'
+                ) {
+                    isMyStudent = true;
+                } else {
+                    isMyStudent = (realCoachId === adminId);
+                }
+
+                setHasPermission(isMyStudent);
+
+                if (isMyStudent && aluno.id) {
+                    await fetchCheckins();
+                }
+            }
+        } catch (e) {
+            console.log("Erro ao checar auth:", e);
+        } finally {
+            setLoadingAuth(false);
+        }
+    };
+
 
     const isWeb      = Platform.OS === 'web';
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
@@ -110,7 +175,7 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                             {aluno.name.toUpperCase()}
                         </Text>
                     </View>
-                    <TouchableOpacity onPress={fetchCheckins} style={{ padding: 8, flexShrink: 0 }}>
+                    <TouchableOpacity onPress={checkPermissionAndFetch} style={{ padding: 8, flexShrink: 0 }}>
                         <MaterialCommunityIcons name="refresh" size={24} color={theme.accent} />
                     </TouchableOpacity>
                 </View>
