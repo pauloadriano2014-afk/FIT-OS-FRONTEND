@@ -11,6 +11,7 @@ import TabMarca from './TabMarca';
 import TabIA from './TabIA';
 import TabAssinatura from './TabAssinatura';
 import TabPropostaOfertas from './TabPropostaOfertas'; // 💎 Ofertas de Proposta (só master)
+import TabDesafios from './TabDesafios'; // 🎯 Desafios/Projetos por WhatsApp (só master)
 
 const MASTER_IDS = [
     '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
@@ -51,6 +52,7 @@ export default function TabGestao({
         { id: 'FERRAMENTAS', label: 'TREINO E DIETA',   show: true },
         { id: 'CONFIG',      label: 'SISTEMA E AVISOS', show: true },
         { id: 'SAAS',        label: 'VENDAS',           show: true },
+        { id: 'DESAFIOS',    label: 'DESAFIOS',         show: isMasterCoach },
         { id: 'IA',          label: 'MINHA IA',         show: !isMasterCoach },
         { id: 'MARCA',       label: 'MINHA MARCA',      show: true },
         { id: 'ASSINATURA',  label: 'MINHA ASSINATURA', show: !isMasterCoach }, 
@@ -201,6 +203,11 @@ export default function TabGestao({
                 isMasterCoach
                     ? <TabPropostaOfertas theme={theme} currentUserId={currentUserId} navigation={navigation} />
                     : <TabSaaS theme={theme} currentUserId={currentUserId} />
+            )}
+
+            {/* 🎯 Aba DESAFIOS — só master */}
+            {subTabGestao === 'DESAFIOS' && isMasterCoach && (
+                <TabDesafios theme={theme} currentUserId={currentUserId} navigation={navigation} />
             )}
             
             {subTabGestao === 'IA' && !isMasterCoach && (

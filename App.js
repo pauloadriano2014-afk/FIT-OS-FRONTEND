@@ -25,6 +25,7 @@ import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
 import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen';
 import PropostaFamiliaScreen from './src/screens/PropostaFamiliaScreen';
 import SaaSPropostaScreen from './src/screens/SaaSPropostaScreen';
+import DesafioInscricaoScreen from './src/screens/DesafioInscricaoScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -240,6 +241,7 @@ function RootNavigator() {
       <Stack.Screen name="PropostaFamilia" component={PropostaFamiliaScreen} />
       <Stack.Screen name="SaaSProposta" component={SaaSPropostaScreen} />
       <Stack.Screen name="CoachProposta" component={CoachPropostaScreen} />
+      <Stack.Screen name="DesafioInscricao" component={DesafioInscricaoScreen} />
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
@@ -302,6 +304,7 @@ const linking = {
       PropostaNavegantes: { path: 'PropostaNavegantes' },
       PropostaFamilia: { path: 'PropostaFamilia' },
       CoachProposta: { path: 'seja-coach' },
+      DesafioInscricao: { path: 'Desafio' },
       SaaSProposta: {
         path: 'invite/:coachId',
         parse: { coachId: (v) => String(v) },
