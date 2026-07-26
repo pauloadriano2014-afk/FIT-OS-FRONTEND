@@ -79,7 +79,6 @@ const getStyles = () => `
     .avoid-break { page-break-inside: avoid; }
     .list-item { display: flex; align-items: flex-start; margin-bottom: 8px; font-size: 12px; color: #555; line-height: 1.5; }
     .list-icon { margin-right: 8px; font-size: 14px; }
-    .ai-badge { display: inline-block; background: #111; color: #4DE38F; font-size: 8px; font-weight: 900; padding: 2px 8px; border-radius: 10px; letter-spacing: 0.5px; margin-left: 8px; vertical-align: middle; }
 `;
 
 const getBaseHtml = (content) => `
@@ -117,9 +116,6 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
     
     const heightDisplay = assessment.height ? ` | Altura: <strong>${assessment.height}m</strong>` : '';
     const bf = assessment.bodyFat ? parseFloat(assessment.bodyFat) : null;
-
-    // 🔥 FLAG: essa avaliação já tem diagnóstico gerado por IA? 🔥
-    const hasAI = !!assessment.aiGeneratedAt;
 
     let asymmetries = [];
     const checkAsym = (r, l, name) => { if (r && l && Math.abs(parseFloat(r) - parseFloat(l)) >= 1.0) asymmetries.push(name); };
@@ -223,7 +219,6 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
             ${(assessment.calves || assessment.calfLeft) ? `<tr><td class="label-left">Panturrilhas</td><td>${assessment.calves || '-'}</td><td>${assessment.calfLeft || '-'}</td></tr>` : ''}
         </table></div>`;
 
-        // 🔥 RADAR: usa notas geradas pela IA quando existem, senão cai no padrão fixo por gênero 🔥
         const radarScores = [
             assessment.aiMapaOmbros ?? (isFemale ? 6 : 8),
             assessment.aiMapaCostas ?? (isFemale ? 6 : 8),
@@ -238,7 +233,7 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
 
         html += `
         <div class="avoid-break" style="margin-bottom: 25px; padding-top: 20px;">
-            <div class="section-title" style="margin-top: 0;">🎯 MAPA DE DESENVOLVIMENTO MUSCULAR${hasAI ? '<span class="ai-badge">IA</span>' : ''}</div>
+            <div class="section-title" style="margin-top: 0;">🎯 MAPA DE DESENVOLVIMENTO MUSCULAR</div>
             <p style="font-size: 12px; color: #666; margin: 0 0 20px 0;">Visualização estratégica dos grupos musculares com maior e menor desenvolvimento relativo (Escala 0-10).</p>
             ${generateRadarChart(radarScores)}
             <div style="background-color: #f8f9fa; border-left: 4px solid #4DE38F; padding: 15px; margin-top: 20px; border-radius: 8px;">
@@ -333,7 +328,6 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
     diagHtml += `</div>`;
     html += diagHtml;
 
-    // 🔥 DIAGNÓSTICO ESTÉTICO — usa texto da IA quando existe, senão cai no padrão por gênero 🔥
     const defTextDefault = isFemale ? 'Excelente definição corporal e linha de cintura' : 'Excelente base muscular e densidade no tronco';
     const volumeTextDefault = isFemale ? 'Boa base de volume nos glúteos e coxas' : 'Bom nível de hipertrofia e proporção em ombros e dorsais';
     const attTextDefault = isFemale ? 'Necessidade de maior volume e tônus muscular em membros superiores (braços/costas)' : 'Sinal de alerta: membros inferiores podem não estar acompanhando o forte desenvolvimento do tronco';
@@ -364,7 +358,7 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
 
     html += `
     <div style="margin-bottom: 30px;">
-        <div class="section-title" style="margin-top: 0;">🔍 DIAGNÓSTICO ESTÉTICO${hasAI ? '<span class="ai-badge">IA</span>' : ''}</div>
+        <div class="section-title" style="margin-top: 0;">🔍 DIAGNÓSTICO ESTÉTICO</div>
         <div style="display: flex; gap: 15px;">
             <div style="flex: 1; border: 1px solid #e5e5ea; border-radius: 10px; padding: 15px; background: #fff;">
                 <h5 style="color: #4DE38F; font-size: 11px; margin: 0 0 10px 0; text-transform: uppercase;">PONTOS FORTES</h5>
@@ -385,7 +379,6 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
         </div>
     </div>`;
 
-    // 🔥 OBJETIVOS ESTRATÉGICOS — objetivo principal e secundários vêm da IA quando existem 🔥
     const objetivoPrincipal = assessment.aiObjetivoPrincipal || 'Desenvolvimento muscular sólido com manutenção (ou melhora) da definição corporal.';
     const objetivosSecundarios = (assessment.aiObjetivosSecundarios && assessment.aiObjetivosSecundarios.length > 0)
         ? assessment.aiObjetivosSecundarios
@@ -393,7 +386,7 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
 
     html += `
     <div class="avoid-break" style="background: #111; padding: 25px; border-radius: 12px; margin-bottom: 40px; border-left: 4px solid #4DE38F;">
-        <h3 style="color: #fff; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase;">🎯 OBJETIVOS ESTRATÉGICOS ATUAIS${hasAI ? '<span class="ai-badge">IA</span>' : ''}</h3>
+        <h3 style="color: #fff; font-size: 14px; margin: 0 0 15px 0; text-transform: uppercase;">🎯 OBJETIVOS ESTRATÉGICOS ATUAIS</h3>
         
         <strong style="color: #4DE38F; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">Objetivo Principal</strong>
         <p style="color: #eee; font-size: 12px; margin: 5px 0 15px 0;">${objetivoPrincipal}</p>
@@ -428,14 +421,13 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
             if (assessment.photos[2]) html += `<div class="photo-box"><img src="${assessment.photos[2]}"/><div class="photo-label">COSTAS</div></div>`;
             html += `</div></div>`;
 
-            // 🔥 ANÁLISE VISUAL — texto por foto vem da IA quando existe, senão cai no padrão por gênero 🔥
             const frontTxt = assessment.aiAnaliseFrontal || (isFemale ? 'Excelente alinhamento estrutural. Volume visível na região do quadríceps e linha de cintura fina. A proporção está bem direcionada.' : 'Boa densidade no peitoral e linha de ombros. É vital monitorar o volume do quadríceps para manter a proporção com o tronco.');
             const sideTxt = assessment.aiAnaliseLateral || (isFemale ? 'Destaque para a projeção glútea e desenho do posterior de coxa. Perfil atlético bem consolidado.' : 'Espessura de tronco e braços bem desenvolvida. A linha de pernas precisa acompanhar esse progresso.');
             const backTxt = assessment.aiAnalisePosterior || (isFemale ? 'Contorno de glúteos e panturrilhas em destaque. Oportunidade para focar mais na expansão dorsal e ombros, fechando a estética em X.' : 'Expansão dorsal evidente. O foco em posteriores de coxa e panturrilhas será o diferencial para um físico completo e sem falhas.');
             
             html += `
             <div class="avoid-break" style="margin-bottom: 30px;">
-                <div class="section-title" style="margin-top: 0; font-size: 14px;">📸 ANÁLISE VISUAL${hasAI ? '<span class="ai-badge">IA</span>' : ''}</div>
+                <div class="section-title" style="margin-top: 0; font-size: 14px;">📸 ANÁLISE VISUAL</div>
                 <div style="display: flex; gap: 15px;">
                     <div style="flex: 1; background: #f8f9fa; border: 1px solid #e5e5ea; padding: 12px; border-radius: 8px;">
                         <strong style="font-size: 10px; color: #111; display: block; margin-bottom: 5px;">VISTA FRONTAL</strong>
@@ -460,7 +452,6 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
         }
     }
 
-    // 🔥 CONCLUSÃO TÉCNICA — vem da IA quando existe, senão cai no padrão por gênero 🔥
     const conclusaoFoco = isFemale 
         ? 'à lapidação e ganho de volume nos membros inferiores (glúteos e pernas), sem negligenciar o trabalho de ombros e costas, que são essenciais para harmonizar o físico e criar a proporção em ampulheta' 
         : 'ao desenvolvimento global e simétrico. É fundamental redobrar a atenção aos membros inferiores para garantir que o volume das pernas acompanhe a excelente densidade do tronco';
@@ -471,7 +462,7 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
     <div class="avoid-break" style="margin-top: 40px; padding: 20px; background: rgba(77, 227, 143, 0.05); border: 1px solid #4DE38F; border-radius: 12px;">
         <div style="display: flex; align-items: center; margin-bottom: 10px;">
             <span style="font-size: 20px; margin-right: 10px;">🏆</span>
-            <h3 style="margin: 0; color: #111; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">CONCLUSÃO TÉCNICA${hasAI ? '<span class="ai-badge">IA</span>' : ''}</h3>
+            <h3 style="margin: 0; color: #111; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">CONCLUSÃO TÉCNICA</h3>
         </div>
         <p style="font-size: 12px; color: #333; line-height: 1.6; margin: 0;">
             ${conclusaoTexto}

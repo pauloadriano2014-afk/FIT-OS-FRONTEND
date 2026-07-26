@@ -39,6 +39,9 @@ export default function useAdminEvolution(aluno) {
     // 🔥 NOVO: estado de loading da geração do diagnóstico por IA 🔥
     const [generatingAI, setGeneratingAI] = useState(false);
 
+    // 🔥 NOVO: estado de loading da edição manual do diagnóstico 🔥
+    const [savingAIReport, setSavingAIReport] = useState(false);
+
     useEffect(() => {
         if (aluno?.birthDate || aluno?.dataNascimento) {
             setStudentBirthDate(aluno.birthDate || aluno.dataNascimento);
@@ -383,7 +386,7 @@ export default function useAdminEvolution(aluno) {
         }
     };
 
-    // 🔥 NOVO: dispara a geração do diagnóstico por IA para uma avaliação específica 🔥
+    // 🔥 dispara a geração do diagnóstico por IA para uma avaliação específica 🔥
     const generateAIReport = async (assessmentId) => {
         if (!assessmentId) return false;
         try {
@@ -412,6 +415,36 @@ export default function useAdminEvolution(aluno) {
         }
     };
 
+    // 🔥 salva edição manual dos campos de IA (sem chamar o Claude de novo) 🔥
+    const updateAIReport = async (assessmentId, payload) => {
+        if (!assessmentId) return false;
+        try {
+            setSavingAIReport(true);
+            const res = await fetch(`https://fitos-final.onrender.com/api/assessment/${assessmentId}/generate-ai-report`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+
+            if (!res.ok) {
+                const msg = json.error || "Não foi possível salvar a edição.";
+                if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Erro", msg);
+                return false;
+            }
+
+            setSelectedAssessment(prev => (prev && prev.id === assessmentId) ? { ...prev, ...json.assessment } : prev);
+            await loadData();
+            return true;
+        } catch (e) {
+            const msg = "Falha de conexão ao salvar edição.";
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert("Erro", msg);
+            return false;
+        } finally {
+            setSavingAIReport(false);
+        }
+    };
+
     return {
         loading, assessmentHistory, workoutLogs, checkinHistory,
         modalVisible, setModalVisible, detailsVisible, setDetailsVisible,
@@ -422,6 +455,7 @@ export default function useAdminEvolution(aluno) {
         measures, setMeasures, folds, setFolds, photos, setPhotos,
         loadData, handleDelete, openDetails, handleDateChange, resetForm,
         handleEdit, handleSaveAssessment,
-        generatingAI, generateAIReport
+        generatingAI, generateAIReport,
+        savingAIReport, updateAIReport
     };
 }

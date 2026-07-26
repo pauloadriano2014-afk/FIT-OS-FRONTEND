@@ -1,9 +1,12 @@
 // src/modals/AssessmentDetailsModal.js
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Image, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AIReportEditModal from './AIReportEditModal';
 
-export default function AssessmentDetailsModal({ visible, assessment, onClose, onGeneratePDF, onGenerateAI, generatingAI, onEdit, onDelete, theme }) {
+export default function AssessmentDetailsModal({ visible, assessment, onClose, onGeneratePDF, onGenerateAI, generatingAI, onSaveAIReport, savingAIReport, onEdit, onDelete, theme }) {
+    const [editAIVisible, setEditAIVisible] = useState(false);
+
     if (!visible || !assessment) return null;
 
     const renderMeasureCard = (label, value) => {
@@ -19,7 +22,7 @@ export default function AssessmentDetailsModal({ visible, assessment, onClose, o
     const hasAnyPerimetry = !!(assessment.chest || assessment.shoulders || assessment.waist || assessment.abdomen || assessment.hips || assessment.arms || assessment.armLeft || assessment.forearms || assessment.forearmLeft || assessment.thighs || assessment.thighLeft || assessment.calves || assessment.calfLeft);
     const hasPhotos = !!(assessment.photos && assessment.photos.length > 0 && assessment.photos.some(p => p && p !== ''));
 
-    // 🔥 NOVO: estado do diagnóstico por IA para essa avaliação 🔥
+    // 🔥 estado do diagnóstico por IA para essa avaliação 🔥
     const hasAIReport = !!assessment.aiGeneratedAt;
     const aiGeneratedLabel = hasAIReport ? new Date(assessment.aiGeneratedAt).toLocaleDateString('pt-BR') : null;
 
@@ -63,27 +66,37 @@ export default function AssessmentDetailsModal({ visible, assessment, onClose, o
 
                         {/* 🔥 BOTÃO GERAR DIAGNÓSTICO COM IA — só admin, só se tiver foto 🔥 */}
                         {onGenerateAI && hasPhotos && (
-                            <>
-                                <TouchableOpacity 
-                                    onPress={onGenerateAI} 
-                                    disabled={generatingAI}
-                                    style={[styles.aiButton, { borderColor: '#9D00FF', opacity: generatingAI ? 0.6 : 1 }]}
-                                >
-                                    {generatingAI ? (
-                                        <ActivityIndicator color="#9D00FF" size="small" />
-                                    ) : (
-                                        <MaterialCommunityIcons name="robot-outline" size={22} color="#9D00FF" />
-                                    )}
-                                    <Text style={styles.aiButtonText}>
-                                        {generatingAI ? 'ANALISANDO FOTOS...' : (hasAIReport ? 'REGENERAR DIAGNÓSTICO COM IA' : 'GERAR DIAGNÓSTICO COM IA')}
-                                    </Text>
-                                </TouchableOpacity>
-                                {hasAIReport && !generatingAI && (
-                                    <Text style={[styles.aiGeneratedNote, { color: theme.textSecondary }]}>
-                                        Diagnóstico gerado por IA em {aiGeneratedLabel}. As seções de análise do laudo PDF usam esse conteúdo.
-                                    </Text>
+                            <TouchableOpacity 
+                                onPress={onGenerateAI} 
+                                disabled={generatingAI}
+                                style={[styles.aiButton, { borderColor: '#9D00FF', opacity: generatingAI ? 0.6 : 1 }]}
+                            >
+                                {generatingAI ? (
+                                    <ActivityIndicator color="#9D00FF" size="small" />
+                                ) : (
+                                    <MaterialCommunityIcons name="robot-outline" size={22} color="#9D00FF" />
                                 )}
-                            </>
+                                <Text style={styles.aiButtonText}>
+                                    {generatingAI ? 'ANALISANDO FOTOS...' : (hasAIReport ? 'REGENERAR DIAGNÓSTICO COM IA' : 'GERAR DIAGNÓSTICO COM IA')}
+                                </Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {/* 🔥 BOTÃO EDITAR DIAGNÓSTICO — só aparece se já existe um diagnóstico gerado 🔥 */}
+                        {onSaveAIReport && hasAIReport && !generatingAI && (
+                            <TouchableOpacity 
+                                onPress={() => setEditAIVisible(true)} 
+                                style={[styles.editAiButton, { borderColor: theme.border }]}
+                            >
+                                <MaterialCommunityIcons name="pencil-box-outline" size={18} color={theme.text} />
+                                <Text style={[styles.editAiButtonText, { color: theme.text }]}>EDITAR DIAGNÓSTICO</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {hasAIReport && !generatingAI && (
+                            <Text style={[styles.aiGeneratedNote, { color: theme.textSecondary }]}>
+                                Diagnóstico atualizado em {aiGeneratedLabel}.
+                            </Text>
                         )}
 
                         <View style={[styles.detailRow, { borderBottomColor: theme.border }]}>
@@ -183,6 +196,19 @@ export default function AssessmentDetailsModal({ visible, assessment, onClose, o
                     </ScrollView>
                 </View>
             </View>
+
+            {/* 🔥 MODAL DE EDIÇÃO DO DIAGNÓSTICO IA 🔥 */}
+            <AIReportEditModal
+                visible={editAIVisible}
+                assessment={assessment}
+                onClose={() => setEditAIVisible(false)}
+                onSave={async (payload) => {
+                    const ok = await onSaveAIReport(payload);
+                    if (ok) setEditAIVisible(false);
+                }}
+                saving={savingAIReport}
+                theme={theme}
+            />
         </Modal>
     );
 }
@@ -193,13 +219,15 @@ const styles = StyleSheet.create({
     detailsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, paddingBottom: 15 },
     detailsTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
     
-    // Novo estilo do botão de PDF
-    pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderWidth: 1, borderRadius: 12, paddingVertical: 15, marginBottom: 25, gap: 10 },
+    pdfButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderWidth: 1, borderRadius: 12, paddingVertical: 15, marginBottom: 12, gap: 10 },
     pdfButtonText: { color: '#4DE38F', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
 
-    // 🔥 NOVO: estilo do botão de diagnóstico por IA 🔥
     aiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderWidth: 1, borderRadius: 12, paddingVertical: 15, marginBottom: 8, gap: 10 },
     aiButtonText: { color: '#9D00FF', fontWeight: '900', fontSize: 13, letterSpacing: 1 },
+
+    editAiButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: 10, paddingVertical: 10, marginBottom: 8, gap: 8 },
+    editAiButtonText: { fontWeight: '900', fontSize: 11, letterSpacing: 0.5 },
+
     aiGeneratedNote: { fontSize: 10, marginBottom: 25, lineHeight: 14 },
 
     detailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, borderBottomWidth: 1, paddingBottom: 8 },
