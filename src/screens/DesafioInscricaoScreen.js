@@ -255,6 +255,18 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
 
     const beneficios = desafio.beneficios?.length ? desafio.beneficios : BENEFICIOS_PADRAO;
 
+    // Reconstrói os pares antes/depois a partir dos arrays flat (mesmo
+    // formato salvo pelo admin). Só considera pares com as DUAS fotos.
+    const galleryPhotos = desafio.galleryPhotos || [];
+    const galleryTexts = desafio.galleryTexts || [];
+    const galleryPairs = [0, 1, 2, 3]
+        .map(i => ({
+            before: galleryPhotos[i * 2] || '',
+            after: galleryPhotos[i * 2 + 1] || '',
+            text: galleryTexts[i] || '',
+        }))
+        .filter(p => p.before && p.after);
+
     return (
         <RootComponent style={styles.container}>
             {previewBackButton}
@@ -328,24 +340,62 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                                 ))}
                             </View>
 
-                            {/* ── MENTOR / AUTORIDADE ───────────────────────────── */}
-                            <View style={styles.mentorBox}>
-                                <View style={styles.mentorIconRow}>
-                                    <MaterialCommunityIcons name="card-account-details-star-outline" size={22} color={MAIN_COLOR} />
-                                    <Text style={styles.mentorLabel}>QUEM CONDUZ ESSE DESAFIO</Text>
+                            {/* ── MENTOR / AUTORIDADE (dinâmico — só aparece se preenchido no admin) ── */}
+                            {desafio.mentorNome ? (
+                                <View style={styles.mentorBox}>
+                                    <View style={styles.mentorIconRow}>
+                                        <MaterialCommunityIcons name="card-account-details-star-outline" size={22} color={MAIN_COLOR} />
+                                        <Text style={styles.mentorLabel}>QUEM CONDUZ ESSE DESAFIO</Text>
+                                    </View>
+                                    <View style={styles.mentorHeaderRow}>
+                                        <View style={styles.mentorPhotoBox}>
+                                            {desafio.mentorFotoUrl
+                                                ? <Image source={{ uri: desafio.mentorFotoUrl }} style={styles.mentorPhoto} />
+                                                : <MaterialCommunityIcons name="account" size={28} color={MAIN_COLOR} />
+                                            }
+                                        </View>
+                                        <Text style={styles.mentorName}>{desafio.mentorNome}</Text>
+                                    </View>
+                                    {desafio.mentorTexto ? (
+                                        <Text style={styles.mentorDesc}>{desafio.mentorTexto}</Text>
+                                    ) : null}
                                 </View>
-                                <Text style={styles.mentorName}>PAULO ADRIANO</Text>
-                                <Text style={styles.mentorDesc}>
-                                    "Eu já fui um 'ex-gordo' com 97kg e usei ciência e disciplina pra virar
-                                    Campeão Natural com 77kg. Esse desafio nasceu pra levar direção e
-                                    consistência pra dentro do seu dia a dia — sem complicação, direto no
-                                    seu WhatsApp."
-                                </Text>
-                            </View>
+                            ) : null}
+
+                            {/* ── ANTES E DEPOIS (só aparece se houver pelo menos 1 par completo) ──
+                                Layout idêntico ao usado na SaaSPropostaScreen (página pública dos
+                                coaches parceiros): pilha vertical de cards, rótulo ANTES/DEPOIS
+                                acima da foto, legenda entre aspas. */}
+                            {galleryPairs.length > 0 && (
+                                <View style={styles.galleryOuterCard}>
+                                    <Text style={styles.gallerySectionTitle}>RESULTADOS DOS ALUNOS</Text>
+                                    <View style={{ gap: 25 }}>
+                                        {galleryPairs.map((pair, i) => (
+                                            <View key={i} style={styles.galleryPairCardPublic}>
+                                                <View style={{ flexDirection: 'row', gap: 10, marginBottom: pair.text ? 15 : 0 }}>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.galleryLabelAntes}>ANTES</Text>
+                                                        <View style={styles.galleryImgBoxPlain}>
+                                                            <Image source={{ uri: pair.before }} style={styles.galleryImgPlain} />
+                                                        </View>
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.galleryLabelDepois}>DEPOIS</Text>
+                                                        <View style={[styles.galleryImgBoxPlain, { borderWidth: 2, borderColor: MAIN_COLOR }]}>
+                                                            <Image source={{ uri: pair.after }} style={styles.galleryImgPlain} />
+                                                        </View>
+                                                    </View>
+                                                </View>
+                                                {pair.text ? <Text style={styles.galleryCaptionQuote}>"{pair.text}"</Text> : null}
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
 
                             {/* ── FAQ ────────────────────────────────────────────── */}
                             <Text style={[styles.sectionTitle, { marginTop: 40, marginBottom: 20 }]}>AINDA TEM DÚVIDAS?</Text>
-                            <FaqAccordion faqs={faqList} />
+                            <FaqAccordion faqs={faqList} accentColor={MAIN_COLOR} />
                         </>
                     )}
 
@@ -499,8 +549,21 @@ const styles = StyleSheet.create({
     mentorBox: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 22, marginTop: 40 },
     mentorIconRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
     mentorLabel: { color: '#888', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-    mentorName: { color: '#FFF', fontSize: 18, fontWeight: '900', marginBottom: 10 },
+    mentorHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+    mentorPhotoBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: `${MAIN_COLOR}40`, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    mentorPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
+    mentorName: { color: '#FFF', fontSize: 18, fontWeight: '900' },
     mentorDesc: { color: '#BBB', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
+
+    // ── Galeria de antes/depois
+    galleryOuterCard: { backgroundColor: '#141118', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, marginTop: 40 },
+    gallerySectionTitle: { color: MAIN_COLOR, fontSize: 12, fontWeight: '900', letterSpacing: 1.5, marginBottom: 18, textAlign: 'center' },
+    galleryPairCardPublic: { backgroundColor: '#161616', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#222' },
+    galleryLabelAntes: { color: '#888', fontSize: 10, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
+    galleryLabelDepois: { color: MAIN_COLOR, fontSize: 10, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
+    galleryImgBoxPlain: { width: '100%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden' },
+    galleryImgPlain: { width: '100%', height: '100%', resizeMode: 'cover' },
+    galleryCaptionQuote: { color: '#CCC', fontSize: 14, fontStyle: 'italic', textAlign: 'center' },
 
     // ── Formulário
     formCard: { backgroundColor: '#161616', borderRadius: 24, borderWidth: 1, borderColor: '#2A2A2A', padding: 24 },

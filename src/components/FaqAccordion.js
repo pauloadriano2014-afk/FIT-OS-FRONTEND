@@ -3,7 +3,11 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function FaqAccordion({ faqs }) {
+// 🔑 accentColor é opcional — o padrão continua o verde de sempre, então
+// nenhuma das páginas que já usam este componente (Proposta, PropostaMaes,
+// PropostaFamilia etc.) muda de cor. Só quem passar a prop explicitamente
+// (como a DesafioInscricaoScreen, com roxo) vê a cor diferente.
+export default function FaqAccordion({ faqs, accentColor = '#4DE38F' }) {
     const [expandedIndex, setExpandedIndex] = useState(null);
 
     return (
@@ -18,7 +22,7 @@ export default function FaqAccordion({ faqs }) {
                             activeOpacity={0.8}
                         >
                             <Text style={styles.faqQuestion}>{faq.q}</Text>
-                            <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={24} color="#4DE38F" />
+                            <MaterialCommunityIcons name={isExpanded ? "chevron-up" : "chevron-down"} size={24} color={accentColor} />
                         </TouchableOpacity>
                         {isExpanded && (
                             <View style={styles.faqBody}>

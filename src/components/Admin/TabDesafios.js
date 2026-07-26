@@ -8,9 +8,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Alert, Platform, ActivityIndicator, Switch
+    TextInput, Alert, Platform, ActivityIndicator, Switch, Image
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
@@ -29,6 +30,9 @@ const emptyDesafio = (defaultCoachId) => ({
     linkGrupoWhats: '',
     coachId: defaultCoachId,
     ativo: true,
+    mentorNome: '',
+    mentorFotoUrl: '',
+    mentorTexto: '',
 });
 
 function slugifyLocal(input) {
@@ -55,6 +59,12 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const [desafios, setDesafios] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [uploadingGallerySlot, setUploadingGallerySlot] = useState(null);
+    const [galleryPairs, setGalleryPairs] = useState([
+        { id: 0, before: '', after: '', text: '' }, { id: 1, before: '', after: '', text: '' },
+        { id: 2, before: '', after: '', text: '' }, { id: 3, before: '', after: '', text: '' },
+    ]);
 
     // view: 'lista' | 'form' | 'inscritas'
     const [view, setView] = useState('lista');
@@ -87,8 +97,14 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     };
 
     // ── Form: abrir novo / editar ─────────────────────────────────────────
+    const emptyGalleryPairs = () => ([
+        { id: 0, before: '', after: '', text: '' }, { id: 1, before: '', after: '', text: '' },
+        { id: 2, before: '', after: '', text: '' }, { id: 3, before: '', after: '', text: '' },
+    ]);
+
     const openNewDesafio = () => {
         setEditingDesafio(emptyDesafio(currentUserId || MASTER_OPTIONS[0].id));
+        setGalleryPairs(emptyGalleryPairs());
         setView('form');
     };
 
@@ -97,7 +113,21 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             ...desafio,
             valor: String(desafio.valor),
             beneficios: desafio.beneficios?.length ? desafio.beneficios : [''],
+            mentorNome: desafio.mentorNome || '',
+            mentorFotoUrl: desafio.mentorFotoUrl || '',
+            mentorTexto: desafio.mentorTexto || '',
         });
+
+        // Reconstrói os pares antes/depois a partir dos arrays flat (mesmo padrão do TabSaaS)
+        const loadedPhotos = desafio.galleryPhotos || [];
+        const loadedTexts = desafio.galleryTexts || [];
+        setGalleryPairs([
+            { id: 0, before: loadedPhotos[0] || '', after: loadedPhotos[1] || '', text: loadedTexts[0] || '' },
+            { id: 1, before: loadedPhotos[2] || '', after: loadedPhotos[3] || '', text: loadedTexts[1] || '' },
+            { id: 2, before: loadedPhotos[4] || '', after: loadedPhotos[5] || '', text: loadedTexts[2] || '' },
+            { id: 3, before: loadedPhotos[6] || '', after: loadedPhotos[7] || '', text: loadedTexts[3] || '' },
+        ]);
+
         setView('form');
     };
 
@@ -109,6 +139,85 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     const updateField = (field, value) => {
         setEditingDesafio(prev => ({ ...prev, [field]: value }));
+    };
+
+    // ── Upload de foto (mesmo endpoint R2 usado no TabSaaS) ──────────────
+    const uploadImageToR2 = async (uri) => {
+        let formData = new FormData();
+        if (Platform.OS === 'web') {
+            const response = await fetch(uri);
+            const blob = await response.blob();
+            const fileType = blob.type || 'image/jpeg';
+            const file = new File([blob], `upload_${Date.now()}.jpg`, { type: fileType });
+            formData.append('file', file);
+        } else {
+            const uriParts = uri.split('.');
+            const fileType = uriParts[uriParts.length - 1] || 'jpg';
+            formData.append('file', { uri, name: `upload_${Date.now()}.${fileType}`, type: `image/${fileType}` });
+        }
+        const res = await fetch(`${API_BASE}/api/upload-image`, { method: 'POST', body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha no upload');
+        return data.url;
+    };
+
+    const handlePickMentorPhoto = async () => {
+        try {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+            if (!result.canceled) {
+                setUploadingPhoto(true);
+                const url = await uploadImageToR2(result.assets[0].uri);
+                updateField('mentorFotoUrl', url);
+            }
+        } catch (e) {
+            console.log('Erro ao enviar foto', e);
+            Platform.OS === 'web' ? window.alert('Falha ao enviar a foto.') : Alert.alert('Erro', 'Falha ao enviar a foto.');
+        } finally {
+            setUploadingPhoto(false);
+        }
+    };
+
+    // ── Galeria de antes/depois (4 pares, mesmo padrão do TabSaaS) ───────
+    const handlePickGalleryPhoto = async (index, type) => {
+        try {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+            if (!result.canceled) {
+                setUploadingGallerySlot(`${index}-${type}`);
+                const url = await uploadImageToR2(result.assets[0].uri);
+                setGalleryPairs(prev => prev.map((pair, i) => i === index ? { ...pair, [type]: url } : pair));
+            }
+        } catch (e) {
+            console.log('Erro ao enviar foto da galeria', e);
+            Platform.OS === 'web' ? window.alert('Falha ao enviar a foto.') : Alert.alert('Erro', 'Falha ao enviar a foto.');
+        } finally {
+            setUploadingGallerySlot(null);
+        }
+    };
+
+    const removeGalleryPhoto = (index, type) => {
+        setGalleryPairs(prev => prev.map((pair, i) => i === index ? { ...pair, [type]: '' } : pair));
+    };
+
+    const handleGalleryTextChange = (index, text) => {
+        setGalleryPairs(prev => prev.map((pair, i) => i === index ? { ...pair, text } : pair));
     };
 
     // ── Lista dinâmica de benefícios ("o que você vai receber") ──────────
@@ -148,6 +257,10 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                 : `${API_BASE}/api/admin/desafios`;
             const method = isEditing ? 'PATCH' : 'POST';
 
+            const galleryPhotos = [];
+            const galleryTexts = [];
+            galleryPairs.forEach(p => { galleryPhotos.push(p.before); galleryPhotos.push(p.after); galleryTexts.push(p.text); });
+
             const body = {
                 nome: editingDesafio.nome,
                 descricao: editingDesafio.descricao,
@@ -155,7 +268,13 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                 valor: parseFloat(editingDesafio.valor.replace(',', '.')),
                 linkGrupoWhats: editingDesafio.linkGrupoWhats,
                 ativo: editingDesafio.ativo,
-                ...(!isEditing && { slug: editingDesafio.slug, coachId: editingDesafio.coachId }),
+                coachId: editingDesafio.coachId,
+                mentorNome: editingDesafio.mentorNome,
+                mentorFotoUrl: editingDesafio.mentorFotoUrl,
+                mentorTexto: editingDesafio.mentorTexto,
+                galleryPhotos,
+                galleryTexts,
+                ...(!isEditing && { slug: editingDesafio.slug }),
             };
 
             const res = await fetch(url, {
@@ -392,28 +511,149 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         Esse link só é revelado pra aluna DEPOIS que o pagamento é confirmado — nunca aparece antes.
                     </Text>
 
-                    {!editingDesafio.id && (
-                        <>
-                            <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Dono do desafio (conta de cobrança)</Text>
-                            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
-                                {MASTER_OPTIONS.map((opt) => (
-                                    <TouchableOpacity
-                                        key={opt.id}
-                                        style={[
-                                            styles.coachOption,
-                                            { borderColor: theme.border },
-                                            editingDesafio.coachId === opt.id && { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
-                                        ]}
-                                        onPress={() => updateField('coachId', opt.id)}
-                                    >
-                                        <Text style={{ color: editingDesafio.coachId === opt.id ? theme.accent : theme.textSecondary, fontWeight: '900', fontSize: 12 }}>
-                                            {opt.label}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Dono do desafio (conta de cobrança)</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                        {MASTER_OPTIONS.map((opt) => (
+                            <TouchableOpacity
+                                key={opt.id}
+                                style={[
+                                    styles.coachOption,
+                                    { borderColor: theme.border },
+                                    editingDesafio.coachId === opt.id && { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
+                                ]}
+                                onPress={() => updateField('coachId', opt.id)}
+                            >
+                                <Text style={{ color: editingDesafio.coachId === opt.id ? theme.accent : theme.textSecondary, fontWeight: '900', fontSize: 12 }}>
+                                    {opt.label}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                    <Text style={styles.helperText}>
+                        Define de qual conta Asaas o PIX é gerado a partir de agora. Se já existirem inscrições
+                        pagas com o dono anterior, elas não são afetadas — só as novas cobranças usam o dono atual.
+                    </Text>
+
+                    {/* ── Perfil de quem conduz o desafio (opcional) ────────────── */}
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>QUEM CONDUZ ESSE DESAFIO</Text>
+                    <Text style={styles.helperText}>
+                        Opcional — se preenchido, aparece uma seção de apresentação na página pública. Deixe em branco pra não mostrar essa seção.
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10, marginBottom: 6 }}>
+                        <View style={[styles.mentorPhotoPreview, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                            {editingDesafio.mentorFotoUrl
+                                ? <Image source={{ uri: editingDesafio.mentorFotoUrl }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                                : <MaterialCommunityIcons name="account" size={30} color={theme.textSecondary} />
+                            }
+                        </View>
+                        <TouchableOpacity
+                            style={{ backgroundColor: theme.bg, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: theme.accent }}
+                            onPress={handlePickMentorPhoto}
+                            disabled={uploadingPhoto}
+                        >
+                            {uploadingPhoto
+                                ? <ActivityIndicator size="small" color={theme.accent} />
+                                : <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '900' }}>{editingDesafio.mentorFotoUrl ? 'TROCAR FOTO' : 'ADICIONAR FOTO'}</Text>
+                            }
+                        </TouchableOpacity>
+                        {editingDesafio.mentorFotoUrl ? (
+                            <TouchableOpacity onPress={() => updateField('mentorFotoUrl', '')}>
+                                <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Nome</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                        value={editingDesafio.mentorNome}
+                        onChangeText={(v) => updateField('mentorNome', v)}
+                        placeholder="Ex: Adri"
+                        placeholderTextColor="#666"
+                    />
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 12 }]}>Descrição — quem é e por que criou esse desafio</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 100 }]}
+                        multiline
+                        value={editingDesafio.mentorTexto}
+                        onChangeText={(v) => updateField('mentorTexto', v)}
+                        placeholder="Conte a sua história e o motivo de ter criado esse desafio..."
+                        placeholderTextColor="#666"
+                    />
+
+                    {/* ── Galeria de antes/depois (opcional) ─────────────────────── */}
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>ANTES E DEPOIS</Text>
+                    <Text style={styles.helperText}>
+                        Opcional — mostra até 4 comparações de alunas que a Adri já ajudou. Deixe os pares vazios que não for usar.
+                    </Text>
+
+                    <View style={{ width: '100%', gap: 16, marginTop: 10 }}>
+                        {galleryPairs.map((pair, index) => (
+                            <View key={pair.id} style={[styles.galleryPairCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                                    {/* Antes */}
+                                    <View style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+                                        <Text style={styles.galleryPhotoLabel}>Antes</Text>
+                                        {pair.before ? (
+                                            <View style={styles.galleryPhotoFilled}>
+                                                <Image source={{ uri: pair.before }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                                                <TouchableOpacity style={styles.galleryCloseBtn} onPress={() => removeGalleryPhoto(index, 'before')}>
+                                                    <MaterialCommunityIcons name="close" size={14} color="#FFF" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ) : (
+                                            <TouchableOpacity
+                                                style={[styles.galleryPhotoEmpty, { borderColor: theme.accent }]}
+                                                onPress={() => handlePickGalleryPhoto(index, 'before')}
+                                                disabled={uploadingGallerySlot === `${index}-before`}
+                                            >
+                                                {uploadingGallerySlot === `${index}-before`
+                                                    ? <ActivityIndicator size="small" color={theme.accent} />
+                                                    : <MaterialCommunityIcons name="camera-plus" size={22} color={theme.accent} />
+                                                }
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+
+                                    {/* Depois */}
+                                    <View style={{ flex: 1, alignItems: 'center', gap: 6 }}>
+                                        <Text style={styles.galleryPhotoLabel}>Depois</Text>
+                                        {pair.after ? (
+                                            <View style={[styles.galleryPhotoFilled, { borderWidth: 2, borderColor: theme.accent }]}>
+                                                <Image source={{ uri: pair.after }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                                                <TouchableOpacity style={styles.galleryCloseBtn} onPress={() => removeGalleryPhoto(index, 'after')}>
+                                                    <MaterialCommunityIcons name="close" size={14} color="#FFF" />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ) : (
+                                            <TouchableOpacity
+                                                style={[styles.galleryPhotoEmpty, { borderColor: theme.accent }]}
+                                                onPress={() => handlePickGalleryPhoto(index, 'after')}
+                                                disabled={uploadingGallerySlot === `${index}-after`}
+                                            >
+                                                {uploadingGallerySlot === `${index}-after`
+                                                    ? <ActivityIndicator size="small" color={theme.accent} />
+                                                    : <MaterialCommunityIcons name="camera-plus" size={22} color={theme.accent} />
+                                                }
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </View>
+
+                                <TextInput
+                                    style={[styles.saasInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                    placeholder="Ex: Ana perdeu 12kg em 90 dias..."
+                                    placeholderTextColor="#666"
+                                    value={pair.text}
+                                    onChangeText={(val) => handleGalleryTextChange(index, val)}
+                                />
                             </View>
-                        </>
-                    )}
+                        ))}
+                    </View>
 
                     <View style={styles.formActions}>
                         <TouchableOpacity style={[styles.cancelBtn, { borderColor: theme.border }]} onPress={backToList}>
@@ -511,6 +751,13 @@ const styles = StyleSheet.create({
 
     coachOption: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
     beneficioRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
+    subsectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 24, marginBottom: 16 },
+    mentorPhotoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    galleryPairCard: { padding: 14, borderRadius: 14, borderWidth: 1 },
+    galleryPhotoLabel: { fontSize: 10, fontWeight: '900', color: '#888', letterSpacing: 0.3 },
+    galleryPhotoFilled: { width: '100%', aspectRatio: 1, borderRadius: 10, overflow: 'hidden' },
+    galleryPhotoEmpty: { width: '100%', aspectRatio: 1, borderRadius: 10, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+    galleryCloseBtn: { position: 'absolute', top: 5, right: 5, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 10, padding: 2 },
     addBeneficioBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 },
 
     formActions: { flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' },
