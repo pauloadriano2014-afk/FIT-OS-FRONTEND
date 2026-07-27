@@ -281,7 +281,7 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                             {/* ── HERO ──────────────────────────────────────────── */}
                             <View style={styles.heroSection}>
                                 {desafio.logoUrl ? (
-                                    <Image source={{ uri: desafio.logoUrl }} style={styles.heroLogoImg} resizeMode="contain" />
+                                    <Image source={{ uri: desafio.logoUrl }} style={styles.heroLogoImg} resizeMode="cover" />
                                 ) : (
                                     <View style={styles.heroIconBox}>
                                         <MaterialCommunityIcons name="whatsapp" size={32} color={MAIN_COLOR} />
@@ -583,7 +583,7 @@ const styles = StyleSheet.create({
     // ── Hero
     heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
     heroIconBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: `${MAIN_COLOR}40`, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    heroLogoImg: { width: '100%', height: 110, marginBottom: 16 },
+    heroLogoImg: { width: '100%', aspectRatio: 3, marginBottom: 16, borderRadius: 8 },
     heroTitle: { color: '#FFF', fontSize: 28, fontWeight: '900', textAlign: 'center', marginBottom: 10 },
     heroDesc: { color: '#AAA', fontSize: 14, textAlign: 'center', lineHeight: 21, marginBottom: 18, paddingHorizontal: 6 },
     valorBadge: { backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8, marginBottom: 24 },
