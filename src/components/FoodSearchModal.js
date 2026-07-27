@@ -45,8 +45,7 @@ export default function FoodSearchModal({
 }) {
     const [search,           setSearch]           = useState('');
     const [selectedCategory, setSelectedCategory] = useState(initialCategoryFilter);
-    // 🔥 CORREÇÃO: Abre sempre na aba TACO (banco completo) por padrão
-    const [activeTab,        setActiveTab]        = useState('taco'); 
+    const [activeTab,        setActiveTab]        = useState('favorites');
     const [foods,            setFoods]            = useState([]);
     const [loading,          setLoading]          = useState(false);
     const [total,            setTotal]            = useState(0);
@@ -63,8 +62,7 @@ export default function FoodSearchModal({
         if (visible) {
             setSelectedCategory(initialCategoryFilter);
             setSearch('');
-            // 🔥 CORREÇÃO: Garante que toda vez que o modal abrir, ele busca no banco todo
-            setActiveTab('taco'); 
+            setActiveTab('favorites');
             setFoods([]);
             setPage(1);
         }
@@ -80,7 +78,7 @@ export default function FoodSearchModal({
             const params = new URLSearchParams({
                 coachId,
                 page:      String(pageNum),
-                limit:     '30',
+                limit:     '200',
                 favorites: activeTab === 'favorites' ? 'true' : 'false',
             });
             if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
@@ -91,8 +89,14 @@ export default function FoodSearchModal({
             const newFoods = data.foods ?? [];
             setFoods(prev => append ? [...prev, ...newFoods] : newFoods);
             setTotal(data.total ?? 0);
-            setHasMore(pageNum < (data.pages ?? 1));
+            const totalPages = data.pages ?? 1;
+            setHasMore(pageNum < totalPages);
             setPage(pageNum);
+
+            // 🔥 Se ainda há mais páginas, carrega automaticamente
+            if (pageNum < totalPages) {
+                setTimeout(() => fetchFoods(pageNum + 1, true), 100);
+            }
         } catch (e) {
             if (e.name !== 'AbortError') console.error('[FoodSearch]', e);
         } finally {
