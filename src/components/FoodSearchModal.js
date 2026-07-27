@@ -89,8 +89,14 @@ export default function FoodSearchModal({
             const newFoods = data.foods ?? [];
             setFoods(prev => append ? [...prev, ...newFoods] : newFoods);
             setTotal(data.total ?? 0);
-            setHasMore(pageNum < (data.pages ?? 1));
+            const totalPages = data.pages ?? 1;
+            setHasMore(pageNum < totalPages);
             setPage(pageNum);
+
+            // 🔥 Se ainda há mais páginas, carrega automaticamente
+            if (pageNum < totalPages) {
+                setTimeout(() => fetchFoods(pageNum + 1, true), 100);
+            }
         } catch (e) {
             if (e.name !== 'AbortError') console.error('[FoodSearch]', e);
         } finally {
