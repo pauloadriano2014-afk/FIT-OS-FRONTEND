@@ -1,9 +1,9 @@
 // src/components/FoodSearchModal.js
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, Modal, TouchableOpacity,
     TextInput, FlatList, KeyboardAvoidingView, Platform,
-    useWindowDimensions, ActivityIndicator,
+    useWindowDimensions, ActivityIndicator, TouchableWithoutFeedback
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -45,13 +45,12 @@ export default function FoodSearchModal({
 }) {
     const [search,           setSearch]           = useState('');
     const [selectedCategory, setSelectedCategory] = useState(initialCategoryFilter);
-    const [activeTab,        setActiveTab]        = useState('favorites');
+    const [activeTab,        setActiveTab]        = useState('taco'); 
     const [foods,            setFoods]            = useState([]);
     const [loading,          setLoading]          = useState(false);
     const [total,            setTotal]            = useState(0);
     const [page,             setPage]             = useState(1);
     const [hasMore,          setHasMore]          = useState(false);
-    const abortRef = useRef(null);
 
     const isWeb = Platform.OS === 'web';
     const { height: windowHeight } = useWindowDimensions();
@@ -62,7 +61,7 @@ export default function FoodSearchModal({
         if (visible) {
             setSelectedCategory(initialCategoryFilter);
             setSearch('');
-            setActiveTab('favorites');
+            setActiveTab('taco'); 
             setFoods([]);
             setPage(1);
         }
@@ -70,35 +69,28 @@ export default function FoodSearchModal({
 
     const fetchFoods = useCallback(async (pageNum = 1, append = false) => {
         if (!visible) return;
-        if (abortRef.current) abortRef.current.abort();
-        const ctrl = new AbortController();
-        abortRef.current = ctrl;
         setLoading(true);
         try {
             const params = new URLSearchParams({
                 coachId,
                 page:      String(pageNum),
-                limit:     '200',
+                limit:     '50',
                 favorites: activeTab === 'favorites' ? 'true' : 'false',
             });
             if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
             if (selectedCategory !== 'Todas') params.set('category', selectedCategory);
+            
+            params.set('t', Date.now().toString());
 
-            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal });
+            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`);
             const data = await res.json();
             const newFoods = data.foods ?? [];
             setFoods(prev => append ? [...prev, ...newFoods] : newFoods);
             setTotal(data.total ?? 0);
-            const totalPages = data.pages ?? 1;
-            setHasMore(pageNum < totalPages);
+            setHasMore(pageNum < (data.totalPages || data.pages || 1));
             setPage(pageNum);
-
-            // 🔥 Se ainda há mais páginas, carrega automaticamente
-            if (pageNum < totalPages) {
-                setTimeout(() => fetchFoods(pageNum + 1, true), 100);
-            }
         } catch (e) {
-            if (e.name !== 'AbortError') console.error('[FoodSearch]', e);
+            console.error('[FoodSearch]', e);
         } finally {
             setLoading(false);
         }
@@ -127,157 +119,179 @@ export default function FoodSearchModal({
             <TouchableOpacity style={[styles.backdrop, isWeb && { height: windowHeight }]} activeOpacity={1} onPress={onClose}>
                 <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} enabled={!isWeb}
                     style={{ flex:1, width:'100%', justifyContent:'flex-end', alignItems:'center' }}>
-                    <TouchableOpacity activeOpacity={1}
-                        style={[styles.sheet, { backgroundColor:theme.bg, borderColor:theme.border, height:sheetHeight }]}>
+                    
+                    <TouchableWithoutFeedback>
+                        <View style={[styles.sheet, { backgroundColor:theme.bg, borderColor:theme.border, height:sheetHeight }]}>
 
-                        <View style={[styles.handle, { backgroundColor:theme.border }]} />
+                            <View style={[styles.handle, { backgroundColor:theme.border }]} />
 
-                        {/* HEADER */}
-                        <View style={styles.header}>
-                            <View style={{ flex:1 }}>
-                                <Text style={[styles.title, { color:theme.text }]}>
-                                    {isViewingCategories ? 'SELECIONE A CATEGORIA' : 'TABELA DE ALIMENTOS'}
-                                </Text>
-                                {targetGroup && (
-                                    <View style={[styles.subBadge, { backgroundColor:theme.accent+'20', borderColor:theme.accent+'50' }]}>
-                                        <MaterialCommunityIcons name="swap-horizontal" size={11} color={theme.accent} />
-                                        <Text style={[styles.subBadgeText, { color:theme.accent }]}>Buscando substituto</Text>
+                            {/* HEADER */}
+                            <View style={styles.header}>
+                                <View style={{ flex:1 }}>
+                                    <Text style={[styles.title, { color:theme.text }]}>
+                                        {isViewingCategories ? 'SELECIONE A CATEGORIA' : 'TABELA DE ALIMENTOS'}
+                                    </Text>
+                                    {targetGroup && (
+                                        <View style={[styles.subBadge, { backgroundColor:theme.accent+'20', borderColor:theme.accent+'50' }]}>
+                                            <MaterialCommunityIcons name="swap-horizontal" size={11} color={theme.accent} />
+                                            <Text style={[styles.subBadgeText, { color:theme.accent }]}>Buscando substituto</Text>
+                                        </View>
+                                    )}
+                                </View>
+                                <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor:theme.surface, borderColor:theme.border }]}>
+                                    <MaterialCommunityIcons name="close" size={16} color={theme.textSecondary} />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* ABAS */}
+                            <View style={[styles.tabRow, { borderColor:theme.border }]}>
+                                <TouchableOpacity style={[styles.tab, activeTab==='favorites' && { borderBottomColor:theme.accent, borderBottomWidth:2 }]}
+                                    onPress={() => switchTab('favorites')}>
+                                    <MaterialCommunityIcons name="star" size={13} color={activeTab==='favorites' ? theme.accent : theme.textSecondary} />
+                                    <Text style={[styles.tabText, { color:activeTab==='favorites' ? theme.accent : theme.textSecondary }]}>Favoritos</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={[styles.tab, activeTab==='taco' && { borderBottomColor:'#34C759', borderBottomWidth:2 }]}
+                                    onPress={() => switchTab('taco')}>
+                                    <MaterialCommunityIcons name="database" size={13} color={activeTab==='taco' ? '#34C759' : theme.textSecondary} />
+                                    <Text style={[styles.tabText, { color:activeTab==='taco' ? '#34C759' : theme.textSecondary }]}>TACO Completa</Text>
+                                    <View style={[styles.tabBadge, { backgroundColor:'#34C75920' }]}>
+                                        <Text style={{ fontSize:9, fontWeight:'900', color:'#34C759' }}>589</Text>
                                     </View>
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* BUSCA */}
+                            <View style={[styles.searchBox, { backgroundColor:theme.surface, borderColor:theme.border }]}>
+                                <MaterialCommunityIcons name="magnify" size={20} color={theme.textSecondary} />
+                                <TextInput style={[styles.searchInput, { color:theme.text }]}
+                                    placeholder="Buscar alimento..." placeholderTextColor={theme.textSecondary}
+                                    value={search} onChangeText={t => { setSearch(t); setFoods([]); }} />
+                                {loading && <ActivityIndicator size="small" color={theme.accent} style={{ marginRight:4 }} />}
+                                {search.length > 0 && !loading && (
+                                    <TouchableOpacity onPress={() => setSearch('')}>
+                                        <MaterialCommunityIcons name="close-circle" size={18} color={theme.textSecondary} />
+                                    </TouchableOpacity>
                                 )}
                             </View>
-                            <TouchableOpacity onPress={onClose} style={[styles.closeBtn, { backgroundColor:theme.surface, borderColor:theme.border }]}>
-                                <MaterialCommunityIcons name="close" size={16} color={theme.textSecondary} />
-                            </TouchableOpacity>
-                        </View>
 
-                        {/* ABAS */}
-                        <View style={[styles.tabRow, { borderColor:theme.border }]}>
-                            <TouchableOpacity style={[styles.tab, activeTab==='favorites' && { borderBottomColor:theme.accent, borderBottomWidth:2 }]}
-                                onPress={() => switchTab('favorites')}>
-                                <MaterialCommunityIcons name="star" size={13} color={activeTab==='favorites' ? theme.accent : theme.textSecondary} />
-                                <Text style={[styles.tabText, { color:activeTab==='favorites' ? theme.accent : theme.textSecondary }]}>Favoritos</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={[styles.tab, activeTab==='taco' && { borderBottomColor:'#34C759', borderBottomWidth:2 }]}
-                                onPress={() => switchTab('taco')}>
-                                <MaterialCommunityIcons name="database" size={13} color={activeTab==='taco' ? '#34C759' : theme.textSecondary} />
-                                <Text style={[styles.tabText, { color:activeTab==='taco' ? '#34C759' : theme.textSecondary }]}>TACO Completa</Text>
-                                <View style={[styles.tabBadge, { backgroundColor:'#34C75920' }]}>
-                                    <Text style={{ fontSize:9, fontWeight:'900', color:'#34C759' }}>589</Text>
-                                </View>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* BUSCA */}
-                        <View style={[styles.searchBox, { backgroundColor:theme.surface, borderColor:theme.border }]}>
-                            <MaterialCommunityIcons name="magnify" size={20} color={theme.textSecondary} />
-                            <TextInput style={[styles.searchInput, { color:theme.text }]}
-                                placeholder="Buscar alimento..." placeholderTextColor={theme.textSecondary}
-                                value={search} onChangeText={t => { setSearch(t); setFoods([]); }} />
-                            {loading && <ActivityIndicator size="small" color={theme.accent} style={{ marginRight:4 }} />}
-                            {search.length > 0 && !loading && (
-                                <TouchableOpacity onPress={() => setSearch('')}>
-                                    <MaterialCommunityIcons name="close-circle" size={18} color={theme.textSecondary} />
+                            {/* VOLTAR */}
+                            {!isViewingCategories && debouncedSearch.length === 0 && (
+                                <TouchableOpacity style={[styles.backBtn, { backgroundColor:theme.accent+'15', borderColor:theme.accent+'40' }]}
+                                    onPress={() => setSelectedCategory('Todas')}>
+                                    <MaterialCommunityIcons name="arrow-left" size={16} color={theme.accent} />
+                                    <Text style={[styles.backText, { color:theme.accent }]}>Voltar ({selectedCategory})</Text>
                                 </TouchableOpacity>
                             )}
+
+                            {/* CONTADOR */}
+                            {!isViewingCategories && (
+                                <Text style={[styles.resultCount, { color:theme.textSecondary }]}>
+                                    {loading && foods.length === 0 ? 'Buscando...' : `${total} alimentos encontrados`}
+                                </Text>
+                            )}
+
+                            <View style={{ flex: 1, width: '100%', overflow: 'hidden' }}>
+                                {isViewingCategories ? (
+                                    <FlatList data={CATEGORIES} keyExtractor={i => i}
+                                        style={{ flex: 1 }}
+                                        showsVerticalScrollIndicator={false}
+                                        contentContainerStyle={{ paddingBottom:40 }}
+                                        renderItem={({ item }) => {
+                                            const info = CATEGORY_UI_INFO[item] ?? { icon:'dots-horizontal', desc:'', p:0, c:0, f:0, kcal:0 };
+                                            return (
+                                                <TouchableOpacity style={[styles.catCard, { backgroundColor:theme.surface, borderColor:theme.border }]}
+                                                    activeOpacity={0.8} onPress={() => setSelectedCategory(item)}>
+                                                    <View style={[styles.catIconBox, { backgroundColor:theme.accent+'15' }]}>
+                                                        <MaterialCommunityIcons name={info.icon} size={24} color={theme.accent} />
+                                                    </View>
+                                                    <View style={styles.catInfo}>
+                                                        <Text style={[styles.catName, { color:theme.text }]}>{item}</Text>
+                                                        <Text style={[styles.catDesc, { color:theme.textSecondary }]}>{info.desc}</Text>
+                                                        <View style={styles.macroRow}>
+                                                            <Text style={[styles.macroChip, { color:theme.textSecondary }]}>{info.kcal} kcal</Text>
+                                                            <Text style={[styles.macroChip, { color:MACRO_COLOR.p }]}>P {info.p}g</Text>
+                                                            <Text style={[styles.macroChip, { color:MACRO_COLOR.c }]}>C {info.c}g</Text>
+                                                            <Text style={[styles.macroChip, { color:MACRO_COLOR.f }]}>G {info.f}g</Text>
+                                                        </View>
+                                                    </View>
+                                                    <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
+                                                </TouchableOpacity>
+                                            );
+                                        }}
+                                    />
+                                ) : (
+                                    <FlatList data={foods} keyExtractor={(item, i) => `${item.id}-${i}`}
+                                        extraData={{ page, loading, hasMore }}
+                                        style={{ flex: 1 }}
+                                        initialNumToRender={50}
+                                        maxToRenderPerBatch={50}
+                                        windowSize={10}
+                                        showsVerticalScrollIndicator={false}
+                                        contentContainerStyle={{ paddingBottom:40 }}
+                                        keyboardShouldPersistTaps="handled"
+                                        renderItem={({ item }) => {
+                                            const kcal = item.calories_per_100 ?? item.kcal ?? 0;
+                                            return (
+                                                <TouchableOpacity style={[styles.foodItem, { backgroundColor:theme.surface, borderColor:theme.border }]}
+                                                    onPress={() => onSelectFood(item)} activeOpacity={0.7}>
+                                                    <View style={{ flex:1, paddingRight:10 }}>
+                                                        <Text style={[styles.foodName, { color:theme.text }]} numberOfLines={2}>{item.name}</Text>
+                                                        <View style={{ flexDirection:'row', alignItems:'center', gap:6, marginBottom:5 }}>
+                                                            <Text style={[styles.foodCat, { color:theme.textSecondary }]}>{item.subcategory || item.category}</Text>
+                                                            <SourceBadge source={item.source} />
+                                                        </View>
+                                                        <View style={styles.macroRow}>
+                                                            {[['P',item.p,MACRO_COLOR.p],['C',item.c,MACRO_COLOR.c],['G',item.f,MACRO_COLOR.f]].map(([l,v,c]) =>
+                                                                v != null ? <Text key={l} style={[styles.macroChip,{color:c}]}>{l} {v}g</Text> : null
+                                                            )}
+                                                        </View>
+                                                    </View>
+                                                    <View style={styles.kcalBlock}>
+                                                        <Text style={[styles.kcalValue, { color:theme.text }]}>{Math.round(kcal)}</Text>
+                                                        <Text style={[styles.kcalUnit, { color:theme.textSecondary }]}>kcal/100{item.base_unit??'g'}</Text>
+                                                    </View>
+                                                    <View style={[styles.addBtn, { backgroundColor:theme.accent }]}>
+                                                        <MaterialCommunityIcons name="plus" size={18} color={theme.isDark ? '#000' : '#FFF'} />
+                                                    </View>
+                                                </TouchableOpacity>
+                                            );
+                                        }}
+                                        ListFooterComponent={() => {
+                                            if (loading && foods.length > 0) {
+                                                return <ActivityIndicator color={theme.accent} style={{ marginVertical: 16 }} />;
+                                            }
+                                            if (!loading && hasMore) {
+                                                return (
+                                                    <TouchableOpacity
+                                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface, marginVertical: 16 }}
+                                                        onPress={() => {
+                                                            console.log('🔥 Botão Carregar Mais Clicado! Buscando página:', page + 1);
+                                                            fetchFoods(page + 1, true);
+                                                        }}
+                                                    >
+                                                        <MaterialCommunityIcons name="reload" size={20} color={theme.text} />
+                                                        <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13, marginLeft: 8 }}>CARREGAR PÁGINA {page + 1}</Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            }
+                                            return <View style={{ height: 40 }} />;
+                                        }}
+                                        ListEmptyComponent={() => !loading ? (
+                                            <View style={styles.emptyBox}>
+                                                <MaterialCommunityIcons name="food-off" size={40} color={theme.textSecondary} />
+                                                <Text style={[styles.emptyText, { color:theme.textSecondary }]}>Nenhum alimento encontrado</Text>
+                                                {activeTab === 'favorites' && (
+                                                    <Text style={[styles.emptyHint, { color:theme.textSecondary }]}>
+                                                        Tente a aba TACO Completa
+                                                    </Text>
+                                                )}
+                                            </View>
+                                        ) : null}
+                                    />
+                                )}
+                            </View>
                         </View>
-
-                        {/* VOLTAR */}
-                        {!isViewingCategories && debouncedSearch.length === 0 && (
-                            <TouchableOpacity style={[styles.backBtn, { backgroundColor:theme.accent+'15', borderColor:theme.accent+'40' }]}
-                                onPress={() => setSelectedCategory('Todas')}>
-                                <MaterialCommunityIcons name="arrow-left" size={16} color={theme.accent} />
-                                <Text style={[styles.backText, { color:theme.accent }]}>Voltar ({selectedCategory})</Text>
-                            </TouchableOpacity>
-                        )}
-
-                        {/* CONTADOR */}
-                        {!isViewingCategories && (
-                            <Text style={[styles.resultCount, { color:theme.textSecondary }]}>
-                                {loading && foods.length === 0 ? 'Buscando...' : `${total} alimentos encontrados`}
-                            </Text>
-                        )}
-
-                        {/* LISTA */}
-                        {isViewingCategories ? (
-                            <FlatList data={CATEGORIES} keyExtractor={i => i}
-                                style={{ flex: 1 }}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={{ paddingBottom:40 }}
-                                renderItem={({ item }) => {
-                                    const info = CATEGORY_UI_INFO[item] ?? { icon:'dots-horizontal', desc:'', p:0, c:0, f:0, kcal:0 };
-                                    return (
-                                        <TouchableOpacity style={[styles.catCard, { backgroundColor:theme.surface, borderColor:theme.border }]}
-                                            activeOpacity={0.8} onPress={() => setSelectedCategory(item)}>
-                                            <View style={[styles.catIconBox, { backgroundColor:theme.accent+'15' }]}>
-                                                <MaterialCommunityIcons name={info.icon} size={24} color={theme.accent} />
-                                            </View>
-                                            <View style={styles.catInfo}>
-                                                <Text style={[styles.catName, { color:theme.text }]}>{item}</Text>
-                                                <Text style={[styles.catDesc, { color:theme.textSecondary }]}>{info.desc}</Text>
-                                                <View style={styles.macroRow}>
-                                                    <Text style={[styles.macroChip, { color:theme.textSecondary }]}>{info.kcal} kcal</Text>
-                                                    <Text style={[styles.macroChip, { color:MACRO_COLOR.p }]}>P {info.p}g</Text>
-                                                    <Text style={[styles.macroChip, { color:MACRO_COLOR.c }]}>C {info.c}g</Text>
-                                                    <Text style={[styles.macroChip, { color:MACRO_COLOR.f }]}>G {info.f}g</Text>
-                                                </View>
-                                            </View>
-                                            <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
-                                        </TouchableOpacity>
-                                    );
-                                }}
-                            />
-                        ) : (
-                            <FlatList data={foods} keyExtractor={(item, i) => `${item.id}-${i}`}
-                                style={{ flex: 1 }}
-                                showsVerticalScrollIndicator={false}
-                                contentContainerStyle={{ paddingBottom:40 }}
-                                keyboardShouldPersistTaps="handled"
-                                onEndReached={() => { if (!loading && hasMore) fetchFoods(page + 1, true); }}
-                                onEndReachedThreshold={0.3}
-                                ListFooterComponent={loading && foods.length > 0
-                                    ? <ActivityIndicator color={theme.accent} style={{ marginVertical:16 }} />
-                                    : null}
-                                renderItem={({ item }) => {
-                                    const kcal = item.calories_per_100 ?? item.kcal ?? 0;
-                                    return (
-                                        <TouchableOpacity style={[styles.foodItem, { backgroundColor:theme.surface, borderColor:theme.border }]}
-                                            onPress={() => onSelectFood(item)} activeOpacity={0.7}>
-                                            <View style={{ flex:1, paddingRight:10 }}>
-                                                <Text style={[styles.foodName, { color:theme.text }]} numberOfLines={2}>{item.name}</Text>
-                                                <View style={{ flexDirection:'row', alignItems:'center', gap:6, marginBottom:5 }}>
-                                                    <Text style={[styles.foodCat, { color:theme.textSecondary }]}>{item.subcategory || item.category}</Text>
-                                                    <SourceBadge source={item.source} />
-                                                </View>
-                                                <View style={styles.macroRow}>
-                                                    {[['P',item.p,MACRO_COLOR.p],['C',item.c,MACRO_COLOR.c],['G',item.f,MACRO_COLOR.f]].map(([l,v,c]) =>
-                                                        v != null ? <Text key={l} style={[styles.macroChip,{color:c}]}>{l} {v}g</Text> : null
-                                                    )}
-                                                </View>
-                                            </View>
-                                            <View style={styles.kcalBlock}>
-                                                <Text style={[styles.kcalValue, { color:theme.text }]}>{Math.round(kcal)}</Text>
-                                                <Text style={[styles.kcalUnit, { color:theme.textSecondary }]}>kcal/100{item.base_unit??'g'}</Text>
-                                            </View>
-                                            <View style={[styles.addBtn, { backgroundColor:theme.accent }]}>
-                                                <MaterialCommunityIcons name="plus" size={18} color={theme.isDark ? '#000' : '#FFF'} />
-                                            </View>
-                                        </TouchableOpacity>
-                                    );
-                                }}
-                                ListEmptyComponent={() => !loading ? (
-                                    <View style={styles.emptyBox}>
-                                        <MaterialCommunityIcons name="food-off" size={40} color={theme.textSecondary} />
-                                        <Text style={[styles.emptyText, { color:theme.textSecondary }]}>Nenhum alimento encontrado</Text>
-                                        {activeTab === 'favorites' && (
-                                            <Text style={[styles.emptyHint, { color:theme.textSecondary }]}>
-                                                Tente a aba TACO Completa
-                                            </Text>
-                                        )}
-                                    </View>
-                                ) : null}
-                            />
-                        )}
-                    </TouchableOpacity>
+                    </TouchableWithoutFeedback>
                 </KeyboardAvoidingView>
             </TouchableOpacity>
         </Modal>

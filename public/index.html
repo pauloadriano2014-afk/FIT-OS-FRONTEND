@@ -6,6 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <title>%WEB_TITLE%</title>
 
+    <!-- 🔥 OPEN GRAPH — controla a prévia de link no WhatsApp, Instagram, etc.
+         Antes não existia NENHUMA tag og:image, então o WhatsApp caía de
+         fallback pros ícones de PWA abaixo (que eram a logo do leão). -->
+    <meta property="og:title" content="Paulo Adriano Team" />
+    <meta property="og:description" content="Consultoria de Performance — PA Elite Team" />
+    <meta property="og:image" content="https://www.pauloadrianoteam.com.br/og-image.png" />
+    <meta property="og:url" content="https://www.pauloadrianoteam.com.br" />
+    <meta property="og:type" content="website" />
+
+    <!-- Twitter também lê essas tags como fallback em alguns apps -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://www.pauloadrianoteam.com.br/og-image.png" />
+
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192x192.png" />

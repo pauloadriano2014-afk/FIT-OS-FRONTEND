@@ -1,5 +1,5 @@
 // src/screens/AdminFoodManagerScreen.js — modularizado
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
     TextInput, FlatList, ActivityIndicator, ScrollView,
@@ -34,7 +34,6 @@ export default function AdminFoodManagerScreen({ navigation }) {
     const [createVisible, setCreateVisible] = useState(false);
     const [dropdownOpen,  setDropdownOpen]  = useState(false);
     const [toggling,      setToggling]      = useState(new Set());
-    const abortRef = useRef(null);
     const debouncedSearch = useDebounce(search, 350);
 
     useEffect(() => {
@@ -45,32 +44,32 @@ export default function AdminFoodManagerScreen({ navigation }) {
 
     const fetchFoods = useCallback(async (pageNum, append) => {
         if (!coachId) return;
-        if (abortRef.current) abortRef.current.abort();
-        const ctrl = new AbortController();
-        abortRef.current = ctrl;
         setLoading(true);
         try {
-            const params = new URLSearchParams({ coachId, page: String(pageNum), limit: '500' });
+            const params = new URLSearchParams({ coachId, page: String(pageNum), limit: '50' });
             if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
-            if (category !== 'Todas')         params.set('category', category);
+            if (category !== 'Todas')        params.set('category', category);
             if (sourceFilter === 'favorites') params.set('favorites', 'true');
             if (sourceFilter === 'taco')      params.set('source', 'TACO');
             if (sourceFilter === 'custom')    params.set('source', 'CUSTOM');
+            
+            params.set('t', Date.now().toString());
 
-            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal });
+            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`);
             const data = await res.json();
             const newFoods = data.foods ?? [];
-            setFoods(prev => append ? [...prev, ...newFoods] : newFoods);
+
+            setFoods(prev => {
+                const merged = append ? [...prev, ...newFoods] : newFoods;
+                return merged;
+            });
+            
             setTotal(data.total ?? 0);
-            const totalPages = data.pages ?? 1;
+            const totalPages = data.totalPages || data.pages || 1;
             setHasMore(pageNum < totalPages);
             setPage(pageNum);
-            // Carrega próximas páginas automaticamente
-            if (pageNum < totalPages) {
-                setTimeout(() => fetchFoods(pageNum + 1, true), 150);
-            }
         } catch (e) {
-            if (e.name !== 'AbortError') console.error('[FoodManager]', e);
+            console.error('[FoodManager]', e);
         } finally {
             setLoading(false);
         }
@@ -184,7 +183,6 @@ export default function AdminFoodManagerScreen({ navigation }) {
 
             {/* FILTROS */}
             <View style={{ paddingHorizontal:16, paddingTop:12, zIndex:50 }}>
-                {/* Busca */}
                 <View style={[s.searchBox, { backgroundColor:theme.surface, borderColor:theme.border, marginBottom:10 }]}>
                     <MaterialCommunityIcons name="magnify" size={20} color={theme.textSecondary} />
                     <TextInput
@@ -215,7 +213,6 @@ export default function AdminFoodManagerScreen({ navigation }) {
                     ))}
                 </View>
 
-                {/* Info do filtro ativo */}
                 {activeSourceFilter?.tip && (
                     <View style={[s.infoCard, { backgroundColor:theme.accent+'10', borderColor:theme.accent+'30' }]}>
                         <MaterialCommunityIcons name="information-outline" size={15} color={theme.accent} />
@@ -223,7 +220,6 @@ export default function AdminFoodManagerScreen({ navigation }) {
                     </View>
                 )}
 
-                {/* Dropdown categoria */}
                 <View style={{ zIndex:100, marginTop:8 }}>
                     <TouchableOpacity
                         style={[s.dropdownBtn, { backgroundColor:theme.surface, borderColor: dropdownOpen ? theme.accent : theme.border }]}
@@ -258,17 +254,18 @@ export default function AdminFoodManagerScreen({ navigation }) {
 
             {dropdownOpen && <View style={{ height:dropdownListHeight }} />}
 
-            {/* LISTA */}
             {!dropdownOpen && (
-                <View style={{ flex:1, marginTop:10 }}>
+                <View style={{ flex:1, marginTop:10, width: '100%', overflow: 'hidden' }}>
                     <FlatList
                         data={foods}
+                        extraData={{ page, loading, hasMore }}
                         keyExtractor={(item, i) => `${item.id}-${i}`}
                         style={{ flex: 1 }}
+                        initialNumToRender={50}
+                        maxToRenderPerBatch={50}
+                        windowSize={10}
                         renderItem={renderFood}
                         contentContainerStyle={{ paddingHorizontal:16, paddingBottom:40 }}
-                        onEndReached={() => { if (!loading && hasMore) fetchFoods(page + 1, true); }}
-                        onEndReachedThreshold={0.3}
                         showsVerticalScrollIndicator={false}
                         keyboardShouldPersistTaps="handled"
                         ListHeaderComponent={() => (
@@ -287,7 +284,26 @@ export default function AdminFoodManagerScreen({ navigation }) {
                                 <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
                             </TouchableOpacity>
                         )}
-                        ListFooterComponent={loading && foods.length > 0 ? <ActivityIndicator color={theme.accent} style={{ marginVertical:16 }} /> : null}
+                        ListFooterComponent={() => {
+                            if (loading && foods.length > 0) {
+                                return <ActivityIndicator color={theme.accent} style={{ marginVertical: 16 }} />;
+                            }
+                            if (!loading && hasMore) {
+                                return (
+                                    <TouchableOpacity
+                                        style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface, marginVertical: 16 }}
+                                        onPress={() => {
+                                            console.log('🔥 Botão Carregar Mais Clicado! Buscando página:', page + 1);
+                                            fetchFoods(page + 1, true);
+                                        }}
+                                    >
+                                        <MaterialCommunityIcons name="reload" size={20} color={theme.text} />
+                                        <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13, marginLeft: 8 }}>CARREGAR PÁGINA {page + 1}</Text>
+                                    </TouchableOpacity>
+                                );
+                            }
+                            return <View style={{ height: 40 }} />;
+                        }}
                         ListEmptyComponent={() => !loading ? (
                             <View style={{ alignItems:'center', padding:48 }}>
                                 <MaterialCommunityIcons name="food-off" size={48} color={theme.textSecondary} />
