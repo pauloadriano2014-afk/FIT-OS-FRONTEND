@@ -361,7 +361,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
         abortRef.current = ctrl;
         setLoading(true);
         try {
-            const params = new URLSearchParams({ coachId, page: String(pageNum), limit: '40' });
+            const params = new URLSearchParams({ coachId, page: String(pageNum), limit: '200' });
             if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
             if (category !== 'Todas')         params.set('category', category);
             if (sourceFilter === 'favorites') params.set('favorites', 'true');
@@ -373,8 +373,14 @@ export default function AdminFoodManagerScreen({ navigation }) {
             const newFoods = data.foods ?? [];
             setFoods(prev => append ? [...prev, ...newFoods] : newFoods);
             setTotal(data.total ?? 0);
-            setHasMore(pageNum < (data.pages ?? 1));
+            const totalPages = data.pages ?? 1;
+            setHasMore(pageNum < totalPages);
             setPage(pageNum);
+
+            // 🔥 Carrega próximas páginas automaticamente
+            if (pageNum < totalPages) {
+                setTimeout(() => fetchFoods(pageNum + 1, true), 150);
+            }
         } catch (e) {
             if (e.name !== 'AbortError') console.error('[FoodManager]', e);
         } finally {
@@ -647,26 +653,6 @@ export default function AdminFoodManagerScreen({ navigation }) {
                 <View style={{ height: dropdownListHeight }} />
             )}
 
-            {/* ACESSO AOS GRUPOS DE SUBSTITUIÇÃO */}
-            <TouchableOpacity
-                style={[styles.groupsAccessBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                onPress={() => navigation.navigate('AdminSubstitutionGroupsScreen', { coachId })}
-                activeOpacity={0.8}
-            >
-                <View style={[styles.groupsIconBox, { backgroundColor: theme.accent + '18' }]}>
-                    <MaterialCommunityIcons name="swap-horizontal" size={20} color={theme.accent} />
-                </View>
-                <View style={{ flex: 1, paddingHorizontal: 12 }}>
-                    <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13 }}>
-                        Grupos de Substituição
-                    </Text>
-                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
-                        Defina quais alimentos se substituem automaticamente nas dietas
-                    </Text>
-                </View>
-                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
-            </TouchableOpacity>
-
             {/* LISTA */}
             {!dropdownOpen && (
                 <View style={{ flex: 1, marginTop: 10 }}>
@@ -678,6 +664,26 @@ export default function AdminFoodManagerScreen({ navigation }) {
                         onEndReached={() => { if (!loading && hasMore) fetchFoods(page + 1, true); }}
                         onEndReachedThreshold={0.3}
                         showsVerticalScrollIndicator={false}
+                        ListHeaderComponent={() => (
+                            <TouchableOpacity
+                                style={[styles.groupsAccessBtn, { backgroundColor: theme.surface, borderColor: theme.border, marginHorizontal: 0, marginBottom: 12 }]}
+                                onPress={() => navigation.navigate('AdminSubstitutionGroupsScreen', { coachId })}
+                                activeOpacity={0.8}
+                            >
+                                <View style={[styles.groupsIconBox, { backgroundColor: theme.accent + '18' }]}>
+                                    <MaterialCommunityIcons name="swap-horizontal" size={20} color={theme.accent} />
+                                </View>
+                                <View style={{ flex: 1, paddingHorizontal: 12 }}>
+                                    <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13 }}>
+                                        Grupos de Substituição
+                                    </Text>
+                                    <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+                                        Defina quais alimentos se substituem automaticamente nas dietas
+                                    </Text>
+                                </View>
+                                <MaterialCommunityIcons name="chevron-right" size={20} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                        )}
                         keyboardShouldPersistTaps="handled"
                         ListFooterComponent={loading && foods.length > 0
                             ? <ActivityIndicator color={theme.accent} style={{ marginVertical: 16 }} />
