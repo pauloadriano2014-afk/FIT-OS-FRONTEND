@@ -349,7 +349,26 @@ export default function AdminFoodManagerScreen({ navigation }) {
     useEffect(() => {
         AsyncStorage.getItem('user').then(json => {
             if (json) {
-                try { const u = JSON.parse(json); setCoachId(u.id ?? ''); } catch {}
+                try { 
+                    const u = JSON.parse(json);
+                    
+                    // 🔥 UNIFICAÇÃO DE BANCO DE DADOS DOS MASTERS
+                    const MASTER_IDS = [
+                        '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
+                        'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
+                    ];
+                    const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
+                    const adminRole = u.role?.toUpperCase() || '';
+                    const adminEmail = u.email?.toLowerCase() || '';
+                    
+                    // Se for a Adri, Paulo ou um Admin Master, força o ID do Paulo
+                    // para que todos compartilhem a mesma lista de alimentos criados e favoritos!
+                    if (MASTER_IDS.includes(u.id) || adminRole === 'ADMIN' || adminEmail === 'adri.personal@hotmail.com') {
+                        setCoachId(PAULO_ID);
+                    } else {
+                        setCoachId(u.id ?? ''); 
+                    }
+                } catch {}
             }
         });
     }, []);
@@ -362,9 +381,13 @@ export default function AdminFoodManagerScreen({ navigation }) {
         setLoading(true);
         try {
             const params = new URLSearchParams({ coachId, page: String(pageNum), limit: '40' });
+            
             if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
-            if (category !== 'Todas')         params.set('category', category);
-            if (sourceFilter === 'favorites') params.set('favorites', 'true');
+            if (category !== 'Todas')        params.set('category', category);
+            
+            // 🔥 CORREÇÃO: Força o envio de 'false' para impedir que o backend faça loucuras com o default
+            params.set('favorites', sourceFilter === 'favorites' ? 'true' : 'false');
+            
             if (sourceFilter === 'taco')      params.set('source', 'TACO');
             if (sourceFilter === 'custom')    params.set('source', 'CUSTOM');
 
@@ -373,7 +396,9 @@ export default function AdminFoodManagerScreen({ navigation }) {
             const newFoods = data.foods ?? [];
             setFoods(prev => append ? [...prev, ...newFoods] : newFoods);
             setTotal(data.total ?? 0);
-            setHasMore(pageNum < (data.pages ?? 1));
+            
+            // 🔥 CORREÇÃO DA PAGINAÇÃO: O backend retorna 'totalPages', não 'pages'
+            setHasMore(pageNum < (data.totalPages || data.pages || 1));
             setPage(pageNum);
         } catch (e) {
             if (e.name !== 'AbortError') console.error('[FoodManager]', e);

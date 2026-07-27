@@ -132,7 +132,6 @@ export default function AdminDietScreen({ route, navigation }) {
 
     // ─── LÓGICA DO AJUSTE FINO (COM UNDO) ────────────────────────────────────
     const handleApplyMacroTuning = (tunedVisibleMeals) => {
-        // Tira a foto de backup se for o primeiro ajuste
         if (!tuningBackup) setTuningBackup(actions.meals);
 
         actions.setMeals(prev => {
@@ -144,7 +143,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const handleUndoTuning = () => {
         if (tuningBackup) {
             actions.setMeals(tuningBackup);
-            setTuningBackup(null); // Limpa o backup
+            setTuningBackup(null); 
         }
     };
 
@@ -172,7 +171,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 meals:        safeMeals,
             };
             await DietService.saveDiet(payload);
-            setTuningBackup(null); // 🔥 Limpa o backup após salvar no banco
+            setTuningBackup(null); 
 
             if (isWeb) window.alert('🚀 Dieta salva com sucesso!');
             else Alert.alert('Sucesso', 'Dieta salva!');
@@ -558,7 +557,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 )}
             </View>
 
-            {/* MODAIS */}
+            {/* 🔥 MODAIS: Blindados com Renderização Condicional */}
             <DietModalsAdmin theme={theme}
                 timeModalVisible={modals.timeModalVisible} setTimeModalVisible={modals.setTimeModalVisible} handleSelectTime={handleSelectTime}
                 nameModalVisible={modals.nameModalVisible} setNameModalVisible={modals.setNameModalVisible} handleSelectName={handleSelectName}
@@ -573,16 +572,21 @@ export default function AdminDietScreen({ route, navigation }) {
                 modalSaveMealVisible={modals.modalSaveMealVisible} setModalSaveMealVisible={modals.setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate}
                 modalImportMealVisible={modals.modalImportMealVisible} setModalImportMealVisible={modals.setModalImportMealVisible} mealTemplatesList={data.mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
 
-            <FoodSearchModal visible={modals.searchModalVisible}
-                onClose={() => { modals.setSearchModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
-                onSelectFood={actions.handleAddFoodToMeal} targetGroup={actions.activeGroupId}
-                theme={theme} initialCategoryFilter={initialCategoryFilter} coachId={loggedCoachId} />
+            {/* Apenas renderiza se o botão for clicado, garantindo que o loggedCoachId já carregou */}
+            {modals.searchModalVisible && (
+                <FoodSearchModal visible={modals.searchModalVisible}
+                    onClose={() => { modals.setSearchModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
+                    onSelectFood={actions.handleAddFoodToMeal} targetGroup={actions.activeGroupId}
+                    theme={theme} initialCategoryFilter={initialCategoryFilter} coachId={loggedCoachId} />
+            )}
 
-            <SmartSubstituteModal visible={modals.smartModalVisible}
-                onClose={() => { modals.setSmartModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
-                onSelectFood={actions.handleAddFoodToMeal} onManualSearch={handleSmartToManual}
-                principalFood={actions.smartPrincipalFood} principalAmount={actions.smartPrincipalAmount}
-                theme={theme} existingGroupItems={getExistingItemsInGroup()} />
+            {modals.smartModalVisible && (
+                <SmartSubstituteModal visible={modals.smartModalVisible}
+                    onClose={() => { modals.setSmartModalVisible(false); actions.setFoodToSwapId(null); actions.setActiveGroupId(null); }}
+                    onSelectFood={actions.handleAddFoodToMeal} onManualSearch={handleSmartToManual}
+                    principalFood={actions.smartPrincipalFood} principalAmount={actions.smartPrincipalAmount}
+                    theme={theme} existingGroupItems={getExistingItemsInGroup()} />
+            )}
 
             {modals.importModalVisible && (
                 <ImportDietModal visible={modals.importModalVisible} onClose={() => modals.setImportModalVisible(false)} theme={theme} onImportSuccess={handleImportSuccess} />
@@ -593,9 +597,11 @@ export default function AdminDietScreen({ route, navigation }) {
                 onGenerate={handleGenerateAI} isGenerating={data.isGenerating}
                 generateProgress={generateProgress} anamnese={data.anamnese} aluno={aluno} />
 
-            <DietBuilderModal visible={builderVisible} onClose={() => setBuilderVisible(false)}
-                onConfirm={handleBuilderConfirm} anamnese={data.anamnese} aluno={aluno}
-                dayType={actions.activeDayType} coachId={loggedCoachId} theme={theme} />
+            {builderVisible && (
+                <DietBuilderModal visible={builderVisible} onClose={() => setBuilderVisible(false)}
+                    onConfirm={handleBuilderConfirm} anamnese={data.anamnese} aluno={aluno}
+                    dayType={actions.activeDayType} coachId={loggedCoachId} theme={theme} />
+            )}
 
             <MealAnalyzerModal visible={mealAnalyzerVisible}
                 onClose={() => { setMealAnalyzerVisible(false); setMealToAnalyze(null); }}
@@ -614,7 +620,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 theme={theme}
             />
 
-            {/* Modal de Ajuste Fino */}
             <MacroTuningModal
                 visible={macroTuningVisible}
                 onClose={() => setMacroTuningVisible(false)}

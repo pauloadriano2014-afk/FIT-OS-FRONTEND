@@ -45,7 +45,8 @@ export default function FoodSearchModal({
 }) {
     const [search,           setSearch]           = useState('');
     const [selectedCategory, setSelectedCategory] = useState(initialCategoryFilter);
-    const [activeTab,        setActiveTab]        = useState('favorites');
+    // 🔥 CORREÇÃO: Abre sempre na aba TACO (banco completo) por padrão
+    const [activeTab,        setActiveTab]        = useState('taco'); 
     const [foods,            setFoods]            = useState([]);
     const [loading,          setLoading]          = useState(false);
     const [total,            setTotal]            = useState(0);
@@ -62,7 +63,8 @@ export default function FoodSearchModal({
         if (visible) {
             setSelectedCategory(initialCategoryFilter);
             setSearch('');
-            setActiveTab('favorites');
+            // 🔥 CORREÇÃO: Garante que toda vez que o modal abrir, ele busca no banco todo
+            setActiveTab('taco'); 
             setFoods([]);
             setPage(1);
         }
