@@ -1,10 +1,4 @@
 // src/components/Admin/TabDesafios.js
-//
-// Aba MASTER-ONLY (Paulo/Adri) pra gerenciar Desafios/Projetos por
-// WhatsApp (ex: Desafio 90 Dias). Cria/edita o desafio (nome, valor, link
-// do grupo), e permite ver a lista de inscritas de cada um — separada do
-// CRM/Alunos principal, como decidido.
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -74,11 +68,10 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         { id: 2, before: '', after: '', text: '' }, { id: 3, before: '', after: '', text: '' },
     ]);
 
-    // view: 'lista' | 'form' | 'inscritas'
     const [view, setView] = useState('lista');
     const [editingDesafio, setEditingDesafio] = useState(null);
 
-    const [inscritasDesafio, setInscritasDesafio] = useState(null); // desafio selecionado
+    const [inscritasDesafio, setInscritasDesafio] = useState(null); 
     const [inscricoes, setInscricoes] = useState([]);
     const [loadingInscricoes, setLoadingInscricoes] = useState(false);
 
@@ -99,15 +92,10 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     useEffect(() => { fetchDesafios(); }, [fetchDesafios]);
 
-    // ── Preview (navegação interna — evita o problema do PWA sem "voltar") ──
     const openPreview = (desafio) => {
         navigation?.navigate('DesafioInscricao', { desafio: desafio.slug, preview: true });
     };
 
-    // ── Link público real (esse sim vai pro interessado, fora do app) ──────
-    // 🔑 Link de compartilhamento é pra um cliente de verdade — nunca deve
-    // depender de onde VOCÊ está testando o admin (localhost, preview, etc.).
-    // Por isso sempre usa o domínio de produção, sem checar Platform.OS.
     const getBaseUrl = () => 'https://www.pauloadrianoteam.com.br';
 
     const getDesafioLink = (desafio) => `${getBaseUrl()}/Desafio?desafio=${encodeURIComponent(desafio.slug)}`;
@@ -130,7 +118,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         });
     };
 
-    // ── Form: abrir novo / editar ─────────────────────────────────────────
     const emptyGalleryPairs = () => ([
         { id: 0, before: '', after: '', text: '' }, { id: 1, before: '', after: '', text: '' },
         { id: 2, before: '', after: '', text: '' }, { id: 3, before: '', after: '', text: '' },
@@ -158,7 +145,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             bonusTexto: desafio.bonusTexto || '',
         });
 
-        // Reconstrói os pares antes/depois a partir dos arrays flat (mesmo padrão do TabSaaS)
         const loadedPhotos = desafio.galleryPhotos || [];
         const loadedTexts = desafio.galleryTexts || [];
         setGalleryPairs([
@@ -181,7 +167,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setEditingDesafio(prev => ({ ...prev, [field]: value }));
     };
 
-    // ── Upload de foto (mesmo endpoint R2 usado no TabSaaS) ──────────────
     const uploadImageToR2 = async (uri) => {
         let formData = new FormData();
         if (Platform.OS === 'web') {
@@ -226,7 +211,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
-    // ── Logo/banner horizontal do topo da página (recomendado 1200x400, proporção 3:1) ──
     const handlePickLogo = async () => {
         try {
             if (Platform.OS !== 'web') {
@@ -252,7 +236,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
-    // ── Galeria de antes/depois (4 pares, mesmo padrão do TabSaaS) ───────
     const handlePickGalleryPhoto = async (index, type) => {
         try {
             if (Platform.OS !== 'web') {
@@ -286,8 +269,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setGalleryPairs(prev => prev.map((pair, i) => i === index ? { ...pair, text } : pair));
     };
 
-    // ── Listas dinâmicas de texto (benefícios, "para quem é") ────────────
-    // Genérico: funciona pra qualquer campo do tipo string[] no editingDesafio.
     const addListItem = (field) => {
         setEditingDesafio(prev => ({ ...prev, [field]: [...prev[field], ''] }));
     };
@@ -304,7 +285,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setEditingDesafio(prev => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
     };
 
-    // ── Salvar (criar ou atualizar) ────────────────────────────────────────
     const handleSave = async () => {
         if (!editingDesafio.nome.trim()) {
             return Platform.OS === 'web' ? window.alert('Dê um nome pro desafio.') : Alert.alert('Aviso', 'Dê um nome pro desafio.');
@@ -373,7 +353,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
-    // ── Deletar / ativar-desativar ─────────────────────────────────────────
     const handleDelete = async (desafio) => {
         const confirmMsg = `Deletar "${desafio.nome}"? As inscrições ligadas a ele também serão apagadas.`;
         if (Platform.OS === 'web') {
@@ -408,7 +387,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
-    // ── Ver inscritas ───────────────────────────────────────────────────────
     const openInscritas = async (desafio) => {
         setInscritasDesafio(desafio);
         setView('inscritas');
@@ -426,9 +404,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
-    // ────────────────────────────────────────────────────────────────────
-    // RENDER: LISTA
-    // ────────────────────────────────────────────────────────────────────
     if (view === 'lista') {
         return (
             <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'flex-start' }]}>
@@ -453,42 +428,52 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     <View style={{ width: '100%' }}>
                         {desafios.map((desafio) => (
                             <View key={desafio.id} style={[styles.itemCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                                    <TouchableOpacity style={{ flex: 1 }} onPress={() => openInscritas(desafio)}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                            <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
-                                            <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
-                                                <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
-                                                    {desafio.ativo ? 'ATIVO' : 'INATIVO'}
-                                                </Text>
-                                            </View>
+                                
+                                {/* 🔥 Correção: Informações principais e Status alinhados com quebra (wrap) */}
+                                <TouchableOpacity onPress={() => openInscritas(desafio)}>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                                        <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
+                                        <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
+                                            <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
+                                                {desafio.ativo ? 'ATIVO' : 'INATIVO'}
+                                            </Text>
                                         </View>
-                                        <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}</Text>
-                                        <Text style={[styles.itemMeta, { color: theme.accent }]}>
-                                            {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
-                                        </Text>
-                                    </TouchableOpacity>
+                                    </View>
+                                    <Text style={[styles.itemSlug, { color: theme.textSecondary }]} numberOfLines={1}>
+                                        ?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}
+                                    </Text>
+                                    <Text style={[styles.itemMeta, { color: theme.accent }]}>
+                                        {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
+                                    </Text>
+                                </TouchableOpacity>
 
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                                        <TouchableOpacity onPress={() => openPreview(desafio)}>
-                                            <MaterialCommunityIcons name="eye-outline" size={20} color={theme.textSecondary} />
-                                        </TouchableOpacity>
+                                {/* 🔥 Correção: Botões de Ação isolados numa linha separada para não amontoar */}
+                                <View style={styles.actionIconsRow}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                         <Switch
                                             value={desafio.ativo}
                                             onValueChange={() => toggleAtivo(desafio)}
                                             trackColor={{ false: '#444', true: `${theme.accent}80` }}
                                             thumbColor={desafio.ativo ? theme.accent : '#888'}
+                                            style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
                                         />
+                                        <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '700' }}>Visível</Text>
+                                    </View>
+
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+                                        <TouchableOpacity onPress={() => openPreview(desafio)}>
+                                            <MaterialCommunityIcons name="eye-outline" size={22} color={theme.textSecondary} />
+                                        </TouchableOpacity>
                                         <TouchableOpacity onPress={() => openEditDesafio(desafio)}>
-                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
+                                            <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.textSecondary} />
                                         </TouchableOpacity>
                                         <TouchableOpacity onPress={() => handleDelete(desafio)}>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                            <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FF3B30" />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
 
-                                {/* ── Ações de compartilhamento — o link de verdade pro interessado ── */}
+                                {/* Ações de compartilhamento */}
                                 <View style={styles.shareRow}>
                                     <TouchableOpacity style={[styles.shareBtn, { borderColor: theme.border }]} onPress={() => handleCopyLink(desafio)}>
                                         <MaterialCommunityIcons name={copiedId === desafio.id ? 'check' : 'content-copy'} size={14} color={theme.textSecondary} />
@@ -509,9 +494,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         );
     }
 
-    // ────────────────────────────────────────────────────────────────────
-    // RENDER: FORMULÁRIO
-    // ────────────────────────────────────────────────────────────────────
     if (view === 'form') {
         return (
             <View style={{ gap: 15 }}>
@@ -716,7 +698,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         pagas com o dono anterior, elas não são afetadas — só as novas cobranças usam o dono atual.
                     </Text>
 
-                    {/* ── Perfil de quem conduz o desafio (opcional) ────────────── */}
                     <View style={styles.subsectionDivider} />
                     <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>QUEM CONDUZ ESSE DESAFIO</Text>
                     <Text style={styles.helperText}>
@@ -724,10 +705,11 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     </Text>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10, marginBottom: 6 }}>
+                        {/* 🔥 FIX: Aumentado de 64 para 84px para garantir que a foto não corte partes importantes do rosto */}
                         <View style={[styles.mentorPhotoPreview, { borderColor: theme.border, backgroundColor: theme.bg }]}>
                             {editingDesafio.mentorFotoUrl
                                 ? <Image source={{ uri: editingDesafio.mentorFotoUrl }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
-                                : <MaterialCommunityIcons name="account" size={30} color={theme.textSecondary} />
+                                : <MaterialCommunityIcons name="account" size={36} color={theme.textSecondary} />
                             }
                         </View>
                         <TouchableOpacity
@@ -766,7 +748,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         placeholderTextColor="#666"
                     />
 
-                    {/* ── Galeria de antes/depois (opcional) ─────────────────────── */}
                     <View style={styles.subsectionDivider} />
                     <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>ANTES E DEPOIS</Text>
                     <Text style={styles.helperText}>
@@ -857,9 +838,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         );
     }
 
-    // ────────────────────────────────────────────────────────────────────
-    // RENDER: INSCRITAS (lista de leads de um desafio específico)
-    // ────────────────────────────────────────────────────────────────────
     return (
         <View style={{ gap: 15 }}>
             <TouchableOpacity style={styles.backRow} onPress={backToList}>
@@ -919,7 +897,10 @@ const styles = StyleSheet.create({
 
     emptyText: { fontSize: 13, textAlign: 'center', marginTop: 20, lineHeight: 20, width: '100%' },
 
-    itemCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12, width: '100%' },
+    // 🔥 FIX Layout Amontoado: Ajuste no itemCard para dar respiro aos botões
+    itemCard: { padding: 18, borderRadius: 16, borderWidth: 1, marginBottom: 14, width: '100%' },
+    actionIconsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
+    
     shareRow: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
     shareBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
     shareBtnText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
@@ -931,13 +912,15 @@ const styles = StyleSheet.create({
     backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
 
     inputLabel: { fontSize: 11, fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 4 },
-    saasInput: { width: '100%', padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 13 },
+    // 🔥 FIX Zoom IOS: Alterado o fontSize para 16px cravado
+    saasInput: { width: '100%', padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 16 },
     helperText: { fontSize: 10, fontStyle: 'italic', color: '#888', marginTop: 6 },
 
     coachOption: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
     beneficioRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
     subsectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 24, marginBottom: 16 },
-    mentorPhotoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    // 🔥 FIX Foto Adri: Aumentado tamanho do frame para preservar a imagem (84x84)
+    mentorPhotoPreview: { width: 84, height: 84, borderRadius: 42, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     logoPreviewBox: { width: '100%', height: 90, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginTop: 8, overflow: 'hidden' },
     galleryPairCard: { padding: 14, borderRadius: 14, borderWidth: 1 },
     galleryPhotoLabel: { fontSize: 10, fontWeight: '900', color: '#888', letterSpacing: 0.3 },

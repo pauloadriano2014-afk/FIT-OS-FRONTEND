@@ -1,18 +1,10 @@
 // src/screens/DesafioInscricaoScreen.js
-//
-// Página pública de inscrição no Desafio (ex: "Desafio 90 Dias"). Fluxo:
-// 1. Busca os dados do desafio pelo slug (?desafio=slug na URL)
-// 2. Explica o processo, o que a aluna recebe, tira dúvidas (FAQ)
-// 3. Formulário: nome, data de nascimento, email, telefone, CPF
-// 4. Gera cobrança PIX via backend (Asaas)
-// 5. Fica consultando o status a cada 5s
-// 6. Assim que o pagamento é confirmado, a tela detecta e libera o link
-//    do grupo automaticamente — sem nenhuma ação manual do coach.
+// Página pública de inscrição no Desafio (Layout Compacto, Moderno e Responsivo)
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Image, Platform, SafeAreaView, ActivityIndicator, Linking
+    TextInput, Image, Platform, SafeAreaView, ActivityIndicator, Linking, useWindowDimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,12 +16,10 @@ const RootComponent = isWeb ? View : SafeAreaView;
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
-// 🟣 Paleta Roxo/Lilás
-const MAIN_COLOR = '#8B5CF6';   // violeta principal
-const LIGHT_COLOR = '#C4B5FD';  // lilás claro (acentos)
-const DARK_COLOR = '#6D28D9';   // roxo escuro (gradiente)
+const MAIN_COLOR = '#8B5CF6';   
+const LIGHT_COLOR = '#C4B5FD';  
+const DARK_COLOR = '#6D28D9';   
 
-// ── FAQ genérico — aplica a qualquer desafio por WhatsApp ────────────────
 const faqList = [
     { q: 'Como eu recebo o conteúdo do desafio?', a: 'Direto no grupo do WhatsApp. Assim que a gente confirma o seu pagamento, o link é liberado automaticamente nesta página — você entra e já começa a receber o conteúdo.' },
     { q: 'É acompanhamento individual ou em grupo?', a: 'É uma experiência em grupo: todo mundo recebe o mesmo conteúdo, na mesma comunidade, se motivando e trocando experiências junto.' },
@@ -38,7 +28,6 @@ const faqList = [
     { q: 'O pagamento é seguro?', a: 'Sim. O PIX é processado por um parceiro de pagamentos homologado — seus dados não ficam expostos nem armazenados na página.' },
 ];
 
-// ── Fallback caso o desafio não tenha benefícios customizados cadastrados ─
 const BENEFICIOS_PADRAO = [
     'Mensagens diárias de motivação direto no seu WhatsApp',
     'Dicas práticas de rotina, alimentação e mentalidade',
@@ -46,7 +35,6 @@ const BENEFICIOS_PADRAO = [
     'Conteúdo pensado pra caber na sua vida real, sem complicação',
 ];
 
-// ── Helpers ──────────────────────────────────────────────────────────────
 function onlyDigits(v) { return (v || '').replace(/\D/g, ''); }
 
 function formatCPF(v) {
@@ -83,6 +71,9 @@ function formatBRL(v) {
 }
 
 export default function DesafioInscricaoScreen({ route, navigation }) {
+    const { width: windowWidth } = useWindowDimensions();
+    const isDesktop = isWeb && windowWidth > 850;
+
     const slug = route?.params?.desafio?.trim() || '';
     const isPreview = ['true', true].includes(route?.params?.preview);
 
@@ -98,7 +89,6 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
     const [loadingDesafio, setLoadingDesafio] = useState(true);
     const [notFound, setNotFound] = useState(false);
 
-    // step: 'form' | 'pagamento' | 'sucesso'
     const [step, setStep] = useState('form');
     const [submitting, setSubmitting] = useState(false);
     const [formError, setFormError] = useState('');
@@ -116,8 +106,8 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
     const [linkGrupo, setLinkGrupo] = useState(null);
 
     const pollingRef = useRef(null);
+    const scrollViewRef = useRef(null);
 
-    // ── Busca os dados do desafio pelo slug ──────────────────────────────
     useEffect(() => {
         if (!slug) { setNotFound(true); setLoadingDesafio(false); return; }
         (async () => {
@@ -136,7 +126,6 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
         })();
     }, [slug]);
 
-    // ── Polling de status enquanto aguarda pagamento ─────────────────────
     useEffect(() => {
         if (step !== 'pagamento' || !inscricaoId) return;
 
@@ -149,6 +138,8 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                     clearInterval(pollingRef.current);
                     setLinkGrupo(data.linkGrupoWhats);
                     setStep('sucesso');
+                    if (isWeb) window.scrollTo({ top: 0, behavior: 'smooth' });
+                    else scrollViewRef.current?.scrollTo({ y: 0, animated: true });
                 }
             } catch (e) {
                 console.log('Erro ao consultar status', e);
@@ -158,7 +149,6 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
         return () => clearInterval(pollingRef.current);
     }, [step, inscricaoId]);
 
-    // ── Envio do formulário → gera PIX ───────────────────────────────────
     const handleSubmit = async () => {
         setFormError('');
 
@@ -194,6 +184,8 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
             setPixQrCode(data.pixQrCode);
             setPixCopyPaste(data.pixCopyPaste);
             setStep('pagamento');
+            if (isWeb) window.scrollTo({ top: 0, behavior: 'smooth' });
+            else scrollViewRef.current?.scrollTo({ y: 0, animated: true });
         } catch (e) {
             console.log('Erro ao inscrever', e);
             setFormError('Erro de conexão. Tente novamente.');
@@ -213,14 +205,15 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
         if (linkGrupo) Linking.openURL(linkGrupo);
     };
 
-    const scrollToFormRef = useRef(null);
+    const formRef = useRef(null);
     const scrollToForm = () => {
-        // No RN Web isso desce a página até o formulário; em nativo o botão
-        // já leva pro final da ScrollView de forma suave o bastante.
-        scrollToFormRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+        if (isWeb) {
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            scrollViewRef.current?.scrollToEnd({ animated: true });
+        }
     };
 
-    // ── Botão flutuante de voltar (só em modo preview, aberto pelo admin) ─
     const previewBackButton = isPreview ? (
         <TouchableOpacity style={styles.previewBackBtn} onPress={handlePreviewBack} activeOpacity={0.8}>
             <MaterialCommunityIcons name="arrow-left" size={18} color="#FFF" />
@@ -228,7 +221,6 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
         </TouchableOpacity>
     ) : null;
 
-    // ── Estados de carregamento / erro ───────────────────────────────────
     if (loadingDesafio) {
         return (
             <RootComponent style={styles.container}>
@@ -254,9 +246,6 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
     }
 
     const beneficios = desafio.beneficios?.length ? desafio.beneficios : BENEFICIOS_PADRAO;
-
-    // Reconstrói os pares antes/depois a partir dos arrays flat (mesmo
-    // formato salvo pelo admin). Só considera pares com as DUAS fotos.
     const galleryPhotos = desafio.galleryPhotos || [];
     const galleryTexts = desafio.galleryTexts || [];
     const galleryPairs = [0, 1, 2, 3]
@@ -273,412 +262,355 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
     return (
         <RootComponent style={styles.container}>
             {previewBackButton}
-            <View style={styles.webWrapper}>
-                <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-
-                    {step === 'form' && (
-                        <>
-                            {/* ── HERO ──────────────────────────────────────────── */}
-                            <View style={styles.heroSection}>
-                                {desafio.logoUrl ? (
-                                    <Image source={{ uri: desafio.logoUrl }} style={styles.heroLogoImg} resizeMode="cover" />
-                                ) : (
-                                    <View style={styles.heroIconBox}>
-                                        <MaterialCommunityIcons name="whatsapp" size={32} color={MAIN_COLOR} />
-                                    </View>
-                                )}
-                                <Text style={styles.heroTitle}>{desafio.nome}</Text>
-                                {desafio.descricao ? <Text style={styles.heroDesc}>{desafio.descricao}</Text> : null}
-                                <View style={styles.valorBadge}>
-                                    <Text style={styles.valorBadgeText}>R$ {formatBRL(desafio.valor)}</Text>
+            <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+                <View style={[styles.mainLayout, isDesktop && styles.desktopLayout]}>
+                    
+                    {/* COLUNA DA ESQUERDA: CONTEÚDO INFORMATIVO */}
+                    <View style={[styles.infoColumn, isDesktop && { flex: 1.2 }]}>
+                        {/* HERO COMPACTO */}
+                        <View style={styles.heroCompact}>
+                            {desafio.logoUrl ? (
+                                <Image source={{ uri: desafio.logoUrl }} style={styles.heroLogoImg} resizeMode="cover" />
+                            ) : (
+                                <View style={styles.heroIconBox}>
+                                    <MaterialCommunityIcons name="whatsapp" size={26} color={MAIN_COLOR} />
                                 </View>
-
-                                <TouchableOpacity onPress={scrollToForm} activeOpacity={0.85} style={{ width: '100%' }}>
-                                    <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={styles.heroCta}>
-                                        <Text style={styles.heroCtaText}>QUERO GARANTIR MINHA VAGA</Text>
-                                        <MaterialCommunityIcons name="arrow-down" size={16} color="#FFF" />
+                            )}
+                            <Text style={styles.heroTitle}>{desafio.nome}</Text>
+                            {desafio.descricao ? <Text style={styles.heroDesc}>{desafio.descricao}</Text> : null}
+                            
+                            {!isDesktop && step === 'form' && (
+                                <TouchableOpacity onPress={scrollToForm} activeOpacity={0.85} style={styles.heroCtaCompact}>
+                                    <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={styles.gradientCta}>
+                                        <Text style={styles.heroCtaText}>QUERO MINHA VAGA • R$ {formatBRL(desafio.valor)}</Text>
+                                        <MaterialCommunityIcons name="arrow-down" size={14} color="#FFF" />
                                     </LinearGradient>
                                 </TouchableOpacity>
-                            </View>
+                            )}
+                        </View>
 
-                            {/* ── MENTOR / AUTORIDADE (dinâmico — só aparece se preenchido no admin) ── */}
-                            {desafio.mentorNome ? (
-                                <View style={styles.mentorBox}>
-                                    <View style={styles.mentorIconRow}>
-                                        <MaterialCommunityIcons name="card-account-details-star-outline" size={22} color={MAIN_COLOR} />
-                                        <Text style={styles.mentorLabel}>QUEM CONDUZ ESSE DESAFIO</Text>
-                                    </View>
-                                    <View style={styles.mentorHeaderRow}>
-                                        <View style={styles.mentorPhotoBox}>
-                                            {desafio.mentorFotoUrl
-                                                ? <Image source={{ uri: desafio.mentorFotoUrl }} style={styles.mentorPhoto} />
-                                                : <MaterialCommunityIcons name="account" size={28} color={MAIN_COLOR} />
-                                            }
-                                        </View>
-                                        <Text style={styles.mentorName}>{desafio.mentorNome}</Text>
-                                    </View>
-                                    {desafio.mentorTexto ? (
-                                        <Text style={styles.mentorDesc}>{desafio.mentorTexto}</Text>
-                                    ) : null}
+                        {/* MENTOR COMPACTO */}
+                        {desafio.mentorNome ? (
+                            <View style={styles.compactRowCard}>
+                                <View style={styles.mentorPhotoBox}>
+                                    {desafio.mentorFotoUrl ? (
+                                        <Image source={{ uri: desafio.mentorFotoUrl }} style={styles.mentorPhoto} />
+                                    ) : (
+                                        <MaterialCommunityIcons name="account" size={22} color={MAIN_COLOR} />
+                                    )}
                                 </View>
-                            ) : null}
-
-                            {/* ── 💜 O QUE VOCÊ TERÁ ACESSO ─────────────────────── */}
-                            <Text style={[styles.sectionTitle, { marginTop: 40 }]}>💜 O QUE VOCÊ TERÁ ACESSO</Text>
-                            <View style={styles.beneficiosBox}>
-                                {beneficios.map((item, i) => (
-                                    <View key={i} style={styles.beneficioRow}>
-                                        <MaterialCommunityIcons name="check-circle" size={18} color={MAIN_COLOR} style={{ marginTop: 2 }} />
-                                        <Text style={styles.beneficioText}>{item}</Text>
-                                    </View>
-                                ))}
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.mentorLabel}>CONDUZIDO POR</Text>
+                                    <Text style={styles.mentorName}>{desafio.mentorNome}</Text>
+                                    {desafio.mentorTexto ? <Text style={styles.mentorDesc} numberOfLines={2}>{desafio.mentorTexto}</Text> : null}
+                                </View>
                             </View>
+                        ) : null}
 
-                            {/* ── 🎯 PARA QUEM É (opcional) ─────────────────────── */}
-                            {desafio.paraQuemE?.length > 0 && (
-                                <>
-                                    <Text style={[styles.sectionTitle, { marginTop: 40 }]}>🎯 ESSE PROJETO É PARA VOCÊ QUE...</Text>
-                                    <View style={styles.beneficiosBox}>
-                                        {desafio.paraQuemE.map((item, i) => (
-                                            <View key={i} style={styles.beneficioRow}>
-                                                <MaterialCommunityIcons name="arrow-right-circle" size={18} color={MAIN_COLOR} style={{ marginTop: 2 }} />
-                                                <Text style={styles.beneficioText}>{item}</Text>
+                        {/* IMPORTANTE / AVISO */}
+                        {desafio.importante ? (
+                            <View style={styles.importanteBox}>
+                                <View style={styles.importanteHeaderRow}>
+                                    <MaterialCommunityIcons name="alert-outline" size={16} color="#FFB800" />
+                                    <Text style={styles.importanteLabel}>ATENÇÃO</Text>
+                                </View>
+                                <Text style={styles.importanteText}>{desafio.importante}</Text>
+                            </View>
+                        ) : null}
+
+                        {/* BENEFÍCIOS COMPACTOS (GRID 2 COLUNAS NA WEB) */}
+                        <Text style={styles.sectionTitleLeft}>💜 O QUE ESTÁ INCLUSO</Text>
+                        <View style={styles.compactGrid}>
+                            {beneficios.map((item, i) => (
+                                <View key={i} style={[styles.gridItem, isDesktop && { width: '48%' }]}>
+                                    <MaterialCommunityIcons name="check-circle" size={16} color={MAIN_COLOR} style={{ marginTop: 2 }} />
+                                    <Text style={styles.beneficioText}>{item}</Text>
+                                </View>
+                            ))}
+                        </View>
+
+                        {/* PARA QUEM É */}
+                        {desafio.paraQuemE?.length > 0 && (
+                            <>
+                                <Text style={styles.sectionTitleLeft}>🎯 PRA QUEM É</Text>
+                                <View style={styles.compactGrid}>
+                                    {desafio.paraQuemE.map((item, i) => (
+                                        <View key={i} style={[styles.gridItem, isDesktop && { width: '48%' }]}>
+                                            <MaterialCommunityIcons name="arrow-right-circle" size={16} color={MAIN_COLOR} style={{ marginTop: 2 }} />
+                                            <Text style={styles.beneficioText}>{item}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+                            </>
+                        )}
+
+                        {/* COMPROMISSO */}
+                        {desafio.compromissoTexto ? (
+                            <View style={styles.compromissoBox}>
+                                <Text style={styles.compromissoLabel}>💬 COMPROMISSO DO TREINADOR</Text>
+                                <Text style={styles.compromissoText}>{desafio.compromissoTexto}</Text>
+                            </View>
+                        ) : null}
+
+                        {/* ANTES E DEPOIS HORIZONTAL */}
+                        {galleryPairs.length > 0 && (
+                            <View style={styles.gallerySectionContainer}>
+                                <Text style={styles.sectionTitleLeft}>📸 EVOLUÇÃO DE ALUNOS</Text>
+                                <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 15, paddingRight: 20 }}>
+                                    {galleryPairs.map((pair, i) => (
+                                        <View key={i} style={styles.galleryHorizontalCard}>
+                                            <View style={styles.photoContainerRow}>
+                                                <View style={styles.halfPhoto}>
+                                                    <Text style={styles.photoTag}>ANTES</Text>
+                                                    <Image source={{ uri: pair.before }} style={styles.galleryImgPlain} />
+                                                </View>
+                                                <View style={[styles.halfPhoto, { borderWidth: 1.5, borderColor: MAIN_COLOR }]}>
+                                                    <Text style={[styles.photoTag, { color: MAIN_COLOR }]}>DEPOIS</Text>
+                                                    <Image source={{ uri: pair.after }} style={styles.galleryImgPlain} />
+                                                </View>
                                             </View>
-                                        ))}
+                                            {pair.text ? <Text style={styles.galleryCaptionQuote} numberOfLines={2}>"{pair.text}"</Text> : null}
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        {/* COMO FUNCIONA MIGRADO PARA TIMELINE COMPACTA */}
+                        <Text style={styles.sectionTitleLeft}>⚡ COMO FUNCIONA</Text>
+                        <View style={styles.timelineContainer}>
+                            <View style={styles.timelineItem}>
+                                <View style={styles.timelineBadge}><Text style={styles.timelineNumber}>1</Text></View>
+                                <Text style={styles.timelineText}>Inscrição via PIX</Text>
+                            </View>
+                            <View style={styles.timelineLine} />
+                            <View style={styles.timelineItem}>
+                                <View style={styles.timelineBadge}><Text style={styles.timelineNumber}>2</Text></View>
+                                <Text style={styles.timelineText}>Confirmação Direta</Text>
+                            </View>
+                            <View style={styles.timelineLine} />
+                            <View style={styles.timelineItem}>
+                                <View style={styles.timelineBadge}><Text style={styles.timelineNumber}>3</Text></View>
+                                <Text style={styles.timelineText}>Acesso Automático</Text>
+                            </View>
+                        </View>
+
+                        {/* FAQ ACCORDION COMPACTO */}
+                        <Text style={styles.sectionTitleLeft}>❓ DÚVIDAS FREQUENTES</Text>
+                        <FaqAccordion faqs={faqList} accentColor={MAIN_COLOR} />
+
+                        {/* BÔNUS */}
+                        {desafio.bonusTexto ? (
+                            <View style={styles.bonusBox}>
+                                <Text style={styles.bonusLabel}>🎁 BÔNUS EXCLUSIVO INCLUSO</Text>
+                                <Text style={styles.bonusText}>{desafio.bonusTexto}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+
+                    {/* COLUNA DA DIREITA: FORMULÁRIO / PREÇO / STATUS FIXO */}
+                    <View style={[styles.formColumn, isDesktop && styles.desktopStickyColumn]} ref={formRef}>
+                        
+                        {/* BOX DE PREÇO INTEGRADA AO CARD */}
+                        <View style={styles.modernFormCard}>
+                            {step === 'form' && (
+                                <>
+                                    <View style={styles.investimentoHeader}>
+                                        <Text style={styles.investimentoLabel}>INVESTIMENTO ÚNICO</Text>
+                                        <Text style={styles.investimentoValor}>R$ {formatBRL(desafio.valor)}</Text>
+                                        <Text style={styles.investimentoPorDia}>Apenas R$ {formatBRL(precoPorDia)} por dia</Text>
                                     </View>
+                                    
+                                    <Text style={styles.formSectionSubtitle}>Preencha seus dados para gerar o PIX:</Text>
+
+                                    <Text style={styles.inputLabel}>Nome completo</Text>
+                                    <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Seu nome completo" placeholderTextColor="#555" />
+
+                                    <Text style={styles.inputLabel}>Data de nascimento</Text>
+                                    <TextInput style={styles.input} value={dataNascimento} onChangeText={(v) => setDataNascimento(formatDataNascimento(v))} placeholder="DD/MM/AAAA" placeholderTextColor="#555" keyboardType="numeric" maxLength={10} />
+
+                                    <Text style={styles.inputLabel}>E-mail</Text>
+                                    <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="seu@email.com" placeholderTextColor="#555" keyboardType="email-address" autoCapitalize="none" />
+
+                                    <Text style={styles.inputLabel}>Telefone (WhatsApp)</Text>
+                                    <TextInput style={styles.input} value={telefone} onChangeText={(v) => setTelefone(formatTelefone(v))} placeholder="(41) 99999-9999" placeholderTextColor="#555" keyboardType="phone-pad" maxLength={15} />
+
+                                    <Text style={styles.inputLabel}>CPF</Text>
+                                    <TextInput style={styles.input} value={cpf} onChangeText={(v) => setCpf(formatCPF(v))} placeholder="000.000.000-00" placeholderTextColor="#555" keyboardType="numeric" maxLength={14} />
+                                    <Text style={styles.cpfHelper}>Necessário para emissão segura do PIX.</Text>
+
+                                    {formError ? <Text style={styles.formErrorText}>{formError}</Text> : null}
+
+                                    <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
+                                        <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={[styles.submitBtn, submitting && { opacity: 0.6 }]}>
+                                            {submitting ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.submitBtnText}>GERAR COBRANÇA PIX</Text>}
+                                        </LinearGradient>
+                                    </TouchableOpacity>
+                                    
+                                    <Text style={styles.urgencyNote}>⚠️ Vagas limitadas pelo tamanho do grupo do WhatsApp.</Text>
                                 </>
                             )}
 
-                            {/* ── ⚠️ IMPORTANTE (opcional — visual de aviso, destacado) ── */}
-                            {desafio.importante ? (
-                                <View style={styles.importanteBox}>
-                                    <View style={styles.importanteHeaderRow}>
-                                        <MaterialCommunityIcons name="alert-outline" size={20} color="#FFB800" />
-                                        <Text style={styles.importanteLabel}>IMPORTANTE</Text>
-                                    </View>
-                                    <Text style={styles.importanteText}>{desafio.importante}</Text>
-                                </View>
-                            ) : null}
+                            {/* STEP: PAGAMENTO */}
+                            {step === 'pagamento' && (
+                                <View style={{ alignItems: 'center' }}>
+                                    <Text style={styles.modernFormTitle}>COPIE O CÓDIGO PIX</Text>
+                                    <Text style={styles.modernPixHelper}>Escaneie ou copie o código. O link do grupo abre sozinho assim que o banco confirmar.</Text>
 
-                            {/* ── 💬 MEU COMPROMISSO (opcional) ─────────────────── */}
-                            {desafio.compromissoTexto ? (
-                                <View style={styles.compromissoBox}>
-                                    <Text style={styles.compromissoLabel}>💬 MEU COMPROMISSO</Text>
-                                    <Text style={styles.compromissoText}>{desafio.compromissoTexto}</Text>
-                                </View>
-                            ) : null}
+                                    {pixQrCode ? (
+                                        <Image source={{ uri: pixQrCode.startsWith('data:') ? pixQrCode : `data:image/png;base64,${pixQrCode}` }} style={styles.pixImage} />
+                                    ) : null}
 
-                            {/* ── ANTES E DEPOIS (só aparece se houver pelo menos 1 par completo) ──
-                                Layout idêntico ao usado na SaaSPropostaScreen (página pública dos
-                                coaches parceiros): pilha vertical de cards, rótulo ANTES/DEPOIS
-                                acima da foto, legenda entre aspas. */}
-                            {galleryPairs.length > 0 && (
-                                <View style={styles.galleryOuterCard}>
-                                    <Text style={styles.gallerySectionTitle}>RESULTADOS DOS ALUNOS</Text>
-                                    <View style={{ gap: 25 }}>
-                                        {galleryPairs.map((pair, i) => (
-                                            <View key={i} style={styles.galleryPairCardPublic}>
-                                                <View style={{ flexDirection: 'row', gap: 10, marginBottom: pair.text ? 15 : 0 }}>
-                                                    <View style={{ flex: 1 }}>
-                                                        <Text style={styles.galleryLabelAntes}>ANTES</Text>
-                                                        <View style={styles.galleryImgBoxPlain}>
-                                                            <Image source={{ uri: pair.before }} style={styles.galleryImgPlain} />
-                                                        </View>
-                                                    </View>
-                                                    <View style={{ flex: 1 }}>
-                                                        <Text style={styles.galleryLabelDepois}>DEPOIS</Text>
-                                                        <View style={[styles.galleryImgBoxPlain, { borderWidth: 2, borderColor: MAIN_COLOR }]}>
-                                                            <Image source={{ uri: pair.after }} style={styles.galleryImgPlain} />
-                                                        </View>
-                                                    </View>
-                                                </View>
-                                                {pair.text ? <Text style={styles.galleryCaptionQuote}>"{pair.text}"</Text> : null}
-                                            </View>
-                                        ))}
+                                    <TouchableOpacity style={styles.copyBtn} onPress={handleCopyPix}>
+                                        <MaterialCommunityIcons name={copiado ? 'check' : 'content-copy'} size={16} color={MAIN_COLOR} />
+                                        <Text style={styles.copyBtnText}>{copiado ? 'CÓDIGO COPIADO!' : 'COPIAR CÓDIGO PIX'}</Text>
+                                    </TouchableOpacity>
+
+                                    <View style={styles.waitingRow}>
+                                        <ActivityIndicator size="small" color={MAIN_COLOR} />
+                                        <Text style={styles.waitingText}>Confirmando pagamento com o banco...</Text>
                                     </View>
                                 </View>
                             )}
 
-                            {/* ── COMO FUNCIONA (perto do form, reforça a mecânica antes de pagar) ── */}
-                            <Text style={[styles.sectionTitle, { marginTop: 40 }]}>COMO FUNCIONA</Text>
-                            <Text style={styles.sectionSub}>Do pagamento até o primeiro conteúdo no seu WhatsApp — sem espera, sem burocracia.</Text>
+                            {/* STEP: SUCESSO */}
+                            {step === 'sucesso' && (
+                                <View style={{ alignItems: 'center', paddingVertical: 10 }}>
+                                    <MaterialCommunityIcons name="check-circle" size={48} color={MAIN_COLOR} style={{ marginBottom: 12 }} />
+                                    <Text style={styles.modernFormTitle}>INSCRIÇÃO CONFIRMADA! 🎉</Text>
+                                    <Text style={styles.modernPixHelper}>Sua vaga está 100% garantida. Clique abaixo para entrar agora mesmo no grupo oficial.</Text>
 
-                            <View style={styles.stepsContainer}>
-                                <View style={styles.stepRow}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>1</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>Você se inscreve e paga com PIX</Text>
-                                        <Text style={styles.stepDesc}>Preenche seus dados aqui embaixo e paga na hora — rápido e seguro.</Text>
-                                    </View>
+                                    <TouchableOpacity onPress={handleEntrarGrupo} activeOpacity={0.85} style={{ width: '100%', marginTop: 10 }}>
+                                        <LinearGradient colors={['#25D366', '#128C7E']} style={styles.entrarGrupoBtn}>
+                                            <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
+                                            <Text style={styles.submitBtnText}>ENTRAR NO GRUPO OFICIAL</Text>
+                                        </LinearGradient>
+                                    </TouchableOpacity>
                                 </View>
-                                <View style={styles.stepRow}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>2</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>O pagamento é confirmado automaticamente</Text>
-                                        <Text style={styles.stepDesc}>Assim que o PIX cai, esta mesma página já detecta a confirmação — sem você precisar avisar ninguém.</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.stepRow}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>3</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>O link do grupo é liberado na hora</Text>
-                                        <Text style={styles.stepDesc}>Aparece um botão pra você entrar direto no grupo do WhatsApp, sem esperar resposta de ninguém.</Text>
-                                    </View>
-                                </View>
-                                <View style={[styles.stepRow, { marginBottom: 0 }]}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>4</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>Você começa a receber o conteúdo</Text>
-                                        <Text style={styles.stepDesc}>Motivação, dicas e rotina direto no grupo, junto com quem está na mesma jornada.</Text>
-                                    </View>
-                                </View>
-                            </View>
+                            )}
 
-                            {/* ── FAQ ────────────────────────────────────────────── */}
-                            <Text style={[styles.sectionTitle, { marginTop: 40, marginBottom: 20 }]}>AINDA TEM DÚVIDAS?</Text>
-                            <FaqAccordion faqs={faqList} accentColor={MAIN_COLOR} />
-
-                            {/* ── 🎁 BÔNUS EXCLUSIVO (opcional, perto do fim) ────── */}
-                            {desafio.bonusTexto ? (
-                                <View style={styles.bonusBox}>
-                                    <Text style={styles.bonusLabel}>🎁 BÔNUS EXCLUSIVO</Text>
-                                    <Text style={styles.bonusText}>{desafio.bonusTexto}</Text>
-                                </View>
-                            ) : null}
-                        </>
-                    )}
-
-                    {/* ── 💰 INVESTIMENTO + STEP: FORM (dados) ───────────────── */}
-                    {step === 'form' && (
-                        <View
-                            style={{ marginTop: 40 }}
-                            ref={(r) => { scrollToFormRef.current = r; }}
-                        >
-                            <Text style={styles.sectionTitle}>💰 INVESTIMENTO</Text>
-                            <View style={styles.investimentoBox}>
-                                <Text style={styles.investimentoValor}>R$ {formatBRL(desafio.valor)}</Text>
-                                <Text style={styles.investimentoSub}>para participar dos {duracaoDias} dias</Text>
-                                <Text style={styles.investimentoPorDia}>
-                                    Menos de R$ {formatBRL(precoPorDia)} por dia pra viver essa experiência.
-                                </Text>
-                            </View>
-
-                            <Text style={[styles.sectionTitle, { marginTop: 30 }]}>GARANTA SUA VAGA</Text>
-                            <Text style={styles.sectionSub}>Preencha seus dados abaixo pra gerar o PIX e começar.</Text>
-
-                            <View style={styles.formCard}>
-                                <Text style={styles.inputLabel}>Nome completo</Text>
-                                <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Seu nome completo" placeholderTextColor="#666" />
-
-                                <Text style={styles.inputLabel}>Data de nascimento</Text>
-                                <TextInput style={styles.input} value={dataNascimento} onChangeText={(v) => setDataNascimento(formatDataNascimento(v))} placeholder="DD/MM/AAAA" placeholderTextColor="#666" keyboardType="numeric" maxLength={10} />
-
-                                <Text style={styles.inputLabel}>E-mail</Text>
-                                <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="seu@email.com" placeholderTextColor="#666" keyboardType="email-address" autoCapitalize="none" />
-
-                                <Text style={styles.inputLabel}>Telefone (WhatsApp)</Text>
-                                <TextInput style={styles.input} value={telefone} onChangeText={(v) => setTelefone(formatTelefone(v))} placeholder="(41) 99999-9999" placeholderTextColor="#666" keyboardType="phone-pad" maxLength={15} />
-
-                                <Text style={styles.inputLabel}>CPF</Text>
-                                <TextInput style={styles.input} value={cpf} onChangeText={(v) => setCpf(formatCPF(v))} placeholder="000.000.000-00" placeholderTextColor="#666" keyboardType="numeric" maxLength={14} />
-                                <Text style={styles.cpfHelper}>Exigido pra emitir a cobrança PIX.</Text>
-
-                                {formError ? <Text style={styles.formErrorText}>{formError}</Text> : null}
-
-                                <TouchableOpacity onPress={handleSubmit} disabled={submitting} activeOpacity={0.85}>
-                                    <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={[styles.submitBtn, submitting && { opacity: 0.6 }]}>
-                                        {submitting
-                                            ? <ActivityIndicator color="#FFF" size="small" />
-                                            : <Text style={styles.submitBtnText}>GERAR PIX E GARANTIR MINHA VAGA</Text>
-                                        }
-                                    </LinearGradient>
-                                </TouchableOpacity>
-
-                                <Text style={styles.urgencyNote}>
-                                    ⚠️ As inscrições serão encerradas assim que o grupo atingir o limite de participantes.
-                                </Text>
-
-                                <View style={styles.securityRow}>
-                                    <MaterialCommunityIcons name="lock-outline" size={13} color="#666" />
-                                    <Text style={styles.securityText}>Pagamento processado com segurança via PIX</Text>
-                                </View>
+                            <View style={styles.securityRow}>
+                                <MaterialCommunityIcons name="lock-outline" size={12} color="#555" />
+                                <Text style={styles.securityText}>Ambiente de pagamento criptografado SSL</Text>
                             </View>
                         </View>
-                    )}
-
-
-                    {/* ── STEP: PAGAMENTO (PIX) ──────────────────────────────── */}
-                    {step === 'pagamento' && (
-                        <View style={styles.formCard}>
-                            <Text style={styles.formTitle}>PAGUE COM PIX PRA CONFIRMAR</Text>
-                            <Text style={styles.pixHelper}>
-                                Escaneie o QR Code ou copie o código abaixo no app do seu banco.
-                                Assim que o pagamento cair, essa página libera o link do grupo automaticamente.
-                            </Text>
-
-                            {pixQrCode ? (
-                                <Image
-                                    source={{ uri: pixQrCode.startsWith('data:') ? pixQrCode : `data:image/png;base64,${pixQrCode}` }}
-                                    style={styles.pixImage}
-                                />
-                            ) : null}
-
-                            <TouchableOpacity style={styles.copyBtn} onPress={handleCopyPix}>
-                                <MaterialCommunityIcons name={copiado ? 'check' : 'content-copy'} size={16} color={MAIN_COLOR} />
-                                <Text style={styles.copyBtnText}>{copiado ? 'CÓDIGO COPIADO!' : 'COPIAR CÓDIGO PIX'}</Text>
-                            </TouchableOpacity>
-
-                            <View style={styles.waitingRow}>
-                                <ActivityIndicator size="small" color={MAIN_COLOR} />
-                                <Text style={styles.waitingText}>Aguardando confirmação do pagamento...</Text>
-                            </View>
-                        </View>
-                    )}
-
-                    {/* ── STEP: SUCESSO ──────────────────────────────────────── */}
-                    {step === 'sucesso' && (
-                        <View style={styles.formCard}>
-                            <MaterialCommunityIcons name="check-circle" size={56} color={MAIN_COLOR} style={{ alignSelf: 'center', marginBottom: 16 }} />
-                            <Text style={styles.formTitle}>PAGAMENTO CONFIRMADO! 🎉</Text>
-                            <Text style={styles.pixHelper}>
-                                Sua vaga no {desafio.nome} está garantida. Toque no botão abaixo pra entrar
-                                no grupo do WhatsApp e começar.
-                            </Text>
-
-                            <TouchableOpacity onPress={handleEntrarGrupo} activeOpacity={0.85}>
-                                <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={styles.entrarGrupoBtn}>
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color="#FFF" />
-                                    <Text style={styles.submitBtnText}>ENTRAR NO GRUPO DO WHATSAPP</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </View>
-                    )}
-
-                    <View style={styles.footer}>
-                        <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
                     </View>
-                </ScrollView>
-            </View>
+                </View>
+
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
+                </View>
+            </ScrollView>
         </RootComponent>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { height: isWeb ? '100vh' : '100%', backgroundColor: '#0a0a0a' },
+    container: { height: isWeb ? '100vh' : '100%', backgroundColor: '#060608' },
     previewBackBtn: {
         position: 'absolute', top: isWeb ? 16 : 55, left: 16, zIndex: 999,
         flexDirection: 'row', alignItems: 'center', gap: 8,
-        backgroundColor: 'rgba(0,0,0,0.8)', paddingVertical: 10, paddingHorizontal: 16,
-        borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)',
+        backgroundColor: 'rgba(0,0,0,0.85)', paddingVertical: 10, paddingHorizontal: 16,
+        borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
     },
     previewBackBtnText: { color: '#FFF', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
 
-    webWrapper: { flex: 1, width: '100%', maxWidth: 520, alignSelf: 'center' },
-    scrollContent: { flexGrow: 1, padding: 25, paddingBottom: 60 },
+    scrollContent: { flexGrow: 1, paddingBottom: 40 },
+    mainLayout: { width: '100%', maxWidth: 1100, alignSelf: 'center', padding: 20, gap: 25 },
+    desktopLayout: { flexDirection: 'row', paddingTop: 40 },
+    
+    infoColumn: { gap: 20 },
+    formColumn: { width: '100%', maxWidth: 440, alignSelf: 'flex-start' },
+    desktopStickyColumn: { position: 'sticky', top: 40, zIndex: 90 },
 
-    centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 },
-    notFoundTitle: { color: '#FFF', fontSize: 18, fontWeight: '900', marginTop: 16, letterSpacing: 0.5 },
-    notFoundDesc: { color: '#888', fontSize: 13, textAlign: 'center', marginTop: 8 },
+    centerBox: { flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 300 },
+    notFoundTitle: { color: '#FFF', fontSize: 16, fontWeight: '900', marginTop: 16, letterSpacing: 0.5 },
+    notFoundDesc: { color: '#666', fontSize: 13, textAlign: 'center', marginTop: 8 },
 
-    // ── Hero
-    heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
-    heroIconBox: { width: 64, height: 64, borderRadius: 32, backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: `${MAIN_COLOR}40`, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-    heroLogoImg: { width: '100%', aspectRatio: 3, marginBottom: 16, borderRadius: 8 },
-    heroTitle: { color: '#FFF', fontSize: 28, fontWeight: '900', textAlign: 'center', marginBottom: 10 },
-    heroDesc: { color: '#AAA', fontSize: 14, textAlign: 'center', lineHeight: 21, marginBottom: 18, paddingHorizontal: 6 },
-    valorBadge: { backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 8, marginBottom: 24 },
-    valorBadgeText: { color: LIGHT_COLOR, fontSize: 18, fontWeight: '900' },
-    heroCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 16 },
-    heroCtaText: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
+    // ── Hero Compacto
+    heroCompact: { backgroundColor: '#111015', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#1c1922' },
+    heroIconBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: 'rgba(139,92,246,0.1)', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+    heroLogoImg: { width: '100%', aspectRatio: 3.5, marginBottom: 16, borderRadius: 12 },
+    heroTitle: { color: '#FFF', fontSize: 26, fontWeight: '900', marginBottom: 8 },
+    heroDesc: { color: '#999', fontSize: 13, lineHeight: 20, marginBottom: 0 },
+    heroCtaCampact: { width: '100%', marginTop: 20 },
+    gradientCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14 },
+    heroCtaText: { color: '#FFF', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
 
-    // ── Seções
-    sectionTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', textAlign: 'center', letterSpacing: 0.3, marginBottom: 6 },
-    sectionSub: { color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 20, paddingHorizontal: 10, lineHeight: 19 },
-
-    // ── Como funciona
-    stepsContainer: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 20 },
-    stepRow: { flexDirection: 'row', gap: 14, marginBottom: 22 },
-    stepIconBox: { width: 32, height: 32, borderRadius: 16, backgroundColor: `${MAIN_COLOR}20`, borderWidth: 1, borderColor: MAIN_COLOR, justifyContent: 'center', alignItems: 'center' },
-    stepNumber: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 13 },
-    stepTextBox: { flex: 1 },
-    stepTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', marginBottom: 4 },
-    stepDesc: { color: '#999', fontSize: 12, lineHeight: 18 },
-
-    // ── Benefícios
-    beneficiosBox: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 20, gap: 14 },
-    beneficioRow: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
-    beneficioText: { flex: 1, color: '#CCC', fontSize: 14, lineHeight: 20 },
-
-    // ── Mentor
-    mentorBox: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 22, marginTop: 40 },
-    mentorIconRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-    mentorLabel: { color: '#888', fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
-    mentorHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-    mentorPhotoBox: { width: 52, height: 52, borderRadius: 26, backgroundColor: `${MAIN_COLOR}15`, borderWidth: 1, borderColor: `${MAIN_COLOR}40`, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    // ── Cards Horizontais/Compactos
+    compactRowCard: { flexDirection: 'row', backgroundColor: '#111015', borderRadius: 20, padding: 16, alignItems: 'center', gap: 14, borderWidth: 1, borderColor: '#1c1922' },
+    mentorPhotoBox: { width: 48, height: 52, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.1)', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     mentorPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
-    mentorName: { color: '#FFF', fontSize: 18, fontWeight: '900' },
-    mentorDesc: { color: '#BBB', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
+    mentorLabel: { color: MAIN_COLOR, fontSize: 8, fontWeight: '900', letterSpacing: 1, marginBottom: 2 },
+    mentorName: { color: '#FFF', fontSize: 15, fontWeight: '900' },
+    mentorDesc: { color: '#777', fontSize: 12, lineHeight: 17, fontStyle: 'italic', marginTop: 2 },
 
-    // ── Importante (aviso, tom âmbar mesmo na página roxa — chama atenção de verdade)
-    importanteBox: { backgroundColor: '#FFB80012', borderRadius: 16, borderLeftWidth: 3, borderLeftColor: '#FFB800', padding: 18, marginTop: 30 },
-    importanteHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
-    importanteLabel: { color: '#FFB800', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
-    importanteText: { color: '#DDD', fontSize: 13, lineHeight: 20 },
+    sectionTitleLeft: { color: '#FFF', fontSize: 14, fontWeight: '900', letterSpacing: 1, marginTop: 15, marginBottom: 5, textTransform: 'uppercase' },
+    compactGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, width: '100%' },
+    gridItem: { width: '100%', backgroundColor: '#111015', borderRadius: 14, padding: 14, flexDirection: 'row', gap: 10, alignItems: 'flex-start', borderWidth: 1, borderColor: '#1c1922' },
+    beneficioText: { flex: 1, color: '#AAA', fontSize: 13, lineHeight: 19 },
 
-    // ── Meu compromisso
-    compromissoBox: { backgroundColor: '#141118', borderRadius: 16, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 18, marginTop: 30 },
-    compromissoLabel: { color: MAIN_COLOR, fontSize: 12, fontWeight: '900', letterSpacing: 0.5, marginBottom: 8 },
-    compromissoText: { color: '#CCC', fontSize: 14, lineHeight: 21 },
+    importanteBox: { backgroundColor: 'rgba(255,184,0,0.06)', borderRadius: 16, borderLeftWidth: 3, borderLeftColor: '#FFB800', padding: 16, borderWidth: 1, borderColor: 'rgba(255,184,0,0.1)' },
+    importanteHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+    importanteLabel: { color: '#FFB800', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+    importanteText: { color: '#999', fontSize: 12, lineHeight: 18 },
 
-    // ── Bônus exclusivo
-    bonusBox: { backgroundColor: `${MAIN_COLOR}12`, borderRadius: 16, borderWidth: 1, borderColor: `${MAIN_COLOR}40`, padding: 18, marginTop: 30 },
-    bonusLabel: { color: LIGHT_COLOR, fontSize: 12, fontWeight: '900', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
-    bonusText: { color: '#EEE', fontSize: 14, lineHeight: 21, textAlign: 'center' },
+    compromissoBox: { backgroundColor: '#111015', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#1c1922' },
+    compromissoLabel: { color: MAIN_COLOR, fontSize: 10, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4 },
+    compromissoText: { color: '#999', fontSize: 12, lineHeight: 18 },
 
-    // ── Investimento (reforço de preço logo antes do form)
-    investimentoBox: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}30`, padding: 24, alignItems: 'center', marginBottom: 30 },
-    investimentoValor: { color: '#FFF', fontSize: 34, fontWeight: '900' },
-    investimentoSub: { color: '#999', fontSize: 13, marginTop: 4 },
-    investimentoPorDia: { color: LIGHT_COLOR, fontSize: 13, fontWeight: '700', marginTop: 14, textAlign: 'center' },
+    bonusBox: { backgroundColor: 'rgba(139,92,246,0.06)', borderRadius: 16, borderLeftWidth: 3, borderLeftColor: MAIN_COLOR, padding: 16, borderWidth: 1, borderColor: 'rgba(139,92,246,0.1)' },
+    bonusLabel: { color: LIGHT_COLOR, fontSize: 11, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4 },
+    bonusText: { color: '#AAA', fontSize: 12, lineHeight: 18 },
 
-    urgencyNote: { color: '#FFB800', fontSize: 11, textAlign: 'center', marginTop: 14, lineHeight: 16 },
+    // ── Timeline Compacta Horizontal
+    timelineContainer: { flexDirection: 'row', backgroundColor: '#111015', borderRadius: 16, padding: 16, alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#1c1922' },
+    timelineItem: { alignItems: 'center', gap: 6, flex: 1 },
+    timelineBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.15)', borderWidth: 1, borderColor: MAIN_COLOR, justifyContent: 'center', alignItems: 'center' },
+    timelineNumber: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 11 },
+    timelineText: { color: '#888', fontSize: 10, fontWeight: '700', textAlign: 'center' },
+    timelineLine: { width: 20, height: 1, backgroundColor: '#222', flexShrink: 0 },
 
-    // ── Galeria de antes/depois
-    galleryOuterCard: { backgroundColor: '#141118', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, marginTop: 40 },
-    gallerySectionTitle: { color: MAIN_COLOR, fontSize: 12, fontWeight: '900', letterSpacing: 1.5, marginBottom: 18, textAlign: 'center' },
-    galleryPairCardPublic: { backgroundColor: '#161616', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#222' },
-    galleryLabelAntes: { color: '#888', fontSize: 10, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
-    galleryLabelDepois: { color: MAIN_COLOR, fontSize: 10, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' },
-    galleryImgBoxPlain: { width: '100%', aspectRatio: 1, borderRadius: 12, overflow: 'hidden' },
+    // ── Galeria Horizontal
+    gallerySectionContainer: { width: '100%', overflow: 'hidden' },
+    galleryHorizontalCard: { backgroundColor: '#111015', padding: 12, borderRadius: 18, width: 260, borderWidth: 1, borderColor: '#1c1922' },
+    photoContainerRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+    halfPhoto: { flex: 1, aspectRatio: 0.9, borderRadius: 10, overflow: 'hidden', position: 'relative', backgroundColor: '#000' },
+    photoTag: { position: 'absolute', top: 4, left: 4, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, color: '#888', fontSize: 8, fontWeight: '900', zIndex: 10 },
     galleryImgPlain: { width: '100%', height: '100%', resizeMode: 'cover' },
-    galleryCaptionQuote: { color: '#CCC', fontSize: 14, fontStyle: 'italic', textAlign: 'center' },
 
-    // ── Formulário
-    formCard: { backgroundColor: '#161616', borderRadius: 24, borderWidth: 1, borderColor: '#2A2A2A', padding: 24 },
-    formTitle: { color: '#FFF', fontSize: 16, fontWeight: '900', letterSpacing: 0.5, textAlign: 'center', marginBottom: 20 },
+    // ── Card de Formulário Moderno
+    modernFormCard: { backgroundColor: '#111015', borderRadius: 24, borderWidth: 1, borderColor: '#1c1922', padding: 22 },
+    investimentoHeader: { alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#1c1922', paddingBottom: 16, marginBottom: 16 },
+    investimentoLabel: { color: '#666', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+    investimentoValor: { color: '#FFF', fontSize: 32, fontWeight: '900', marginTop: 2 },
+    investimentoPorDia: { color: MAIN_COLOR, fontSize: 12, fontWeight: '800', marginTop: 4 },
+    formSectionSubtitle: { color: '#AAA', fontSize: 13, fontWeight: '700', marginBottom: 5 },
 
-    inputLabel: { color: '#888', fontSize: 11, fontWeight: '900', letterSpacing: 0.3, marginBottom: 6, marginTop: 14 },
-    input: { backgroundColor: '#0a0a0a', color: '#FFF', borderWidth: 1, borderColor: '#333', borderRadius: 12, padding: 14, fontSize: 14 },
-    cpfHelper: { color: '#666', fontSize: 10, fontStyle: 'italic', marginTop: 4 },
+    modernFormTitle: { color: '#FFF', fontSize: 15, fontWeight: '900', textAlign: 'center', marginBottom: 10, letterSpacing: 0.5 },
+    modernPixHelper: { color: '#777', fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 16, paddingHorizontal: 4 },
 
-    formErrorText: { color: '#FF3B30', fontSize: 12, fontWeight: '700', marginTop: 16, textAlign: 'center' },
+    inputLabel: { color: '#666', fontSize: 11, fontWeight: '900', marginBottom: 5, marginTop: 12 },
+    // 🔥 FIX: fontSize forçado para 16 nos inputs para evitar zoom fantasma do iOS na Web
+    input: { backgroundColor: '#060608', color: '#FFF', borderWidth: 1, borderColor: '#222', borderRadius: 12, padding: 12, fontSize: 16 },
+    cpfHelper: { color: '#444', fontSize: 10, fontStyle: 'italic', marginTop: 4 },
+    formErrorText: { color: '#FF3B30', fontSize: 12, fontWeight: '700', marginTop: 14, textAlign: 'center' },
+    urgencyNote: { color: '#FFB800', fontSize: 11, textAlign: 'center', marginTop: 14, lineHeight: 16, opacity: 0.8 },
 
-    submitBtn: { borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
+    submitBtn: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', marginTop: 20 },
     submitBtnText: { color: '#FFF', fontWeight: '900', fontSize: 13, letterSpacing: 0.5 },
 
-    securityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 14 },
-    securityText: { color: '#666', fontSize: 10 },
+    securityRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 15, borderTopWidth: 1, borderTopColor: '#1c1922', paddingTop: 14 },
+    securityText: { color: '#444', fontSize: 10 },
 
-    pixHelper: { color: '#AAA', fontSize: 13, textAlign: 'center', lineHeight: 20, marginBottom: 20 },
-    pixImage: { width: 220, height: 220, alignSelf: 'center', borderRadius: 12, backgroundColor: '#FFF', marginBottom: 20 },
-    copyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 14, paddingVertical: 14, marginBottom: 20 },
-    copyBtnText: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 12, letterSpacing: 0.3 },
+    pixImage: { width: 180, height: 180, alignSelf: 'center', borderRadius: 12, backgroundColor: '#FFF', marginBottom: 16 },
+    copyBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 12, paddingVertical: 12, width: '100%', marginBottom: 16 },
+    copyBtnText: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 12 },
+    waitingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+    waitingText: { color: '#666', fontSize: 12, fontStyle: 'italic' },
 
-    waitingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-    waitingText: { color: '#888', fontSize: 12, fontStyle: 'italic' },
+    entrarGrupoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 14, paddingVertical: 15 },
 
-    entrarGrupoBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, borderRadius: 16, paddingVertical: 16 },
-
-    footer: { marginTop: 40, alignItems: 'center' },
-    footerText: { color: '#444', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
+    footer: { marginTop: 40, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#111', paddingTop: 20 },
+    footerText: { color: '#333', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
 });
