@@ -264,6 +264,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
                     <FlatList
                         data={foods}
                         keyExtractor={(item, i) => `${item.id}-${i}`}
+                        style={{ flex: 1 }}
                         renderItem={renderFood}
                         contentContainerStyle={{ paddingHorizontal:16, paddingBottom:40 }}
                         onEndReached={() => { if (!loading && hasMore) fetchFoods(page + 1, true); }}

@@ -79,7 +79,7 @@ function dataNascimentoParaISO(ddmmaaaa) {
 }
 
 function formatBRL(v) {
-    return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function DesafioInscricaoScreen({ route, navigation }) {
@@ -267,6 +267,9 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
         }))
         .filter(p => p.before && p.after);
 
+    const duracaoDias = desafio.duracaoDias || 90;
+    const precoPorDia = desafio.valor / duracaoDias;
+
     return (
         <RootComponent style={styles.container}>
             {previewBackButton}
@@ -294,52 +297,6 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                                 </TouchableOpacity>
                             </View>
 
-                            {/* ── COMO FUNCIONA ─────────────────────────────────── */}
-                            <Text style={styles.sectionTitle}>COMO FUNCIONA</Text>
-                            <Text style={styles.sectionSub}>Do pagamento até o primeiro conteúdo no seu WhatsApp — sem espera, sem burocracia.</Text>
-
-                            <View style={styles.stepsContainer}>
-                                <View style={styles.stepRow}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>1</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>Você se inscreve e paga com PIX</Text>
-                                        <Text style={styles.stepDesc}>Preenche seus dados aqui embaixo e paga na hora — rápido e seguro.</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.stepRow}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>2</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>O pagamento é confirmado automaticamente</Text>
-                                        <Text style={styles.stepDesc}>Assim que o PIX cai, esta mesma página já detecta a confirmação — sem você precisar avisar ninguém.</Text>
-                                    </View>
-                                </View>
-                                <View style={styles.stepRow}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>3</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>O link do grupo é liberado na hora</Text>
-                                        <Text style={styles.stepDesc}>Aparece um botão pra você entrar direto no grupo do WhatsApp, sem esperar resposta de ninguém.</Text>
-                                    </View>
-                                </View>
-                                <View style={[styles.stepRow, { marginBottom: 0 }]}>
-                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>4</Text></View>
-                                    <View style={styles.stepTextBox}>
-                                        <Text style={styles.stepTitle}>Você começa a receber o conteúdo</Text>
-                                        <Text style={styles.stepDesc}>Motivação, dicas e rotina direto no grupo, junto com quem está na mesma jornada.</Text>
-                                    </View>
-                                </View>
-                            </View>
-
-                            {/* ── O QUE VOCÊ VAI RECEBER ────────────────────────── */}
-                            <Text style={[styles.sectionTitle, { marginTop: 40 }]}>O QUE VOCÊ VAI RECEBER</Text>
-                            <View style={styles.beneficiosBox}>
-                                {beneficios.map((item, i) => (
-                                    <View key={i} style={styles.beneficioRow}>
-                                        <MaterialCommunityIcons name="check-circle" size={18} color={MAIN_COLOR} style={{ marginTop: 2 }} />
-                                        <Text style={styles.beneficioText}>{item}</Text>
-                                    </View>
-                                ))}
-                            </View>
-
                             {/* ── MENTOR / AUTORIDADE (dinâmico — só aparece se preenchido no admin) ── */}
                             {desafio.mentorNome ? (
                                 <View style={styles.mentorBox}>
@@ -359,6 +316,51 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                                     {desafio.mentorTexto ? (
                                         <Text style={styles.mentorDesc}>{desafio.mentorTexto}</Text>
                                     ) : null}
+                                </View>
+                            ) : null}
+
+                            {/* ── 💜 O QUE VOCÊ TERÁ ACESSO ─────────────────────── */}
+                            <Text style={[styles.sectionTitle, { marginTop: 40 }]}>💜 O QUE VOCÊ TERÁ ACESSO</Text>
+                            <View style={styles.beneficiosBox}>
+                                {beneficios.map((item, i) => (
+                                    <View key={i} style={styles.beneficioRow}>
+                                        <MaterialCommunityIcons name="check-circle" size={18} color={MAIN_COLOR} style={{ marginTop: 2 }} />
+                                        <Text style={styles.beneficioText}>{item}</Text>
+                                    </View>
+                                ))}
+                            </View>
+
+                            {/* ── 🎯 PARA QUEM É (opcional) ─────────────────────── */}
+                            {desafio.paraQuemE?.length > 0 && (
+                                <>
+                                    <Text style={[styles.sectionTitle, { marginTop: 40 }]}>🎯 ESSE PROJETO É PARA VOCÊ QUE...</Text>
+                                    <View style={styles.beneficiosBox}>
+                                        {desafio.paraQuemE.map((item, i) => (
+                                            <View key={i} style={styles.beneficioRow}>
+                                                <MaterialCommunityIcons name="arrow-right-circle" size={18} color={MAIN_COLOR} style={{ marginTop: 2 }} />
+                                                <Text style={styles.beneficioText}>{item}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </>
+                            )}
+
+                            {/* ── ⚠️ IMPORTANTE (opcional — visual de aviso, destacado) ── */}
+                            {desafio.importante ? (
+                                <View style={styles.importanteBox}>
+                                    <View style={styles.importanteHeaderRow}>
+                                        <MaterialCommunityIcons name="alert-outline" size={20} color="#FFB800" />
+                                        <Text style={styles.importanteLabel}>IMPORTANTE</Text>
+                                    </View>
+                                    <Text style={styles.importanteText}>{desafio.importante}</Text>
+                                </View>
+                            ) : null}
+
+                            {/* ── 💬 MEU COMPROMISSO (opcional) ─────────────────── */}
+                            {desafio.compromissoTexto ? (
+                                <View style={styles.compromissoBox}>
+                                    <Text style={styles.compromissoLabel}>💬 MEU COMPROMISSO</Text>
+                                    <Text style={styles.compromissoText}>{desafio.compromissoTexto}</Text>
                                 </View>
                             ) : null}
 
@@ -393,19 +395,71 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                                 </View>
                             )}
 
+                            {/* ── COMO FUNCIONA (perto do form, reforça a mecânica antes de pagar) ── */}
+                            <Text style={[styles.sectionTitle, { marginTop: 40 }]}>COMO FUNCIONA</Text>
+                            <Text style={styles.sectionSub}>Do pagamento até o primeiro conteúdo no seu WhatsApp — sem espera, sem burocracia.</Text>
+
+                            <View style={styles.stepsContainer}>
+                                <View style={styles.stepRow}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>1</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>Você se inscreve e paga com PIX</Text>
+                                        <Text style={styles.stepDesc}>Preenche seus dados aqui embaixo e paga na hora — rápido e seguro.</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.stepRow}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>2</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>O pagamento é confirmado automaticamente</Text>
+                                        <Text style={styles.stepDesc}>Assim que o PIX cai, esta mesma página já detecta a confirmação — sem você precisar avisar ninguém.</Text>
+                                    </View>
+                                </View>
+                                <View style={styles.stepRow}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>3</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>O link do grupo é liberado na hora</Text>
+                                        <Text style={styles.stepDesc}>Aparece um botão pra você entrar direto no grupo do WhatsApp, sem esperar resposta de ninguém.</Text>
+                                    </View>
+                                </View>
+                                <View style={[styles.stepRow, { marginBottom: 0 }]}>
+                                    <View style={styles.stepIconBox}><Text style={styles.stepNumber}>4</Text></View>
+                                    <View style={styles.stepTextBox}>
+                                        <Text style={styles.stepTitle}>Você começa a receber o conteúdo</Text>
+                                        <Text style={styles.stepDesc}>Motivação, dicas e rotina direto no grupo, junto com quem está na mesma jornada.</Text>
+                                    </View>
+                                </View>
+                            </View>
+
                             {/* ── FAQ ────────────────────────────────────────────── */}
                             <Text style={[styles.sectionTitle, { marginTop: 40, marginBottom: 20 }]}>AINDA TEM DÚVIDAS?</Text>
                             <FaqAccordion faqs={faqList} accentColor={MAIN_COLOR} />
+
+                            {/* ── 🎁 BÔNUS EXCLUSIVO (opcional, perto do fim) ────── */}
+                            {desafio.bonusTexto ? (
+                                <View style={styles.bonusBox}>
+                                    <Text style={styles.bonusLabel}>🎁 BÔNUS EXCLUSIVO</Text>
+                                    <Text style={styles.bonusText}>{desafio.bonusTexto}</Text>
+                                </View>
+                            ) : null}
                         </>
                     )}
 
-                    {/* ── STEP: FORM (dados) ─────────────────────────────────── */}
+                    {/* ── 💰 INVESTIMENTO + STEP: FORM (dados) ───────────────── */}
                     {step === 'form' && (
                         <View
                             style={{ marginTop: 40 }}
                             ref={(r) => { scrollToFormRef.current = r; }}
                         >
-                            <Text style={styles.sectionTitle}>GARANTA SUA VAGA</Text>
+                            <Text style={styles.sectionTitle}>💰 INVESTIMENTO</Text>
+                            <View style={styles.investimentoBox}>
+                                <Text style={styles.investimentoValor}>R$ {formatBRL(desafio.valor)}</Text>
+                                <Text style={styles.investimentoSub}>para participar dos {duracaoDias} dias</Text>
+                                <Text style={styles.investimentoPorDia}>
+                                    Menos de R$ {formatBRL(precoPorDia)} por dia pra viver essa experiência.
+                                </Text>
+                            </View>
+
+                            <Text style={[styles.sectionTitle, { marginTop: 30 }]}>GARANTA SUA VAGA</Text>
                             <Text style={styles.sectionSub}>Preencha seus dados abaixo pra gerar o PIX e começar.</Text>
 
                             <View style={styles.formCard}>
@@ -436,6 +490,10 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                                     </LinearGradient>
                                 </TouchableOpacity>
 
+                                <Text style={styles.urgencyNote}>
+                                    ⚠️ As inscrições serão encerradas assim que o grupo atingir o limite de participantes.
+                                </Text>
+
                                 <View style={styles.securityRow}>
                                     <MaterialCommunityIcons name="lock-outline" size={13} color="#666" />
                                     <Text style={styles.securityText}>Pagamento processado com segurança via PIX</Text>
@@ -443,6 +501,7 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                             </View>
                         </View>
                     )}
+
 
                     {/* ── STEP: PAGAMENTO (PIX) ──────────────────────────────── */}
                     {step === 'pagamento' && (
@@ -554,6 +613,30 @@ const styles = StyleSheet.create({
     mentorPhoto: { width: '100%', height: '100%', resizeMode: 'cover' },
     mentorName: { color: '#FFF', fontSize: 18, fontWeight: '900' },
     mentorDesc: { color: '#BBB', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
+
+    // ── Importante (aviso, tom âmbar mesmo na página roxa — chama atenção de verdade)
+    importanteBox: { backgroundColor: '#FFB80012', borderRadius: 16, borderLeftWidth: 3, borderLeftColor: '#FFB800', padding: 18, marginTop: 30 },
+    importanteHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+    importanteLabel: { color: '#FFB800', fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
+    importanteText: { color: '#DDD', fontSize: 13, lineHeight: 20 },
+
+    // ── Meu compromisso
+    compromissoBox: { backgroundColor: '#141118', borderRadius: 16, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, padding: 18, marginTop: 30 },
+    compromissoLabel: { color: MAIN_COLOR, fontSize: 12, fontWeight: '900', letterSpacing: 0.5, marginBottom: 8 },
+    compromissoText: { color: '#CCC', fontSize: 14, lineHeight: 21 },
+
+    // ── Bônus exclusivo
+    bonusBox: { backgroundColor: `${MAIN_COLOR}12`, borderRadius: 16, borderWidth: 1, borderColor: `${MAIN_COLOR}40`, padding: 18, marginTop: 30 },
+    bonusLabel: { color: LIGHT_COLOR, fontSize: 12, fontWeight: '900', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
+    bonusText: { color: '#EEE', fontSize: 14, lineHeight: 21, textAlign: 'center' },
+
+    // ── Investimento (reforço de preço logo antes do form)
+    investimentoBox: { backgroundColor: '#141118', borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}30`, padding: 24, alignItems: 'center', marginBottom: 30 },
+    investimentoValor: { color: '#FFF', fontSize: 34, fontWeight: '900' },
+    investimentoSub: { color: '#999', fontSize: 13, marginTop: 4 },
+    investimentoPorDia: { color: LIGHT_COLOR, fontSize: 13, fontWeight: '700', marginTop: 14, textAlign: 'center' },
+
+    urgencyNote: { color: '#FFB800', fontSize: 11, textAlign: 'center', marginTop: 14, lineHeight: 16 },
 
     // ── Galeria de antes/depois
     galleryOuterCard: { backgroundColor: '#141118', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, marginTop: 40 },

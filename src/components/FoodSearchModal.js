@@ -200,6 +200,7 @@ export default function FoodSearchModal({
                         {/* LISTA */}
                         {isViewingCategories ? (
                             <FlatList data={CATEGORIES} keyExtractor={i => i}
+                                style={{ flex: 1 }}
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={{ paddingBottom:40 }}
                                 renderItem={({ item }) => {
@@ -227,6 +228,7 @@ export default function FoodSearchModal({
                             />
                         ) : (
                             <FlatList data={foods} keyExtractor={(item, i) => `${item.id}-${i}`}
+                                style={{ flex: 1 }}
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={{ paddingBottom:40 }}
                                 keyboardShouldPersistTaps="handled"

@@ -8,10 +8,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Alert, Platform, ActivityIndicator, Switch, Image
+    TextInput, Alert, Platform, ActivityIndicator, Switch, Image, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
@@ -27,12 +28,17 @@ const emptyDesafio = (defaultCoachId) => ({
     descricao: '',
     beneficios: [''],
     valor: '',
+    duracaoDias: '90',
     linkGrupoWhats: '',
     coachId: defaultCoachId,
     ativo: true,
     mentorNome: '',
     mentorFotoUrl: '',
     mentorTexto: '',
+    paraQuemE: [''],
+    importante: '',
+    compromissoTexto: '',
+    bonusTexto: '',
 });
 
 function slugifyLocal(input) {
@@ -96,6 +102,32 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         navigation?.navigate('DesafioInscricao', { desafio: desafio.slug, preview: true });
     };
 
+    // ── Link público real (esse sim vai pro interessado, fora do app) ──────
+    const getBaseUrl = () => {
+        if (Platform.OS === 'web') return window.location.origin;
+        return 'https://www.pauloadrianoteam.com.br';
+    };
+
+    const getDesafioLink = (desafio) => `${getBaseUrl()}/Desafio?desafio=${encodeURIComponent(desafio.slug)}`;
+
+    const [copiedId, setCopiedId] = useState(null);
+
+    const handleCopyLink = async (desafio) => {
+        const link = getDesafioLink(desafio);
+        await Clipboard.setStringAsync(link);
+        setCopiedId(desafio.id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const handleShareWhatsApp = (desafio) => {
+        const link = getDesafioLink(desafio);
+        const texto = `Oi! 💜 Quero te convidar pro *${desafio.nome}* — ${desafio.duracaoDias || 90} dias de disciplina, constância e evolução, junto com uma comunidade que compartilha o mesmo objetivo.\n\nDá uma olhada nos detalhes e nas vagas:\n${link}`;
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+        Linking.openURL(url).catch(() => {
+            if (Platform.OS === 'web') window.open(url, '_blank');
+        });
+    };
+
     // ── Form: abrir novo / editar ─────────────────────────────────────────
     const emptyGalleryPairs = () => ([
         { id: 0, before: '', after: '', text: '' }, { id: 1, before: '', after: '', text: '' },
@@ -112,10 +144,15 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setEditingDesafio({
             ...desafio,
             valor: String(desafio.valor),
+            duracaoDias: String(desafio.duracaoDias || 90),
             beneficios: desafio.beneficios?.length ? desafio.beneficios : [''],
             mentorNome: desafio.mentorNome || '',
             mentorFotoUrl: desafio.mentorFotoUrl || '',
             mentorTexto: desafio.mentorTexto || '',
+            paraQuemE: desafio.paraQuemE?.length ? desafio.paraQuemE : [''],
+            importante: desafio.importante || '',
+            compromissoTexto: desafio.compromissoTexto || '',
+            bonusTexto: desafio.bonusTexto || '',
         });
 
         // Reconstrói os pares antes/depois a partir dos arrays flat (mesmo padrão do TabSaaS)
@@ -220,21 +257,22 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setGalleryPairs(prev => prev.map((pair, i) => i === index ? { ...pair, text } : pair));
     };
 
-    // ── Lista dinâmica de benefícios ("o que você vai receber") ──────────
-    const addBeneficio = () => {
-        setEditingDesafio(prev => ({ ...prev, beneficios: [...prev.beneficios, ''] }));
+    // ── Listas dinâmicas de texto (benefícios, "para quem é") ────────────
+    // Genérico: funciona pra qualquer campo do tipo string[] no editingDesafio.
+    const addListItem = (field) => {
+        setEditingDesafio(prev => ({ ...prev, [field]: [...prev[field], ''] }));
     };
 
-    const updateBeneficio = (index, value) => {
+    const updateListItem = (field, index, value) => {
         setEditingDesafio(prev => {
-            const nova = [...prev.beneficios];
+            const nova = [...prev[field]];
             nova[index] = value;
-            return { ...prev, beneficios: nova };
+            return { ...prev, [field]: nova };
         });
     };
 
-    const removeBeneficio = (index) => {
-        setEditingDesafio(prev => ({ ...prev, beneficios: prev.beneficios.filter((_, i) => i !== index) }));
+    const removeListItem = (field, index) => {
+        setEditingDesafio(prev => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
     };
 
     // ── Salvar (criar ou atualizar) ────────────────────────────────────────
@@ -266,12 +304,17 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                 descricao: editingDesafio.descricao,
                 beneficios: editingDesafio.beneficios.filter(b => b.trim() !== ''),
                 valor: parseFloat(editingDesafio.valor.replace(',', '.')),
+                duracaoDias: parseInt(editingDesafio.duracaoDias) || 90,
                 linkGrupoWhats: editingDesafio.linkGrupoWhats,
                 ativo: editingDesafio.ativo,
                 coachId: editingDesafio.coachId,
                 mentorNome: editingDesafio.mentorNome,
                 mentorFotoUrl: editingDesafio.mentorFotoUrl,
                 mentorTexto: editingDesafio.mentorTexto,
+                paraQuemE: editingDesafio.paraQuemE.filter(p => p.trim() !== ''),
+                importante: editingDesafio.importante,
+                compromissoTexto: editingDesafio.compromissoTexto,
+                bonusTexto: editingDesafio.bonusTexto,
                 galleryPhotos,
                 galleryTexts,
                 ...(!isEditing && { slug: editingDesafio.slug }),
@@ -380,36 +423,52 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     <View style={{ width: '100%' }}>
                         {desafios.map((desafio) => (
                             <View key={desafio.id} style={[styles.itemCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                <TouchableOpacity style={{ flex: 1 }} onPress={() => openInscritas(desafio)}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                        <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
-                                        <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
-                                            <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
-                                                {desafio.ativo ? 'ATIVO' : 'INATIVO'}
-                                            </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                                    <TouchableOpacity style={{ flex: 1 }} onPress={() => openInscritas(desafio)}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
+                                            <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
+                                                <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
+                                                    {desafio.ativo ? 'ATIVO' : 'INATIVO'}
+                                                </Text>
+                                            </View>
                                         </View>
-                                    </View>
-                                    <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}</Text>
-                                    <Text style={[styles.itemMeta, { color: theme.accent }]}>
-                                        {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
-                                    </Text>
-                                </TouchableOpacity>
+                                        <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}</Text>
+                                        <Text style={[styles.itemMeta, { color: theme.accent }]}>
+                                            {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
+                                        </Text>
+                                    </TouchableOpacity>
 
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                                    <TouchableOpacity onPress={() => openPreview(desafio)}>
-                                        <MaterialCommunityIcons name="eye-outline" size={20} color={theme.textSecondary} />
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                                        <TouchableOpacity onPress={() => openPreview(desafio)}>
+                                            <MaterialCommunityIcons name="eye-outline" size={20} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+                                        <Switch
+                                            value={desafio.ativo}
+                                            onValueChange={() => toggleAtivo(desafio)}
+                                            trackColor={{ false: '#444', true: `${theme.accent}80` }}
+                                            thumbColor={desafio.ativo ? theme.accent : '#888'}
+                                        />
+                                        <TouchableOpacity onPress={() => openEditDesafio(desafio)}>
+                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleDelete(desafio)}>
+                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+
+                                {/* ── Ações de compartilhamento — o link de verdade pro interessado ── */}
+                                <View style={styles.shareRow}>
+                                    <TouchableOpacity style={[styles.shareBtn, { borderColor: theme.border }]} onPress={() => handleCopyLink(desafio)}>
+                                        <MaterialCommunityIcons name={copiedId === desafio.id ? 'check' : 'content-copy'} size={14} color={theme.textSecondary} />
+                                        <Text style={[styles.shareBtnText, { color: theme.textSecondary }]}>
+                                            {copiedId === desafio.id ? 'LINK COPIADO!' : 'COPIAR LINK'}
+                                        </Text>
                                     </TouchableOpacity>
-                                    <Switch
-                                        value={desafio.ativo}
-                                        onValueChange={() => toggleAtivo(desafio)}
-                                        trackColor={{ false: '#444', true: `${theme.accent}80` }}
-                                        thumbColor={desafio.ativo ? theme.accent : '#888'}
-                                    />
-                                    <TouchableOpacity onPress={() => openEditDesafio(desafio)}>
-                                        <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity onPress={() => handleDelete(desafio)}>
-                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                    <TouchableOpacity style={[styles.shareBtn, { borderColor: '#25D366' }]} onPress={() => handleShareWhatsApp(desafio)}>
+                                        <MaterialCommunityIcons name="whatsapp" size={14} color="#25D366" />
+                                        <Text style={[styles.shareBtnText, { color: '#25D366' }]}>ENVIAR NO WHATSAPP</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -468,27 +527,77 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         placeholderTextColor="#666"
                     />
 
-                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>O que a aluna vai receber (aparece como lista na página)</Text>
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>💜 O que a aluna vai receber (aparece como lista na página)</Text>
                     {editingDesafio.beneficios.map((item, i) => (
                         <View key={i} style={styles.beneficioRow}>
                             <TextInput
                                 style={[styles.saasInput, { flex: 1, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
                                 value={item}
-                                onChangeText={(v) => updateBeneficio(i, v)}
+                                onChangeText={(v) => updateListItem('beneficios', i, v)}
                                 placeholder="Ex: Mensagem diária de motivação no grupo"
                                 placeholderTextColor="#666"
                             />
-                            <TouchableOpacity onPress={() => removeBeneficio(i)}>
+                            <TouchableOpacity onPress={() => removeListItem('beneficios', i)}>
                                 <MaterialCommunityIcons name="close-circle-outline" size={20} color="#FF3B30" />
                             </TouchableOpacity>
                         </View>
                     ))}
-                    <TouchableOpacity style={styles.addBeneficioBtn} onPress={addBeneficio}>
+                    <TouchableOpacity style={styles.addBeneficioBtn} onPress={() => addListItem('beneficios')}>
                         <MaterialCommunityIcons name="plus" size={14} color={theme.accent} />
                         <Text style={{ color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.3 }}>ADICIONAR ITEM</Text>
                     </TouchableOpacity>
 
-                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Valor (R$)</Text>
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 20 }]}>🎯 Esse projeto é para você que... (opcional)</Text>
+                    {editingDesafio.paraQuemE.map((item, i) => (
+                        <View key={i} style={styles.beneficioRow}>
+                            <TextInput
+                                style={[styles.saasInput, { flex: 1, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                value={item}
+                                onChangeText={(v) => updateListItem('paraQuemE', i, v)}
+                                placeholder="Ex: Quer criar constância"
+                                placeholderTextColor="#666"
+                            />
+                            <TouchableOpacity onPress={() => removeListItem('paraQuemE', i)}>
+                                <MaterialCommunityIcons name="close-circle-outline" size={20} color="#FF3B30" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    <TouchableOpacity style={styles.addBeneficioBtn} onPress={() => addListItem('paraQuemE')}>
+                        <MaterialCommunityIcons name="plus" size={14} color={theme.accent} />
+                        <Text style={{ color: theme.accent, fontSize: 10, fontWeight: '900', letterSpacing: 0.3 }}>ADICIONAR ITEM</Text>
+                    </TouchableOpacity>
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 20 }]}>⚠️ Importante (opcional — aviso de que não substitui a consultoria individual)</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 90 }]}
+                        multiline
+                        value={editingDesafio.importante}
+                        onChangeText={(v) => updateField('importante', v)}
+                        placeholder="Ex: O Projeto 90 Dias não substitui a Consultoria PA Elite..."
+                        placeholderTextColor="#666"
+                    />
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>💬 Meu compromisso (opcional)</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 110 }]}
+                        multiline
+                        value={editingDesafio.compromissoTexto}
+                        onChangeText={(v) => updateField('compromissoTexto', v)}
+                        placeholder="Ex: Durante esses 90 dias vou mostrar a realidade..."
+                        placeholderTextColor="#666"
+                    />
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>🎁 Bônus Exclusivo (opcional — aparece no fim da página)</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 80 }]}
+                        multiline
+                        value={editingDesafio.bonusTexto}
+                        onChangeText={(v) => updateField('bonusTexto', v)}
+                        placeholder="Ex: Quem participar receberá uma condição especial pra entrar na Consultoria PA Elite..."
+                        placeholderTextColor="#666"
+                    />
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 20 }]}>Valor (R$)</Text>
                     <TextInput
                         style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
                         keyboardType="numeric"
@@ -497,6 +606,17 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         placeholder="97"
                         placeholderTextColor="#666"
                     />
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Duração (em dias)</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                        keyboardType="numeric"
+                        value={editingDesafio.duracaoDias}
+                        onChangeText={(v) => updateField('duracaoDias', v)}
+                        placeholder="90"
+                        placeholderTextColor="#666"
+                    />
+                    <Text style={styles.helperText}>Usado pra calcular e mostrar "R$ X por dia" na página pública.</Text>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Link de convite do grupo do WhatsApp</Text>
                     <TextInput
@@ -737,7 +857,10 @@ const styles = StyleSheet.create({
 
     emptyText: { fontSize: 13, textAlign: 'center', marginTop: 20, lineHeight: 20, width: '100%' },
 
-    itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12, width: '100%' },
+    itemCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12, width: '100%' },
+    shareRow: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+    shareBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+    shareBtnText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
     itemNome: { fontSize: 15, fontWeight: '900' },
     itemSlug: { fontSize: 11, marginTop: 2 },
     itemMeta: { fontSize: 11, marginTop: 4, fontWeight: '700' },

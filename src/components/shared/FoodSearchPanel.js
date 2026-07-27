@@ -141,6 +141,7 @@ export default function FoodSearchPanel({ coachId, onSelect, theme, groupFoodIds
                 <FlatList
                     data={results}
                     keyExtractor={(item, i) => `${item.id}-${i}`}
+                    style={{ flex: 1 }}
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="handled"
                     contentContainerStyle={{ paddingHorizontal:10, paddingTop:8, paddingBottom:20 }}
