@@ -26,6 +26,7 @@ const emptyDesafio = (defaultCoachId) => ({
     slug: '',
     nome: '',
     descricao: '',
+    logoUrl: '',
     beneficios: [''],
     valor: '',
     duracaoDias: '90',
@@ -66,6 +67,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [uploadingPhoto, setUploadingPhoto] = useState(false);
+    const [uploadingLogo, setUploadingLogo] = useState(false);
     const [uploadingGallerySlot, setUploadingGallerySlot] = useState(null);
     const [galleryPairs, setGalleryPairs] = useState([
         { id: 0, before: '', after: '', text: '' }, { id: 1, before: '', after: '', text: '' },
@@ -103,10 +105,10 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     };
 
     // ── Link público real (esse sim vai pro interessado, fora do app) ──────
-    const getBaseUrl = () => {
-        if (Platform.OS === 'web') return window.location.origin;
-        return 'https://www.pauloadrianoteam.com.br';
-    };
+    // 🔑 Link de compartilhamento é pra um cliente de verdade — nunca deve
+    // depender de onde VOCÊ está testando o admin (localhost, preview, etc.).
+    // Por isso sempre usa o domínio de produção, sem checar Platform.OS.
+    const getBaseUrl = () => 'https://www.pauloadrianoteam.com.br';
 
     const getDesafioLink = (desafio) => `${getBaseUrl()}/Desafio?desafio=${encodeURIComponent(desafio.slug)}`;
 
@@ -145,6 +147,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             ...desafio,
             valor: String(desafio.valor),
             duracaoDias: String(desafio.duracaoDias || 90),
+            logoUrl: desafio.logoUrl || '',
             beneficios: desafio.beneficios?.length ? desafio.beneficios : [''],
             mentorNome: desafio.mentorNome || '',
             mentorFotoUrl: desafio.mentorFotoUrl || '',
@@ -220,6 +223,32 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             Platform.OS === 'web' ? window.alert('Falha ao enviar a foto.') : Alert.alert('Erro', 'Falha ao enviar a foto.');
         } finally {
             setUploadingPhoto(false);
+        }
+    };
+
+    // ── Logo/banner horizontal do topo da página (recomendado 1200x400, proporção 3:1) ──
+    const handlePickLogo = async () => {
+        try {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [3, 1],
+                quality: 0.9,
+            });
+            if (!result.canceled) {
+                setUploadingLogo(true);
+                const url = await uploadImageToR2(result.assets[0].uri);
+                updateField('logoUrl', url);
+            }
+        } catch (e) {
+            console.log('Erro ao enviar logo', e);
+            Platform.OS === 'web' ? window.alert('Falha ao enviar a logo.') : Alert.alert('Erro', 'Falha ao enviar a logo.');
+        } finally {
+            setUploadingLogo(false);
         }
     };
 
@@ -302,6 +331,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             const body = {
                 nome: editingDesafio.nome,
                 descricao: editingDesafio.descricao,
+                logoUrl: editingDesafio.logoUrl,
                 beneficios: editingDesafio.beneficios.filter(b => b.trim() !== ''),
                 valor: parseFloat(editingDesafio.valor.replace(',', '.')),
                 duracaoDias: parseInt(editingDesafio.duracaoDias) || 90,
@@ -526,6 +556,38 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         placeholder="Ex: 90 dias de motivação, dicas e rotina direto no seu WhatsApp."
                         placeholderTextColor="#666"
                     />
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>
+                        Logo/banner horizontal do topo (opcional — substitui o ícone padrão)
+                    </Text>
+                    <Text style={styles.helperText}>Recomendado: 1200 x 400px (proporção 3:1) pra ficar nítida em qualquer tela.</Text>
+
+                    <View style={[styles.logoPreviewBox, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                        {editingDesafio.logoUrl
+                            ? <Image source={{ uri: editingDesafio.logoUrl }} style={{ width: '100%', height: '100%', resizeMode: 'contain' }} />
+                            : <MaterialCommunityIcons name="image-outline" size={26} color={theme.textSecondary} />
+                        }
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                        <TouchableOpacity
+                            style={{ backgroundColor: theme.bg, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10, borderWidth: 1, borderColor: theme.accent }}
+                            onPress={handlePickLogo}
+                            disabled={uploadingLogo}
+                        >
+                            {uploadingLogo
+                                ? <ActivityIndicator size="small" color={theme.accent} />
+                                : <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '900' }}>{editingDesafio.logoUrl ? 'TROCAR LOGO' : 'ADICIONAR LOGO'}</Text>
+                            }
+                        </TouchableOpacity>
+                        {editingDesafio.logoUrl ? (
+                            <TouchableOpacity
+                                style={{ justifyContent: 'center' }}
+                                onPress={() => updateField('logoUrl', '')}
+                            >
+                                <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
+                            </TouchableOpacity>
+                        ) : null}
+                    </View>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>💜 O que a aluna vai receber (aparece como lista na página)</Text>
                     {editingDesafio.beneficios.map((item, i) => (
@@ -876,6 +938,7 @@ const styles = StyleSheet.create({
     beneficioRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
     subsectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 24, marginBottom: 16 },
     mentorPhotoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    logoPreviewBox: { width: '100%', height: 90, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginTop: 8, overflow: 'hidden' },
     galleryPairCard: { padding: 14, borderRadius: 14, borderWidth: 1 },
     galleryPhotoLabel: { fontSize: 10, fontWeight: '900', color: '#888', letterSpacing: 0.3 },
     galleryPhotoFilled: { width: '100%', aspectRatio: 1, borderRadius: 10, overflow: 'hidden' },
