@@ -78,7 +78,7 @@ export default function FoodSearchModal({
             const params = new URLSearchParams({
                 coachId,
                 page:      String(pageNum),
-                limit:     '30',
+                limit:     '200',
                 favorites: activeTab === 'favorites' ? 'true' : 'false',
             });
             if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
