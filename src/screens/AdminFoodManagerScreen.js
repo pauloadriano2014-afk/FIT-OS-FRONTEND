@@ -1,5 +1,5 @@
-// src/screens/AdminFoodManagerScreen.js — modularizado
-import React, { useState, useEffect, useCallback } from 'react';
+// src/screens/AdminFoodManagerScreen.js
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity,
     TextInput, FlatList, ActivityIndicator, ScrollView,
@@ -34,6 +34,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
     const [createVisible, setCreateVisible] = useState(false);
     const [dropdownOpen,  setDropdownOpen]  = useState(false);
     const [toggling,      setToggling]      = useState(new Set());
+    const abortRef = useRef(null);
     const debouncedSearch = useDebounce(search, 350);
 
     useEffect(() => {
@@ -44,6 +45,9 @@ export default function AdminFoodManagerScreen({ navigation }) {
 
     const fetchFoods = useCallback(async (pageNum, append) => {
         if (!coachId) return;
+        if (abortRef.current) abortRef.current.abort();
+        const ctrl = new AbortController();
+        abortRef.current = ctrl;
         setLoading(true);
         try {
             const params = new URLSearchParams({ coachId, page: String(pageNum), limit: '50' });
@@ -52,10 +56,10 @@ export default function AdminFoodManagerScreen({ navigation }) {
             if (sourceFilter === 'favorites') params.set('favorites', 'true');
             if (sourceFilter === 'taco')      params.set('source', 'TACO');
             if (sourceFilter === 'custom')    params.set('source', 'CUSTOM');
-            
+
             params.set('t', Date.now().toString());
 
-            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`);
+            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal });
             const data = await res.json();
             const newFoods = data.foods ?? [];
 
@@ -69,7 +73,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
             setHasMore(pageNum < totalPages);
             setPage(pageNum);
         } catch (e) {
-            console.error('[FoodManager]', e);
+            if (e.name !== 'AbortError') console.error('[FoodManager]', e);
         } finally {
             setLoading(false);
         }
@@ -254,16 +258,19 @@ export default function AdminFoodManagerScreen({ navigation }) {
 
             {dropdownOpen && <View style={{ height:dropdownListHeight }} />}
 
+            {/* LISTA DE ALIMENTOS: SOLUÇÃO NUCLEAR DO FLATLIST */}
             {!dropdownOpen && (
                 <View style={{ flex:1, marginTop:10, width: '100%', overflow: 'hidden' }}>
                     <FlatList
                         data={foods}
-                        extraData={{ page, loading, hasMore }}
+                        extraData={{ page, loading, hasMore, length: foods.length }}
                         keyExtractor={(item, i) => `${item.id}-${i}`}
                         style={{ flex: 1 }}
-                        initialNumToRender={50}
-                        maxToRenderPerBatch={50}
-                        windowSize={10}
+                        // 🔥 A OPÇÃO NUCLEAR: Força a renderização imediata de mil itens se necessário!
+                        initialNumToRender={1000}
+                        maxToRenderPerBatch={1000}
+                        windowSize={21}
+                        removeClippedSubviews={false}
                         renderItem={renderFood}
                         contentContainerStyle={{ paddingHorizontal:16, paddingBottom:40 }}
                         showsVerticalScrollIndicator={false}
@@ -292,10 +299,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
                                 return (
                                     <TouchableOpacity
                                         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface, marginVertical: 16 }}
-                                        onPress={() => {
-                                            console.log('🔥 Botão Carregar Mais Clicado! Buscando página:', page + 1);
-                                            fetchFoods(page + 1, true);
-                                        }}
+                                        onPress={() => fetchFoods(page + 1, true)}
                                     >
                                         <MaterialCommunityIcons name="reload" size={20} color={theme.text} />
                                         <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13, marginLeft: 8 }}>CARREGAR PÁGINA {page + 1}</Text>

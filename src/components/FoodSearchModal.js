@@ -1,5 +1,5 @@
 // src/components/FoodSearchModal.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View, Text, StyleSheet, Modal, TouchableOpacity,
     TextInput, FlatList, KeyboardAvoidingView, Platform,
@@ -51,6 +51,7 @@ export default function FoodSearchModal({
     const [total,            setTotal]            = useState(0);
     const [page,             setPage]             = useState(1);
     const [hasMore,          setHasMore]          = useState(false);
+    const abortRef = useRef(null);
 
     const isWeb = Platform.OS === 'web';
     const { height: windowHeight } = useWindowDimensions();
@@ -69,6 +70,9 @@ export default function FoodSearchModal({
 
     const fetchFoods = useCallback(async (pageNum = 1, append = false) => {
         if (!visible) return;
+        if (abortRef.current) abortRef.current.abort();
+        const ctrl = new AbortController();
+        abortRef.current = ctrl;
         setLoading(true);
         try {
             const params = new URLSearchParams({
@@ -82,7 +86,7 @@ export default function FoodSearchModal({
             
             params.set('t', Date.now().toString());
 
-            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`);
+            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal });
             const data = await res.json();
             const newFoods = data.foods ?? [];
             setFoods(prev => append ? [...prev, ...newFoods] : newFoods);
@@ -90,7 +94,7 @@ export default function FoodSearchModal({
             setHasMore(pageNum < (data.totalPages || data.pages || 1));
             setPage(pageNum);
         } catch (e) {
-            console.error('[FoodSearch]', e);
+            if (e.name !== 'AbortError') console.error('[FoodSearch]', e);
         } finally {
             setLoading(false);
         }
@@ -221,11 +225,13 @@ export default function FoodSearchModal({
                                     />
                                 ) : (
                                     <FlatList data={foods} keyExtractor={(item, i) => `${item.id}-${i}`}
-                                        extraData={{ page, loading, hasMore }}
+                                        extraData={{ page, loading, hasMore, length: foods.length }}
                                         style={{ flex: 1 }}
-                                        initialNumToRender={50}
-                                        maxToRenderPerBatch={50}
-                                        windowSize={10}
+                                        // 🔥 A OPÇÃO NUCLEAR NO MODAL: Destrói o bug de virtualização e desenha tudo instantaneamente
+                                        initialNumToRender={1000}
+                                        maxToRenderPerBatch={1000}
+                                        windowSize={21}
+                                        removeClippedSubviews={false}
                                         showsVerticalScrollIndicator={false}
                                         contentContainerStyle={{ paddingBottom:40 }}
                                         keyboardShouldPersistTaps="handled"
@@ -264,10 +270,7 @@ export default function FoodSearchModal({
                                                 return (
                                                     <TouchableOpacity
                                                         style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.surface, marginVertical: 16 }}
-                                                        onPress={() => {
-                                                            console.log('🔥 Botão Carregar Mais Clicado! Buscando página:', page + 1);
-                                                            fetchFoods(page + 1, true);
-                                                        }}
+                                                        onPress={() => fetchFoods(page + 1, true)}
                                                     >
                                                         <MaterialCommunityIcons name="reload" size={20} color={theme.text} />
                                                         <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13, marginLeft: 8 }}>CARREGAR PÁGINA {page + 1}</Text>
