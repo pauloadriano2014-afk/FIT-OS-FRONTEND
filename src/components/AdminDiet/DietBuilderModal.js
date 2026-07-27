@@ -278,7 +278,7 @@ function FoodSearchPanel({ coachId, onSelect, theme }) {
         const ctrl = new AbortController();
         abortRef.current = ctrl;
         setLoading(true);
-        const params = new URLSearchParams({ coachId, limit:'100', page:'1', favorites: tab==='favorites' ? 'true' : 'false' });
+        const params = new URLSearchParams({ coachId, limit:'200', page:'1', favorites: tab==='favorites' ? 'true' : 'false' });
         if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
         if (category !== 'Todas') params.set('category', category);
         fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal })
