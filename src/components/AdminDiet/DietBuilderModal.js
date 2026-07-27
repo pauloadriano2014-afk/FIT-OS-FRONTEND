@@ -283,7 +283,26 @@ function FoodSearchPanel({ coachId, onSelect, theme }) {
         if (category !== 'Todas') params.set('category', category);
         fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal })
             .then(r => r.json())
-            .then(d => setResults(d.foods ?? []))
+            .then(async d => {
+                const newFoods = d.foods ?? [];
+                setResults(newFoods);
+                // 🔥 Carrega páginas restantes automaticamente
+                const totalPages = d.pages ?? 1;
+                if (totalPages > 1) {
+                    let allFoods = [...newFoods];
+                    for (let p = 2; p <= totalPages; p++) {
+                        try {
+                            const p2 = new URLSearchParams({ coachId, limit:'200', page:String(p), favorites: tab==='favorites' ? 'true' : 'false' });
+                            if (debouncedSearch.length >= 2) p2.set('q', debouncedSearch);
+                            if (category !== 'Todas') p2.set('category', category);
+                            const r2 = await fetch(`${BASE_URL}/api/food/search?${p2}`);
+                            const d2 = await r2.json();
+                            allFoods = [...allFoods, ...(d2.foods ?? [])];
+                            setResults([...allFoods]);
+                        } catch {}
+                    }
+                }
+            })
             .catch(e => { if (e.name !== 'AbortError') console.error(e); })
             .finally(() => setLoading(false));
     }, [debouncedSearch, tab, coachId, category]);
