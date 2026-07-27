@@ -259,6 +259,14 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
     const duracaoDias = desafio.duracaoDias || 90;
     const precoPorDia = desafio.valor / duracaoDias;
 
+    // Constante para os passos do "Como Funciona"
+    const timelineSteps = [
+        { title: 'Inscrição via PIX', desc: 'Preencha seus dados na página e pague de forma segura.' },
+        { title: 'Confirmação Automática', desc: 'Nosso sistema detecta o pagamento na mesma hora.' },
+        { title: 'Acesso Liberado', desc: 'O link do grupo exclusivo do WhatsApp é revelado para você.' },
+        { title: 'Receba o Conteúdo', desc: 'Você entra no grupo e já começa a receber toda a orientação.' }
+    ];
+
     return (
         <RootComponent style={styles.container}>
             {previewBackButton}
@@ -289,7 +297,7 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                             )}
                         </View>
 
-                        {/* MENTOR COMPACTO */}
+                        {/* MENTOR COMPACTO (Correção: sem limite de linhas) */}
                         {desafio.mentorNome ? (
                             <View style={styles.compactRowCard}>
                                 <View style={styles.mentorPhotoBox}>
@@ -302,7 +310,8 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                                 <View style={{ flex: 1 }}>
                                     <Text style={styles.mentorLabel}>CONDUZIDO POR</Text>
                                     <Text style={styles.mentorName}>{desafio.mentorNome}</Text>
-                                    {desafio.mentorTexto ? <Text style={styles.mentorDesc} numberOfLines={2}>{desafio.mentorTexto}</Text> : null}
+                                    {/* 🔥 FIX: Removido o numberOfLines={2} para a descrição não ser cortada */}
+                                    {desafio.mentorTexto ? <Text style={styles.mentorDesc}>{desafio.mentorTexto}</Text> : null}
                                 </View>
                             </View>
                         ) : null}
@@ -376,23 +385,24 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                             </View>
                         )}
 
-                        {/* COMO FUNCIONA MIGRADO PARA TIMELINE COMPACTA */}
+                        {/* 🔥 FIX: COMO FUNCIONA MIGRADO PARA TIMELINE VERTICAL COMPACTA */}
                         <Text style={styles.sectionTitleLeft}>⚡ COMO FUNCIONA</Text>
-                        <View style={styles.timelineContainer}>
-                            <View style={styles.timelineItem}>
-                                <View style={styles.timelineBadge}><Text style={styles.timelineNumber}>1</Text></View>
-                                <Text style={styles.timelineText}>Inscrição via PIX</Text>
-                            </View>
-                            <View style={styles.timelineLine} />
-                            <View style={styles.timelineItem}>
-                                <View style={styles.timelineBadge}><Text style={styles.timelineNumber}>2</Text></View>
-                                <Text style={styles.timelineText}>Confirmação Direta</Text>
-                            </View>
-                            <View style={styles.timelineLine} />
-                            <View style={styles.timelineItem}>
-                                <View style={styles.timelineBadge}><Text style={styles.timelineNumber}>3</Text></View>
-                                <Text style={styles.timelineText}>Acesso Automático</Text>
-                            </View>
+                        <View style={styles.verticalTimelineContainer}>
+                            {timelineSteps.map((stepItem, idx) => (
+                                <View key={idx} style={styles.verticalTimelineRow}>
+                                    <View style={styles.verticalTimelineIconCol}>
+                                        <View style={styles.verticalTimelineBadge}>
+                                            <Text style={styles.verticalTimelineNumber}>{idx + 1}</Text>
+                                        </View>
+                                        {/* A linha conectora não renderiza no último item */}
+                                        {idx < timelineSteps.length - 1 && <View style={styles.verticalTimelineLine} />}
+                                    </View>
+                                    <View style={styles.verticalTimelineTextCol}>
+                                        <Text style={styles.verticalTimelineTitle}>{stepItem.title}</Text>
+                                        <Text style={styles.verticalTimelineDesc}>{stepItem.desc}</Text>
+                                    </View>
+                                </View>
+                            ))}
                         </View>
 
                         {/* FAQ ACCORDION COMPACTO */}
@@ -533,7 +543,7 @@ const styles = StyleSheet.create({
     heroLogoImg: { width: '100%', aspectRatio: 3.5, marginBottom: 16, borderRadius: 12 },
     heroTitle: { color: '#FFF', fontSize: 26, fontWeight: '900', marginBottom: 8 },
     heroDesc: { color: '#999', fontSize: 13, lineHeight: 20, marginBottom: 0 },
-    heroCtaCampact: { width: '100%', marginTop: 20 },
+    heroCtaCompact: { width: '100%', marginTop: 20 },
     gradientCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14 },
     heroCtaText: { color: '#FFF', fontWeight: '900', fontSize: 12, letterSpacing: 0.5 },
 
@@ -563,13 +573,16 @@ const styles = StyleSheet.create({
     bonusLabel: { color: LIGHT_COLOR, fontSize: 11, fontWeight: '900', letterSpacing: 0.5, marginBottom: 4 },
     bonusText: { color: '#AAA', fontSize: 12, lineHeight: 18 },
 
-    // ── Timeline Compacta Horizontal
-    timelineContainer: { flexDirection: 'row', backgroundColor: '#111015', borderRadius: 16, padding: 16, alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderColor: '#1c1922' },
-    timelineItem: { alignItems: 'center', gap: 6, flex: 1 },
-    timelineBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.15)', borderWidth: 1, borderColor: MAIN_COLOR, justifyContent: 'center', alignItems: 'center' },
-    timelineNumber: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 11 },
-    timelineText: { color: '#888', fontSize: 10, fontWeight: '700', textAlign: 'center' },
-    timelineLine: { width: 20, height: 1, backgroundColor: '#222', flexShrink: 0 },
+    // 🔥 FIX: Timeline Vertical Compacta (Garante que os 4 passos cabem sem amassar e não são cortados)
+    verticalTimelineContainer: { backgroundColor: '#111015', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#1c1922' },
+    verticalTimelineRow: { flexDirection: 'row', minHeight: 56 },
+    verticalTimelineIconCol: { alignItems: 'center', width: 30, marginRight: 15 },
+    verticalTimelineBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(139,92,246,0.15)', borderWidth: 1, borderColor: MAIN_COLOR, justifyContent: 'center', alignItems: 'center', zIndex: 2 },
+    verticalTimelineNumber: { color: LIGHT_COLOR, fontWeight: '900', fontSize: 11 },
+    verticalTimelineLine: { width: 1, flex: 1, backgroundColor: '#333', marginTop: -2, marginBottom: -2, zIndex: 1 },
+    verticalTimelineTextCol: { flex: 1, paddingBottom: 20 },
+    verticalTimelineTitle: { color: '#FFF', fontSize: 13, fontWeight: '800', marginBottom: 4 },
+    verticalTimelineDesc: { color: '#888', fontSize: 12, lineHeight: 18 },
 
     // ── Galeria Horizontal
     gallerySectionContainer: { width: '100%', overflow: 'hidden' },
@@ -578,6 +591,7 @@ const styles = StyleSheet.create({
     halfPhoto: { flex: 1, aspectRatio: 0.9, borderRadius: 10, overflow: 'hidden', position: 'relative', backgroundColor: '#000' },
     photoTag: { position: 'absolute', top: 4, left: 4, backgroundColor: 'rgba(0,0,0,0.7)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, color: '#888', fontSize: 8, fontWeight: '900', zIndex: 10 },
     galleryImgPlain: { width: '100%', height: '100%', resizeMode: 'cover' },
+    galleryCaptionQuote: { color: '#CCC', fontSize: 13, fontStyle: 'italic', textAlign: 'center' },
 
     // ── Card de Formulário Moderno
     modernFormCard: { backgroundColor: '#111015', borderRadius: 24, borderWidth: 1, borderColor: '#1c1922', padding: 22 },
@@ -591,7 +605,6 @@ const styles = StyleSheet.create({
     modernPixHelper: { color: '#777', fontSize: 12, textAlign: 'center', lineHeight: 18, marginBottom: 16, paddingHorizontal: 4 },
 
     inputLabel: { color: '#666', fontSize: 11, fontWeight: '900', marginBottom: 5, marginTop: 12 },
-    // 🔥 FIX: fontSize forçado para 16 nos inputs para evitar zoom fantasma do iOS na Web
     input: { backgroundColor: '#060608', color: '#FFF', borderWidth: 1, borderColor: '#222', borderRadius: 12, padding: 12, fontSize: 16 },
     cpfHelper: { color: '#444', fontSize: 10, fontStyle: 'italic', marginTop: 4 },
     formErrorText: { color: '#FF3B30', fontSize: 12, fontWeight: '700', marginTop: 14, textAlign: 'center' },
