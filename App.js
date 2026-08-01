@@ -66,6 +66,7 @@ import AdminCoachesScreen from './src/screens/AdminCoachesScreen';
 import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen';
 import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
 import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
+import ProdutoCheckoutScreen from './src/screens/ProdutoCheckoutScreen'; // 🔥 IMPORT ADICIONADO AQUI
 // 🔥 ESTRATÉGIAS
 import AdminStrategiesScreen from './src/screens/AdminStrategiesScreen';
 
@@ -280,6 +281,11 @@ function RootNavigator() {
       <Stack.Screen name="CoachPropostaScreen" component={CoachPropostaScreen} />
       {/* 🔥 ESTRATÉGIAS */}
       <Stack.Screen name="AdminStrategiesScreen" component={AdminStrategiesScreen} />
+      <Stack.Screen 
+        name="Produto" 
+        component={ProdutoCheckoutScreen} 
+        options={{ headerShown: false }} 
+      />
     </Stack.Navigator>
   );
 }
@@ -305,6 +311,7 @@ const linking = {
       PropostaFamilia: { path: 'PropostaFamilia' },
       CoachProposta: { path: 'seja-coach' },
       DesafioInscricao: { path: 'Desafio' },
+      Produto: { path: 'Produto' }, // 🔥 ROTA ADICIONADA AQUI PARA FUNCIONAR NA WEB
       SaaSProposta: {
         path: 'invite/:coachId',
         parse: { coachId: (v) => String(v) },

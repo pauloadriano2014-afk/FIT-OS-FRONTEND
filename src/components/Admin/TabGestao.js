@@ -12,6 +12,7 @@ import TabIA from './TabIA';
 import TabAssinatura from './TabAssinatura';
 import TabPropostaOfertas from './TabPropostaOfertas'; // 💎 Ofertas de Proposta (só master)
 import TabDesafios from './TabDesafios'; // 🎯 Desafios/Projetos por WhatsApp (só master)
+import TabProdutos from './TabProdutos'; // 🛒 E-books e Produtos Digitais (só master)
 
 const MASTER_IDS = [
     '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
@@ -53,6 +54,7 @@ export default function TabGestao({
         { id: 'CONFIG',      label: 'SISTEMA E AVISOS', show: true },
         { id: 'SAAS',        label: 'VENDAS',           show: true },
         { id: 'DESAFIOS',    label: 'DESAFIOS',         show: isMasterCoach },
+        { id: 'PRODUTOS',    label: 'PRODUTOS',         show: isMasterCoach }, // 🔥 Nova aba da loja da Adri
         { id: 'IA',          label: 'MINHA IA',         show: !isMasterCoach },
         { id: 'MARCA',       label: 'MINHA MARCA',      show: true },
         { id: 'ASSINATURA',  label: 'MINHA ASSINATURA', show: !isMasterCoach }, 
@@ -208,6 +210,11 @@ export default function TabGestao({
             {/* 🎯 Aba DESAFIOS — só master */}
             {subTabGestao === 'DESAFIOS' && isMasterCoach && (
                 <TabDesafios theme={theme} currentUserId={currentUserId} navigation={navigation} />
+            )}
+
+            {/* 🛒 Aba PRODUTOS DIGITAIS E E-BOOKS — só master */}
+            {subTabGestao === 'PRODUTOS' && isMasterCoach && (
+                <TabProdutos theme={theme} currentUserId={currentUserId} navigation={navigation} />
             )}
             
             {subTabGestao === 'IA' && !isMasterCoach && (
