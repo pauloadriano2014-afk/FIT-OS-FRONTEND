@@ -42,6 +42,39 @@ function getStrategyStatus(strategy) {
     return { label: 'Ativa', color: '#00C851', icon: 'check-circle-outline' };
 }
 
+// 🔥 Seletor reutilizável: aluno escolhe entre os dois planos, ou estratégia substitui totalmente
+function ExclusiveModeToggle({ value, onChange, theme }) {
+    return (
+        <View style={[styles.configCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View style={styles.configCardHeader}>
+                <MaterialCommunityIcons name="account-switch-outline" size={18} color={theme.accent} />
+                <Text style={[styles.configCardTitle, { color: theme.text }]}>Como o aluno vê essa estratégia</Text>
+            </View>
+            <Text style={[styles.configCardDesc, { color: theme.textSecondary }]}>
+                "Aluno escolhe" mostra as duas opções pra ele alternar. "Substitui totalmente" esconde a dieta base enquanto essa estratégia estiver ativa.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                <TouchableOpacity
+                    style={[styles.toggleBtn, { borderColor: !value ? theme.accent : theme.border, backgroundColor: !value ? theme.accent + '20' : theme.surface }]}
+                    onPress={() => onChange(false)}
+                >
+                    <Text style={[styles.toggleBtnText, { color: !value ? theme.accent : theme.textSecondary }]}>
+                        🔀 Aluno escolhe
+                    </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.toggleBtn, { borderColor: value ? theme.accent : theme.border, backgroundColor: value ? theme.accent + '20' : theme.surface }]}
+                    onPress={() => onChange(true)}
+                >
+                    <Text style={[styles.toggleBtnText, { color: value ? theme.accent : theme.textSecondary }]}>
+                        🔒 Substitui totalmente
+                    </Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+}
+
 function CreateStrategyModal({ visible, onClose, onConfirm, baseDiet, theme }) {
     const [step,           setStep]           = useState(1);
     const [preset,         setPreset]         = useState(null);
@@ -51,6 +84,7 @@ function CreateStrategyModal({ visible, onClose, onConfirm, baseDiet, theme }) {
     const [generalNotes,   setGeneralNotes]   = useState('');
     const [copyBase,       setCopyBase]       = useState(true);
     const [activateNow,    setActivateNow]    = useState(false);
+    const [exclusiveMode,  setExclusiveMode]  = useState(false);
     const [useStartDate,   setUseStartDate]   = useState(false);
     const [useEndDate,     setUseEndDate]     = useState(false);
     const [startDate,      setStartDate]      = useState(new Date());
@@ -62,7 +96,7 @@ function CreateStrategyModal({ visible, onClose, onConfirm, baseDiet, theme }) {
     function reset() {
         setStep(1); setPreset(null); setCustomName(''); setGoal('');
         setWaterIntake(''); setGeneralNotes(''); setCopyBase(true);
-        setActivateNow(false); setUseStartDate(false); setUseEndDate(false);
+        setActivateNow(false); setExclusiveMode(false); setUseStartDate(false); setUseEndDate(false);
         setShowStartPicker(false); setShowEndPicker(false);
     }
 
@@ -80,6 +114,7 @@ function CreateStrategyModal({ visible, onClose, onConfirm, baseDiet, theme }) {
                 generalNotes:      generalNotes || null,
                 copyFromDietId:    copyBase && baseDiet ? baseDiet.id : null,
                 activateNow,
+                strategyExclusive: exclusiveMode,
                 strategyStartDate: useStartDate ? startDate.toISOString() : null,
                 strategyEndDate:   useEndDate   ? endDate.toISOString()   : null,
             });
@@ -193,6 +228,9 @@ function CreateStrategyModal({ visible, onClose, onConfirm, baseDiet, theme }) {
                                     />
                                 </View>
 
+                                {/* 🔥 Aluno escolhe vs substitui totalmente */}
+                                <ExclusiveModeToggle value={exclusiveMode} onChange={setExclusiveMode} theme={theme} />
+
                                 <View style={[styles.configCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                                     <View style={styles.configCardHeader}>
                                         <MaterialCommunityIcons name="calendar-clock" size={18} color={theme.accent} />
@@ -283,7 +321,6 @@ function CreateStrategyModal({ visible, onClose, onConfirm, baseDiet, theme }) {
 }
 
 // ── Card de estratégia ────────────────────────────────────────────────────────
-// 🔥 ADICIONADO onEditMeals NAS PROPRIEDADES
 function StrategyCard({ strategy, baseDietId, onActivate, onDeactivate, onDelete, onEditDates, onEditMeals, theme }) {
     const status = getStrategyStatus(strategy);
     const preset = STRATEGY_PRESETS.find(p => p.label === strategy.strategyName) ?? STRATEGY_PRESETS.find(p => p.key === 'custom');
@@ -335,9 +372,18 @@ function StrategyCard({ strategy, baseDietId, onActivate, onDeactivate, onDelete
                             <Text style={[styles.stratInfoText, { color: theme.textSecondary }]}>controle manual</Text>
                         </View>
                     )}
+                    {/* 🔥 Indica o modo de exibição pro aluno, só quando ativa */}
+                    {status.label === 'Ativa' && (
+                        <View style={[styles.stratInfoPill, { backgroundColor: theme.bg }]}>
+                            <MaterialCommunityIcons name={strategy.strategyExclusive ? 'lock-outline' : 'shuffle-variant'} size={12} color={theme.textSecondary} />
+                            <Text style={[styles.stratInfoText, { color: theme.textSecondary }]}>
+                                {strategy.strategyExclusive ? 'substitui a dieta base' : 'aluno escolhe entre esta e a base'}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
-                {/* 🔥 AÇÕES DO CARD — BOTÃO DE DIETA INCLUÍDO AQUI */}
+                {/* ── AÇÕES DO CARD ── */}
                 <View style={styles.stratActions}>
                     {status.label !== 'Ativa' ? (
                         <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#00C85120', borderColor: '#00C85150' }]} onPress={onActivate}>
@@ -371,11 +417,13 @@ function StrategyCard({ strategy, baseDietId, onActivate, onDeactivate, onDelete
     );
 }
 
+// 🔥 Agora edita também o modo (aluno escolhe / substitui totalmente), não só datas
 function EditStrategyModal({ visible, strategy, onClose, onSave, theme }) {
     const [startDate,       setStartDate]       = useState(null);
     const [endDate,         setEndDate]         = useState(null);
     const [useStart,        setUseStart]        = useState(false);
     const [useEnd,          setUseEnd]          = useState(false);
+    const [exclusiveMode,   setExclusiveMode]   = useState(false);
     const [showStartPicker, setShowStartPicker] = useState(false);
     const [showEndPicker,   setShowEndPicker]   = useState(false);
     const [loading,         setLoading]         = useState(false);
@@ -388,6 +436,7 @@ function EditStrategyModal({ visible, strategy, onClose, onSave, theme }) {
             setEndDate(e);
             setUseStart(!!strategy.strategyStartDate);
             setUseEnd(!!strategy.strategyEndDate);
+            setExclusiveMode(!!strategy.strategyExclusive);
         }
     }, [strategy]);
 
@@ -397,6 +446,7 @@ function EditStrategyModal({ visible, strategy, onClose, onSave, theme }) {
             await onSave({
                 strategyStartDate: useStart ? startDate?.toISOString() : null,
                 strategyEndDate:   useEnd   ? endDate?.toISOString()   : null,
+                strategyExclusive: exclusiveMode,
             });
         } finally {
             setLoading(false);
@@ -409,7 +459,7 @@ function EditStrategyModal({ visible, strategy, onClose, onSave, theme }) {
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.modalBackdrop}>
                 <View style={[styles.editModal, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                    <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 4 }]}>Editar período</Text>
+                    <Text style={[styles.modalTitle, { color: theme.text, marginBottom: 4 }]}>Editar estratégia</Text>
                     <Text style={[styles.modalSubtitle, { color: theme.textSecondary, marginBottom: 16 }]}>{strategy.strategyName}</Text>
 
                     <TouchableOpacity
@@ -436,6 +486,10 @@ function EditStrategyModal({ visible, strategy, onClose, onSave, theme }) {
 
                     {showStartPicker && <DateTimePicker value={startDate ?? new Date()} mode="date" display="default" onChange={(_, d) => { setShowStartPicker(false); if (d) setStartDate(d); }} />}
                     {showEndPicker   && <DateTimePicker value={endDate   ?? new Date()} mode="date" display="default" onChange={(_, d) => { setShowEndPicker(false);   if (d) setEndDate(d);   }} />}
+
+                    <View style={{ marginBottom: 16 }}>
+                        <ExclusiveModeToggle value={exclusiveMode} onChange={setExclusiveMode} theme={theme} />
+                    </View>
 
                     <View style={{ flexDirection: 'row', gap: 10 }}>
                         <TouchableOpacity style={[styles.btnSecondary, { borderColor: theme.border, flex: 1 }]} onPress={onClose}>
@@ -552,6 +606,8 @@ export default function AdminStrategiesScreen({ route, navigation }) {
     }
 
     const activeStrategy = strategies.find(s => getStrategyStatus(s).label === 'Ativa');
+    // 🔥 Base só fica "escondida" quando a estratégia ativa é exclusiva
+    const baseIsHidden = !!(activeStrategy && activeStrategy.strategyExclusive);
 
     return (
         <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
@@ -577,25 +633,27 @@ export default function AdminStrategiesScreen({ route, navigation }) {
                 </View>
             ) : (
                 <ScrollView contentContainerStyle={styles.content}>
-                    <View style={[styles.baseDietCard, { backgroundColor: theme.surface, borderColor: activeStrategy ? theme.border : theme.accent }]}>
+                    <View style={[styles.baseDietCard, { backgroundColor: theme.surface, borderColor: baseIsHidden ? theme.border : theme.accent }]}>
                         <View style={styles.baseDietHeader}>
-                            <View style={[styles.baseDietIconBox, { backgroundColor: activeStrategy ? theme.border + '30' : theme.accent + '20' }]}>
-                                <MaterialCommunityIcons name="food-apple" size={20} color={activeStrategy ? theme.textSecondary : theme.accent} />
+                            <View style={[styles.baseDietIconBox, { backgroundColor: baseIsHidden ? theme.border + '30' : theme.accent + '20' }]}>
+                                <MaterialCommunityIcons name="food-apple" size={20} color={baseIsHidden ? theme.textSecondary : theme.accent} />
                             </View>
                             <View style={{ flex: 1 }}>
-                                <Text style={[styles.baseDietTitle, { color: activeStrategy ? theme.textSecondary : theme.text }]}>
+                                <Text style={[styles.baseDietTitle, { color: baseIsHidden ? theme.textSecondary : theme.text }]}>
                                     Dieta Base
                                 </Text>
                                 <Text style={[styles.baseDietSub, { color: theme.textSecondary }]}>
                                     {activeStrategy
-                                        ? `Oculta — estratégia "${activeStrategy.strategyName}" ativa`
-                                        : 'Ativa — aluno está vendo esta dieta'}
+                                        ? (baseIsHidden
+                                            ? `Oculta — estratégia "${activeStrategy.strategyName}" está substituindo totalmente`
+                                            : `Aluno escolhe entre esta e "${activeStrategy.strategyName}"`)
+                                        : 'Único plano disponível para o aluno'}
                                 </Text>
                             </View>
-                            <View style={[styles.baseDietStatus, { backgroundColor: activeStrategy ? '#55555520' : theme.accent + '20' }]}>
-                                <MaterialCommunityIcons name={activeStrategy ? 'eye-off' : 'eye'} size={14} color={activeStrategy ? '#555' : theme.accent} />
-                                <Text style={[styles.baseDietStatusText, { color: activeStrategy ? '#555' : theme.accent }]}>
-                                    {activeStrategy ? 'Oculta' : 'Visível'}
+                            <View style={[styles.baseDietStatus, { backgroundColor: baseIsHidden ? '#55555520' : theme.accent + '20' }]}>
+                                <MaterialCommunityIcons name={baseIsHidden ? 'eye-off' : 'eye'} size={14} color={baseIsHidden ? '#555' : theme.accent} />
+                                <Text style={[styles.baseDietStatusText, { color: baseIsHidden ? '#555' : theme.accent }]}>
+                                    {baseIsHidden ? 'Oculta' : 'Visível'}
                                 </Text>
                             </View>
                         </View>
@@ -627,7 +685,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
                             <MaterialCommunityIcons name="lightning-bolt-outline" size={40} color={theme.textSecondary} />
                             <Text style={[styles.emptyTitle, { color: theme.text }]}>Nenhuma estratégia criada</Text>
                             <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>
-                                Crie uma estratégia temporária para sobrepor a dieta base do aluno por período específico.
+                                Crie uma estratégia temporária — o aluno pode escolher entre ela e a dieta base, ou ela pode substituir totalmente, dependendo do que você configurar.
                             </Text>
                             <TouchableOpacity
                                 style={[styles.btnPrimary, { backgroundColor: theme.accent, marginTop: 16, paddingHorizontal: 24 }]}
@@ -652,7 +710,6 @@ export default function AdminStrategiesScreen({ route, navigation }) {
                                     onDeactivate={() => handleDeactivate(strategy.id)}
                                     onDelete={() => handleDelete(strategy.id)}
                                     onEditDates={() => { setEditTarget(strategy); setEditVisible(true); }}
-                                    // 🔥 ENVIANDO O STRATEGY ID PARA A TELA DA MESA DE OPERAÇÕES
                                     onEditMeals={() => navigation.navigate('AdminDietScreen', {
                                         aluno,
                                         alunoId: userId,

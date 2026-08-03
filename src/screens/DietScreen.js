@@ -1,4 +1,6 @@
-// src/screens/DietScreen.js — VERSÃO 3.0
+// src/screens/DietScreen.js — VERSÃO 3.1
+// 🔥 Aluno escolhe entre a dieta base e a estratégia ativa — a menos que a estratégia
+// esteja marcada como strategyExclusive (aí ela substitui totalmente, como era antes)
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, ScrollView,
@@ -53,7 +55,11 @@ export default function DietScreen({ route }) {
     const { height: windowHeight } = useWindowDimensions();
     const RootComponent = isWeb ? View : SafeAreaView;
 
-    const [diet,            setDiet]            = useState(null);
+    // Os dois planos guardados separadamente, mais qual deles está selecionado pra visualização
+    const [baseDiet,        setBaseDiet]        = useState(null);
+    const [strategyDiet,    setStrategyDiet]     = useState(null);
+    const [selectedSource,  setSelectedSource]   = useState('strategy'); // 'strategy' | 'base'
+
     const [loading,         setLoading]         = useState(true);
     const [user,            setUser]            = useState(null);
     const [accessDenied,    setAccessDenied]    = useState(false);
@@ -68,6 +74,15 @@ export default function DietScreen({ route }) {
     const [checkedShopping, setCheckedShopping] = useState([]);
 
     const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    // Plano efetivamente exibido — deriva de qual fonte está selecionada
+    const diet = useMemo(() => {
+        if (selectedSource === 'strategy' && strategyDiet) return strategyDiet;
+        return baseDiet;
+    }, [selectedSource, strategyDiet, baseDiet]);
+
+    // 🔥 Só oferece escolha se a estratégia existir E não for exclusiva
+    const hasChoice = !!(baseDiet && strategyDiet && !strategyDiet.strategyExclusive);
 
     // ── INICIALIZAÇÃO ─────────────────────────────────────────────────────────
     useEffect(() => {
@@ -100,16 +115,15 @@ export default function DietScreen({ route }) {
         initialize();
     }, [route.params]);
 
-    // 🔥 NOVA FUNÇÃO DE BUSCA INTELIGENTE (ESTRATÉGIA > DIETA BASE)
+    // 🔥 BUSCA INTELIGENTE — guarda BASE e ESTRATÉGIA separadamente
     const fetchDiet = async (userId) => {
         try {
-            // Tenta buscar a lista de estratégias do aluno primeiro
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/strategies/${userId}?t=${Date.now()}`);
             if (res.ok) {
                 const data = await res.json();
                 const strategies = data.strategies || [];
-                const baseDiets = data.baseDiets || [];
-                
+                const baseDiets  = data.baseDiets  || [];
+
                 // Validação rigorosa de tempo e status
                 const now = new Date();
                 const activeStrategy = strategies.find(s => {
@@ -121,18 +135,14 @@ export default function DietScreen({ route }) {
                     return true;
                 });
 
-                let selectedDiet = null;
+                const base  = (baseDiets.length > 0 && baseDiets[0].meals?.length > 0) ? baseDiets[0] : null;
+                const strat = (activeStrategy && activeStrategy.meals?.length > 0) ? { ...activeStrategy, isStrategy: true } : null;
 
-                if (activeStrategy && activeStrategy.meals?.length > 0) {
-                    // Tem estratégia ativa com refeições!
-                    selectedDiet = { ...activeStrategy, isStrategy: true };
-                } else if (baseDiets.length > 0 && baseDiets[0].meals?.length > 0) {
-                    // Cai no plano padrão
-                    selectedDiet = baseDiets[0];
-                }
-
-                if (selectedDiet) {
-                    setDiet(selectedDiet);
+                if (base || strat) {
+                    setBaseDiet(base);
+                    setStrategyDiet(strat);
+                    // Abre na estratégia se ela existir (comportamento anterior), senão na base
+                    setSelectedSource(strat ? 'strategy' : 'base');
                     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
                     setLoading(false);
                     return; // Sucesso com a inteligência nova, não precisa do fallback
@@ -148,11 +158,13 @@ export default function DietScreen({ route }) {
             if (res.ok) {
                 const data = await res.json();
                 if (data?.meals?.length > 0) {
-                    setDiet(data);
+                    setBaseDiet(data);
+                    setStrategyDiet(null);
+                    setSelectedSource('base');
                     Animated.timing(fadeAnim, { toValue: 1, duration: 500, useNativeDriver: true }).start();
-                } else setDiet(null);
-            } else setDiet(null);
-        } catch { setDiet(null); }
+                } else { setBaseDiet(null); setStrategyDiet(null); }
+            } else { setBaseDiet(null); setStrategyDiet(null); }
+        } catch { setBaseDiet(null); setStrategyDiet(null); }
         finally  { setLoading(false); }
     };
 
@@ -288,15 +300,50 @@ export default function DietScreen({ route }) {
 
                         // ── ABA CARDÁPIO ─────────────────────────────────────
                         <>
-                            {/* 🔥 TARJA DE ESTRATÉGIA ATIVA (Aparece automaticamente) */}
-                            {diet?.isStrategy && (
-                                <View style={[styles.strategyBanner, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
-                                    <MaterialCommunityIcons name="lightning-bolt" size={24} color={theme.accent} />
-                                    <View style={{ flex: 1, marginLeft: 12 }}>
-                                        <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 10, letterSpacing: 1 }}>ESTRATÉGIA ATIVA</Text>
-                                        <Text style={{ color: theme.text, fontSize: 14, fontWeight: 'bold', marginTop: 2 }}>{diet.strategyName}</Text>
-                                    </View>
+                            {/* SELETOR DE PLANO — só aparece quando há escolha real (base + estratégia não-exclusiva) */}
+                            {hasChoice ? (
+                                <View style={[styles.planSwitcher, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                                    <TouchableOpacity
+                                        style={[styles.planOption, selectedSource === 'strategy' && { backgroundColor: theme.accent }]}
+                                        onPress={() => setSelectedSource('strategy')}
+                                        activeOpacity={0.8}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name="lightning-bolt" size={14}
+                                            color={selectedSource === 'strategy' ? '#000' : theme.textSecondary}
+                                        />
+                                        <Text
+                                            style={[styles.planOptionText, { color: selectedSource === 'strategy' ? '#000' : theme.textSecondary }]}
+                                            numberOfLines={1}
+                                        >
+                                            {strategyDiet.strategyName}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.planOption, selectedSource === 'base' && { backgroundColor: theme.accent }]}
+                                        onPress={() => setSelectedSource('base')}
+                                        activeOpacity={0.8}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name="food-apple" size={14}
+                                            color={selectedSource === 'base' ? '#000' : theme.textSecondary}
+                                        />
+                                        <Text style={[styles.planOptionText, { color: selectedSource === 'base' ? '#000' : theme.textSecondary }]}>
+                                            Plano Padrão
+                                        </Text>
+                                    </TouchableOpacity>
                                 </View>
+                            ) : (
+                                // Estratégia exclusiva (ou só existe um plano) — mantém o aviso simples, sem seletor
+                                diet?.isStrategy && (
+                                    <View style={[styles.strategyBanner, { backgroundColor: theme.accent + '15', borderColor: theme.accent }]}>
+                                        <MaterialCommunityIcons name="lightning-bolt" size={24} color={theme.accent} />
+                                        <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 10, letterSpacing: 1 }}>ESTRATÉGIA ATIVA</Text>
+                                            <Text style={{ color: theme.text, fontSize: 14, fontWeight: 'bold', marginTop: 2 }}>{diet.strategyName}</Text>
+                                        </View>
+                                    </View>
+                                )
                             )}
 
                             {/* Header contextual */}
@@ -404,10 +451,8 @@ export default function DietScreen({ route }) {
         </Text>
     </View>
     
-    {/* 🔥 Prop diet adicionada aqui */}
     <FreeMealGuide theme={theme} diet={diet} />
     
-    {/* 🔥 Prop diet adicionada aqui também */}
     <DietMindsetPanel
         theme={theme}
         userId={user?.id}
@@ -464,6 +509,18 @@ const styles = StyleSheet.create({
     tabText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
 
     scrollContent: { paddingHorizontal: 16, paddingBottom: 120 },
+
+    planSwitcher: {
+        flexDirection: 'row', borderRadius: 16,
+        padding: 4, borderWidth: 1, gap: 4,
+        marginBottom: 16,
+    },
+    planOption: {
+        flex: 1, flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'center', gap: 6,
+        paddingVertical: 12, borderRadius: 12,
+    },
+    planOptionText: { fontSize: 12, fontWeight: '900', letterSpacing: 0.3 },
 
     strategyBanner: {
         flexDirection: 'row',
