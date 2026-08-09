@@ -123,6 +123,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const [checkinsInscricoes, setCheckinsInscricoes] = useState([]);
     const [loadingCheckins, setLoadingCheckins] = useState(false);
     const [checkinDetalhe, setCheckinDetalhe] = useState(null); // { nome, entry } do dia selecionado
+    const [togglingMissao, setTogglingMissao] = useState(false);
 
     const [rankingDesafio, setRankingDesafio] = useState(null);
     const [ranking, setRanking] = useState([]);
@@ -573,6 +574,31 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     };
 
     // ── Ver check-ins (acompanhamento diário das participantes) ──────────────
+    // ── Marcar/desmarcar missão cumprida (só admin, geralmente aos domingos) ──
+    const handleToggleMissao = async (entry) => {
+        setTogglingMissao(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/desafios/checkin/${entry.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ missao: !entry.missao }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setCheckinDetalhe((prev) => (prev ? { ...prev, entry: data.checkin } : prev));
+                // Atualiza a lista principal também, pra tirinha refletir na hora
+                if (checkinsDesafio) await openCheckins(checkinsDesafio);
+            } else {
+                const data = await res.json();
+                Platform.OS === 'web' ? window.alert(data?.error || 'Erro ao marcar missão.') : Alert.alert('Erro', data?.error || 'Erro ao marcar missão.');
+            }
+        } catch (e) {
+            console.log('Erro ao marcar missão', e);
+        } finally {
+            setTogglingMissao(false);
+        }
+    };
+
     const openCheckins = async (desafio) => {
         setCheckinsDesafio(desafio);
         setView('checkins');
@@ -1452,7 +1478,6 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                                 { label: 'Cardio', ok: checkinDetalhe.entry.cardio },
                                                 { label: 'Alimentação', ok: checkinDetalhe.entry.alimentacao },
                                                 { label: 'Água', ok: checkinDetalhe.entry.agua },
-                                                { label: 'Missão', ok: checkinDetalhe.entry.missao },
                                             ].map((item, i) => (
                                                 <View key={i} style={styles.detalheItemChip}>
                                                     <MaterialCommunityIcons
@@ -1464,6 +1489,34 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                                 </View>
                                             ))}
                                         </View>
+
+                                        {/* 🎯 Missão — só a Adri marca, e só faz sentido aos domingos */}
+                                        {new Date(checkinDetalhe.entry.data).getUTCDay() === 0 && (
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.missaoToggleBtn,
+                                                    { borderColor: checkinDetalhe.entry.missao ? '#4DE38F' : theme.border },
+                                                    checkinDetalhe.entry.missao && { backgroundColor: '#4DE38F15' },
+                                                ]}
+                                                onPress={() => handleToggleMissao(checkinDetalhe.entry)}
+                                                disabled={togglingMissao}
+                                            >
+                                                {togglingMissao ? (
+                                                    <ActivityIndicator size="small" color={theme.accent} />
+                                                ) : (
+                                                    <>
+                                                        <MaterialCommunityIcons
+                                                            name={checkinDetalhe.entry.missao ? 'check-circle' : 'target'}
+                                                            size={16}
+                                                            color={checkinDetalhe.entry.missao ? '#4DE38F' : theme.accent}
+                                                        />
+                                                        <Text style={{ color: checkinDetalhe.entry.missao ? '#4DE38F' : theme.accent, fontSize: 11, fontWeight: '900' }}>
+                                                            {checkinDetalhe.entry.missao ? 'MISSÃO CUMPRIDA — toque pra desmarcar' : 'MARCAR MISSÃO COMO CUMPRIDA'}
+                                                        </Text>
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+                                        )}
 
                                         {checkinDetalhe.entry.pesoKg != null && (
                                             <Text style={[styles.helperText, { fontSize: 13, color: theme.text, marginTop: 12, fontWeight: '900' }]}>
@@ -1736,9 +1789,10 @@ const styles = StyleSheet.create({
     modalCard: { width: '100%', maxWidth: 420, maxHeight: '85%', borderRadius: 20, borderWidth: 1, padding: 20 },
     detalheItensGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     detalheItemChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+    missaoToggleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 12, marginTop: 12 },
     detalheFotosGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
     detalheFotoBox: { width: '47%' },
-    detalheFotoImg: { width: '100%', aspectRatio: 1, borderRadius: 10, marginTop: 4, backgroundColor: '#000' },
+    detalheFotoImg: { width: '100%', aspectRatio: 9 / 16, borderRadius: 10, marginTop: 4, backgroundColor: '#000' },
     fotoSlotLabel: { color: '#888', fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
 
     weekNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12 },

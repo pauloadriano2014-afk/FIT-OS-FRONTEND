@@ -39,7 +39,8 @@ const faqListCheckin = [
     { q: 'Posso editar o check-in depois de enviar?', a: 'Sim! Reabra o link no mesmo dia e ajuste o que quiser — ele atualiza automaticamente, não duplica nem cria um novo.' },
     { q: 'Pra que servem as fotos de sábado (frente/lado/costas)?', a: 'São pra Adri acompanhar sua evolução física real ao longo dos 90 dias — sem elas, fica difícil enxergar o progresso.' },
     { q: 'Meus dados e fotos ficam visíveis pras outras participantes?', a: 'Não. Só você e a equipe (Adri/Paulo) têm acesso ao que você envia.' },
-    { q: 'A pontuação muda em algum dia?', a: 'Sim! Fim de semana já vale mais pontos por padrão. Além disso, em feriados ou datas especiais a pontuação pode aumentar ainda mais — sempre avisamos aqui na página com antecedência, então fica de olho nos avisos.' },
+    { q: 'A pontuação muda em algum dia?', a: 'Pode! Em feriados ou datas especiais a pontuação pode aumentar — sempre avisamos aqui na página com antecedência, então fica de olho nos avisos.' },
+    { q: 'O que é a "Missão"?', a: 'Toda semana a Adri passa um desafio extra no grupo do WhatsApp. Ela mesma marca quem completou direto no sistema — não precisa fazer nada aqui na página pra isso.' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -91,7 +92,6 @@ export default function DesafioCheckinScreen({ route, navigation }) {
     const [cardio, setCardio] = useState(false);
     const [alimentacao, setAlimentacao] = useState(false);
     const [agua, setAgua] = useState(false);
-    const [missao, setMissao] = useState(false);
     const [fotoAcademiaUrl, setFotoAcademiaUrl] = useState('');
     const [fotoFrenteUrl, setFotoFrenteUrl] = useState('');
     const [fotoLadoUrl, setFotoLadoUrl] = useState('');
@@ -166,7 +166,6 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                     setCardio(checkinHoje.cardio);
                     setAlimentacao(checkinHoje.alimentacao);
                     setAgua(checkinHoje.agua);
-                    setMissao(checkinHoje.missao);
                     setFotoAcademiaUrl(checkinHoje.fotoAcademiaUrl || '');
                     setFotoFrenteUrl(checkinHoje.fotoFrenteUrl || '');
                     setFotoLadoUrl(checkinHoje.fotoLadoUrl || '');
@@ -214,7 +213,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
         setInscricaoId(null);
         setParticipanteNome('');
         setTelefone('');
-        setTreino(false); setCardio(false); setAlimentacao(false); setAgua(false); setMissao(false);
+        setTreino(false); setCardio(false); setAlimentacao(false); setAgua(false);
         setFotoAcademiaUrl(''); setFotoFrenteUrl(''); setFotoLadoUrl(''); setFotoCostasUrl(''); setPesoKg('');
         setHistorico([]);
         setStep('identificar');
@@ -235,7 +234,8 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                 }
                 result = await ImagePicker.launchCameraAsync({
                     mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                    allowsEditing: false,
+                    allowsEditing: true,
+                    aspect: [9, 16],
                     quality: 0.7,
                 });
             } else {
@@ -246,6 +246,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                 result = await ImagePicker.launchImageLibraryAsync({
                     mediaTypes: ImagePicker.MediaTypeOptions.Images,
                     allowsEditing: true,
+                    aspect: [9, 16],
                     quality: 0.7,
                 });
             }
@@ -293,7 +294,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                 body: JSON.stringify({
                     inscricaoId,
                     data: hojeISO(),
-                    treino, cardio, alimentacao, agua, missao,
+                    treino, cardio, alimentacao, agua,
                     fotoAcademiaUrl: fotoAcademiaUrl || null,
                     fotoFrenteUrl: isSabado ? (fotoFrenteUrl || null) : null,
                     fotoLadoUrl: isSabado ? (fotoLadoUrl || null) : null,
@@ -583,7 +584,6 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                                 {renderCheckboxItem('Cardio', 'run', cardio, setCardio)}
                                 {renderCheckboxItem('Alimentação', 'food-apple', alimentacao, setAlimentacao)}
                                 {renderCheckboxItem('Água', 'cup-water', agua, setAgua)}
-                                {renderCheckboxItem('Missão', 'target', missao, setMissao)}
 
                                 <Text style={[styles.inputLabel, { marginTop: 16 }]}>Foto na academia</Text>
                                 {renderFotoSlot('Hoje', 'academia', fotoAcademiaUrl, setFotoAcademiaUrl, true)}
@@ -734,8 +734,8 @@ const styles = StyleSheet.create({
 
     fotoSlotBox: { marginBottom: 4 },
     fotoSlotLabel: { color: '#777', fontSize: 10, fontWeight: '700', marginBottom: 6 },
-    fotoSlotEmpty: { width: '100%', aspectRatio: 1.6, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: MAIN_COLOR, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(139,92,246,0.05)' },
-    fotoSlotPreview: { width: '100%', aspectRatio: 1.6, borderRadius: 12, overflow: 'hidden', position: 'relative' },
+    fotoSlotEmpty: { width: '100%', aspectRatio: 9 / 16, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', borderColor: MAIN_COLOR, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(139,92,246,0.05)' },
+    fotoSlotPreview: { width: '100%', aspectRatio: 9 / 16, borderRadius: 12, overflow: 'hidden', position: 'relative' },
     fotoSlotImg: { width: '100%', height: '100%', resizeMode: 'cover' },
     fotoSlotRemove: { position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 10, padding: 3 },
 
