@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
-    TextInput, Alert, Platform, ActivityIndicator, Switch, Image, Linking
+    TextInput, Alert, Platform, ActivityIndicator, Switch, Image, Linking, Modal
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -122,6 +122,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const [checkinsDesafio, setCheckinsDesafio] = useState(null);
     const [checkinsInscricoes, setCheckinsInscricoes] = useState([]);
     const [loadingCheckins, setLoadingCheckins] = useState(false);
+    const [checkinDetalhe, setCheckinDetalhe] = useState(null); // { nome, entry } do dia selecionado
 
     const [rankingDesafio, setRankingDesafio] = useState(null);
     const [ranking, setRanking] = useState([]);
@@ -134,7 +135,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const [datasEspeciais, setDatasEspeciais] = useState([]);
     const [loadingDatasEspeciais, setLoadingDatasEspeciais] = useState(false);
     const [novaDataEspecial, setNovaDataEspecial] = useState('');
-    const [novaDataPontos, setNovaDataPontos] = useState('3');
+    const [novaDataPontos, setNovaDataPontos] = useState('2');
     const [novaDataMotivo, setNovaDataMotivo] = useState('');
     const [savingDataEspecial, setSavingDataEspecial] = useState(false);
 
@@ -644,7 +645,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setDatasEspeciaisDesafio(desafio);
         setView('datas-especiais');
         setNovaDataEspecial('');
-        setNovaDataPontos('3');
+        setNovaDataPontos('2');
         setNovaDataMotivo('');
         await fetchDatasEspeciais(desafio);
     };
@@ -670,7 +671,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             });
             if (res.ok) {
                 setNovaDataEspecial('');
-                setNovaDataPontos('3');
+                setNovaDataPontos('2');
                 setNovaDataMotivo('');
                 await fetchDatasEspeciais(datasEspeciaisDesafio);
             } else {
@@ -990,13 +991,17 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         aceita check-in dentro do período (início até início + duração). Deixe em branco pra não ter essa trava.
                     </Text>
 
-                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 20 }]}>🏆 Pontuação do check-in (pontos por item marcado)</Text>
-                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 20 }]}>🏆 Multiplicador de pontuação por dia</Text>
+                    <Text style={styles.helperText}>
+                        Cada item já vale um valor fixo (Treino=10, Cardio=10, Água=5, Alimentação=10, Missão=15, Check-in=5).
+                        O multiplicador abaixo aumenta ou diminui isso conforme o dia — 1 = sem alteração, 2 = dobra tudo.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
                         <View style={{ flex: 1 }}>
                             <Text style={styles.pontosFieldLabel}>Segunda a sexta</Text>
                             <TextInput
                                 style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, textAlign: 'center' }]}
-                                keyboardType="numeric"
+                                keyboardType="decimal-pad"
                                 value={editingDesafio.pontosPorItem}
                                 onChangeText={(v) => updateField('pontosPorItem', v)}
                                 placeholder="1"
@@ -1007,7 +1012,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                             <Text style={styles.pontosFieldLabel}>Sábado e domingo</Text>
                             <TextInput
                                 style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, textAlign: 'center' }]}
-                                keyboardType="numeric"
+                                keyboardType="decimal-pad"
                                 value={editingDesafio.pontosPorItemFimDeSemana}
                                 onChangeText={(v) => updateField('pontosPorItemFimDeSemana', v)}
                                 placeholder="2"
@@ -1016,7 +1021,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         </View>
                     </View>
                     <Text style={styles.helperText}>
-                        Fim de semana vale mais por padrão, já que é mais difícil manter a rotina — ajuste do seu jeito.
+                        Fim de semana vale mais por padrão, já que é mais difícil manter a rotina — aceita decimal (ex: 1.5).
                     </Text>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Link de convite do grupo do WhatsApp</Text>
@@ -1302,8 +1307,8 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             d.setDate(d.getDate() - i);
             const dISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const entry = checkins.find(c => dataParaISOSimples(c.data) === dISO);
-            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua);
-            dias.push({ feito: !!feito, isHoje: i === 0, label: DIAS_ABREV[d.getDay()] });
+            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missao);
+            dias.push({ feito: !!feito, isHoje: i === 0, label: DIAS_ABREV[d.getDay()], entry: entry || null });
         }
         const totalFeito = dias.filter(d => d.feito).length;
         return { dias, totalFeito };
@@ -1320,7 +1325,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                 <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'flex-start' }]}>
                     <Text style={[styles.bigCardTitle, { color: theme.text }]}>CHECK-INS — {checkinsDesafio?.nome}</Text>
                     <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
-                        Últimos 7 dias de cada participante paga. Bolinha preenchida = fez pelo menos um item do check-in naquele dia.
+                        Últimos 7 dias de cada participante paga. Bolinha preenchida = fez pelo menos um item do check-in naquele dia. Toque numa bolinha com dado pra ver fotos, peso e detalhes.
                     </Text>
 
                     {loadingCheckins ? (
@@ -1348,7 +1353,12 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                         </View>
                                         <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
                                             {dias.map((d, i) => (
-                                                <View key={i} style={{ alignItems: 'center', gap: 4 }}>
+                                                <TouchableOpacity
+                                                    key={i}
+                                                    style={{ alignItems: 'center', gap: 4 }}
+                                                    disabled={!d.entry}
+                                                    onPress={() => d.entry && setCheckinDetalhe({ nome: insc.nome, entry: d.entry })}
+                                                >
                                                     <View style={[
                                                         styles.checkinDot,
                                                         { borderColor: theme.border },
@@ -1358,7 +1368,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                                         {d.feito ? <MaterialCommunityIcons name="check" size={11} color={theme.isDark ? '#000' : '#FFF'} /> : null}
                                                     </View>
                                                     <Text style={{ color: theme.textSecondary, fontSize: 9, fontWeight: '700' }}>{d.label}</Text>
-                                                </View>
+                                                </TouchableOpacity>
                                             ))}
                                         </View>
                                     </View>
@@ -1367,6 +1377,89 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         </View>
                     )}
                 </View>
+
+                {/* ── Modal de detalhe: fotos, peso e itens de um dia específico ── */}
+                <Modal visible={!!checkinDetalhe} transparent animationType="fade" onRequestClose={() => setCheckinDetalhe(null)}>
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                            <ScrollView showsVerticalScrollIndicator={false}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                                    <View>
+                                        <Text style={[styles.itemNome, { color: theme.text, fontSize: 15 }]}>{checkinDetalhe?.nome}</Text>
+                                        {checkinDetalhe?.entry && (
+                                            <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
+                                                {new Date(checkinDetalhe.entry.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} · {checkinDetalhe.entry.pontos} pts
+                                            </Text>
+                                        )}
+                                    </View>
+                                    <TouchableOpacity onPress={() => setCheckinDetalhe(null)}>
+                                        <MaterialCommunityIcons name="close-circle" size={26} color={theme.textSecondary} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {checkinDetalhe?.entry && (
+                                    <>
+                                        <View style={styles.detalheItensGrid}>
+                                            {[
+                                                { label: 'Treino', ok: checkinDetalhe.entry.treino },
+                                                { label: 'Cardio', ok: checkinDetalhe.entry.cardio },
+                                                { label: 'Alimentação', ok: checkinDetalhe.entry.alimentacao },
+                                                { label: 'Água', ok: checkinDetalhe.entry.agua },
+                                                { label: 'Missão', ok: checkinDetalhe.entry.missao },
+                                            ].map((item, i) => (
+                                                <View key={i} style={styles.detalheItemChip}>
+                                                    <MaterialCommunityIcons
+                                                        name={item.ok ? 'check-circle' : 'close-circle-outline'}
+                                                        size={14}
+                                                        color={item.ok ? '#4DE38F' : '#666'}
+                                                    />
+                                                    <Text style={{ color: item.ok ? theme.text : theme.textSecondary, fontSize: 11 }}>{item.label}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+
+                                        {checkinDetalhe.entry.pesoKg != null && (
+                                            <Text style={[styles.helperText, { fontSize: 13, color: theme.text, marginTop: 12, fontWeight: '900' }]}>
+                                                ⚖️ Peso registrado: {checkinDetalhe.entry.pesoKg} kg
+                                            </Text>
+                                        )}
+
+                                        <View style={styles.detalheFotosGrid}>
+                                            {checkinDetalhe.entry.fotoAcademiaUrl && (
+                                                <View style={styles.detalheFotoBox}>
+                                                    <Text style={styles.fotoSlotLabel}>Treino</Text>
+                                                    <Image source={{ uri: checkinDetalhe.entry.fotoAcademiaUrl }} style={styles.detalheFotoImg} />
+                                                </View>
+                                            )}
+                                            {checkinDetalhe.entry.fotoFrenteUrl && (
+                                                <View style={styles.detalheFotoBox}>
+                                                    <Text style={styles.fotoSlotLabel}>Frente</Text>
+                                                    <Image source={{ uri: checkinDetalhe.entry.fotoFrenteUrl }} style={styles.detalheFotoImg} />
+                                                </View>
+                                            )}
+                                            {checkinDetalhe.entry.fotoLadoUrl && (
+                                                <View style={styles.detalheFotoBox}>
+                                                    <Text style={styles.fotoSlotLabel}>Lado</Text>
+                                                    <Image source={{ uri: checkinDetalhe.entry.fotoLadoUrl }} style={styles.detalheFotoImg} />
+                                                </View>
+                                            )}
+                                            {checkinDetalhe.entry.fotoCostasUrl && (
+                                                <View style={styles.detalheFotoBox}>
+                                                    <Text style={styles.fotoSlotLabel}>Costas</Text>
+                                                    <Image source={{ uri: checkinDetalhe.entry.fotoCostasUrl }} style={styles.detalheFotoImg} />
+                                                </View>
+                                            )}
+                                        </View>
+
+                                        {!checkinDetalhe.entry.fotoAcademiaUrl && !checkinDetalhe.entry.fotoFrenteUrl && (
+                                            <Text style={[styles.emptyText, { color: theme.textSecondary, marginTop: 10 }]}>Nenhuma foto enviada nesse dia.</Text>
+                                        )}
+                                    </>
+                                )}
+                            </ScrollView>
+                        </View>
+                    </View>
+                </Modal>
             </View>
         );
     }
@@ -1473,15 +1566,16 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     maxLength={10}
                 />
 
-                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 12 }]}>Pontos por item nesse dia</Text>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 12 }]}>Multiplicador nesse dia</Text>
                 <TextInput
                     style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
                     value={novaDataPontos}
                     onChangeText={setNovaDataPontos}
-                    placeholder="3"
+                    placeholder="2"
                     placeholderTextColor="#666"
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
                 />
+                <Text style={styles.helperText}>1 = sem alteração, 2 = dobra a pontuação de cada item nesse dia. Aceita decimal.</Text>
 
                 <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 12 }]}>Motivo (aparece no aviso pras participantes)</Text>
                 <TextInput
@@ -1585,6 +1679,15 @@ const styles = StyleSheet.create({
 
     inscricaoRow: { padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10, width: '100%' },
     checkinDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+    modalCard: { width: '100%', maxWidth: 420, maxHeight: '85%', borderRadius: 20, borderWidth: 1, padding: 20 },
+    detalheItensGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    detalheItemChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
+    detalheFotosGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
+    detalheFotoBox: { width: '47%' },
+    detalheFotoImg: { width: '100%', aspectRatio: 1, borderRadius: 10, marginTop: 4, backgroundColor: '#000' },
+    fotoSlotLabel: { color: '#888', fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
 
     weekNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12 },
     weekNavBtn: { padding: 6 },
