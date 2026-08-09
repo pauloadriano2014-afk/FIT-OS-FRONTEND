@@ -63,6 +63,30 @@ function dataParaISO(dataISOString) {
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
 }
 
+// 🔥 Sequência de dias consecutivos com pelo menos 1 item feito. Se hoje
+// ainda não tiver check-in, não quebra a sequência — só conta a partir de
+// ontem (ela ainda tem o dia de hoje pra manter viva).
+function calcularStreak(historico) {
+    const feito = (entry) => entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missao);
+
+    const dataParaISOLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    let cursor = new Date();
+    const hojeEntry = historico.find((c) => dataParaISO(c.data) === dataParaISOLocal(cursor));
+    if (!feito(hojeEntry)) {
+        cursor.setDate(cursor.getDate() - 1); // hoje ainda em aberto — começa de ontem
+    }
+
+    let streak = 0;
+    while (true) {
+        const entry = historico.find((c) => dataParaISO(c.data) === dataParaISOLocal(cursor));
+        if (!feito(entry)) break;
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+    }
+    return streak;
+}
+
 export default function DesafioCheckinScreen({ route, navigation }) {
     const slug = route?.params?.desafio?.trim() || '';
     const isPreview = ['true', true].includes(route?.params?.preview);
@@ -364,6 +388,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
 
     // ── Dia X do desafio (opcional — só calcula se dataInicio estiver configurada) ──
     const duracaoDesafio = desafio.duracaoDias || 90;
+    const streak = calcularStreak(historico);
     const dataInicioStr = desafio.dataInicio ? dataParaISO(desafio.dataInicio) : null;
 
     let diaAtual = null;
@@ -498,11 +523,18 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                         <MaterialCommunityIcons name="calendar-check" size={32} color={MAIN_COLOR} />
                         <Text style={styles.headerTitle}>{desafio.nome}</Text>
                         <Text style={styles.headerSub}>Check-in diário</Text>
-                        {diaAtual !== null && (
-                            <View style={styles.diaAtualBadge}>
-                                <Text style={styles.diaAtualBadgeText}>DIA {diaAtual} DE {duracaoDesafio}</Text>
-                            </View>
-                        )}
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginTop: 10 }}>
+                            {diaAtual !== null && (
+                                <View style={styles.diaAtualBadge}>
+                                    <Text style={styles.diaAtualBadgeText}>DIA {diaAtual} DE {duracaoDesafio}</Text>
+                                </View>
+                            )}
+                            {streak >= 1 && (
+                                <View style={styles.streakBadge}>
+                                    <Text style={styles.streakBadgeText}>🔥 {streak} {streak === 1 ? 'DIA SEGUIDO' : 'DIAS SEGUIDOS'}</Text>
+                                </View>
+                            )}
+                        </View>
                         <Text style={styles.headerIntro}>
                             É aqui que você registra o seu dia — leva menos de 1 minuto. Guarda esse link,
                             porque você vai usar ele todo dia até o fim do desafio.
@@ -658,7 +690,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
+                        <Text style={styles.footerText}>PA ELITE TEAM © 2026</Text>
                     </View>
                 </ScrollView>
             </View>
@@ -687,7 +719,9 @@ const styles = StyleSheet.create({
     headerTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', textAlign: 'center', marginTop: 10 },
     headerSub: { color: '#888', fontSize: 12, fontWeight: '700', letterSpacing: 0.5, marginTop: 4 },
     headerIntro: { color: '#999', fontSize: 12, lineHeight: 18, textAlign: 'center', marginTop: 14, paddingHorizontal: 10 },
-    diaAtualBadge: { backgroundColor: `${MAIN_COLOR}20`, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6, marginTop: 10 },
+    diaAtualBadge: { backgroundColor: `${MAIN_COLOR}20`, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6 },
+    streakBadge: { backgroundColor: '#FF6B0020', borderWidth: 1, borderColor: '#FF6B00', borderRadius: 20, paddingHorizontal: 16, paddingVertical: 6 },
+    streakBadgeText: { color: '#FF9D45', fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
     diaAtualBadgeText: { color: LIGHT_COLOR, fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },
 
     hojeEspecialBanner: { backgroundColor: `${MAIN_COLOR}20`, borderWidth: 1, borderColor: MAIN_COLOR, borderRadius: 16, padding: 16, marginBottom: 16, alignItems: 'center' },

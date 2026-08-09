@@ -1387,6 +1387,28 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         return { dias, totalFeito };
     };
 
+    // ── Quantos dias desde o último check-in feito (null = nenhum nos últimos
+    // 14 dias que temos aqui) — usado pra identificar quem está sumindo ──────
+    const diasSemCheckin = (checkins) => {
+        const feitos = checkins.filter(c => c.treino || c.cardio || c.alimentacao || c.agua || c.missao);
+        if (feitos.length === 0) return null;
+        const maisRecente = feitos.reduce((max, c) => new Date(c.data) > new Date(max.data) ? c : max);
+        const hoje = new Date();
+        hoje.setHours(0, 0, 0, 0);
+        const dataUltimo = new Date(maisRecente.data);
+        dataUltimo.setUTCHours(0, 0, 0, 0);
+        return Math.floor((hoje - dataUltimo) / (1000 * 60 * 60 * 24));
+    };
+
+    const handleContatoWhatsApp = (insc) => {
+        const numero = `55${(insc.telefone || '').replace(/\D/g, '')}`;
+        const texto = `Oi, ${insc.nome.split(' ')[0]}! Tudo bem? Reparei que você não fez o check-in do desafio nos últimos dias — tá tudo certo aí? 💜`;
+        const url = `https://api.whatsapp.com/send?phone=${numero}&text=${encodeURIComponent(texto)}`;
+        Linking.openURL(url).catch(() => {
+            if (Platform.OS === 'web') window.open(url, '_blank');
+        });
+    };
+
     if (view === 'checkins') {
         return (
             <View style={{ gap: 15 }}>
@@ -1400,6 +1422,37 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
                         Últimos 7 dias de cada participante paga. Bolinha preenchida = fez pelo menos um item do check-in naquele dia. Toque numa bolinha com dado pra ver fotos, peso e detalhes.
                     </Text>
+
+                    {!loadingCheckins && checkinsInscricoes.length > 0 && (() => {
+                        const sumindo = checkinsInscricoes
+                            .map((insc) => ({ insc, dias: diasSemCheckin(insc.checkins || []) }))
+                            .filter(({ dias }) => dias === null || dias >= 3)
+                            .sort((a, b) => (b.dias ?? 999) - (a.dias ?? 999));
+
+                        if (sumindo.length === 0) return null;
+
+                        return (
+                            <View style={styles.alertaBox}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                    <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#FFB800" />
+                                    <Text style={styles.alertaTitulo}>PRECISAM DE ATENÇÃO (3+ dias sem check-in)</Text>
+                                </View>
+                                {sumindo.map(({ insc, dias }) => (
+                                    <View key={insc.id} style={styles.alertaRow}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.itemNome, { color: theme.text, fontSize: 13 }]}>{insc.nome}</Text>
+                                            <Text style={{ color: '#FFB800', fontSize: 11, fontWeight: '700' }}>
+                                                {dias === null ? 'Sem check-ins registrados' : `${dias} dias sem check-in`}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity style={styles.alertaWhatsBtn} onPress={() => handleContatoWhatsApp(insc)}>
+                                            <MaterialCommunityIcons name="whatsapp" size={16} color="#25D366" />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
+                        );
+                    })()}
 
                     {loadingCheckins ? (
                         <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 20, alignSelf: 'center', width: '100%' }} />
@@ -1784,6 +1837,11 @@ const styles = StyleSheet.create({
 
     inscricaoRow: { padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10, width: '100%' },
     checkinDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+
+    alertaBox: { width: '100%', backgroundColor: '#FFB80012', borderWidth: 1, borderColor: '#FFB80050', borderRadius: 16, padding: 16, marginBottom: 16 },
+    alertaTitulo: { color: '#FFB800', fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
+    alertaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: '#FFB80025' },
+    alertaWhatsBtn: { width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: '#25D36650', justifyContent: 'center', alignItems: 'center' },
 
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'center', alignItems: 'center', padding: 20 },
     modalCard: { width: '100%', maxWidth: 420, maxHeight: '85%', borderRadius: 20, borderWidth: 1, padding: 20 },
