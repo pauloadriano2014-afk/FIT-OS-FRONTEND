@@ -91,10 +91,13 @@ export default function DesafioCheckinScreen({ route, navigation }) {
     const [cardio, setCardio] = useState(false);
     const [alimentacao, setAlimentacao] = useState(false);
     const [agua, setAgua] = useState(false);
+    const [missao, setMissao] = useState(false);
     const [fotoAcademiaUrl, setFotoAcademiaUrl] = useState('');
     const [fotoFrenteUrl, setFotoFrenteUrl] = useState('');
     const [fotoLadoUrl, setFotoLadoUrl] = useState('');
     const [fotoCostasUrl, setFotoCostasUrl] = useState('');
+    const [pesoKg, setPesoKg] = useState('');
+    const [checkinError, setCheckinError] = useState('');
 
     const [uploadingSlot, setUploadingSlot] = useState(null);
     const [saving, setSaving] = useState(false);
@@ -163,10 +166,12 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                     setCardio(checkinHoje.cardio);
                     setAlimentacao(checkinHoje.alimentacao);
                     setAgua(checkinHoje.agua);
+                    setMissao(checkinHoje.missao);
                     setFotoAcademiaUrl(checkinHoje.fotoAcademiaUrl || '');
                     setFotoFrenteUrl(checkinHoje.fotoFrenteUrl || '');
                     setFotoLadoUrl(checkinHoje.fotoLadoUrl || '');
                     setFotoCostasUrl(checkinHoje.fotoCostasUrl || '');
+                    setPesoKg(checkinHoje.pesoKg != null ? String(checkinHoje.pesoKg) : '');
                 }
             } catch (e) {
                 console.log('Erro ao buscar histórico', e);
@@ -209,24 +214,41 @@ export default function DesafioCheckinScreen({ route, navigation }) {
         setInscricaoId(null);
         setParticipanteNome('');
         setTelefone('');
-        setTreino(false); setCardio(false); setAlimentacao(false); setAgua(false);
-        setFotoAcademiaUrl(''); setFotoFrenteUrl(''); setFotoLadoUrl(''); setFotoCostasUrl('');
+        setTreino(false); setCardio(false); setAlimentacao(false); setAgua(false); setMissao(false);
+        setFotoAcademiaUrl(''); setFotoFrenteUrl(''); setFotoLadoUrl(''); setFotoCostasUrl(''); setPesoKg('');
         setHistorico([]);
         setStep('identificar');
     };
 
     // ── Upload de foto (mesmo endpoint R2 usado no resto do app) ─────────
-    const uploadFoto = async (slotName, setter) => {
+    // 📸 usarCamera=true força a câmera na hora (sem opção de galeria) — é o
+    // caso da foto do treino diário, pra evitar mandar foto antiga/de outro dia.
+    const uploadFoto = async (slotName, setter, usarCamera = false) => {
         try {
-            if (Platform.OS !== 'web') {
-                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                if (status !== 'granted') return;
+            let result;
+            if (usarCamera) {
+                const { status } = await ImagePicker.requestCameraPermissionsAsync();
+                if (status !== 'granted') {
+                    const msg = 'Precisamos de acesso à câmera pra tirar a foto do treino.';
+                    Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Permissão necessária', msg);
+                    return;
+                }
+                result = await ImagePicker.launchCameraAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing: false,
+                    quality: 0.7,
+                });
+            } else {
+                if (Platform.OS !== 'web') {
+                    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                    if (status !== 'granted') return;
+                }
+                result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing: true,
+                    quality: 0.7,
+                });
             }
-            const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                quality: 0.7,
-            });
             if (result.canceled) return;
 
             setUploadingSlot(slotName);
@@ -254,6 +276,14 @@ export default function DesafioCheckinScreen({ route, navigation }) {
 
     // ── Salvar check-in do dia (upsert no backend) ────────────────────────
     const handleSubmitCheckin = async () => {
+        setCheckinError('');
+
+        const temFotoSabado = isSabado && (fotoFrenteUrl || fotoLadoUrl || fotoCostasUrl);
+        if (temFotoSabado && !pesoKg.trim()) {
+            setCheckinError('Informe o seu peso junto com as fotos de frente/lado/costas.');
+            return;
+        }
+
         setSaving(true);
         setSavedSuccess(false);
         try {
@@ -263,11 +293,12 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                 body: JSON.stringify({
                     inscricaoId,
                     data: hojeISO(),
-                    treino, cardio, alimentacao, agua,
+                    treino, cardio, alimentacao, agua, missao,
                     fotoAcademiaUrl: fotoAcademiaUrl || null,
                     fotoFrenteUrl: isSabado ? (fotoFrenteUrl || null) : null,
                     fotoLadoUrl: isSabado ? (fotoLadoUrl || null) : null,
                     fotoCostasUrl: isSabado ? (fotoCostasUrl || null) : null,
+                    pesoKg: isSabado && pesoKg.trim() ? pesoKg.trim().replace(',', '.') : null,
                 }),
             });
             if (res.ok) {
@@ -279,9 +310,13 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                     setHistorico(data2.checkins || []);
                 }
                 setTimeout(() => setSavedSuccess(false), 4000);
+            } else {
+                const errData = await res.json();
+                setCheckinError(errData?.error || 'Erro ao salvar o check-in. Tente de novo.');
             }
         } catch (e) {
             console.log('Erro ao salvar check-in', e);
+            setCheckinError('Erro de conexão. Tente de novo.');
         } finally {
             setSaving(false);
         }
@@ -391,7 +426,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
             d.setDate(d.getDate() - i);
             const dISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const entry = historico.find(c => dataParaISO(c.data) === dISO);
-            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua);
+            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missao);
             dias.push({ label: DIAS_ABREV[d.getDay()], feito: !!feito, isHoje: i === 0 });
         }
         return (
@@ -426,7 +461,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
     );
 
     // ── Um slot de upload de foto ──────────────────────────────────────────
-    const renderFotoSlot = (label, slotName, url, setter) => (
+    const renderFotoSlot = (label, slotName, url, setter, usarCamera = false) => (
         <View style={styles.fotoSlotBox}>
             <Text style={styles.fotoSlotLabel}>{label}</Text>
             {url ? (
@@ -439,12 +474,12 @@ export default function DesafioCheckinScreen({ route, navigation }) {
             ) : (
                 <TouchableOpacity
                     style={styles.fotoSlotEmpty}
-                    onPress={() => uploadFoto(slotName, setter)}
+                    onPress={() => uploadFoto(slotName, setter, usarCamera)}
                     disabled={uploadingSlot === slotName}
                 >
                     {uploadingSlot === slotName
                         ? <ActivityIndicator size="small" color={MAIN_COLOR} />
-                        : <MaterialCommunityIcons name="camera-plus" size={24} color={MAIN_COLOR} />
+                        : <MaterialCommunityIcons name={usarCamera ? 'camera' : 'camera-plus'} size={24} color={MAIN_COLOR} />
                     }
                 </TouchableOpacity>
             )}
@@ -548,9 +583,10 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                                 {renderCheckboxItem('Cardio', 'run', cardio, setCardio)}
                                 {renderCheckboxItem('Alimentação', 'food-apple', alimentacao, setAlimentacao)}
                                 {renderCheckboxItem('Água', 'cup-water', agua, setAgua)}
+                                {renderCheckboxItem('Missão', 'target', missao, setMissao)}
 
                                 <Text style={[styles.inputLabel, { marginTop: 16 }]}>Foto na academia</Text>
-                                {renderFotoSlot('Hoje', 'academia', fotoAcademiaUrl, setFotoAcademiaUrl)}
+                                {renderFotoSlot('Hoje', 'academia', fotoAcademiaUrl, setFotoAcademiaUrl, true)}
 
                                 {isSabado && (
                                     <>
@@ -566,8 +602,20 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                                             {renderFotoSlot('Lado', 'lado', fotoLadoUrl, setFotoLadoUrl)}
                                             {renderFotoSlot('Costas', 'costas', fotoCostasUrl, setFotoCostasUrl)}
                                         </View>
+
+                                        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Seu peso hoje (kg)</Text>
+                                        <TextInput
+                                            style={styles.pesoInput}
+                                            value={pesoKg}
+                                            onChangeText={setPesoKg}
+                                            placeholder="Ex: 62.5"
+                                            placeholderTextColor="#666"
+                                            keyboardType="decimal-pad"
+                                        />
                                     </>
                                 )}
+
+                                {checkinError ? <Text style={styles.checkinErrorText}>{checkinError}</Text> : null}
 
                                 {savedSuccess && (
                                     <View style={styles.successBox}>
@@ -664,6 +712,8 @@ const styles = StyleSheet.create({
     formHelper: { color: '#999', fontSize: 12, lineHeight: 18, textAlign: 'center', marginBottom: 16 },
 
     inputLabel: { color: '#888', fontSize: 11, fontWeight: '900', letterSpacing: 0.3, marginBottom: 6 },
+    pesoInput: { backgroundColor: '#0a0a0a', color: '#FFF', borderWidth: 1, borderColor: '#333', borderRadius: 12, padding: 14, fontSize: 14 },
+    checkinErrorText: { color: '#FF3B30', fontSize: 12, fontWeight: '700', marginTop: 14, textAlign: 'center' },
     input: { backgroundColor: '#0a0a0a', color: '#FFF', borderWidth: 1, borderColor: '#333', borderRadius: 12, padding: 14, fontSize: 14 },
     errorText: { color: '#FF3B30', fontSize: 12, fontWeight: '700', marginTop: 12, textAlign: 'center' },
 
