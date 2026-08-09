@@ -543,6 +543,35 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
+    // ── Excluir inscrição (ex: alguém que se inscreveu por engano, ou o
+    // próprio admin que testou o pagamento de verdade em vez de usar o
+    // "criar teste") — remove a inscrição e os check-ins dela junto ──────
+    const handleDeleteInscricao = (inscricao) => {
+        const confirmMsg = `Excluir a inscrição de "${inscricao.nome}"? Isso apaga também todos os check-ins dela. Não dá pra desfazer.`;
+        const doDeleteInscricao = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/desafios/${inscritasDesafio.id}/inscricoes/${inscricao.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    await openInscritas(inscritasDesafio);
+                } else {
+                    const data = await res.json();
+                    Platform.OS === 'web' ? window.alert(data?.error || 'Erro ao excluir.') : Alert.alert('Erro', data?.error || 'Erro ao excluir.');
+                }
+            } catch (e) {
+                console.log('Erro ao excluir inscrição', e);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(confirmMsg)) doDeleteInscricao();
+            return;
+        }
+        Alert.alert('Excluir inscrição', confirmMsg, [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Excluir', style: 'destructive', onPress: doDeleteInscricao },
+        ]);
+    };
+
     // ── Ver check-ins (acompanhamento diário das participantes) ──────────────
     const openCheckins = async (desafio) => {
         setCheckinsDesafio(desafio);
@@ -1278,7 +1307,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     ) : (
                         <View style={{ width: '100%' }}>
                             {inscricoes.map((insc) => (
-                                <View key={insc.id} style={[styles.inscricaoRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                <View key={insc.id} style={[styles.inscricaoRow, { backgroundColor: theme.bg, borderColor: theme.border, flexDirection: 'row', alignItems: 'center' }]}>
                                     <View style={{ flex: 1 }}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                             <Text style={[styles.itemNome, { color: theme.text, fontSize: 13 }]}>{insc.nome}</Text>
@@ -1303,6 +1332,9 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                             Nasc: {formatDataBR(insc.dataNascimento)} · Cadastro: {formatDataBR(insc.createdAt)}
                                         </Text>
                                     </View>
+                                    <TouchableOpacity onPress={() => handleDeleteInscricao(insc)} style={{ paddingLeft: 10 }}>
+                                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#FF3B30" />
+                                    </TouchableOpacity>
                                 </View>
                             ))}
                         </View>
