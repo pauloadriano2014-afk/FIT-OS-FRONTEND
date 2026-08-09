@@ -26,6 +26,7 @@ import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen';
 import PropostaFamiliaScreen from './src/screens/PropostaFamiliaScreen';
 import SaaSPropostaScreen from './src/screens/SaaSPropostaScreen';
 import DesafioInscricaoScreen from './src/screens/DesafioInscricaoScreen';
+import DesafioCheckinScreen from './src/screens/DesafioCheckinScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import TrainingScreen from './src/screens/TrainingScreen';
 import EvolutionScreen from './src/screens/EvolutionScreen';
@@ -66,7 +67,6 @@ import AdminCoachesScreen from './src/screens/AdminCoachesScreen';
 import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen';
 import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
 import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
-import ProdutoCheckoutScreen from './src/screens/ProdutoCheckoutScreen'; // 🔥 IMPORT ADICIONADO AQUI
 // 🔥 ESTRATÉGIAS
 import AdminStrategiesScreen from './src/screens/AdminStrategiesScreen';
 
@@ -243,6 +243,7 @@ function RootNavigator() {
       <Stack.Screen name="SaaSProposta" component={SaaSPropostaScreen} />
       <Stack.Screen name="CoachProposta" component={CoachPropostaScreen} />
       <Stack.Screen name="DesafioInscricao" component={DesafioInscricaoScreen} />
+      <Stack.Screen name="DesafioCheckin" component={DesafioCheckinScreen} />
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
@@ -281,11 +282,6 @@ function RootNavigator() {
       <Stack.Screen name="CoachPropostaScreen" component={CoachPropostaScreen} />
       {/* 🔥 ESTRATÉGIAS */}
       <Stack.Screen name="AdminStrategiesScreen" component={AdminStrategiesScreen} />
-      <Stack.Screen 
-        name="Produto" 
-        component={ProdutoCheckoutScreen} 
-        options={{ headerShown: false }} 
-      />
     </Stack.Navigator>
   );
 }
@@ -311,7 +307,7 @@ const linking = {
       PropostaFamilia: { path: 'PropostaFamilia' },
       CoachProposta: { path: 'seja-coach' },
       DesafioInscricao: { path: 'Desafio' },
-      Produto: { path: 'Produto' }, // 🔥 ROTA ADICIONADA AQUI PARA FUNCIONAR NA WEB
+      DesafioCheckin: { path: 'CheckinDesafio' },
       SaaSProposta: {
         path: 'invite/:coachId',
         parse: { coachId: (v) => String(v) },

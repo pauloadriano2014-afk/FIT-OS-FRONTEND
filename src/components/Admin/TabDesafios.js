@@ -1,4 +1,10 @@
 // src/components/Admin/TabDesafios.js
+//
+// Aba MASTER-ONLY (Paulo/Adri) pra gerenciar Desafios/Projetos por
+// WhatsApp (ex: Desafio 90 Dias). Cria/edita o desafio (nome, valor, link
+// do grupo), e permite ver a lista de inscritas de cada um — separada do
+// CRM/Alunos principal, como decidido.
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -24,6 +30,9 @@ const emptyDesafio = (defaultCoachId) => ({
     beneficios: [''],
     valor: '',
     duracaoDias: '90',
+    dataInicio: '',
+    pontosPorItem: '1',
+    pontosPorItemFimDeSemana: '2',
     linkGrupoWhats: '',
     coachId: defaultCoachId,
     ativo: true,
@@ -56,6 +65,36 @@ function formatDataBR(isoString) {
     return d.toLocaleDateString('pt-BR');
 }
 
+const DIAS_ABREV = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+
+function dataParaISOSimples(dataISOString) {
+    // Compara ignorando fuso/hora — a data vem em UTC do backend
+    const d = new Date(dataISOString);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+}
+
+function formatDataDigitada(v) {
+    const d = (v || '').replace(/\D/g, '').slice(0, 8);
+    return d.replace(/(\d{2})(\d)/, '$1/$2').replace(/(\d{2})(\d)/, '$1/$2');
+}
+
+function dataDigitadaParaISO(ddmmaaaa) {
+    const [dia, mes, ano] = (ddmmaaaa || '').split('/');
+    if (!dia || !mes || !ano || ano.length !== 4) return null;
+    return `${ano}-${mes}-${dia}`;
+}
+
+function isoParaDataDigitada(isoString) {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    // Usa componentes UTC — a data já vem normalizada pra meia-noite UTC,
+    // então usar o fuso local aqui poderia "voltar" um dia (ex: Brasília).
+    const dia = String(d.getUTCDate()).padStart(2, '0');
+    const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const ano = d.getUTCFullYear();
+    return `${dia}/${mes}/${ano}`;
+}
+
 export default function TabDesafios({ theme, currentUserId, navigation }) {
     const [desafios, setDesafios] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -68,12 +107,36 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         { id: 2, before: '', after: '', text: '' }, { id: 3, before: '', after: '', text: '' },
     ]);
 
+    // view: 'lista' | 'form' | 'inscritas' | 'checkins' | 'ranking' | 'datas-especiais'
     const [view, setView] = useState('lista');
     const [editingDesafio, setEditingDesafio] = useState(null);
 
-    const [inscritasDesafio, setInscritasDesafio] = useState(null); 
+    const [inscritasDesafio, setInscritasDesafio] = useState(null); // desafio selecionado
     const [inscricoes, setInscricoes] = useState([]);
     const [loadingInscricoes, setLoadingInscricoes] = useState(false);
+
+    const [novoTesteNome, setNovoTesteNome] = useState('');
+    const [novoTesteTelefone, setNovoTesteTelefone] = useState('');
+    const [criandoTeste, setCriandoTeste] = useState(false);
+
+    const [checkinsDesafio, setCheckinsDesafio] = useState(null);
+    const [checkinsInscricoes, setCheckinsInscricoes] = useState([]);
+    const [loadingCheckins, setLoadingCheckins] = useState(false);
+
+    const [rankingDesafio, setRankingDesafio] = useState(null);
+    const [ranking, setRanking] = useState([]);
+    const [rankingPeriodo, setRankingPeriodo] = useState({ inicioSemana: null, fimSemana: null });
+    const [rankingOffset, setRankingOffset] = useState(0); // 0 = semana atual, -1 = semana passada, etc.
+    const [loadingRanking, setLoadingRanking] = useState(false);
+    const [rankingCopiado, setRankingCopiado] = useState(false);
+
+    const [datasEspeciaisDesafio, setDatasEspeciaisDesafio] = useState(null);
+    const [datasEspeciais, setDatasEspeciais] = useState([]);
+    const [loadingDatasEspeciais, setLoadingDatasEspeciais] = useState(false);
+    const [novaDataEspecial, setNovaDataEspecial] = useState('');
+    const [novaDataPontos, setNovaDataPontos] = useState('3');
+    const [novaDataMotivo, setNovaDataMotivo] = useState('');
+    const [savingDataEspecial, setSavingDataEspecial] = useState(false);
 
     const fetchDesafios = useCallback(async () => {
         setLoading(true);
@@ -92,21 +155,39 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     useEffect(() => { fetchDesafios(); }, [fetchDesafios]);
 
+    // ── Preview (navegação interna — evita o problema do PWA sem "voltar") ──
     const openPreview = (desafio) => {
         navigation?.navigate('DesafioInscricao', { desafio: desafio.slug, preview: true });
     };
 
+    const openPreviewCheckin = (desafio) => {
+        navigation?.navigate('DesafioCheckin', { desafio: desafio.slug, preview: true });
+    };
+
+    // ── Link público real (esse sim vai pro interessado, fora do app) ──────
+    // 🔑 Link de compartilhamento é pra um cliente de verdade — nunca deve
+    // depender de onde VOCÊ está testando o admin (localhost, preview, etc.).
+    // Por isso sempre usa o domínio de produção, sem checar Platform.OS.
     const getBaseUrl = () => 'https://www.pauloadrianoteam.com.br';
 
     const getDesafioLink = (desafio) => `${getBaseUrl()}/Desafio?desafio=${encodeURIComponent(desafio.slug)}`;
+    const getCheckinLink = (desafio) => `${getBaseUrl()}/CheckinDesafio?desafio=${encodeURIComponent(desafio.slug)}`;
 
     const [copiedId, setCopiedId] = useState(null);
+    const [copiedCheckinId, setCopiedCheckinId] = useState(null);
 
     const handleCopyLink = async (desafio) => {
         const link = getDesafioLink(desafio);
         await Clipboard.setStringAsync(link);
         setCopiedId(desafio.id);
         setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const handleCopyLinkCheckin = async (desafio) => {
+        const link = getCheckinLink(desafio);
+        await Clipboard.setStringAsync(link);
+        setCopiedCheckinId(desafio.id);
+        setTimeout(() => setCopiedCheckinId(null), 2000);
     };
 
     const handleShareWhatsApp = (desafio) => {
@@ -118,6 +199,16 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         });
     };
 
+    const handleShareWhatsAppCheckin = (desafio) => {
+        const link = getCheckinLink(desafio);
+        const texto = `📅 Meninas, esse é o link do check-in diário do *${desafio.nome}*!\n\nGuardem esse link — vocês vão usar ele TODO DIA até o fim do desafio pra registrar treino, cardio, alimentação, água e a foto do dia.\n\n${link}`;
+        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(texto)}`;
+        Linking.openURL(url).catch(() => {
+            if (Platform.OS === 'web') window.open(url, '_blank');
+        });
+    };
+
+    // ── Form: abrir novo / editar ─────────────────────────────────────────
     const emptyGalleryPairs = () => ([
         { id: 0, before: '', after: '', text: '' }, { id: 1, before: '', after: '', text: '' },
         { id: 2, before: '', after: '', text: '' }, { id: 3, before: '', after: '', text: '' },
@@ -134,6 +225,9 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             ...desafio,
             valor: String(desafio.valor),
             duracaoDias: String(desafio.duracaoDias || 90),
+            dataInicio: isoParaDataDigitada(desafio.dataInicio),
+            pontosPorItem: String(desafio.pontosPorItem ?? 1),
+            pontosPorItemFimDeSemana: String(desafio.pontosPorItemFimDeSemana ?? 2),
             logoUrl: desafio.logoUrl || '',
             beneficios: desafio.beneficios?.length ? desafio.beneficios : [''],
             mentorNome: desafio.mentorNome || '',
@@ -145,6 +239,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             bonusTexto: desafio.bonusTexto || '',
         });
 
+        // Reconstrói os pares antes/depois a partir dos arrays flat (mesmo padrão do TabSaaS)
         const loadedPhotos = desafio.galleryPhotos || [];
         const loadedTexts = desafio.galleryTexts || [];
         setGalleryPairs([
@@ -160,6 +255,9 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const backToList = () => {
         setEditingDesafio(null);
         setInscritasDesafio(null);
+        setCheckinsDesafio(null);
+        setRankingDesafio(null);
+        setDatasEspeciaisDesafio(null);
         setView('lista');
     };
 
@@ -167,6 +265,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setEditingDesafio(prev => ({ ...prev, [field]: value }));
     };
 
+    // ── Upload de foto (mesmo endpoint R2 usado no TabSaaS) ──────────────
     const uploadImageToR2 = async (uri) => {
         let formData = new FormData();
         if (Platform.OS === 'web') {
@@ -211,6 +310,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
+    // ── Logo/banner horizontal do topo da página (recomendado 1200x400, proporção 3:1) ──
     const handlePickLogo = async () => {
         try {
             if (Platform.OS !== 'web') {
@@ -236,6 +336,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
+    // ── Galeria de antes/depois (4 pares, mesmo padrão do TabSaaS) ───────
     const handlePickGalleryPhoto = async (index, type) => {
         try {
             if (Platform.OS !== 'web') {
@@ -269,6 +370,8 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setGalleryPairs(prev => prev.map((pair, i) => i === index ? { ...pair, text } : pair));
     };
 
+    // ── Listas dinâmicas de texto (benefícios, "para quem é") ────────────
+    // Genérico: funciona pra qualquer campo do tipo string[] no editingDesafio.
     const addListItem = (field) => {
         setEditingDesafio(prev => ({ ...prev, [field]: [...prev[field], ''] }));
     };
@@ -285,6 +388,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setEditingDesafio(prev => ({ ...prev, [field]: prev[field].filter((_, i) => i !== index) }));
     };
 
+    // ── Salvar (criar ou atualizar) ────────────────────────────────────────
     const handleSave = async () => {
         if (!editingDesafio.nome.trim()) {
             return Platform.OS === 'web' ? window.alert('Dê um nome pro desafio.') : Alert.alert('Aviso', 'Dê um nome pro desafio.');
@@ -315,6 +419,9 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                 beneficios: editingDesafio.beneficios.filter(b => b.trim() !== ''),
                 valor: parseFloat(editingDesafio.valor.replace(',', '.')),
                 duracaoDias: parseInt(editingDesafio.duracaoDias) || 90,
+                dataInicio: dataDigitadaParaISO(editingDesafio.dataInicio),
+                pontosPorItem: parseInt(editingDesafio.pontosPorItem) || 1,
+                pontosPorItemFimDeSemana: parseInt(editingDesafio.pontosPorItemFimDeSemana) || 2,
                 linkGrupoWhats: editingDesafio.linkGrupoWhats,
                 ativo: editingDesafio.ativo,
                 coachId: editingDesafio.coachId,
@@ -353,6 +460,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
+    // ── Deletar / ativar-desativar ─────────────────────────────────────────
     const handleDelete = async (desafio) => {
         const confirmMsg = `Deletar "${desafio.nome}"? As inscrições ligadas a ele também serão apagadas.`;
         if (Platform.OS === 'web') {
@@ -387,6 +495,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
+    // ── Ver inscritas ───────────────────────────────────────────────────────
     const openInscritas = async (desafio) => {
         setInscritasDesafio(desafio);
         setView('inscritas');
@@ -404,6 +513,189 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         }
     };
 
+    // ── Inscrição de teste — testar check-in/fotos sem afetar o ranking ────
+    const handleCriarTeste = async () => {
+        if (!novoTesteNome.trim() || !novoTesteTelefone.trim()) {
+            return Platform.OS === 'web' ? window.alert('Preencha nome e telefone.') : Alert.alert('Aviso', 'Preencha nome e telefone.');
+        }
+        setCriandoTeste(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${inscritasDesafio.id}/criar-teste`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome: novoTesteNome.trim(), telefone: novoTesteTelefone.trim() }),
+            });
+            if (res.ok) {
+                setNovoTesteNome('');
+                setNovoTesteTelefone('');
+                await openInscritas(inscritasDesafio);
+                const msg = `Inscrição de teste criada! Use o telefone ${novoTesteTelefone.trim()} pra se identificar na página de check-in.`;
+                Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Pronto', msg);
+            } else {
+                const data = await res.json();
+                Platform.OS === 'web' ? window.alert(data?.error || 'Erro ao criar teste.') : Alert.alert('Erro', data?.error || 'Erro ao criar teste.');
+            }
+        } catch (e) {
+            console.log('Erro ao criar inscrição de teste', e);
+        } finally {
+            setCriandoTeste(false);
+        }
+    };
+
+    // ── Ver check-ins (acompanhamento diário das participantes) ──────────────
+    const openCheckins = async (desafio) => {
+        setCheckinsDesafio(desafio);
+        setView('checkins');
+        setLoadingCheckins(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/checkins`);
+            if (res.ok) {
+                const data = await res.json();
+                setCheckinsInscricoes(data.inscricoes || []);
+            }
+        } catch (e) {
+            console.log('Erro ao buscar check-ins', e);
+        } finally {
+            setLoadingCheckins(false);
+        }
+    };
+
+    // ── Ranking semanal (só admin — a Adri copia e cola no grupo manualmente) ──
+    const fetchRanking = async (desafio, offset) => {
+        setLoadingRanking(true);
+        try {
+            // Calcula a segunda-feira da semana desejada a partir do offset
+            // (0 = semana atual, -1 = semana passada...) em relação a hoje.
+            const hoje = new Date();
+            const diaSemana = hoje.getDay(); // 0=domingo
+            const diffSegunda = diaSemana === 0 ? 6 : diaSemana - 1;
+            const segundaAtual = new Date(hoje);
+            segundaAtual.setDate(hoje.getDate() - diffSegunda + offset * 7);
+            const segundaISO = `${segundaAtual.getFullYear()}-${String(segundaAtual.getMonth() + 1).padStart(2, '0')}-${String(segundaAtual.getDate()).padStart(2, '0')}`;
+
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/ranking?semana=${segundaISO}`);
+            if (res.ok) {
+                const data = await res.json();
+                setRanking(data.ranking || []);
+                setRankingPeriodo({ inicioSemana: data.inicioSemana, fimSemana: data.fimSemana });
+            }
+        } catch (e) {
+            console.log('Erro ao buscar ranking', e);
+        } finally {
+            setLoadingRanking(false);
+        }
+    };
+
+    const openRanking = async (desafio) => {
+        setRankingDesafio(desafio);
+        setView('ranking');
+        setRankingOffset(0);
+        await fetchRanking(desafio, 0);
+    };
+
+    const mudarSemanaRanking = async (novoOffset) => {
+        setRankingOffset(novoOffset);
+        await fetchRanking(rankingDesafio, novoOffset);
+    };
+
+    const MEDALHAS = ['🥇', '🥈', '🥉'];
+
+    const gerarTextoRanking = () => {
+        const formatarData = (iso) => {
+            const d = new Date(iso);
+            return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        };
+        const periodo = rankingPeriodo.inicioSemana && rankingPeriodo.fimSemana
+            ? `${formatarData(rankingPeriodo.inicioSemana)} a ${formatarData(rankingPeriodo.fimSemana)}`
+            : '';
+
+        let texto = `🏆 RANKING DA SEMANA — ${rankingDesafio?.nome}\n📅 ${periodo}\n\n`;
+        ranking.forEach((r, i) => {
+            const posicao = MEDALHAS[i] || `${i + 1}º`;
+            texto += `${posicao} ${r.nome} — ${r.pontos} pts\n`;
+        });
+        texto += `\n💜 Constância é tudo! Continuem assim.`;
+        return texto;
+    };
+
+    const handleCopiarRanking = async () => {
+        await Clipboard.setStringAsync(gerarTextoRanking());
+        setRankingCopiado(true);
+        setTimeout(() => setRankingCopiado(false), 2500);
+    };
+
+    // ── Datas especiais (feriados etc. — pontuação com aviso prévio) ─────────
+    const fetchDatasEspeciais = async (desafio) => {
+        setLoadingDatasEspeciais(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/datas-especiais`);
+            if (res.ok) {
+                const data = await res.json();
+                setDatasEspeciais(data.datas || []);
+            }
+        } catch (e) {
+            console.log('Erro ao buscar datas especiais', e);
+        } finally {
+            setLoadingDatasEspeciais(false);
+        }
+    };
+
+    const openDatasEspeciais = async (desafio) => {
+        setDatasEspeciaisDesafio(desafio);
+        setView('datas-especiais');
+        setNovaDataEspecial('');
+        setNovaDataPontos('3');
+        setNovaDataMotivo('');
+        await fetchDatasEspeciais(desafio);
+    };
+
+    const handleAddDataEspecial = async () => {
+        const dataISO = dataDigitadaParaISO(novaDataEspecial);
+        if (!dataISO) {
+            return Platform.OS === 'web' ? window.alert('Digite a data no formato DD/MM/AAAA.') : Alert.alert('Aviso', 'Digite a data no formato DD/MM/AAAA.');
+        }
+        if (!novaDataPontos || parseInt(novaDataPontos) <= 0) {
+            return Platform.OS === 'web' ? window.alert('Informe quantos pontos por item nesse dia.') : Alert.alert('Aviso', 'Informe quantos pontos por item nesse dia.');
+        }
+        if (!novaDataMotivo.trim()) {
+            return Platform.OS === 'web' ? window.alert('Descreva o motivo (aparece no aviso pras participantes).') : Alert.alert('Aviso', 'Descreva o motivo.');
+        }
+
+        setSavingDataEspecial(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${datasEspeciaisDesafio.id}/datas-especiais`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: dataISO, pontosPorItem: parseInt(novaDataPontos), motivo: novaDataMotivo.trim() }),
+            });
+            if (res.ok) {
+                setNovaDataEspecial('');
+                setNovaDataPontos('3');
+                setNovaDataMotivo('');
+                await fetchDatasEspeciais(datasEspeciaisDesafio);
+            } else {
+                const data = await res.json();
+                Platform.OS === 'web' ? window.alert(data?.error || 'Erro ao salvar.') : Alert.alert('Erro', data?.error || 'Erro ao salvar.');
+            }
+        } catch (e) {
+            console.log('Erro ao criar data especial', e);
+        } finally {
+            setSavingDataEspecial(false);
+        }
+    };
+
+    const handleRemoveDataEspecial = async (dataId) => {
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${datasEspeciaisDesafio.id}/datas-especiais/${dataId}`, { method: 'DELETE' });
+            if (res.ok) await fetchDatasEspeciais(datasEspeciaisDesafio);
+        } catch (e) {
+            console.log('Erro ao remover data especial', e);
+        }
+    };
+
+    // ────────────────────────────────────────────────────────────────────
+    // RENDER: LISTA
+    // ────────────────────────────────────────────────────────────────────
     if (view === 'lista') {
         return (
             <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'flex-start' }]}>
@@ -428,62 +720,80 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     <View style={{ width: '100%' }}>
                         {desafios.map((desafio) => (
                             <View key={desafio.id} style={[styles.itemCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                
-                                {/* 🔥 Correção: Informações principais e Status alinhados com quebra (wrap) */}
-                                <TouchableOpacity onPress={() => openInscritas(desafio)}>
-                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                                        <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
-                                        <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
-                                            <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
-                                                {desafio.ativo ? 'ATIVO' : 'INATIVO'}
-                                            </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                                    <TouchableOpacity style={{ flex: 1 }} onPress={() => openInscritas(desafio)}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
+                                            <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
+                                                <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
+                                                    {desafio.ativo ? 'ATIVO' : 'INATIVO'}
+                                                </Text>
+                                            </View>
                                         </View>
-                                    </View>
-                                    <Text style={[styles.itemSlug, { color: theme.textSecondary }]} numberOfLines={1}>
-                                        ?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}
-                                    </Text>
-                                    <Text style={[styles.itemMeta, { color: theme.accent }]}>
-                                        {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
-                                    </Text>
-                                </TouchableOpacity>
+                                        <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}</Text>
+                                        <Text style={[styles.itemMeta, { color: theme.accent }]}>
+                                            {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
+                                        </Text>
+                                    </TouchableOpacity>
 
-                                {/* 🔥 Correção: Botões de Ação isolados numa linha separada para não amontoar */}
-                                <View style={styles.actionIconsRow}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                                        <TouchableOpacity onPress={() => openDatasEspeciais(desafio)}>
+                                            <MaterialCommunityIcons name="calendar-star" size={20} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => openRanking(desafio)}>
+                                            <MaterialCommunityIcons name="trophy-outline" size={20} color={theme.textSecondary} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity onPress={() => openCheckins(desafio)}>
+                                            <MaterialCommunityIcons name="calendar-check-outline" size={20} color={theme.textSecondary} />
+                                        </TouchableOpacity>
                                         <Switch
                                             value={desafio.ativo}
                                             onValueChange={() => toggleAtivo(desafio)}
                                             trackColor={{ false: '#444', true: `${theme.accent}80` }}
                                             thumbColor={desafio.ativo ? theme.accent : '#888'}
-                                            style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
                                         />
-                                        <Text style={{ fontSize: 11, color: theme.textSecondary, fontWeight: '700' }}>Visível</Text>
-                                    </View>
-
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-                                        <TouchableOpacity onPress={() => openPreview(desafio)}>
-                                            <MaterialCommunityIcons name="eye-outline" size={22} color={theme.textSecondary} />
-                                        </TouchableOpacity>
                                         <TouchableOpacity onPress={() => openEditDesafio(desafio)}>
-                                            <MaterialCommunityIcons name="pencil-outline" size={22} color={theme.textSecondary} />
+                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
                                         </TouchableOpacity>
                                         <TouchableOpacity onPress={() => handleDelete(desafio)}>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={22} color="#FF3B30" />
+                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
                                         </TouchableOpacity>
                                     </View>
                                 </View>
 
-                                {/* Ações de compartilhamento */}
+                                {/* ── Link de INSCRIÇÃO — pra divulgar e captar novas participantes ── */}
+                                <Text style={[styles.linkSectionLabel, { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }]}>📋 PÁGINA DE INSCRIÇÃO</Text>
                                 <View style={styles.shareRow}>
+                                    <TouchableOpacity style={[styles.shareBtnIcon, { borderColor: theme.border }]} onPress={() => openPreview(desafio)}>
+                                        <MaterialCommunityIcons name="eye-outline" size={16} color={theme.textSecondary} />
+                                    </TouchableOpacity>
                                     <TouchableOpacity style={[styles.shareBtn, { borderColor: theme.border }]} onPress={() => handleCopyLink(desafio)}>
                                         <MaterialCommunityIcons name={copiedId === desafio.id ? 'check' : 'content-copy'} size={14} color={theme.textSecondary} />
                                         <Text style={[styles.shareBtnText, { color: theme.textSecondary }]}>
-                                            {copiedId === desafio.id ? 'LINK COPIADO!' : 'COPIAR LINK'}
+                                            {copiedId === desafio.id ? 'COPIADO!' : 'COPIAR LINK'}
                                         </Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity style={[styles.shareBtn, { borderColor: '#25D366' }]} onPress={() => handleShareWhatsApp(desafio)}>
                                         <MaterialCommunityIcons name="whatsapp" size={14} color="#25D366" />
-                                        <Text style={[styles.shareBtnText, { color: '#25D366' }]}>ENVIAR NO WHATSAPP</Text>
+                                        <Text style={[styles.shareBtnText, { color: '#25D366' }]}>WHATSAPP</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* ── Link de CHECK-IN — o que a Adri manda UMA vez e fica fixo no grupo ── */}
+                                <Text style={[styles.linkSectionLabel, { marginTop: 10 }]}>✅ PÁGINA DE CHECK-IN DIÁRIO</Text>
+                                <View style={styles.shareRow}>
+                                    <TouchableOpacity style={[styles.shareBtnIcon, { borderColor: theme.border }]} onPress={() => openPreviewCheckin(desafio)}>
+                                        <MaterialCommunityIcons name="eye-outline" size={16} color={theme.textSecondary} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.shareBtn, { borderColor: theme.border }]} onPress={() => handleCopyLinkCheckin(desafio)}>
+                                        <MaterialCommunityIcons name={copiedCheckinId === desafio.id ? 'check' : 'content-copy'} size={14} color={theme.textSecondary} />
+                                        <Text style={[styles.shareBtnText, { color: theme.textSecondary }]}>
+                                            {copiedCheckinId === desafio.id ? 'COPIADO!' : 'COPIAR LINK'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.shareBtn, { borderColor: '#25D366' }]} onPress={() => handleShareWhatsAppCheckin(desafio)}>
+                                        <MaterialCommunityIcons name="whatsapp" size={14} color="#25D366" />
+                                        <Text style={[styles.shareBtnText, { color: '#25D366' }]}>WHATSAPP</Text>
                                     </TouchableOpacity>
                                 </View>
                             </View>
@@ -494,6 +804,9 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         );
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // RENDER: FORMULÁRIO
+    // ────────────────────────────────────────────────────────────────────
     if (view === 'form') {
         return (
             <View style={{ gap: 15 }}>
@@ -662,6 +975,50 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     />
                     <Text style={styles.helperText}>Usado pra calcular e mostrar "R$ X por dia" na página pública.</Text>
 
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Data de início (Dia 1 do desafio)</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                        value={editingDesafio.dataInicio}
+                        onChangeText={(v) => updateField('dataInicio', formatDataDigitada(v))}
+                        placeholder="DD/MM/AAAA"
+                        placeholderTextColor="#666"
+                        keyboardType="numeric"
+                        maxLength={10}
+                    />
+                    <Text style={styles.helperText}>
+                        Opcional. Preenchida, a página de check-in passa a mostrar "Dia X de {editingDesafio.duracaoDias || 90}" e só
+                        aceita check-in dentro do período (início até início + duração). Deixe em branco pra não ter essa trava.
+                    </Text>
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 20 }]}>🏆 Pontuação do check-in (pontos por item marcado)</Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.pontosFieldLabel}>Segunda a sexta</Text>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, textAlign: 'center' }]}
+                                keyboardType="numeric"
+                                value={editingDesafio.pontosPorItem}
+                                onChangeText={(v) => updateField('pontosPorItem', v)}
+                                placeholder="1"
+                                placeholderTextColor="#666"
+                            />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.pontosFieldLabel}>Sábado e domingo</Text>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, textAlign: 'center' }]}
+                                keyboardType="numeric"
+                                value={editingDesafio.pontosPorItemFimDeSemana}
+                                onChangeText={(v) => updateField('pontosPorItemFimDeSemana', v)}
+                                placeholder="2"
+                                placeholderTextColor="#666"
+                            />
+                        </View>
+                    </View>
+                    <Text style={styles.helperText}>
+                        Fim de semana vale mais por padrão, já que é mais difícil manter a rotina — ajuste do seu jeito.
+                    </Text>
+
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Link de convite do grupo do WhatsApp</Text>
                     <TextInput
                         style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
@@ -698,6 +1055,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         pagas com o dono anterior, elas não são afetadas — só as novas cobranças usam o dono atual.
                     </Text>
 
+                    {/* ── Perfil de quem conduz o desafio (opcional) ────────────── */}
                     <View style={styles.subsectionDivider} />
                     <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>QUEM CONDUZ ESSE DESAFIO</Text>
                     <Text style={styles.helperText}>
@@ -705,11 +1063,10 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     </Text>
 
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 10, marginBottom: 6 }}>
-                        {/* 🔥 FIX: Aumentado de 64 para 84px para garantir que a foto não corte partes importantes do rosto */}
                         <View style={[styles.mentorPhotoPreview, { borderColor: theme.border, backgroundColor: theme.bg }]}>
                             {editingDesafio.mentorFotoUrl
                                 ? <Image source={{ uri: editingDesafio.mentorFotoUrl }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
-                                : <MaterialCommunityIcons name="account" size={36} color={theme.textSecondary} />
+                                : <MaterialCommunityIcons name="account" size={30} color={theme.textSecondary} />
                             }
                         </View>
                         <TouchableOpacity
@@ -748,6 +1105,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                         placeholderTextColor="#666"
                     />
 
+                    {/* ── Galeria de antes/depois (opcional) ─────────────────────── */}
                     <View style={styles.subsectionDivider} />
                     <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>ANTES E DEPOIS</Text>
                     <Text style={styles.helperText}>
@@ -838,6 +1196,255 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         );
     }
 
+    // ────────────────────────────────────────────────────────────────────
+    // RENDER: INSCRITAS (lista de leads de um desafio específico)
+    // ────────────────────────────────────────────────────────────────────
+    if (view === 'inscritas') {
+        return (
+            <View style={{ gap: 15 }}>
+                <TouchableOpacity style={styles.backRow} onPress={backToList}>
+                    <MaterialCommunityIcons name="arrow-left" size={18} color={theme.textSecondary} />
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900' }}>VOLTAR PARA A LISTA</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'flex-start' }]}>
+                    <Text style={[styles.bigCardTitle, { color: theme.text }]}>INSCRITAS — {inscritasDesafio?.nome}</Text>
+                    <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
+                        Lista separada do CRM principal. Marcadas como lead futuro por padrão.
+                    </Text>
+
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>🧪 CRIAR INSCRIÇÃO DE TESTE</Text>
+                    <Text style={styles.helperText}>
+                        Cria uma participante fake (sem pagar de verdade) pra você testar o check-in e o upload de fotos.
+                        Nunca aparece no ranking, mas fica marcada aqui como TESTE.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, width: '100%' }}>
+                        <TextInput
+                            style={[styles.saasInput, { flex: 1, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                            value={novoTesteNome}
+                            onChangeText={setNovoTesteNome}
+                            placeholder="Seu nome"
+                            placeholderTextColor="#666"
+                        />
+                        <TextInput
+                            style={[styles.saasInput, { flex: 1, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                            value={novoTesteTelefone}
+                            onChangeText={setNovoTesteTelefone}
+                            placeholder="Seu telefone"
+                            placeholderTextColor="#666"
+                            keyboardType="phone-pad"
+                        />
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.newBtn, { backgroundColor: theme.accent, marginTop: 10, marginBottom: 0, opacity: criandoTeste ? 0.6 : 1 }]}
+                        onPress={handleCriarTeste}
+                        disabled={criandoTeste}
+                    >
+                        {criandoTeste
+                            ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" />
+                            : <>
+                                <MaterialCommunityIcons name="flask-outline" size={18} color={theme.isDark ? '#000' : '#FFF'} />
+                                <Text style={[styles.newBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CRIAR TESTE</Text>
+                            </>
+                        }
+                    </TouchableOpacity>
+                    <View style={styles.subsectionDivider} />
+
+                    {loadingInscricoes ? (
+                        <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 20, alignSelf: 'center', width: '100%' }} />
+                    ) : inscricoes.length === 0 ? (
+                        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhuma inscrição ainda.</Text>
+                    ) : (
+                        <View style={{ width: '100%' }}>
+                            {inscricoes.map((insc) => (
+                                <View key={insc.id} style={[styles.inscricaoRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                    <View style={{ flex: 1 }}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                            <Text style={[styles.itemNome, { color: theme.text, fontSize: 13 }]}>{insc.nome}</Text>
+                                            <View style={[
+                                                styles.statusBadge,
+                                                insc.status === 'PAGO'
+                                                    ? { backgroundColor: '#4DE38F20', borderColor: '#4DE38F' }
+                                                    : { backgroundColor: '#FFCC0020', borderColor: '#FFCC00' },
+                                            ]}>
+                                                <Text style={{ color: insc.status === 'PAGO' ? '#4DE38F' : '#FFCC00', fontSize: 9, fontWeight: '900' }}>
+                                                    {insc.status}
+                                                </Text>
+                                            </View>
+                                            {insc.isTeste && (
+                                                <View style={[styles.statusBadge, { backgroundColor: '#8B5CF620', borderColor: '#8B5CF6' }]}>
+                                                    <Text style={{ color: '#8B5CF6', fontSize: 9, fontWeight: '900' }}>TESTE</Text>
+                                                </View>
+                                            )}
+                                        </View>
+                                        <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>{insc.email} · {insc.telefone}</Text>
+                                        <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>
+                                            Nasc: {formatDataBR(insc.dataNascimento)} · Cadastro: {formatDataBR(insc.createdAt)}
+                                        </Text>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                </View>
+            </View>
+        );
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // RENDER: CHECK-INS (acompanhamento diário — quem está em dia)
+    // ────────────────────────────────────────────────────────────────────
+    const renderComplianceStrip = (checkins) => {
+        const dias = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const dISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            const entry = checkins.find(c => dataParaISOSimples(c.data) === dISO);
+            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua);
+            dias.push({ feito: !!feito, isHoje: i === 0, label: DIAS_ABREV[d.getDay()] });
+        }
+        const totalFeito = dias.filter(d => d.feito).length;
+        return { dias, totalFeito };
+    };
+
+    if (view === 'checkins') {
+        return (
+            <View style={{ gap: 15 }}>
+                <TouchableOpacity style={styles.backRow} onPress={backToList}>
+                    <MaterialCommunityIcons name="arrow-left" size={18} color={theme.textSecondary} />
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900' }}>VOLTAR PARA A LISTA</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'flex-start' }]}>
+                    <Text style={[styles.bigCardTitle, { color: theme.text }]}>CHECK-INS — {checkinsDesafio?.nome}</Text>
+                    <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
+                        Últimos 7 dias de cada participante paga. Bolinha preenchida = fez pelo menos um item do check-in naquele dia.
+                    </Text>
+
+                    {loadingCheckins ? (
+                        <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 20, alignSelf: 'center', width: '100%' }} />
+                    ) : checkinsInscricoes.length === 0 ? (
+                        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhuma participante paga ainda.</Text>
+                    ) : (
+                        <View style={{ width: '100%' }}>
+                            {checkinsInscricoes.map((insc) => {
+                                const { dias, totalFeito } = renderComplianceStrip(insc.checkins || []);
+                                return (
+                                    <View key={insc.id} style={[styles.inscricaoRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                <Text style={[styles.itemNome, { color: theme.text, fontSize: 13 }]}>{insc.nome}</Text>
+                                                {insc.isTeste && (
+                                                    <View style={[styles.statusBadge, { backgroundColor: '#8B5CF620', borderColor: '#8B5CF6' }]}>
+                                                        <Text style={{ color: '#8B5CF6', fontSize: 9, fontWeight: '900' }}>TESTE</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                            <Text style={{ color: totalFeito >= 5 ? '#4DE38F' : totalFeito >= 3 ? '#FFCC00' : '#FF3B30', fontSize: 11, fontWeight: '900' }}>
+                                                {totalFeito}/7 dias
+                                            </Text>
+                                        </View>
+                                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                                            {dias.map((d, i) => (
+                                                <View key={i} style={{ alignItems: 'center', gap: 4 }}>
+                                                    <View style={[
+                                                        styles.checkinDot,
+                                                        { borderColor: theme.border },
+                                                        d.feito && { backgroundColor: theme.accent, borderColor: theme.accent },
+                                                        d.isHoje && !d.feito && { borderColor: theme.accent, borderWidth: 2 },
+                                                    ]}>
+                                                        {d.feito ? <MaterialCommunityIcons name="check" size={11} color={theme.isDark ? '#000' : '#FFF'} /> : null}
+                                                    </View>
+                                                    <Text style={{ color: theme.textSecondary, fontSize: 9, fontWeight: '700' }}>{d.label}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    )}
+                </View>
+            </View>
+        );
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // RENDER: RANKING (só admin — vira texto pra Adri colar no grupo)
+    // ────────────────────────────────────────────────────────────────────
+    const formatarPeriodoRanking = () => {
+        if (!rankingPeriodo.inicioSemana) return '';
+        const formatarData = (iso) => {
+            const d = new Date(iso);
+            return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        };
+        return `${formatarData(rankingPeriodo.inicioSemana)} a ${formatarData(rankingPeriodo.fimSemana)}`;
+    };
+
+    if (view === 'ranking') {
+        return (
+            <View style={{ gap: 15 }}>
+                <TouchableOpacity style={styles.backRow} onPress={backToList}>
+                    <MaterialCommunityIcons name="arrow-left" size={18} color={theme.textSecondary} />
+                    <Text style={{ color: theme.textSecondary, fontSize: 12, fontWeight: '900' }}>VOLTAR PARA A LISTA</Text>
+                </TouchableOpacity>
+
+                <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'flex-start' }]}>
+                    <Text style={[styles.bigCardTitle, { color: theme.text }]}>🏆 RANKING — {rankingDesafio?.nome}</Text>
+                    <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
+                        Visível só pra vocês dois. Copie o texto formatado e cole no grupo quando quiser divulgar.
+                    </Text>
+
+                    <View style={styles.weekNavRow}>
+                        <TouchableOpacity onPress={() => mudarSemanaRanking(rankingOffset - 1)} style={styles.weekNavBtn}>
+                            <MaterialCommunityIcons name="chevron-left" size={22} color={theme.text} />
+                        </TouchableOpacity>
+                        <Text style={[styles.weekNavLabel, { color: theme.text }]}>
+                            {formatarPeriodoRanking()}{rankingOffset === 0 ? ' (essa semana)' : ''}
+                        </Text>
+                        <TouchableOpacity
+                            onPress={() => mudarSemanaRanking(rankingOffset + 1)}
+                            style={styles.weekNavBtn}
+                            disabled={rankingOffset >= 0}
+                        >
+                            <MaterialCommunityIcons name="chevron-right" size={22} color={rankingOffset >= 0 ? theme.border : theme.text} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {loadingRanking ? (
+                        <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 20, alignSelf: 'center', width: '100%' }} />
+                    ) : ranking.length === 0 ? (
+                        <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhuma participante paga ainda.</Text>
+                    ) : (
+                        <>
+                            <View style={{ width: '100%', marginTop: 10 }}>
+                                {ranking.map((r, i) => (
+                                    <View key={r.inscricaoId} style={[styles.rankingRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                        <Text style={styles.rankingPos}>{MEDALHAS[i] || `${i + 1}º`}</Text>
+                                        <Text style={[styles.itemNome, { color: theme.text, fontSize: 13, flex: 1 }]}>{r.nome}</Text>
+                                        <Text style={{ color: theme.accent, fontSize: 14, fontWeight: '900' }}>{r.pontos} pts</Text>
+                                    </View>
+                                ))}
+                            </View>
+
+                            <TouchableOpacity style={[styles.copyRankingBtn, { backgroundColor: theme.accent }]} onPress={handleCopiarRanking}>
+                                <MaterialCommunityIcons name={rankingCopiado ? 'check' : 'content-copy'} size={16} color={theme.isDark ? '#000' : '#FFF'} />
+                                <Text style={{ color: theme.isDark ? '#000' : '#FFF', fontWeight: '900', fontSize: 12 }}>
+                                    {rankingCopiado ? 'COPIADO!' : 'COPIAR RANKING PRO WHATSAPP'}
+                                </Text>
+                            </TouchableOpacity>
+                        </>
+                    )}
+                </View>
+            </View>
+        );
+    }
+
+    // ────────────────────────────────────────────────────────────────────
+    // RENDER: DATAS ESPECIAIS (feriados — pontuação com aviso prévio)
+    // ────────────────────────────────────────────────────────────────────
     return (
         <View style={{ gap: 15 }}>
             <TouchableOpacity style={styles.backRow} onPress={backToList}>
@@ -846,40 +1453,85 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             </TouchableOpacity>
 
             <View style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'flex-start' }]}>
-                <Text style={[styles.bigCardTitle, { color: theme.text }]}>INSCRITAS — {inscritasDesafio?.nome}</Text>
+                <Text style={[styles.bigCardTitle, { color: theme.text }]}>📅 DATAS ESPECIAIS — {datasEspeciaisDesafio?.nome}</Text>
                 <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
-                    Lista separada do CRM principal. Marcadas como lead futuro por padrão.
+                    Feriados ou datas comemorativas com pontuação diferente. Assim que cadastrar, a página de
+                    check-in já avisa as participantes com antecedência — não precisa avisar por fora.
                 </Text>
 
-                {loadingInscricoes ? (
-                    <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 20, alignSelf: 'center', width: '100%' }} />
-                ) : inscricoes.length === 0 ? (
-                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhuma inscrição ainda.</Text>
+                <View style={styles.subsectionDivider} />
+                <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>NOVA DATA ESPECIAL</Text>
+
+                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 10 }]}>Data</Text>
+                <TextInput
+                    style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                    value={novaDataEspecial}
+                    onChangeText={(v) => setNovaDataEspecial(formatDataDigitada(v))}
+                    placeholder="DD/MM/AAAA"
+                    placeholderTextColor="#666"
+                    keyboardType="numeric"
+                    maxLength={10}
+                />
+
+                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 12 }]}>Pontos por item nesse dia</Text>
+                <TextInput
+                    style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                    value={novaDataPontos}
+                    onChangeText={setNovaDataPontos}
+                    placeholder="3"
+                    placeholderTextColor="#666"
+                    keyboardType="numeric"
+                />
+
+                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 12 }]}>Motivo (aparece no aviso pras participantes)</Text>
+                <TextInput
+                    style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                    value={novaDataMotivo}
+                    onChangeText={setNovaDataMotivo}
+                    placeholder="Ex: Feriado de 7 de setembro"
+                    placeholderTextColor="#666"
+                />
+
+                <TouchableOpacity
+                    style={[styles.newBtn, { backgroundColor: theme.accent, marginTop: 16, opacity: savingDataEspecial ? 0.6 : 1 }]}
+                    onPress={handleAddDataEspecial}
+                    disabled={savingDataEspecial}
+                >
+                    {savingDataEspecial
+                        ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" />
+                        : <>
+                            <MaterialCommunityIcons name="plus" size={18} color={theme.isDark ? '#000' : '#FFF'} />
+                            <Text style={[styles.newBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ADICIONAR DATA</Text>
+                        </>
+                    }
+                </TouchableOpacity>
+
+                <View style={styles.subsectionDivider} />
+                <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13, marginBottom: 10 }]}>DATAS CADASTRADAS</Text>
+
+                {loadingDatasEspeciais ? (
+                    <ActivityIndicator size="large" color={theme.accent} style={{ marginTop: 10, alignSelf: 'center', width: '100%' }} />
+                ) : datasEspeciais.length === 0 ? (
+                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>Nenhuma data especial cadastrada ainda.</Text>
                 ) : (
                     <View style={{ width: '100%' }}>
-                        {inscricoes.map((insc) => (
-                            <View key={insc.id} style={[styles.inscricaoRow, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                <View style={{ flex: 1 }}>
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                        <Text style={[styles.itemNome, { color: theme.text, fontSize: 13 }]}>{insc.nome}</Text>
-                                        <View style={[
-                                            styles.statusBadge,
-                                            insc.status === 'PAGO'
-                                                ? { backgroundColor: '#4DE38F20', borderColor: '#4DE38F' }
-                                                : { backgroundColor: '#FFCC0020', borderColor: '#FFCC00' },
-                                        ]}>
-                                            <Text style={{ color: insc.status === 'PAGO' ? '#4DE38F' : '#FFCC00', fontSize: 9, fontWeight: '900' }}>
-                                                {insc.status}
-                                            </Text>
-                                        </View>
+                        {datasEspeciais.map((d) => {
+                            const dISO = dataParaISOSimples(d.data);
+                            const jaPassou = dISO < dataParaISOSimples(new Date().toISOString());
+                            return (
+                                <View key={d.id} style={[styles.inscricaoRow, { backgroundColor: theme.bg, borderColor: theme.border, flexDirection: 'row', alignItems: 'center', opacity: jaPassou ? 0.5 : 1 }]}>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={[styles.itemNome, { color: theme.text, fontSize: 13 }]}>
+                                            {new Date(d.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} — {d.pontosPorItem} pts/item
+                                        </Text>
+                                        <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>{d.motivo}{jaPassou ? ' (já passou)' : ''}</Text>
                                     </View>
-                                    <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>{insc.email} · {insc.telefone}</Text>
-                                    <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>
-                                        Nasc: {formatDataBR(insc.dataNascimento)} · Cadastro: {formatDataBR(insc.createdAt)}
-                                    </Text>
+                                    <TouchableOpacity onPress={() => handleRemoveDataEspecial(d.id)}>
+                                        <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                    </TouchableOpacity>
                                 </View>
-                            </View>
-                        ))}
+                            );
+                        })}
                     </View>
                 )}
             </View>
@@ -897,12 +1549,11 @@ const styles = StyleSheet.create({
 
     emptyText: { fontSize: 13, textAlign: 'center', marginTop: 20, lineHeight: 20, width: '100%' },
 
-    // 🔥 FIX Layout Amontoado: Ajuste no itemCard para dar respiro aos botões
-    itemCard: { padding: 18, borderRadius: 16, borderWidth: 1, marginBottom: 14, width: '100%' },
-    actionIconsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1 },
-    
-    shareRow: { flexDirection: 'row', gap: 10, marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+    itemCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12, width: '100%' },
+    linkSectionLabel: { fontSize: 10, fontWeight: '900', color: '#888', letterSpacing: 0.5, marginBottom: 6 },
+    shareRow: { flexDirection: 'row', gap: 8 },
     shareBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+    shareBtnIcon: { width: 38, justifyContent: 'center', alignItems: 'center', borderRadius: 10, borderWidth: 1 },
     shareBtnText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.3 },
     itemNome: { fontSize: 15, fontWeight: '900' },
     itemSlug: { fontSize: 11, marginTop: 2 },
@@ -912,15 +1563,14 @@ const styles = StyleSheet.create({
     backRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
 
     inputLabel: { fontSize: 11, fontWeight: 'bold', letterSpacing: 0.5, marginBottom: 4 },
-    // 🔥 FIX Zoom IOS: Alterado o fontSize para 16px cravado
-    saasInput: { width: '100%', padding: 14, borderRadius: 12, borderWidth: 1, fontSize: 16 },
+    saasInput: { width: '100%', padding: 12, borderRadius: 10, borderWidth: 1, fontSize: 13 },
     helperText: { fontSize: 10, fontStyle: 'italic', color: '#888', marginTop: 6 },
+    pontosFieldLabel: { fontSize: 10, fontWeight: '700', color: '#888', marginBottom: 4, textAlign: 'center' },
 
     coachOption: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
     beneficioRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
     subsectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 24, marginBottom: 16 },
-    // 🔥 FIX Foto Adri: Aumentado tamanho do frame para preservar a imagem (84x84)
-    mentorPhotoPreview: { width: 84, height: 84, borderRadius: 42, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+    mentorPhotoPreview: { width: 64, height: 64, borderRadius: 32, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
     logoPreviewBox: { width: '100%', height: 90, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center', marginTop: 8, overflow: 'hidden' },
     galleryPairCard: { padding: 14, borderRadius: 14, borderWidth: 1 },
     galleryPhotoLabel: { fontSize: 10, fontWeight: '900', color: '#888', letterSpacing: 0.3 },
@@ -934,4 +1584,13 @@ const styles = StyleSheet.create({
     saveBtn: { flex: 2, padding: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
 
     inscricaoRow: { padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 10, width: '100%' },
+    checkinDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 1, justifyContent: 'center', alignItems: 'center' },
+
+    weekNavRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginTop: 12 },
+    weekNavBtn: { padding: 6 },
+    weekNavLabel: { fontSize: 13, fontWeight: '900' },
+
+    rankingRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 14, borderWidth: 1, marginBottom: 8, width: '100%' },
+    rankingPos: { fontSize: 16, fontWeight: '900', width: 32, textAlign: 'center' },
+    copyRankingBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, marginTop: 16, width: '100%' },
 });
