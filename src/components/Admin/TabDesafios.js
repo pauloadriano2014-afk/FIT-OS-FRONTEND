@@ -32,7 +32,7 @@ const emptyDesafio = (defaultCoachId) => ({
     duracaoDias: '90',
     dataInicio: '',
     pontosPorItem: '1',
-    pontosPorItemFimDeSemana: '2',
+    pontosPorItemFimDeSemana: '1',
     linkGrupoWhats: '',
     coachId: defaultCoachId,
     ativo: true,
@@ -228,7 +228,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             duracaoDias: String(desafio.duracaoDias || 90),
             dataInicio: isoParaDataDigitada(desafio.dataInicio),
             pontosPorItem: String(desafio.pontosPorItem ?? 1),
-            pontosPorItemFimDeSemana: String(desafio.pontosPorItemFimDeSemana ?? 2),
+            pontosPorItemFimDeSemana: String(desafio.pontosPorItemFimDeSemana ?? 1),
             logoUrl: desafio.logoUrl || '',
             beneficios: desafio.beneficios?.length ? desafio.beneficios : [''],
             mentorNome: desafio.mentorNome || '',
@@ -721,49 +721,63 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                     <View style={{ width: '100%' }}>
                         {desafios.map((desafio) => (
                             <View key={desafio.id} style={[styles.itemCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-                                    <TouchableOpacity style={{ flex: 1 }} onPress={() => openInscritas(desafio)}>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                            <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
-                                            <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
-                                                <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
-                                                    {desafio.ativo ? 'ATIVO' : 'INATIVO'}
-                                                </Text>
-                                            </View>
+                                <TouchableOpacity onPress={() => openInscritas(desafio)}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                        <Text style={[styles.itemNome, { color: theme.text }]}>{desafio.nome}</Text>
+                                        <View style={[styles.statusBadge, { backgroundColor: desafio.ativo ? '#4DE38F20' : '#66666620', borderColor: desafio.ativo ? '#4DE38F' : '#666' }]}>
+                                            <Text style={{ color: desafio.ativo ? '#4DE38F' : '#888', fontSize: 9, fontWeight: '900' }}>
+                                                {desafio.ativo ? 'ATIVO' : 'INATIVO'}
+                                            </Text>
                                         </View>
-                                        <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}</Text>
-                                        <Text style={[styles.itemMeta, { color: theme.accent }]}>
-                                            {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
-                                        </Text>
-                                    </TouchableOpacity>
+                                    </View>
+                                    <Text style={[styles.itemSlug, { color: theme.textSecondary }]}>?desafio={desafio.slug} · R$ {formatBRL(desafio.valor)}</Text>
+                                    <Text style={[styles.itemMeta, { color: theme.accent }]}>
+                                        {desafio._count?.inscricoes || 0} inscrição(ões) — toque pra ver
+                                    </Text>
+                                </TouchableOpacity>
 
-                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-                                        <TouchableOpacity onPress={() => openDatasEspeciais(desafio)}>
-                                            <MaterialCommunityIcons name="calendar-star" size={20} color={theme.textSecondary} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => openRanking(desafio)}>
-                                            <MaterialCommunityIcons name="trophy-outline" size={20} color={theme.textSecondary} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => openCheckins(desafio)}>
-                                            <MaterialCommunityIcons name="calendar-check-outline" size={20} color={theme.textSecondary} />
-                                        </TouchableOpacity>
+                                {/* ── Gerenciar — ícones sempre com texto do lado, quebra linha no celular ── */}
+                                <Text style={[styles.linkSectionLabel, { marginTop: 14 }]}>⚙️ GERENCIAR</Text>
+                                <View style={styles.manageBtnRow}>
+                                    <TouchableOpacity style={[styles.manageBtn, { borderColor: theme.border }]} onPress={() => openDatasEspeciais(desafio)}>
+                                        <MaterialCommunityIcons name="calendar-star" size={15} color={theme.textSecondary} />
+                                        <Text style={[styles.manageBtnText, { color: theme.textSecondary }]}>DATAS ESPECIAIS</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.manageBtn, { borderColor: theme.border }]} onPress={() => openRanking(desafio)}>
+                                        <MaterialCommunityIcons name="trophy-outline" size={15} color={theme.textSecondary} />
+                                        <Text style={[styles.manageBtnText, { color: theme.textSecondary }]}>RANKING</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.manageBtn, { borderColor: theme.border }]} onPress={() => openCheckins(desafio)}>
+                                        <MaterialCommunityIcons name="calendar-check-outline" size={15} color={theme.textSecondary} />
+                                        <Text style={[styles.manageBtnText, { color: theme.textSecondary }]}>VER CHECK-INS</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.manageBtn, { borderColor: theme.accent }]} onPress={() => openEditDesafio(desafio)}>
+                                        <MaterialCommunityIcons name="pencil-outline" size={15} color={theme.accent} />
+                                        <Text style={[styles.manageBtnText, { color: theme.accent }]}>EDITAR</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* ── Ativo/Inativo (com texto) + Excluir (separado, destrutivo) ── */}
+                                <View style={styles.toggleDeleteRow}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                         <Switch
                                             value={desafio.ativo}
                                             onValueChange={() => toggleAtivo(desafio)}
                                             trackColor={{ false: '#444', true: `${theme.accent}80` }}
                                             thumbColor={desafio.ativo ? theme.accent : '#888'}
                                         />
-                                        <TouchableOpacity onPress={() => openEditDesafio(desafio)}>
-                                            <MaterialCommunityIcons name="pencil-outline" size={20} color={theme.textSecondary} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity onPress={() => handleDelete(desafio)}>
-                                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
-                                        </TouchableOpacity>
+                                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '700' }}>
+                                            {desafio.ativo ? 'Desafio ativo' : 'Desafio inativo'}
+                                        </Text>
                                     </View>
+                                    <TouchableOpacity style={styles.deleteBtnLabeled} onPress={() => handleDelete(desafio)}>
+                                        <MaterialCommunityIcons name="trash-can-outline" size={15} color="#FF3B30" />
+                                        <Text style={{ color: '#FF3B30', fontSize: 10, fontWeight: '900', letterSpacing: 0.3 }}>EXCLUIR</Text>
+                                    </TouchableOpacity>
                                 </View>
 
                                 {/* ── Link de INSCRIÇÃO — pra divulgar e captar novas participantes ── */}
-                                <Text style={[styles.linkSectionLabel, { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }]}>📋 PÁGINA DE INSCRIÇÃO</Text>
+                                <Text style={[styles.linkSectionLabel, { marginTop: 14 }]}>📋 PÁGINA DE INSCRIÇÃO</Text>
                                 <View style={styles.shareRow}>
                                     <TouchableOpacity style={[styles.shareBtnIcon, { borderColor: theme.border }]} onPress={() => openPreview(desafio)}>
                                         <MaterialCommunityIcons name="eye-outline" size={16} color={theme.textSecondary} />
@@ -1015,13 +1029,14 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                 keyboardType="decimal-pad"
                                 value={editingDesafio.pontosPorItemFimDeSemana}
                                 onChangeText={(v) => updateField('pontosPorItemFimDeSemana', v)}
-                                placeholder="2"
+                                placeholder="1"
                                 placeholderTextColor="#666"
                             />
                         </View>
                     </View>
                     <Text style={styles.helperText}>
-                        Fim de semana vale mais por padrão, já que é mais difícil manter a rotina — aceita decimal (ex: 1.5).
+                        Por padrão, todo dia vale 1x (sem bônus). Se quiser que o fim de semana valha mais — já que é
+                        mais difícil manter a rotina — é só aumentar esse número (aceita decimal, ex: 1.5).
                     </Text>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Link de convite do grupo do WhatsApp</Text>
@@ -1645,6 +1660,11 @@ const styles = StyleSheet.create({
 
     itemCard: { padding: 16, borderRadius: 16, borderWidth: 1, marginBottom: 12, width: '100%' },
     linkSectionLabel: { fontSize: 10, fontWeight: '900', color: '#888', letterSpacing: 0.5, marginBottom: 6 },
+    manageBtnRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    manageBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1 },
+    manageBtnText: { fontSize: 9, fontWeight: '900', letterSpacing: 0.2 },
+    toggleDeleteRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+    deleteBtnLabeled: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: '#FF3B3040' },
     shareRow: { flexDirection: 'row', gap: 8 },
     shareBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
     shareBtnIcon: { width: 38, justifyContent: 'center', alignItems: 'center', borderRadius: 10, borderWidth: 1 },
