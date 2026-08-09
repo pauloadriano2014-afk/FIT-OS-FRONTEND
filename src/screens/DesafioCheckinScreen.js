@@ -28,19 +28,19 @@ const MAIN_COLOR = '#8B5CF6';
 const LIGHT_COLOR = '#C4B5FD';
 const DARK_COLOR = '#6D28D9';
 
-const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const DIAS_SEMANA = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
 const DIAS_ABREV = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
 
 // ── FAQ do check-in — dúvidas comuns de quem nunca usou o formulário ─────
 const faqListCheckin = [
-    { q: 'O que conta como "Treino"?', a: 'Qualquer treino que você fizer no dia — na academia, em casa, o que estiver combinado com você. O importante é marcar quando cumprir.' },
-    { q: 'Preciso mandar foto todo dia?', a: 'A foto na academia é diária — é o que mostra que você foi treinar. Já as 3 fotos de frente/lado/costas são só aos sábados.' },
-    { q: 'Esqueci de fazer o check-in de ontem, posso fazer agora?', a: 'Não dá — o link sempre registra o check-in do dia de HOJE. Se perder um dia, sem problema, é só continuar a partir de hoje.' },
-    { q: 'Posso editar o check-in depois de enviar?', a: 'Sim! Reabra o link no mesmo dia e ajuste o que quiser — ele atualiza automaticamente, não duplica nem cria um novo.' },
-    { q: 'Pra que servem as fotos de sábado (frente/lado/costas)?', a: 'São pra Adri acompanhar sua evolução física real ao longo dos 90 dias — sem elas, fica difícil enxergar o progresso.' },
-    { q: 'Meus dados e fotos ficam visíveis pras outras participantes?', a: 'Não. Só você e a equipe (Adri/Paulo) têm acesso ao que você envia.' },
-    { q: 'A pontuação muda em algum dia?', a: 'Pode! Em feriados ou datas especiais a pontuação pode aumentar — sempre avisamos aqui na página com antecedência, então fica de olho nos avisos.' },
-    { q: 'O que é a "Missão"?', a: 'Toda semana a Adri passa um desafio extra no grupo do WhatsApp. Ela mesma marca quem completou direto no sistema — não precisa fazer nada aqui na página pra isso.' },
+    { q: 'O que conta como "Treino"?', a: 'Qualquer treino que você fizer no dia, menina — na academia, em casa, o que a gente combinou juntas. O importante é marcar quando cumprir.' },
+    { q: 'Preciso mandar foto todo dia?', a: 'A foto na academia é diária — é o que me mostra que você foi treinar. Já as 3 fotos de frente/lado/costas são só aos sábados.' },
+    { q: 'Esqueci de fazer o check-in de ontem, posso fazer agora?', a: 'Não dá — o link sempre registra o check-in do dia de HOJE. Se perder um dia, sem problema nenhum, só continua a partir de hoje.' },
+    { q: 'Posso editar o check-in depois de enviar?', a: 'Sim! Reabre o link no mesmo dia e ajusta o que quiser — ele atualiza automaticamente, não duplica nem cria um novo.' },
+    { q: 'Pra que servem as fotos de sábado (frente/lado/costas)?', a: 'São pra eu acompanhar sua evolução física real ao longo dos 90 dias — sem elas, fica difícil eu enxergar o seu progresso de verdade.' },
+    { q: 'Meus dados e fotos ficam visíveis pras outras participantes?', a: 'Não, fica tranquila. Só eu tenho acesso ao que você me envia.' },
+    { q: 'A pontuação muda em algum dia?', a: 'Pode! Em feriados ou datas especiais eu posso aumentar a pontuação — sempre aviso aqui na página com antecedência, então fica de olho nos avisos.' },
+    { q: 'O que é a "Missão"?', a: 'Toda semana eu passo um desafio extra no grupo do WhatsApp. Eu mesma marco quem completou direto no sistema — você não precisa fazer nada aqui na página pra isso.' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -604,7 +604,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                         <>
                             <View style={styles.greetingBox}>
                                 <Text style={styles.greetingText}>Olá, {participanteNome.split(' ')[0]}! 💜</Text>
-                                <Text style={styles.diaBadge}>{diaLabel}-feira · {new Date().toLocaleDateString('pt-BR')}</Text>
+                                <Text style={styles.diaBadge}>{diaLabel} · {new Date().toLocaleDateString('pt-BR')}</Text>
                             </View>
 
                             {renderTirinhaSemana()}
