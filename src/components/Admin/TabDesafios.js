@@ -124,6 +124,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const [loadingCheckins, setLoadingCheckins] = useState(false);
     const [checkinDetalhe, setCheckinDetalhe] = useState(null); // { nome, entry } do dia selecionado
     const [togglingMissao, setTogglingMissao] = useState(false);
+    const [deletingCheckin, setDeletingCheckin] = useState(false);
 
     const [rankingDesafio, setRankingDesafio] = useState(null);
     const [ranking, setRanking] = useState([]);
@@ -597,6 +598,40 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         } finally {
             setTogglingMissao(false);
         }
+    };
+
+    // ── Excluir/invalidar um check-in específico (ex: registrado antes da
+    // data de início real ser corrigida) ──────────────────────────────────
+    const handleDeleteCheckin = (entry) => {
+        const dataFormatada = new Date(entry.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        const confirmMsg = `Excluir o check-in de ${dataFormatada}? Isso apaga o registro (fotos, itens marcados, pontos) desse dia específico. Não dá pra desfazer.`;
+
+        const doDelete = async () => {
+            setDeletingCheckin(true);
+            try {
+                const res = await fetch(`${API_BASE}/api/admin/desafios/checkin/${entry.id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    setCheckinDetalhe(null);
+                    if (checkinsDesafio) await openCheckins(checkinsDesafio);
+                } else {
+                    const data = await res.json();
+                    Platform.OS === 'web' ? window.alert(data?.error || 'Erro ao excluir.') : Alert.alert('Erro', data?.error || 'Erro ao excluir.');
+                }
+            } catch (e) {
+                console.log('Erro ao excluir check-in', e);
+            } finally {
+                setDeletingCheckin(false);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (window.confirm(confirmMsg)) doDelete();
+            return;
+        }
+        Alert.alert('Excluir check-in', confirmMsg, [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Excluir', style: 'destructive', onPress: doDelete },
+        ]);
     };
 
     const openCheckins = async (desafio) => {
@@ -1607,6 +1642,25 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                         {!checkinDetalhe.entry.fotoAcademiaUrl && !checkinDetalhe.entry.fotoFrenteUrl && (
                                             <Text style={[styles.emptyText, { color: theme.textSecondary, marginTop: 10 }]}>Nenhuma foto enviada nesse dia.</Text>
                                         )}
+
+                                        <View style={styles.subsectionDivider} />
+                                        <TouchableOpacity
+                                            style={styles.excluirCheckinBtn}
+                                            onPress={() => handleDeleteCheckin(checkinDetalhe.entry)}
+                                            disabled={deletingCheckin}
+                                        >
+                                            {deletingCheckin ? (
+                                                <ActivityIndicator size="small" color="#FF3B30" />
+                                            ) : (
+                                                <>
+                                                    <MaterialCommunityIcons name="trash-can-outline" size={16} color="#FF3B30" />
+                                                    <Text style={{ color: '#FF3B30', fontSize: 11, fontWeight: '900', letterSpacing: 0.3 }}>EXCLUIR ESTE CHECK-IN</Text>
+                                                </>
+                                            )}
+                                        </TouchableOpacity>
+                                        <Text style={styles.helperText}>
+                                            Use isso pra invalidar um check-in feito por engano (ex: antes da data de início real ser corrigida). Não dá pra desfazer.
+                                        </Text>
                                     </>
                                 )}
                             </ScrollView>
@@ -1848,6 +1902,7 @@ const styles = StyleSheet.create({
     detalheItensGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     detalheItemChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
     missaoToggleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 12, marginTop: 12 },
+    excluirCheckinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#FF3B3040', borderRadius: 12, paddingVertical: 12, marginBottom: 6 },
     detalheFotosGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
     detalheFotoBox: { width: '47%' },
     detalheFotoImg: { width: '100%', aspectRatio: 9 / 16, borderRadius: 10, marginTop: 4, backgroundColor: '#000' },
