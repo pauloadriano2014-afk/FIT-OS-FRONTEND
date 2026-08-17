@@ -576,13 +576,14 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     // ── Ver check-ins (acompanhamento diário das participantes) ──────────────
     // ── Marcar/desmarcar missão cumprida (só admin, geralmente aos domingos) ──
-    const handleSetMissaoPercentual = async (entry, percentual) => {
+    const handleSetMissaoPercentual = async (detalhe, percentual) => {
         setTogglingMissao(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/desafios/checkin/${entry.id}`, {
-                method: 'PATCH',
+            const dataISO = `${detalhe.data.getFullYear()}-${String(detalhe.data.getMonth() + 1).padStart(2, '0')}-${String(detalhe.data.getDate()).padStart(2, '0')}`;
+            const res = await fetch(`${API_BASE}/api/admin/desafios/checkin-missao`, {
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ missaoPercentual: percentual }),
+                body: JSON.stringify({ inscricaoId: detalhe.inscricaoId, data: dataISO, missaoPercentual: percentual }),
             });
             if (res.ok) {
                 const data = await res.json();
