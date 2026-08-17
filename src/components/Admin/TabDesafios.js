@@ -576,13 +576,13 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     // ── Ver check-ins (acompanhamento diário das participantes) ──────────────
     // ── Marcar/desmarcar missão cumprida (só admin, geralmente aos domingos) ──
-    const handleToggleMissao = async (entry) => {
+    const handleSetMissaoPercentual = async (entry, percentual) => {
         setTogglingMissao(true);
         try {
             const res = await fetch(`${API_BASE}/api/admin/desafios/checkin/${entry.id}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ missao: !entry.missao }),
+                body: JSON.stringify({ missaoPercentual: percentual }),
             });
             if (res.ok) {
                 const data = await res.json();
@@ -1415,7 +1415,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             d.setDate(d.getDate() - i);
             const dISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const entry = checkins.find(c => dataParaISOSimples(c.data) === dISO);
-            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missao);
+            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missaoPercentual > 0);
             dias.push({ feito: !!feito, isHoje: i === 0, label: DIAS_ABREV[d.getDay()], entry: entry || null });
         }
         const totalFeito = dias.filter(d => d.feito).length;
@@ -1425,7 +1425,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     // ── Quantos dias desde o último check-in feito (null = nenhum nos últimos
     // 14 dias que temos aqui) — usado pra identificar quem está sumindo ──────
     const diasSemCheckin = (checkins) => {
-        const feitos = checkins.filter(c => c.treino || c.cardio || c.alimentacao || c.agua || c.missao);
+        const feitos = checkins.filter(c => c.treino || c.cardio || c.alimentacao || c.agua || c.missaoPercentual > 0);
         if (feitos.length === 0) return null;
         const maisRecente = feitos.reduce((max, c) => new Date(c.data) > new Date(max.data) ? c : max);
         const hoje = new Date();
@@ -1578,32 +1578,36 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                             ))}
                                         </View>
 
-                                        {/* 🎯 Missão — só a Adri marca, e só faz sentido aos domingos */}
+                                        {/* 🎯 Missão — só a Adri marca, e só faz sentido aos domingos.
+                                            Pontos proporcionais: 100% = 15 pts, 50% = 8 pts, etc. */}
                                         {new Date(checkinDetalhe.entry.data).getUTCDay() === 0 && (
-                                            <TouchableOpacity
-                                                style={[
-                                                    styles.missaoToggleBtn,
-                                                    { borderColor: checkinDetalhe.entry.missao ? '#4DE38F' : theme.border },
-                                                    checkinDetalhe.entry.missao && { backgroundColor: '#4DE38F15' },
-                                                ]}
-                                                onPress={() => handleToggleMissao(checkinDetalhe.entry)}
-                                                disabled={togglingMissao}
-                                            >
-                                                {togglingMissao ? (
-                                                    <ActivityIndicator size="small" color={theme.accent} />
-                                                ) : (
-                                                    <>
-                                                        <MaterialCommunityIcons
-                                                            name={checkinDetalhe.entry.missao ? 'check-circle' : 'target'}
-                                                            size={16}
-                                                            color={checkinDetalhe.entry.missao ? '#4DE38F' : theme.accent}
-                                                        />
-                                                        <Text style={{ color: checkinDetalhe.entry.missao ? '#4DE38F' : theme.accent, fontSize: 11, fontWeight: '900' }}>
-                                                            {checkinDetalhe.entry.missao ? 'MISSÃO CUMPRIDA — toque pra desmarcar' : 'MARCAR MISSÃO COMO CUMPRIDA'}
-                                                        </Text>
-                                                    </>
-                                                )}
-                                            </TouchableOpacity>
+                                            <View style={{ marginTop: 12 }}>
+                                                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
+                                                    🎯 Quanto da missão semanal ela cumpriu?
+                                                </Text>
+                                                <View style={styles.missaoPercentRow}>
+                                                    {[0, 25, 50, 75, 100].map((p) => {
+                                                        const ativo = (checkinDetalhe.entry.missaoPercentual || 0) === p;
+                                                        const ptsDessaOpcao = Math.round(15 * (p / 100));
+                                                        return (
+                                                            <TouchableOpacity
+                                                                key={p}
+                                                                style={[
+                                                                    styles.missaoPercentBtn,
+                                                                    { borderColor: ativo ? '#4DE38F' : theme.border },
+                                                                    ativo && { backgroundColor: '#4DE38F15' },
+                                                                ]}
+                                                                onPress={() => handleSetMissaoPercentual(checkinDetalhe.entry, p)}
+                                                                disabled={togglingMissao}
+                                                            >
+                                                                <Text style={{ color: ativo ? '#4DE38F' : theme.text, fontSize: 12, fontWeight: '900' }}>{p}%</Text>
+                                                                <Text style={{ color: ativo ? '#4DE38F' : theme.textSecondary, fontSize: 9 }}>{ptsDessaOpcao} pts</Text>
+                                                            </TouchableOpacity>
+                                                        );
+                                                    })}
+                                                </View>
+                                                {togglingMissao && <ActivityIndicator size="small" color={theme.accent} style={{ marginTop: 8 }} />}
+                                            </View>
                                         )}
 
                                         {checkinDetalhe.entry.pesoKg != null && (
@@ -1901,7 +1905,8 @@ const styles = StyleSheet.create({
     modalCard: { width: '100%', maxWidth: 420, maxHeight: '85%', borderRadius: 20, borderWidth: 1, padding: 20 },
     detalheItensGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
     detalheItemChip: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
-    missaoToggleBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingVertical: 12, marginTop: 12 },
+    missaoPercentRow: { flexDirection: 'row', gap: 6, marginTop: 8 },
+    missaoPercentBtn: { flex: 1, alignItems: 'center', gap: 2, borderWidth: 1, borderRadius: 10, paddingVertical: 10 },
     excluirCheckinBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: '#FF3B3040', borderRadius: 12, paddingVertical: 12, marginBottom: 6 },
     detalheFotosGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
     detalheFotoBox: { width: '47%' },

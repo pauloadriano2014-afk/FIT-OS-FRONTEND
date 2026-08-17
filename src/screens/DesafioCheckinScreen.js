@@ -40,7 +40,7 @@ const faqListCheckin = [
     { q: 'Pra que servem as fotos de sábado (frente/lado/costas)?', a: 'São pra eu acompanhar sua evolução física real ao longo dos 90 dias — sem elas, fica difícil eu enxergar o seu progresso de verdade.' },
     { q: 'Meus dados e fotos ficam visíveis pras outras participantes?', a: 'Não, fica tranquila. Só eu tenho acesso ao que você me envia.' },
     { q: 'A pontuação muda em algum dia?', a: 'Pode! Em feriados ou datas especiais eu posso aumentar a pontuação — sempre aviso aqui na página com antecedência, então fica de olho nos avisos.' },
-    { q: 'O que é a "Missão"?', a: 'Toda semana eu passo um desafio extra no grupo do WhatsApp. Eu mesma marco quem completou direto no sistema — você não precisa fazer nada aqui na página pra isso.' },
+    { q: 'O que é a "Missão"?', a: 'Toda semana eu passo um desafio extra no grupo do WhatsApp. Eu mesma marco o quanto cada uma cumpriu direto no sistema (mesmo que só em parte) — você não precisa fazer nada aqui na página pra isso.' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────
@@ -67,7 +67,7 @@ function dataParaISO(dataISOString) {
 // ainda não tiver check-in, não quebra a sequência — só conta a partir de
 // ontem (ela ainda tem o dia de hoje pra manter viva).
 function calcularStreak(historico) {
-    const feito = (entry) => entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missao);
+    const feito = (entry) => entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missaoPercentual > 0);
 
     const dataParaISOLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
@@ -452,7 +452,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
             d.setDate(d.getDate() - i);
             const dISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const entry = historico.find(c => dataParaISO(c.data) === dISO);
-            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missao);
+            const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missaoPercentual > 0);
             dias.push({ label: DIAS_ABREV[d.getDay()], feito: !!feito, isHoje: i === 0 });
         }
         return (
@@ -690,7 +690,7 @@ export default function DesafioCheckinScreen({ route, navigation }) {
                     </View>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>PA ELITE TEAM © 2026</Text>
+                        <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
                     </View>
                 </ScrollView>
             </View>
