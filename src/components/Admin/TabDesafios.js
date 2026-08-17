@@ -1416,7 +1416,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             const dISO = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             const entry = checkins.find(c => dataParaISOSimples(c.data) === dISO);
             const feito = entry && (entry.treino || entry.cardio || entry.alimentacao || entry.agua || entry.missaoPercentual > 0);
-            dias.push({ feito: !!feito, isHoje: i === 0, label: DIAS_ABREV[d.getDay()], entry: entry || null });
+            dias.push({ feito: !!feito, isHoje: i === 0, label: DIAS_ABREV[d.getDay()], entry: entry || null, data: new Date(d) });
         }
         const totalFeito = dias.filter(d => d.feito).length;
         return { dias, totalFeito };
@@ -1517,14 +1517,15 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                                 <TouchableOpacity
                                                     key={i}
                                                     style={{ alignItems: 'center', gap: 4 }}
-                                                    disabled={!d.entry}
-                                                    onPress={() => d.entry && setCheckinDetalhe({ nome: insc.nome, entry: d.entry })}
+                                                    disabled={!d.entry && d.label !== 'D'}
+                                                    onPress={() => setCheckinDetalhe({ nome: insc.nome, inscricaoId: insc.id, label: d.label, data: d.data, entry: d.entry })}
                                                 >
                                                     <View style={[
                                                         styles.checkinDot,
                                                         { borderColor: theme.border },
                                                         d.feito && { backgroundColor: theme.accent, borderColor: theme.accent },
                                                         d.isHoje && !d.feito && { borderColor: theme.accent, borderWidth: 2 },
+                                                        !d.entry && d.label === 'D' && { borderColor: '#8B5CF680', borderStyle: 'dashed' },
                                                     ]}>
                                                         {d.feito ? <MaterialCommunityIcons name="check" size={11} color={theme.isDark ? '#000' : '#FFF'} /> : null}
                                                     </View>
@@ -1547,9 +1548,10 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
                                     <View>
                                         <Text style={[styles.itemNome, { color: theme.text, fontSize: 15 }]}>{checkinDetalhe?.nome}</Text>
-                                        {checkinDetalhe?.entry && (
+                                        {checkinDetalhe?.data && (
                                             <Text style={{ color: theme.textSecondary, fontSize: 11, marginTop: 2 }}>
-                                                {new Date(checkinDetalhe.entry.data).toLocaleDateString('pt-BR', { timeZone: 'UTC' })} · {checkinDetalhe.entry.pontos} pts
+                                                {checkinDetalhe.data.toLocaleDateString('pt-BR')}
+                                                {checkinDetalhe.entry ? ` · ${checkinDetalhe.entry.pontos} pts` : ''}
                                             </Text>
                                         )}
                                     </View>
@@ -1558,58 +1560,65 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
                                     </TouchableOpacity>
                                 </View>
 
+                                {checkinDetalhe?.entry ? (
+                                    <View style={styles.detalheItensGrid}>
+                                        {[
+                                            { label: 'Treino', ok: checkinDetalhe.entry.treino },
+                                            { label: 'Cardio', ok: checkinDetalhe.entry.cardio },
+                                            { label: 'Alimentação', ok: checkinDetalhe.entry.alimentacao },
+                                            { label: 'Água', ok: checkinDetalhe.entry.agua },
+                                        ].map((item, i) => (
+                                            <View key={i} style={styles.detalheItemChip}>
+                                                <MaterialCommunityIcons
+                                                    name={item.ok ? 'check-circle' : 'close-circle-outline'}
+                                                    size={14}
+                                                    color={item.ok ? '#4DE38F' : '#666'}
+                                                />
+                                                <Text style={{ color: item.ok ? theme.text : theme.textSecondary, fontSize: 11 }}>{item.label}</Text>
+                                            </View>
+                                        ))}
+                                    </View>
+                                ) : (
+                                    <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+                                        Ela não enviou check-in nesse dia.
+                                    </Text>
+                                )}
+
+                                {/* 🎯 Missão — só a Adri marca, e só faz sentido aos domingos. Aparece
+                                    MESMO SEM check-in, pra dar pra pontuar quem sumiu no domingo mas
+                                    ainda assim fez a missão (ou parte dela) por fora. */}
+                                {checkinDetalhe?.label === 'D' && (
+                                    <View style={{ marginTop: 12 }}>
+                                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
+                                            🎯 Quanto da missão semanal ela cumpriu?
+                                        </Text>
+                                        <View style={styles.missaoPercentRow}>
+                                            {[0, 25, 50, 75, 100].map((p) => {
+                                                const ativo = (checkinDetalhe.entry?.missaoPercentual || 0) === p;
+                                                const ptsDessaOpcao = Math.round(15 * (p / 100));
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={p}
+                                                        style={[
+                                                            styles.missaoPercentBtn,
+                                                            { borderColor: ativo ? '#4DE38F' : theme.border },
+                                                            ativo && { backgroundColor: '#4DE38F15' },
+                                                        ]}
+                                                        onPress={() => handleSetMissaoPercentual(checkinDetalhe, p)}
+                                                        disabled={togglingMissao}
+                                                    >
+                                                        <Text style={{ color: ativo ? '#4DE38F' : theme.text, fontSize: 12, fontWeight: '900' }}>{p}%</Text>
+                                                        <Text style={{ color: ativo ? '#4DE38F' : theme.textSecondary, fontSize: 9 }}>{ptsDessaOpcao} pts</Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+                                        {togglingMissao && <ActivityIndicator size="small" color={theme.accent} style={{ marginTop: 8 }} />}
+                                    </View>
+                                )}
+
                                 {checkinDetalhe?.entry && (
                                     <>
-                                        <View style={styles.detalheItensGrid}>
-                                            {[
-                                                { label: 'Treino', ok: checkinDetalhe.entry.treino },
-                                                { label: 'Cardio', ok: checkinDetalhe.entry.cardio },
-                                                { label: 'Alimentação', ok: checkinDetalhe.entry.alimentacao },
-                                                { label: 'Água', ok: checkinDetalhe.entry.agua },
-                                            ].map((item, i) => (
-                                                <View key={i} style={styles.detalheItemChip}>
-                                                    <MaterialCommunityIcons
-                                                        name={item.ok ? 'check-circle' : 'close-circle-outline'}
-                                                        size={14}
-                                                        color={item.ok ? '#4DE38F' : '#666'}
-                                                    />
-                                                    <Text style={{ color: item.ok ? theme.text : theme.textSecondary, fontSize: 11 }}>{item.label}</Text>
-                                                </View>
-                                            ))}
-                                        </View>
-
-                                        {/* 🎯 Missão — só a Adri marca, e só faz sentido aos domingos.
-                                            Pontos proporcionais: 100% = 15 pts, 50% = 8 pts, etc. */}
-                                        {new Date(checkinDetalhe.entry.data).getUTCDay() === 0 && (
-                                            <View style={{ marginTop: 12 }}>
-                                                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
-                                                    🎯 Quanto da missão semanal ela cumpriu?
-                                                </Text>
-                                                <View style={styles.missaoPercentRow}>
-                                                    {[0, 25, 50, 75, 100].map((p) => {
-                                                        const ativo = (checkinDetalhe.entry.missaoPercentual || 0) === p;
-                                                        const ptsDessaOpcao = Math.round(15 * (p / 100));
-                                                        return (
-                                                            <TouchableOpacity
-                                                                key={p}
-                                                                style={[
-                                                                    styles.missaoPercentBtn,
-                                                                    { borderColor: ativo ? '#4DE38F' : theme.border },
-                                                                    ativo && { backgroundColor: '#4DE38F15' },
-                                                                ]}
-                                                                onPress={() => handleSetMissaoPercentual(checkinDetalhe.entry, p)}
-                                                                disabled={togglingMissao}
-                                                            >
-                                                                <Text style={{ color: ativo ? '#4DE38F' : theme.text, fontSize: 12, fontWeight: '900' }}>{p}%</Text>
-                                                                <Text style={{ color: ativo ? '#4DE38F' : theme.textSecondary, fontSize: 9 }}>{ptsDessaOpcao} pts</Text>
-                                                            </TouchableOpacity>
-                                                        );
-                                                    })}
-                                                </View>
-                                                {togglingMissao && <ActivityIndicator size="small" color={theme.accent} style={{ marginTop: 8 }} />}
-                                            </View>
-                                        )}
-
                                         {checkinDetalhe.entry.pesoKg != null && (
                                             <Text style={[styles.helperText, { fontSize: 13, color: theme.text, marginTop: 12, fontWeight: '900' }]}>
                                                 ⚖️ Peso registrado: {checkinDetalhe.entry.pesoKg} kg
