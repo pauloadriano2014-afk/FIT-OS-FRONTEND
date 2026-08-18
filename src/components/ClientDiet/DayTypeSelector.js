@@ -5,6 +5,7 @@ import {
     ScrollView, Animated, LayoutAnimation, Platform, UIManager,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { toGrams, getMacro } from '../../utils/dietUtils';
 
 // Habilita animação no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -115,6 +116,12 @@ function getBanner(objetivo, dayType) {
 }
 
 // ─── CÁLCULO DE KCAL ─────────────────────────────────────────────────────────
+// 🔥 Usa o mesmo toGrams/getMacro de utils/dietUtils.js que o admin usa
+// (calculateCurrentMacros) — antes esse cálculo era feito na mão aqui com uma
+// conversão de unidade fixa (amt * 50 pra tudo que não fosse g/ml), diferente
+// da tabela real (fatia=25g, unid=50g, colher=15g, xícara=200g, + porções
+// customizadas por alimento). Isso fazia os cards de TREINO/DESCANSO mostrarem
+// mais kcal do que a "Mesa de Operações" do admin pro mesmo dia.
 function calcKcal(meals) {
     let total = 0;
     meals.forEach(meal => {
@@ -125,13 +132,10 @@ function calcKcal(meals) {
             return acc;
         }, {});
         Object.values(grouped).forEach(group => {
-            const item  = group[0];
+            const item = group[0];
             if (!item) return;
-            const amt   = parseFloat(item.amount) || 0;
-            const kcal  = parseFloat(item.calories_per_100 ?? item.calories ?? item.kcal ?? 0);
-            const unit  = (item.unit ?? 'g').toLowerCase();
-            const grams = unit === 'ml' ? amt : unit === 'g' ? amt : amt * 50;
-            total += (kcal * grams) / 100;
+            const grams = toGrams(item.amount, item.unit, item);
+            total += (getMacro(item, 'kcal') * grams) / 100;
         });
     });
     return Math.round(total);

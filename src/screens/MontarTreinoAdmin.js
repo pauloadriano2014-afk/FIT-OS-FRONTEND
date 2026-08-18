@@ -461,10 +461,29 @@ export default function MontarTreinoAdmin({ route, navigation }) {
 
     if (state.loading) return <View style={[S.center, { backgroundColor: theme.bg }]}><ActivityIndicator size="large" color={theme.accent} /></View>;
 
+    // 🔥 Texto do rodapé do título mostrando que o rascunho já está salvo no aparelho,
+    // mesmo sem ter clicado em SALVAR ainda — reduz a ansiedade de "preciso salvar toda hora"
+    // e deixa claro que dá pra fechar o app/perder internet sem perder o que já foi montado.
+    const autoSaveLabel = (() => {
+        if (!state.lastAutoSaved) return null;
+        const d = new Date(state.lastAutoSaved);
+        const hh = String(d.getHours()).padStart(2, '0');
+        const mm = String(d.getMinutes()).padStart(2, '0');
+        return `Rascunho salvo no aparelho às ${hh}:${mm}`;
+    })();
+
     const Header = () => (
         <View style={[S.headerInner, { paddingTop: isWebPC ? 20 : 10, borderBottomWidth: isWebPC ? 0 : 1, borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={[S.backBtn, { backgroundColor: theme.surface }]}><MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} /></TouchableOpacity>
-            <Text style={[S.headerTitle, { color: theme.text }]} numberOfLines={1}>{route.params?.isEditing ? 'Editar Rotina' : 'Nova Rotina'}</Text>
+            <View style={{ flex: 1, alignItems: 'center' }}>
+                <Text style={[S.headerTitle, { color: theme.text }]} numberOfLines={1}>{route.params?.isEditing ? 'Editar Rotina' : 'Nova Rotina'}</Text>
+                {autoSaveLabel && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                        <MaterialCommunityIcons name="cloud-check-outline" size={11} color={theme.textSecondary} />
+                        <Text style={{ fontSize: 10, fontWeight: '600', color: theme.textSecondary }} numberOfLines={1}>{autoSaveLabel}</Text>
+                    </View>
+                )}
+            </View>
             <TouchableOpacity onPress={actions.salvarTreinoFinal} disabled={state.sending} style={[S.saveBtn, { backgroundColor: state.sending ? theme.border : theme.accent }]}>
                 {state.sending ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} size="small" /> : <Text style={[S.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>SALVAR</Text>}
             </TouchableOpacity>

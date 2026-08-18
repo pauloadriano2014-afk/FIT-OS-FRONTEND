@@ -1,5 +1,5 @@
 import 'react-native-gesture-handler';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -14,62 +14,83 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { MASTER_IDS as MASTER_COACH_IDS } from './src/constants/masterIds';
 
-import InstallScreen from './src/screens/InstallScreen';
-import LoginScreen from './src/screens/LoginScreen';
-import RegisterScreen from './src/screens/RegisterScreen';
-import AnamneseScreen from './src/screens/AnamneseScreen';
-import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
-import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
-import PropostaScreen from './src/screens/PropostaScreen';
-import PropostaStartScreen from './src/screens/PropostaStartScreen';
-import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
-import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen';
-import PropostaFamiliaScreen from './src/screens/PropostaFamiliaScreen';
-import SaaSPropostaScreen from './src/screens/SaaSPropostaScreen';
-import DesafioInscricaoScreen from './src/screens/DesafioInscricaoScreen';
-import DesafioCheckinScreen from './src/screens/DesafioCheckinScreen';
-import HomeScreen from './src/screens/HomeScreen';
-import TrainingScreen from './src/screens/TrainingScreen';
-import EvolutionScreen from './src/screens/EvolutionScreen';
-import ProfileScreen from './src/screens/ProfileScreen';
-import CheckInScreen from './src/screens/CheckInScreen';
-import UserHistoryScreen from './src/screens/UserHistoryScreen';
-import PAFlixScreen from './src/screens/PAFlixScreen';
-import BibliotecaScreen from './src/screens/BibliotecaScreen';
-import PDFViewerScreen from './src/screens/PDFViewerScreen';
-import VideoPlayerScreen from './src/screens/VideoPlayerScreen';
-import AudioPlayerScreen from './src/screens/AudioPlayerScreen';
-import DietScreen from './src/screens/DietScreen';
-import RoutineDetailsScreen from './src/screens/RoutineDetailsScreen';
-import DayWorkoutScreen from './src/screens/DayWorkoutScreen';
-import FinishScreen from './src/screens/FinishScreen';
-import AdminDashboard from './src/screens/AdminDashboard';
-import MontarTreinoAdmin from './src/screens/MontarTreinoAdmin';
-import BibliotecaAdmin from './src/screens/BibliotecaAdmin';
-import GerenciarTemplates from './src/screens/GerenciarTemplates';
-import AdminUserOptions from './src/screens/AdminUserOptions';
-import AdminEvolutionScreen from './src/screens/AdminEvolutionScreen';
-import AdminAddContent from './src/screens/AdminAddContent';
-import AdminStudentCheckinsScreen from './src/screens/AdminStudentCheckinsScreen';
-import AdminIALabScreen from './src/screens/AdminIALabScreen';
-import AdminDietScreen from './src/screens/AdminDietScreen';
-import AdminDietLibraryScreen from './src/screens/AdminDietLibraryScreen';
-import AIScannerModal from './src/components/AIScannerModal';
-import LaboratoryScreen from './src/screens/LaboratoryScreen';
-import LaboratoryBuilderScreen from './src/screens/LaboratoryBuilderScreen';
-import LaboratoryFinalScreen from './src/screens/LaboratoryFinalScreen';
-import GerarTreinoIA from './src/screens/GerarTreinoIA';
-import AdminTechniquesScreen from './src/screens/AdminTechniquesScreen';
-import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
-import AdminFoodManagerScreen from './src/screens/AdminFoodManagerScreen';
-import AdminSubstitutionGroupsScreen from './src/screens/AdminSubstitutionGroupsScreen';
-import AdminSubstitutionGroupDetailScreen from './src/screens/AdminSubstitutionGroupDetailScreen';
-import AdminCoachesScreen from './src/screens/AdminCoachesScreen';
-import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen';
-import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
-import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
+const InstallScreen = lazy(() => import('./src/screens/InstallScreen'));
+const LoginScreen = lazy(() => import('./src/screens/LoginScreen'));
+const RegisterScreen = lazy(() => import('./src/screens/RegisterScreen'));
+const AnamneseScreen = lazy(() => import('./src/screens/AnamneseScreen'));
+const AnamneseVIPScreen = lazy(() => import('./src/screens/AnamneseVIPScreen'));
+const SetupTreinoScreen = lazy(() => import('./src/screens/SetupTreinoScreen'));
+const PropostaScreen = lazy(() => import('./src/screens/PropostaScreen'));
+const PropostaStartScreen = lazy(() => import('./src/screens/PropostaStartScreen'));
+const PropostaMaesScreen = lazy(() => import('./src/screens/PropostaMaesScreen'));
+const PropostaNavegantesScreen = lazy(() => import('./src/screens/PropostaNavegantesScreen'));
+const PropostaFamiliaScreen = lazy(() => import('./src/screens/PropostaFamiliaScreen'));
+const SaaSPropostaScreen = lazy(() => import('./src/screens/SaaSPropostaScreen'));
+const DesafioInscricaoScreen = lazy(() => import('./src/screens/DesafioInscricaoScreen'));
+const DesafioCheckinScreen = lazy(() => import('./src/screens/DesafioCheckinScreen'));
+const HomeScreen = lazy(() => import('./src/screens/HomeScreen'));
+const TrainingScreen = lazy(() => import('./src/screens/TrainingScreen'));
+const EvolutionScreen = lazy(() => import('./src/screens/EvolutionScreen'));
+const ProfileScreen = lazy(() => import('./src/screens/ProfileScreen'));
+const CheckInScreen = lazy(() => import('./src/screens/CheckInScreen'));
+const UserHistoryScreen = lazy(() => import('./src/screens/UserHistoryScreen'));
+const PAFlixScreen = lazy(() => import('./src/screens/PAFlixScreen'));
+const BibliotecaScreen = lazy(() => import('./src/screens/BibliotecaScreen'));
+const PDFViewerScreen = lazy(() => import('./src/screens/PDFViewerScreen'));
+const VideoPlayerScreen = lazy(() => import('./src/screens/VideoPlayerScreen'));
+const AudioPlayerScreen = lazy(() => import('./src/screens/AudioPlayerScreen'));
+const DietScreen = lazy(() => import('./src/screens/DietScreen'));
+const RoutineDetailsScreen = lazy(() => import('./src/screens/RoutineDetailsScreen'));
+const DayWorkoutScreen = lazy(() => import('./src/screens/DayWorkoutScreen'));
+const FinishScreen = lazy(() => import('./src/screens/FinishScreen'));
+const AdminDashboard = lazy(() => import('./src/screens/AdminDashboard'));
+const MontarTreinoAdmin = lazy(() => import('./src/screens/MontarTreinoAdmin'));
+const BibliotecaAdmin = lazy(() => import('./src/screens/BibliotecaAdmin'));
+const GerenciarTemplates = lazy(() => import('./src/screens/GerenciarTemplates'));
+const AdminUserOptions = lazy(() => import('./src/screens/AdminUserOptions'));
+const AdminEvolutionScreen = lazy(() => import('./src/screens/AdminEvolutionScreen'));
+const AdminAddContent = lazy(() => import('./src/screens/AdminAddContent'));
+const AdminStudentCheckinsScreen = lazy(() => import('./src/screens/AdminStudentCheckinsScreen'));
+const AdminIALabScreen = lazy(() => import('./src/screens/AdminIALabScreen'));
+const AdminDietScreen = lazy(() => import('./src/screens/AdminDietScreen'));
+const AdminDietLibraryScreen = lazy(() => import('./src/screens/AdminDietLibraryScreen'));
+const AIScannerModal = lazy(() => import('./src/components/AIScannerModal'));
+const LaboratoryScreen = lazy(() => import('./src/screens/LaboratoryScreen'));
+const LaboratoryBuilderScreen = lazy(() => import('./src/screens/LaboratoryBuilderScreen'));
+const LaboratoryFinalScreen = lazy(() => import('./src/screens/LaboratoryFinalScreen'));
+const GerarTreinoIA = lazy(() => import('./src/screens/GerarTreinoIA'));
+const AdminTechniquesScreen = lazy(() => import('./src/screens/AdminTechniquesScreen'));
+const ResetPasswordScreen = lazy(() => import('./src/screens/ResetPasswordScreen'));
+const AdminFoodManagerScreen = lazy(() => import('./src/screens/AdminFoodManagerScreen'));
+const AdminSubstitutionGroupsScreen = lazy(() => import('./src/screens/AdminSubstitutionGroupsScreen'));
+const AdminSubstitutionGroupDetailScreen = lazy(() => import('./src/screens/AdminSubstitutionGroupDetailScreen'));
+const AdminCoachesScreen = lazy(() => import('./src/screens/AdminCoachesScreen'));
+const AdminAnamneseBuilderScreen = lazy(() => import('./src/screens/AdminAnamneseBuilderScreen'));
+const CoachBlockedScreen = lazy(() => import('./src/screens/CoachBlockedScreen'));
+const CoachPropostaScreen = lazy(() => import('./src/screens/CoachPropostaScreen'));
 // 🔥 ESTRATÉGIAS
-import AdminStrategiesScreen from './src/screens/AdminStrategiesScreen';
+const AdminStrategiesScreen = lazy(() => import('./src/screens/AdminStrategiesScreen'));
+
+// 🔥 PERFORMANCE: telas carregadas sob demanda (code splitting) em vez de tudo no bundle inicial.
+// Cada tela só é baixada/executada na primeira vez que o usuário navega até ela.
+function ScreenLoadingFallback() {
+  const { theme } = useTheme();
+  return (
+    <View style={{ flex: 1, backgroundColor: theme?.bg || '#000', justifyContent: 'center', alignItems: 'center' }}>
+      <ActivityIndicator size="large" color={theme?.accent || '#CCFF00'} />
+    </View>
+  );
+}
+
+function withLazySuspense(LazyComponent) {
+  return function LazyScreenWrapper(props) {
+    return (
+      <Suspense fallback={<ScreenLoadingFallback />}>
+        <LazyComponent {...props} />
+      </Suspense>
+    );
+  };
+}
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -121,7 +142,7 @@ function StudentTabs({ route }) {
       if (u) {
         setUserData(u);
         try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${u.id}?t=${Date.now()}`);
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${u.id}?t=${Date.now()}&omit=diets,workouts,anamneses`);
           if (res.ok) {
             const fresh = await res.json();
             setUserData(fresh);
@@ -172,14 +193,14 @@ function StudentTabs({ route }) {
         tabBarInactiveTintColor: theme.textSecondary,
       }}
     >
-      <Tab.Screen name="Início" component={HomeScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} /> }} />
-      <Tab.Screen name="Treinos" component={TrainingScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="dumbbell" size={size} color={color} /> }} />
+      <Tab.Screen name="Início" children={withLazySuspense(HomeScreen)} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="home" size={size} color={color} /> }} />
+      <Tab.Screen name="Treinos" children={withLazySuspense(TrainingScreen)} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="dumbbell" size={size} color={color} /> }} />
       {showDiet && (
-        <Tab.Screen name="Dieta" component={DietScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="food-apple" size={size} color={color} /> }} />
+        <Tab.Screen name="Dieta" children={withLazySuspense(DietScreen)} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="food-apple" size={size} color={color} /> }} />
       )}
-      <Tab.Screen name="Biblioteca" component={BibliotecaScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="play-box-multiple" size={size} color={color} /> }} />
-      <Tab.Screen name="Evolução" component={EvolutionScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" size={size} color={color} /> }} />
-      <Tab.Screen name="Perfil" component={ProfileScreen} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} /> }} />
+      <Tab.Screen name="Biblioteca" children={withLazySuspense(BibliotecaScreen)} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="play-box-multiple" size={size} color={color} /> }} />
+      <Tab.Screen name="Evolução" children={withLazySuspense(EvolutionScreen)} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="chart-line" size={size} color={color} /> }} />
+      <Tab.Screen name="Perfil" children={withLazySuspense(ProfileScreen)} initialParams={{ userData }} options={{ tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="account" size={size} color={color} /> }} />
     </Tab.Navigator>
   );
 }
@@ -224,60 +245,60 @@ function RootNavigator() {
 
   return (
     <Stack.Navigator initialRouteName={initialRoute} screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Install" component={InstallScreen} />
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Register" component={RegisterScreen} />
-      <Stack.Screen name="RedefinirSenha" component={ResetPasswordScreen} />
-      <Stack.Screen name="Anamnese" component={AnamneseScreen} options={{ headerShown: false, tabBarVisible: false }} />
-      <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
-      <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
-      <Stack.Screen name="Proposta" component={PropostaScreen} />
-      <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
-      <Stack.Screen name="PropostaMaes" component={PropostaMaesScreen} />
-      <Stack.Screen name="PropostaNavegantes" component={PropostaNavegantesScreen} />
-      <Stack.Screen name="PropostaFamilia" component={PropostaFamiliaScreen} />
-      <Stack.Screen name="SaaSProposta" component={SaaSPropostaScreen} />
-      <Stack.Screen name="CoachProposta" component={CoachPropostaScreen} />
-      <Stack.Screen name="DesafioInscricao" component={DesafioInscricaoScreen} />
-      <Stack.Screen name="DesafioCheckin" component={DesafioCheckinScreen} />
+      <Stack.Screen name="Install" children={withLazySuspense(InstallScreen)} />
+      <Stack.Screen name="Login" children={withLazySuspense(LoginScreen)} />
+      <Stack.Screen name="Register" children={withLazySuspense(RegisterScreen)} />
+      <Stack.Screen name="RedefinirSenha" children={withLazySuspense(ResetPasswordScreen)} />
+      <Stack.Screen name="Anamnese" children={withLazySuspense(AnamneseScreen)} options={{ headerShown: false, tabBarVisible: false }} />
+      <Stack.Screen name="AnamneseVIP" children={withLazySuspense(AnamneseVIPScreen)} />
+      <Stack.Screen name="SetupTreino" children={withLazySuspense(SetupTreinoScreen)} />
+      <Stack.Screen name="Proposta" children={withLazySuspense(PropostaScreen)} />
+      <Stack.Screen name="PropostaStart" children={withLazySuspense(PropostaStartScreen)} />
+      <Stack.Screen name="PropostaMaes" children={withLazySuspense(PropostaMaesScreen)} />
+      <Stack.Screen name="PropostaNavegantes" children={withLazySuspense(PropostaNavegantesScreen)} />
+      <Stack.Screen name="PropostaFamilia" children={withLazySuspense(PropostaFamiliaScreen)} />
+      <Stack.Screen name="SaaSProposta" children={withLazySuspense(SaaSPropostaScreen)} />
+      <Stack.Screen name="CoachProposta" children={withLazySuspense(CoachPropostaScreen)} />
+      <Stack.Screen name="DesafioInscricao" children={withLazySuspense(DesafioInscricaoScreen)} />
+      <Stack.Screen name="DesafioCheckin" children={withLazySuspense(DesafioCheckinScreen)} />
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
-      <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
-      <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
-      <Stack.Screen name="DayWorkout" component={DayWorkoutScreen} />
-      <Stack.Screen name="FinishScreen" component={FinishScreen} />
-      <Stack.Screen name="CheckIn" component={CheckInScreen} />
-      <Stack.Screen name="UserHistory" component={UserHistoryScreen} />
-      <Stack.Screen name="ScannerIA" component={AIScannerModal} />
-      <Stack.Screen name="Biblioteca" component={BibliotecaScreen} />
-      <Stack.Screen name="PDFViewer" component={PDFViewerScreen} />
-      <Stack.Screen name="VideoPlayer" component={VideoPlayerScreen} />
-      <Stack.Screen name="AudioPlayer" component={AudioPlayerScreen} />
-      <Stack.Screen name="PAFlix" component={PAFlixScreen} />
-      <Stack.Screen name="AdminDashboard" component={AdminDashboard} />
-      <Stack.Screen name="MontarTreinoAdmin" component={MontarTreinoAdmin} />
-      <Stack.Screen name="BibliotecaAdmin" component={BibliotecaAdmin} />
-      <Stack.Screen name="GerenciarTemplates" component={GerenciarTemplates} />
-      <Stack.Screen name="AdminAlunoOptions" component={AdminUserOptions} />
-      <Stack.Screen name="AdminEvolution" component={AdminEvolutionScreen} />
-      <Stack.Screen name="AdminAddContent" component={AdminAddContent} />
-      <Stack.Screen name="AdminStudentCheckins" component={AdminStudentCheckinsScreen} />
-      <Stack.Screen name="AdminIALabScreen" component={AdminIALabScreen} />
-      <Stack.Screen name="AdminDietScreen" component={AdminDietScreen} />
-      <Stack.Screen name="AdminDietLibraryScreen" component={AdminDietLibraryScreen} />
-      <Stack.Screen name="LaboratoryScreen" component={LaboratoryScreen} />
-      <Stack.Screen name="LaboratoryBuilderScreen" component={LaboratoryBuilderScreen} />
-      <Stack.Screen name="LaboratoryFinalScreen" component={LaboratoryFinalScreen} />
-      <Stack.Screen name="GerarTreinoIA" component={GerarTreinoIA} options={{ headerShown: false }} />
-      <Stack.Screen name="AdminTechniquesScreen" component={AdminTechniquesScreen} />
-      <Stack.Screen name="AdminFoodManagerScreen" component={AdminFoodManagerScreen} />
-      <Stack.Screen name="AdminSubstitutionGroupsScreen" component={AdminSubstitutionGroupsScreen} />
-      <Stack.Screen name="AdminSubstitutionGroupDetailScreen" component={AdminSubstitutionGroupDetailScreen} />
-      <Stack.Screen name="AdminCoachesScreen" component={AdminCoachesScreen} />
-      <Stack.Screen name="AdminAnamneseBuilderScreen" component={AdminAnamneseBuilderScreen} />
-      <Stack.Screen name="CoachBlockedScreen" component={CoachBlockedScreen} />
-      <Stack.Screen name="CoachPropostaScreen" component={CoachPropostaScreen} />
+      <Stack.Screen name="RoutineDetails" children={withLazySuspense(RoutineDetailsScreen)} />
+      <Stack.Screen name="DayWorkoutScreen" children={withLazySuspense(DayWorkoutScreen)} />
+      <Stack.Screen name="DayWorkout" children={withLazySuspense(DayWorkoutScreen)} />
+      <Stack.Screen name="FinishScreen" children={withLazySuspense(FinishScreen)} />
+      <Stack.Screen name="CheckIn" children={withLazySuspense(CheckInScreen)} />
+      <Stack.Screen name="UserHistory" children={withLazySuspense(UserHistoryScreen)} />
+      <Stack.Screen name="ScannerIA" children={withLazySuspense(AIScannerModal)} />
+      <Stack.Screen name="Biblioteca" children={withLazySuspense(BibliotecaScreen)} />
+      <Stack.Screen name="PDFViewer" children={withLazySuspense(PDFViewerScreen)} />
+      <Stack.Screen name="VideoPlayer" children={withLazySuspense(VideoPlayerScreen)} />
+      <Stack.Screen name="AudioPlayer" children={withLazySuspense(AudioPlayerScreen)} />
+      <Stack.Screen name="PAFlix" children={withLazySuspense(PAFlixScreen)} />
+      <Stack.Screen name="AdminDashboard" children={withLazySuspense(AdminDashboard)} />
+      <Stack.Screen name="MontarTreinoAdmin" children={withLazySuspense(MontarTreinoAdmin)} />
+      <Stack.Screen name="BibliotecaAdmin" children={withLazySuspense(BibliotecaAdmin)} />
+      <Stack.Screen name="GerenciarTemplates" children={withLazySuspense(GerenciarTemplates)} />
+      <Stack.Screen name="AdminAlunoOptions" children={withLazySuspense(AdminUserOptions)} />
+      <Stack.Screen name="AdminEvolution" children={withLazySuspense(AdminEvolutionScreen)} />
+      <Stack.Screen name="AdminAddContent" children={withLazySuspense(AdminAddContent)} />
+      <Stack.Screen name="AdminStudentCheckins" children={withLazySuspense(AdminStudentCheckinsScreen)} />
+      <Stack.Screen name="AdminIALabScreen" children={withLazySuspense(AdminIALabScreen)} />
+      <Stack.Screen name="AdminDietScreen" children={withLazySuspense(AdminDietScreen)} />
+      <Stack.Screen name="AdminDietLibraryScreen" children={withLazySuspense(AdminDietLibraryScreen)} />
+      <Stack.Screen name="LaboratoryScreen" children={withLazySuspense(LaboratoryScreen)} />
+      <Stack.Screen name="LaboratoryBuilderScreen" children={withLazySuspense(LaboratoryBuilderScreen)} />
+      <Stack.Screen name="LaboratoryFinalScreen" children={withLazySuspense(LaboratoryFinalScreen)} />
+      <Stack.Screen name="GerarTreinoIA" children={withLazySuspense(GerarTreinoIA)} options={{ headerShown: false }} />
+      <Stack.Screen name="AdminTechniquesScreen" children={withLazySuspense(AdminTechniquesScreen)} />
+      <Stack.Screen name="AdminFoodManagerScreen" children={withLazySuspense(AdminFoodManagerScreen)} />
+      <Stack.Screen name="AdminSubstitutionGroupsScreen" children={withLazySuspense(AdminSubstitutionGroupsScreen)} />
+      <Stack.Screen name="AdminSubstitutionGroupDetailScreen" children={withLazySuspense(AdminSubstitutionGroupDetailScreen)} />
+      <Stack.Screen name="AdminCoachesScreen" children={withLazySuspense(AdminCoachesScreen)} />
+      <Stack.Screen name="AdminAnamneseBuilderScreen" children={withLazySuspense(AdminAnamneseBuilderScreen)} />
+      <Stack.Screen name="CoachBlockedScreen" children={withLazySuspense(CoachBlockedScreen)} />
+      <Stack.Screen name="CoachPropostaScreen" children={withLazySuspense(CoachPropostaScreen)} />
       {/* 🔥 ESTRATÉGIAS */}
-      <Stack.Screen name="AdminStrategiesScreen" component={AdminStrategiesScreen} />
+      <Stack.Screen name="AdminStrategiesScreen" children={withLazySuspense(AdminStrategiesScreen)} />
     </Stack.Navigator>
   );
 }

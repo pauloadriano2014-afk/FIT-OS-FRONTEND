@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Dimensions,
   StatusBar,
   Modal,
@@ -17,6 +16,7 @@ import {
   Platform,
   Alert
 } from 'react-native';
+import { Image } from 'expo-image'; // 🔥 PERFORMANCE: cache em disco pras thumbnails do PA FLIX
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -221,6 +221,9 @@ export default function PAFlixScreen() {
       <Image
         source={video.thumbUrl ? { uri: video.thumbUrl } : { uri: PLACEHOLDER_IMAGE }}
         style={styles.thumbnail}
+        contentFit="cover"
+        cachePolicy="disk"
+        transition={150}
       />
 
       {video.completedByUser && (
@@ -292,6 +295,9 @@ export default function PAFlixScreen() {
             <Image
               source={{ uri: heroVideo.thumbUrl || PLACEHOLDER_IMAGE }}
               style={styles.heroImg}
+              contentFit="cover"
+              cachePolicy="disk"
+              transition={150}
             />
             
             {/* 🔥 VISUAL PREMIUM COM GRADIENTE */}

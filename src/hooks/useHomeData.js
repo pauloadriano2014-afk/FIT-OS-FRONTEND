@@ -179,13 +179,33 @@ export function useHomeData() {
                     if (adminObj.brandLogoSize) cachedAdminLogoSize = Number(adminObj.brandLogoSize);
                 }
 
+                // 🔥 CACHE LOCAL DA LOGO DO COACH: evita bater na API a cada home carregada
+                // (a logo quase nunca muda) — só busca de novo se o cache expirar
+                const LOGO_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+                let skipCoachFetch = !!cachedAdminLogo;
+                if (!skipCoachFetch) {
+                    try {
+                        const cachedLogoStr = await AsyncStorage.getItem(`@coach_logo_${fetchCoachId}`);
+                        if (cachedLogoStr) {
+                            const cachedLogo = JSON.parse(cachedLogoStr);
+                            if (cachedLogo && (Date.now() - cachedLogo.ts) < LOGO_CACHE_TTL_MS) {
+                                setBrandLogoUrl(cachedLogo.brandLogoUrl || null);
+                                setBrandLogoSize(cachedLogo.brandLogoSize || 220);
+                                skipCoachFetch = true;
+                            }
+                        }
+                    } catch (e) { /* cache falhou, segue e busca normal */ }
+                }
+
                 const [homeRes, checkinRes, noticeRes, resUserDirect, resContents, resCoach] = await Promise.all([
                     fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
                     fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
                     fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}`),
+                    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}&omit=diets,anamneses`),
                     fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?t=${t}`)
+                    skipCoachFetch
+                        ? Promise.resolve(null)
+                        : fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?t=${t}&omit=diets,workouts,anamneses`)
                 ]);
 
                 let fetchedUser     = { ...user };
@@ -195,16 +215,26 @@ export function useHomeData() {
                 // 🔥 A SUA LÓGICA DE MARCA (WHITE-LABEL) ABSOLUTA RESTAURADA 100% 🔥
                 if (cachedAdminLogo) {
                     setBrandLogoUrl(cachedAdminLogo);
-                    setBrandLogoSize(cachedAdminLogoSize); 
-                } else if (resCoach.ok) {
+                    setBrandLogoSize(cachedAdminLogoSize);
+                } else if (skipCoachFetch) {
+                    // já setado a partir do cache local (@coach_logo_*) acima, nada a fazer
+                } else if (resCoach && resCoach.ok) {
                     const coachData = await resCoach.json();
+                    let finalLogoUrl  = null;
+                    let finalLogoSize = 220;
                     if (coachData && coachData.brandLogoUrl) {
-                        setBrandLogoUrl(coachData.brandLogoUrl);
-                        setBrandLogoSize(coachData.brandLogoSize ? Number(coachData.brandLogoSize) : 220); 
-                    } else {
-                        setBrandLogoUrl(null);
-                        setBrandLogoSize(220);
+                        finalLogoUrl  = coachData.brandLogoUrl;
+                        finalLogoSize = coachData.brandLogoSize ? Number(coachData.brandLogoSize) : 220;
                     }
+                    setBrandLogoUrl(finalLogoUrl);
+                    setBrandLogoSize(finalLogoSize);
+                    try {
+                        await AsyncStorage.setItem(`@coach_logo_${fetchCoachId}`, JSON.stringify({
+                            brandLogoUrl:  finalLogoUrl,
+                            brandLogoSize: finalLogoSize,
+                            ts: Date.now()
+                        }));
+                    } catch (e) { /* cache falhou, sem problema */ }
                 }
 
                 // ── Conteúdos / vídeos novos ──────────────────────────────
@@ -462,7 +492,7 @@ export function useHomeData() {
                     try {
                         const fetchCoachId = userData.coachId || '';
                         if (fetchCoachId) {
-                            const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}`);
+                            const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?omit=diets,workouts,anamneses`);
                             if (adminRes.ok) {
                                 const adminData = await adminRes.json();
                                 if (adminData.pushToken) {
