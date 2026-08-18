@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFinanceLock } from './useFinanceLock';
+import { PAULO_ID, ADRI_ID, MASTER_IDS as MASTER_TEAM } from '../constants/masterIds';
 
 const QUICK_QUESTIONS = [
     "🤖 Como funciona a IA de Vídeo?",
@@ -17,15 +18,6 @@ const QUICK_QUESTIONS = [
     "💳 Como faço o pagamento?",
     "📅 Onde vejo o vencimento do meu plano?",
     "🔑 Esqueci minha senha, e agora?",
-];
-
-// 🔥 ID DO PAULO (MASTER) PARA SALVAR ALUNOS ÓRFÃOS 🔥
-const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
-
-// 🔥 MASTER TEAM — usado pra saber o nome do assistente e acesso à IA de Vídeo
-const MASTER_TEAM = [
-    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
-    'b7c0c181-41fd-4156-b8fe-963a267759a3', // Adri
 ];
 
 const getAssistantName = (coachId) => MASTER_TEAM.includes(coachId) ? 'PA ELITE COACH' : 'ASSISTENTE ELITE';
@@ -102,7 +94,7 @@ export function useHomeData() {
 
     // ─── Coach helpers ─────────────────────────────────────────────────────
     const getCoachInfo = (user) => {
-        const isAdri = user?.coachId === 'b7c0c181-41fd-4156-b8fe-963a267759a3';
+        const isAdri = user?.coachId === ADRI_ID;
         return {
             isAdri,
             coachNameLabel:      isAdri ? 'A ADRI' : 'O PAULO',

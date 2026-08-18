@@ -13,12 +13,13 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
+import { PAULO_ID, ADRI_ID } from '../../constants/masterIds';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
 const MASTER_OPTIONS = [
-    { id: '3c82f763-66b4-48da-836e-16817d4f57c0', label: 'Paulo' },
-    { id: 'b7c0c181-41fd-4156-b8fe-963a267759a3', label: 'Adri' },
+    { id: PAULO_ID, label: 'Paulo' },
+    { id: ADRI_ID, label: 'Adri' },
 ];
 
 const emptyDesafio = (defaultCoachId) => ({

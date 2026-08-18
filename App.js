@@ -12,6 +12,7 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
+import { MASTER_IDS as MASTER_COACH_IDS } from './src/constants/masterIds';
 
 import InstallScreen from './src/screens/InstallScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -143,11 +144,6 @@ function StudentTabs({ route }) {
       </View>
     );
   }
-
-  const MASTER_COACH_IDS = [
-    '3c82f763-66b4-48da-836e-16817d4f57c0',
-    'b7c0c181-41fd-4156-b8fe-963a267759a3',
-  ];
 
   const belongsToMaster =
     !userData?.coachId ||

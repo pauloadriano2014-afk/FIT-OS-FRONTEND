@@ -15,12 +15,8 @@ import AdminUserSystem from '../components/AdminUserSystem';
 import RaioxCargasModal from '../components/RaioxCargasModal';
 import AdminUserAnamneseTab from '../components/Admin/AdminUserAnamneseTab';
 import RunningProtocolModal from '../components/Admin/RunningProtocolModal';
-import SelectAnamneseModal from '../components/Admin/SelectAnamneseModal'; 
-
-const MASTER_IDS = [
-    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
-    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
-];
+import SelectAnamneseModal from '../components/Admin/SelectAnamneseModal';
+import { MASTER_IDS } from '../constants/masterIds';
 
 const DIET_OPTIONS = [
     { id: 'NONE', label: '🚫 Ocultar Botão', desc: 'Aluno não verá a sugestão alimentar.' },

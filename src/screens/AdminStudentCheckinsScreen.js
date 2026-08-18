@@ -13,6 +13,7 @@ import { useAdminCheckins } from '../hooks/useAdminCheckins';
 import StudentCheckinCard from '../components/Checkins/StudentCheckinCard';
 import EvaluationModal from '../components/Checkins/EvaluationModal';
 import PhotoEditorModal from '../components/Checkins/PhotoEditorModal';
+import { MASTER_IDS } from '../constants/masterIds';
 
 async function uploadEditedPhoto({ mode, checkinId, photoField, imageBase64, compareCheckinId }) {
     const res = await fetch('https://fitos-final.onrender.com/api/checkin/update-photo', {
@@ -64,11 +65,6 @@ export default function AdminStudentCheckinsScreen({ route, navigation }) {
                 const adminRole = userObj.role?.toUpperCase() || '';
                 
                 // 🔥 OS DEUSES DO OLIMPO: PAULO E ADRI
-                const MASTER_IDS = [
-                    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
-                    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
-                ];
-                
                 let realCoachId = aluno.coachId;
                 const cachedData = await AsyncStorage.getItem('@dashboard_cache');
                 if (cachedData) {

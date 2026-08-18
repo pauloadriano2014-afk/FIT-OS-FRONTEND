@@ -3,9 +3,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-// Paulo = master não-Adri
-const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
+import { PAULO_ID } from '../../constants/masterIds';
 
 export default function TabFerramentas({ isMasterCoach, theme, navigation, alunosAtivos, currentUserId }) {
     const isPaulo = currentUserId === PAULO_ID;

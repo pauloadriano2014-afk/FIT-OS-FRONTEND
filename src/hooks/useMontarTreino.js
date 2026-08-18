@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
+import { PAULO_ID, ADRI_ID, MASTER_IDS } from '../constants/masterIds';
 
 export function useMontarTreino(route, navigation) {
     const { aluno, isTemplateMode, templateData, workoutToEdit, isEditing, laboratoryStructure, laboratoryConfig } = route.params || {};
@@ -67,6 +68,10 @@ export function useMontarTreino(route, navigation) {
     const [cloneStudentsList, setCloneStudentsList] = useState([]);
     const [selectedCloneStudent, setSelectedCloneStudent] = useState(null);
     const [cloneWorkoutsList, setCloneWorkoutsList] = useState([]);
+    const [cloneSearchText, setCloneSearchText] = useState('');
+    // 🔥 Filtro por coach no modal de clonar — só é usado quando o admin logado é master (Paulo/Adri).
+    // Começa mostrando só os próprios alunos ('OWN'); dá pra trocar pra ver os do outro master ou todos.
+    const [cloneCoachFilter, setCloneCoachFilter] = useState('OWN');
     
     const [previewModalVisible, setPreviewModalVisible] = useState(false);
     const [previewExercise, setPreviewExercise] = useState(null);
@@ -641,9 +646,19 @@ export function useMontarTreino(route, navigation) {
     };
 
     const fetchStudentsForClone = async () => {
+        setCloneSearchText('');
+        setCloneCoachFilter('OWN');
         try {
+            // 🔥 Resolve o adminId direto do AsyncStorage se o state ainda não carregou —
+            // evita a corrida em que o primeiro clique (antes do fetchDados terminar) mandava
+            // adminId vazio/nulo pro backend e voltava uma lista incompleta/errada.
+            let currentAdminId = adminId;
+            if (!currentAdminId) {
+                const userJson = await AsyncStorage.getItem('user');
+                if (userJson) currentAdminId = JSON.parse(userJson).id;
+            }
             // 🔥 INJETANDO O ADMIN ID NA REQUISIÇÃO (Ativa a Muralha do Admin User Route) 🔥
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${adminId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${currentAdminId}&t=${Date.now()}`);
             if (res.ok) setCloneStudentsList((await res.json()).filter(u => u.role !== 'ADMIN'));
         } catch(e) {}
     };
@@ -1123,9 +1138,34 @@ export function useMontarTreino(route, navigation) {
     };
 
     const hasInjury = detalhes?.anamnese && (
-        (detalhes.anamnese.limitacoes && detalhes.anamnese.limitacoes.length > 0) || 
+        (detalhes.anamnese.limitacoes && detalhes.anamnese.limitacoes.length > 0) ||
         (detalhes.anamnese.cirurgias && detalhes.anamnese.cirurgias.length > 0)
     );
+
+    // 🔥 Modal de clonar: filtro por coach (só relevante pros 2 masters, que veem os
+    // alunos um do outro) + busca por nome, aplicados por cima da lista já carregada.
+    const isMasterAdmin = MASTER_IDS.includes(adminId);
+    const otherMasterId = adminId === PAULO_ID ? ADRI_ID : PAULO_ID;
+    const otherMasterLabel = adminId === PAULO_ID ? 'Alunos da Adri' : 'Alunos do Paulo';
+    const cloneCoachTabs = isMasterAdmin ? [
+        { key: 'OWN', label: 'Meus alunos' },
+        { key: otherMasterId, label: otherMasterLabel },
+        { key: 'ALL', label: 'Todos' },
+    ] : [];
+
+    const filteredCloneStudentsList = cloneStudentsList.filter(u => {
+        if (isMasterAdmin && cloneCoachFilter !== 'ALL') {
+            const targetCoachId = cloneCoachFilter === 'OWN' ? adminId : cloneCoachFilter;
+            if (u.coachId !== targetCoachId) return false;
+        }
+        if (cloneSearchText.trim()) {
+            const q = cloneSearchText.trim().toLowerCase();
+            const matchesName = u.name?.toLowerCase().includes(q);
+            const matchesEmail = u.email?.toLowerCase().includes(q);
+            if (!matchesName && !matchesEmail) return false;
+        }
+        return true;
+    });
 
     return {
         state: {
@@ -1133,7 +1173,9 @@ export function useMontarTreino(route, navigation) {
             exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, 
             isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, 
             modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, 
-            modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList, previewModalVisible, 
+            modalCloneVisible, cloneStudentsList, selectedCloneStudent, cloneWorkoutsList,
+            cloneSearchText, cloneCoachFilter, cloneCoachTabs, filteredCloneStudentsList, isMasterAdmin,
+            previewModalVisible,
             previewExercise, isSelectingSubstitute, targetIndexForSubstitute, searchText, selectedCategory, 
             selectedSubCat, showCatDropdown, indexExercicioAtual, indexBlocoAtual, isSwapping, swapIndex, 
             templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, 
@@ -1146,7 +1188,8 @@ export function useMontarTreino(route, navigation) {
             setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, 
             setShowCalendarStart, setShowCalendarEnd, setIsArchived, setIsReordering, setTemplateGoalInput, 
             setTemplateLevelInput, setModalTecnicaVisible, setModalBuscaVisible, setModalTemplatesVisible, 
-            setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent, 
+            setModalSaveTemplateVisible, setAnamneseModal, setModalCloneVisible, setSelectedCloneStudent,
+            setCloneSearchText, setCloneCoachFilter,
             setPreviewModalVisible, setPreviewExercise, setIsSelectingSubstitute, setTargetIndexForSubstitute, 
             setSearchText, setSelectedCategory, setSelectedSubCat, setShowCatDropdown, setIndexExercicioAtual, 
             setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, 

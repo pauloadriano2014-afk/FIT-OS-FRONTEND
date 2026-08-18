@@ -2,9 +2,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
-const ADRI_ID  = 'b7c0c181-41fd-4156-b8fe-963a267759a3';
+import { PAULO_ID, ADRI_ID } from '../../constants/masterIds';
 
 export default function AdminHeader({ theme, toggleDarkMode, fetchData, handleLogout, adminId, hideTitle }) {
 

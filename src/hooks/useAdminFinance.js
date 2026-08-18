@@ -4,6 +4,7 @@ import { Platform, Linking, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { calcularProximaData, calcularDataAnterior, getDueDateStatus, forceMiddayUTC } from '../utils/financeUtils';
+import { PAULO_ID, ADRI_ID } from '../constants/masterIds';
 
 const getInterval = (type) => {
     const t = (type || '').toLowerCase();
@@ -62,7 +63,7 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
         });
     }, []);
     
-    const isMaster = currentUserId === '3c82f763-66b4-48da-836e-16817d4f57c0' || currentUserId === 'b7c0c181-41fd-4156-b8fe-963a267759a3';
+    const isMaster = currentUserId === PAULO_ID || currentUserId === ADRI_ID;
 
     // 🔥 BUSCA ANTI-CACHE ALTERADA PARA FILTRAR APENAS ALUNOS ATIVOS DA PLATAFORMA
     useEffect(() => {
@@ -479,7 +480,7 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
                 financeCategory: newCategory, contractType: newDuration, contractValue: parsedOfflineValue,
                 startDate: forceMiddayUTC(newStartDate), paymentDueDate: forceMiddayUTC(newDueDate),
                 photoUrl: newPhotoUrl, isOffline: true, isFinanceActive: true, assignedCoach: coachFilter,
-                coachId: coachFilter === 'ADRI' ? 'b7c0c181-41fd-4156-b8fe-963a267759a3' : '3c82f763-66b4-48da-836e-16817d4f57c0'
+                coachId: coachFilter === 'ADRI' ? ADRI_ID : PAULO_ID
             };
 
             const newList = [...offlineClients, newClient];

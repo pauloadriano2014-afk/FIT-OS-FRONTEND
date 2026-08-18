@@ -3,12 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, ActivityIndicator, StyleSheet, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// 🔥 IDs MASTER PARA BLINDAGEM NATIVA
-const MASTER_IDS = [
-    '3c82f763-66b4-48da-836e-16817d4f57c0', // Paulo
-    'b7c0c181-41fd-4156-b8fe-963a267759a3'  // Adri
-];
+import { MASTER_IDS } from '../../constants/masterIds';
 
 export default function AdminUserDietTab({
     theme,

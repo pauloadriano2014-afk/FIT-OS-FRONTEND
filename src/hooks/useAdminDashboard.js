@@ -2,10 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// 🔥 AS CHAVES MESTRAS DO SISTEMA (DEUSES DO OLIMPO) 🔥
-const PAULO_ID = '3c82f763-66b4-48da-836e-16817d4f57c0';
-const ADRI_ID = 'b7c0c181-41fd-4156-b8fe-963a267759a3';
+import { PAULO_ID, ADRI_ID } from '../constants/masterIds';
 
 export function useAdminDashboard() {
     const [alunosAtivos, setAlunosAtivos] = useState([]);

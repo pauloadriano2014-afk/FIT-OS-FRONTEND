@@ -6,6 +6,7 @@ import { MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 export default function TemplateAndCloneModals({
     theme, isWeb, webOuterBg,
     modalCloneVisible, setModalCloneVisible, cloneStudentsList, selectedCloneStudent, setSelectedCloneStudent, cloneWorkoutsList, applyClone, fetchWorkoutsOfStudent,
+    cloneSearchText, setCloneSearchText, cloneCoachFilter, setCloneCoachFilter, cloneCoachTabs, filteredCloneStudentsList,
     modalTemplatesVisible, setModalTemplatesVisible, templatesList, goals, levels, templateGoal, setTemplateGoal, templateLevel, setTemplateLevel, fetchTemplates, applyTemplate,
     modalSaveTemplateVisible, setModalSaveTemplateVisible, saveTemplateName, setSaveTemplateName, templateGoalInput, setTemplateGoalInput, templateLevelInput, setTemplateLevelInput, saveAsTemplate,
     collections, saveTemplateCollectionId, setSaveTemplateCollectionId,
@@ -34,13 +35,56 @@ export default function TemplateAndCloneModals({
                                 <Text style={[styles.headerTitle, { color: theme.text }]}>{selectedCloneStudent ? "ESCOLHA O TREINO" : "ESCOLHA O ALUNO"}</Text>
                                 <View style={{width: 24}}/>
                             </View>
+                            {!selectedCloneStudent && (
+                                <>
+                                    {cloneCoachTabs && cloneCoachTabs.length > 0 && (
+                                        <View style={{ flexDirection: 'row', marginTop: 12, gap: 8 }}>
+                                            {cloneCoachTabs.map(tab => {
+                                                const active = cloneCoachFilter === tab.key;
+                                                return (
+                                                    <TouchableOpacity
+                                                        key={tab.key}
+                                                        onPress={() => setCloneCoachFilter(tab.key)}
+                                                        style={{
+                                                            paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20,
+                                                            backgroundColor: active ? theme.accent : theme.surface,
+                                                            borderWidth: 1, borderColor: active ? theme.accent : theme.border,
+                                                        }}
+                                                    >
+                                                        <Text style={{ color: active ? '#fff' : theme.textSecondary, fontSize: 12, fontWeight: '600' }}>{tab.label}</Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
+                                        </View>
+                                    )}
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.surface, borderRadius: 10, borderWidth: 1, borderColor: theme.border, marginTop: 12, paddingHorizontal: 10 }}>
+                                        <Ionicons name="search" size={18} color={theme.textSecondary} />
+                                        <TextInput
+                                            style={{ flex: 1, color: theme.text, paddingVertical: 10, paddingHorizontal: 8 }}
+                                            placeholder="Buscar aluno pelo nome..."
+                                            placeholderTextColor={theme.textSecondary}
+                                            value={cloneSearchText}
+                                            onChangeText={setCloneSearchText}
+                                            autoCorrect={false}
+                                        />
+                                        {cloneSearchText.length > 0 && (
+                                            <TouchableOpacity onPress={() => setCloneSearchText('')}>
+                                                <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                </>
+                            )}
                         </View>
                     </View>
-                    <FlatList 
+                    <FlatList
                         style={[{ flex: 1, width: '100%' }, isWeb && { overflowY: 'auto' }]}
                         contentContainerStyle={{ width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, padding: 20, paddingBottom: 100, flexGrow: 1, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}
-                        data={selectedCloneStudent ? cloneWorkoutsList : cloneStudentsList} 
-                        keyExtractor={item => item.id} 
+                        data={selectedCloneStudent ? cloneWorkoutsList : filteredCloneStudentsList}
+                        keyExtractor={item => item.id}
+                        initialNumToRender={30}
+                        windowSize={21}
+                        maxToRenderPerBatch={30}
                         renderItem={({ item }) => (
                             <TouchableOpacity style={[styles.templateCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => selectedCloneStudent ? applyClone(item) : fetchWorkoutsOfStudent(item.id)}>
                                 <View>
