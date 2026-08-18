@@ -37,6 +37,14 @@ export default function ProfileScreen({ route }) {
   const [recurrenceBusy, setRecurrenceBusy] = useState(false);
   const [recurrenceNeedsCpf, setRecurrenceNeedsCpf] = useState(false);
   const [recurrenceCpf, setRecurrenceCpf] = useState('');
+  // 🔥 Endereço (a Asaas exige pra Checkout de cartão recorrente)
+  const [recurrenceNeedsAddress, setRecurrenceNeedsAddress] = useState(false);
+  const [addrCep, setAddrCep] = useState('');
+  const [addrRua, setAddrRua] = useState('');
+  const [addrBairro, setAddrBairro] = useState('');
+  const [addrNumero, setAddrNumero] = useState('');
+  const [addrComplemento, setAddrComplemento] = useState('');
+  const [addrLoadingCep, setAddrLoadingCep] = useState(false);
 
   const currentLevel = Math.floor(userXP / 1000) + 1;
   const xpToNextLevel = 1000 - (userXP % 1000);
@@ -174,7 +182,7 @@ export default function ProfileScreen({ route }) {
     }
   };
 
-  const activateRecurrence = async (cpfToSend = null) => {
+  const activateRecurrence = async (overrides = {}) => {
     const userId = await getSafeId();
     if (!userId) return;
     setRecurrenceBusy(true);
@@ -182,12 +190,18 @@ export default function ProfileScreen({ route }) {
       const res = await fetch('https://fitos-final.onrender.com/api/payments/recurrence/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, ...(cpfToSend ? { cpf: cpfToSend } : {}) }),
+        body: JSON.stringify({ userId, ...overrides }),
       });
       const data = await res.json();
 
       if (data.needsCpf) {
         setRecurrenceNeedsCpf(true);
+        setRecurrenceNeedsAddress(false);
+        return;
+      }
+      if (data.needsAddress) {
+        setRecurrenceNeedsCpf(false);
+        setRecurrenceNeedsAddress(true);
         return;
       }
       if (data.alreadyActive) {
@@ -199,6 +213,7 @@ export default function ProfileScreen({ route }) {
       }
 
       setRecurrenceNeedsCpf(false);
+      setRecurrenceNeedsAddress(false);
       setRecurrenceCpf('');
       openCheckoutUrl(data.checkoutUrl);
       await fetchRecurrenceStatus(userId); // vira PENDING_CHECKOUT
@@ -219,7 +234,50 @@ export default function ProfileScreen({ route }) {
       else Alert.alert('Erro', msg);
       return;
     }
-    activateRecurrence(digits);
+    activateRecurrence({ cpf: digits });
+  };
+
+  // 🔥 Busca rua/bairro pelo CEP (ViaCEP, gratuito, sem chave) — deixa o
+  // aluno só conferir/preencher número e complemento
+  const lookupCep = async (rawValue) => {
+    const digits = rawValue.replace(/\D/g, '').slice(0, 8);
+    setAddrCep(digits);
+    if (digits.length !== 8) return;
+    setAddrLoadingCep(true);
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      const data = await res.json();
+      if (!data.erro) {
+        if (data.logradouro) setAddrRua(data.logradouro);
+        if (data.bairro) setAddrBairro(data.bairro);
+      }
+    } catch (e) {
+      // silencioso — aluno preenche manualmente se a busca falhar
+    } finally {
+      setAddrLoadingCep(false);
+    }
+  };
+
+  const confirmRecurrenceAddress = () => {
+    const cepDigits = addrCep.replace(/\D/g, '');
+    const msgInvalid =
+      cepDigits.length !== 8
+        ? 'CEP inválido. Verifique os números.'
+        : (!addrRua.trim() || !addrNumero.trim() || !addrBairro.trim())
+        ? 'Preencha rua, número e bairro.'
+        : null;
+    if (msgInvalid) {
+      if (Platform.OS === 'web') window.alert(msgInvalid);
+      else Alert.alert('Erro', msgInvalid);
+      return;
+    }
+    activateRecurrence({
+      postalCode: cepDigits,
+      address: addrRua.trim(),
+      addressNumber: addrNumero.trim(),
+      province: addrBairro.trim(),
+      ...(addrComplemento.trim() ? { complement: addrComplemento.trim() } : {}),
+    });
   };
 
   const doCancelRecurrence = async () => {
@@ -495,6 +553,86 @@ export default function ProfileScreen({ route }) {
                                     {recurrenceBusy
                                         ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} />
                                         : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CONFIRMAR CPF</Text>}
+                                </TouchableOpacity>
+                            </View>
+                        ) : recurrenceNeedsAddress ? (
+                            <View>
+                                <Text style={[styles.label, { color: theme.accent }]}>Endereço de cobrança</Text>
+                                <Text style={{ color: theme.textSecondary, fontSize: 11, marginBottom: 10 }}>
+                                    Exigido pela Asaas pra validar o pagamento recorrente com cartão.
+                                </Text>
+
+                                <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                    <MaterialCommunityIcons name="map-marker-outline" size={20} color={theme.textSecondary} />
+                                    <TextInput
+                                        style={[styles.input, { color: theme.text }]}
+                                        value={addrCep}
+                                        onChangeText={lookupCep}
+                                        keyboardType="numeric"
+                                        maxLength={8}
+                                        placeholder="CEP (somente números)"
+                                        placeholderTextColor={theme.textSecondary}
+                                        outlineStyle="none"
+                                    />
+                                    {addrLoadingCep && <ActivityIndicator size="small" color={theme.accent} />}
+                                </View>
+
+                                <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                    <MaterialCommunityIcons name="road-variant" size={20} color={theme.textSecondary} />
+                                    <TextInput
+                                        style={[styles.input, { color: theme.text }]}
+                                        value={addrRua}
+                                        onChangeText={setAddrRua}
+                                        placeholder="Rua/Avenida"
+                                        placeholderTextColor={theme.textSecondary}
+                                        outlineStyle="none"
+                                    />
+                                </View>
+
+                                <View style={{ flexDirection: 'row', gap: 10 }}>
+                                    <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border, flex: 1 }]}>
+                                        <TextInput
+                                            style={[styles.input, { color: theme.text, marginLeft: 0 }]}
+                                            value={addrNumero}
+                                            onChangeText={setAddrNumero}
+                                            keyboardType="numeric"
+                                            placeholder="Número"
+                                            placeholderTextColor={theme.textSecondary}
+                                            outlineStyle="none"
+                                        />
+                                    </View>
+                                    <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border, flex: 1 }]}>
+                                        <TextInput
+                                            style={[styles.input, { color: theme.text, marginLeft: 0 }]}
+                                            value={addrComplemento}
+                                            onChangeText={setAddrComplemento}
+                                            placeholder="Complemento (opc.)"
+                                            placeholderTextColor={theme.textSecondary}
+                                            outlineStyle="none"
+                                        />
+                                    </View>
+                                </View>
+
+                                <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                    <MaterialCommunityIcons name="signpost-outline" size={20} color={theme.textSecondary} />
+                                    <TextInput
+                                        style={[styles.input, { color: theme.text }]}
+                                        value={addrBairro}
+                                        onChangeText={setAddrBairro}
+                                        placeholder="Bairro"
+                                        placeholderTextColor={theme.textSecondary}
+                                        outlineStyle="none"
+                                    />
+                                </View>
+
+                                <TouchableOpacity
+                                    style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                                    onPress={confirmRecurrenceAddress}
+                                    disabled={recurrenceBusy}
+                                >
+                                    {recurrenceBusy
+                                        ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} />
+                                        : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CONFIRMAR ENDEREÇO</Text>}
                                 </TouchableOpacity>
                             </View>
                         ) : (
