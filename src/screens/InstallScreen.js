@@ -4,14 +4,10 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, SafeAreaView
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
-
-let globalPrompt = null;
-if (Platform.OS === 'web' && typeof window !== 'undefined') {
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    globalPrompt = e;
-  });
-}
+// 🔥 O listener do beforeinstallprompt agora mora num módulo importado de
+// forma estática (não-lazy) no topo do App.js — ver src/utils/pwaInstall.js.
+// Isso evita perder o evento quando essa tela é carregada via React.lazy().
+import { getInstallPrompt, clearInstallPrompt, isStandalone, getPlatformInstallInfo } from '../utils/pwaInstall';
 
 export default function InstallScreen({ navigation, route }) {
     const { theme } = useTheme();
@@ -31,17 +27,18 @@ export default function InstallScreen({ navigation, route }) {
                 try {
                     // 🔥 MEMÓRIA PERMANENTE: Verifica se o usuário já pulou/instalou antes
                     const dismissed = await AsyncStorage.getItem('@install_screen_dismissed');
-                    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-                    
+
                     // SE JÁ ESTIVER INSTALADO OU JÁ TIVER PULADO ANTES, PULA ESSA TELA DIRETO!
-                    if (isStandalone || dismissed === 'true') {
+                    // (Se pular por engano ou o app não tiver sido instalado de verdade,
+                    // ainda dá pra instalar depois pelo botão em Perfil > Instalar aplicativo.)
+                    if (isStandalone() || dismissed === 'true') {
                         navigation.replace(nextRoute, nextParams);
                         return;
                     }
 
-                    const ua = window.navigator.userAgent.toLowerCase();
-                    setIsIOS(/iphone|ipad|ipod/.test(ua));
-                    setIsChromeIOS(ua.includes('crios'));
+                    const { isIOS: ios, isChromeIOS: chromeIOS } = getPlatformInstallInfo();
+                    setIsIOS(ios);
+                    setIsChromeIOS(chromeIOS);
                 } catch(e) {
                     console.error("Erro ao ler AsyncStorage na InstallScreen:", e);
                 }
@@ -62,17 +59,19 @@ export default function InstallScreen({ navigation, route }) {
     };
 
     const handleInstallClick = async () => {
-        if (globalPrompt) {
-            globalPrompt.prompt();
-            const { outcome } = await globalPrompt.userChoice;
+        const prompt = getInstallPrompt();
+        if (prompt) {
+            prompt.prompt();
+            const { outcome } = await prompt.userChoice;
             if (outcome === 'accepted') {
-                globalPrompt = null;
+                clearInstallPrompt();
                 saveInstallStateAndProceed();
+                return;
             }
-        } else {
-            // Se for iOS ou o Android não gerou o prompt automático, mostra as instruções visuais
-            setShowInstructions(true);
         }
+        // Se for iOS, ou o Android não gerou o prompt automático (ou o usuário
+        // recusou), mostra as instruções manuais.
+        setShowInstructions(true);
     };
 
     const handleSkip = () => {

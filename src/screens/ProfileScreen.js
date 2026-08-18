@@ -11,6 +11,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
+import InstallAppButton from '../components/InstallAppButton';
 
 export default function ProfileScreen({ route }) {
   const { userData: paramsUser = {} } = route?.params || {};
@@ -360,6 +361,9 @@ export default function ProfileScreen({ route }) {
                   <Text style={styles.xpNext}>Faltam {xpToNextLevel} XP para o próximo nível</Text>
               </View>
             </View>
+
+            {/* 🔥 BOTÃO DE INSTALAR O APP (some sozinho se já estiver instalado) */}
+            <InstallAppButton theme={theme} />
 
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <Text style={styles.cardTitle}>APARÊNCIA DO APP</Text>

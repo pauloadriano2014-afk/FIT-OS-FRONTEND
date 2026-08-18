@@ -1,4 +1,8 @@
 import 'react-native-gesture-handler';
+// 🔥 IMPORT ESTÁTICO (NÃO mover pra lazy!) — registra o listener do
+// beforeinstallprompt assim que o app carrega. Ver comentário completo em
+// src/utils/pwaInstall.js.
+import './src/utils/pwaInstall';
 import React, { useEffect, useState, lazy, Suspense } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
