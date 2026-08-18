@@ -31,6 +31,12 @@ export default function ProfileScreen({ route }) {
 
   const [selectedColor, setSelectedColor] = useState('verde');
 
+  // 🔥 RECORRÊNCIA (pagamento automático com cartão salvo via Asaas Checkout)
+  const [recurrence, setRecurrence] = useState(null); // null = ainda carregando
+  const [recurrenceBusy, setRecurrenceBusy] = useState(false);
+  const [recurrenceNeedsCpf, setRecurrenceNeedsCpf] = useState(false);
+  const [recurrenceCpf, setRecurrenceCpf] = useState('');
+
   const currentLevel = Math.floor(userXP / 1000) + 1;
   const xpToNextLevel = 1000 - (userXP % 1000);
   const progressPercent = (userXP % 1000) / 10; 
@@ -73,7 +79,9 @@ export default function ProfileScreen({ route }) {
       else if (userObj.currentXP) setUserXP(userObj.currentXP);
 
       if (savedImage) setProfileImage(savedImage);
-      
+
+      fetchRecurrenceStatus(userId);
+
       if (savedThemeObj) {
           const parsedTheme = JSON.parse(savedThemeObj);
           if (parsedTheme.accent === '#FF2D55') setSelectedColor('rosa');
@@ -143,8 +151,110 @@ export default function ProfileScreen({ route }) {
     finally { setLoading(false); }
   };
 
+  // 🔥 RECORRÊNCIA ────────────────────────────────────────────────────────
+  const fetchRecurrenceStatus = async (userId) => {
+    try {
+      const res = await fetch(`https://fitos-final.onrender.com/api/payments/recurrence/status?userId=${userId}`);
+      const data = await res.json();
+      setRecurrence(data);
+    } catch (e) {
+      console.log('Erro ao consultar recorrência:', e);
+      setRecurrence({ active: false, status: null });
+    }
+  };
+
+  const openCheckoutUrl = (url) => {
+    if (Platform.OS === 'web') {
+      window.open(url, '_blank');
+    } else {
+      Linking.openURL(url).catch(() => {
+        Alert.alert('Erro', 'Não foi possível abrir a página de pagamento.');
+      });
+    }
+  };
+
+  const activateRecurrence = async (cpfToSend = null) => {
+    const userId = await getSafeId();
+    if (!userId) return;
+    setRecurrenceBusy(true);
+    try {
+      const res = await fetch('https://fitos-final.onrender.com/api/payments/recurrence/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, ...(cpfToSend ? { cpf: cpfToSend } : {}) }),
+      });
+      const data = await res.json();
+
+      if (data.needsCpf) {
+        setRecurrenceNeedsCpf(true);
+        return;
+      }
+      if (data.alreadyActive) {
+        await fetchRecurrenceStatus(userId);
+        return;
+      }
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Não foi possível preparar a recorrência.');
+      }
+
+      setRecurrenceNeedsCpf(false);
+      setRecurrenceCpf('');
+      openCheckoutUrl(data.checkoutUrl);
+      await fetchRecurrenceStatus(userId); // vira PENDING_CHECKOUT
+    } catch (e) {
+      const msg = e.message || 'Erro de conexão. Tente novamente.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Erro', msg);
+    } finally {
+      setRecurrenceBusy(false);
+    }
+  };
+
+  const confirmRecurrenceCpf = () => {
+    const digits = recurrenceCpf.replace(/\D/g, '');
+    if (digits.length !== 11 && digits.length !== 14) {
+      const msg = 'CPF inválido. Verifique os números.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Erro', msg);
+      return;
+    }
+    activateRecurrence(digits);
+  };
+
+  const doCancelRecurrence = async () => {
+    const userId = await getSafeId();
+    if (!userId) return;
+    setRecurrenceBusy(true);
+    try {
+      await fetch('https://fitos-final.onrender.com/api/payments/recurrence/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId }),
+      });
+      await fetchRecurrenceStatus(userId);
+    } catch (e) {
+      const msg = 'Erro de conexão. Tente novamente.';
+      if (Platform.OS === 'web') window.alert(msg);
+      else Alert.alert('Erro', msg);
+    } finally {
+      setRecurrenceBusy(false);
+    }
+  };
+
+  const cancelRecurrence = () => {
+    const msg = 'Desativar o pagamento automático? Você vai voltar a pagar manualmente (PIX/cartão/boleto) todo ciclo.';
+    if (Platform.OS === 'web') {
+      if (window.confirm(msg)) doCancelRecurrence();
+    } else {
+      Alert.alert('Desativar recorrência', msg, [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Desativar', style: 'destructive', onPress: doCancelRecurrence },
+      ]);
+    }
+  };
+
   const openWhatsApp = async () => {
-      const phoneNumber = '5541997991346'; 
+      const phoneNumber = '5541997991346';
       const message = `Olá Coach! Preciso de um suporte.`;
       const url = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
       
@@ -298,6 +408,106 @@ export default function ProfileScreen({ route }) {
                 </View>
             </View>
 
+            {/* 🔥 CARD DE RECORRÊNCIA (pagamento automático com cartão) 🔥 */}
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <Text style={styles.cardTitle}>PAGAMENTO AUTOMÁTICO</Text>
+                    <MaterialCommunityIcons
+                        name={recurrence?.active ? 'credit-card-check' : 'credit-card-outline'}
+                        size={20}
+                        color={recurrence?.active ? theme.accent : theme.textSecondary}
+                    />
+                </View>
+
+                {recurrence === null ? (
+                    <ActivityIndicator color={theme.accent} style={{ marginVertical: 10 }} />
+                ) : recurrence.active ? (
+                    <View>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>
+                            Recorrência ativa ✅
+                        </Text>
+                        <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 15 }}>
+                            {recurrence.nextDueDate
+                                ? `Próxima cobrança automática: ${new Date(recurrence.nextDueDate).toLocaleDateString('pt-BR')}`
+                                : 'Seu cartão está salvo e será cobrado automaticamente a cada ciclo.'}
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.recurrenceCancelBtn, { borderColor: theme.border }]}
+                            onPress={cancelRecurrence}
+                            disabled={recurrenceBusy}
+                        >
+                            {recurrenceBusy
+                                ? <ActivityIndicator color={theme.textSecondary} />
+                                : <Text style={{ color: '#FF4444', fontWeight: '900', fontSize: 12 }}>DESATIVAR RECORRÊNCIA</Text>}
+                        </TouchableOpacity>
+                    </View>
+                ) : recurrence.status === 'PENDING_CHECKOUT' ? (
+                    <View>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginBottom: 4 }}>
+                            Aguardando confirmação do cartão…
+                        </Text>
+                        <Text style={{ color: theme.textSecondary, fontSize: 12, marginBottom: 15 }}>
+                            Se você já cadastrou o cartão na página da Asaas, arraste a tela pra baixo pra atualizar.
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                            onPress={() => activateRecurrence()}
+                            disabled={recurrenceBusy}
+                        >
+                            {recurrenceBusy
+                                ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} />
+                                : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>GERAR NOVO LINK</Text>}
+                        </TouchableOpacity>
+                    </View>
+                ) : (
+                    <View>
+                        <Text style={{ color: theme.textSecondary, fontSize: 13, lineHeight: 18, marginBottom: 15 }}>
+                            Ative pra nunca mais se preocupar em pagar manualmente — seu cartão fica salvo com
+                            segurança direto na Asaas (nós nunca vemos o número do seu cartão) e a cobrança
+                            acontece sozinha todo ciclo.
+                        </Text>
+
+                        {recurrenceNeedsCpf ? (
+                            <View>
+                                <Text style={[styles.label, { color: theme.accent }]}>Confirme seu CPF</Text>
+                                <View style={[styles.inputGroup, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                    <MaterialCommunityIcons name="card-account-details-outline" size={20} color={theme.textSecondary} />
+                                    <TextInput
+                                        style={[styles.input, { color: theme.text }]}
+                                        value={recurrenceCpf}
+                                        onChangeText={setRecurrenceCpf}
+                                        keyboardType="numeric"
+                                        maxLength={14}
+                                        placeholder="Somente números"
+                                        placeholderTextColor={theme.textSecondary}
+                                        outlineStyle="none"
+                                    />
+                                </View>
+                                <TouchableOpacity
+                                    style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                                    onPress={confirmRecurrenceCpf}
+                                    disabled={recurrenceBusy}
+                                >
+                                    {recurrenceBusy
+                                        ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} />
+                                        : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>CONFIRMAR CPF</Text>}
+                                </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.saveBtn, { backgroundColor: theme.accent }]}
+                                onPress={() => activateRecurrence()}
+                                disabled={recurrenceBusy}
+                            >
+                                {recurrenceBusy
+                                    ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'} />
+                                    : <Text style={[styles.saveBtnText, { color: theme.isDark ? '#000' : '#FFF' }]}>ATIVAR RECORRÊNCIA</Text>}
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+            </View>
+
             <TouchableOpacity style={styles.whatsappBtn} onPress={openWhatsApp}>
                 <MaterialCommunityIcons name="whatsapp" size={28} color="#FFF" />
                 <View style={{flex:1}}>
@@ -386,6 +596,8 @@ const styles = StyleSheet.create({
   
   saveBtn: { height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   saveBtnText: { fontSize: 14, fontWeight: '900' },
+
+  recurrenceCancelBtn: { height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
   
   logoutBtn: { flexDirection: 'row', backgroundColor: '#FFE5E5', height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#FFB2B2' },
   logoutBtnText: { color: '#FF4444', fontSize: 13, fontWeight: '900', marginLeft: 10 },
