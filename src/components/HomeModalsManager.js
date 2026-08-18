@@ -11,6 +11,7 @@ import StudentReportModal     from './StudentReportModal';
 import InitialPhotosModal     from './InitialPhotosModal';
 import SatisfactionSurveyModal from './SatisfactionSurveyModal';
 import FinancePaymentModal    from './FinancePaymentModal';
+import RecurrencePaymentModal from './RecurrencePaymentModal';
 
 export default function HomeModalsManager({
     theme,
@@ -82,6 +83,17 @@ export default function HomeModalsManager({
                                 <MaterialCommunityIcons name="qrcode-scan" size={20} color="#000" style={{ marginLeft: 8 }} />
                             </TouchableOpacity>
 
+                            <TouchableOpacity
+                                style={[styles.btn, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.accent, marginBottom: 10 }]}
+                                onPress={() => {
+                                    states.setFinanceModalVisible(false);
+                                    states.setRecurrenceModalVisible(true);
+                                }}
+                            >
+                                <Text style={[styles.btnText, { color: theme.accent }]}>ATIVAR PAGAMENTO AUTOMÁTICO</Text>
+                                <MaterialCommunityIcons name="credit-card-sync-outline" size={20} color={theme.accent} style={{ marginLeft: 8 }} />
+                            </TouchableOpacity>
+
                             {home.paymentClaimExpired && (
                                 <View style={[styles.claimExpiredBox, { backgroundColor: '#FF950022', borderColor: '#FF9500' }]}>
                                     <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#FF9500" />
@@ -123,6 +135,8 @@ export default function HomeModalsManager({
             )}
 
             <FinancePaymentModal visible={states.paymentModalVisible} onClose={() => states.setPaymentModalVisible(false)} theme={theme} userId={home.userData?.id} onPaid={() => home.loadHomeData()} />
+
+            <RecurrencePaymentModal visible={states.recurrenceModalVisible} onClose={() => states.setRecurrenceModalVisible(false)} theme={theme} userId={home.userData?.id} onActivated={() => home.loadHomeData()} />
 
             <Modal visible={states.upsellModalVisible} transparent animationType="fade">
                 <View style={styles.overlay}>

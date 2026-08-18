@@ -35,6 +35,7 @@ export default function HomeScreen({ navigation }) {
     const [upsellModalVisible,       setUpsellModalVisible]       = useState(false);
     const [upsellFeature,            setUpsellFeature]            = useState('');
     const [paymentModalVisible,      setPaymentModalVisible]      = useState(false);
+    const [recurrenceModalVisible,   setRecurrenceModalVisible]   = useState(false);
     const [anamnesePendingModalVisible, setAnamnesePendingModalVisible] = useState(false);
 
     const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -116,6 +117,7 @@ export default function HomeScreen({ navigation }) {
         upsellModalVisible, setUpsellModalVisible,
         upsellFeature, setUpsellFeature,
         paymentModalVisible, setPaymentModalVisible,
+        recurrenceModalVisible, setRecurrenceModalVisible,
         anamnesePendingModalVisible, setAnamnesePendingModalVisible,
     };
 
