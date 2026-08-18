@@ -47,6 +47,7 @@ export default function AdminCoachesScreen({ navigation }) {
     const [loading,     setLoading]     = useState(true);
     const [activeTab,   setActiveTab]   = useState('ACTIVE');
     const [processing,  setProcessing]  = useState(null);
+    const [sendingLink, setSendingLink] = useState(null);
 
     // Modal de edição de plano manual
     const [editingCoach, setEditingCoach] = useState(null);
@@ -127,6 +128,48 @@ export default function AdminCoachesScreen({ navigation }) {
         finally { setSavingPlan(false); }
     };
 
+    // 💳 Gera um link de Checkout de recorrência (cartão) pro coach e manda
+    // direto no WhatsApp dele — o coach cadastra o cartão sozinho na página
+    // segura da Asaas, sem o número passar pelo nosso backend. CPF/endereço
+    // (exigidos pela Asaas) só podem ser preenchidos pelo próprio coach em
+    // "Sua Assinatura" — se faltar algo, avisa aqui em vez de travar.
+    const handleSendRecurrenceLink = async (coach) => {
+        setSendingLink(coach.id);
+        try {
+            const res  = await fetch(`${BASE_URL}/api/payments/coach-recurrence/create`, {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body:    JSON.stringify({ coachId: coach.id }),
+            });
+            const data = await res.json();
+
+            if (data.needsCpf || data.needsAddress) {
+                notify(`${coach.name} ainda não tem ${data.needsCpf ? 'CPF' : 'endereço'} cadastrado. Peça pra ele preencher em "Sua Assinatura" antes de ativar a recorrência.`);
+                return;
+            }
+            if (data.alreadyActive) {
+                notify(`${coach.name} já tem pagamento automático ativo.`);
+                return;
+            }
+            if (!res.ok || !data.checkoutUrl) {
+                notify(data.error || 'Não foi possível gerar o link de recorrência.');
+                return;
+            }
+
+            if (coach.phone) {
+                const msg = `Fala, ${coach.name}! Segue o link pra ativar o pagamento automático (cartão) da sua mensalidade ELITE FIT: ${data.checkoutUrl}`;
+                const url = `whatsapp://send?phone=+55${coach.phone.replace(/\D/g,'')}&text=${encodeURIComponent(msg)}`;
+                Linking.openURL(url).catch(() => notify('Link gerado, mas não foi possível abrir o WhatsApp.'));
+            } else {
+                notify('Link de recorrência gerado! (telefone não cadastrado pra enviar direto pelo WhatsApp)');
+            }
+        } catch {
+            notify('Erro de conexão.');
+        } finally {
+            setSendingLink(null);
+        }
+    };
+
     const openWhatsApp = (phone, name) => {
         if (!phone) { notify('Telefone não cadastrado.'); return; }
         const url = `whatsapp://send?phone=+55${phone.replace(/\D/g,'')}&text=${encodeURIComponent(`Fala, ${name}! Tudo certo?`)}`;
@@ -199,6 +242,21 @@ export default function AdminCoachesScreen({ navigation }) {
                     >
                         <MaterialCommunityIcons name="cash-check" size={14} color="#8BC34A" />
                         <Text style={{ fontSize:11, fontWeight:'800', color: '#8BC34A' }}>COBRAR</Text>
+                    </TouchableOpacity>
+
+                    {/* Enviar link de recorrência (cartão automático) */}
+                    <TouchableOpacity
+                        style={[styles.actionBtn, { backgroundColor: '#5AC8FA20', borderColor: '#5AC8FA50' }]}
+                        onPress={() => handleSendRecurrenceLink(coach)}
+                        disabled={sendingLink === coach.id}
+                    >
+                        {sendingLink === coach.id
+                            ? <ActivityIndicator size="small" color="#5AC8FA" />
+                            : (<>
+                                <MaterialCommunityIcons name="credit-card-sync-outline" size={14} color="#5AC8FA" />
+                                <Text style={{ fontSize:11, fontWeight:'800', color: '#5AC8FA' }}>RECORRÊNCIA</Text>
+                              </>)
+                        }
                     </TouchableOpacity>
 
                     {/* Alterar plano */}

@@ -2,26 +2,43 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import CoachRecurrencePaymentModal from './CoachRecurrencePaymentModal';
+
+// Mesma inferência de plano usada no backend (coach-recurrence/create) —
+// espelhada aqui só pra já mandar o billingPlan certo pro modal de recorrência.
+function inferBillingPlan(coachData) {
+    let planToCharge = coachData?.coachBillingPlan;
+    if (!planToCharge || !planToCharge.includes('_')) {
+        const basePlan = coachData?.coachPlan || 'PERSONAL';
+        if (basePlan === 'PERSONAL') planToCharge = 'PERSONAL_MONTHLY';
+        else if (basePlan === 'NUTRICIONISTA') planToCharge = 'NUTRI_MONTHLY';
+        else if (basePlan === 'ELITE') planToCharge = 'ELITE_MONTHLY';
+        else planToCharge = 'PERSONAL_MONTHLY';
+    }
+    return planToCharge;
+}
 
 export default function TabAssinatura({ theme, currentUserId }) {
     const [loading, setLoading] = useState(true);
     const [coachData, setCoachData] = useState(null);
     const [loadingCharge, setLoadingCharge] = useState(false);
+    const [recurrenceModalVisible, setRecurrenceModalVisible] = useState(false);
+
+    const fetchCoachData = async () => {
+        try {
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${currentUserId}&t=${Date.now()}`);
+            if (res.ok) {
+                const data = await res.json();
+                setCoachData(data);
+            }
+        } catch (error) {
+            console.log("Erro ao buscar dados da assinatura:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchCoachData = async () => {
-            try {
-                const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${currentUserId}&t=${Date.now()}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setCoachData(data);
-                }
-            } catch (error) {
-                console.log("Erro ao buscar dados da assinatura:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
         if (currentUserId) fetchCoachData();
     }, [currentUserId]);
 
@@ -42,16 +59,7 @@ export default function TabAssinatura({ theme, currentUserId }) {
     const handleGenerateCharge = async () => {
         setLoadingCharge(true);
         try {
-            let planToCharge = coachData?.coachBillingPlan;
-            
-            // Se o plano estiver vazio ou incompleto (ex: apenas "PERSONAL")
-            if (!planToCharge || !planToCharge.includes('_')) {
-                const basePlan = coachData?.coachPlan || 'PERSONAL';
-                if (basePlan === 'PERSONAL') planToCharge = 'PERSONAL_MONTHLY';
-                else if (basePlan === 'NUTRICIONISTA') planToCharge = 'NUTRI_MONTHLY';
-                else if (basePlan === 'ELITE') planToCharge = 'ELITE_MONTHLY';
-                else planToCharge = 'PERSONAL_MONTHLY';
-            }
+            const planToCharge = inferBillingPlan(coachData);
 
             // 🔥 A MÁGICA AQUI: Pega o valor do contrato personalizado, se existir e for maior que zero
             const customValuePayload = coachData?.contractValue > 0 ? coachData.contractValue : undefined;
@@ -132,7 +140,7 @@ export default function TabAssinatura({ theme, currentUserId }) {
                 <Text style={[styles.infoValue, { color: theme.text }]}>{dueDate}</Text>
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
                 style={[styles.payButton, { backgroundColor: theme.accent }]}
                 onPress={handleGenerateCharge}
                 disabled={loadingCharge}
@@ -147,9 +155,26 @@ export default function TabAssinatura({ theme, currentUserId }) {
                 )}
             </TouchableOpacity>
 
+            <TouchableOpacity
+                style={[styles.payButton, { backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.accent, marginBottom: 12 }]}
+                onPress={() => setRecurrenceModalVisible(true)}
+            >
+                <MaterialCommunityIcons name="credit-card-sync-outline" size={20} color={theme.accent} />
+                <Text style={[styles.payButtonText, { color: theme.accent }]}>ATIVAR PAGAMENTO AUTOMÁTICO</Text>
+            </TouchableOpacity>
+
             <Text style={[styles.footerText, { color: theme.textSecondary }]}>
                 O pagamento é processado de forma segura via Asaas. A liberação do seu acesso é imediata após a confirmação via PIX ou Cartão de Crédito.
             </Text>
+
+            <CoachRecurrencePaymentModal
+                visible={recurrenceModalVisible}
+                onClose={() => setRecurrenceModalVisible(false)}
+                theme={theme}
+                coachId={currentUserId}
+                billingPlan={inferBillingPlan(coachData)}
+                onActivated={fetchCoachData}
+            />
         </View>
     );
 }
