@@ -120,8 +120,11 @@ export default function AdminDietLibraryScreen({ navigation }) {
     };
 
     return (
-        <RootComponent style={{ flex: 1, backgroundColor: isWeb ? (theme.isDark ? '#0a0a0a' : '#E5E5EA') : theme.bg }}>
-            <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 600 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
+        <RootComponent style={isWeb
+            ? { height: '100vh', width: '100%', backgroundColor: theme.isDark ? '#0a0a0a' : '#E5E5EA' }
+            : { flex: 1, backgroundColor: theme.bg }
+        }>
+            <View style={{ flex: 1, minHeight: 0, width: '100%', maxWidth: isWeb ? 600 : '100%', alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) }}>
                 
                 {/* HEADER */}
                 <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
