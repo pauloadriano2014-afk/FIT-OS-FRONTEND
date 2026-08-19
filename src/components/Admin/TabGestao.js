@@ -12,6 +12,7 @@ import TabIA from './TabIA';
 import TabAssinatura from './TabAssinatura';
 import TabPropostaOfertas from './TabPropostaOfertas'; // 💎 Ofertas de Proposta (só master)
 import TabDesafios from './TabDesafios'; // 🎯 Desafios/Projetos por WhatsApp (só master)
+import TabProdutos from './TabProdutos'; // 🛒 Produtos Digitais — ebooks/audiobooks (só master)
 import { MASTER_IDS } from '../../constants/masterIds';
 
 export default function TabGestao({ 
@@ -48,6 +49,7 @@ export default function TabGestao({
         { id: 'FERRAMENTAS', label: 'TREINO E DIETA',   show: true },
         { id: 'CONFIG',      label: 'SISTEMA E AVISOS', show: true },
         { id: 'SAAS',        label: 'VENDAS',           show: true },
+        { id: 'PRODUTOS',    label: 'PRODUTOS DIGITAIS', show: isMasterCoach },
         { id: 'DESAFIOS',    label: 'DESAFIOS',         show: isMasterCoach },
         { id: 'IA',          label: 'MINHA IA',         show: !isMasterCoach },
         { id: 'MARCA',       label: 'MINHA MARCA',      show: true },
@@ -199,6 +201,11 @@ export default function TabGestao({
                 isMasterCoach
                     ? <TabPropostaOfertas theme={theme} currentUserId={currentUserId} navigation={navigation} />
                     : <TabSaaS theme={theme} currentUserId={currentUserId} />
+            )}
+
+            {/* 🛒 Aba PRODUTOS DIGITAIS — ebooks/audiobooks, só master */}
+            {subTabGestao === 'PRODUTOS' && isMasterCoach && (
+                <TabProdutos theme={theme} currentUserId={currentUserId} navigation={navigation} />
             )}
 
             {/* 🎯 Aba DESAFIOS — só master */}

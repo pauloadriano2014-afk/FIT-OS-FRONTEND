@@ -12,10 +12,12 @@ const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 
 const API_BASE = 'https://fitos-final.onrender.com';
+const SITE_URL = 'https://www.pauloadrianoteam.com.br';
 
-const MAIN_COLOR = '#8B5CF6';   
-const LIGHT_COLOR = '#C4B5FD';  
-const DARK_COLOR = '#6D28D9';   
+const MAIN_COLOR = '#8B5CF6';
+const LIGHT_COLOR = '#C4B5FD';
+const DARK_COLOR = '#6D28D9';
+const TREINO_COLOR = '#4DE38F';
 
 function onlyDigits(v) { return (v || '').replace(/\D/g, ''); }
 
@@ -578,14 +580,31 @@ export default function ProdutoCheckoutScreen({ route }) {
 
                                     <View style={{ width: '100%', gap: 10, marginTop: 10 }}>
                                         {itensEntrega.map((item, index) => (
-                                            <TouchableOpacity key={index} onPress={() => handleAcessarItem(item.linkEntrega)} activeOpacity={0.85}>
-                                                <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.entrarGrupoBtn}>
-                                                    <MaterialCommunityIcons name="download" size={20} color="#FFF" />
-                                                    <Text style={styles.submitBtnText} numberOfLines={1}>
-                                                        {itensEntrega.length > 1 ? `ACESSAR: ${item.nome.toUpperCase()}` : 'ACESSAR MEU MATERIAL'}
-                                                    </Text>
-                                                </LinearGradient>
-                                            </TouchableOpacity>
+                                            <View key={index} style={{ gap: 10 }}>
+                                                {!!item.linkEntrega && (
+                                                    <TouchableOpacity onPress={() => handleAcessarItem(item.linkEntrega)} activeOpacity={0.85}>
+                                                        <LinearGradient colors={['#8B5CF6', '#6D28D9']} style={styles.entrarGrupoBtn}>
+                                                            <MaterialCommunityIcons name="download" size={20} color="#FFF" />
+                                                            <Text style={styles.submitBtnText} numberOfLines={1}>
+                                                                {itensEntrega.length > 1 ? `ACESSAR: ${item.nome.toUpperCase()}` : 'ACESSAR MEU MATERIAL'}
+                                                            </Text>
+                                                        </LinearGradient>
+                                                    </TouchableOpacity>
+                                                )}
+                                                {/* 🔥 TREINO INTERATIVO — só aparece quando esse item tem programa configurado */}
+                                                {!!item.treinoToken && (
+                                                    <TouchableOpacity
+                                                        onPress={() => handleAcessarItem(`${SITE_URL}/ProdutoTreino?token=${item.treinoToken}`)}
+                                                        activeOpacity={0.85}
+                                                        style={[styles.entrarGrupoBtn, { backgroundColor: TREINO_COLOR }]}
+                                                    >
+                                                        <MaterialCommunityIcons name="dumbbell" size={20} color="#0a0a0a" />
+                                                        <Text style={[styles.submitBtnText, { color: '#0a0a0a' }]} numberOfLines={1}>
+                                                            COMEÇAR MEU TREINO
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
                                         ))}
                                     </View>
                                 </View>

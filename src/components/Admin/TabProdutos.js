@@ -33,6 +33,7 @@ const emptyProduto = (defaultCoachId) => ({
     depoimentos: [],
     antesDepois: [],
     faq: [],
+    treinoPrograma: { duracaoSemanas: '', treinos: [] },
 });
 
 function slugifyLocal(input) {
@@ -43,6 +44,22 @@ function slugifyLocal(input) {
         .replace(/[\u0300-\u036f]/g, '')
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
+}
+
+// \ud83d\udd27 Aceita valores digitados de qualquer jeito ("R$ 19,90", "19,90", "19.90",
+// "1.234,56") \u2014 remove s\u00edmbolos/espa\u00e7os e normaliza pro formato que o
+// parseFloat entende. Sem isso, "R$ 19,90" virava NaN \u2192 JSON.stringify
+// transformava em null \u2192 backend recusava o produto como se o valor
+// estivesse vazio.
+function parseValorInput(v) {
+    if (v === null || v === undefined) return NaN;
+    let cleaned = String(v).replace(/[^\d.,]/g, '').trim();
+    if (!cleaned) return NaN;
+    if (cleaned.includes(',')) {
+        // Formato BR: pontos s\u00e3o separador de milhar, v\u00edrgula \u00e9 decimal
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    }
+    return parseFloat(cleaned);
 }
 
 function formatBRL(v) {
@@ -150,6 +167,18 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         } catch (e) {
             faq = [];
         }
+        let treinoPrograma = { duracaoSemanas: '', treinos: [] };
+        try {
+            if (produto.treinoPrograma) {
+                const parsed = JSON.parse(produto.treinoPrograma);
+                treinoPrograma = {
+                    duracaoSemanas: parsed.duracaoSemanas || '',
+                    treinos: Array.isArray(parsed.treinos) ? parsed.treinos : [],
+                };
+            }
+        } catch (e) {
+            treinoPrograma = { duracaoSemanas: '', treinos: [] };
+        }
         setEditingProduto({
             ...produto,
             valor: String(produto.valor),
@@ -163,6 +192,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
             depoimentos,
             antesDepois,
             faq,
+            treinoPrograma,
         });
         setView('form');
     };
@@ -360,12 +390,114 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         setEditingProduto(prev => ({ ...prev, faq: (prev.faq || []).filter((_, i) => i !== index) }));
     };
 
-    const handleSave = async () => {
+    // 🔥 PROGRAMA DE TREINO INTERATIVO: opcional — dias (treinos) com
+    // exercícios estruturados. Se ficar vazio, o produto continua entregando
+    // só o link/PDF estático de sempre.
+    const [jsonImportText, setJsonImportText] = useState('');
+    const [jsonImportAberto, setJsonImportAberto] = useState(false);
+
+    const handleImportJson = () => {
+        try {
+            const parsed = JSON.parse(jsonImportText);
+            if (!parsed || !Array.isArray(parsed.treinos)) {
+                throw new Error('formato inválido');
+            }
+            setEditingProduto(prev => ({
+                ...prev,
+                treinoPrograma: { duracaoSemanas: parsed.duracaoSemanas || '', treinos: parsed.treinos },
+            }));
+            setJsonImportText('');
+            setJsonImportAberto(false);
+            const msg = 'Programa importado! Revise os treinos abaixo antes de guardar.';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Sucesso', msg);
+        } catch (e) {
+            const msg = 'JSON inválido. Confira se colou o conteúdo completo, sem cortar nada.';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Erro', msg);
+        }
+    };
+
+    const addTreinoDia = () => {
+        setEditingProduto(prev => ({
+            ...prev,
+            treinoPrograma: {
+                ...(prev.treinoPrograma || { duracaoSemanas: '', treinos: [] }),
+                treinos: [...((prev.treinoPrograma || {}).treinos || []), { nome: '', foco: '', descanso: '60-90s', exercicios: [] }],
+            },
+        }));
+    };
+    const updateTreinoDiaField = (idx, field, value) => {
+        setEditingProduto(prev => {
+            const treinos = [...(prev.treinoPrograma?.treinos || [])];
+            treinos[idx] = { ...treinos[idx], [field]: value };
+            return { ...prev, treinoPrograma: { ...prev.treinoPrograma, treinos } };
+        });
+    };
+    const removeTreinoDia = (idx) => {
+        setEditingProduto(prev => ({
+            ...prev,
+            treinoPrograma: { ...prev.treinoPrograma, treinos: (prev.treinoPrograma?.treinos || []).filter((_, i) => i !== idx) },
+        }));
+    };
+    const addExercicio = (treinoIdx) => {
+        setEditingProduto(prev => {
+            const treinos = [...(prev.treinoPrograma?.treinos || [])];
+            const exercicios = [...(treinos[treinoIdx].exercicios || []), { nome: '', seriesRepeticoes: '', muscPrincipal: [], muscSecundario: [], orientacao: '', videoUrl: '' }];
+            treinos[treinoIdx] = { ...treinos[treinoIdx], exercicios };
+            return { ...prev, treinoPrograma: { ...prev.treinoPrograma, treinos } };
+        });
+    };
+    const updateExercicioField = (treinoIdx, exIdx, field, value) => {
+        setEditingProduto(prev => {
+            const treinos = [...(prev.treinoPrograma?.treinos || [])];
+            const exercicios = [...(treinos[treinoIdx].exercicios || [])];
+            exercicios[exIdx] = { ...exercicios[exIdx], [field]: value };
+            treinos[treinoIdx] = { ...treinos[treinoIdx], exercicios };
+            return { ...prev, treinoPrograma: { ...prev.treinoPrograma, treinos } };
+        });
+    };
+    const removeExercicio = (treinoIdx, exIdx) => {
+        setEditingProduto(prev => {
+            const treinos = [...(prev.treinoPrograma?.treinos || [])];
+            treinos[treinoIdx] = { ...treinos[treinoIdx], exercicios: (treinos[treinoIdx].exercicios || []).filter((_, i) => i !== exIdx) };
+            return { ...prev, treinoPrograma: { ...prev.treinoPrograma, treinos } };
+        });
+    };
+
+    // 🔥 PRÉ-VISUALIZAR TREINO: gera um link de treino interativo sem custo
+    // (sem passar por pagamento nenhum) pra conferir como a página fica
+    // enquanto ainda está montando o programa. A pré-visualização lê o
+    // treinoPrograma do banco, então salva o produto primeiro.
+    const [previewLoading, setPreviewLoading] = useState(false);
+
+    const abrirPreviewTreino = async (produtoId) => {
+        setPreviewLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/produtos/${produtoId}/treino-preview`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok) {
+                const msg = data?.error || 'Erro ao gerar pré-visualização.';
+                Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Erro', msg);
+                return;
+            }
+            if (Platform.OS === 'web') {
+                window.open(data.url, '_blank');
+            } else {
+                Linking.openURL(data.url);
+            }
+        } catch (e) {
+            console.log('Erro ao pré-visualizar treino', e);
+        } finally {
+            setPreviewLoading(false);
+        }
+    };
+
+    const handleSave = async (options = {}) => {
         if (!editingProduto.nome.trim()) {
             return Platform.OS === 'web' ? window.alert('Dê um nome ao produto.') : Alert.alert('Aviso', 'Dê um nome ao produto.');
         }
-        if (!editingProduto.valor || parseFloat(editingProduto.valor.replace(',', '.')) <= 0) {
-            return Platform.OS === 'web' ? window.alert('Informe um valor válido.') : Alert.alert('Aviso', 'Informe um valor válido.');
+        const valorNumerico = parseValorInput(editingProduto.valor);
+        if (!editingProduto.valor || isNaN(valorNumerico) || valorNumerico <= 0) {
+            return Platform.OS === 'web' ? window.alert('Informe um valor válido (ex: 19,90).') : Alert.alert('Aviso', 'Informe um valor válido (ex: 19,90).');
         }
         if (!editingProduto.linkEntrega.trim()) {
             return Platform.OS === 'web' ? window.alert('Insira o link de entrega (Google Drive, PDF, etc).') : Alert.alert('Aviso', 'Insira o link de entrega.');
@@ -384,8 +516,11 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                 slug: isEditing ? undefined : (editingProduto.slug || slugifyLocal(editingProduto.nome)),
                 descricao: editingProduto.descricao,
                 capaUrl: editingProduto.capaUrl,
-                valor: parseFloat(editingProduto.valor.replace(',', '.')),
-                precoDe: editingProduto.precoDe ? parseFloat(editingProduto.precoDe.replace(',', '.')) : null,
+                valor: valorNumerico,
+                precoDe: (() => {
+                    const p = parseValorInput(editingProduto.precoDe);
+                    return editingProduto.precoDe && !isNaN(p) ? p : null;
+                })(),
                 coachId: editingProduto.coachId,
                 linkEntrega: editingProduto.linkEntrega,
                 ativo: editingProduto.ativo,
@@ -395,6 +530,12 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                 depoimentos: JSON.stringify(editingProduto.depoimentos || []),
                 antesDepois: JSON.stringify(editingProduto.antesDepois || []),
                 faq: JSON.stringify(editingProduto.faq || []),
+                treinoPrograma: (editingProduto.treinoPrograma?.treinos?.length > 0)
+                    ? JSON.stringify({
+                        duracaoSemanas: editingProduto.treinoPrograma.duracaoSemanas || null,
+                        treinos: editingProduto.treinoPrograma.treinos,
+                    })
+                    : null,
             };
 
             const res = await fetch(url, {
@@ -410,6 +551,17 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                 return;
             }
 
+            // 🔥 Pré-visualizar não sai da tela de edição — só salva (pra
+            // garantir que a pré-visualização reflete a versão mais recente
+            // do programa de treino) e abre o link em seguida.
+            if (options.preview) {
+                const produtoId = data.produto?.id || editingProduto.id;
+                setEditingProduto(prev => ({ ...prev, id: produtoId }));
+                await fetchProdutos();
+                await abrirPreviewTreino(produtoId);
+                return;
+            }
+
             Platform.OS === 'web' ? window.alert('Produto guardado com sucesso!') : Alert.alert('Sucesso', 'Produto guardado com sucesso!');
             await fetchProdutos();
             backToList();
@@ -419,6 +571,8 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
             setSaving(false);
         }
     };
+
+    const handlePreviewTreino = () => handleSave({ preview: true });
 
     const handleDelete = async (produto) => {
         const confirmMsg = `Apagar "${produto.nome}"?`;
@@ -925,6 +1079,167 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR PERGUNTA</Text>
                     </TouchableOpacity>
 
+                    {/* 🔥 TREINO INTERATIVO */}
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.accent, fontSize: 13 }]}>🏋️ PROGRAMA DE TREINO INTERATIVO (OPCIONAL)</Text>
+                    <Text style={styles.helperText}>
+                        Se preencher, quem comprar ganha acesso a uma página de treino interativa (sem login, por link mágico) — com os dias estruturados, vídeo por exercício, check-in de sessão e registro de carga — em vez de só o link/PDF estático de cima.
+                    </Text>
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Duração do protocolo (semanas)</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, maxWidth: 120 }]}
+                        keyboardType="numeric"
+                        value={String(editingProduto.treinoPrograma?.duracaoSemanas || '')}
+                        onChangeText={(v) => setEditingProduto(prev => ({ ...prev, treinoPrograma: { ...(prev.treinoPrograma || { treinos: [] }), duracaoSemanas: v } }))}
+                        placeholder="8"
+                        placeholderTextColor="#666"
+                    />
+
+                    <TouchableOpacity style={[styles.jsonImportToggle, { borderColor: theme.border }]} onPress={() => setJsonImportAberto(!jsonImportAberto)}>
+                        <MaterialCommunityIcons name={jsonImportAberto ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '900' }}>COLAR PROGRAMA PRONTO (JSON)</Text>
+                    </TouchableOpacity>
+                    {jsonImportAberto && (
+                        <View style={{ width: '100%', marginTop: 8 }}>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 100 }]}
+                                multiline
+                                value={jsonImportText}
+                                onChangeText={setJsonImportText}
+                                placeholder="Cole aqui o JSON do programa de treino..."
+                                placeholderTextColor="#666"
+                                autoCapitalize="none"
+                            />
+                            <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent, marginTop: 8 }]} onPress={handleImportJson}>
+                                <MaterialCommunityIcons name="tray-arrow-down" size={16} color={theme.accent} />
+                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>IMPORTAR</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {(editingProduto.treinoPrograma?.treinos || []).map((treino, tIdx) => (
+                        <View key={tIdx} style={[styles.itemFormCard, { borderColor: theme.border, backgroundColor: theme.bg, marginTop: 14 }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>TREINO {tIdx + 1}</Text>
+                                <TouchableOpacity onPress={() => removeTreinoDia(tIdx)} style={{ marginLeft: 'auto' }}>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, marginTop: 10 }]}
+                                value={treino.nome}
+                                onChangeText={(v) => updateTreinoDiaField(tIdx, 'nome', v)}
+                                placeholder="Nome (ex: Glúteos)"
+                                placeholderTextColor="#666"
+                            />
+                            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+                                <TextInput
+                                    style={[styles.saasInput, { flex: 1, backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                    value={treino.foco}
+                                    onChangeText={(v) => updateTreinoDiaField(tIdx, 'foco', v)}
+                                    placeholder="Foco (ex: Hipertrofia de Glúteos)"
+                                    placeholderTextColor="#666"
+                                />
+                                <TextInput
+                                    style={[styles.saasInput, { width: 120, backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                    value={treino.descanso}
+                                    onChangeText={(v) => updateTreinoDiaField(tIdx, 'descanso', v)}
+                                    placeholder="60-90s"
+                                    placeholderTextColor="#666"
+                                />
+                            </View>
+
+                            {(treino.exercicios || []).map((ex, exIdx) => (
+                                <View key={exIdx} style={[styles.exercicioFormCard, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '900' }}>#{exIdx + 1}</Text>
+                                        <TouchableOpacity onPress={() => removeExercicio(tIdx, exIdx)} style={{ marginLeft: 'auto' }}>
+                                            <MaterialCommunityIcons name="close" size={16} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
+                                        value={ex.nome}
+                                        onChangeText={(v) => updateExercicioField(tIdx, exIdx, 'nome', v)}
+                                        placeholder="Exercício (ex: Sumô Máquina)"
+                                        placeholderTextColor="#666"
+                                    />
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
+                                        value={ex.seriesRepeticoes}
+                                        onChangeText={(v) => updateExercicioField(tIdx, exIdx, 'seriesRepeticoes', v)}
+                                        placeholder="Séries x Repetições (ex: 15/12/10/8 + DROP)"
+                                        placeholderTextColor="#666"
+                                    />
+                                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                                        <TextInput
+                                            style={[styles.saasInput, { flex: 1, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                            value={(ex.muscPrincipal || []).join(', ')}
+                                            onChangeText={(v) => updateExercicioField(tIdx, exIdx, 'muscPrincipal', v.split(',').map(s => s.trim()).filter(Boolean))}
+                                            placeholder="Músculo principal (vírgula)"
+                                            placeholderTextColor="#666"
+                                        />
+                                        <TextInput
+                                            style={[styles.saasInput, { flex: 1, backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                            value={(ex.muscSecundario || []).join(', ')}
+                                            onChangeText={(v) => updateExercicioField(tIdx, exIdx, 'muscSecundario', v.split(',').map(s => s.trim()).filter(Boolean))}
+                                            placeholder="Secundário (vírgula)"
+                                            placeholderTextColor="#666"
+                                        />
+                                    </View>
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 60, marginTop: 8 }]}
+                                        multiline
+                                        value={ex.orientacao}
+                                        onChangeText={(v) => updateExercicioField(tIdx, exIdx, 'orientacao', v)}
+                                        placeholder="Orientação técnica"
+                                        placeholderTextColor="#666"
+                                    />
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
+                                        value={ex.videoUrl}
+                                        onChangeText={(v) => updateExercicioField(tIdx, exIdx, 'videoUrl', v)}
+                                        placeholder="Link do vídeo no YouTube (opcional)"
+                                        placeholderTextColor="#666"
+                                        autoCapitalize="none"
+                                    />
+                                </View>
+                            ))}
+                            <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent, marginTop: 10 }]} onPress={() => addExercicio(tIdx)}>
+                                <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR EXERCÍCIO</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent, marginTop: 10 }]} onPress={addTreinoDia}>
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                        <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR TREINO</Text>
+                    </TouchableOpacity>
+
+                    {(editingProduto.treinoPrograma?.treinos || []).length > 0 && (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.previewBtn, { borderColor: '#4DE38F', opacity: (saving || previewLoading) ? 0.6 : 1 }]}
+                                onPress={handlePreviewTreino}
+                                disabled={saving || previewLoading}
+                            >
+                                {previewLoading
+                                    ? <ActivityIndicator size="small" color="#4DE38F" />
+                                    : (
+                                        <>
+                                            <MaterialCommunityIcons name="eye-outline" size={16} color="#4DE38F" />
+                                            <Text style={{ color: '#4DE38F', fontSize: 12, fontWeight: '900' }}>SALVAR E PRÉ-VISUALIZAR TREINO</Text>
+                                        </>
+                                    )
+                                }
+                            </TouchableOpacity>
+                            <Text style={styles.helperText}>
+                                Abre a tela exatamente como a aluna vai ver, sem custar nada — não gera cobrança nem aparece nas suas vendas ou no painel.
+                            </Text>
+                        </>
+                    )}
+
                     <View style={styles.formActions}>
                         <TouchableOpacity style={[styles.cancelBtn, { borderColor: theme.border }]} onPress={backToList}>
                             <Text style={{ color: theme.textSecondary, fontWeight: '900', fontSize: 13 }}>CANCELAR</Text>
@@ -995,6 +1310,9 @@ const styles = StyleSheet.create({
     bumpOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, borderWidth: 1 },
 
     itemFormCard: { width: '100%', padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 10 },
+    exercicioFormCard: { width: '100%', padding: 12, borderRadius: 12, borderWidth: 1, marginTop: 10 },
+    jsonImportToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, marginTop: 12, alignSelf: 'flex-start' },
+    previewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderRadius: 12, paddingVertical: 14, marginTop: 14, width: '100%' },
     avatarPicker: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     antesDepoisSlot: { width: '100%', aspectRatio: 3 / 4, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
     addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderRadius: 10, paddingVertical: 10, marginTop: 10, width: '100%' },

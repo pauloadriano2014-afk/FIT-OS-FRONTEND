@@ -73,6 +73,7 @@ import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen
 import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
 import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
 import ProdutoCheckoutScreen from './src/screens/ProdutoCheckoutScreen';
+import ProdutoTreinoScreen from './src/screens/ProdutoTreinoScreen';
 // 🔥 ESTRATÉGIAS
 import AdminStrategiesScreen from './src/screens/AdminStrategiesScreen';
 
@@ -247,6 +248,7 @@ function RootNavigator() {
       <Stack.Screen name="DesafioInscricao" component={DesafioInscricaoScreen} />
       <Stack.Screen name="DesafioCheckin" component={DesafioCheckinScreen} />
       <Stack.Screen name="Produto" component={ProdutoCheckoutScreen} />
+      <Stack.Screen name="ProdutoTreino" component={ProdutoTreinoScreen} />
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
@@ -318,6 +320,13 @@ const linking = {
         // pra retomar direto no status do pedido em vez do formulário do zero.
         parse: { id: (v) => String(v), venda: (v) => String(v) },
         stringify: { id: (v) => v, venda: (v) => v },
+      },
+      ProdutoTreino: {
+        path: 'ProdutoTreino',
+        // 🔥 Link mágico enviado por e-mail após a compra — o token é a única
+        // credencial, sem login. Ver api/produtos/treino/[token].
+        parse: { token: (v) => String(v) },
+        stringify: { token: (v) => v },
       },
       SaaSProposta: {
         path: 'invite/:coachId',
