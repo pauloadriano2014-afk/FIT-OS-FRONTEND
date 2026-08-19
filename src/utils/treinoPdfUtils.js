@@ -8,7 +8,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Alert, Platform } from 'react-native';
 import {
-    REGIOES_FRENTE, REGIOES_COSTAS, calcularRegioesAtivas, gerarSvgMarkup,
+    calcularRegioesAtivas, gerarSvgMarkup,
 } from './muscleMap';
 
 const METODOS = [
@@ -35,14 +35,14 @@ function renderDiagrama(ex) {
     if (temFrente) {
         partes.push(`
             <div class="mapa-view">
-                ${gerarSvgMarkup(REGIOES_FRENTE, principalFrente, secundarioFrente, { width: 78, height: 179 })}
+                ${gerarSvgMarkup('frente', principalFrente, secundarioFrente, { width: 78, height: 213 })}
                 <div class="mapa-label">FRENTE</div>
             </div>`);
     }
     if (temCostas) {
         partes.push(`
             <div class="mapa-view">
-                ${gerarSvgMarkup(REGIOES_COSTAS, principalCostas, secundarioCostas, { width: 78, height: 179 })}
+                ${gerarSvgMarkup('costas', principalCostas, secundarioCostas, { width: 78, height: 213 })}
                 <div class="mapa-label">COSTAS</div>
             </div>`);
     }

@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
 
     descansoTag: { color: COR_TEXTO_SEC, fontSize: 11, fontWeight: '700', marginTop: 4, marginBottom: 18 },
 
-    exCard: { backgroundColor: COR_CARD, borderWidth: 1, borderColor: COR_CARD_BORDA, borderRadius: 14, padding: 16, marginBottom: 12 },
+    exCard: { backgroundColor: COR_CARD, borderWidth: 1, borderColor: COR_CARD_BORDA, borderRadius: 14, padding: 16, marginBottom: 12, overflow: 'hidden' },
     exNumeroBadge: { width: 28, height: 28, borderRadius: 14, backgroundColor: `${COR_ROXO}25`, alignItems: 'center', justifyContent: 'center' },
     exNumeroTexto: { color: COR_ROXO, fontSize: 12, fontWeight: '900' },
     exNome: { color: COR_TEXTO, fontSize: 14, fontWeight: '900', marginBottom: 3 },

@@ -3,40 +3,30 @@
 // a partir de dados 100% locais (nenhuma imagem externa, nenhuma IA geradora
 // de imagem envolvida). As coordenadas ficam em src/utils/muscleMap.js, o
 // mesmo arquivo usado pelo gerador de PDF, então a tela e o PDF mostram
-// exatamente o mesmo desenho. A cor de cada região é decidida comparando o
-// texto livre de muscPrincipal/muscSecundario do exercício com as regras de
-// muscleMap.normalizarMusculo — sem depender de nenhum PDF de referência.
+// exatamente o mesmo desenho: 1 silhueta contínua (sempre visível, sem
+// bordas) + as regiões musculares realmente trabalhadas "pintadas" por cima.
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Circle, Ellipse, Rect, Path } from 'react-native-svg';
+import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
 import {
-    REGIOES_FRENTE, REGIOES_COSTAS, VIEW_BOX,
-    calcularRegioesAtivas, corDaRegiao, COR_PRINCIPAL, COR_SECUNDARIO,
+    BASE_SHAPES, VIEW_BOX, COR_BASE,
+    calcularRegioesAtivas, overlaysAtivos, COR_PRINCIPAL, COR_SECUNDARIO,
 } from '../utils/muscleMap';
 
-function Regioes({ regioes, principalSet, secundarioSet }) {
-    return regioes.map((shape, i) => {
-        const fill = corDaRegiao(shape, principalSet, secundarioSet);
-        const common = { key: `${shape.id}-${i}`, fill, stroke: '#0a0a0a', strokeWidth: 1.5 };
-        if (shape.tipo === 'circle') return <Circle {...common} cx={shape.attrs.cx} cy={shape.attrs.cy} r={shape.attrs.r} />;
-        if (shape.tipo === 'ellipse') return <Ellipse {...common} cx={shape.attrs.cx} cy={shape.attrs.cy} rx={shape.attrs.rx} ry={shape.attrs.ry} />;
-        if (shape.tipo === 'path') return <Path {...common} d={shape.attrs.d} />;
-        return (
-            <Rect {...common}
-                x={shape.attrs.x} y={shape.attrs.y}
-                width={shape.attrs.width} height={shape.attrs.height}
-                rx={shape.attrs.rx}
-            />
-        );
-    });
+function Forma({ forma, fill }) {
+    const { tipo, attrs } = forma;
+    if (tipo === 'circle') return <Circle cx={attrs.cx} cy={attrs.cy} r={attrs.r} fill={fill} />;
+    if (tipo === 'ellipse') return <Ellipse cx={attrs.cx} cy={attrs.cy} rx={attrs.rx} ry={attrs.ry} fill={fill} />;
+    return <Path d={attrs.d} fill={fill} />;
 }
 
-function Corpo({ regioes, principalSet, secundarioSet, width, height, label }) {
+function Corpo({ view, principalSet, secundarioSet, width, height, label }) {
+    const overlays = overlaysAtivos(view, principalSet, secundarioSet);
     return (
         <View style={{ alignItems: 'center' }}>
             <Svg width={width} height={height} viewBox={`0 0 ${VIEW_BOX.w} ${VIEW_BOX.h}`}>
-                <Rect x={0} y={0} width={VIEW_BOX.w} height={VIEW_BOX.h} fill="#141414" rx={10} />
-                <Regioes regioes={regioes} principalSet={principalSet} secundarioSet={secundarioSet} />
+                {BASE_SHAPES.map((forma, i) => <Forma key={`base-${i}`} forma={forma} fill={COR_BASE} />)}
+                {overlays.map((forma, i) => <Forma key={`ov-${i}`} forma={forma} fill={forma.cor} />)}
             </Svg>
             <Text style={styles.viewLabel}>{label}</Text>
         </View>
@@ -46,7 +36,8 @@ function Corpo({ regioes, principalSet, secundarioSet, width, height, label }) {
 // muscPrincipal/muscSecundario: array de strings (ou string única) — mesmo
 // formato já salvo em treinoPrograma. width/height controlam o tamanho de
 // CADA vista exibida (se as duas vistas forem necessárias, ficam lado a lado).
-export default function MapaMuscular({ muscPrincipal, muscSecundario, width = 110, height = 253 }) {
+export default function MapaMuscular({ muscPrincipal, muscSecundario, width = 92 }) {
+    const height = Math.round(width * VIEW_BOX.h / VIEW_BOX.w);
     const { principalFrente, principalCostas, secundarioFrente, secundarioCostas } =
         calcularRegioesAtivas(muscPrincipal, muscSecundario);
 
@@ -62,7 +53,7 @@ export default function MapaMuscular({ muscPrincipal, muscSecundario, width = 11
             <View style={styles.corposRow}>
                 {temFrente && (
                     <Corpo
-                        regioes={REGIOES_FRENTE}
+                        view="frente"
                         principalSet={principalFrente}
                         secundarioSet={secundarioFrente}
                         width={width}
@@ -72,7 +63,7 @@ export default function MapaMuscular({ muscPrincipal, muscSecundario, width = 11
                 )}
                 {temCostas && (
                     <Corpo
-                        regioes={REGIOES_COSTAS}
+                        view="costas"
                         principalSet={principalCostas}
                         secundarioSet={secundarioCostas}
                         width={width}
@@ -96,8 +87,8 @@ export default function MapaMuscular({ muscPrincipal, muscSecundario, width = 11
 }
 
 const styles = StyleSheet.create({
-    wrap: { alignItems: 'center', marginVertical: 10 },
-    corposRow: { flexDirection: 'row', gap: 18, justifyContent: 'center' },
+    wrap: { alignItems: 'center', marginVertical: 10, maxWidth: '100%' },
+    corposRow: { flexDirection: 'row', gap: 14, justifyContent: 'center', flexWrap: 'wrap', maxWidth: '100%' },
     viewLabel: { color: '#666', fontSize: 9, fontWeight: '900', letterSpacing: 1, marginTop: 4 },
     legendaRow: { flexDirection: 'row', gap: 16, marginTop: 10 },
     legendaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
