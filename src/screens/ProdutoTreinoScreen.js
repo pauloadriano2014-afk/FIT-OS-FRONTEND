@@ -12,6 +12,8 @@ import {
     TextInput, ActivityIndicator, Platform, Linking, SafeAreaView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MapaMuscular from '../components/MapaMuscular';
+import { generateTreinoPDF } from '../utils/treinoPdfUtils';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
@@ -51,6 +53,7 @@ export default function ProdutoTreinoScreen({ route }) {
     const [guiaAberto, setGuiaAberto] = useState(false);
     const [cargas, setCargas] = useState({});
     const [salvando, setSalvando] = useState(false);
+    const [baixandoPdf, setBaixandoPdf] = useState(false);
 
     const carregar = useCallback(async () => {
         if (!token) {
@@ -138,6 +141,16 @@ export default function ProdutoTreinoScreen({ route }) {
         });
     };
 
+    const handleBaixarPdf = async () => {
+        if (!dados || baixandoPdf) return;
+        setBaixandoPdf(true);
+        try {
+            await generateTreinoPDF(dados);
+        } finally {
+            setBaixandoPdf(false);
+        }
+    };
+
     if (loading) {
         return (
             <SafeAreaView style={[styles.safe, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -167,6 +180,22 @@ export default function ProdutoTreinoScreen({ route }) {
                             Oie, {dados.nomeCliente?.split(' ')[0] || 'atleta'}! Aqui está seu programa completo
                             {duracaoSemanas ? ` — siga por ${duracaoSemanas} semanas` : ''}. Toque num treino pra começar.
                         </Text>
+
+                        <TouchableOpacity
+                            style={[styles.pdfBtn, { opacity: baixandoPdf ? 0.6 : 1 }]}
+                            onPress={handleBaixarPdf}
+                            disabled={baixandoPdf}
+                        >
+                            {baixandoPdf
+                                ? <ActivityIndicator color={COR_ROXO} size="small" />
+                                : (
+                                    <>
+                                        <MaterialCommunityIcons name="file-pdf-box" size={18} color={COR_ROXO} />
+                                        <Text style={styles.pdfBtnTexto}>BAIXAR FICHA EM PDF</Text>
+                                    </>
+                                )
+                            }
+                        </TouchableOpacity>
 
                         <TouchableOpacity style={styles.guiaCard} onPress={() => setGuiaAberto(!guiaAberto)} activeOpacity={0.8}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -259,6 +288,8 @@ export default function ProdutoTreinoScreen({ route }) {
                                                     )}
                                                     {!!ex.orientacao && <Text style={styles.exOrientacao}>» {ex.orientacao}</Text>}
 
+                                                    <MapaMuscular muscPrincipal={ex.muscPrincipal} muscSecundario={ex.muscSecundario} />
+
                                                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, alignItems: 'center' }}>
                                                         {!!ex.videoUrl && (
                                                             <TouchableOpacity style={styles.videoBtn} onPress={() => abrirVideo(ex.videoUrl)}>
@@ -317,6 +348,9 @@ const styles = StyleSheet.create({
     marca: { color: COR_ROXO, fontSize: 11, fontWeight: '900', letterSpacing: 2, marginBottom: 6 },
     titulo: { color: COR_TEXTO, fontSize: 22, fontWeight: '900', marginBottom: 4 },
     subtitulo: { color: COR_TEXTO_SEC, fontSize: 13, lineHeight: 20, marginBottom: 18 },
+
+    pdfBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: COR_ROXO, borderRadius: 12, paddingVertical: 12, marginBottom: 18 },
+    pdfBtnTexto: { color: COR_ROXO, fontSize: 12, fontWeight: '900', letterSpacing: 0.3 },
 
     guiaCard: { backgroundColor: COR_CARD, borderWidth: 1, borderColor: COR_CARD_BORDA, borderRadius: 16, padding: 16, marginBottom: 24 },
     guiaTitulo: { color: COR_TEXTO, fontSize: 12, fontWeight: '900', letterSpacing: 0.3 },

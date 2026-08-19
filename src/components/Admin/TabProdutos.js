@@ -499,7 +499,12 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         if (!editingProduto.valor || isNaN(valorNumerico) || valorNumerico <= 0) {
             return Platform.OS === 'web' ? window.alert('Informe um valor válido (ex: 19,90).') : Alert.alert('Aviso', 'Informe um valor válido (ex: 19,90).');
         }
-        if (!editingProduto.linkEntrega.trim()) {
+        // 🔥 O link de entrega só é obrigatório se o produto NÃO tiver um
+        // programa de treino interativo configurado — nesse caso a tela
+        // interativa é a entrega oficial e o PDF é gerado automaticamente a
+        // partir dela, então não existe (nem faz sentido pedir) um link fixo.
+        const temTreinoInterativo = (editingProduto.treinoPrograma?.treinos?.length || 0) > 0;
+        if (!temTreinoInterativo && !(editingProduto.linkEntrega || '').trim()) {
             return Platform.OS === 'web' ? window.alert('Insira o link de entrega (Google Drive, PDF, etc).') : Alert.alert('Aviso', 'Insira o link de entrega.');
         }
 
@@ -843,7 +848,9 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         )}
                     </View>
 
-                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Link de Entrega do Material</Text>
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>
+                        Link de Entrega do Material{(editingProduto.treinoPrograma?.treinos?.length || 0) > 0 ? ' (opcional)' : ''}
+                    </Text>
                     <TextInput
                         style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
                         value={editingProduto.linkEntrega}
@@ -852,7 +859,11 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         placeholderTextColor="#666"
                         autoCapitalize="none"
                     />
-                    <Text style={styles.helperText}>A aluna receberá este link imediatamente após a confirmação do pagamento via PIX.</Text>
+                    <Text style={styles.helperText}>
+                        {(editingProduto.treinoPrograma?.treinos?.length || 0) > 0
+                            ? 'Opcional aqui: como o produto já tem um programa de treino interativo, a tela interativa é a entrega oficial e o PDF é gerado automaticamente a partir dela. Preencha este campo só se quiser oferecer um link extra.'
+                            : 'A aluna receberá este link imediatamente após a confirmação do pagamento via PIX.'}
+                    </Text>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Dono do Produto (conta de cobrança)</Text>
                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
