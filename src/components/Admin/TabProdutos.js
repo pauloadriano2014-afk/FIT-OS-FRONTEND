@@ -23,12 +23,16 @@ const emptyProduto = (defaultCoachId) => ({
     descricao: '',
     capaUrl: '',
     valor: '',
+    precoDe: '',
     coachId: defaultCoachId,
     linkEntrega: '',
     ativo: true,
-    orderBumpTitulo: '',
-    orderBumpTexto: '',
-    orderBumpValor: '',
+    beneficios: '',
+    imagensExtra: [],
+    orderBumpProdutoIds: [],
+    depoimentos: [],
+    antesDepois: [],
+    faq: [],
 });
 
 function slugifyLocal(input) {
@@ -71,7 +75,25 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         }
     }, []);
 
-    useEffect(() => { fetchProdutos(); }, [fetchProdutos]);
+    // 🔥 PAINEL DE VENDAS — receita total, vendas confirmadas, taxa de
+    // conversão e ranking dos produtos que mais vendem. Puramente informativo,
+    // não bloqueia a lista se falhar.
+    const [dashboard, setDashboard] = useState(null);
+    const [loadingDashboard, setLoadingDashboard] = useState(true);
+
+    const fetchDashboard = useCallback(async () => {
+        setLoadingDashboard(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/produtos/dashboard`);
+            if (res.ok) setDashboard(await res.json());
+        } catch (e) {
+            console.log('Erro ao buscar dashboard de produtos', e);
+        } finally {
+            setLoadingDashboard(false);
+        }
+    }, []);
+
+    useEffect(() => { fetchProdutos(); fetchDashboard(); }, [fetchProdutos, fetchDashboard]);
 
     const getBaseUrl = () => 'https://www.pauloadrianoteam.com.br';
     const getProdutoLink = (produto) => `${getBaseUrl()}/Produto?id=${encodeURIComponent(produto.slug)}`;
@@ -98,17 +120,59 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
     };
 
     const openEditProduto = (produto) => {
+        let imagensExtra = [];
+        try {
+            imagensExtra = produto.imagensExtra ? JSON.parse(produto.imagensExtra) : [];
+        } catch (e) {
+            imagensExtra = [];
+        }
+        let orderBumpProdutoIds = [];
+        try {
+            orderBumpProdutoIds = produto.orderBumpProdutoIds ? JSON.parse(produto.orderBumpProdutoIds) : [];
+        } catch (e) {
+            orderBumpProdutoIds = [];
+        }
+        let depoimentos = [];
+        try {
+            depoimentos = produto.depoimentos ? JSON.parse(produto.depoimentos) : [];
+        } catch (e) {
+            depoimentos = [];
+        }
+        let antesDepois = [];
+        try {
+            antesDepois = produto.antesDepois ? JSON.parse(produto.antesDepois) : [];
+        } catch (e) {
+            antesDepois = [];
+        }
+        let faq = [];
+        try {
+            faq = produto.faq ? JSON.parse(produto.faq) : [];
+        } catch (e) {
+            faq = [];
+        }
         setEditingProduto({
             ...produto,
             valor: String(produto.valor),
-            orderBumpValor: produto.orderBumpValor ? String(produto.orderBumpValor) : '',
+            precoDe: produto.precoDe ? String(produto.precoDe) : '',
             descricao: produto.descricao || '',
             capaUrl: produto.capaUrl || '',
             linkEntrega: produto.linkEntrega || '',
-            orderBumpTitulo: produto.orderBumpTitulo || '',
-            orderBumpTexto: produto.orderBumpTexto || '',
+            beneficios: produto.beneficios || '',
+            imagensExtra,
+            orderBumpProdutoIds,
+            depoimentos,
+            antesDepois,
+            faq,
         });
         setView('form');
+    };
+
+    const toggleOrderBumpProduto = (id) => {
+        setEditingProduto(prev => {
+            const atual = prev.orderBumpProdutoIds || [];
+            const jaTem = atual.includes(id);
+            return { ...prev, orderBumpProdutoIds: jaTem ? atual.filter(x => x !== id) : [...atual, id] };
+        });
     };
 
     const backToList = () => {
@@ -164,6 +228,138 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         }
     };
 
+    // 🔥 PRÉVIA VISUAL: imagens extras (prints/páginas do material), além da
+    // capa principal — mostradas como carrossel na página de vendas pública.
+    const handlePickImagemExtra = async () => {
+        try {
+            const atual = editingProduto.imagensExtra || [];
+            if (atual.length >= 6) {
+                return Platform.OS === 'web' ? window.alert('Máximo de 6 imagens de prévia.') : Alert.alert('Aviso', 'Máximo de 6 imagens de prévia.');
+            }
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [4, 5],
+                quality: 0.8,
+            });
+            if (!result.canceled) {
+                setUploadingCapa(true);
+                const url = await uploadImageToR2(result.assets[0].uri);
+                updateField('imagensExtra', [...atual, url]);
+            }
+        } catch (e) {
+            console.log('Erro ao enviar imagem de prévia', e);
+            Platform.OS === 'web' ? window.alert('Falha ao enviar a imagem.') : Alert.alert('Erro', 'Falha ao enviar a imagem.');
+        } finally {
+            setUploadingCapa(false);
+        }
+    };
+
+    const handleRemoveImagemExtra = (index) => {
+        const atual = editingProduto.imagensExtra || [];
+        updateField('imagensExtra', atual.filter((_, i) => i !== index));
+    };
+
+    // 🔥 DEPOIMENTOS: prova social opcional — cada item vira um card com foto,
+    // nome, estrelas e o texto. Se a lista ficar vazia, a seção some da página.
+    const addDepoimento = () => {
+        setEditingProduto(prev => ({ ...prev, depoimentos: [...(prev.depoimentos || []), { nome: '', texto: '', fotoUrl: '', estrelas: 5 }] }));
+    };
+    const updateDepoimentoField = (index, field, value) => {
+        setEditingProduto(prev => {
+            const lista = [...(prev.depoimentos || [])];
+            lista[index] = { ...lista[index], [field]: value };
+            return { ...prev, depoimentos: lista };
+        });
+    };
+    const removeDepoimento = (index) => {
+        setEditingProduto(prev => ({ ...prev, depoimentos: (prev.depoimentos || []).filter((_, i) => i !== index) }));
+    };
+    const handlePickDepoimentoFoto = async (index) => {
+        try {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+            if (!result.canceled) {
+                setUploadingCapa(true);
+                const url = await uploadImageToR2(result.assets[0].uri);
+                updateDepoimentoField(index, 'fotoUrl', url);
+            }
+        } catch (e) {
+            console.log('Erro ao enviar foto do depoimento', e);
+            Platform.OS === 'web' ? window.alert('Falha ao enviar a foto.') : Alert.alert('Erro', 'Falha ao enviar a foto.');
+        } finally {
+            setUploadingCapa(false);
+        }
+    };
+
+    // 🔥 ANTES E DEPOIS: pares de imagem opcionais, com legenda — prova visual
+    // de resultado. Se a lista ficar vazia, a seção some da página.
+    const addAntesDepois = () => {
+        setEditingProduto(prev => ({ ...prev, antesDepois: [...(prev.antesDepois || []), { antesUrl: '', depoisUrl: '', legenda: '' }] }));
+    };
+    const updateAntesDepoisField = (index, field, value) => {
+        setEditingProduto(prev => {
+            const lista = [...(prev.antesDepois || [])];
+            lista[index] = { ...lista[index], [field]: value };
+            return { ...prev, antesDepois: lista };
+        });
+    };
+    const removeAntesDepois = (index) => {
+        setEditingProduto(prev => ({ ...prev, antesDepois: (prev.antesDepois || []).filter((_, i) => i !== index) }));
+    };
+    const handlePickAntesDepoisImagem = async (index, campo) => {
+        try {
+            if (Platform.OS !== 'web') {
+                const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                if (status !== 'granted') return;
+            }
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                allowsEditing: true,
+                aspect: [3, 4],
+                quality: 0.8,
+            });
+            if (!result.canceled) {
+                setUploadingCapa(true);
+                const url = await uploadImageToR2(result.assets[0].uri);
+                updateAntesDepoisField(index, campo, url);
+            }
+        } catch (e) {
+            console.log('Erro ao enviar imagem de antes/depois', e);
+            Platform.OS === 'web' ? window.alert('Falha ao enviar a imagem.') : Alert.alert('Erro', 'Falha ao enviar a imagem.');
+        } finally {
+            setUploadingCapa(false);
+        }
+    };
+
+    // 🔥 FAQ: perguntas e respostas opcionais. Se a lista ficar vazia, a seção
+    // some da página.
+    const addFaqItem = () => {
+        setEditingProduto(prev => ({ ...prev, faq: [...(prev.faq || []), { pergunta: '', resposta: '' }] }));
+    };
+    const updateFaqField = (index, field, value) => {
+        setEditingProduto(prev => {
+            const lista = [...(prev.faq || [])];
+            lista[index] = { ...lista[index], [field]: value };
+            return { ...prev, faq: lista };
+        });
+    };
+    const removeFaqItem = (index) => {
+        setEditingProduto(prev => ({ ...prev, faq: (prev.faq || []).filter((_, i) => i !== index) }));
+    };
+
     const handleSave = async () => {
         if (!editingProduto.nome.trim()) {
             return Platform.OS === 'web' ? window.alert('Dê um nome ao produto.') : Alert.alert('Aviso', 'Dê um nome ao produto.');
@@ -189,12 +385,16 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                 descricao: editingProduto.descricao,
                 capaUrl: editingProduto.capaUrl,
                 valor: parseFloat(editingProduto.valor.replace(',', '.')),
+                precoDe: editingProduto.precoDe ? parseFloat(editingProduto.precoDe.replace(',', '.')) : null,
                 coachId: editingProduto.coachId,
                 linkEntrega: editingProduto.linkEntrega,
                 ativo: editingProduto.ativo,
-                orderBumpTitulo: editingProduto.orderBumpTitulo,
-                orderBumpTexto: editingProduto.orderBumpTexto,
-                orderBumpValor: editingProduto.orderBumpValor ? parseFloat(editingProduto.orderBumpValor.replace(',', '.')) : null,
+                beneficios: editingProduto.beneficios || null,
+                imagensExtra: JSON.stringify(editingProduto.imagensExtra || []),
+                orderBumpProdutoIds: JSON.stringify(editingProduto.orderBumpProdutoIds || []),
+                depoimentos: JSON.stringify(editingProduto.depoimentos || []),
+                antesDepois: JSON.stringify(editingProduto.antesDepois || []),
+                faq: JSON.stringify(editingProduto.faq || []),
             };
 
             const res = await fetch(url, {
@@ -261,6 +461,40 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                 <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
                     Crie páginas de vendas exclusivas para e-books, planilhas ou guias com entrega automática via e-mail ou WhatsApp após a confirmação do PIX.
                 </Text>
+
+                {/* 🔥 PAINEL DE VENDAS */}
+                {loadingDashboard ? (
+                    <ActivityIndicator size="small" color={theme.accent} style={{ marginBottom: 20, alignSelf: 'center' }} />
+                ) : dashboard ? (
+                    <View style={styles.dashboardWrap}>
+                        <View style={styles.dashboardGrid}>
+                            <View style={[styles.dashboardCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                <Text style={[styles.dashboardValue, { color: theme.accent }]} numberOfLines={1}>R$ {formatBRL(dashboard.receitaTotal)}</Text>
+                                <Text style={[styles.dashboardLabel, { color: theme.textSecondary }]}>RECEITA TOTAL</Text>
+                            </View>
+                            <View style={[styles.dashboardCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                <Text style={[styles.dashboardValue, { color: theme.text }]}>{dashboard.totalVendas}</Text>
+                                <Text style={[styles.dashboardLabel, { color: theme.textSecondary }]}>VENDAS CONFIRMADAS</Text>
+                            </View>
+                            <View style={[styles.dashboardCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                <Text style={[styles.dashboardValue, { color: theme.text }]}>{Math.round(dashboard.taxaConversao)}%</Text>
+                                <Text style={[styles.dashboardLabel, { color: theme.textSecondary }]}>TAXA DE CONVERSÃO</Text>
+                            </View>
+                            <View style={[styles.dashboardCard, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                                <Text style={[styles.dashboardValue, { color: theme.text }]} numberOfLines={1}>
+                                    {dashboard.produtoMaisVendido?.nome || '—'}
+                                </Text>
+                                <Text style={[styles.dashboardLabel, { color: theme.textSecondary }]}>MAIS VENDIDO</Text>
+                            </View>
+                        </View>
+
+                        {dashboard.totalPendentes > 0 ? (
+                            <Text style={[styles.dashboardPendentes, { color: theme.textSecondary }]}>
+                                + {dashboard.totalPendentes} carrinho{dashboard.totalPendentes > 1 ? 's' : ''} pendente{dashboard.totalPendentes > 1 ? 's' : ''} aguardando pagamento
+                            </Text>
+                        ) : null}
+                    </View>
+                ) : null}
 
                 <TouchableOpacity style={[styles.newBtn, { backgroundColor: theme.accent }]} onPress={openNewProduto}>
                     <MaterialCommunityIcons name="plus" size={18} color={theme.isDark ? '#000' : '#FFF'} />
@@ -388,15 +622,72 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         placeholderTextColor="#666"
                     />
 
-                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Valor (R$)</Text>
+                    <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Preço "De" (opcional)</Text>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                keyboardType="numeric"
+                                value={editingProduto.precoDe}
+                                onChangeText={(v) => updateField('precoDe', v)}
+                                placeholder="47,00"
+                                placeholderTextColor="#666"
+                            />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                            <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Valor (R$)</Text>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
+                                keyboardType="numeric"
+                                value={editingProduto.valor}
+                                onChangeText={(v) => updateField('valor', v)}
+                                placeholder="9,90"
+                                placeholderTextColor="#666"
+                            />
+                        </View>
+                    </View>
+                    <Text style={styles.helperText}>Preenchendo o "De", a página mostra esse valor riscado acima do preço final — reforça que é uma oferta.</Text>
+
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Benefícios (um por linha)</Text>
                     <TextInput
-                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
-                        keyboardType="numeric"
-                        value={editingProduto.valor}
-                        onChangeText={(v) => updateField('valor', v)}
-                        placeholder="47,00"
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 110 }]}
+                        multiline
+                        value={editingProduto.beneficios}
+                        onChangeText={(v) => updateField('beneficios', v)}
+                        placeholder={'Ex:\nGuia completo em PDF de 40 páginas\nTreinos prontos para 4 semanas\nAcesso imediato após o pagamento'}
                         placeholderTextColor="#666"
                     />
+                    <Text style={styles.helperText}>Aparece como lista "O que você vai receber" na página de vendas — um item por linha.</Text>
+
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>PRÉVIA VISUAL DO CONTEÚDO</Text>
+                    <Text style={styles.helperText}>Prints ou páginas do material, mostrados como carrossel abaixo da capa (máx. 6).</Text>
+
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 }}>
+                        {(editingProduto.imagensExtra || []).map((url, index) => (
+                            <View key={`${url}-${index}`} style={[styles.previaThumb, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                                <Image source={{ uri: url }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                                <TouchableOpacity
+                                    style={styles.previaRemoveBtn}
+                                    onPress={() => handleRemoveImagemExtra(index)}
+                                >
+                                    <MaterialCommunityIcons name="close" size={14} color="#FFF" />
+                                </TouchableOpacity>
+                            </View>
+                        ))}
+                        {(editingProduto.imagensExtra || []).length < 6 && (
+                            <TouchableOpacity
+                                style={[styles.previaAddBtn, { borderColor: theme.accent }]}
+                                onPress={handlePickImagemExtra}
+                                disabled={uploadingCapa}
+                            >
+                                {uploadingCapa
+                                    ? <ActivityIndicator size="small" color={theme.accent} />
+                                    : <MaterialCommunityIcons name="plus" size={22} color={theme.accent} />
+                                }
+                            </TouchableOpacity>
+                        )}
+                    </View>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Link de Entrega do Material</Text>
                     <TextInput
@@ -459,46 +750,180 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         </View>
                     </View>
 
-                    {/* 🔥 ESTRATÉGIA DE VENDAS: ORDER BUMP */}
+                    {/* 🔥 ESTRATÉGIA DE VENDAS: ORDER BUMP MULTI-ITEM */}
                     <View style={styles.subsectionDivider} />
-                    <Text style={[styles.inputLabel, { color: theme.accent, fontSize: 13 }]}>🚀 ORDER BUMP (OFERTA EXTRA NO CHECKOUT)</Text>
+                    <Text style={[styles.inputLabel, { color: theme.accent, fontSize: 13 }]}>🚀 ORDER BUMP (OFERTAS EXTRAS NO CHECKOUT)</Text>
                     <Text style={styles.helperText}>
-                        Permite que a aluna adicione um produto complementar ao carrinho com apenas um clique antes de gerar o PIX, aumentando o seu lucro final.
+                        Marque outros produtos já cadastrados pra oferecer no checkout deste. A cliente pode marcar quantos quiser — cada um é entregue automaticamente (o link dele) assim que o PIX for confirmado, junto com o produto principal.
                     </Text>
 
                     <View style={[styles.bumpCardConfig, { backgroundColor: 'rgba(139,92,246,0.05)', borderColor: theme.border }]}>
-                        <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Título da Oferta (Ex: Planilha de Glúteos Adicional)</Text>
-                        <TextInput
-                            style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
-                            value={editingProduto.orderBumpTitulo}
-                            onChangeText={(v) => updateField('orderBumpTitulo', v)}
-                            placeholder="Deixe em branco para não usar Order Bump"
-                            placeholderTextColor="#666"
-                        />
-
-                        {editingProduto.orderBumpTitulo ? (
-                            <>
-                                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Pequeno Texto Chamativo</Text>
-                                <TextInput
-                                    style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
-                                    value={editingProduto.orderBumpTexto}
-                                    onChangeText={(v) => updateField('orderBumpTexto', v)}
-                                    placeholder="Ex: Acelere os resultados combinando com treinos de alta intensidade."
-                                    placeholderTextColor="#666"
-                                />
-
-                                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Valor Adicional (R$)</Text>
-                                <TextInput
-                                    style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
-                                    keyboardType="numeric"
-                                    value={editingProduto.orderBumpValor}
-                                    onChangeText={(v) => updateField('orderBumpValor', v)}
-                                    placeholder="19,90"
-                                    placeholderTextColor="#666"
-                                />
-                            </>
-                        ) : null}
+                        {produtos.filter(p => p.id !== editingProduto.id).length === 0 ? (
+                            <Text style={{ color: theme.textSecondary, fontSize: 12, fontStyle: 'italic' }}>
+                                Cadastre outros produtos primeiro pra poder oferecê-los aqui como upsell.
+                            </Text>
+                        ) : (
+                            produtos.filter(p => p.id !== editingProduto.id).map((p) => {
+                                const marcado = (editingProduto.orderBumpProdutoIds || []).includes(p.id);
+                                return (
+                                    <TouchableOpacity
+                                        key={p.id}
+                                        activeOpacity={0.7}
+                                        onPress={() => toggleOrderBumpProduto(p.id)}
+                                        style={[
+                                            styles.bumpOptionRow,
+                                            { borderColor: theme.border },
+                                            marcado && { borderColor: theme.accent, backgroundColor: `${theme.accent}15` },
+                                        ]}
+                                    >
+                                        <MaterialCommunityIcons
+                                            name={marcado ? 'checkbox-marked' : 'checkbox-blank-outline'}
+                                            size={22}
+                                            color={marcado ? theme.accent : theme.textSecondary}
+                                        />
+                                        <View style={[styles.capaPreviewMini, { width: 34, height: 44, borderColor: theme.border, backgroundColor: theme.bg }]}>
+                                            {p.capaUrl ? (
+                                                <Image source={{ uri: p.capaUrl }} style={{ width: '100%', height: '100%', resizeMode: 'cover' }} />
+                                            ) : (
+                                                <MaterialCommunityIcons name="book-open-page-variant" size={16} color={theme.textSecondary} />
+                                            )}
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }} numberOfLines={1}>{p.nome}</Text>
+                                            <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '900' }}>R$ {formatBRL(p.valor)}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })
+                        )}
                     </View>
+
+                    {/* 🔥 DEPOIMENTOS */}
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>💬 DEPOIMENTOS (PROVA SOCIAL)</Text>
+                    <Text style={styles.helperText}>Opcional — se não adicionar nenhum, essa seção some da página.</Text>
+
+                    {(editingProduto.depoimentos || []).map((dep, index) => (
+                        <View key={index} style={[styles.itemFormCard, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                <TouchableOpacity onPress={() => handlePickDepoimentoFoto(index)} disabled={uploadingCapa} style={[styles.avatarPicker, { borderColor: theme.border }]}>
+                                    {dep.fotoUrl
+                                        ? <Image source={{ uri: dep.fotoUrl }} style={{ width: '100%', height: '100%', borderRadius: 28 }} />
+                                        : <MaterialCommunityIcons name="account-circle-outline" size={28} color={theme.textSecondary} />
+                                    }
+                                </TouchableOpacity>
+                                <TextInput
+                                    style={[styles.saasInput, { flex: 1, backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                    value={dep.nome}
+                                    onChangeText={(v) => updateDepoimentoField(index, 'nome', v)}
+                                    placeholder="Nome da aluna"
+                                    placeholderTextColor="#666"
+                                />
+                                <TouchableOpacity onPress={() => removeDepoimento(index)}>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <View style={{ flexDirection: 'row', gap: 4, marginTop: 10 }}>
+                                {[1, 2, 3, 4, 5].map((n) => (
+                                    <TouchableOpacity key={n} onPress={() => updateDepoimentoField(index, 'estrelas', n)}>
+                                        <MaterialCommunityIcons name={n <= (dep.estrelas || 5) ? 'star' : 'star-outline'} size={20} color="#FFD700" />
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, height: 70, marginTop: 10 }]}
+                                multiline
+                                value={dep.texto}
+                                onChangeText={(v) => updateDepoimentoField(index, 'texto', v)}
+                                placeholder="O que a aluna disse sobre o produto..."
+                                placeholderTextColor="#666"
+                            />
+                        </View>
+                    ))}
+                    <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent }]} onPress={addDepoimento}>
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                        <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR DEPOIMENTO</Text>
+                    </TouchableOpacity>
+
+                    {/* 🔥 ANTES E DEPOIS */}
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>📸 ANTES E DEPOIS (RESULTADOS)</Text>
+                    <Text style={styles.helperText}>Opcional — se não adicionar nenhum par, essa seção some da página.</Text>
+
+                    {(editingProduto.antesDepois || []).map((par, index) => (
+                        <View key={index} style={[styles.itemFormCard, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                            <View style={{ flexDirection: 'row', gap: 10 }}>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                    <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: '900', marginBottom: 6 }}>ANTES</Text>
+                                    <TouchableOpacity onPress={() => handlePickAntesDepoisImagem(index, 'antesUrl')} disabled={uploadingCapa} style={[styles.antesDepoisSlot, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                        {par.antesUrl
+                                            ? <Image source={{ uri: par.antesUrl }} style={{ width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 8 }} />
+                                            : <MaterialCommunityIcons name="image-plus" size={22} color={theme.textSecondary} />
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={{ flex: 1, alignItems: 'center' }}>
+                                    <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: '900', marginBottom: 6 }}>DEPOIS</Text>
+                                    <TouchableOpacity onPress={() => handlePickAntesDepoisImagem(index, 'depoisUrl')} disabled={uploadingCapa} style={[styles.antesDepoisSlot, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                        {par.depoisUrl
+                                            ? <Image source={{ uri: par.depoisUrl }} style={{ width: '100%', height: '100%', resizeMode: 'cover', borderRadius: 8 }} />
+                                            : <MaterialCommunityIcons name="image-plus" size={22} color={theme.textSecondary} />
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, marginTop: 10 }]}
+                                value={par.legenda}
+                                onChangeText={(v) => updateAntesDepoisField(index, 'legenda', v)}
+                                placeholder="Legenda (opcional) — Ex: 8 semanas seguindo o guia"
+                                placeholderTextColor="#666"
+                            />
+                            <TouchableOpacity onPress={() => removeAntesDepois(index)} style={{ alignSelf: 'flex-end', marginTop: 8 }}>
+                                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent }]} onPress={addAntesDepois}>
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                        <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR ANTES/DEPOIS</Text>
+                    </TouchableOpacity>
+
+                    {/* 🔥 FAQ */}
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>❓ PERGUNTAS FREQUENTES (FAQ)</Text>
+                    <Text style={styles.helperText}>Opcional — se não adicionar nenhuma pergunta, essa seção some da página.</Text>
+
+                    {(editingProduto.faq || []).map((item, index) => (
+                        <View key={index} style={[styles.itemFormCard, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                <TextInput
+                                    style={[styles.saasInput, { flex: 1, backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                    value={item.pergunta}
+                                    onChangeText={(v) => updateFaqField(index, 'pergunta', v)}
+                                    placeholder="Pergunta (ex: Como recebo o material?)"
+                                    placeholderTextColor="#666"
+                                />
+                                <TouchableOpacity onPress={() => removeFaqItem(index)}>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, height: 70, marginTop: 10 }]}
+                                multiline
+                                value={item.resposta}
+                                onChangeText={(v) => updateFaqField(index, 'resposta', v)}
+                                placeholder="Resposta"
+                                placeholderTextColor="#666"
+                            />
+                        </View>
+                    ))}
+                    <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent }]} onPress={addFaqItem}>
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                        <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR PERGUNTA</Text>
+                    </TouchableOpacity>
 
                     <View style={styles.formActions}>
                         <TouchableOpacity style={[styles.cancelBtn, { borderColor: theme.border }]} onPress={backToList}>
@@ -530,6 +955,13 @@ const styles = StyleSheet.create({
     newBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 14, borderRadius: 14, marginBottom: 20, width: '100%' },
     newBtnText: { fontWeight: '900', fontSize: 12, letterSpacing: 0.3 },
 
+    dashboardWrap: { width: '100%', marginBottom: 20 },
+    dashboardGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+    dashboardCard: { flexGrow: 1, minWidth: 140, borderWidth: 1, borderRadius: 14, padding: 14, alignItems: 'flex-start' },
+    dashboardValue: { fontSize: 17, fontWeight: '900', marginBottom: 4 },
+    dashboardLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5 },
+    dashboardPendentes: { fontSize: 11, marginTop: 10, fontStyle: 'italic' },
+
     emptyText: { fontSize: 13, textAlign: 'center', marginTop: 20, lineHeight: 20, width: '100%' },
 
     itemCard: { padding: 18, borderRadius: 16, borderWidth: 1, marginBottom: 14, width: '100%' },
@@ -554,8 +986,18 @@ const styles = StyleSheet.create({
     subsectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 24, marginBottom: 16 },
     
     capaPreviewGrande: { width: 80, height: 106, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+
+    previaThumb: { width: 66, height: 82, borderRadius: 8, borderWidth: 1, overflow: 'hidden' },
+    previaRemoveBtn: { position: 'absolute', top: 3, right: 3, width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+    previaAddBtn: { width: 66, height: 82, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' },
     
-    bumpCardConfig: { padding: 16, borderRadius: 16, borderWidth: 1, marginTop: 10 },
+    bumpCardConfig: { padding: 16, borderRadius: 16, borderWidth: 1, marginTop: 10, gap: 10 },
+    bumpOptionRow: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderRadius: 10, borderWidth: 1 },
+
+    itemFormCard: { width: '100%', padding: 14, borderRadius: 14, borderWidth: 1, marginTop: 10 },
+    avatarPicker: { width: 56, height: 56, borderRadius: 28, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    antesDepoisSlot: { width: '100%', aspectRatio: 3 / 4, borderRadius: 8, borderWidth: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderRadius: 10, paddingVertical: 10, marginTop: 10, width: '100%' },
 
     formActions: { flexDirection: 'row', gap: 12, marginTop: 24, width: '100%' },
     cancelBtn: { flex: 1, padding: 16, borderRadius: 14, borderWidth: 1, alignItems: 'center' },

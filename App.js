@@ -72,6 +72,7 @@ import AdminCoachesScreen from './src/screens/AdminCoachesScreen';
 import AdminAnamneseBuilderScreen from './src/screens/AdminAnamneseBuilderScreen';
 import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
 import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
+import ProdutoCheckoutScreen from './src/screens/ProdutoCheckoutScreen';
 // 🔥 ESTRATÉGIAS
 import AdminStrategiesScreen from './src/screens/AdminStrategiesScreen';
 
@@ -245,6 +246,7 @@ function RootNavigator() {
       <Stack.Screen name="CoachProposta" component={CoachPropostaScreen} />
       <Stack.Screen name="DesafioInscricao" component={DesafioInscricaoScreen} />
       <Stack.Screen name="DesafioCheckin" component={DesafioCheckinScreen} />
+      <Stack.Screen name="Produto" component={ProdutoCheckoutScreen} />
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
@@ -309,6 +311,14 @@ const linking = {
       CoachProposta: { path: 'seja-coach' },
       DesafioInscricao: { path: 'Desafio' },
       DesafioCheckin: { path: 'CheckinDesafio' },
+      Produto: {
+        path: 'Produto',
+        // 🔥 `venda` é opcional — usado quando o cliente volta pelo link do
+        // e-mail de confirmação (ex: pagou boleto e o link só chega depois),
+        // pra retomar direto no status do pedido em vez do formulário do zero.
+        parse: { id: (v) => String(v), venda: (v) => String(v) },
+        stringify: { id: (v) => v, venda: (v) => v },
+      },
       SaaSProposta: {
         path: 'invite/:coachId',
         parse: { coachId: (v) => String(v) },
