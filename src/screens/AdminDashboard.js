@@ -922,6 +922,8 @@ export default function AdminDashboard({ navigation }) {
 
                               handleDeleteLog={handleDeleteLog}
 
+                              navigation={navigation} alunosAtivos={alunosAtivos} alunosInativos={alunosInativos}
+
                           />
 
                       )}

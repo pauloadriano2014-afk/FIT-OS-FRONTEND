@@ -296,6 +296,23 @@ export default function VideoUploadForm({
                         />
                     </View>
 
+                    {form.isVIP && (contentType === 'ebook' || contentType === 'audio') && (
+                        <>
+                            <Text style={[styles.label, { color: theme.accent }]}>PREÇO PARA COMPRA AVULSA (R$)</Text>
+                            <Text style={[styles.vipDesc, { color: theme.textSecondary, marginBottom: 5 }]}>
+                                Se preenchido, quem não tiver acesso VIP verá este conteúdo bloqueado na Biblioteca, mas poderá comprar avulso via PIX/cartão. Deixe em branco para liberar só manualmente.
+                            </Text>
+                            <TextInput
+                                style={[styles.input, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                value={form.valor != null ? String(form.valor) : ''}
+                                onChangeText={t => setForm({...form, valor: t.replace(',', '.')})}
+                                keyboardType="decimal-pad"
+                                placeholder="Ex: 29.90"
+                                placeholderTextColor={theme.textSecondary}
+                            />
+                        </>
+                    )}
+
                     <TouchableOpacity style={[styles.btn, { backgroundColor: theme.accent }]} onPress={handleSave} disabled={loadingAction || uploadingMedia || uploadingThumb}>
                         {loadingAction ? <ActivityIndicator color={theme.isDark ? '#000' : '#FFF'}/> : <Text style={[styles.btnText, { color: theme.isDark ? '#000' : '#FFF' }]}>{editingId ? 'SALVAR ALTERAÇÕES' : 'PUBLICAR CONTEÚDO'}</Text>}
                     </TouchableOpacity>

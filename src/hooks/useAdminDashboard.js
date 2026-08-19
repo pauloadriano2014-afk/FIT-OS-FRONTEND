@@ -23,6 +23,10 @@ export function useAdminDashboard() {
     const [isMaster, setIsMaster] = useState(false); 
 
     const isFirstLoadRef = useRef(true);
+    // 🔥 Itens ocultados do Feed de Atividades pelo botão "X" — antes só
+    // sumiam do estado local (voltavam ao recarregar a tela). Agora ficam
+    // salvos por conta no AsyncStorage e continuam ocultos entre sessões.
+    const hiddenFeedIdsRef = useRef([]);
 
     const fetchData = async (isManualRefresh = false) => {
         try {
@@ -59,6 +63,12 @@ export function useAdminDashboard() {
             // Antes a chave era única ('@dashboard_cache') — se um coach logasse no
             // mesmo navegador depois do master, ele via o cache do master.
             const CACHE_KEY = `@dashboard_cache_${localAdminId}`;
+            const HIDDEN_FEED_KEY = `@hidden_feed_${localAdminId}`;
+
+            try {
+                const storedHidden = await AsyncStorage.getItem(HIDDEN_FEED_KEY);
+                hiddenFeedIdsRef.current = storedHidden ? JSON.parse(storedHidden) : [];
+            } catch (e) { hiddenFeedIdsRef.current = []; }
 
             if (isManualRefresh) setRefreshing(true);
             else {
@@ -67,7 +77,7 @@ export function useAdminDashboard() {
                     const { cacheAtivos, cacheInativos, cacheFeed, cacheCheckins, cacheFeedbacks } = JSON.parse(cachedData);
                     if (cacheAtivos) setAlunosAtivos(cacheAtivos);
                     if (cacheInativos) setAlunosInativos(cacheInativos);
-                    if (cacheFeed) setFeed(cacheFeed);
+                    if (cacheFeed) setFeed(cacheFeed.filter(item => !hiddenFeedIdsRef.current.includes(item.id)));
                     if (cacheCheckins) setCheckins(cacheCheckins);
                     if (cacheFeedbacks) setDietFeedbacks(cacheFeedbacks);
                     setLoading(false);
@@ -85,7 +95,7 @@ export function useAdminDashboard() {
 
                     setAlunosAtivos(processadosAtivos);
                     setAlunosInativos(processadosInativos);
-                    if (data.recentLogs) setFeed(data.recentLogs);
+                    if (data.recentLogs) setFeed(data.recentLogs.filter(item => !hiddenFeedIdsRef.current.includes(item.id)));
 
                     const currentCache = JSON.parse(await AsyncStorage.getItem(CACHE_KEY) || '{}');
                     await AsyncStorage.setItem(CACHE_KEY, JSON.stringify({
@@ -162,7 +172,17 @@ export function useAdminDashboard() {
     };
 
     const handleDeleteLog = (logId) => {
-        const confirmAction = () => setFeed(current => current.filter(item => item.id !== logId));
+        const confirmAction = async () => {
+            setFeed(current => current.filter(item => item.id !== logId));
+            // Guarda o ID ocultado pra ele não voltar a aparecer depois de
+            // recarregar a tela ou puxar pra atualizar (antes só sumia da
+            // tela naquele momento, sem persistir em lugar nenhum).
+            const updated = [...hiddenFeedIdsRef.current, logId].slice(-500); // limite pra não crescer pra sempre
+            hiddenFeedIdsRef.current = updated;
+            if (adminId) {
+                try { await AsyncStorage.setItem(`@hidden_feed_${adminId}`, JSON.stringify(updated)); } catch (e) {}
+            }
+        };
         if (Platform.OS === 'web') {
             if (window.confirm("Deseja ocultar este item do feed?")) confirmAction();
         } else {

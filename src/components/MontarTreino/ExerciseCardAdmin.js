@@ -1,5 +1,5 @@
 // src/components/MontarTreino/ExerciseCardAdmin.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { ScaleDecorator } from 'react-native-draggable-flatlist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -27,7 +27,7 @@ export default function ExerciseCardAdmin({
     setIsSelectingSubstitute, setTargetIndexForSubstitute, setModalBuscaVisible,
     setIsSwapping, setSwapIndex, openPreview,
     workoutModel, moveExercise, setInitialCategoryFilter,
-    forceCollapse,
+    collapseSignal,
     listaTecnicas = [], // 🔥 NOVA PROP: Recebe os combos criados
 }) {
     const isWeb = Platform.OS === 'web';
@@ -43,8 +43,17 @@ export default function ExerciseCardAdmin({
     if (item.substitutes && Array.isArray(item.substitutes)) substitutesList.push(...item.substitutes);
     else if (item.substitute) substitutesList.push(item.substitute);
 
-    // Colapso global via prop
-    useEffect(() => { if (forceCollapse > 0) setIsExpanded(false); }, [forceCollapse]);
+    // Colapsar/expandir todos (botão "Minimizar/Expandir" do dia atual) —
+    // guarda o "seq" com que este card nasceu e só reage quando o seq muda
+    // DEPOIS de montado. Sem isso, um card recém-montado (ex: trocou de dia)
+    // herdava o último clique feito enquanto via outro dia, porque o efeito
+    // também dispara no mount — daí o botão "vazava" pra outros treinos.
+    const birthSeqRef = useRef(collapseSignal?.seq ?? 0);
+    useEffect(() => {
+        if (collapseSignal && collapseSignal.seq !== birthSeqRef.current) {
+            setIsExpanded(collapseSignal.expand);
+        }
+    }, [collapseSignal]);
 
     // Cargas salvas
     useEffect(() => {

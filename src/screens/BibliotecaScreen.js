@@ -11,6 +11,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { Image } from 'expo-image';
 import { Picker } from '@react-native-picker/picker';
+import ContentPurchaseModal from '../components/ContentPurchaseModal';
 
 const getDirectImageUrl = (url) => {
     if (!url) return null;
@@ -121,10 +122,12 @@ export default function BibliotecaScreen({ navigation, route }) {
   const [accessIds, setAccessIds] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [userId, setUserId] = useState(null);
   const [userPlan, setUserPlan] = useState('PREMIUM');
 
   const [upsellModalVisible, setUpsellModalVisible] = useState(false);
   const [upsellContent, setUpsellContent] = useState(null);
+  const [purchaseModalVisible, setPurchaseModalVisible] = useState(false);
 
   const [activeFilter, setActiveFilter] = useState('Tudo');
 
@@ -145,6 +148,8 @@ export default function BibliotecaScreen({ navigation, route }) {
           const user = storedUser ? JSON.parse(storedUser) : route.params?.userData;
 
           if (!user) return;
+
+          setUserId(user.id);
 
           const dbPlan = user.plan || 'PREMIUM';
           const resolvedPlan = ['LOW_COST', 'CHALLENGE_21', 'FICHA_8S'].includes(dbPlan) ? dbPlan : 'PREMIUM';
@@ -448,8 +453,23 @@ export default function BibliotecaScreen({ navigation, route }) {
                         </View>
                     </View>
 
-                    <TouchableOpacity 
-                        style={[styles.upsellBtn, { backgroundColor: '#25D366', shadowColor: '#25D366' }]} 
+                    {upsellContent?.valor > 0 && (
+                        <TouchableOpacity
+                            style={[styles.upsellBtn, { backgroundColor: theme.accent, shadowColor: theme.accent, marginBottom: 12 }]}
+                            onPress={() => {
+                                setUpsellModalVisible(false);
+                                setPurchaseModalVisible(true);
+                            }}
+                        >
+                            <Text style={[styles.upsellBtnText, { color: '#000' }]}>
+                                COMPRAR AGORA — R$ {Number(upsellContent.valor).toFixed(2).replace('.', ',')}
+                            </Text>
+                            <MaterialCommunityIcons name="lock-open-variant" size={20} color="#000" style={{marginLeft: 8}}/>
+                        </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity
+                        style={[styles.upsellBtn, { backgroundColor: '#25D366', shadowColor: '#25D366' }]}
                         onPress={() => {
                             setUpsellModalVisible(false);
                             const msg = `Coach, tenho interesse em acessar o material VIP "${upsellContent?.title}" lá no PA FLIX. Como faço?`;
@@ -462,6 +482,15 @@ export default function BibliotecaScreen({ navigation, route }) {
                 </View>
             </View>
         </Modal>
+
+        <ContentPurchaseModal
+            visible={purchaseModalVisible}
+            onClose={() => setPurchaseModalVisible(false)}
+            theme={theme}
+            userId={userId}
+            content={upsellContent}
+            onPurchased={fetchBibliotecaData}
+        />
 
       </View>
     </RootComponent>

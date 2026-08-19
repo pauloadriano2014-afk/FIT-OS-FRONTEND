@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 export default function MainAreaHeader({
     theme,
     selectedWorkoutTab,
+    allExpanded = true,
     onCollapse, onClear,
 }) {
     return (
@@ -15,14 +16,14 @@ export default function MainAreaHeader({
                 Editando: <Text style={{ color: theme.accent }}>{selectedWorkoutTab}</Text>
             </Text>
 
-            {/* Apenas Minimizar e Limpar */}
+            {/* Minimizar/Expandir (todos os exercícios do dia atual) e Limpar */}
             <View style={S.actions}>
                 <TouchableOpacity
                     style={[S.btn, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]}
                     onPress={onCollapse}
                 >
-                    <MaterialCommunityIcons name="format-list-bulleted" size={14} color={theme.textSecondary} />
-                    <Text style={[S.btnText, { color: theme.textSecondary }]}>Minimizar</Text>
+                    <MaterialCommunityIcons name={allExpanded ? 'format-list-bulleted' : 'unfold-more-horizontal'} size={14} color={theme.textSecondary} />
+                    <Text style={[S.btnText, { color: theme.textSecondary }]}>{allExpanded ? 'Minimizar' : 'Expandir'}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[S.btn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}

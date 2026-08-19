@@ -151,6 +151,7 @@ export default function AdminDietLibraryScreen({ navigation }) {
                             </View>
 
                             <FlatList
+                                style={{ flex: 1 }}
                                 data={templates}
                                 keyExtractor={item => item.id}
                                 renderItem={renderTemplateCard}
@@ -181,7 +182,7 @@ const styles = StyleSheet.create({
     header: { flexDirection: 'row', justifyContent: 'space-between', padding: 16, alignItems: 'center', borderBottomWidth: 1, elevation: 5, zIndex: 10 },
     iconBtn: { padding: 9, borderRadius: 14, borderWidth: 1 },
     headerTitle: { fontWeight: '900', fontSize: 13, letterSpacing: 1.5 },
-    content: { flex: 1, padding: 16 },
+    content: { flex: 1, minHeight: 0, padding: 16 },
     centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
     
     infoBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: '#4DE38F10', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#4DE38F30', marginBottom: 20 },

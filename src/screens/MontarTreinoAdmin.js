@@ -75,8 +75,27 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const [editingTabName, setEditingTabName] = useState(null);
     const [editingTabValue, setEditingTabValue] = useState('');
     const [isSyncingCargas, setIsSyncingCargas] = useState(false);
-    const [forceCollapse, setForceCollapse] = useState(0);
+    // 🔥 FIX: era um contador simples que só "colapsava" (sem volta) e cujo
+    // efeito no card disparava até no MOUNT — por isso trocar de dia
+    // "herdava" o clique de Minimizar de outro dia. Agora é um sinal com
+    // {expand, seq}: cada card guarda o seq com que nasceu (ExerciseCardAdmin)
+    // e só reage quando o seq muda DEPOIS de montado — então só afeta quem já
+    // estava na tela no momento do clique, ou seja, só o dia atual.
+    const [collapseSignal, setCollapseSignal] = useState({ expand: true, seq: 0 });
+    const [allExpanded, setAllExpanded] = useState(true);
     const [autoFillModalVisible, setAutoFillModalVisible] = useState(false);
+
+    // Ao trocar de dia, os cards novos nascem expandidos (default do
+    // ExerciseCardAdmin) — sincroniza o texto do botão pra refletir isso.
+    useEffect(() => { setAllExpanded(true); }, [state.selectedWorkoutTab]);
+
+    const handleToggleCollapseAll = useCallback(() => {
+        setAllExpanded(prevExpanded => {
+            const next = !prevExpanded;
+            setCollapseSignal(prevSignal => ({ expand: next, seq: prevSignal.seq + 1 }));
+            return next;
+        });
+    }, []);
 
     // 🔥 CARREGAR TÉCNICAS DO LABORATÓRIO 🔥
     const fetchTecnicas = useCallback(async () => {
@@ -306,13 +325,13 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     openPreview={actions.openPreview} currentExercisesLength={state.currentExercises.length}
                     setIsSwapping={setters.setIsSwapping} setSwapIndex={setters.setSwapIndex}
                     workoutModel={state.workoutModel} setInitialCategoryFilter={safeSetInitialCategoryFilter}
-                    forceCollapse={forceCollapse}
+                    collapseSignal={collapseSignal}
                     // 🔥 PROP INJETADA PARA O SELECT DE TÉCNICAS
-                    listaTecnicas={tecnicasLaboratorio} 
+                    listaTecnicas={tecnicasLaboratorio}
                 />
             </View>
         );
-    }, [theme, state, setters, actions, moveExerciseWeb, forceCollapse, handleSetIsSelectingSubstitute, handleSetTargetIndexForSubstitute, handleSetModalBuscaVisible, safeSetInitialCategoryFilter, tecnicasLaboratorio]);
+    }, [theme, state, setters, actions, moveExerciseWeb, collapseSignal, handleSetIsSelectingSubstitute, handleSetTargetIndexForSubstitute, handleSetModalBuscaVisible, safeSetInitialCategoryFilter, tecnicasLaboratorio]);
 
     const renderSettings = () => {
         if (!state.isTemplateMode) return <WorkoutSettingsCard state={state} setters={setters} actions={actions} theme={theme} />;
@@ -344,12 +363,13 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             <MainAreaHeader
                 theme={theme}
                 selectedWorkoutTab={state.selectedWorkoutTab}
-                onCollapse={() => setForceCollapse(prev => prev + 1)}
+                allExpanded={allExpanded}
+                onCollapse={handleToggleCollapseAll}
                 onClear={actions.handleClearWorkout}
             />
             <DraggableFlatList
                 data={state.currentExercises}
-                extraData={forceCollapse}
+                extraData={collapseSignal}
                 onDragEnd={handleDragEnd}
                 keyExtractor={(item) => item.tempId}
                 renderItem={renderExercise}

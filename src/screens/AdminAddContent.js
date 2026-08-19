@@ -46,7 +46,7 @@ export default function AdminAddContent({ navigation }) {
     const [editingId, setEditingId] = useState(null); 
     const [contentType, setContentType] = useState('video'); 
     const [audioChapters, setAudioChapters] = useState([{ title: '', url: '' }]);
-    const [form, setForm] = useState({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false });
+    const [form, setForm] = useState({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false, valor: '' });
     const [loadingAction, setLoadingAction] = useState(false);
     const [uploadingMedia, setUploadingMedia] = useState(false); 
     const [uploadingIndex, setUploadingIndex] = useState(null);
@@ -174,7 +174,7 @@ export default function AdminAddContent({ navigation }) {
     // FUNÇÕES DO FORMULÁRIO (CRUD)
     const handleAddNew = () => {
         setEditingId(null); setContentType('video'); setAudioChapters([{ title: '', url: '' }]);
-        setForm({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false });
+        setForm({ title: '', subtitle: '', category: 'GERAL', contentUrl: '', thumbUrl: '', duration: '', isVIP: false, valor: '' });
         setViewMode('form');
     };
 
@@ -183,7 +183,7 @@ export default function AdminAddContent({ navigation }) {
         if (item.type === 'audio' && item.audioUrl) {
             try { setAudioChapters(JSON.parse(item.audioUrl)); } catch (e) { setAudioChapters([{ title: '', url: item.audioUrl }]); }
         } else setAudioChapters([{ title: '', url: '' }]);
-        setForm({ title: item.title || '', subtitle: item.subtitle || '', category: item.category || 'GERAL', contentUrl: item.pdfUrl || item.videoUrl || '', thumbUrl: item.thumbUrl || '', duration: item.duration || '', isVIP: item.isVIP || false });
+        setForm({ title: item.title || '', subtitle: item.subtitle || '', category: item.category || 'GERAL', contentUrl: item.pdfUrl || item.videoUrl || '', thumbUrl: item.thumbUrl || '', duration: item.duration || '', isVIP: item.isVIP || false, valor: item.valor != null ? String(item.valor) : '' });
         setViewMode('form');
     };
 
@@ -274,10 +274,11 @@ export default function AdminAddContent({ navigation }) {
 
             const payload = {
                 title: form.title, subtitle: form.subtitle, category: form.category, thumbUrl: form.thumbUrl, duration: form.duration, type: contentType, isVIP: form.isVIP,
+                valor: form.valor ? parseFloat(String(form.valor).replace(',', '.')) : null,
                 videoUrl: contentType === 'video' ? form.contentUrl : null,
                 pdfUrl: contentType === 'ebook' ? form.contentUrl : null,
                 audioUrl: contentType === 'audio' ? JSON.stringify(audioChapters) : null,
-                adminId: adminId 
+                adminId: adminId
             };
 
             const url = editingId ? `https://fitos-final.onrender.com/api/contents/${editingId}` : 'https://fitos-final.onrender.com/api/contents'; 
