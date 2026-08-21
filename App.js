@@ -74,6 +74,7 @@ import CoachBlockedScreen from './src/screens/CoachBlockedScreen';
 import CoachPropostaScreen from './src/screens/CoachPropostaScreen';
 import ProdutoCheckoutScreen from './src/screens/ProdutoCheckoutScreen';
 import ProdutoTreinoScreen from './src/screens/ProdutoTreinoScreen';
+import ProdutoCursoScreen from './src/screens/ProdutoCursoScreen';
 // 🔥 ESTRATÉGIAS
 import AdminStrategiesScreen from './src/screens/AdminStrategiesScreen';
 
@@ -249,6 +250,7 @@ function RootNavigator() {
       <Stack.Screen name="DesafioCheckin" component={DesafioCheckinScreen} />
       <Stack.Screen name="Produto" component={ProdutoCheckoutScreen} />
       <Stack.Screen name="ProdutoTreino" component={ProdutoTreinoScreen} />
+      <Stack.Screen name="ProdutoCurso" component={ProdutoCursoScreen} />
       <Stack.Screen name="Main" component={StudentTabs} initialParams={{ userData: savedUser }} />
       <Stack.Screen name="RoutineDetails" component={RoutineDetailsScreen} />
       <Stack.Screen name="DayWorkoutScreen" component={DayWorkoutScreen} />
@@ -325,6 +327,13 @@ const linking = {
         path: 'ProdutoTreino',
         // 🔥 Link mágico enviado por e-mail após a compra — o token é a única
         // credencial, sem login. Ver api/produtos/treino/[token].
+        parse: { token: (v) => String(v) },
+        stringify: { token: (v) => v },
+      },
+      ProdutoCurso: {
+        path: 'ProdutoCurso',
+        // 🔥 Link mágico enviado por e-mail após a compra — o token é a única
+        // credencial, sem login. Ver api/produtos/curso/[token].
         parse: { token: (v) => String(v) },
         stringify: { token: (v) => v },
       },

@@ -27,6 +27,8 @@ const emptyProduto = (defaultCoachId) => ({
     coachId: defaultCoachId,
     linkEntrega: '',
     ativo: true,
+    videoUrl: '',
+    videoOrientacao: 'vertical',
     beneficios: '',
     imagensExtra: [],
     orderBumpProdutoIds: [],
@@ -34,6 +36,7 @@ const emptyProduto = (defaultCoachId) => ({
     antesDepois: [],
     faq: [],
     treinoPrograma: { duracaoSemanas: '', treinos: [] },
+    cursoPrograma: { modulos: [] },
 });
 
 function slugifyLocal(input) {
@@ -179,6 +182,15 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         } catch (e) {
             treinoPrograma = { duracaoSemanas: '', treinos: [] };
         }
+        let cursoPrograma = { modulos: [] };
+        try {
+            if (produto.cursoPrograma) {
+                const parsed = JSON.parse(produto.cursoPrograma);
+                cursoPrograma = { modulos: Array.isArray(parsed.modulos) ? parsed.modulos : [] };
+            }
+        } catch (e) {
+            cursoPrograma = { modulos: [] };
+        }
         setEditingProduto({
             ...produto,
             valor: String(produto.valor),
@@ -186,6 +198,8 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
             descricao: produto.descricao || '',
             capaUrl: produto.capaUrl || '',
             linkEntrega: produto.linkEntrega || '',
+            videoUrl: produto.videoUrl || '',
+            videoOrientacao: produto.videoOrientacao || 'vertical',
             beneficios: produto.beneficios || '',
             imagensExtra,
             orderBumpProdutoIds,
@@ -193,6 +207,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
             antesDepois,
             faq,
             treinoPrograma,
+            cursoPrograma,
         });
         setView('form');
     };
@@ -390,6 +405,12 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         setEditingProduto(prev => ({ ...prev, faq: (prev.faq || []).filter((_, i) => i !== index) }));
     };
 
+    // 🔥 ABAS DO FORMULÁRIO DE PRODUTO — o formulário inteiro (dados básicos +
+    // página de vendas + treino + curso) virava um scroll gigante empilhado.
+    // Agora é dividido em 4 abas horizontais no topo, cada uma mostrando só a
+    // sua parte.
+    const [formTab, setFormTab] = useState('basico'); // 'basico' | 'vendas' | 'treino' | 'curso'
+
     // 🔥 PROGRAMA DE TREINO INTERATIVO: opcional — dias (treinos) com
     // exercícios estruturados. Se ficar vazio, o produto continua entregando
     // só o link/PDF estático de sempre.
@@ -463,6 +484,77 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         });
     };
 
+    // 🔥 CURSO / ÁREA DE MEMBROS: opcional — módulos com aulas em vídeo. Cada
+    // módulo tem `liberacaoDias` (quantos dias após a compra ele libera) — por
+    // pedido do Paulo, pra proteger contra reembolso abusivo durante os 7 dias
+    // de garantia (o conteúdo libera aos poucos, não tudo de uma vez).
+    const [cursoJsonImportText, setCursoJsonImportText] = useState('');
+    const [cursoJsonImportAberto, setCursoJsonImportAberto] = useState(false);
+
+    const handleImportCursoJson = () => {
+        try {
+            const parsed = JSON.parse(cursoJsonImportText);
+            if (!parsed || !Array.isArray(parsed.modulos)) {
+                throw new Error('formato inválido');
+            }
+            setEditingProduto(prev => ({ ...prev, cursoPrograma: { modulos: parsed.modulos } }));
+            setCursoJsonImportText('');
+            setCursoJsonImportAberto(false);
+            const msg = 'Curso importado! Revise os módulos abaixo antes de guardar.';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Sucesso', msg);
+        } catch (e) {
+            const msg = 'JSON inválido. Confira se colou o conteúdo completo, sem cortar nada.';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Erro', msg);
+        }
+    };
+
+    const addCursoModulo = () => {
+        setEditingProduto(prev => ({
+            ...prev,
+            cursoPrograma: {
+                ...(prev.cursoPrograma || { modulos: [] }),
+                modulos: [...((prev.cursoPrograma || {}).modulos || []), { nome: '', liberacaoDias: '0', aulas: [] }],
+            },
+        }));
+    };
+    const updateCursoModuloField = (idx, field, value) => {
+        setEditingProduto(prev => {
+            const modulos = [...(prev.cursoPrograma?.modulos || [])];
+            modulos[idx] = { ...modulos[idx], [field]: value };
+            return { ...prev, cursoPrograma: { ...prev.cursoPrograma, modulos } };
+        });
+    };
+    const removeCursoModulo = (idx) => {
+        setEditingProduto(prev => ({
+            ...prev,
+            cursoPrograma: { ...prev.cursoPrograma, modulos: (prev.cursoPrograma?.modulos || []).filter((_, i) => i !== idx) },
+        }));
+    };
+    const addCursoAula = (moduloIdx) => {
+        setEditingProduto(prev => {
+            const modulos = [...(prev.cursoPrograma?.modulos || [])];
+            const aulas = [...(modulos[moduloIdx].aulas || []), { nome: '', descricao: '', videoUrl: '', videoOrientacao: 'vertical', anexoUrl: '' }];
+            modulos[moduloIdx] = { ...modulos[moduloIdx], aulas };
+            return { ...prev, cursoPrograma: { ...prev.cursoPrograma, modulos } };
+        });
+    };
+    const updateCursoAulaField = (moduloIdx, aulaIdx, field, value) => {
+        setEditingProduto(prev => {
+            const modulos = [...(prev.cursoPrograma?.modulos || [])];
+            const aulas = [...(modulos[moduloIdx].aulas || [])];
+            aulas[aulaIdx] = { ...aulas[aulaIdx], [field]: value };
+            modulos[moduloIdx] = { ...modulos[moduloIdx], aulas };
+            return { ...prev, cursoPrograma: { ...prev.cursoPrograma, modulos } };
+        });
+    };
+    const removeCursoAula = (moduloIdx, aulaIdx) => {
+        setEditingProduto(prev => {
+            const modulos = [...(prev.cursoPrograma?.modulos || [])];
+            modulos[moduloIdx] = { ...modulos[moduloIdx], aulas: (modulos[moduloIdx].aulas || []).filter((_, i) => i !== aulaIdx) };
+            return { ...prev, cursoPrograma: { ...prev.cursoPrograma, modulos } };
+        });
+    };
+
     // 🔥 PRÉ-VISUALIZAR TREINO: gera um link de treino interativo sem custo
     // (sem passar por pagamento nenhum) pra conferir como a página fica
     // enquanto ainda está montando o programa. A pré-visualização lê o
@@ -500,11 +592,12 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
             return Platform.OS === 'web' ? window.alert('Informe um valor válido (ex: 19,90).') : Alert.alert('Aviso', 'Informe um valor válido (ex: 19,90).');
         }
         // 🔥 O link de entrega só é obrigatório se o produto NÃO tiver um
-        // programa de treino interativo configurado — nesse caso a tela
-        // interativa é a entrega oficial e o PDF é gerado automaticamente a
-        // partir dela, então não existe (nem faz sentido pedir) um link fixo.
+        // programa de treino interativo ou curso configurado — nesses casos a
+        // tela interativa/área de membros é a entrega oficial, então não
+        // existe (nem faz sentido pedir) um link fixo.
         const temTreinoInterativo = (editingProduto.treinoPrograma?.treinos?.length || 0) > 0;
-        if (!temTreinoInterativo && !(editingProduto.linkEntrega || '').trim()) {
+        const temCurso = (editingProduto.cursoPrograma?.modulos?.length || 0) > 0;
+        if (!temTreinoInterativo && !temCurso && !(editingProduto.linkEntrega || '').trim()) {
             return Platform.OS === 'web' ? window.alert('Insira o link de entrega (Google Drive, PDF, etc).') : Alert.alert('Aviso', 'Insira o link de entrega.');
         }
 
@@ -529,6 +622,8 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                 coachId: editingProduto.coachId,
                 linkEntrega: editingProduto.linkEntrega,
                 ativo: editingProduto.ativo,
+                videoUrl: (editingProduto.videoUrl || '').trim() || null,
+                videoOrientacao: (editingProduto.videoUrl || '').trim() ? (editingProduto.videoOrientacao || 'vertical') : null,
                 beneficios: editingProduto.beneficios || null,
                 imagensExtra: JSON.stringify(editingProduto.imagensExtra || []),
                 orderBumpProdutoIds: JSON.stringify(editingProduto.orderBumpProdutoIds || []),
@@ -539,6 +634,14 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                     ? JSON.stringify({
                         duracaoSemanas: editingProduto.treinoPrograma.duracaoSemanas || null,
                         treinos: editingProduto.treinoPrograma.treinos,
+                    })
+                    : null,
+                cursoPrograma: (editingProduto.cursoPrograma?.modulos?.length > 0)
+                    ? JSON.stringify({
+                        modulos: editingProduto.cursoPrograma.modulos.map((m) => ({
+                            ...m,
+                            liberacaoDias: Number(m.liberacaoDias) || 0,
+                        })),
                     })
                     : null,
             };
@@ -749,6 +852,35 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         {editingProduto.id ? 'EDITAR PRODUTO' : 'NOVO PRODUTO DIGITAL'}
                     </Text>
 
+                    {/* 🔥 ABAS DO FORMULÁRIO — horizontal, moderna: cada aba mostra só a sua
+                        parte, em vez de empilhar tudo num scroll só. */}
+                    <View style={styles.formTabsRow}>
+                        {[
+                            { id: 'basico', label: 'BÁSICO', icon: 'file-document-edit-outline' },
+                            { id: 'vendas', label: 'VENDAS', icon: 'rocket-launch-outline' },
+                            { id: 'treino', label: 'TREINO', icon: 'dumbbell', dot: (editingProduto.treinoPrograma?.treinos?.length || 0) > 0 },
+                            { id: 'curso', label: 'CURSO', icon: 'school-outline', dot: (editingProduto.cursoPrograma?.modulos?.length || 0) > 0 },
+                        ].map((tab) => {
+                            const active = formTab === tab.id;
+                            return (
+                                <TouchableOpacity
+                                    key={tab.id}
+                                    style={[styles.formTabBtn, active && { borderBottomColor: theme.accent }]}
+                                    onPress={() => setFormTab(tab.id)}
+                                    activeOpacity={0.8}
+                                >
+                                    <MaterialCommunityIcons name={tab.icon} size={17} color={active ? theme.accent : theme.textSecondary} />
+                                    <Text style={{ color: active ? theme.accent : theme.textSecondary, fontWeight: '900', fontSize: 11, letterSpacing: 0.3 }}>
+                                        {tab.label}
+                                    </Text>
+                                    {!!tab.dot && <View style={[styles.formTabDot, { backgroundColor: theme.accent }]} />}
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+
+                    {formTab === 'basico' && (
+                    <>
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 10 }]}>Nome do Produto</Text>
                     <TextInput
                         style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
@@ -806,8 +938,12 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         </View>
                     </View>
                     <Text style={styles.helperText}>Preenchendo o "De", a página mostra esse valor riscado acima do preço final — reforça que é uma oferta.</Text>
+                    </>
+                    )}
 
-                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Benefícios (um por linha)</Text>
+                    {formTab === 'vendas' && (
+                    <>
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 10 }]}>Benefícios (um por linha)</Text>
                     <TextInput
                         style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 110 }]}
                         multiline
@@ -848,8 +984,50 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         )}
                     </View>
 
-                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>
-                        Link de Entrega do Material{(editingProduto.treinoPrograma?.treinos?.length || 0) > 0 ? ' (opcional)' : ''}
+                    <View style={styles.subsectionDivider} />
+                    <Text style={[styles.inputLabel, { color: theme.text, fontSize: 13 }]}>VÍDEO DE APRESENTAÇÃO (OPCIONAL)</Text>
+                    <Text style={styles.helperText}>Cole o link do YouTube ou o link de embed do Cloudflare Stream. Aparece logo abaixo da descrição, na página de vendas.</Text>
+                    <TextInput
+                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
+                        value={editingProduto.videoUrl}
+                        onChangeText={(v) => updateField('videoUrl', v)}
+                        placeholder="Ex: https://youtu.be/... ou https://customer-xxxx.cloudflarestream.com/.../iframe"
+                        placeholderTextColor="#666"
+                        autoCapitalize="none"
+                    />
+                    {!!editingProduto.videoUrl && (
+                        <>
+                            <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 12 }]}>Formato do vídeo</Text>
+                            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+                                {[
+                                    { id: 'vertical', label: '9:16 · Vertical' },
+                                    { id: 'horizontal', label: '16:9 · Horizontal' },
+                                ].map((opt) => (
+                                    <TouchableOpacity
+                                        key={opt.id}
+                                        style={[
+                                            styles.coachOption,
+                                            { borderColor: theme.border },
+                                            editingProduto.videoOrientacao === opt.id && { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
+                                        ]}
+                                        onPress={() => updateField('videoOrientacao', opt.id)}
+                                    >
+                                        <Text style={{ color: editingProduto.videoOrientacao === opt.id ? theme.accent : theme.textSecondary, fontWeight: '900', fontSize: 12 }}>
+                                            {opt.label}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                            <Text style={styles.helperText}>O player se adapta automaticamente à proporção escolhida. A vertical (9:16) é a mais usada — ideal pra gravações feitas no celular.</Text>
+                        </>
+                    )}
+                    </>
+                    )}
+
+                    {formTab === 'basico' && (
+                    <>
+                    <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 10 }]}>
+                        Link de Entrega do Material{((editingProduto.treinoPrograma?.treinos?.length || 0) > 0 || (editingProduto.cursoPrograma?.modulos?.length || 0) > 0) ? ' (opcional)' : ''}
                     </Text>
                     <TextInput
                         style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border }]}
@@ -862,7 +1040,9 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                     <Text style={styles.helperText}>
                         {(editingProduto.treinoPrograma?.treinos?.length || 0) > 0
                             ? 'Opcional aqui: como o produto já tem um programa de treino interativo, a tela interativa é a entrega oficial e o PDF é gerado automaticamente a partir dela. Preencha este campo só se quiser oferecer um link extra.'
-                            : 'A aluna receberá este link imediatamente após a confirmação do pagamento via PIX.'}
+                            : (editingProduto.cursoPrograma?.modulos?.length || 0) > 0
+                                ? 'Opcional aqui: como o produto já tem um curso/área de membros configurado, ela é a entrega oficial. Preencha este campo só se quiser oferecer um link extra.'
+                                : 'A aluna receberá este link imediatamente após a confirmação do pagamento via PIX.'}
                     </Text>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Dono do Produto (conta de cobrança)</Text>
@@ -914,7 +1094,11 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                             ) : null}
                         </View>
                     </View>
+                    </>
+                    )}
 
+                    {formTab === 'vendas' && (
+                    <>
                     {/* 🔥 ESTRATÉGIA DE VENDAS: ORDER BUMP MULTI-ITEM */}
                     <View style={styles.subsectionDivider} />
                     <Text style={[styles.inputLabel, { color: theme.accent, fontSize: 13 }]}>🚀 ORDER BUMP (OFERTAS EXTRAS NO CHECKOUT)</Text>
@@ -1089,12 +1273,13 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                         <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
                         <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR PERGUNTA</Text>
                     </TouchableOpacity>
+                    </>
+                    )}
 
-                    {/* 🔥 TREINO INTERATIVO */}
-                    <View style={styles.subsectionDivider} />
-                    <Text style={[styles.inputLabel, { color: theme.accent, fontSize: 13 }]}>🏋️ PROGRAMA DE TREINO INTERATIVO (OPCIONAL)</Text>
+                    {formTab === 'treino' && (
+                    <>
                     <Text style={styles.helperText}>
-                        Se preencher, quem comprar ganha acesso a uma página de treino interativa (sem login, por link mágico) — com os dias estruturados, vídeo por exercício, check-in de sessão e registro de carga — em vez de só o link/PDF estático de cima.
+                        Se preencher, quem comprar ganha acesso a uma página de treino interativa — com os dias estruturados, vídeo por exercício, check-in de sessão e registro de carga — em vez de só o link/PDF estático de cima.
                     </Text>
 
                     <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 15 }]}>Duração do protocolo (semanas)</Text>
@@ -1250,6 +1435,135 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
                             </Text>
                         </>
                     )}
+                    </>
+                    )}
+
+                    {formTab === 'curso' && (
+                    <>
+                    <Text style={styles.helperText}>
+                        Se preencher, quem comprar ganha acesso a uma área de membros com módulos e aulas em vídeo. Cada módulo libera um número de dias após a compra — o conteúdo não aparece todo de uma vez, o que protege contra pedido de reembolso depois de consumir tudo durante os 7 dias de garantia.
+                    </Text>
+
+                    <TouchableOpacity style={[styles.jsonImportToggle, { borderColor: theme.border, marginTop: 15 }]} onPress={() => setCursoJsonImportAberto(!cursoJsonImportAberto)}>
+                        <MaterialCommunityIcons name={cursoJsonImportAberto ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />
+                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '900' }}>COLAR CURSO PRONTO (JSON)</Text>
+                    </TouchableOpacity>
+                    {cursoJsonImportAberto && (
+                        <View style={{ width: '100%', marginTop: 8 }}>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 100 }]}
+                                multiline
+                                value={cursoJsonImportText}
+                                onChangeText={setCursoJsonImportText}
+                                placeholder="Cole aqui o JSON do curso..."
+                                placeholderTextColor="#666"
+                                autoCapitalize="none"
+                            />
+                            <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent, marginTop: 8 }]} onPress={handleImportCursoJson}>
+                                <MaterialCommunityIcons name="tray-arrow-down" size={16} color={theme.accent} />
+                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>IMPORTAR</Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
+
+                    {(editingProduto.cursoPrograma?.modulos || []).map((modulo, mIdx) => (
+                        <View key={mIdx} style={[styles.itemFormCard, { borderColor: theme.border, backgroundColor: theme.bg, marginTop: 14 }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>MÓDULO {mIdx + 1}</Text>
+                                <TouchableOpacity onPress={() => removeCursoModulo(mIdx)} style={{ marginLeft: 'auto' }}>
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                </TouchableOpacity>
+                            </View>
+                            <TextInput
+                                style={[styles.saasInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border, marginTop: 10 }]}
+                                value={modulo.nome}
+                                onChangeText={(v) => updateCursoModuloField(mIdx, 'nome', v)}
+                                placeholder="Nome do módulo (ex: Fundamentos)"
+                                placeholderTextColor="#666"
+                            />
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>Libera</Text>
+                                <TextInput
+                                    style={[styles.saasInput, { width: 80, backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                    keyboardType="numeric"
+                                    value={String(modulo.liberacaoDias ?? '0')}
+                                    onChangeText={(v) => updateCursoModuloField(mIdx, 'liberacaoDias', v)}
+                                    placeholder="0"
+                                    placeholderTextColor="#666"
+                                />
+                                <Text style={{ color: theme.textSecondary, fontSize: 12 }}>dia(s) após a compra (0 = liberado na hora)</Text>
+                            </View>
+
+                            {(modulo.aulas || []).map((aula, aIdx) => (
+                                <View key={aIdx} style={[styles.exercicioFormCard, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Text style={{ color: theme.textSecondary, fontSize: 11, fontWeight: '900' }}>AULA #{aIdx + 1}</Text>
+                                        <TouchableOpacity onPress={() => removeCursoAula(mIdx, aIdx)} style={{ marginLeft: 'auto' }}>
+                                            <MaterialCommunityIcons name="close" size={16} color="#FF3B30" />
+                                        </TouchableOpacity>
+                                    </View>
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
+                                        value={aula.nome}
+                                        onChangeText={(v) => updateCursoAulaField(mIdx, aIdx, 'nome', v)}
+                                        placeholder="Nome da aula"
+                                        placeholderTextColor="#666"
+                                    />
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, height: 60, marginTop: 8 }]}
+                                        multiline
+                                        value={aula.descricao}
+                                        onChangeText={(v) => updateCursoAulaField(mIdx, aIdx, 'descricao', v)}
+                                        placeholder="Descrição da aula (opcional)"
+                                        placeholderTextColor="#666"
+                                    />
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
+                                        value={aula.videoUrl}
+                                        onChangeText={(v) => updateCursoAulaField(mIdx, aIdx, 'videoUrl', v)}
+                                        placeholder="Link do vídeo (YouTube ou embed do Cloudflare Stream)"
+                                        placeholderTextColor="#666"
+                                        autoCapitalize="none"
+                                    />
+                                    <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                                        {[{ id: 'vertical', label: '9:16 VERTICAL' }, { id: 'horizontal', label: '16:9 HORIZONTAL' }].map((opt) => (
+                                            <TouchableOpacity
+                                                key={opt.id}
+                                                style={[
+                                                    styles.coachOption,
+                                                    { borderColor: theme.border, paddingVertical: 8 },
+                                                    (aula.videoOrientacao || 'vertical') === opt.id && { backgroundColor: `${theme.accent}20`, borderColor: theme.accent },
+                                                ]}
+                                                onPress={() => updateCursoAulaField(mIdx, aIdx, 'videoOrientacao', opt.id)}
+                                            >
+                                                <Text style={{ color: (aula.videoOrientacao || 'vertical') === opt.id ? theme.accent : theme.textSecondary, fontWeight: '900', fontSize: 11 }}>
+                                                    {opt.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                    <TextInput
+                                        style={[styles.saasInput, { backgroundColor: theme.bg, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
+                                        value={aula.anexoUrl}
+                                        onChangeText={(v) => updateCursoAulaField(mIdx, aIdx, 'anexoUrl', v)}
+                                        placeholder="Link de material de apoio (PDF, opcional)"
+                                        placeholderTextColor="#666"
+                                        autoCapitalize="none"
+                                    />
+                                </View>
+                            ))}
+                            <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent, marginTop: 10 }]} onPress={() => addCursoAula(mIdx)}>
+                                <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                                <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR AULA</Text>
+                            </TouchableOpacity>
+                        </View>
+                    ))}
+                    <TouchableOpacity style={[styles.addItemBtn, { borderColor: theme.accent, marginTop: 10 }]} onPress={addCursoModulo}>
+                        <MaterialCommunityIcons name="plus" size={16} color={theme.accent} />
+                        <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '900' }}>ADICIONAR MÓDULO</Text>
+                    </TouchableOpacity>
+                    </>
+                    )}
 
                     <View style={styles.formActions}>
                         <TouchableOpacity style={[styles.cancelBtn, { borderColor: theme.border }]} onPress={backToList}>
@@ -1310,6 +1624,10 @@ const styles = StyleSheet.create({
 
     coachOption: { flex: 1, paddingVertical: 12, borderRadius: 10, borderWidth: 1, alignItems: 'center' },
     subsectionDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 24, marginBottom: 16 },
+
+    formTabsRow: { flexDirection: 'row', width: '100%', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', marginTop: 6, marginBottom: 20 },
+    formTabBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
+    formTabDot: { width: 6, height: 6, borderRadius: 3, marginLeft: 2 },
     
     capaPreviewGrande: { width: 80, height: 106, borderRadius: 10, borderWidth: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
 

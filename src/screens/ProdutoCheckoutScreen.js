@@ -7,6 +7,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
+import { WebView } from 'react-native-webview';
 
 const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
@@ -34,6 +35,26 @@ function formatTelefone(v) {
 
 function formatBRL(v) {
     return Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+// 🔥 VÍDEO DE APRESENTAÇÃO — aceita link do YouTube (qualquer formato, inclusive
+// Shorts) ou um link de embed já pronto (ex: iframe do Cloudflare Stream),
+// mesmo padrão de extração de ID usado no VideoPlayerScreen.js.
+function getYouTubeId(str) {
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/i;
+    const match = (str || '').match(regExp);
+    return match ? match[1] : null;
+}
+
+function getVideoEmbedUrl(url) {
+    if (!url) return null;
+    const isYouTube = url.includes('youtube.com') || url.includes('youtu.be');
+    if (isYouTube) {
+        const id = getYouTubeId(url);
+        return id ? `https://www.youtube.com/embed/${id}?rel=0&modestbranding=1&playsinline=1` : url;
+    }
+    // Link de embed pronto (Cloudflare Stream ou outro) — usa direto como src.
+    return url;
 }
 
 // 🔥 Prova social — formata a data real da compra em texto relativo
@@ -283,6 +304,8 @@ export default function ProdutoCheckoutScreen({ route }) {
     const valorTotal = produto.valor + valorBumps;
 
     const beneficiosList = (produto.beneficios || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    const videoEmbedUrl = getVideoEmbedUrl(produto.videoUrl);
+    const videoVertical = produto.videoOrientacao !== 'horizontal'; // padrão: 9:16, a mais usada
     let imagensExtra = [];
     try {
         imagensExtra = produto.imagensExtra ? JSON.parse(produto.imagensExtra) : [];
@@ -342,6 +365,32 @@ export default function ProdutoCheckoutScreen({ route }) {
 
                             {produto.descricao ? <Text style={styles.heroDesc}>{produto.descricao}</Text> : null}
                         </View>
+
+                        {videoEmbedUrl && (
+                            <View>
+                                <Text style={styles.previaLabel}>VEJA DO QUE SE TRATA</Text>
+                                <View style={[styles.videoWrapper, videoVertical ? styles.videoWrapperVertical : styles.videoWrapperHorizontal]}>
+                                    {isWeb ? (
+                                        <iframe
+                                            src={videoEmbedUrl}
+                                            style={{ width: '100%', height: '100%', border: 'none' }}
+                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                                            allowFullScreen
+                                        />
+                                    ) : (
+                                        <WebView
+                                            style={{ flex: 1, backgroundColor: '#000' }}
+                                            source={{ uri: videoEmbedUrl }}
+                                            javaScriptEnabled
+                                            domStorageEnabled
+                                            allowsFullscreenVideo
+                                            allowsInlineMediaPlayback
+                                            mediaPlaybackRequiresUserAction={false}
+                                        />
+                                    )}
+                                </View>
+                            </View>
+                        )}
 
                         {beneficiosList.length > 0 && (
                             <View style={styles.beneficiosBox}>
@@ -613,6 +662,19 @@ export default function ProdutoCheckoutScreen({ route }) {
                                                         </Text>
                                                     </TouchableOpacity>
                                                 )}
+                                                {/* 🔥 CURSO / ÁREA DE MEMBROS — só aparece quando esse item tem curso configurado */}
+                                                {!!item.cursoToken && (
+                                                    <TouchableOpacity
+                                                        onPress={() => handleAcessarItem(`${SITE_URL}/ProdutoCurso?token=${item.cursoToken}`)}
+                                                        activeOpacity={0.85}
+                                                        style={[styles.entrarGrupoBtn, { backgroundColor: '#C4B5FD' }]}
+                                                    >
+                                                        <MaterialCommunityIcons name="school-outline" size={20} color="#1E1030" />
+                                                        <Text style={[styles.submitBtnText, { color: '#1E1030' }]} numberOfLines={1}>
+                                                            ACESSAR MEU CURSO
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                )}
                                             </View>
                                         ))}
                                     </View>
@@ -670,6 +732,10 @@ const styles = StyleSheet.create({
 
     previaLabel: { color: '#666', fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 10 },
     previaImg: { width: 130, height: 175, borderRadius: 10, backgroundColor: '#111015', borderWidth: 1, borderColor: '#1c1922' },
+
+    videoWrapper: { width: '100%', borderRadius: 16, overflow: 'hidden', backgroundColor: '#000', borderWidth: 1, borderColor: '#1c1922' },
+    videoWrapperVertical: { aspectRatio: 9 / 16, maxWidth: 360, alignSelf: 'center' },
+    videoWrapperHorizontal: { aspectRatio: 16 / 9 },
 
     antesDepoisCard: { backgroundColor: '#111015', borderRadius: 16, borderWidth: 1, borderColor: '#1c1922', padding: 14, marginBottom: 12 },
     antesDepoisRow: { flexDirection: 'row', gap: 10 },
