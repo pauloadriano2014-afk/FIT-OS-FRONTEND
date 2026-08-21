@@ -476,13 +476,20 @@ export default function ProdutoCheckoutScreen({ route }) {
                                                                 name={marcado ? 'checkbox-marked' : 'checkbox-blank-outline'}
                                                                 size={24}
                                                                 color={marcado ? MAIN_COLOR : '#555'}
-                                                                style={{ marginTop: 2 }}
+                                                                style={styles.bumpCheckbox}
                                                             />
+                                                            <View style={styles.bumpThumbBox}>
+                                                                {item.capaUrl ? (
+                                                                    <Image source={{ uri: item.capaUrl }} style={styles.bumpThumbImg} />
+                                                                ) : (
+                                                                    <MaterialCommunityIcons name="book-open-variant" size={20} color={MAIN_COLOR} />
+                                                                )}
+                                                            </View>
                                                             <View style={{ flex: 1 }}>
-                                                                <Text style={styles.bumpTitle}>
-                                                                    Sim! Quero adicionar {item.nome} por apenas <Text style={{ color: MAIN_COLOR }}>R$ {formatBRL(item.valor)}</Text>
-                                                                </Text>
+                                                                <Text style={styles.bumpEyebrow}>ADICIONAR AO PEDIDO</Text>
+                                                                <Text style={styles.bumpTitle}>{item.nome}</Text>
                                                                 {item.descricao ? <Text style={styles.bumpDesc}>{item.descricao}</Text> : null}
+                                                                <Text style={styles.bumpPrice}>+ R$ {formatBRL(item.valor)}</Text>
                                                             </View>
                                                         </View>
                                                     </TouchableOpacity>
@@ -494,8 +501,9 @@ export default function ProdutoCheckoutScreen({ route }) {
                                     <View style={styles.investimentoHeader}>
                                         <Text style={styles.investimentoLabel}>TOTAL A PAGAR</Text>
                                         <Text style={styles.investimentoValor}>R$ {formatBRL(valorTotal)}</Text>
+                                        <Text style={styles.investimentoParcelas}>ou 12x de R$ {formatBRL(valorTotal / 12)} no cartão</Text>
                                     </View>
-                                    
+
                                     <Text style={styles.formSectionSubtitle}>Preencha seus dados de acesso:</Text>
 
                                     <Text style={styles.inputLabel}>Nome completo</Text>
@@ -517,6 +525,7 @@ export default function ProdutoCheckoutScreen({ route }) {
                                             {submitting ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.submitBtnText}>GERAR PIX DE R$ {formatBRL(valorTotal)}</Text>}
                                         </LinearGradient>
                                     </TouchableOpacity>
+                                    <Text style={styles.parcelasHelper}>ou pague em até 12x de R$ {formatBRL(valorTotal / 12)} no cartão, na próxima etapa</Text>
                                 </>
                             )}
 
@@ -685,20 +694,27 @@ const styles = StyleSheet.create({
     securityDesc: { color: '#888', fontSize: 11, paddingRight: 20 },
 
     modernFormCard: { backgroundColor: '#111015', borderRadius: 24, borderWidth: 1, borderColor: '#1c1922', padding: 24 },
-    investimentoHeader: { alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#1c1922', paddingBottom: 16, marginBottom: 16, marginTop: 10 },
+    investimentoHeader: { alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#1c1922', paddingBottom: 18, marginBottom: 20, marginTop: 10 },
     investimentoLabel: { color: '#666', fontSize: 10, fontWeight: '900', letterSpacing: 1 },
     investimentoValor: { color: '#FFF', fontSize: 34, fontWeight: '900', marginTop: 4 },
-    formSectionSubtitle: { color: '#AAA', fontSize: 13, fontWeight: '700', marginBottom: 5 },
+    investimentoParcelas: { color: '#888', fontSize: 12, fontWeight: '600', marginTop: 6 },
+    formSectionSubtitle: { color: '#AAA', fontSize: 13, fontWeight: '700', marginBottom: 8 },
+    parcelasHelper: { color: '#555', fontSize: 11, textAlign: 'center', marginTop: 12, lineHeight: 16 },
 
     // Order Bump Estilos
-    bumpCard: { backgroundColor: 'rgba(139,92,246,0.05)', borderRadius: 16, borderWidth: 2, borderColor: '#2A2633', padding: 16, marginBottom: 24, borderStyle: 'dashed' },
+    bumpCard: { backgroundColor: 'rgba(139,92,246,0.05)', borderRadius: 18, borderWidth: 2, borderColor: '#2A2633', padding: 18, marginBottom: 14, borderStyle: 'dashed' },
     bumpCardActive: { borderColor: MAIN_COLOR, backgroundColor: 'rgba(139,92,246,0.12)', borderStyle: 'solid' },
     bumpHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#2A2633', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, marginBottom: 12, marginLeft: -4, marginTop: -24 },
-    bumpSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#2A2633', borderRadius: 8, marginBottom: 12 },
+    bumpSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#2A2633', borderRadius: 8, marginBottom: 16 },
     bumpHeaderTitle: { color: '#FFF', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-    bumpContentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-    bumpTitle: { color: '#FFF', fontSize: 13, fontWeight: '800', lineHeight: 18, marginBottom: 4 },
-    bumpDesc: { color: '#999', fontSize: 11, lineHeight: 16 },
+    bumpContentRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    bumpCheckbox: { marginTop: 3 },
+    bumpThumbBox: { width: 44, height: 58, borderRadius: 6, backgroundColor: '#060608', borderWidth: 1, borderColor: '#1c1922', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+    bumpThumbImg: { width: '100%', height: '100%', resizeMode: 'cover' },
+    bumpEyebrow: { color: '#8B7FA8', fontSize: 9, fontWeight: '900', letterSpacing: 0.8, marginBottom: 5 },
+    bumpTitle: { color: '#FFF', fontSize: 14, fontWeight: '800', lineHeight: 19, marginBottom: 5 },
+    bumpDesc: { color: '#999', fontSize: 12, lineHeight: 18, marginBottom: 9 },
+    bumpPrice: { color: MAIN_COLOR, fontSize: 14, fontWeight: '900' },
 
     modernFormTitle: { color: '#FFF', fontSize: 16, fontWeight: '900', textAlign: 'center', marginBottom: 10 },
     modernPixHelper: { color: '#888', fontSize: 13, textAlign: 'center', lineHeight: 18, marginBottom: 20 },

@@ -7,9 +7,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Alert, Platform } from 'react-native';
-import {
-    calcularRegioesAtivas, gerarSvgMarkup,
-} from './muscleMap';
 
 const METODOS = [
     { nome: 'REST-PAUSE', desc: 'Faça uma pausa curta (15 a 20s) e continue até a falha.' },
@@ -22,31 +19,6 @@ const METODOS = [
 function musculosTexto(valor) {
     if (!valor) return '';
     return Array.isArray(valor) ? valor.join(', ') : String(valor);
-}
-
-function renderDiagrama(ex) {
-    const { principalFrente, principalCostas, secundarioFrente, secundarioCostas } =
-        calcularRegioesAtivas(ex.muscPrincipal, ex.muscSecundario);
-    const temFrente = principalFrente.size > 0 || secundarioFrente.size > 0;
-    const temCostas = principalCostas.size > 0 || secundarioCostas.size > 0;
-    if (!temFrente && !temCostas) return '';
-
-    const partes = [];
-    if (temFrente) {
-        partes.push(`
-            <div class="mapa-view">
-                ${gerarSvgMarkup('frente', principalFrente, secundarioFrente, { width: 78, height: 213 })}
-                <div class="mapa-label">FRENTE</div>
-            </div>`);
-    }
-    if (temCostas) {
-        partes.push(`
-            <div class="mapa-view">
-                ${gerarSvgMarkup('costas', principalCostas, secundarioCostas, { width: 78, height: 213 })}
-                <div class="mapa-label">COSTAS</div>
-            </div>`);
-    }
-    return `<div class="mapa-wrap">${partes.join('')}</div>`;
 }
 
 function renderExercicio(ex, idx) {
@@ -64,7 +36,6 @@ function renderExercicio(ex, idx) {
                 ${secundario ? `<div class="ex-musc"><span class="musc-label secundario">Secundário:</span> ${secundario}</div>` : ''}
                 ${ex.orientacao ? `<div class="ex-orientacao">» ${ex.orientacao}</div>` : ''}
             </div>
-            ${renderDiagrama(ex)}
         </div>`;
 }
 
@@ -136,10 +107,6 @@ body { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#0a0a
 .musc-label.principal { color:#8B5CF6; font-weight:700; }
 .musc-label.secundario { color:#4DE38F; font-weight:700; }
 .ex-orientacao { font-size:9.5px; color:#888; font-style:italic; margin-top:5px; line-height:1.5; }
-
-.mapa-wrap { display:flex; gap:8px; flex-shrink:0; }
-.mapa-view { text-align:center; }
-.mapa-label { font-size:6.5px; color:#666; font-weight:900; letter-spacing:0.5px; margin-top:2px; }
 
 .footer { margin-top:24px; padding:14px 0; border-top:1px solid #1e1e1e; display:flex; justify-content:space-between; }
 .footer-brand { font-size:8px; color:#444; letter-spacing:1px; text-transform:uppercase; }

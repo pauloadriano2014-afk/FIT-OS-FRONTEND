@@ -12,7 +12,6 @@ import {
     TextInput, ActivityIndicator, Platform, Linking, SafeAreaView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import MapaMuscular from '../components/MapaMuscular';
 import { generateTreinoPDF } from '../utils/treinoPdfUtils';
 
 const API_BASE = 'https://fitos-final.onrender.com';
@@ -287,8 +286,6 @@ export default function ProdutoTreinoScreen({ route }) {
                                                         </Text>
                                                     )}
                                                     {!!ex.orientacao && <Text style={styles.exOrientacao}>» {ex.orientacao}</Text>}
-
-                                                    <MapaMuscular muscPrincipal={ex.muscPrincipal} muscSecundario={ex.muscSecundario} />
 
                                                     <View style={{ flexDirection: 'row', gap: 10, marginTop: 12, alignItems: 'center' }}>
                                                         {!!ex.videoUrl && (

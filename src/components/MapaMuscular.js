@@ -1,23 +1,20 @@
 // src/components/MapaMuscular.js
-// 🔥 Diagrama muscular vetorial (frente/costas) — desenhado com react-native-svg
-// a partir de dados 100% locais (nenhuma imagem externa, nenhuma IA geradora
-// de imagem envolvida). As coordenadas ficam em src/utils/muscleMap.js, o
-// mesmo arquivo usado pelo gerador de PDF, então a tela e o PDF mostram
-// exatamente o mesmo desenho: 1 silhueta contínua (sempre visível, sem
-// bordas) + as regiões musculares realmente trabalhadas "pintadas" por cima.
+// 🔥 Diagrama muscular (frente/costas) — desenhado com react-native-svg a
+// partir do atlas anatômico real em src/utils/muscleAtlas.json (mesma fonte
+// usada pelo gerador de PDF, então tela e PDF mostram exatamente o mesmo
+// desenho). Ver o comentário de atribuição no topo de muscleMap.js.
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Circle, Ellipse, Path } from 'react-native-svg';
+import Svg, { G, Path, Rect } from 'react-native-svg';
 import {
-    BASE_SHAPES, VIEW_BOX, COR_BASE,
-    calcularRegioesAtivas, overlaysAtivos, COR_PRINCIPAL, COR_SECUNDARIO,
+    VIEW_BOX, COR_BASE,
+    calcularRegioesAtivas, overlaysAtivos, corpoBase, COR_PRINCIPAL, COR_SECUNDARIO,
 } from '../utils/muscleMap';
 
-function Forma({ forma, fill }) {
-    const { tipo, attrs } = forma;
-    if (tipo === 'circle') return <Circle cx={attrs.cx} cy={attrs.cy} r={attrs.r} fill={fill} />;
-    if (tipo === 'ellipse') return <Ellipse cx={attrs.cx} cy={attrs.cy} rx={attrs.rx} ry={attrs.ry} fill={fill} />;
-    return <Path d={attrs.d} fill={fill} />;
+function GrupoSvg({ grupo, fill }) {
+    if (!grupo || !grupo.paths?.length) return null;
+    const paths = grupo.paths.map((p, i) => <Path key={i} d={p.d} fill={fill} />);
+    return grupo.transform ? <G transform={grupo.transform}>{paths}</G> : <>{paths}</>;
 }
 
 function Corpo({ view, principalSet, secundarioSet, width, height, label }) {
@@ -25,8 +22,9 @@ function Corpo({ view, principalSet, secundarioSet, width, height, label }) {
     return (
         <View style={{ alignItems: 'center' }}>
             <Svg width={width} height={height} viewBox={`0 0 ${VIEW_BOX.w} ${VIEW_BOX.h}`}>
-                {BASE_SHAPES.map((forma, i) => <Forma key={`base-${i}`} forma={forma} fill={COR_BASE} />)}
-                {overlays.map((forma, i) => <Forma key={`ov-${i}`} forma={forma} fill={forma.cor} />)}
+                <Rect x={0} y={0} width={VIEW_BOX.w} height={VIEW_BOX.h} fill="#141414" rx={10} />
+                <GrupoSvg grupo={corpoBase(view)} fill={COR_BASE} />
+                {overlays.map((g, i) => <GrupoSvg key={i} grupo={g} fill={g.cor} />)}
             </Svg>
             <Text style={styles.viewLabel}>{label}</Text>
         </View>
@@ -34,8 +32,8 @@ function Corpo({ view, principalSet, secundarioSet, width, height, label }) {
 }
 
 // muscPrincipal/muscSecundario: array de strings (ou string única) — mesmo
-// formato já salvo em treinoPrograma. width/height controlam o tamanho de
-// CADA vista exibida (se as duas vistas forem necessárias, ficam lado a lado).
+// formato já salvo em treinoPrograma. width controla o tamanho de CADA vista
+// exibida (se as duas vistas forem necessárias, ficam lado a lado).
 export default function MapaMuscular({ muscPrincipal, muscSecundario, width = 92 }) {
     const height = Math.round(width * VIEW_BOX.h / VIEW_BOX.w);
     const { principalFrente, principalCostas, secundarioFrente, secundarioCostas } =
@@ -45,7 +43,7 @@ export default function MapaMuscular({ muscPrincipal, muscSecundario, width = 92
     const temCostas = principalCostas.size > 0 || secundarioCostas.size > 0;
 
     // Sem nenhum músculo reconhecido (ex: exercício cardio/aquecimento) —
-    // não faz sentido mostrar um boneco totalmente cinza, então não renderiza.
+    // não faz sentido mostrar um boneco totalmente neutro, então não renderiza.
     if (!temFrente && !temCostas) return null;
 
     return (
