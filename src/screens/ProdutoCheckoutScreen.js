@@ -653,8 +653,8 @@ const styles = StyleSheet.create({
     heroCompact: { alignItems: 'center', marginBottom: 10 },
     coverBox: { width: 160, height: 210, backgroundColor: 'rgba(139,92,246,0.1)', borderRadius: 12, borderWidth: 1, borderColor: '#1c1922', justifyContent: 'center', alignItems: 'center', marginBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOffset: {width:0, height:10}, shadowOpacity: 0.5, shadowRadius: 20, elevation: 10 },
     coverImg: { width: '100%', height: '100%', resizeMode: 'cover' },
-    heroTitle: { color: '#FFF', fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 10 },
-    heroDesc: { color: '#AAA', fontSize: 14, lineHeight: 22, textAlign: 'center', paddingHorizontal: 10, marginTop: 12 },
+    heroTitle: { color: '#FFF', fontSize: 26, fontWeight: '900', textAlign: 'center', lineHeight: 32, letterSpacing: 0.2, marginBottom: 12 },
+    heroDesc: { color: '#B5B5B5', fontSize: 14.5, lineHeight: 24, textAlign: 'left', maxWidth: 480, alignSelf: 'center', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#1c1922' },
 
     priceBadgeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
     precoDeText: { color: '#777', fontSize: 15, textDecorationLine: 'line-through' },
