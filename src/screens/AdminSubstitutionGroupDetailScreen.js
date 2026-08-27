@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import FoodSearchPanel from '../components/shared/FoodSearchPanel';
 import { BASE_URL } from '../constants/foodManagerConstants';
+import { authHeaders } from '../utils/authToken';
 
 // ─── MODAL DE ADICIONAR ALIMENTO (usa FoodSearchPanel) ───────────────────────
 function AddFoodModal({ visible, onClose, onAdd, groupFoodIds, coachId, theme }) {
@@ -66,7 +67,7 @@ export default function AdminSubstitutionGroupDetailScreen({ route, navigation }
         try {
             const res = await fetch(`${BASE_URL}/api/food/substitution-groups/${initialGroup.id}/members`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ coachId, foodId: food.id }),
             });
             if (!res.ok) throw new Error('Erro');
@@ -94,7 +95,7 @@ export default function AdminSubstitutionGroupDetailScreen({ route, navigation }
             try {
                 const res = await fetch(
                     `${BASE_URL}/api/food/substitution-groups/${initialGroup.id}/members?coachId=${coachId}&foodId=${food.id}`,
-                    { method: 'DELETE' }
+                    { method: 'DELETE', headers: { ...(await authHeaders()) } }
                 );
                 if (!res.ok) throw new Error('Erro');
                 setMembers(prev => prev.filter(m => m.id !== food.id));

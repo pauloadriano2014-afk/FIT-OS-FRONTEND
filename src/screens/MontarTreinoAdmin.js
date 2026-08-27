@@ -19,6 +19,7 @@ import WorkoutSettingsCard from '../components/MontarTreino/WorkoutSettingsCard'
 import MenstrualAlertCard from '../components/MontarTreino/MenstrualAlertCard';
 import { Modal } from 'react-native';
 import { generateWorkoutPDF } from '../utils/pdfGenerator';
+import { authHeaders } from '../utils/authToken';
 
 import RaioXCard from '../components/MontarTreino/RaioXCard';
 import DaySelectorMobile from '../components/MontarTreino/DaySelectorMobile';
@@ -105,7 +106,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
             if (!savedUser) return;
             const admin = JSON.parse(savedUser);
             
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/techniques?coachId=${admin.id}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/techniques?coachId=${admin.id}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) setTecnicasLaboratorio(await res.json());
         } catch (e) { console.error("Erro ao buscar técnicas:", e); }
     }, []);
@@ -155,7 +158,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         if (aluno && aluno.id && !state.isTemplateMode && !isRouteCorrupted) {
             const fetchDadosRaioX = async () => {
                 try {
-                    const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`);
+                    const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${Date.now()}`, {
+                        headers: { ...(await authHeaders()) },
+                    });
                     const freshUser = resUser.ok ? await resUser.json() : aluno;
                     const taMenstruada = !!freshUser?.isMenstruating;
                     setAlunoIsMenstruating(taMenstruada);
@@ -172,7 +177,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                         };
                     }
                     if (!foundAnamnese) {
-                        const resAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`);
+                        const resAnamnese = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}&t=${Date.now()}`, {
+                            headers: { ...(await authHeaders()) },
+                        });
                         if (resAnamnese.ok) {
                             const data = await resAnamnese.json();
                             const ana = Array.isArray(data) ? data[0] : data;
@@ -202,8 +209,8 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         try {
             if (setters.setIntensityMultiplier) setters.setIntensityMultiplier(1.0);
             if (setters.setIntensityEndDate) setters.setIntensityEndDate(null);
-            let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isMenstruating: false, menstruationStartDate: null }) });
-            if (!res.ok) res = await fetch('https://fitos-final.onrender.com/api/admin/user', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: aluno.id, isMenstruating: false, menstruationStartDate: null }) });
+            let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify({ isMenstruating: false, menstruationStartDate: null }) });
+            if (!res.ok) res = await fetch('https://fitos-final.onrender.com/api/admin/user', { method: 'PUT', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify({ id: aluno.id, isMenstruating: false, menstruationStartDate: null }) });
             setAlunoIsMenstruating(false); setDbDeloadSynced(false); hasForcedDeload.current = false;
         } catch (error) {
             console.log("Erro ao cancelar deload:", error);
@@ -284,7 +291,9 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         if (!aluno || !aluno.id) return;
         setIsSyncingCargas(true);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${aluno.id}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${aluno.id}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (!res.ok) throw new Error("Erro na API");
             const historyList = await res.json();
             if (!Array.isArray(historyList) || historyList.length === 0) { alert("Nenhum histórico finalizado."); setIsSyncingCargas(false); return; }

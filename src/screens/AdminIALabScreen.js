@@ -10,6 +10,7 @@ import * as Clipboard from 'expo-clipboard';
 import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage'; 
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 export default function AdminIALabScreen({ navigation }) {
     const { theme } = useTheme();
@@ -53,7 +54,9 @@ export default function AdminIALabScreen({ navigation }) {
             setIsAdminAdri(isAdriLogged);
 
             const t = Date.now();
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${t}`, {
+                headers: { ...(await authHeaders()) },
+            });
             
             if (res.ok) {
                 const data = await res.json();
@@ -162,7 +165,7 @@ export default function AdminIALabScreen({ navigation }) {
 
             const res = await fetch('https://fitos-final.onrender.com/api/ai/evaluate-checkin', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     isFromLab: true, 
                     labUserId: selectedAluno ? selectedAluno.id : null,
@@ -222,7 +225,7 @@ export default function AdminIALabScreen({ navigation }) {
 
                 const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                     body: JSON.stringify({
                         userId: selectedAluno.id,
                         coachFeedback: resultText,

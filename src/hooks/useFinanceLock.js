@@ -17,6 +17,7 @@
 import { useState, useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 const PAYMENT_CLAIM_GRACE_DAYS = 2;
 
@@ -110,7 +111,9 @@ export function useFinanceLock() {
 
             setFinanceUserId(uid);
 
-            const res = await fetch(`https://fitos-final.onrender.com/api/user/home?userId=${uid}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/user/home?userId=${uid}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (!res.ok) { setFinanceLoading(false); return null; }
 
             const data = await res.json();
@@ -133,7 +136,7 @@ export function useFinanceLock() {
         try {
             const res = await fetch('https://fitos-final.onrender.com/api/user/claim-payment', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ userId: financeUserId })
             });
 

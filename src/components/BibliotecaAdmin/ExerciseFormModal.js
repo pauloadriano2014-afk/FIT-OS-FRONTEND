@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import { categories, subCategoriesMap } from '../../data/bibliotecaData';
+import { authHeaders } from '../../utils/authToken';
 
 const ENVIRONMENTS = [
   { id: 'UNIVERSAL',       label: 'Universal',        icon: 'earth',           desc: 'Disponível em todos os ambientes' },
@@ -72,12 +73,14 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
                 femaleFocus: initialData?.femaleFocus || '', // 🔥 NOVO
             });
 
-            AsyncStorage.getItem('user').then(userJson => {
+            AsyncStorage.getItem('user').then(async userJson => {
                 if (userJson) {
                     const adminId = JSON.parse(userJson).id;
                     setLoadingExercises(true);
-                    
-                    fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}`)
+
+                    fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}`, {
+                        headers: { ...(await authHeaders()) },
+                    })
                         .then(res => res.json())
                         .then(data => { 
                             if (Array.isArray(data)) {
@@ -158,7 +161,7 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
             } else {
                 formData.append('file', { uri: fileToUpload.uri, name: fileToUpload.name || 'video.mp4', type: fileToUpload.mimeType || 'video/mp4' });
             }
-            const response = await fetch('https://fitos-final.onrender.com/api/upload', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' } });
+            const response = await fetch('https://fitos-final.onrender.com/api/upload', { method: 'POST', body: formData, headers: { 'Accept': 'application/json', ...(await authHeaders()) } });
             const data = await response.json();
             if (response.ok && data.videoUrl) {
                 setFormExercise({ ...formExercise, videoUrl: data.videoUrl });
@@ -180,7 +183,7 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
             const isEditing = !!formExercise.id;
             const res = await fetch('https://fitos-final.onrender.com/api/exercise', {
                 method: isEditing ? 'PUT' : 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ ...formExercise, adminId }),
             });
             if (res.ok) {

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 export function useBibliotecaAdmin() {
     const [exercises, setExercises] = useState([]);
@@ -25,7 +26,9 @@ export function useBibliotecaAdmin() {
                 setLoading(true);
             }
 
-            const res = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             const data = await res.json();
 
             if (Array.isArray(data)) {
@@ -47,7 +50,7 @@ export function useBibliotecaAdmin() {
     const deleteItem = async (id) => {
         try {
             const url = `https://fitos-final.onrender.com/api/exercise?id=${id}`;
-            const res = await fetch(url, { method: 'DELETE' });
+            const res = await fetch(url, { method: 'DELETE', headers: { ...(await authHeaders()) } });
 
             if (res.ok) {
                 setExercises(prev => {

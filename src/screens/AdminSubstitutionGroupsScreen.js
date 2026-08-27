@@ -9,6 +9,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -120,7 +121,9 @@ export default function AdminSubstitutionGroupsScreen({ navigation }) {
         if (!coachId) return;
         setLoading(true);
         try {
-            const res  = await fetch(`${BASE_URL}/api/food/substitution-groups?coachId=${coachId}`);
+            const res  = await fetch(`${BASE_URL}/api/food/substitution-groups?coachId=${coachId}`, {
+                headers: { ...(await authHeaders()) },
+            });
             const data = await res.json();
             setGroups(Array.isArray(data) ? data : []);
         } catch (e) {
@@ -138,7 +141,7 @@ export default function AdminSubstitutionGroupsScreen({ navigation }) {
                 // Editar
                 const res = await fetch(`${BASE_URL}/api/food/substitution-groups/${editingGroup.id}`, {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                     body: JSON.stringify({ coachId, name, description }),
                 });
                 if (!res.ok) throw new Error('Erro');
@@ -148,7 +151,7 @@ export default function AdminSubstitutionGroupsScreen({ navigation }) {
                 // Criar
                 const res = await fetch(`${BASE_URL}/api/food/substitution-groups`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                     body: JSON.stringify({ coachId, name, description }),
                 });
                 if (!res.ok) throw new Error('Erro');
@@ -166,7 +169,7 @@ export default function AdminSubstitutionGroupsScreen({ navigation }) {
         const msg = `Excluir o grupo "${group.name}"? Os alimentos não serão excluídos, apenas o grupo.`;
         const doDelete = async () => {
             try {
-                const res = await fetch(`${BASE_URL}/api/food/substitution-groups/${group.id}?coachId=${coachId}`, { method: 'DELETE' });
+                const res = await fetch(`${BASE_URL}/api/food/substitution-groups/${group.id}?coachId=${coachId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (!res.ok) throw new Error('Erro');
                 setGroups(prev => prev.filter(g => g.id !== group.id));
             } catch { Alert.alert('Erro', 'Não foi possível excluir.'); }

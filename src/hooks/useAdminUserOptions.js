@@ -5,6 +5,7 @@ import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { fetchAndProcessRaioxData } from '../utils/raioxUtils';
+import { authHeaders } from '../utils/authToken';
 
 const formatToBRDate = (isoString) => {
     if (!isoString) return '';
@@ -124,12 +125,13 @@ export default function useAdminUserOptions(aluno, navigation) {
         const t = Date.now();
         setLoadingPaflix(true);
         try {
+            const authHdrs = await authHeaders();
             const [resWorkouts, resUser, resPaflix, resAccess, resAlerts] = await Promise.all([
-                fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${t}`),
-                fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`),
-                fetch(`https://fitos-final.onrender.com/api/contents?t=${t}`),
-                fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`),
-                fetch(`https://fitos-final.onrender.com/api/admin/alerts?userId=${aluno.id}&t=${t}`)
+                fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno.id}&t=${t}`, { headers: { ...authHdrs } }),
+                fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`, { headers: { ...authHdrs } }),
+                fetch(`https://fitos-final.onrender.com/api/contents?t=${t}`, { headers: { ...authHdrs } }),
+                fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${aluno.id}`, { headers: { ...authHdrs } }),
+                fetch(`https://fitos-final.onrender.com/api/admin/alerts?userId=${aluno.id}&t=${t}`, { headers: { ...authHdrs } })
             ]);
 
             let activeWk = []; let archivedWk = [];
@@ -208,7 +210,7 @@ export default function useAdminUserOptions(aluno, navigation) {
         try {
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ studentModules: newModules }),
             });
             if (!res.ok) throw new Error();
@@ -241,7 +243,7 @@ export default function useAdminUserOptions(aluno, navigation) {
         try {
             const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ anamnesePendente: true, dietModule: shouldEnableDiet }),
             });
             if (!res.ok) throw new Error();
@@ -259,7 +261,7 @@ export default function useAdminUserOptions(aluno, navigation) {
         const payload = { strategyNotes, weeklyChecks };
         if (newDate) payload.lastContactDate = newDate;
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(payload) });
             if (!res.ok) throw new Error();
             if (newDate) setLastContactDate(newDate);
             if (Platform.OS === 'web') window.alert('Acompanhamento atualizado!');
@@ -283,7 +285,7 @@ export default function useAdminUserOptions(aluno, navigation) {
     const handleChangePlan = async (newPlan) => {
         setUserPlan(newPlan);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ plan: newPlan }) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ plan: newPlan }) });
             if (!res.ok) throw new Error();
             if (Platform.OS === 'web') window.alert('Sucesso! Esteira atualizada.');
             fetchAllData();
@@ -294,7 +296,7 @@ export default function useAdminUserOptions(aluno, navigation) {
         const newValue = !isDietTabVisible;
         setIsDietTabVisible(newValue);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ dietModule: newValue }) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ dietModule: newValue }) });
             if (!res.ok) throw new Error();
         } catch { setIsDietTabVisible(!newValue); Alert.alert('Erro','Não foi possível alterar.'); }
     };
@@ -303,7 +305,7 @@ export default function useAdminUserOptions(aluno, navigation) {
         const newValue = !isRunningModule;
         setIsRunningModule(newValue);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ runningModule: newValue }) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ runningModule: newValue }) });
             if (!res.ok) throw new Error();
         } catch { setIsRunningModule(!newValue); Alert.alert('Erro','Não foi possível alterar.'); }
     };
@@ -323,13 +325,13 @@ export default function useAdminUserOptions(aluno, navigation) {
                     const imageUri = Platform.OS === 'ios' ? fileToUpload.uri.replace('file://','') : fileToUpload.uri;
                     formData.append('file', { uri:imageUri, name:'profile.jpg', type:'image/jpeg' });
                 }
-                const uploadRes = await fetch('https://fitos-final.onrender.com/api/upload-image', { method:'POST', body:formData, headers:{'Accept':'application/json'} });
+                const uploadRes = await fetch('https://fitos-final.onrender.com/api/upload-image', { method:'POST', body:formData, headers:{'Accept':'application/json', ...(await authHeaders())} });
                 let uploadData;
                 try { uploadData = await uploadRes.json(); } catch { throw new Error(); }
                 if (!uploadRes.ok) throw new Error();
                 const finalUrl = uploadData.imageUrl || uploadData.url;
                 if (finalUrl) {
-                    const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ photoUrl: finalUrl }) });
+                    const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ photoUrl: finalUrl }) });
                     if (res.ok) { setPhotoUrl(finalUrl); Platform.OS === 'web' ? window.alert('Foto atualizada!') : Alert.alert('Sucesso','Foto atualizada!'); }
                 }
             }
@@ -340,7 +342,7 @@ export default function useAdminUserOptions(aluno, navigation) {
         const newStatus = !currentStatus;
         if (newStatus) setUserAccess(prev => [...prev, contentId]); else setUserAccess(prev => prev.filter(id => id !== contentId));
         try {
-            const res = await fetch('https://fitos-final.onrender.com/api/admin/access', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ userId:aluno.id, contentId, grant:newStatus }) });
+            const res = await fetch('https://fitos-final.onrender.com/api/admin/access', { method:'POST', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ userId:aluno.id, contentId, grant:newStatus }) });
             if (!res.ok) throw new Error();
         } catch {
             if (!newStatus) setUserAccess(prev => [...prev, contentId]); else setUserAccess(prev => prev.filter(id => id !== contentId));
@@ -351,7 +353,7 @@ export default function useAdminUserOptions(aluno, navigation) {
     const handleToggleStatus = async () => {
         const newStatus = !isActiveUser;
         try {
-            await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ active: newStatus }) });
+            await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ active: newStatus }) });
             setIsActiveUser(newStatus);
             Platform.OS === 'web' ? window.alert(`Aluno ${newStatus ? 'ativado' : 'inativado'}!`) : Alert.alert('Sucesso',`Aluno ${newStatus ? 'ativado' : 'inativado'}!`);
         } catch {}
@@ -359,7 +361,7 @@ export default function useAdminUserOptions(aluno, navigation) {
 
     const handleDeleteUser = async () => {
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'DELETE' });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'DELETE', headers:{ ...(await authHeaders()) } });
             if (res.ok) {
                 Platform.OS === 'web' ? window.alert('Aluno removido permanentemente.') : Alert.alert('Excluído','Aluno removido.');
                 navigation.goBack();
@@ -369,20 +371,20 @@ export default function useAdminUserOptions(aluno, navigation) {
 
     const handleSaveEvaluation = async () => {
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ evaluationUrl }) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ evaluationUrl }) });
             if (res.ok) { Platform.OS === 'web' ? window.alert('Dados atualizados.') : Alert.alert('Sucesso','Dados atualizados!'); }
         } catch {}
     };
 
     const handleDeleteWorkout = async (workoutId) => {
-        try { await fetch(`https://fitos-final.onrender.com/api/workout/${workoutId}`, { method:'DELETE', headers:{'Content-Type':'application/json'} }); fetchAllData(); } catch {}
+        try { await fetch(`https://fitos-final.onrender.com/api/workout/${workoutId}`, { method:'DELETE', headers:{'Content-Type':'application/json', ...(await authHeaders())} }); fetchAllData(); } catch {}
     };
 
     const handleToggleArchiveWorkout = async (workout) => {
         const newStatus = !workout.archived;
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/workout/${workout.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ archived: newStatus }) });
-            if (!res.ok) await fetch(`https://fitos-final.onrender.com/api/workout`, { method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id:workout.id, archived:newStatus }) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/workout/${workout.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ archived: newStatus }) });
+            if (!res.ok) await fetch(`https://fitos-final.onrender.com/api/workout`, { method:'PUT', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ id:workout.id, archived:newStatus }) });
             fetchAllData();
         } catch {}
     };
@@ -393,7 +395,7 @@ export default function useAdminUserOptions(aluno, navigation) {
     const handleToggleDisableCheckIn = async () => {
         const newValue = !disableCheckIn;
         setDisableCheckIn(newValue);
-        try { await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ disableCheckIn: newValue }) }); } catch { setDisableCheckIn(!newValue); }
+        try { await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ disableCheckIn: newValue }) }); } catch { setDisableCheckIn(!newValue); }
     };
 
     const handleCheckInDateChange = (text) => setNextCheckInDate(text);
@@ -405,7 +407,7 @@ export default function useAdminUserOptions(aluno, navigation) {
             isoDate = new Date(`${year}-${month}-${day}T12:00:00Z`).toISOString();
         }
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ nextCheckInDate: isoDate }) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ nextCheckInDate: isoDate }) });
             if (res.ok) { Platform.OS === 'web' ? window.alert('Sucesso!') : Alert.alert('Sucesso','Data atualizada!'); }
         } catch {}
     };
@@ -413,14 +415,14 @@ export default function useAdminUserOptions(aluno, navigation) {
     const handleSaveDietGoal = async () => {
         setSavingDiet(true);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ dietGoal }) });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ dietGoal }) });
             if (res.ok) { Platform.OS === 'web' ? window.alert('Estratégia salva!') : Alert.alert('Sucesso','Estratégia salva!'); }
         } catch {} finally { setSavingDiet(false); }
     };
 
     const handleDismissAlert = async (alertId) => {
         setStudentAlerts(prev => prev.filter(a => a.id !== alertId));
-        try { await fetch(`https://fitos-final.onrender.com/api/admin/alerts/${alertId}`, { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ isRead: true }) }); } catch {}
+        try { await fetch(`https://fitos-final.onrender.com/api/admin/alerts/${alertId}`, { method:'PATCH', headers:{'Content-Type':'application/json', ...(await authHeaders())}, body:JSON.stringify({ isRead: true }) }); } catch {}
     };
 
     const handleAbrirRaioxCargas = async () => {

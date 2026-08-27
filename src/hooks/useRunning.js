@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 const API = 'https://fitos-final.onrender.com';
 
@@ -61,7 +62,9 @@ export default function useRunning() {
         setCustomWorkouts(JSON.parse(storedCustoms));
       }
 
-      const res = await fetch(`${API}/api/running/${user.id}?t=${Date.now()}`);
+      const res = await fetch(`${API}/api/running/${user.id}?t=${Date.now()}`, {
+        headers: { ...(await authHeaders()) },
+      });
       if (!res.ok) { setLoading(false); setRefreshing(false); return; }
 
       const data = await res.json();
@@ -110,6 +113,7 @@ export default function useRunning() {
       try {
         const res = await fetch(`${API}/api/running/log/${logId}`, {
           method: 'DELETE',
+          headers: { ...(await authHeaders()) },
         });
         if (res.ok) {
           fetchRunning(); // Recarrega os dados pra atualizar gráficos e listas
@@ -142,7 +146,7 @@ export default function useRunning() {
     try {
       const res = await fetch(`${API}/api/running/anamnese/${anamnese.token}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify(formData),
       });
       if (res.ok) {
@@ -209,7 +213,7 @@ export default function useRunning() {
     try {
       const res = await fetch(`${API}/api/running/log`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({
           userId,
           protocolId: protocol?.id || null, 

@@ -5,6 +5,7 @@ import {
     ActivityIndicator, ScrollView, Platform, Alert, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../utils/authToken';
 
 const API_URL = 'https://fitos-final.onrender.com';
 
@@ -26,7 +27,7 @@ export default function FinancePaymentModal({ visible, onClose, theme, userId, o
         try {
             const res = await fetch(`${API_URL}/api/payments/checkout`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ userId, ...(cpfToSend ? { cpf: cpfToSend } : {}) }),
             });
             const data = await res.json();

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, TextInput, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../../utils/authToken';
 
 export default function WaterTracker({ theme, studentId, weight: initialWeight }) {
     const [consumed, setConsumed] = useState(0);
@@ -30,7 +31,9 @@ export default function WaterTracker({ theme, studentId, weight: initialWeight }
 
                 // 2. Busca progresso do dia no servidor
                 const today = new Date().toISOString().split('T')[0];
-                const res = await fetch(`https://fitos-final.onrender.com/api/user/daily-progress?studentId=${studentId}&date=${today}`);
+                const res = await fetch(`https://fitos-final.onrender.com/api/user/daily-progress?studentId=${studentId}&date=${today}`, {
+                    headers: { ...(await authHeaders()) },
+                });
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.water_ml) setConsumed(data.water_ml);
@@ -59,7 +62,7 @@ export default function WaterTracker({ theme, studentId, weight: initialWeight }
             const today = new Date().toISOString().split('T')[0];
             await fetch('https://fitos-final.onrender.com/api/user/daily-progress', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ studentId, date: today, water_ml: finalAmount })
             });
         } catch (err) { console.log("Erro ao salvar água:", err); }

@@ -5,6 +5,7 @@ import {
   ActivityIndicator, Alert, Platform, Linking, TextInput
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 const API = 'https://fitos-final.onrender.com';
 
@@ -72,20 +73,24 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
       // Busca anamnese de corrida
       const resToken = await fetch(`${API}/api/running/anamnese/generate-token`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId: aluno.id }),
       });
       const tokenData = await resToken.json();
       if (tokenData.link) {
         setAnamneseLink(tokenData.link);
         // Busca os dados preenchidos pelo token
-        const resAnamnese = await fetch(`${API}/api/running/anamnese/${tokenData.token}`);
+        const resAnamnese = await fetch(`${API}/api/running/anamnese/${tokenData.token}`, {
+          headers: { ...(await authHeaders()) },
+        });
         const aData = await resAnamnese.json();
         if (!aData.error) setAnamnese(aData);
       }
 
       // Busca protocolo ativo
-      const resProtocol = await fetch(`${API}/api/running/${aluno.id}`);
+      const resProtocol = await fetch(`${API}/api/running/${aluno.id}`, {
+        headers: { ...(await authHeaders()) },
+      });
       const pData = await resProtocol.json();
       if (pData.protocol) {
         setActiveProtocol(pData);
@@ -136,7 +141,7 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
     try {
       const res = await fetch(`${API}/api/running/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId: aluno.id }),
       });
       const data = await res.json();
@@ -173,7 +178,7 @@ export default function RunningProtocolModal({ visible, onClose, aluno, theme })
         try {
           const res = await fetch(`${API}/api/running/protocol`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
             body: JSON.stringify({
               userId: aluno.id,
               protocolType, // 🔥 Salva o tipo no banco de dados agnóstico

@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAgeFromDate } from '../utils/EvolutionCalculators';
+import { authHeaders } from '../utils/authToken';
 
 export const useEvolutionData = () => {
     const [loading, setLoading] = useState(true);
@@ -19,7 +20,9 @@ export const useEvolutionData = () => {
             if (storedUser) {
                 const user = JSON.parse(storedUser);
                 
-                const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${Date.now()}`);
+                const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${Date.now()}`, {
+                    headers: { ...(await authHeaders()) },
+                });
                 if (resUser.ok) {
                     const freshUser = await resUser.json();
                     const serverUrl = freshUser.evaluationUrl || freshUser.user?.evaluationUrl || null;
@@ -34,11 +37,15 @@ export const useEvolutionData = () => {
                     if (user.gender) setCurrentGender(user.gender.toUpperCase());
                 }
                 
-                const resAssess = await fetch(`https://fitos-final.onrender.com/api/assessment?userId=${user.id}`);
+                const resAssess = await fetch(`https://fitos-final.onrender.com/api/assessment?userId=${user.id}`, {
+                    headers: { ...(await authHeaders()) },
+                });
                 const assessments = await resAssess.json();
                 if (Array.isArray(assessments)) setAssessmentHistory(assessments);
 
-                const resHistory = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
+                const resHistory = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`, {
+                    headers: { ...(await authHeaders()) },
+                });
                 const historyData = await resHistory.json();
                 
                 if (Array.isArray(historyData)) {
@@ -58,7 +65,9 @@ export const useEvolutionData = () => {
                     setWorkoutHistory(processedHistory);
                 }
 
-                const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`);
+                const resCheckins = await fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${Date.now()}`, {
+                    headers: { ...(await authHeaders()) },
+                });
                 if (resCheckins.ok) {
                     const allCheckins = await resCheckins.json();
                     if (Array.isArray(allCheckins)) {

@@ -2,6 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 export default function DisparoNPSModal({ visible, onClose, alunos, theme }) {
     const [selectedIds, setSelectedIds] = useState([]);
@@ -32,7 +33,7 @@ export default function DisparoNPSModal({ visible, onClose, alunos, theme }) {
             // URL alinhada com a sua pasta 'user' no singular
             const res = await fetch('https://fitos-final.onrender.com/api/admin/user/mass-nps', {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ studentIds: selectedIds })
             });
             if (res.ok) {

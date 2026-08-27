@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 // 🔥 Importamos a nossa nova função matemática getAgeAtDate!
 import { getAgeFromDate, getAgeAtDate, calculateBodyFat } from '../utils/calculations';
+import { authHeaders } from '../utils/authToken';
 
 export default function useAdminEvolution(aluno) {
     const [loading, setLoading] = useState(true);
@@ -62,7 +63,7 @@ export default function useAdminEvolution(aluno) {
 
             const safeFetchJSON = async (url) => {
                 try {
-                    const res = await fetch(url);
+                    const res = await fetch(url, { headers: { ...(await authHeaders()) } });
                     if (!res.ok) return null;
                     return await res.json();
                 } catch (e) {
@@ -161,10 +162,10 @@ export default function useAdminEvolution(aluno) {
         if (aluno?.id) loadData(); 
     }, [aluno?.id, loadData]);
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         if (Platform.OS === 'web') {
             if (window.confirm("Tem certeza que deseja apagar esta avaliação?")) {
-                fetch(`https://fitos-final.onrender.com/api/assessment?id=${id}`, { method: 'DELETE' })
+                fetch(`https://fitos-final.onrender.com/api/assessment?id=${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } })
                 .then(() => { setDetailsVisible(false); loadData(); })
                 .catch(e => window.alert("Erro ao excluir: " + e.message));
             }
@@ -173,7 +174,7 @@ export default function useAdminEvolution(aluno) {
                 { text: "Cancelar", style: "cancel" },
                 { text: "Apagar", style: 'destructive', onPress: async () => {
                     try {
-                        await fetch(`https://fitos-final.onrender.com/api/assessment?id=${id}`, { method: 'DELETE' });
+                        await fetch(`https://fitos-final.onrender.com/api/assessment?id=${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                         setDetailsVisible(false); 
                         loadData();
                     } catch(e) { 
@@ -359,10 +360,10 @@ export default function useAdminEvolution(aluno) {
                 ? `https://fitos-final.onrender.com/api/assessment?id=${editingId}` 
                 : 'https://fitos-final.onrender.com/api/assessment';
 
-            const res = await fetch(endpointUrl, { 
-                method: editingId ? 'PUT' : 'POST', 
-                headers: {'Content-Type': 'application/json'}, 
-                body: JSON.stringify(payload) 
+            const res = await fetch(endpointUrl, {
+                method: editingId ? 'PUT' : 'POST',
+                headers: {'Content-Type': 'application/json', ...(await authHeaders())},
+                body: JSON.stringify(payload)
             });
             
             const textResponse = await res.text();
@@ -392,7 +393,8 @@ export default function useAdminEvolution(aluno) {
         try {
             setGeneratingAI(true);
             const res = await fetch(`https://fitos-final.onrender.com/api/assessment/${assessmentId}/generate-ai-report`, {
-                method: 'POST'
+                method: 'POST',
+                headers: { ...(await authHeaders()) }
             });
             const json = await res.json();
 
@@ -422,7 +424,7 @@ export default function useAdminEvolution(aluno) {
             setSavingAIReport(true);
             const res = await fetch(`https://fitos-final.onrender.com/api/assessment/${assessmentId}/generate-ai-report`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify(payload)
             });
             const json = await res.json();

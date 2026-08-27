@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 const API_URL = 'https://fitos-final.onrender.com/api/admin/techniques';
 const SYSTEM_VIDEOS_API_URL = 'https://fitos-final.onrender.com/api/admin/system-technique-videos';
@@ -80,7 +81,9 @@ export default function AdminTechniquesScreen({ navigation }) {
     const fetchTechniques = async (id) => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_URL}?coachId=${id}`);
+            const res = await fetch(`${API_URL}?coachId=${id}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setTechniques(data);
@@ -95,7 +98,9 @@ export default function AdminTechniquesScreen({ navigation }) {
     // 🔥 busca os overrides de vídeo das técnicas fixas do time do coach logado
     const fetchSystemVideos = async (id) => {
         try {
-            const res = await fetch(`${SYSTEM_VIDEOS_API_URL}?coachId=${id}`);
+            const res = await fetch(`${SYSTEM_VIDEOS_API_URL}?coachId=${id}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 const map = {};
@@ -119,7 +124,7 @@ export default function AdminTechniquesScreen({ navigation }) {
         try {
             const res = await fetch(SYSTEM_VIDEOS_API_URL, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ key, videoUrl, coachId })
             });
             if (res.ok) {
@@ -141,7 +146,7 @@ export default function AdminTechniquesScreen({ navigation }) {
         const doRemove = async () => {
             setSavingSystemKey(key);
             try {
-                const res = await fetch(`${SYSTEM_VIDEOS_API_URL}?key=${key}&coachId=${coachId}`, { method: 'DELETE' });
+                const res = await fetch(`${SYSTEM_VIDEOS_API_URL}?key=${key}&coachId=${coachId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (res.ok) {
                     setSystemVideos(prev => { const next = { ...prev }; delete next[key]; return next; });
                     setSystemVideoInputs(prev => ({ ...prev, [key]: '' }));
@@ -211,7 +216,7 @@ export default function AdminTechniquesScreen({ navigation }) {
         try {
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ 
                     id: formData.id, 
                     name: formData.name, 
@@ -243,7 +248,7 @@ export default function AdminTechniquesScreen({ navigation }) {
                 text: "Apagar", style: "destructive",
                 onPress: async () => {
                     try {
-                        const res = await fetch(`${API_URL}?id=${id}&coachId=${coachId}`, { method: 'DELETE' });
+                        const res = await fetch(`${API_URL}?id=${id}&coachId=${coachId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                         if (res.ok) fetchTechniques(coachId);
                         else {
                             const data = await res.json();

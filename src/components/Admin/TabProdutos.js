@@ -8,6 +8,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { PAULO_ID, ADRI_ID } from '../../constants/masterIds';
+import { authHeaders } from '../../utils/authToken';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
@@ -83,7 +84,9 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
     const fetchProdutos = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/produtos`);
+            const res = await fetch(`${API_BASE}/api/admin/produtos`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setProdutos(data.produtos || []);
@@ -104,7 +107,9 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
     const fetchDashboard = useCallback(async () => {
         setLoadingDashboard(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/produtos/dashboard`);
+            const res = await fetch(`${API_BASE}/api/admin/produtos/dashboard`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) setDashboard(await res.json());
         } catch (e) {
             console.log('Erro ao buscar dashboard de produtos', e);
@@ -242,7 +247,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
             const fileType = uriParts[uriParts.length - 1] || 'jpg';
             formData.append('file', { uri, name: `upload_${Date.now()}.${fileType}`, type: `image/${fileType}` });
         }
-        const res = await fetch(`${API_BASE}/api/upload-image`, { method: 'POST', body: formData });
+        const res = await fetch(`${API_BASE}/api/upload-image`, { method: 'POST', headers: { ...(await authHeaders()) }, body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Falha no upload');
         return data.url;
@@ -564,7 +569,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
     const abrirPreviewTreino = async (produtoId) => {
         setPreviewLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/produtos/${produtoId}/treino-preview`, { method: 'POST' });
+            const res = await fetch(`${API_BASE}/api/admin/produtos/${produtoId}/treino-preview`, { method: 'POST', headers: { ...(await authHeaders()) } });
             const data = await res.json();
             if (!res.ok) {
                 const msg = data?.error || 'Erro ao gerar pré-visualização.';
@@ -648,7 +653,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
 
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify(body),
             });
             const data = await res.json();
@@ -696,7 +701,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
 
     const doDelete = async (id) => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/produtos/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/api/admin/produtos/${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
             if (res.ok) fetchProdutos();
         } catch (e) {
             console.log('Erro ao apagar', e);
@@ -707,7 +712,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
         try {
             const res = await fetch(`${API_BASE}/api/admin/produtos/${produto.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ ativo: !produto.ativo }),
             });
             if (res.ok) fetchProdutos();

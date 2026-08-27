@@ -12,6 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 import InstallAppButton from '../components/InstallAppButton';
+import { authHeaders } from '../utils/authToken';
 
 export default function ProfileScreen({ route }) {
   const { userData: paramsUser = {} } = route?.params || {};
@@ -140,7 +141,7 @@ export default function ProfileScreen({ route }) {
     try {
       const response = await fetch('https://fitos-final.onrender.com/api/user/update', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId: userId, name: userName, phone: phone })
       });
 
@@ -163,7 +164,9 @@ export default function ProfileScreen({ route }) {
   // 🔥 RECORRÊNCIA ────────────────────────────────────────────────────────
   const fetchRecurrenceStatus = async (userId) => {
     try {
-      const res = await fetch(`https://fitos-final.onrender.com/api/payments/recurrence/status?userId=${userId}`);
+      const res = await fetch(`https://fitos-final.onrender.com/api/payments/recurrence/status?userId=${userId}`, {
+        headers: { ...(await authHeaders()) },
+      });
       const data = await res.json();
       setRecurrence(data);
     } catch (e) {
@@ -189,7 +192,7 @@ export default function ProfileScreen({ route }) {
     try {
       const res = await fetch('https://fitos-final.onrender.com/api/payments/recurrence/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId, ...overrides }),
       });
       const data = await res.json();
@@ -287,7 +290,7 @@ export default function ProfileScreen({ route }) {
     try {
       await fetch('https://fitos-final.onrender.com/api/payments/recurrence/cancel', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId }),
       });
       await fetchRecurrenceStatus(userId);

@@ -22,6 +22,7 @@ import { Video, ResizeMode } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient'; // 🔥 NOVO IMPORT
+import { authHeaders } from '../utils/authToken';
 
 const { width } = Dimensions.get('window');
 const PLACEHOLDER_IMAGE =
@@ -60,7 +61,8 @@ export default function PAFlixScreen() {
       }
 
       const res = await fetch(
-        `https://fitos-final.onrender.com/api/contents?userId=${userId || ''}`
+        `https://fitos-final.onrender.com/api/contents?userId=${userId || ''}`,
+        { headers: { ...(await authHeaders()) } }
       );
       const data = await res.json();
 
@@ -115,7 +117,7 @@ export default function PAFlixScreen() {
           'https://fitos-final.onrender.com/api/contents/complete',
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
             body: JSON.stringify({
               userId: userData.id,
               contentId: selectedVideo.id
@@ -149,7 +151,8 @@ export default function PAFlixScreen() {
     setLoadingComments(true);
     try {
       const res = await fetch(
-        `https://fitos-final.onrender.com/api/contents/${videoId}/comments`
+        `https://fitos-final.onrender.com/api/contents/${videoId}/comments`,
+        { headers: { ...(await authHeaders()) } }
       );
       const data = await res.json();
       if (Array.isArray(data)) setComments(data);
@@ -174,7 +177,7 @@ export default function PAFlixScreen() {
 
     await fetch('https://fitos-final.onrender.com/api/contents/comment', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
       body: JSON.stringify({
         userId: userData.id,
         contentId: selectedVideo.id,

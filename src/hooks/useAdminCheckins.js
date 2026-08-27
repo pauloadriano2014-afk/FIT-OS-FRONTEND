@@ -10,6 +10,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 import { MASTER_IDS } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -86,7 +87,9 @@ export const useAdminCheckins = (aluno) => {
     const fetchCheckins = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${BASE_URL}/api/checkin?userId=${aluno.id}&t=${Date.now()}`);
+            const res = await fetch(`${BASE_URL}/api/checkin?userId=${aluno.id}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data   = await res.json();
                 const sorted = data.sort((a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt));
@@ -102,7 +105,10 @@ export const useAdminCheckins = (aluno) => {
     const handleDelete = (id) => {
         const run = async () => {
             try {
-                const res = await fetch(`${BASE_URL}/api/checkin?id=${id}`, { method: 'DELETE' });
+                const res = await fetch(`${BASE_URL}/api/checkin?id=${id}`, {
+                    method: 'DELETE',
+                    headers: { ...(await authHeaders()) },
+                });
                 if (res.ok) {
                     setCheckins(prev => prev.filter(c => c.id !== id));
                     if (Platform.OS === 'web') window.alert('Check-in excluído!');
@@ -155,7 +161,7 @@ export const useAdminCheckins = (aluno) => {
         try {
             const res = await fetch(`${BASE_URL}/api/checkin/update-photo`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ mode: 'restore', checkinId, photoField: field }),
             });
             const data = await res.json();
@@ -279,7 +285,7 @@ export const useAdminCheckins = (aluno) => {
 
             const res = await fetch(`${BASE_URL}/api/ai/evaluate-checkin`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     checkInId:       currentCheckinForEval.id,
                     oldCheckInId:    (evaluationType === 'comparison' && compareSource === 'system') ? selectedOldCheckinId : null,
@@ -364,7 +370,7 @@ export const useAdminCheckins = (aluno) => {
         try {
             const res = await fetch(`${BASE_URL}/api/checkin/evaluate`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     checkinId:       currentCheckinForEval.id,
                     coachFeedback:   finalFeedback,
@@ -393,7 +399,7 @@ export const useAdminCheckins = (aluno) => {
             try {
                 const res = await fetch(`${BASE_URL}/api/checkin/evaluate`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                     body: JSON.stringify({
                         checkinId, silent: true,
                         coachFeedback: '*Avaliação Finalizada!* 🎯\n\nSeu laudo completo foi gerado. Vá até a tela de **Evolução** para conferir.',

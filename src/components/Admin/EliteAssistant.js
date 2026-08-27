@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -107,7 +108,7 @@ export default function EliteAssistant({ theme }) {
         try {
             const res = await fetch(`${BASE_URL}/api/ai/elite-assistant`, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({
                     message: msg,
                     history: newHistory.slice(-10).map(h => ({

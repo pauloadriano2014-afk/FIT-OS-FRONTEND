@@ -8,6 +8,7 @@ import {
 } from '../components/GerarTreino/_constants';
 import { buildDefaultDays, suggestPhase, dayNeedsCardio } from '../components/GerarTreino/_helpers';
 import { MASTER_IDS } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 export default function useGerarTreino(navigation, route) {
   const cameFromAluno = !!(route.params?.aluno?.id);
@@ -86,7 +87,9 @@ export default function useGerarTreino(navigation, route) {
       const userStr = await AsyncStorage.getItem('user');
       if (!userStr) return;
       const user = JSON.parse(userStr);
-      const res = await fetch(`${API_URL}/api/exercise?adminId=${user.id}&t=${Date.now()}`);
+      const res = await fetch(`${API_URL}/api/exercise?adminId=${user.id}&t=${Date.now()}`, {
+        headers: { ...(await authHeaders()) },
+      });
       if (res.ok) setLibraryExercises(await res.json());
     } catch (_) {}
     finally { setLoadingLibrary(false); }
@@ -143,7 +146,9 @@ export default function useGerarTreino(navigation, route) {
   const fetchStudents = async () => {
     setLoadingStudents(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/user?t=${Date.now()}`);
+      const res = await fetch(`${API_URL}/api/admin/user?t=${Date.now()}`, {
+        headers: { ...(await authHeaders()) },
+      });
       if (res.ok) setStudents((await res.json()).filter(u => u.role !== 'ADMIN'));
     } catch (_) { setError('Falha ao carregar alunos.'); }
     finally { setLoadingStudents(false); }
@@ -155,9 +160,10 @@ export default function useGerarTreino(navigation, route) {
     setError('');
     if (!cameFromAluno) setStep(STEP_CYCLE_CONFIG);
     try {
+      const authHdrs = await authHeaders();
       const [resUser, resHistory] = await Promise.all([
-        fetch(`${API_URL}/api/admin/user/${student.id}?t=${Date.now()}`),
-        fetch(`${API_URL}/api/user/history?userId=${student.id}&t=${Date.now()}`),
+        fetch(`${API_URL}/api/admin/user/${student.id}?t=${Date.now()}`, { headers: { ...authHdrs } }),
+        fetch(`${API_URL}/api/user/history?userId=${student.id}&t=${Date.now()}`, { headers: { ...authHdrs } }),
       ]);
       const userData = resUser.ok ? await resUser.json() : student;
       const historyData = resHistory.ok ? await resHistory.json() : [];
@@ -245,7 +251,7 @@ export default function useGerarTreino(navigation, route) {
 
       const res = await fetch(`${API_URL}/api/ai/gerar-treino`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId: selectedStudent.id, adminId: adminUser.id, cycleConfig }),
       });
 

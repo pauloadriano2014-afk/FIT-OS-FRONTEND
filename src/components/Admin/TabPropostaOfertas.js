@@ -16,6 +16,7 @@ import {
     TextInput, Alert, Platform, ActivityIndicator, Switch
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
@@ -162,7 +163,9 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
     const fetchOfertas = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/proposta-ofertas`);
+            const res = await fetch(`${API_BASE}/api/admin/proposta-ofertas`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setOfertas(data.ofertas || []);
@@ -361,7 +364,7 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
 
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify(body),
             });
 
@@ -407,7 +410,7 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
 
     const doDelete = async (id) => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/proposta-ofertas/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/api/admin/proposta-ofertas/${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
             if (res.ok) fetchOfertas();
         } catch (e) {
             console.log('Erro ao deletar', e);
@@ -418,7 +421,7 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
         try {
             const res = await fetch(`${API_BASE}/api/admin/proposta-ofertas/${oferta.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ ativa: !oferta.ativa }),
             });
             if (res.ok) fetchOfertas();

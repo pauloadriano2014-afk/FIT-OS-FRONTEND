@@ -12,6 +12,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Image } from 'expo-image';
 import { Picker } from '@react-native-picker/picker';
 import ContentPurchaseModal from '../components/ContentPurchaseModal';
+import { authHeaders } from '../utils/authToken';
 
 const getDirectImageUrl = (url) => {
     if (!url) return null;
@@ -164,9 +165,10 @@ export default function BibliotecaScreen({ navigation, route }) {
           // banco (fonte da verdade), o que é seguro tanto para alunos
           // legados (sem coach = cai no fallback permissivo do master)
           // quanto para alunos de coaches parceiros (coachId real deles).
+          const authHdrs = await authHeaders();
           const [resContents, resAccess] = await Promise.all([
-              fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&t=${Date.now()}`),
-              fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}&t=${Date.now()}`)
+              fetch(`https://fitos-final.onrender.com/api/contents?userId=${user.id}&t=${Date.now()}`, { headers: authHdrs }),
+              fetch(`https://fitos-final.onrender.com/api/admin/access?userId=${user.id}&t=${Date.now()}`, { headers: authHdrs })
           ]);
 
           const dataContents = await resContents.json();

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PAULO_ID, ADRI_ID } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 export function useAdminDashboard() {
     const [alunosAtivos, setAlunosAtivos] = useState([]);
@@ -85,7 +86,9 @@ export function useAdminDashboard() {
             }
 
             // Busca Dados Principais
-            fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`)
+            fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${localAdminId}&t=${t}`, {
+                headers: { ...(await authHeaders()) },
+            })
                 .then(res => res.json())
                 .then(async data => {
                     const rawAtivos = data.activeUsers || data.users || [];
@@ -105,7 +108,9 @@ export function useAdminDashboard() {
                 }).catch(e => console.log(e)).finally(() => { setLoading(false); setRefreshing(false); });
 
             // Busca Checkins (🔒 adminId para o backend filtrar por coach)
-            fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`)
+            fetch(`https://fitos-final.onrender.com/api/checkin?adminId=${localAdminId}&t=${t}`, {
+                headers: { ...(await authHeaders()) },
+            })
                 .then(res => res.json())
                 .then(async dataCheckins => {
                     if (Array.isArray(dataCheckins)) {
@@ -116,7 +121,9 @@ export function useAdminDashboard() {
                 }).catch(e => console.log(e));
 
             // Busca Feedbacks de Dieta (🔒 agora envia adminId)
-            fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?adminId=${localAdminId}&t=${t}`)
+            fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?adminId=${localAdminId}&t=${t}`, {
+                headers: { ...(await authHeaders()) },
+            })
                 .then(res => res.json())
                 .then(async dataFeedbacks => {
                     if (Array.isArray(dataFeedbacks)) {
@@ -127,7 +134,9 @@ export function useAdminDashboard() {
                 }).catch(e => console.log(e));
 
             // Busca NPS (🔒 agora envia adminId)
-            fetch(`https://fitos-final.onrender.com/api/admin/surveys?adminId=${localAdminId}&t=${t}`)
+            fetch(`https://fitos-final.onrender.com/api/admin/surveys?adminId=${localAdminId}&t=${t}`, {
+                headers: { ...(await authHeaders()) },
+            })
                 .then(res => res.json())
                 .then(async dataSurveys => {
                     if (Array.isArray(dataSurveys)) setSurveys(dataSurveys);
@@ -139,7 +148,7 @@ export function useAdminDashboard() {
     const handleMarkFeedbackRead = async (id) => {
         try {
             await fetch('https://fitos-final.onrender.com/api/admin/diet-feedbacks', {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, read: true })
+                method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify({ id, read: true })
             });
             setDietFeedbacks(prev => prev.map(f => f.id === id ? { ...f, read: true } : f));
         } catch (e) { console.log(e); }
@@ -148,7 +157,7 @@ export function useAdminDashboard() {
     const handleMarkSurveyRead = async (id) => {
         try {
             await fetch('https://fitos-final.onrender.com/api/admin/surveys', {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id })
+                method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify({ id })
             });
             setSurveys(prev => prev.map(s => s.id === id ? { ...s, readByAdmin: true } : s));
         } catch (e) { console.log(e); }
@@ -157,7 +166,10 @@ export function useAdminDashboard() {
     const handleDeleteFeedback = (id) => {
         const confirmAction = async () => {
             try {
-                await fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?id=${id}`, { method: 'DELETE' });
+                await fetch(`https://fitos-final.onrender.com/api/admin/diet-feedbacks?id=${id}`, {
+                    method: 'DELETE',
+                    headers: { ...(await authHeaders()) },
+                });
                 setDietFeedbacks(prev => prev.filter(f => f.id !== id));
             } catch (e) { console.log(e); }
         };

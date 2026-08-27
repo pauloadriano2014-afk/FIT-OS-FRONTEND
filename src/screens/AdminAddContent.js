@@ -7,7 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as DocumentPicker from 'expo-document-picker'; 
+import * as DocumentPicker from 'expo-document-picker';
+import { authHeaders } from '../utils/authToken';
 
 // 🔥 COMPONENTES MODULARIZADOS 🔥
 import VideoCommentsModal from '../components/MontarTreino/Modals/VideoCommentsModal';
@@ -17,7 +18,9 @@ import VideoListCard from '../components/MontarTreino/VideoListCard';
 
 const sendPushNotification = async (title, body, adminId) => {
     try {
-        const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
+        const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`, {
+            headers: { ...(await authHeaders()) },
+        });
         const data = await res.json();
         const tokens = (data.activeUsers || []).map(u => u.pushToken).filter(t => typeof t === 'string' && t.startsWith('ExponentPushToken'));
 
@@ -79,7 +82,9 @@ export default function AdminAddContent({ navigation }) {
         try {
             const userJson = await AsyncStorage.getItem('user');
             const adminId = userJson ? JSON.parse(userJson).id : '';
-            const res = await fetch(`https://fitos-final.onrender.com/api/contents?adminId=${adminId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/contents?adminId=${adminId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             const data = await res.json();
             if (Array.isArray(data)) setContents(data);
         } catch (e) { console.log(e); } finally { setLoadingData(false); }
@@ -93,11 +98,15 @@ export default function AdminAddContent({ navigation }) {
         try {
             const userJson = await AsyncStorage.getItem('user');
             const adminId = userJson ? JSON.parse(userJson).id : '';
-            const resStudents = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`);
+            const resStudents = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             const dataStudents = await resStudents.json();
             if (dataStudents.users) setAllStudents(dataStudents.users);
 
-            const resAccess = await fetch(`https://fitos-final.onrender.com/api/contents/${content.id}/access`);
+            const resAccess = await fetch(`https://fitos-final.onrender.com/api/contents/${content.id}/access`, {
+                headers: { ...(await authHeaders()) },
+            });
             const dataAccess = await resAccess.json();
             if (Array.isArray(dataAccess)) setContentAccessList(dataAccess);
         } catch (e) { Alert.alert("Erro", "Falha ao carregar alunos."); } finally { setLoadingAccess(false); }
@@ -110,7 +119,7 @@ export default function AdminAddContent({ navigation }) {
 
         try {
             await fetch(`https://fitos-final.onrender.com/api/contents/${selectedContentForAccess.id}/access`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId, hasAccess: newValue })
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify({ userId, hasAccess: newValue })
             });
         } catch (error) {
             if (currentValue) setContentAccessList(prev => [...prev, userId]);
@@ -129,7 +138,9 @@ export default function AdminAddContent({ navigation }) {
     const fetchAdminComments = async (id) => {
         setLoadingAdminComments(true);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/contents/${id}/comments`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/contents/${id}/comments`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) setActiveComments(await res.json());
         } catch (e) {} finally { setLoadingAdminComments(false); }
     };
@@ -145,7 +156,7 @@ export default function AdminAddContent({ navigation }) {
             if (replyingTo) payload.parentId = replyingTo;
 
             const res = await fetch('https://fitos-final.onrender.com/api/contents/comments', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(payload)
             });
 
             if (res.ok) {
@@ -160,7 +171,7 @@ export default function AdminAddContent({ navigation }) {
     const handleDeleteAdminComment = async (commentId) => {
         const confirmDelete = async () => {
             try {
-                const res = await fetch(`https://fitos-final.onrender.com/api/contents/comments/${commentId}`, { method: 'DELETE' });
+                const res = await fetch(`https://fitos-final.onrender.com/api/contents/comments/${commentId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (res.ok) fetchAdminComments(activeVideoId);
             } catch (error) {}
         };
@@ -190,7 +201,7 @@ export default function AdminAddContent({ navigation }) {
     const handleDelete = (id, title) => {
         const confirmDelete = async () => {
             try {
-                const res = await fetch(`https://fitos-final.onrender.com/api/contents/${id}`, { method: 'DELETE' });
+                const res = await fetch(`https://fitos-final.onrender.com/api/contents/${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (res.ok) { if (isWeb) window.alert("Excluído."); else Alert.alert("Excluído."); fetchContents(); }
             } catch (e) {}
         };
@@ -221,7 +232,7 @@ export default function AdminAddContent({ navigation }) {
                 formData.append('file', blob, fileToUpload.name);
             } else formData.append('file', { uri: fileToUpload.uri, name: fileToUpload.name || 'capa.jpg', type: fileToUpload.mimeType || 'image/jpeg' });
 
-            const response = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' }});
+            const response = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', body: formData, headers: { 'Accept': 'application/json', ...(await authHeaders()) }});
             const data = await response.json();
             if (response.ok && data.imageUrl) setForm({ ...form, thumbUrl: data.imageUrl });
             else throw new Error(data.error);
@@ -250,7 +261,7 @@ export default function AdminAddContent({ navigation }) {
             if (isAudioUpload && audioChapters[chapterIndex].title) mediaTitle = audioChapters[chapterIndex].title;
             formData.append('title', mediaTitle);
   
-            const response = await fetch('https://fitos-final.onrender.com/api/upload', { method: 'POST', body: formData, headers: { 'Accept': 'application/json' }});
+            const response = await fetch('https://fitos-final.onrender.com/api/upload', { method: 'POST', body: formData, headers: { 'Accept': 'application/json', ...(await authHeaders()) }});
             const data = await response.json();
             
             if (response.ok && data.videoUrl) {
@@ -284,7 +295,7 @@ export default function AdminAddContent({ navigation }) {
             const url = editingId ? `https://fitos-final.onrender.com/api/contents/${editingId}` : 'https://fitos-final.onrender.com/api/contents'; 
             const method = editingId ? 'PATCH' : 'POST';
 
-            const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            const res = await fetch(url, { method: method, headers: {'Content-Type': 'application/json', ...(await authHeaders())}, body: JSON.stringify(payload) });
 
             if (res.ok) {
                 Alert.alert("Sucesso", "Salvo."); setViewMode('list'); 

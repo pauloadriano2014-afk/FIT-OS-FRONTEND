@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Platform, Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
@@ -74,9 +75,10 @@ export default function useGerenciarTemplates(navigation) {
       setAdminId(currentAdminId);
       setIsAdriLogged(email === 'adri.personal@hotmail.com');
 
+      const authHdrs = await authHeaders();
       const [resCol, resTemp] = await Promise.all([
-        fetch(`${API_BASE}/api/admin/collections?adminId=${currentAdminId}&t=${Date.now()}`),
-        fetch(`${API_BASE}/api/admin/templates?adminId=${currentAdminId}&t=${Date.now()}`),
+        fetch(`${API_BASE}/api/admin/collections?adminId=${currentAdminId}&t=${Date.now()}`, { headers: { ...authHdrs } }),
+        fetch(`${API_BASE}/api/admin/templates?adminId=${currentAdminId}&t=${Date.now()}`, { headers: { ...authHdrs } }),
       ]);
 
       if (resCol.ok)  setCollections(await resCol.json());
@@ -143,7 +145,7 @@ export default function useGerenciarTemplates(navigation) {
         : { name: colName, color: colColor, adminId };
 
       const res = await fetch(`${API_BASE}/api/admin/collections`, {
-        method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+        method, headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(body),
       });
 
       if (!res.ok) throw new Error();
@@ -166,7 +168,7 @@ export default function useGerenciarTemplates(navigation) {
     const doDelete = async () => {
       setLoading(true);
       try {
-        await fetch(`${API_BASE}/api/admin/collections?id=${id}`, { method: 'DELETE' });
+        await fetch(`${API_BASE}/api/admin/collections?id=${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
         setSelectedCollection(null);
         fetchData();
       } catch {
@@ -215,7 +217,7 @@ export default function useGerenciarTemplates(navigation) {
     const doDelete = async () => {
       setLoading(true);
       try {
-        await fetch(`${API_BASE}/api/admin/templates?id=${id}`, { method: 'DELETE' });
+        await fetch(`${API_BASE}/api/admin/templates?id=${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
         fetchData();
       } catch {
         alert('Erro', 'Erro ao excluir');
@@ -243,7 +245,7 @@ export default function useGerenciarTemplates(navigation) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/templates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({
           id: templateToMove.id, name: templateToMove.name,
           goal: templateToMove.goal, level: templateToMove.level,
@@ -266,7 +268,7 @@ export default function useGerenciarTemplates(navigation) {
     try {
       const res = await fetch(`${API_BASE}/api/admin/templates`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({
           name: `${templateToPreview.name} (Cópia)`,
           goal: templateToPreview.goal, level: templateToPreview.level,
@@ -311,7 +313,7 @@ export default function useGerenciarTemplates(navigation) {
       }
 
       const response = await fetch(`${API_BASE}/api/admin/import-pdf`, {
-        method: 'POST', body: formData, headers: { Accept: 'application/json' },
+        method: 'POST', body: formData, headers: { Accept: 'application/json', ...(await authHeaders()) },
       });
 
       const data = await response.json();

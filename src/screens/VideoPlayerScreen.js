@@ -10,6 +10,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 export default function VideoPlayerScreen({ route, navigation }) {
     const { url, title, contentId } = route.params;
@@ -101,7 +102,9 @@ export default function VideoPlayerScreen({ route, navigation }) {
     const fetchComments = async () => {
         setLoadingComments(true);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/contents/${contentId}/comments`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/contents/${contentId}/comments`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) setComments(await res.json());
         } catch (e) {
             console.log("Erro comentários", e);
@@ -112,7 +115,9 @@ export default function VideoPlayerScreen({ route, navigation }) {
 
     const fetchLikeStatus = async (userId) => {
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/contents?userId=${userId}&format=grouped`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/contents?userId=${userId}&format=grouped`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 let curtiu = false;
@@ -139,7 +144,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
         try {
             await fetch('https://fitos-final.onrender.com/api/contents/like', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ userId: userData.id, contentId: contentId })
             });
         } catch (e) {
@@ -161,7 +166,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
 
             const res = await fetch(url, {
                 method: method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ userId: userData.id, contentId: contentId, text: newComment })
             });
             
@@ -189,7 +194,7 @@ export default function VideoPlayerScreen({ route, navigation }) {
     const handleDeleteComment = async (commentId) => {
         const confirmDelete = async () => {
             try {
-                const res = await fetch(`https://fitos-final.onrender.com/api/contents/comments/${commentId}`, { method: 'DELETE' });
+                const res = await fetch(`https://fitos-final.onrender.com/api/contents/comments/${commentId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (res.ok) fetchComments();
             } catch (error) { console.log(error); }
         };

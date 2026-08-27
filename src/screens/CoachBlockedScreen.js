@@ -9,6 +9,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 const PAULO_WHATSAPP = '5541999999999'; // ← substitua pelo número real
 
@@ -49,7 +50,9 @@ export default function CoachBlockedScreen({ navigation, route }) {
         
         setRefreshing(true);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${coachId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${coachId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             const data = await res.json();
             
             if (data.accountStatus === 'ACTIVE') {

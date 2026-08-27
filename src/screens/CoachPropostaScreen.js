@@ -183,7 +183,7 @@ export default function CoachPropostaScreen({ navigation }) {
 
     const handleWhatsApp = () => {
         const msg = 'Olá! Tenho interesse em ser coach parceiro no ELITE FIT.';
-        Linking.openURL(`whatsapp://send?phone=5541999999999&text=${encodeURIComponent(msg)}`).catch(() => {});
+        Linking.openURL(`whatsapp://send?phone=5541997991346&text=${encodeURIComponent(msg)}`).catch(() => {});
     };
 
     return (

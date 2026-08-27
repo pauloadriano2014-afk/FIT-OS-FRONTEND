@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 export default function AdminDietLibraryScreen({ navigation }) {
     const { theme } = useTheme();
@@ -19,7 +20,9 @@ export default function AdminDietLibraryScreen({ navigation }) {
 
     const fetchTemplates = async () => {
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/diet-templates?t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/diet-templates?t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setTemplates(data.templates || []);
@@ -46,7 +49,8 @@ export default function AdminDietLibraryScreen({ navigation }) {
         const confirmDelete = async () => {
             try {
                 const res = await fetch(`https://fitos-final.onrender.com/api/admin/diet-templates?id=${id}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: { ...(await authHeaders()) },
                 });
                 if (res.ok) {
                     setTemplates(prev => prev.filter(t => t.id !== id));

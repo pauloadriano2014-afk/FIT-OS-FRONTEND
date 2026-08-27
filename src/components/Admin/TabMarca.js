@@ -47,7 +47,7 @@ export default function TabMarca({ theme }) {
             const fileType = uriParts[uriParts.length - 1] || 'jpg';
             formData.append('file', { uri: uri, name: `upload_${Date.now()}.${fileType}`, type: `image/${fileType}` });
         }
-        const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', body: formData });
+        const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', headers: { ...(await authHeaders()) }, body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Falha no upload');
         return data.url;

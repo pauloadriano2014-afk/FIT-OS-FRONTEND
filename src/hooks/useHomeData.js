@@ -4,6 +4,7 @@ import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFinanceLock } from './useFinanceLock';
 import { PAULO_ID, ADRI_ID, MASTER_IDS as MASTER_TEAM } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 const QUICK_QUESTIONS = [
     "🤖 Como funciona a IA de Vídeo?",
@@ -197,15 +198,16 @@ export function useHomeData() {
                     } catch (e) { /* cache falhou, segue e busca normal */ }
                 }
 
+                const authHdrs = await authHeaders();
                 const [homeRes, checkinRes, noticeRes, resUserDirect, resContents, resCoach] = await Promise.all([
-                    fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}&omit=diets,anamneses`),
-                    fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`),
+                    fetch(`https://fitos-final.onrender.com/api/user/home?userId=${user.id}&t=${t}`, { headers: { ...authHdrs } }),
+                    fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}&t=${t}`, { headers: { ...authHdrs } }),
+                    fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`, { headers: { ...authHdrs } }),
+                    fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}&omit=diets,anamneses`, { headers: { ...authHdrs } }),
+                    fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`, { headers: { ...authHdrs } }),
                     skipCoachFetch
                         ? Promise.resolve(null)
-                        : fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?t=${t}&omit=diets,workouts,anamneses`)
+                        : fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?t=${t}&omit=diets,workouts,anamneses`, { headers: { ...authHdrs } })
                 ]);
 
                 let fetchedUser     = { ...user };
@@ -469,7 +471,7 @@ export function useHomeData() {
             try {
                 let res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${userData.id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                     body: JSON.stringify({
                         isMenstruating: newValue,
                         menstruationStartDate: newValue ? new Date().toISOString() : null
@@ -479,7 +481,7 @@ export function useHomeData() {
                 if (!res.ok) {
                     res = await fetch('https://fitos-final.onrender.com/api/admin/user', {
                         method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                         body: JSON.stringify({
                             id: userData.id,
                             isMenstruating: newValue,
@@ -492,7 +494,9 @@ export function useHomeData() {
                     try {
                         const fetchCoachId = userData.coachId || '';
                         if (fetchCoachId) {
-                            const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?omit=diets,workouts,anamneses`);
+                            const adminRes = await fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?omit=diets,workouts,anamneses`, {
+                                headers: { ...(await authHeaders()) },
+                            });
                             if (adminRes.ok) {
                                 const adminData = await adminRes.json();
                                 if (adminData.pushToken) {
@@ -571,7 +575,7 @@ export function useHomeData() {
 
             const res = await fetch('https://fitos-final.onrender.com/api/ai/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     message:    userMsg.text,
                     userId:     userData.id,

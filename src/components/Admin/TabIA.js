@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -59,7 +60,9 @@ export default function TabIA({ theme, currentUserId }) {
     const loadSettings = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${BASE_URL}/api/admin/coach-settings?coachId=${currentUserId}`);
+            const res = await fetch(`${BASE_URL}/api/admin/coach-settings?coachId=${currentUserId}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setPrompt(data.aiCheckinPrompt ?? '');
@@ -77,7 +80,7 @@ export default function TabIA({ theme, currentUserId }) {
         try {
             const res = await fetch(`${BASE_URL}/api/admin/coach-settings`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({
                     coachId:         currentUserId,
                     aiCheckinPrompt: prompt,

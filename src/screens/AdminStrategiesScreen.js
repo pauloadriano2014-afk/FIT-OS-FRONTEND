@@ -8,6 +8,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { authHeaders } from '../utils/authToken';
 
 const API_URL = 'https://fitos-final.onrender.com';
 
@@ -525,7 +526,9 @@ export default function AdminStrategiesScreen({ route, navigation }) {
         if (!userId) return;
         setLoading(true);
         try {
-            const res  = await fetch(`${API_URL}/api/admin/strategies/${userId}`);
+            const res  = await fetch(`${API_URL}/api/admin/strategies/${userId}`, {
+                headers: { ...(await authHeaders()) },
+            });
             const data = await res.json();
             setBaseDiet(data.baseDiets?.[0] ?? null);
             setStrategies(data.strategies ?? []);
@@ -542,7 +545,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
     async function handleCreate(payload) {
         const res = await fetch(`${API_URL}/api/admin/strategies/${userId}`, {
             method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
             body:    JSON.stringify(payload),
         });
         if (!res.ok) throw new Error((await res.json()).error ?? 'Erro ao criar');
@@ -554,7 +557,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
         try {
             await fetch(`${API_URL}/api/admin/strategies/${userId}/${strategyId}`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ action: 'activate' }),
             });
             await load();
@@ -565,7 +568,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
         try {
             await fetch(`${API_URL}/api/admin/strategies/${userId}/${strategyId}`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ action: 'deactivate' }),
             });
             await load();
@@ -582,7 +585,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
                     text: 'Excluir', style: 'destructive',
                     onPress: async () => {
                         try {
-                            await fetch(`${API_URL}/api/admin/strategies/${userId}/${strategyId}`, { method: 'DELETE' });
+                            await fetch(`${API_URL}/api/admin/strategies/${userId}/${strategyId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                             await load();
                         } catch { Alert.alert('Erro', 'Falha ao excluir.'); }
                     },
@@ -596,7 +599,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
         try {
             await fetch(`${API_URL}/api/admin/strategies/${userId}/${editTarget.id}`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ action: 'update', ...payload }),
             });
             setEditVisible(false);

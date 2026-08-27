@@ -20,6 +20,8 @@ import { useTheme } from '../contexts/ThemeContext';
 
 import { useAdminDashboard } from '../hooks/useAdminDashboard';
 
+import { authHeaders } from '../utils/authToken';
+
 
 
 // Utilitários
@@ -264,7 +266,7 @@ export default function AdminDashboard({ navigation }) {
 
           if (!isMaster) {
 
-              fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${adminId}`)
+              authHeaders().then(hdrs => fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${adminId}`, { headers: hdrs }))
 
                   .then(res => res.json())
 
@@ -302,7 +304,11 @@ export default function AdminDashboard({ navigation }) {
 
           }
 
-          const res = await fetch(`https://fitos-final.onrender.com/api/admin/birthdays?adminId=${adminId}&days=7`);
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/birthdays?adminId=${adminId}&days=7`, {
+
+              headers: { ...(await authHeaders()) },
+
+          });
 
           if (!res.ok) return;
 
@@ -522,7 +528,7 @@ export default function AdminDashboard({ navigation }) {
 
               const res = await fetch('https://fitos-final.onrender.com/api/checkin/evaluate', {
 
-                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
 
                   body: JSON.stringify({
 

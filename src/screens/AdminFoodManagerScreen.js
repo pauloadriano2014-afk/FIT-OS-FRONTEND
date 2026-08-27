@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 import { BASE_URL, CATEGORIES, SOURCE_FILTERS } from '../constants/foodManagerConstants';
 import CreateFoodModal from '../components/AdminDiet/CreateFoodModal';
+import { authHeaders } from '../utils/authToken';
 
 function useDebounce(value, delay) {
     const [dv, setDv] = useState(value);
@@ -59,7 +60,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
 
             params.set('t', Date.now().toString());
 
-            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal });
+            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal, headers: { ...(await authHeaders()) } });
             const data = await res.json();
             const newFoods = data.foods ?? [];
 
@@ -91,7 +92,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
         try {
             const res = await fetch(`${BASE_URL}/api/food/${food.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ coachId, isFavorite: newVal }),
             });
             if (!res.ok) throw new Error('Erro');
@@ -108,7 +109,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
         const msg = `Excluir "${food.name}"?`;
         const doDelete = async () => {
             try {
-                const res = await fetch(`${BASE_URL}/api/food/${food.id}?coachId=${coachId}`, { method: 'DELETE' });
+                const res = await fetch(`${BASE_URL}/api/food/${food.id}?coachId=${coachId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (!res.ok) throw new Error('Erro');
                 setFoods(prev => prev.filter(f => f.id !== food.id));
                 setTotal(prev => prev - 1);

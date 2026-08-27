@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 export default function AdminAnamneseBuilderScreen({ navigation }) {
     const { theme } = useTheme();
@@ -32,7 +33,9 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
     const fetchTemplate = async (cId, type) => {
         setLoading(true);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/form-template/active?coachId=${cId}&type=${type}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/form-template/active?coachId=${cId}&type=${type}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setTemplateId(data.id);
@@ -68,7 +71,7 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
 
             const res = await fetch('https://fitos-final.onrender.com/api/form-template', {
                 method: templateId ? 'PUT' : 'POST', // Precisaremos garantir que a rota suporte UPSERT ou separe POST/PUT
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify(payload)
             });
 

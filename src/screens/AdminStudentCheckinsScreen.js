@@ -14,11 +14,12 @@ import StudentCheckinCard from '../components/Checkins/StudentCheckinCard';
 import EvaluationModal from '../components/Checkins/EvaluationModal';
 import PhotoEditorModal from '../components/Checkins/PhotoEditorModal';
 import { MASTER_IDS } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 async function uploadEditedPhoto({ mode, checkinId, photoField, imageBase64, compareCheckinId }) {
     const res = await fetch('https://fitos-final.onrender.com/api/checkin/update-photo', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ mode, checkinId, photoField, imageBase64, compareCheckinId }),
     });
     const data = await res.json();

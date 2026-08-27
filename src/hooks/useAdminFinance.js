@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { calcularProximaData, calcularDataAnterior, getDueDateStatus, forceMiddayUTC } from '../utils/financeUtils';
 import { PAULO_ID, ADRI_ID } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 const getInterval = (type) => {
     const t = (type || '').toLowerCase();
@@ -74,45 +75,57 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
         }
 
         if (currentUserId) {
-            fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${currentUserId}&t=${Date.now()}`)
-                .then(res => res.json())
-                .then(data => {
-                    if (Array.isArray(data)) {
-                        // 🔥 TRAVA: Além de remover Coach/Admin, remove contas bloqueadas ou inativas do sistema
-                        const alunosOnly = data.filter(u => 
-                            (u.role || u.type || '').toUpperCase() !== 'COACH' && 
-                            (u.role || u.type || '').toUpperCase() !== 'ADMIN' &&
-                            u.accountStatus === 'ACTIVE' &&
-                            u.active !== false
-                        );
-                        setLocalAlunos(alunosOnly); 
-                    }
+            (async () => {
+                fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${currentUserId}&t=${Date.now()}`, {
+                    headers: { ...(await authHeaders()) },
                 })
-                .catch(e => console.error("Erro no anti-cache de alunos:", e));
+                    .then(res => res.json())
+                    .then(data => {
+                        if (Array.isArray(data)) {
+                            // 🔥 TRAVA: Além de remover Coach/Admin, remove contas bloqueadas ou inativas do sistema
+                            const alunosOnly = data.filter(u =>
+                                (u.role || u.type || '').toUpperCase() !== 'COACH' &&
+                                (u.role || u.type || '').toUpperCase() !== 'ADMIN' &&
+                                u.accountStatus === 'ACTIVE' &&
+                                u.active !== false
+                            );
+                            setLocalAlunos(alunosOnly);
+                        }
+                    })
+                    .catch(e => console.error("Erro no anti-cache de alunos:", e));
+            })();
         }
     }, [alunos, currentUserId]);
 
     // 🔥 BUSCA ANTI-CACHE DOS COACHES
     useEffect(() => {
         if (isMaster) {
-            fetch('https://fitos-final.onrender.com/api/admin/coaches?t=' + Date.now())
-                .then(res => {
-                    if (!res.ok) throw new Error("Falha na API: " + res.status);
-                    return res.json();
+            (async () => {
+                fetch('https://fitos-final.onrender.com/api/admin/coaches?t=' + Date.now(), {
+                    headers: { ...(await authHeaders()) },
                 })
-                .then(data => { 
-                    if (Array.isArray(data)) setCoachesData(data); 
-                })
-                .catch(e => console.error("Erro ao buscar dados dos coaches:", e));
+                    .then(res => {
+                        if (!res.ok) throw new Error("Falha na API: " + res.status);
+                        return res.json();
+                    })
+                    .then(data => {
+                        if (Array.isArray(data)) setCoachesData(data);
+                    })
+                    .catch(e => console.error("Erro ao buscar dados dos coaches:", e));
+            })();
         }
     }, [isMaster]);
 
     // 🔥 BUSCA ANTI-CACHE DOS ALUNOS OFFLINE
     useEffect(() => {
-        fetch('https://fitos-final.onrender.com/api/admin/offline-clients/get?t=' + Date.now())
-            .then(res => res.json())
-            .then(data => setOfflineClients(data || []))
-            .catch(e => console.error("Erro ao buscar offline:", e));
+        (async () => {
+            fetch('https://fitos-final.onrender.com/api/admin/offline-clients/get?t=' + Date.now(), {
+                headers: { ...(await authHeaders()) },
+            })
+                .then(res => res.json())
+                .then(data => setOfflineClients(data || []))
+                .catch(e => console.error("Erro ao buscar offline:", e));
+        })();
     }, []);
 
     const updateCoachLocal = (id, data) => {
@@ -252,12 +265,12 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
 
                 if (viewMode === 'COACHES') {
                     await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                         body: JSON.stringify({ coachId: aluno.id, action: 'SET_PLAN', coachBillingEnd: novaDataISO, paymentDueDate: novaDataISO }),
                     });
                 } else {
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                         body: JSON.stringify({ userId: aluno.id, contractType: tipoContrato, contractValue: parseFloat(aluno.contractValue) || 0, paymentDueDate: novaDataISO, financeCategory: aluno.financeCategory || 'Consultoria Online', isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true }),
                     });
                 }
@@ -310,7 +323,7 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
             if (Platform.OS === 'web') formData.append('file', blob, fileName);
             else formData.append('file', { uri, name: fileName, type: blob.type || 'image/jpeg' });
 
-            const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', body: formData });
+            const res = await fetch('https://fitos-final.onrender.com/api/upload-image', { method: 'POST', body: formData, headers: { ...(await authHeaders()) } });
             if (!res.ok) throw new Error("Erro no servidor");
             const data = await res.json();
             return data.url; 
@@ -377,10 +390,10 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
                 });
                 
                 await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
-                    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ 
-                        coachId: editingAluno.id, 
-                        action: 'SET_PLAN', 
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                    body: JSON.stringify({
+                        coachId: editingAluno.id,
+                        action: 'SET_PLAN',
                         contractValue: updatedData.contractValue,
                         coachBillingEnd: updatedData.paymentDueDate,
                         paymentDueDate: updatedData.paymentDueDate,
@@ -395,13 +408,13 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
                 setOfflineClients([...newList]);
                 await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
                 await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
+                    method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(updatedData),
                 });
             } else {
                 setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
-                
+
                 await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
+                    method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(updatedData),
                 });
             }
 
@@ -435,11 +448,11 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
                 if (viewMode === 'COACHES') {
                     updateCoachLocal(editingAluno.id, { paymentDueDate: null, coachBillingEnd: null });
                     await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, 
-                        body: JSON.stringify({ 
-                            coachId: editingAluno.id, 
-                            action: 'SET_PLAN', 
-                            paymentDueDate: null, 
+                        method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                        body: JSON.stringify({
+                            coachId: editingAluno.id,
+                            action: 'SET_PLAN',
+                            paymentDueDate: null,
                             coachBillingEnd: null 
                         }),
                     });
@@ -448,12 +461,12 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
                     setOfflineClients([...newList]);
                     await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
+                        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(updatedData),
                     });
                 } else {
                     setLocalAlunos(prev => prev.map(a => a.id === editingAluno.id ? { ...a, ...updatedData } : a));
                     await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(updatedData),
+                        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(updatedData),
                     });
                 }
 
@@ -489,7 +502,7 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
 
             try {
                 await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newClient)
+                    method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(newClient)
                 });
             } catch (err) { console.error("Erro ao salvar no banco", err); }
 
@@ -509,7 +522,7 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
                 await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
 
                 const res = await fetch('https://fitos-final.onrender.com/api/admin/offline-clients', {
-                    method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id })
+                    method: 'DELETE', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify({ id })
                 });
 
                 if (!res.ok) throw new Error("Falha ao excluir no servidor");

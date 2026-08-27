@@ -17,6 +17,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { MASTER_IDS as MASTER_COACH_IDS } from './src/constants/masterIds';
+import { authHeaders } from './src/utils/authToken';
 
 import InstallScreen from './src/screens/InstallScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -129,7 +130,9 @@ function StudentTabs({ route }) {
       if (u) {
         setUserData(u);
         try {
-          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${u.id}?t=${Date.now()}&omit=diets,workouts,anamneses`);
+          const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${u.id}?t=${Date.now()}&omit=diets,workouts,anamneses`, {
+            headers: { ...(await authHeaders()) },
+          });
           if (res.ok) {
             const fresh = await res.json();
             setUserData(fresh);

@@ -14,6 +14,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Clipboard from 'expo-clipboard';
 import { PAULO_ID, ADRI_ID } from '../../constants/masterIds';
+import { authHeaders } from '../../utils/authToken';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
@@ -145,7 +146,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const fetchDesafios = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/desafios`);
+            const res = await fetch(`${API_BASE}/api/admin/desafios`, { headers: { ...(await authHeaders()) } });
             if (res.ok) {
                 const data = await res.json();
                 setDesafios(data.desafios || []);
@@ -283,7 +284,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             const fileType = uriParts[uriParts.length - 1] || 'jpg';
             formData.append('file', { uri, name: `upload_${Date.now()}.${fileType}`, type: `image/${fileType}` });
         }
-        const res = await fetch(`${API_BASE}/api/upload-image`, { method: 'POST', body: formData });
+        const res = await fetch(`${API_BASE}/api/upload-image`, { method: 'POST', headers: { ...(await authHeaders()) }, body: formData });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Falha no upload');
         return data.url;
@@ -443,7 +444,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
             const res = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify(body),
             });
             const data = await res.json();
@@ -479,7 +480,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     const doDelete = async (id) => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/desafios/${id}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
             if (res.ok) fetchDesafios();
         } catch (e) {
             console.log('Erro ao deletar', e);
@@ -490,7 +491,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         try {
             const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ ativo: !desafio.ativo }),
             });
             if (res.ok) fetchDesafios();
@@ -505,7 +506,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setView('inscritas');
         setLoadingInscricoes(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/inscricoes`);
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/inscricoes`, { headers: { ...(await authHeaders()) } });
             if (res.ok) {
                 const data = await res.json();
                 setInscricoes(data.inscricoes || []);
@@ -526,7 +527,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         try {
             const res = await fetch(`${API_BASE}/api/admin/desafios/${inscritasDesafio.id}/criar-teste`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ nome: novoTesteNome.trim(), telefone: novoTesteTelefone.trim() }),
             });
             if (res.ok) {
@@ -553,7 +554,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         const confirmMsg = `Excluir a inscrição de "${inscricao.nome}"? Isso apaga também todos os check-ins dela. Não dá pra desfazer.`;
         const doDeleteInscricao = async () => {
             try {
-                const res = await fetch(`${API_BASE}/api/admin/desafios/${inscritasDesafio.id}/inscricoes/${inscricao.id}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/api/admin/desafios/${inscritasDesafio.id}/inscricoes/${inscricao.id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (res.ok) {
                     await openInscritas(inscritasDesafio);
                 } else {
@@ -583,7 +584,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             const dataISO = `${detalhe.data.getFullYear()}-${String(detalhe.data.getMonth() + 1).padStart(2, '0')}-${String(detalhe.data.getDate()).padStart(2, '0')}`;
             const res = await fetch(`${API_BASE}/api/admin/desafios/checkin-missao`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ inscricaoId: detalhe.inscricaoId, data: dataISO, missaoPercentual: percentual }),
             });
             if (res.ok) {
@@ -611,7 +612,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         const doDelete = async () => {
             setDeletingCheckin(true);
             try {
-                const res = await fetch(`${API_BASE}/api/admin/desafios/checkin/${entry.id}`, { method: 'DELETE' });
+                const res = await fetch(`${API_BASE}/api/admin/desafios/checkin/${entry.id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (res.ok) {
                     setCheckinDetalhe(null);
                     if (checkinsDesafio) await openCheckins(checkinsDesafio);
@@ -641,7 +642,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         setView('checkins');
         setLoadingCheckins(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/checkins`);
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/checkins`, { headers: { ...(await authHeaders()) } });
             if (res.ok) {
                 const data = await res.json();
                 setCheckinsInscricoes(data.inscricoes || []);
@@ -666,7 +667,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
             segundaAtual.setDate(hoje.getDate() - diffSegunda + offset * 7);
             const segundaISO = `${segundaAtual.getFullYear()}-${String(segundaAtual.getMonth() + 1).padStart(2, '0')}-${String(segundaAtual.getDate()).padStart(2, '0')}`;
 
-            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/ranking?semana=${segundaISO}`);
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/ranking?semana=${segundaISO}`, { headers: { ...(await authHeaders()) } });
             if (res.ok) {
                 const data = await res.json();
                 setRanking(data.ranking || []);
@@ -721,7 +722,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     const fetchDatasEspeciais = async (desafio) => {
         setLoadingDatasEspeciais(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/datas-especiais`);
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${desafio.id}/datas-especiais`, { headers: { ...(await authHeaders()) } });
             if (res.ok) {
                 const data = await res.json();
                 setDatasEspeciais(data.datas || []);
@@ -758,7 +759,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
         try {
             const res = await fetch(`${API_BASE}/api/admin/desafios/${datasEspeciaisDesafio.id}/datas-especiais`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ data: dataISO, pontosPorItem: parseInt(novaDataPontos), motivo: novaDataMotivo.trim() }),
             });
             if (res.ok) {
@@ -779,7 +780,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
 
     const handleRemoveDataEspecial = async (dataId) => {
         try {
-            const res = await fetch(`${API_BASE}/api/admin/desafios/${datasEspeciaisDesafio.id}/datas-especiais/${dataId}`, { method: 'DELETE' });
+            const res = await fetch(`${API_BASE}/api/admin/desafios/${datasEspeciaisDesafio.id}/datas-especiais/${dataId}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
             if (res.ok) await fetchDatasEspeciais(datasEspeciaisDesafio);
         } catch (e) {
             console.log('Erro ao remover data especial', e);

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import CoachRecurrencePaymentModal from './CoachRecurrencePaymentModal';
+import { authHeaders } from '../../utils/authToken';
 
 // Mesma inferência de plano usada no backend (coach-recurrence/create) —
 // espelhada aqui só pra já mandar o billingPlan certo pro modal de recorrência.
@@ -26,7 +27,9 @@ export default function TabAssinatura({ theme, currentUserId }) {
 
     const fetchCoachData = async () => {
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${currentUserId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${currentUserId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setCoachData(data);
@@ -66,7 +69,7 @@ export default function TabAssinatura({ theme, currentUserId }) {
 
             const res = await fetch('https://fitos-final.onrender.com/api/admin/coach-billing/create', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     adminId: currentUserId,
                     coachId: currentUserId,

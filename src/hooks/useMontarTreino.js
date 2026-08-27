@@ -4,6 +4,7 @@ import { Platform, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
 import { PAULO_ID, ADRI_ID, MASTER_IDS } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 export function useMontarTreino(route, navigation) {
     const { aluno, isTemplateMode, templateData, workoutToEdit, isEditing, laboratoryStructure, laboratoryConfig } = route.params || {};
@@ -27,12 +28,11 @@ export function useMontarTreino(route, navigation) {
             : `@draft_new_${aluno?.id || 'avulso'}`;
 
     const [detalhes, setDetalhes] = useState({ anamnese: {} });
-    const [biblioteca, setBiblioteca] = useState([]);
+    const [biblioteca, setBiblioteca] = useState([]); 
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    const [isImportingAI, setIsImportingAI] = useState(false);
-    const [adminId, setAdminId] = useState(null);
-    const [lastAutoSaved, setLastAutoSaved] = useState(null); // 🔥 Timestamp do último rascunho salvo no aparelho
+    const [isImportingAI, setIsImportingAI] = useState(false); 
+    const [adminId, setAdminId] = useState(null); 
     
     const [workoutTabs, setWorkoutTabs] = useState(['A']);
     const [selectedWorkoutTab, setSelectedWorkoutTab] = useState('A');
@@ -132,15 +132,13 @@ export function useMontarTreino(route, navigation) {
 
     useEffect(() => {
         const autoSave = async () => {
-            if (loading) return;
-            const now = new Date().getTime();
+            if (loading) return; 
             const dataToSave = {
                 exercisesByDay, workoutTabs, customWorkoutName, workoutModel, workoutEnvironment,
                 intensityMultiplier, intensityEndDate: intensityEndDate ? intensityEndDate.toISOString() : null,
-                lastUpdated: now
+                lastUpdated: new Date().getTime()
             };
             await AsyncStorage.setItem(draftKey, JSON.stringify(dataToSave));
-            setLastAutoSaved(now); // 🔥 Confirma no state que o rascunho foi gravado no aparelho, pra UI poder mostrar
         };
         autoSave();
     }, [exercisesByDay, workoutTabs, customWorkoutName, workoutModel, workoutEnvironment, intensityMultiplier, intensityEndDate, loading]);
@@ -168,9 +166,10 @@ export function useMontarTreino(route, navigation) {
             }
 
             try {
+                const authHdrs = await authHeaders();
                 const [resCol, resTemp] = await Promise.all([
-                    fetch(`https://fitos-final.onrender.com/api/admin/collections?adminId=${currentAdminId}&t=${t}`),
-                    fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${t}`)
+                    fetch(`https://fitos-final.onrender.com/api/admin/collections?adminId=${currentAdminId}&t=${t}`, { headers: { ...authHdrs } }),
+                    fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${t}`, { headers: { ...authHdrs } })
                 ]);
                 if (resCol.ok) setCollections(await resCol.json());
                 if (resTemp.ok) setTemplatesList(await resTemp.json());
@@ -184,7 +183,9 @@ export function useMontarTreino(route, navigation) {
             }
 
             try {
-                const resEx = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${currentAdminId}&t=${t}`);
+                const resEx = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${currentAdminId}&t=${t}`, {
+                    headers: { ...(await authHeaders()) },
+                });
                 if (resEx.ok) {
                     const dataEx = await resEx.json();
                     if (Array.isArray(dataEx)) {
@@ -196,7 +197,9 @@ export function useMontarTreino(route, navigation) {
             } catch(e) {}
 
             if (aluno?.id) {
-                const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`);
+                const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user/${aluno.id}?t=${t}`, {
+                    headers: { ...(await authHeaders()) },
+                });
                 if (resUser.ok) {
                     const u = await resUser.json();
                     let anam = u.anamneses?.[0] || u.anamnese || {};
@@ -210,9 +213,7 @@ export function useMontarTreino(route, navigation) {
             if (savedDraft) {
                 try {
                     const parsedDraft = JSON.parse(savedDraft);
-                    // 🔥 Janela de validade do rascunho aumentada de 24h pra 7 dias — se a internet cair
-                    // e o coach só voltar pro app dias depois, o trabalho continua ali esperando.
-                    if (parsedDraft && parsedDraft.exercisesByDay && (new Date().getTime() - parsedDraft.lastUpdated < 7 * 86400000)) {
+                    if (parsedDraft && parsedDraft.exercisesByDay && (new Date().getTime() - parsedDraft.lastUpdated < 86400000)) {
                         setExercisesByDay(parsedDraft.exercisesByDay);
                         if (parsedDraft.workoutTabs && parsedDraft.workoutTabs.length > 0) {
                             setWorkoutTabs(parsedDraft.workoutTabs);
@@ -315,7 +316,9 @@ export function useMontarTreino(route, navigation) {
                     processWorkoutDataToState(workoutToEdit.exercises);
 
                     try {
-                        const resFresh = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno?.id}&workoutId=${workoutToEdit.id}&t=${t}`);
+                        const resFresh = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${aluno?.id}&workoutId=${workoutToEdit.id}&t=${t}`, {
+                            headers: { ...(await authHeaders()) },
+                        });
                         if (resFresh.ok) {
                             const freshWorkout = await resFresh.json();
                             if (freshWorkout && freshWorkout.id) {
@@ -364,7 +367,9 @@ export function useMontarTreino(route, navigation) {
     const fetchTemplates = async () => {
         try {
             const currentAdminId = adminId || JSON.parse(await AsyncStorage.getItem('user')).id;
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) setTemplatesList(await res.json());
         } catch (e) {}
     };
@@ -439,7 +444,7 @@ export function useMontarTreino(route, navigation) {
             }
 
             const response = await fetch('https://fitos-final.onrender.com/api/admin/import-pdf', {
-                method: 'POST', body: formData, headers: { 'Accept': 'application/json' }
+                method: 'POST', body: formData, headers: { 'Accept': 'application/json', ...(await authHeaders()) }
             });
 
             const data = await response.json();
@@ -663,7 +668,9 @@ export function useMontarTreino(route, navigation) {
                 if (userJson) currentAdminId = JSON.parse(userJson).id;
             }
             // 🔥 INJETANDO O ADMIN ID NA REQUISIÇÃO (Ativa a Muralha do Admin User Route) 🔥
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${currentAdminId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user?adminId=${currentAdminId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) setCloneStudentsList((await res.json()).filter(u => u.role !== 'ADMIN'));
         } catch(e) {}
     };
@@ -672,7 +679,9 @@ export function useMontarTreino(route, navigation) {
         setSelectedCloneStudent(studentId);
         try {
             // 🔥 INJETANDO O ADMIN ID NA REQUISIÇÃO (Para passar pela muralha do Workout) 🔥
-            const res = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${studentId}&adminId=${adminId}&t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${studentId}&adminId=${adminId}&t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if(res.ok) setCloneWorkoutsList(await res.json());
         } catch(e) {}
     };
@@ -700,9 +709,9 @@ export function useMontarTreino(route, navigation) {
             });
 
             const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', {
-                method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    name: saveTemplateName, goal: templateGoalInput, level: templateLevelInput, 
+                method: 'POST', headers: {'Content-Type': 'application/json', ...(await authHeaders())},
+                body: JSON.stringify({
+                    name: saveTemplateName, goal: templateGoalInput, level: templateLevelInput,
                     collectionId: saveTemplateCollectionId, adminId: adminId, workoutModel: workoutModel,
                     data: JSON.stringify(orderedExercisesByDay) 
                 })
@@ -1040,8 +1049,8 @@ export function useMontarTreino(route, navigation) {
         if (isTemplateMode) {
             try {
                 const templateRealId = parsedTemplate?.id?.startsWith('temp_') ? undefined : parsedTemplate?.id;
-                const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', { 
-                    method: 'POST', headers: {'Content-Type': 'application/json'}, 
+                const res = await fetch('https://fitos-final.onrender.com/api/admin/templates', {
+                    method: 'POST', headers: {'Content-Type': 'application/json', ...(await authHeaders())},
                     body: JSON.stringify({ 
                         id: templateRealId, name: customWorkoutName, goal: templateGoalInput, level: templateLevelInput, 
                         collectionId: parsedTemplate?.collectionId || null, adminId: adminId, workoutModel: workoutModel, 
@@ -1100,8 +1109,8 @@ export function useMontarTreino(route, navigation) {
             const endpoint = isUpdate ? `https://fitos-final.onrender.com/api/workout/${workoutToEdit.id}` : `https://fitos-final.onrender.com/api/workout`; 
             const method = isUpdate ? 'PUT' : 'POST';
 
-            const response = await fetch(endpoint, { 
-                method, headers: { 'Content-Type': 'application/json' }, 
+            const response = await fetch(endpoint, {
+                method, headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ 
                     userId: aluno?.id, name: customWorkoutName, workoutModel,
                     intensityMultiplier, intensityEndDate: finalIntensityEndDate ? finalIntensityEndDate.toISOString() : null,
@@ -1174,7 +1183,7 @@ export function useMontarTreino(route, navigation) {
 
     return {
         state: {
-            detalhes, biblioteca, loading, sending, isImportingAI, lastAutoSaved, workoutTabs, selectedWorkoutTab,
+            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, 
             exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, 
             isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, 
             modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, 

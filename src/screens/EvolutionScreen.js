@@ -12,6 +12,7 @@ import { useEvolutionData } from '../hooks/useEvolutionData';
 import PerformanceTab from '../components/PerformanceTab';
 import BodyTab from '../components/BodyTab';
 import AssessmentFormModal from '../components/AssessmentFormModal';
+import { authHeaders } from '../utils/authToken';
 
 const { width } = Dimensions.get('window');
 
@@ -86,7 +87,7 @@ export default function EvolutionScreen({ navigation }) {
         const execDelete = async () => {
             setLoading(true);
             try {
-                const res = await fetch(`https://fitos-final.onrender.com/api/assessment?id=${id}`, { method: 'DELETE' });
+                const res = await fetch(`https://fitos-final.onrender.com/api/assessment?id=${id}`, { method: 'DELETE', headers: { ...(await authHeaders()) } });
                 if (res.ok) { loadData(); } else Alert.alert("Erro", "Falha ao excluir.");
             } catch (e) { Alert.alert("Erro", "Erro de conexão."); } 
             finally { setLoading(false); }
@@ -121,7 +122,7 @@ export default function EvolutionScreen({ navigation }) {
         if (editingId) payload.id = editingId;
 
         try {
-            const res = await fetch('https://fitos-final.onrender.com/api/assessment', { method: editingId ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+            const res = await fetch('https://fitos-final.onrender.com/api/assessment', { method: editingId ? 'PUT' : 'POST', headers: {'Content-Type': 'application/json', ...(await authHeaders())}, body: JSON.stringify(payload) });
             const json = await res.json(); 
             if (res.ok) {
                 const msg = method === 'POLLOCK' ? `Salvo!\nBF Estimado: ${calculatedBF}%` : `Peso registrado!`;
