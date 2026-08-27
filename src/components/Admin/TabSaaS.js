@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Platform, StyleSheet, Image, ActivityIndicator, Alert, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { authHeaders } from '../../utils/authToken';
 
 const PREDEFINED_COLORS = [
     { label: 'Verde Neon', hex: '#4DE38F' }, { label: 'Azul Pro', hex: '#32ADE6' },
@@ -55,7 +56,9 @@ export default function TabSaaS({ theme, currentUserId }) {
     const fetchSaaSMeta = async (coachId) => {
         setLoadingSaaS(true);
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${coachId}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${coachId}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setPageTitle(data.config?.pageTitle || '');
@@ -96,7 +99,7 @@ export default function TabSaaS({ theme, currentUserId }) {
             const testimonialNames = testimonials.map(t => t.name); const testimonialTexts = testimonials.map(t => t.text);
 
             const res = await fetch('https://fitos-final.onrender.com/api/admin/saas-meta/page', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ coachId: currentUserId, pageTitle, aboutText, videoUrl, coachPhotoUrl, themeColor, appFeatures, galleryPhotos, galleryTexts, testimonialNames, testimonialTexts, pixKey, pixName })
             });
             if (res.ok) {
@@ -153,7 +156,7 @@ export default function TabSaaS({ theme, currentUserId }) {
         if (!planName || !planValue || !planMonths) return Alert.alert("Aviso", "Preencha o Nome, Valor Base e Meses.");
         try {
             const res = await fetch('https://fitos-final.onrender.com/api/admin/saas-meta/plan', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     coachId: currentUserId, planId: planIdEditing, name: planName, 
                     value: parseFloat(planValue.replace(',', '.')), durationInMonths: parseInt(planMonths),
@@ -176,7 +179,10 @@ export default function TabSaaS({ theme, currentUserId }) {
     const handleDeletePlan = async (planId) => {
         if (Platform.OS === 'web' && !window.confirm("Deletar plano?")) return;
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/saas-meta/plan?planId=${planId}`, { method: 'DELETE' });
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/saas-meta/plan?planId=${planId}`, {
+                method: 'DELETE',
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) fetchSaaSMeta(currentUserId);
         } catch (e) { Alert.alert("Erro", "Erro ao deletar."); }
     };

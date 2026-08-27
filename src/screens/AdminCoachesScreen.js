@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
-import CoachBillingModal from '../components/Admin/CoachBillingModal'; 
+import CoachBillingModal from '../components/Admin/CoachBillingModal';
 import EditCoachProfileModal from '../components/Admin/EditCoachProfileModal'; // 🚀 NOVO MODAL IMPORTADO
 
 const BASE_URL = 'https://fitos-final.onrender.com';
@@ -63,7 +64,9 @@ export default function AdminCoachesScreen({ navigation }) {
     const fetchCoaches = useCallback(async () => {
         setLoading(true);
         try {
-            const res  = await fetch(`${BASE_URL}/api/admin/coaches?t=${Date.now()}`);
+            const res  = await fetch(`${BASE_URL}/api/admin/coaches?t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             const data = await res.json();
             setCoaches(Array.isArray(data) ? data : []);
         } catch (e) { console.error('[AdminCoaches]', e); }
@@ -88,7 +91,7 @@ export default function AdminCoachesScreen({ navigation }) {
             try {
                 const res = await fetch(`${BASE_URL}/api/admin/coaches`, {
                     method:  'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                     body:    JSON.stringify({ coachId: coach.id, action }),
                 });
                 if (res.ok) {
@@ -114,7 +117,7 @@ export default function AdminCoachesScreen({ navigation }) {
         try {
             const res = await fetch(`${BASE_URL}/api/admin/coaches`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ coachId: editingCoach.id, action: 'SET_PLAN', coachPlan: editPlan }),
             });
             if (res.ok) {

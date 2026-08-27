@@ -23,6 +23,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { LinearGradient } from 'expo-linear-gradient';
+import { saveAuthToken } from '../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -136,6 +137,7 @@ export default function LoginScreen({ navigation }) {
 
       await AsyncStorage.setItem('user', JSON.stringify(user));
       await AsyncStorage.setItem('role', role);
+      await saveAuthToken(data.token); // 🔐 guarda o token pras rotas que agora exigem login verificado
 
       // Push token
       const pushToken = await registerForPushNotificationsAsync();

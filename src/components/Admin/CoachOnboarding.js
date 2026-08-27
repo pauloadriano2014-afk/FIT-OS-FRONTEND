@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -189,7 +190,7 @@ export default function CoachOnboarding({ theme, navigation, setActiveTab, setSu
         try {
             const res = await fetch(`${BASE_URL}/api/admin/coach-onboarding`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ coachId, step }),
             });
             const data = await res.json();
@@ -218,7 +219,7 @@ export default function CoachOnboarding({ theme, navigation, setActiveTab, setSu
         try {
             await fetch(`${BASE_URL}/api/admin/coach-onboarding`, {
                 method:  'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify({ coachId, dismiss: true }),
             });
             setOnboardingDone(true);

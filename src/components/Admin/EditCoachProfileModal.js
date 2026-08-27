@@ -5,6 +5,7 @@ import {
     TextInput, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Alert 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 export default function EditCoachProfileModal({ visible, onClose, coach, theme, onSuccess }) {
     const [loading, setLoading] = useState(false);
@@ -63,7 +64,7 @@ export default function EditCoachProfileModal({ visible, onClose, coach, theme, 
             
             const response = await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     coachId: coach.id,
                     action: 'UPDATE_PROFILE', // 🔥 CHAMA A NOVA AÇÃO

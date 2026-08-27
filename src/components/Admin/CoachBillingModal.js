@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -120,7 +121,7 @@ export default function CoachBillingModal({ visible, onClose, coach, theme }) {
 
             const res  = await fetch(endpoint, {
                 method:  'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body:    JSON.stringify(body),
             });
             const data = await res.json();

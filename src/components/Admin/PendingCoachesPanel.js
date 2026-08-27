@@ -6,6 +6,7 @@ import {
     Platform, Alert, Linking, Modal
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 const API_URL = 'https://fitos-final.onrender.com';
 
@@ -55,7 +56,9 @@ export default function PendingCoachesPanel({ theme, refreshTrigger }) {
     const fetchRequests = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await fetch(`${API_URL}/api/admin/coach-requests?t=${Date.now()}`);
+            const res = await fetch(`${API_URL}/api/admin/coach-requests?t=${Date.now()}`, {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setRequests(Array.isArray(data) ? data : []);
@@ -71,7 +74,7 @@ export default function PendingCoachesPanel({ theme, refreshTrigger }) {
         try {
             const res = await fetch(`${API_URL}/api/admin/coach-requests`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ coachId, action, inviteCode, coachPlan }), // ← v2
             });
             const data = await res.json();

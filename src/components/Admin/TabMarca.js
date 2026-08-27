@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image, ActivityIndicator, Ale
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../../utils/authToken';
 
 export default function TabMarca({ theme }) {
     const [uploadingLogo, setUploadingLogo] = useState(false);
@@ -78,7 +79,7 @@ export default function TabMarca({ theme }) {
         setSavingBrand(true);
         try {
             const res = await fetch('https://fitos-final.onrender.com/api/admin/white-label', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ coachId: currentUserId, brandLogoUrl: logoUrl, brandLogoSize: logoSize })
             });
             if (res.ok) {

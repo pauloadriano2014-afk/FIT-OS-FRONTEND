@@ -14,6 +14,7 @@ import TabPropostaOfertas from './TabPropostaOfertas'; // 💎 Ofertas de Propos
 import TabDesafios from './TabDesafios'; // 🎯 Desafios/Projetos por WhatsApp (só master)
 import TabProdutos from './TabProdutos'; // 🛒 Produtos Digitais — ebooks/audiobooks (só master)
 import { MASTER_IDS } from '../../constants/masterIds';
+import { authHeaders } from '../../utils/authToken';
 
 export default function TabGestao({ 
     theme, subTabGestao, setSubTabGestao, navigation, alunosAtivos, 
@@ -70,7 +71,7 @@ export default function TabGestao({
             const executeImpersonation = async () => {
                 try {
                     const apiUrl = `https://fitos-final.onrender.com/api/admin/impersonate?coachId=${currentUserId}`;
-                    const res = await fetch(apiUrl);
+                    const res = await fetch(apiUrl, { headers: { ...(await authHeaders()) } });
                     
                     if (!res.ok) throw new Error("Erro na API");
                     

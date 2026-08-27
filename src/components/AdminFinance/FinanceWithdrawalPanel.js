@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, TextInput, Platform, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 export default function FinanceWithdrawalPanel({ theme, isWebPC, isMaster }) {
     const [balance, setBalance] = useState(0);
@@ -15,7 +16,10 @@ export default function FinanceWithdrawalPanel({ theme, isWebPC, isMaster }) {
         setLoading(true);
         try {
             // Chama nossa API real que vai consultar o Asaas
-            const res = await fetch('https://fitos-final.onrender.com/api/finance/withdraw');
+            // 🔐 precisa do token de login — sem ele o servidor não sabe de quem é o saldo
+            const res = await fetch('https://fitos-final.onrender.com/api/finance/withdraw', {
+                headers: { ...(await authHeaders()) },
+            });
             if (res.ok) {
                 const data = await res.json();
                 setBalance(data.balance || 0);
@@ -45,7 +49,7 @@ export default function FinanceWithdrawalPanel({ theme, isWebPC, isMaster }) {
         try {
             const res = await fetch('https://fitos-final.onrender.com/api/finance/withdraw', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ pixKey: pixKey.trim(), value: balance })
             });
             const data = await res.json();
