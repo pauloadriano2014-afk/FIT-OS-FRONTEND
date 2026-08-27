@@ -4,11 +4,11 @@
     "slug": "pa-team-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/pateam_icon.png",
+    "icon": "./assets/elitefit_icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/pateam_splash.png",
+      "image": "./assets/elitefit_splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
@@ -23,7 +23,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/pateam_icon.png",
+        "foregroundImage": "./assets/elitefit_icon.png",
         "backgroundColor": "#000000"
       },
       "package": "com.pauloadriano.team",
@@ -63,7 +63,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/pateam_icon.png",
+          "icon": "./assets/elitefit_notification_icon.png",
           "color": "#CCFF00"
         }
       ],

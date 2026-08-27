@@ -117,16 +117,27 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
     }, [isMaster]);
 
     // 🔥 BUSCA ANTI-CACHE DOS ALUNOS OFFLINE
+    // 🔒 offline-clients/get é master-only no backend (não tem como filtrar por
+    // coach nessa tabela) — coach parceiro nem deve chamar essa rota. Antes essa
+    // trava não existia (rota não tinha proteção nenhuma), então nunca dava erro
+    // aqui; agora que tem, sem esse "if (isMaster)" o coach parceiro recebe um
+    // 403 e o corpo de erro (um objeto, não array) ia parar em setOfflineClients,
+    // quebrando o .map() mais abaixo. Também passou a checar res.ok antes de usar
+    // a resposta, por segurança.
     useEffect(() => {
+        if (!isMaster) { setOfflineClients([]); return; }
         (async () => {
             fetch('https://fitos-final.onrender.com/api/admin/offline-clients/get?t=' + Date.now(), {
                 headers: { ...(await authHeaders()) },
             })
-                .then(res => res.json())
-                .then(data => setOfflineClients(data || []))
+                .then(res => {
+                    if (!res.ok) throw new Error("Falha na API: " + res.status);
+                    return res.json();
+                })
+                .then(data => setOfflineClients(Array.isArray(data) ? data : []))
                 .catch(e => console.error("Erro ao buscar offline:", e));
         })();
-    }, []);
+    }, [isMaster]);
 
     const updateCoachLocal = (id, data) => {
         setCoachesData(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
