@@ -1,9 +1,18 @@
-// src/components/AdminDiet/DietBuilderRaioX.js
+// src/components/AdminDiet/DietRaioX.js
+// Painel-resumo ("Raio-X do Aluno") com o essencial da anamnese pra
+// consulta rápida enquanto o coach monta a dieta. Antes vivia dentro do
+// construtor manual (Montagem Rápida, removida a pedido do Paulo), mas ele
+// pediu pra preservar essa função — então ficou independente, acessível
+// direto pelo cabeçalho da tela de dieta.
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-export default function DietBuilderRaioX({ anamnese, macros, theme, onClose }) {
+export default function DietRaioX({ anamnese, macros, theme, onClose }) {
+    if (!anamnese) return null;
+
+    const m = macros ?? { kcal: 2000, prot: 120, carb: 220, fat: 60 };
+
     const sections = [
         {
             title: '🎯 Objetivo e Perfil',
@@ -25,7 +34,7 @@ export default function DietBuilderRaioX({ anamnese, macros, theme, onClose }) {
         },
         {
             title: '🎯 Metas do Dia',
-            items: [`KCAL: ${macros.kcal} | PROT: ${macros.prot}g | CARBO: ${macros.carb}g | GORD: ${macros.fat}g`],
+            items: [`KCAL: ${m.kcal} | PROT: ${m.prot}g | CARBO: ${m.carb}g | GORD: ${m.fat}g`],
         },
         {
             title: '⚠️ Restrições e Saúde',
@@ -50,8 +59,8 @@ export default function DietBuilderRaioX({ anamnese, macros, theme, onClose }) {
 
     return (
         <View style={[s.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={{ flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-                <Text style={{ color:theme.text, fontWeight:'900', fontSize:13, letterSpacing:0.5 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>
                     ☢️ RAIO-X DO ALUNO
                 </Text>
                 <TouchableOpacity onPress={onClose}>
@@ -60,12 +69,12 @@ export default function DietBuilderRaioX({ anamnese, macros, theme, onClose }) {
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
                 {sections.map((sec, si) => (
-                    <View key={si} style={{ marginBottom:12 }}>
-                        <Text style={{ color:theme.accent, fontWeight:'900', fontSize:11, marginBottom:4, letterSpacing:0.5 }}>
+                    <View key={si} style={{ marginBottom: 12 }}>
+                        <Text style={{ color: theme.accent, fontWeight: '900', fontSize: 11, marginBottom: 4, letterSpacing: 0.5 }}>
                             {sec.title}
                         </Text>
                         {sec.items.map((item, ii) => (
-                            <Text key={ii} style={{ color:theme.textSecondary, fontSize:11, lineHeight:18 }}>• {item}</Text>
+                            <Text key={ii} style={{ color: theme.textSecondary, fontSize: 11, lineHeight: 18 }}>• {item}</Text>
                         ))}
                     </View>
                 ))}
@@ -75,5 +84,5 @@ export default function DietBuilderRaioX({ anamnese, macros, theme, onClose }) {
 }
 
 const s = StyleSheet.create({
-    panel: { borderRadius:18, borderWidth:1, padding:16, marginBottom:12, maxHeight:400 },
+    panel: { borderRadius: 18, borderWidth: 1, padding: 16, marginBottom: 12, maxHeight: 400 },
 });

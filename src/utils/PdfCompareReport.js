@@ -2,6 +2,7 @@
 import { Platform, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { getCoachBrandForPdf, renderBrandBlockHtml } from './brandForPdf';
 
 const getStyles = () => `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
@@ -36,7 +37,7 @@ const getStyles = () => `
 `;
 
 const getBaseHtml = (content) => `
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${getStyles()}</style></head><body>${content}<div class="footer">Laudo Técnico Gerado via Aplicativo Oficial PA ELITE TEAM</div></body></html>
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${getStyles()}</style></head><body>${content}<div class="footer">Laudo Técnico Gerado via Aplicativo Oficial ELITE FIT</div></body></html>
 `;
 
 const processAndSharePDF = async (htmlContent, title) => {
@@ -60,8 +61,14 @@ const processAndSharePDF = async (htmlContent, title) => {
     } catch (e) { if (Platform.OS !== 'web') Alert.alert("Erro", "Não foi possível gerar o PDF."); }
 };
 
-export const generateComparePDF = (selectedData, userData, customFeedback = null) => {
+export const generateComparePDF = async (selectedData, userData, customFeedback = null) => {
     if (selectedData.length < 2) return;
+
+    // 🔥 Logo do COACH do aluno (marca personalizada), com fallback pro
+    // padrão ELITE FIT se o coach ainda não subiu a própria logo.
+    const coachBrand = await getCoachBrandForPdf(userData?.coachId);
+    const headerBrandHtml = renderBrandBlockHtml(coachBrand, { boxWidthPx: 180, align: 'left', textColor: '#111' });
+    const footerSealHtml = renderBrandBlockHtml(null, { boxWidthPx: 260, align: 'center', textColor: '#888' });
 
     const sortedData = [...selectedData].sort((a, b) => new Date(a.date) - new Date(b.date));
     const oldest = sortedData[0];
@@ -105,7 +112,7 @@ export const generateComparePDF = (selectedData, userData, customFeedback = null
     let html = `
     <div class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
-            <img src="https://pub-8d1e734f810f4342a0e77c4220bee5b2.r2.dev/assessments/fc557a0a-ef63-44a9-81d4-213e24adf2eb/logo%20pa%20elite%20team.png" style="height: 60px; object-fit: contain;" />
+            <div style="width: 180px; flex-shrink: 0;">${headerBrandHtml}</div>
             <div>
                 <div class="title">Evolução Comparativa</div>
                 <div class="subtitle">Aluno(a): <strong>${userData?.name || 'Aluno'}</strong></div>
@@ -167,13 +174,13 @@ export const generateComparePDF = (selectedData, userData, customFeedback = null
     }
 
     if (customFeedback) {
-        html += `<div class="section-title">PARECER TÉCNICO PA ELITE TEAM</div>`;
+        html += `<div class="section-title">PARECER TÉCNICO ELITE FIT</div>`;
         html += `<div class="avoid-break" style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; font-size: 14px; color: #333; line-height: 1.6; white-space: pre-wrap; font-weight: 500; border: 1px solid #e5e5ea;">${customFeedback}</div>`;
     }
 
     html += `
     <div class="avoid-break" style="text-align: center; margin-top: 50px; padding-top: 30px;">
-        <img src="https://pub-8d1e734f810f4342a0e77c4220bee5b2.r2.dev/assessments/fc557a0a-ef63-44a9-81d4-213e24adf2eb/logo%20pa%20elite%20team.png" style="height: 100px; object-fit: contain; opacity: 0.9;" />
+        ${footerSealHtml}
         <p style="font-size: 10px; color: #888; font-weight: 700; letter-spacing: 2px; margin-top: 10px;">EXCELÊNCIA EM RESULTADOS</p>
     </div>
     `;

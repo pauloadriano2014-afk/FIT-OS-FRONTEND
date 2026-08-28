@@ -173,7 +173,7 @@ export default function ProdutoTreinoScreen({ route }) {
             <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
                 {view === 'lista' ? (
                     <>
-                        <Text style={styles.marca}>PA ELITE TEAM</Text>
+                        <Text style={styles.marca}>ELITE FIT</Text>
                         <Text style={styles.titulo}>{dados.produtoNome}</Text>
                         <Text style={styles.subtitulo}>
                             Oie, {dados.nomeCliente?.split(' ')[0] || 'atleta'}! Aqui está seu programa completo

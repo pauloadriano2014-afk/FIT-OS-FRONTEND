@@ -267,7 +267,6 @@ export default function GerenciarTemplates({ navigation }) {
         setNewTempLevel={s.setNewTempLevel}
         isImportingAI={s.isImportingAI}
         onImportPDF={s.handleImportPDF}
-        onGoToLaboratory={() => { s.setModalTempVisible(false); navigation.navigate('LaboratoryScreen'); }}
         onCreateManual={() => s.goToEditor(null)}
       />
 

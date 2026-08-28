@@ -50,14 +50,14 @@ body {
 <body>
 
 <div class="moldura">
-    <div class="brand">PA Team Elite</div>
+    <div class="brand">ELITE FIT</div>
     <div class="titulo">CERTIFICADO DE CONCLUSÃO</div>
     <div class="subtitulo">Certificamos que</div>
     <div class="nome">${nomeCliente}</div>
     <div class="texto">concluiu com sucesso todos os módulos e aulas do curso</div>
     <div class="curso">${produtoNome}</div>
     <div class="data">Emitido em ${today}</div>
-    <div class="rodape">PA Team Elite · Paulo Adriano · pauloadrianoteam.com.br</div>
+    <div class="rodape">ELITE FIT CONSULTORIA · elitefitapp.com.br</div>
 </div>
 
 </body>

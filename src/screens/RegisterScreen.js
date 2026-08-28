@@ -595,7 +595,7 @@ export default function RegisterScreen({ navigation, route }) {
 
                       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 25 }}>
                           <Text style={[styles.legalText, { color: theme.text, marginBottom: 20 }]}>
-                              O aplicativo PAULO ADRIANO TEAM é uma plataforma de fornecimento de conteúdo de bem-estar, treinos e protocolos físicos online.
+                              O aplicativo ELITE FIT é uma plataforma de fornecimento de conteúdo de bem-estar, treinos e protocolos físicos online.
                           </Text>
 
                           <Text style={[styles.legalHeading, { color: theme.accent }]}>Responsabilidade Técnica</Text>

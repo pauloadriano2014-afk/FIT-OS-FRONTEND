@@ -141,7 +141,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
     const getBaseUrl = () => {
         if (Platform.OS === 'web') return window.location.origin;
-        return 'https://www.pauloadrianoteam.com.br';
+        return 'https://www.elitefitapp.com.br';
     };
 
     // ── Ativa uma promo e desativa a outra (e limpa a oferta, mutuamente exclusivas) ──

@@ -106,7 +106,7 @@ const FAQ = [
     { q:'Posso testar antes de pagar?',          a:'Sim! Após a aprovação, você tem 7 dias para explorar a plataforma gratuitamente.' },
     { q:'Posso mudar de plano depois?',           a:'Claro. Você pode fazer upgrade a qualquer momento e pagamos apenas a diferença proporcional dos dias restantes.' },
     { q:'Quantos alunos posso ter?',              a:'Ilimitados. Não cobramos por aluno — seu crescimento não tem teto.' },
-    { q:'Como funciona o suporte?',               a:'Você tem acesso ao ELITE Assistant dentro do painel (IA de suporte) e WhatsApp direto com a equipe PA ELITE TEAM.' },
+    { q:'Como funciona o suporte?',               a:'Você tem acesso ao ELITE Assistant dentro do painel (IA de suporte) e WhatsApp direto com a equipe ELITE FIT.' },
     { q:'Os alunos pagam alguma coisa?',          a:'Não para usar o app. O que você cobra dos seus alunos é gerenciado por você dentro da plataforma.' },
     { q:'Posso usar minha própria logo?',         a:'Sim. Upload da sua logo nas configurações e ela aparece no app dos seus alunos.' },
 ];
@@ -183,7 +183,7 @@ export default function CoachPropostaScreen({ navigation }) {
 
     const handleWhatsApp = () => {
         const msg = 'Olá! Tenho interesse em ser coach parceiro no ELITE FIT.';
-        Linking.openURL(`whatsapp://send?phone=5541997991346&text=${encodeURIComponent(msg)}`).catch(() => {});
+        Linking.openURL(`whatsapp://send?phone=5541999999999&text=${encodeURIComponent(msg)}`).catch(() => {});
     };
 
     return (

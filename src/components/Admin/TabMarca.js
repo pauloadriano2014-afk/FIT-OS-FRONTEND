@@ -6,6 +6,9 @@ import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authHeaders } from '../../utils/authToken';
 
+// Cor da marca ELITE FIT (usada no "FIT" do wordmark e nos traços do subtítulo)
+const BRAND_PURPLE = '#8B5CF6';
+
 export default function TabMarca({ theme }) {
     const [uploadingLogo, setUploadingLogo] = useState(false);
     const [logoUrl, setLogoUrl] = useState(null);
@@ -164,7 +167,19 @@ export default function TabMarca({ theme }) {
                         <View style={[styles.mockupBtn, { backgroundColor: theme.accent }]} />
                     </View>
                     <View style={{ alignItems: 'center', paddingBottom: 20, paddingTop: 10, marginTop: 'auto' }}>
-                        {logoUrl ? <Image source={{ uri: logoUrl }} style={{ width: logoSize * 0.55, height: (logoSize * 0.55) / 3 }} resizeMode="contain" /> : <><Text style={{ fontWeight: 'bold', fontSize: 12, color: theme.text, letterSpacing: 1 }}>PA TEAM</Text><Text style={{ fontSize: 7, fontWeight: 'bold', color: theme.textSecondary, letterSpacing: 1, marginTop: 2 }}>CONSULTORIA DE PERFORMANCE</Text></>}
+                        {logoUrl ? <Image source={{ uri: logoUrl }} style={{ width: logoSize * 0.55, height: (logoSize * 0.55) / 3 }} resizeMode="contain" /> : (
+                            <>
+                                <Text style={{ fontWeight: '900', fontSize: 12, letterSpacing: 1 }}>
+                                    <Text style={{ color: theme.text }}>ELITE</Text>
+                                    <Text style={{ color: BRAND_PURPLE }}> FIT</Text>
+                                </Text>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 3, gap: 4 }}>
+                                    <View style={{ width: 8, height: 1, backgroundColor: BRAND_PURPLE, opacity: 0.7 }} />
+                                    <Text style={{ fontSize: 7, fontWeight: 'bold', color: theme.textSecondary, letterSpacing: 1 }}>CONSULTORIA DE PERFORMANCE</Text>
+                                    <View style={{ width: 8, height: 1, backgroundColor: BRAND_PURPLE, opacity: 0.7 }} />
+                                </View>
+                            </>
+                        )}
                     </View>
                 </View>
             </View>

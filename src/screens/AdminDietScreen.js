@@ -20,8 +20,6 @@ import SmartSubstituteModal from '../components/SmartSubstituteModal';
 import ImportDietModal      from '../components/ImportDietModal';
 import ModelSelectorModal   from '../components/AdminDiet/ModelSelectorModal';
 import DietContextPanel     from '../components/AdminDiet/DietContextPanel';
-import { MealAnalyzerModal, DayAnalyzerModal } from '../components/AdminDiet/DietAnalyzerModal';
-import DietBuilderModal     from '../components/AdminDiet/DietBuilderModal';
 import PdfNotesModal        from '../components/AdminDiet/PdfNotesModal';
 
 // 🔥 NOVO: Motor de Ajuste Fino
@@ -68,10 +66,6 @@ export default function AdminDietScreen({ route, navigation }) {
     const [initialCategoryFilter, setInitialCategoryFilter] = useState('Todas');
     const [modelSelectorVisible,  setModelSelectorVisible]  = useState(false);
     const [generateProgress,      setGenerateProgress]      = useState('');
-    const [mealAnalyzerVisible,   setMealAnalyzerVisible]   = useState(false);
-    const [dayAnalyzerVisible,    setDayAnalyzerVisible]    = useState(false);
-    const [mealToAnalyze,         setMealToAnalyze]         = useState(null);
-    const [builderVisible,        setBuilderVisible]        = useState(false);
     const [isExportingPdf,        setIsExportingPdf]        = useState(false);
     const [pdfNotesVisible,       setPdfNotesVisible]       = useState(false);
 
@@ -108,22 +102,6 @@ export default function AdminDietScreen({ route, navigation }) {
             return plan.macrosByDay[actions.activeDayType] ?? null;
         } catch { return null; }
     }, [data.anamnese, aluno, actions.activeDayType]);
-
-    const handleBuilderConfirm = (meals) => {
-        actions.setMeals(prev => [
-            ...prev.filter(m => m.dayType !== actions.activeDayType),
-            ...meals,
-        ]);
-    };
-
-    const handleOpenMealAnalyzer = (meal) => { setMealToAnalyze(meal); setMealAnalyzerVisible(true); };
-
-    const handleApproveMealSuggestion = (refeicaoReescrita) => {
-        if (!mealToAnalyze) return;
-        actions.setMeals(prev => prev.map(m =>
-            m.id === mealToAnalyze.id ? { ...m, notes: refeicaoReescrita.notes || m.notes } : m
-        ));
-    };
 
     const handleActionPress = (action) => {
         if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -397,13 +375,11 @@ export default function AdminDietScreen({ route, navigation }) {
                                 theme={theme}
                                 currentMacros={actions.currentMacros}
                                 macros={actions.macros}
+                                macroTargets={macroTargets}
                                 pct={pct}
                                 showRaioX={showRaioX}
                                 setShowRaioX={setShowRaioX}
                                 anamnese={data.anamnese}
-                                handleGenerateAI={() => setBuilderVisible(true)}
-                                isGenerating={false}
-                                generateProgress={''}
                                 setImportModalVisible={modals.setImportModalVisible}
                                 activeDayType={actions.activeDayType}
                                 activeAccent={activeAccent}
@@ -453,7 +429,7 @@ export default function AdminDietScreen({ route, navigation }) {
                                                     handleUpdateFoodAmount={actions.handleUpdateFoodAmount} handleToggleUnit={actions.handleToggleUnit}
                                                     handleDeleteFood={actions.handleDeleteFood} handleOpenSearch={handleOpenSearch}
                                                     handleMealOptions={handleMealOptions} handleSwapBaseFood={handleSwapBaseFood}
-                                                    handleUpdateMeal={actions.handleUpdateMeal} onAnalyzeMeal={handleOpenMealAnalyzer}
+                                                    handleUpdateMeal={actions.handleUpdateMeal}
                                                     mealTemplatesList={data.mealTemplatesList} allMeals={actions.visibleMeals}
                                                     onApplyAsAlternative={actions.handleApplyAsAlternative} />
                                                 {myAlts.map((alt, aIdx) => (
@@ -470,7 +446,7 @@ export default function AdminDietScreen({ route, navigation }) {
                                                             handleUpdateFoodAmount={actions.handleUpdateFoodAmount} handleToggleUnit={actions.handleToggleUnit}
                                                             handleDeleteFood={actions.handleDeleteFood} handleOpenSearch={handleOpenSearch}
                                                             handleMealOptions={handleMealOptions} handleSwapBaseFood={handleSwapBaseFood}
-                                                            handleUpdateMeal={actions.handleUpdateMeal} onAnalyzeMeal={handleOpenMealAnalyzer}
+                                                            handleUpdateMeal={actions.handleUpdateMeal}
                                                             mealTemplatesList={data.mealTemplatesList} allMeals={actions.visibleMeals}
                                                             onApplyAsAlternative={actions.handleApplyAsAlternative} />
                                                     </View>
@@ -552,8 +528,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 {isWebPC && (
                     <DietContextPanel theme={theme} anamnese={data.anamnese} aluno={aluno}
                         activeDayType={actions.activeDayType} currentMacros={actions.currentMacros}
-                        macroTargets={macroTargets} visibleMeals={actions.visibleMeals}
-                        onAnalyzeDay={() => setDayAnalyzerVisible(true)} />
+                        macroTargets={macroTargets} visibleMeals={actions.visibleMeals} />
                 )}
             </View>
 
@@ -596,22 +571,6 @@ export default function AdminDietScreen({ route, navigation }) {
                 onClose={() => !data.isGenerating && setModelSelectorVisible(false)}
                 onGenerate={handleGenerateAI} isGenerating={data.isGenerating}
                 generateProgress={generateProgress} anamnese={data.anamnese} aluno={aluno} />
-
-            {builderVisible && (
-                <DietBuilderModal visible={builderVisible} onClose={() => setBuilderVisible(false)}
-                    onConfirm={handleBuilderConfirm} anamnese={data.anamnese} aluno={aluno}
-                    dayType={actions.activeDayType} coachId={loggedCoachId} theme={theme} />
-            )}
-
-            <MealAnalyzerModal visible={mealAnalyzerVisible}
-                onClose={() => { setMealAnalyzerVisible(false); setMealToAnalyze(null); }}
-                onApprove={handleApproveMealSuggestion} meal={mealToAnalyze}
-                anamnese={data.anamnese} macroTargets={macroTargets} dayType={actions.activeDayType} theme={theme} />
-
-            <DayAnalyzerModal visible={dayAnalyzerVisible} onClose={() => setDayAnalyzerVisible(false)}
-                onAnalyzeMeal={(meal) => { setDayAnalyzerVisible(false); handleOpenMealAnalyzer(meal); }}
-                meals={actions.visibleMeals} anamnese={data.anamnese} macroTargets={macroTargets}
-                currentMacros={actions.currentMacros} dayType={actions.activeDayType} theme={theme} />
 
             <PdfNotesModal
                 visible={pdfNotesVisible}

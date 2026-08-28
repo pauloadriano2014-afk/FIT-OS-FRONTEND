@@ -386,7 +386,7 @@ export default function AdminCoachesScreen({ navigation }) {
                             Plano de {editingCoach?.name}
                         </Text>
                         <Text style={{ color: theme.textSecondary, fontSize:12 }}>
-                            Selecione o plano contratado com a PA ELITE TEAM. Isso define o que o coach pode usar e oferecer.
+                            Selecione o plano contratado com a ELITE FIT. Isso define o que o coach pode usar e oferecer.
                         </Text>
 
                         {PLAN_OPTIONS.map(opt => (

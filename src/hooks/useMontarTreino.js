@@ -31,8 +31,9 @@ export function useMontarTreino(route, navigation) {
     const [biblioteca, setBiblioteca] = useState([]); 
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
-    const [isImportingAI, setIsImportingAI] = useState(false); 
-    const [adminId, setAdminId] = useState(null); 
+    const [isImportingAI, setIsImportingAI] = useState(false);
+    const [adminId, setAdminId] = useState(null);
+    const [lastAutoSaved, setLastAutoSaved] = useState(null); // 🔥 Timestamp do último rascunho salvo no aparelho
     
     const [workoutTabs, setWorkoutTabs] = useState(['A']);
     const [selectedWorkoutTab, setSelectedWorkoutTab] = useState('A');
@@ -132,13 +133,15 @@ export function useMontarTreino(route, navigation) {
 
     useEffect(() => {
         const autoSave = async () => {
-            if (loading) return; 
+            if (loading) return;
+            const now = new Date().getTime();
             const dataToSave = {
                 exercisesByDay, workoutTabs, customWorkoutName, workoutModel, workoutEnvironment,
                 intensityMultiplier, intensityEndDate: intensityEndDate ? intensityEndDate.toISOString() : null,
-                lastUpdated: new Date().getTime()
+                lastUpdated: now
             };
             await AsyncStorage.setItem(draftKey, JSON.stringify(dataToSave));
+            setLastAutoSaved(now); // 🔥 Confirma no state que o rascunho foi gravado no aparelho, pra UI poder mostrar
         };
         autoSave();
     }, [exercisesByDay, workoutTabs, customWorkoutName, workoutModel, workoutEnvironment, intensityMultiplier, intensityEndDate, loading]);
@@ -213,7 +216,9 @@ export function useMontarTreino(route, navigation) {
             if (savedDraft) {
                 try {
                     const parsedDraft = JSON.parse(savedDraft);
-                    if (parsedDraft && parsedDraft.exercisesByDay && (new Date().getTime() - parsedDraft.lastUpdated < 86400000)) {
+                    // 🔥 Janela de validade do rascunho aumentada de 24h pra 7 dias — se a internet cair
+                    // e o coach só voltar pro app dias depois, o trabalho continua ali esperando.
+                    if (parsedDraft && parsedDraft.exercisesByDay && (new Date().getTime() - parsedDraft.lastUpdated < 7 * 86400000)) {
                         setExercisesByDay(parsedDraft.exercisesByDay);
                         if (parsedDraft.workoutTabs && parsedDraft.workoutTabs.length > 0) {
                             setWorkoutTabs(parsedDraft.workoutTabs);
@@ -1183,7 +1188,7 @@ export function useMontarTreino(route, navigation) {
 
     return {
         state: {
-            detalhes, biblioteca, loading, sending, isImportingAI, workoutTabs, selectedWorkoutTab, 
+            detalhes, biblioteca, loading, sending, isImportingAI, lastAutoSaved, workoutTabs, selectedWorkoutTab, 
             exercisesByDay, renameTabModalVisible, newTabName, customWorkoutName, startDate, endDate, 
             isArchived, isReordering, showCalendarStart, showCalendarEnd, templateGoalInput, templateLevelInput, 
             modalTecnicaVisible, modalBuscaVisible, modalTemplatesVisible, modalSaveTemplateVisible, anamneseModal, 

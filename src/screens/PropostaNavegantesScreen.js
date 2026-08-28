@@ -561,7 +561,7 @@ export default function PropostaNavegantesScreen({ route }) {
                     </Text>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
+                        <Text style={styles.footerText}>ELITE FIT © 2026</Text>
                         <Text style={styles.footerSubText}>Página segura. Oferta exclusiva de Dia dos Namorados. Apenas {TOTAL_VAGAS} vagas de casal.</Text>
                     </View>
                 </ScrollView>

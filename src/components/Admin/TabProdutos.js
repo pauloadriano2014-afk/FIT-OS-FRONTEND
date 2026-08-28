@@ -120,7 +120,7 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
 
     useEffect(() => { fetchProdutos(); fetchDashboard(); }, [fetchProdutos, fetchDashboard]);
 
-    const getBaseUrl = () => 'https://www.pauloadrianoteam.com.br';
+    const getBaseUrl = () => 'https://www.elitefitapp.com.br';
     const getProdutoLink = (produto) => `${getBaseUrl()}/Produto?id=${encodeURIComponent(produto.slug)}`;
 
     const handleCopyLink = async (produto) => {

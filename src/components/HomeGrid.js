@@ -3,6 +3,9 @@ import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, Image } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
+// Cor da marca ELITE FIT (usada no "FIT" do wordmark e nos traços do subtítulo)
+const BRAND_PURPLE = '#8B5CF6';
+
 /**
  * Grid de 4 atalhos rápidos (Check-in, Evolução, Histórico, PA Flix)
  * e rodapé com a marca customizada do Coach (White-Label).
@@ -117,8 +120,15 @@ export default function HomeGrid({
                     />
                 ) : (
                     <>
-                        <Text style={[styles.footerBrand, { color: theme.text }]}>PA TEAM</Text>
-                        <Text style={[styles.footerSub, { color: theme.textSecondary }]}>CONSULTORIA DE PERFORMANCE</Text>
+                        <Text style={styles.footerBrand}>
+                            <Text style={{ color: theme.text }}>ELITE</Text>
+                            <Text style={{ color: BRAND_PURPLE }}> FIT</Text>
+                        </Text>
+                        <View style={styles.footerSubRow}>
+                            <View style={[styles.footerSubLine, { backgroundColor: BRAND_PURPLE }]} />
+                            <Text style={[styles.footerSub, { color: theme.textSecondary }]}>CONSULTORIA DE PERFORMANCE</Text>
+                            <View style={[styles.footerSubLine, { backgroundColor: BRAND_PURPLE }]} />
+                        </View>
                     </>
                 )}
             </View>
@@ -134,5 +144,7 @@ const styles = StyleSheet.create({
     dot:        { position: 'absolute', top: -4, right: -4, width: 12, height: 12, borderRadius: 6, backgroundColor: '#FF3B30', borderWidth: 2, zIndex: 10 },
     footer:     { alignItems: 'center', marginTop: 20, marginBottom: 10 },
     footerBrand:{ fontWeight: '900', fontSize: 16, letterSpacing: 1.5 },
-    footerSub:  { fontSize: 10, fontWeight: 'bold', letterSpacing: 2, marginTop: 4 },
+    footerSubRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 6 },
+    footerSubLine: { width: 14, height: 1.5, borderRadius: 1, opacity: 0.7 },
+    footerSub:  { fontSize: 10, fontWeight: 'bold', letterSpacing: 2 },
 });

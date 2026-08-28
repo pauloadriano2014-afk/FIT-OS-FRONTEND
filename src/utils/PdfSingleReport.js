@@ -2,6 +2,7 @@
 import { Platform, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { getCoachBrandForPdf, renderBrandBlockHtml } from './brandForPdf';
 
 // 🔥 FAREJADOR DE GÊNERO DEFINITIVO: Busca direto na avaliação (onde o backend injeta) ou no userData 🔥
 const isFemaleDetector = (userData, assessment) => {
@@ -82,7 +83,7 @@ const getStyles = () => `
 `;
 
 const getBaseHtml = (content) => `
-<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${getStyles()}</style></head><body>${content}<div class="footer">Laudo Técnico Gerado via Aplicativo Oficial PA ELITE TEAM</div></body></html>
+<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><style>${getStyles()}</style></head><body>${content}<div class="footer">Laudo Técnico Gerado via Aplicativo Oficial ELITE FIT</div></body></html>
 `;
 
 export const processAndSharePDF = async (htmlContent, title) => {
@@ -101,7 +102,13 @@ export const processAndSharePDF = async (htmlContent, title) => {
     } catch (e) { if (Platform.OS !== 'web') Alert.alert("Erro", "Não foi possível gerar o PDF."); }
 };
 
-export const generateSinglePDF = (assessment, userData, customFeedback = null) => {
+export const generateSinglePDF = async (assessment, userData, customFeedback = null) => {
+    // 🔥 Logo do COACH do aluno (marca personalizada), com fallback pro
+    // padrão ELITE FIT se o coach ainda não subiu a própria logo.
+    const coachBrand = await getCoachBrandForPdf(userData?.coachId);
+    const headerBrandHtml = renderBrandBlockHtml(coachBrand, { boxWidthPx: 180, align: 'left', textColor: '#111' });
+    const footerSealHtml = renderBrandBlockHtml(null, { boxWidthPx: 260, align: 'center', textColor: '#888' });
+
     const d = new Date(assessment.date).toLocaleDateString('pt-BR');
     const leanMassRaw = assessment.bodyFat ? (assessment.weight * (1 - assessment.bodyFat / 100)) : null;
     const leanMass = leanMassRaw ? leanMassRaw.toFixed(1) : '--';
@@ -137,7 +144,7 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
     let html = `
     <div class="header">
         <div style="display: flex; align-items: center; gap: 15px;">
-            <img src="https://pub-8d1e734f810f4342a0e77c4220bee5b2.r2.dev/assessments/fc557a0a-ef63-44a9-81d4-213e24adf2eb/logo%20pa%20elite%20team.png" style="height: 60px; object-fit: contain;" />
+            <div style="width: 180px; flex-shrink: 0;">${headerBrandHtml}</div>
             <div>
                 <div class="title">Avaliação Física</div>
                 <div class="subtitle">Aluno(a): <strong>${userData?.name || 'Aluno'}</strong>${heightDisplay}</div>
@@ -471,7 +478,7 @@ export const generateSinglePDF = (assessment, userData, customFeedback = null) =
 
     html += `
     <div class="avoid-break" style="text-align: center; margin-top: 50px; padding-top: 30px;">
-        <img src="https://pub-8d1e734f810f4342a0e77c4220bee5b2.r2.dev/assessments/fc557a0a-ef63-44a9-81d4-213e24adf2eb/logo%20pa%20elite%20team.png" style="height: 100px; object-fit: contain; opacity: 0.9;" />
+        ${footerSealHtml}
         <p style="font-size: 10px; color: #888; font-weight: 700; letter-spacing: 2px; margin-top: 10px;">EXCELÊNCIA EM RESULTADOS</p>
     </div>
     `;

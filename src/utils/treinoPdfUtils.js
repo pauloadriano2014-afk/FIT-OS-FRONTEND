@@ -116,7 +116,7 @@ body { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#0a0a
 <body>
 
 <div class="header">
-    <div class="brand-name">PA Team Elite</div>
+    <div class="brand-name">ELITE FIT</div>
     <div class="doc-title">${produtoNome}</div>
     <div class="doc-subtitle">Programa de treino${programa.duracaoSemanas ? ` • ${programa.duracaoSemanas} semanas` : ''} • ${today}</div>
     <div class="aluna-nome">${nomeCliente}</div>
@@ -130,7 +130,7 @@ body { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#0a0a
     </div>
     ${treinosHtml}
     <div class="footer">
-        <span class="footer-brand">PA Team Elite · Paulo Adriano</span>
+        <span class="footer-brand">ELITE FIT CONSULTORIA</span>
         <span class="footer-date">Gerado em ${today}</span>
     </div>
 </div>

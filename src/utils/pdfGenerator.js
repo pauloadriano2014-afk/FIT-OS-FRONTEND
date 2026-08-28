@@ -1,6 +1,7 @@
 import * as Print from 'expo-print';
 import { Alert, Platform } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import { getCoachBrandForPdf, renderBrandBlockHtml } from './brandForPdf';
 
 // 1. Pega capas automáticas de serviços amigáveis (YouTube, Cloudflare, Cloudinary)
 const getFastThumbnailUrl = (url) => {
@@ -27,15 +28,18 @@ const getFastThumbnailUrl = (url) => {
 export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, workoutName = "PLANEJAMENTO DE TREINO") => {
     try {
         const defaultImage = 'https://ui-avatars.com/api/?name=FIT+OS&background=F2F2F7&color=4DE38F&bold=true&size=128';
-        
-        // 🔥 COLOQUE A URL DA SUA LOGO AQUI 🔥
-        const logoTeam = 'https://i.imgur.com/X5mWmUE.png'; 
+
+        // 🔥 Capa: logo do COACH do aluno (marca personalizada em TabMarca.js),
+        // ou o padrão ELITE FIT se o coach ainda não subiu a própria logo.
+        const coachBrand = await getCoachBrandForPdf(aluno?.coachId);
+        const brandBlockHtml = renderBrandBlockHtml(coachBrand, { boxWidthPx: 300, textColor: '#fff' });
 
         // 1. GERAÇÃO DA CAPA (Ajustada: Apenas Logo + Texto Conceitual)
         let htmlTreinos = `
             <div class="cover-page">
-                <img src="${logoTeam}" class="cover-logo" alt="Elite Team Logo" onerror="this.style.display='none'" />
+                ${brandBlockHtml}
                 <div class="cover-footer">TREINAMENTO PERSONALIZADO</div>
+                <div class="cover-signature">ELITE FIT CONSULTORIA</div>
             </div>
         `;
 
@@ -223,6 +227,16 @@ export const generateWorkoutPDF = async (aluno, daysToPrint, exercisesByDay, wor
                         font-size: 11px;
                         font-weight: 600;
                         letter-spacing: 5px; /* Espaçamento largo marcante */
+                        width: 90%;
+                        text-align: center;
+                        text-transform: uppercase;
+                    }
+                    .cover-signature {
+                        margin-top: 10px;
+                        color: #666666;
+                        font-size: 8px;
+                        font-weight: 600;
+                        letter-spacing: 2px;
                         width: 90%;
                         text-align: center;
                         text-transform: uppercase;

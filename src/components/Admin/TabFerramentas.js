@@ -26,14 +26,9 @@ export default function TabFerramentas({ isMasterCoach, theme, navigation, aluno
                 </TouchableOpacity>
             )}
 
-            {/* Prescrição IA — só master */}
-            {isMasterCoach && (
-                <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.accent, borderWidth: 2 }]} onPress={() => navigation.navigate('LaboratoryScreen')}>
-                    <View style={[styles.iconCircle, { backgroundColor: theme.accent + '22' }]}><MaterialCommunityIcons name="flask-outline" size={32} color={theme.accent} /></View>
-                    <Text style={[styles.bigCardTitle, { color: theme.accent }]}>PRESCRIÇÃO IA</Text>
-                    <Text style={styles.bigCardDesc}>Laboratório inteligente para montagem de treinos com algoritmos.</Text>
-                </TouchableOpacity>
-            )}
+            {/* Prescrição IA — desativada a pedido do Paulo (card não usado; a
+                tela/lógica em si (LaboratoryScreen → MontarTreinoAdmin) segue
+                intacta, só este ponto de entrada foi escondido). */}
 
             <TouchableOpacity style={[styles.bigCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => navigation.navigate('BibliotecaAdmin')}>
                 <View style={[styles.iconCircle, { backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border }]}><MaterialCommunityIcons name="database-edit" size={32} color={theme.accent} /></View>

@@ -118,7 +118,7 @@ export const generateDietPDF = async ({ visibleMeals, dietConfig, currentMacros,
             <html>
             <head>
                 <meta charset="utf-8">
-                <title>Plano Alimentar - PA TEAM</title>
+                <title>Plano Alimentar - ELITE FIT</title>
                 <style>
                     body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; color: #222; padding: 40px; line-height: 1.5; background: #fff; }
                     .header { text-align: center; border-bottom: 3px solid #CCFF00; padding-bottom: 20px; margin-bottom: 30px; }
@@ -187,7 +187,7 @@ export const generateDietPDF = async ({ visibleMeals, dietConfig, currentMacros,
                 <div class="footer">
                     <p><strong>Meta Diária de Água:</strong> ${dietConfig.water}</p>
                     <p><strong>Anotações Gerais:</strong> ${dietConfig.notes}</p>
-                    <p style="margin-top: 20px; font-weight: bold;">Gerado pelo PAULO ADRIANO TEAM</p>
+                    <p style="margin-top: 20px; font-weight: bold;">Gerado pelo ELITE FIT</p>
                 </div>
             </body>
             </html>

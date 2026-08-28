@@ -16,7 +16,6 @@ export default function TemplateModal({
   newTempLevel, setNewTempLevel,
   isImportingAI,
   onImportPDF,
-  onGoToLaboratory,
   onCreateManual,
 }) {
   const { theme } = useTheme();
@@ -53,10 +52,6 @@ export default function TemplateModal({
                 <Text style={[styles.btnOutlineText, { color: accent }]}>IMPORTAR 1 TREINO AVULSO (PDF)</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={[styles.btnOutline, { borderColor: accent, backgroundColor: accent + '15' }]} onPress={onGoToLaboratory}>
-                <MaterialCommunityIcons name="flask" size={20} color={accent} />
-                <Text style={[styles.btnOutlineText, { color: accent }]}>GERAR MATRIZ NO LABORATÓRIO</Text>
-              </TouchableOpacity>
             </View>
           )}
 

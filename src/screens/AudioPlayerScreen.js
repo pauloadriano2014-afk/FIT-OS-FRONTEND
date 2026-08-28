@@ -168,7 +168,7 @@ export default function AudioPlayerScreen({ route, navigation }) {
                             <Text style={styles.chapterTitle} numberOfLines={1}>
                                 {chapters[currentIndex]?.title || 'Sem Título'}
                             </Text>
-                            <Text style={styles.authorTitle}>PAULO ADRIANO TEAM</Text>
+                            <Text style={styles.authorTitle}>ELITE FIT</Text>
                         </View>
 
                         <View style={styles.progressContainer}>

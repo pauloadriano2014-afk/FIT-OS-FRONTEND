@@ -173,7 +173,7 @@ export default function TabDesafios({ theme, currentUserId, navigation }) {
     // 🔑 Link de compartilhamento é pra um cliente de verdade — nunca deve
     // depender de onde VOCÊ está testando o admin (localhost, preview, etc.).
     // Por isso sempre usa o domínio de produção, sem checar Platform.OS.
-    const getBaseUrl = () => 'https://www.pauloadrianoteam.com.br';
+    const getBaseUrl = () => 'https://www.elitefitapp.com.br';
 
     const getDesafioLink = (desafio) => `${getBaseUrl()}/Desafio?desafio=${encodeURIComponent(desafio.slug)}`;
     const getCheckinLink = (desafio) => `${getBaseUrl()}/CheckinDesafio?desafio=${encodeURIComponent(desafio.slug)}`;

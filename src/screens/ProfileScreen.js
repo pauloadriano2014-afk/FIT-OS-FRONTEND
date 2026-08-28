@@ -12,7 +12,7 @@ import * as ImagePicker from 'expo-image-picker';
 /* 🔥 IMPORTAÇÃO DO TEMA */
 import { useTheme } from '../contexts/ThemeContext';
 import InstallAppButton from '../components/InstallAppButton';
-import { authHeaders } from '../utils/authToken';
+import { authHeaders, clearAuthToken } from '../utils/authToken';
 
 export default function ProfileScreen({ route }) {
   const { userData: paramsUser = {} } = route?.params || {};
@@ -346,6 +346,55 @@ export default function ProfileScreen({ route }) {
           Alert.alert("Sair", "Deseja desconectar sua conta?", [
               { text: "Cancelar", style: "cancel" },
               { text: "Sair", style: 'destructive', onPress: executeLogout }
+          ]);
+      }
+  };
+
+  // 🗑️ Exclusão de conta pelo próprio usuário — obrigatório pra loja (Apple
+  // Guideline 5.1.1(v) / Google Play). Remove os dados pessoais no servidor
+  // (ver app/api/user/delete-account no backend) e derruba a sessão local.
+  const [deletingAccount, setDeletingAccount] = useState(false);
+
+  const executeDeleteAccount = async () => {
+      setDeletingAccount(true);
+      try {
+          const res = await fetch(`https://fitos-final.onrender.com/api/user/delete-account`, {
+              method: 'DELETE',
+              headers: { ...(await authHeaders()) },
+          });
+          if (!res.ok) {
+              const data = await res.json().catch(() => ({}));
+              throw new Error(data?.error || 'Falha ao excluir a conta.');
+          }
+          await clearAuthToken();
+          await AsyncStorage.multiRemove([
+              'user', 'token', 'app_theme', 'role',
+              'original_admin_user', 'original_admin_role'
+          ]);
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      } catch (e) {
+          Platform.OS === 'web'
+              ? window.alert('Não foi possível excluir sua conta agora. Tente novamente ou fale com seu coach.')
+              : Alert.alert('Erro', 'Não foi possível excluir sua conta agora. Tente novamente ou fale com seu coach.');
+      } finally {
+          setDeletingAccount(false);
+      }
+  };
+
+  const handleDeleteAccount = () => {
+      const warning = "Isso remove permanentemente seus dados pessoais (nome, contato, fotos) do ELITE FIT e você não poderá mais acessar essa conta. Essa ação não pode ser desfeita.";
+      if (Platform.OS === 'web') {
+          const confirmDelete = window.confirm(`Excluir sua conta?\n\n${warning}`);
+          if (confirmDelete) executeDeleteAccount();
+      } else {
+          Alert.alert("Excluir conta", warning, [
+              { text: "Cancelar", style: "cancel" },
+              { text: "Excluir conta", style: 'destructive', onPress: () => {
+                  Alert.alert("Tem certeza?", "Essa ação é definitiva.", [
+                      { text: "Cancelar", style: "cancel" },
+                      { text: "Sim, excluir", style: 'destructive', onPress: executeDeleteAccount },
+                  ]);
+              }},
           ]);
       }
   };
@@ -694,7 +743,18 @@ export default function ProfileScreen({ route }) {
               <Text style={styles.logoutBtnText}>SAIR DA CONTA</Text>
             </TouchableOpacity>
 
-            <Text style={styles.version}>Versão 2.1.0 • PA TEAM App</Text>
+            <TouchableOpacity style={styles.deleteAccountBtn} onPress={handleDeleteAccount} disabled={deletingAccount}>
+              {deletingAccount ? (
+                <ActivityIndicator color="#FF4444" />
+              ) : (
+                <>
+                  <MaterialCommunityIcons name="delete-forever-outline" size={18} color="#FF4444" />
+                  <Text style={styles.deleteAccountBtnText}>EXCLUIR MINHA CONTA</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            <Text style={styles.version}>Versão 2.1.0 • ELITE FIT App</Text>
 
           </ScrollView>
       </View>
@@ -746,6 +806,8 @@ const styles = StyleSheet.create({
   
   logoutBtn: { flexDirection: 'row', backgroundColor: '#FFE5E5', height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 20, borderWidth: 1, borderColor: '#FFB2B2' },
   logoutBtnText: { color: '#FF4444', fontSize: 13, fontWeight: '900', marginLeft: 10 },
+  deleteAccountBtn: { flexDirection: 'row', backgroundColor: 'transparent', height: 44, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  deleteAccountBtnText: { color: '#FF4444', fontSize: 11, fontWeight: '700', marginLeft: 8, opacity: 0.75 },
   
   version: { textAlign: 'center', color: '#888', fontSize: 10 }
 });

@@ -40,13 +40,24 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
                 const data = await res.json();
                 setTemplateId(data.id);
                 setSchema(data.schema || { steps: [] });
-            } else {
-                // Se não existir, começa do zero
+            } else if (res.status === 404) {
+                // Coach ainda não tem um formulário customizado deste tipo — começa do zero de verdade.
                 setTemplateId(null);
                 setSchema({ steps: [] });
+            } else {
+                // 401/403/500 etc: falha ao CARREGAR, não é "formulário vazio" — não mexe no
+                // schema atual (pra não fazer parecer que um formulário já existente sumiu).
+                const isAuthError = res.status === 401 || res.status === 403;
+                Alert.alert(
+                    "Erro ao carregar formulário",
+                    isAuthError
+                        ? "Sua sessão pode ter expirado. Saia e entre novamente antes de editar o formulário."
+                        : `Não foi possível carregar o formulário atual (erro ${res.status}). Tente novamente.`
+                );
             }
         } catch (e) {
             console.log("Erro ao buscar template:", e);
+            Alert.alert("Erro de conexão", "Não foi possível carregar o formulário atual. Verifique sua internet e tente novamente.");
         } finally {
             setLoading(false);
         }

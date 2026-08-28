@@ -147,7 +147,7 @@ export default function StudentReportModal({ visible, onClose, pendingFeedback, 
                             <View style={{ flex:1 }}>
                                 <Text style={styles.coachName}>{isAdri ? 'ADRI KERN' : 'PAULO ADRIANO'}</Text>
                                 <Text style={[styles.coachTitle, { color: accentColor }]}>
-                                    {isAdri ? 'POSING COACH | PA ELITE TEAM' : 'HEAD COACH | PA ELITE TEAM'}
+                                    {isAdri ? 'POSING COACH | ELITE FIT' : 'HEAD COACH | ELITE FIT'}
                                 </Text>
                             </View>
                             {isAdri

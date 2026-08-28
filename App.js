@@ -313,6 +313,8 @@ function RootNavigator() {
 
 const linking = {
   prefixes: [
+    'https://www.elitefitapp.com.br',
+    'https://elitefitapp.com.br',
     'https://www.pauloadrianoteam.com.br',
     'https://pauloadrianoteam.com.br',
     'http://localhost:8081',

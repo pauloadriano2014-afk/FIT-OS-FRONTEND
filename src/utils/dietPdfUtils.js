@@ -3,8 +3,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { Alert, Platform } from 'react-native';
 import { FOOD_PORTIONS } from '../data/foodPortions';
-
-const LOGO_URL = 'https://i.postimg.cc/YSrDNBTm/INTELIGENCIA-FINANCEIRA-(Post-para-Instagram-(45)).png';
+import { getCoachBrandForPdf, renderBrandBlockHtml } from './brandForPdf';
 
 const DAY_TYPE_CONFIG = {
     TREINO:        { label: 'Dia de Treino',          color: '#00C851', bg: '#0a1a0e', icon: '💪' },
@@ -130,6 +129,11 @@ export async function generateDietPDF({ meals, dietConfig, aluno, pdfNotes = '' 
             day: '2-digit', month: 'long', year: 'numeric',
         });
 
+        // 🔥 Logo do COACH do aluno (marca personalizada), com fallback pro
+        // padrão ELITE FIT se o coach ainda não subiu a própria logo.
+        const coachBrand = await getCoachBrandForPdf(aluno?.coachId);
+        const brandBlockHtml = renderBrandBlockHtml(coachBrand, { boxWidthPx: 150, align: 'left', textColor: '#fff' });
+
         const mainMeals = (meals ?? []).filter(
             m => m.isMainVersion !== false && m.isMainVersion !== 0
         );
@@ -217,7 +221,7 @@ export async function generateDietPDF({ meals, dietConfig, aluno, pdfNotes = '' 
 body { font-family:'Helvetica Neue',Helvetica,Arial,sans-serif; background:#0d0d0d; color:#e8e8e8; font-size:11px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
 .header { background:linear-gradient(135deg,#0d0d0d 0%,#1a1a1a 50%,#0d1a0d 100%); padding:24px 24px 20px; display:flex; align-items:center; gap:16px; border-bottom:2px solid #00C851; }
-.logo { width:68px; height:68px; object-fit:contain; border-radius:10px; flex-shrink:0; }
+.brand-logo-box { flex-shrink:0; }
 .header-info { flex:1; }
 .brand-name { font-size:8px; letter-spacing:3px; color:#00C851; text-transform:uppercase; font-weight:700; margin-bottom:3px; }
 .doc-title { font-size:20px; font-weight:900; color:#fff; letter-spacing:1px; }
@@ -291,9 +295,8 @@ td.sub-name { font-size:9.5px; color:#888; font-weight:400; padding-left:18px !i
 <body>
 
 <div class="header">
-    <img class="logo" src="${LOGO_URL}" alt="PA Team Elite"/>
+    <div class="brand-logo-box">${brandBlockHtml}</div>
     <div class="header-info">
-        <div class="brand-name">PA Team Elite</div>
         <div class="doc-title">PLANO ALIMENTAR</div>
         <div class="doc-subtitle">Dieta personalizada • ${today}</div>
     </div>
@@ -314,7 +317,7 @@ ${waterRaw ? `<div class="water-banner">💧 Meta de água: <strong>${waterRaw}<
     ${generalNotesHtml}
     ${pdfNotesHtml}
     <div class="footer">
-        <span class="footer-brand">PA Team Elite · Paulo Adriano</span>
+        <span class="footer-brand">ELITE FIT CONSULTORIA</span>
         <span class="footer-date">Gerado em ${today}</span>
     </div>
 </div>

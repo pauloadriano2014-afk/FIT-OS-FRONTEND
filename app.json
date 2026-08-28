@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "PA TEAM",
+    "name": "ELITE FIT",
     "slug": "pa-team-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +23,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/elitefit_icon.png",
+        "foregroundImage": "./assets/elitefit_icon_adaptive.png",
         "backgroundColor": "#000000"
       },
       "package": "com.pauloadriano.team",
@@ -46,8 +46,8 @@
         "image": "./assets/pateam_splash.png"
       },
       "manifest": {
-        "name": "Paulo Adriano Team",
-        "short_name": "PA TEAM",
+        "name": "Elite Fit",
+        "short_name": "ELITE FIT",
         "description": "Consultoria de Performance",
         "start_url": ".",
         "display": "standalone",

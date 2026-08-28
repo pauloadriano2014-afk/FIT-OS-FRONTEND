@@ -69,10 +69,10 @@ function DownloadConfirmModal({ visible, onConfirm, onCancel, theme }) {
 
           <View style={{ backgroundColor: theme.accent + '15', borderRadius: 12, padding: 14, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: theme.accent }}>
             <Text style={{ color: theme.accent, fontSize: 11, fontWeight: '900', letterSpacing: 1, marginBottom: 6 }}>
-              💪 PA ELITE TEAM
+              💪 ELITE FIT
             </Text>
             <Text style={{ color: theme.text, fontSize: 13, lineHeight: 20 }}>
-              No PA Elite Team ninguém fica sem treino! Se a academia onde você treina tem sinal de internet ruim, baixe o treino antes de sair de casa e tenha acesso completo — incluindo os vídeos de demonstração — mesmo sem conexão.
+              No ELITE FIT ninguém fica sem treino! Se a academia onde você treina tem sinal de internet ruim, baixe o treino antes de sair de casa e tenha acesso completo — incluindo os vídeos de demonstração — mesmo sem conexão.
             </Text>
           </View>
 

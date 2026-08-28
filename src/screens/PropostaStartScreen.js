@@ -387,7 +387,7 @@ export default function PropostaStartScreen({ route }) {
                     </Text>
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
+                        <Text style={styles.footerText}>ELITE FIT © 2026</Text>
                         <Text style={styles.footerSubText}>Página segura. Oferta com tempo limitado.</Text>
                     </View>
                 </ScrollView>

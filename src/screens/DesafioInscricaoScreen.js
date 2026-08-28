@@ -555,7 +555,7 @@ export default function DesafioInscricaoScreen({ route, navigation }) {
                     )}
 
                     <View style={styles.footer}>
-                        <Text style={styles.footerText}>PAULO ADRIANO TEAM © 2026</Text>
+                        <Text style={styles.footerText}>ELITE FIT © 2026</Text>
                     </View>
                 </ScrollView>
             </View>

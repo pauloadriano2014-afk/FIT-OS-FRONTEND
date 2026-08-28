@@ -128,7 +128,6 @@ export default function DietContextPanel({
     currentMacros,   // { kcal, prot, carb, fat } — calculado em tempo real pelo useDietActions
     macroTargets,    // { kcal, prot, carb, fat } — vindos do macroPlanner para o dayType ativo
     visibleMeals,
-    onAnalyzeDay,    // () => void — abre DayAnalyzerModal
 }) {
     const softBg  = theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
     const cardBg  = theme.isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF';
@@ -233,16 +232,6 @@ export default function DietContextPanel({
                     ))}
                 </>}
 
-                {/* ── BOTÃO ANALISAR DIA ───────────────────────────────────── */}
-                <TouchableOpacity
-                    style={[p.analyzeBtn, { backgroundColor: theme.accent, marginBottom: 16 }]}
-                    onPress={onAnalyzeDay}
-                    activeOpacity={0.85}
-                >
-                    <MaterialCommunityIcons name="robot-outline" size={16} color="#000" />
-                    <Text style={[p.analyzeBtnText, { color: '#000' }]}>ANALISAR DIA COM IA</Text>
-                </TouchableOpacity>
-
                 {/* ── SEM ALERTAS ───────────────────────────────────────────── */}
                 {clinicalAlerts.length === 0 && (
                     <View style={[p.alertCard, { backgroundColor: '#34C75912', borderColor: '#34C75940' }]}>
@@ -287,8 +276,6 @@ export default function DietContextPanel({
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const p = StyleSheet.create({
     panel:         { width: 260, borderLeftWidth: 1, paddingHorizontal: 14, paddingTop: 16 },
-    analyzeBtn:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14, borderRadius: 14 },
-    analyzeBtnText:{ fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
     dayBadge:      { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, padding: 12, marginBottom: 12 },
     dayLabel:      { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
     alunoName:     { fontSize: 11, fontWeight: '700', marginTop: 2 },

@@ -1,31 +1,30 @@
 // src/components/AdminDiet/DietHeaderWidgets.js — VERSÃO FINAL
 import React from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
+import DietRaioX from './DietRaioX';
 
 export default function DietHeaderWidgets({
     theme,
     currentMacros,
     macros,
+    macroTargets, // { kcal, prot, carb, fat } do dia ativo — usado no Raio-X
     pct,
     showRaioX,
     setShowRaioX,
     anamnese,
-    handleGenerateAI,   // abre o ModelSelectorModal
-    isGenerating,
-    generateProgress,   // 🔥 texto de progresso
     setImportModalVisible,
 }) {
-    const handlePressAI = () => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        handleGenerateAI();
-    };
-
     const handlePressImport = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setImportModalVisible(true);
+    };
+
+    const handlePressRaioX = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        setShowRaioX(prev => !prev);
     };
 
     return (
@@ -77,30 +76,16 @@ export default function DietHeaderWidgets({
             {/* BOTÕES */}
             <View style={styles.assistantRow}>
 
-                {/* MONTAR DIETA */}
-                <TouchableOpacity
-                    style={{ flex: 1 }}
-                    onPress={handlePressAI}
-                    disabled={isGenerating}
-                    activeOpacity={0.8}
-                >
+                {/* RAIO-X DO ALUNO */}
+                <TouchableOpacity style={{ flex: 1 }} onPress={handlePressRaioX} activeOpacity={0.8}>
                     <LinearGradient
                         colors={theme.isDark ? ['#2C2C2E', '#1C1C1E'] : ['#FFFFFF', '#F2F2F7']}
-                        style={styles.pillBtn}
+                        style={[styles.pillBtn, showRaioX && { borderWidth: 1, borderColor: theme.accent }]}
                     >
-                        {isGenerating ? (
-                            <ActivityIndicator size="small" color={theme.accent} />
-                        ) : (
-                            <>
-                                <LinearGradient
-                                    colors={[theme.accent, theme.accent + '80']}
-                                    style={styles.iconCircle}
-                                >
-                                    <MaterialCommunityIcons name="pencil-ruler" size={18} color="#000" />
-                                </LinearGradient>
-                                <Text style={[styles.pillBtnText, { color: theme.text }]}>MONTAGEM RÁPIDA</Text>
-                            </>
-                        )}
+                        <LinearGradient colors={[theme.accent, theme.accent + '80']} style={styles.iconCircle}>
+                            <MaterialCommunityIcons name="radioactive" size={18} color="#000" />
+                        </LinearGradient>
+                        <Text style={[styles.pillBtnText, { color: theme.text }]}>RAIO-X</Text>
                     </LinearGradient>
                 </TouchableOpacity>
 
@@ -118,15 +103,10 @@ export default function DietHeaderWidgets({
                 </TouchableOpacity>
             </View>
 
-            {/* 🔥 TEXTO DE PROGRESSO DA GERAÇÃO */}
-            {isGenerating && generateProgress ? (
-                <View style={[styles.progressBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <ActivityIndicator size="small" color={theme.accent} />
-                    <Text style={[styles.progressText, { color: theme.accent }]}>
-                        {generateProgress}
-                    </Text>
-                </View>
-            ) : null}
+            {/* PAINEL RAIO-X (resumo da anamnese pra consulta rápida) */}
+            {showRaioX && (
+                <DietRaioX anamnese={anamnese} macros={macroTargets} theme={theme} onClose={() => setShowRaioX(false)} />
+            )}
         </View>
     );
 }
@@ -166,10 +146,4 @@ const styles = StyleSheet.create({
         alignItems: 'center', justifyContent: 'center', marginRight: 10,
     },
     pillBtnText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.5 },
-
-    progressBox: {
-        flexDirection: 'row', alignItems: 'center', gap: 10,
-        padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 8,
-    },
-    progressText: { fontSize: 11, fontWeight: '700', flex: 1 },
 });

@@ -1,6 +1,6 @@
 // src/components/shared/FoodSearchPanel.js
 // Componente reutilizável de busca de alimentos
-// Usado no DietBuilderModal e pode ser usado em outros contextos
+// Usado em AdminSubstitutionGroupDetailScreen e pode ser usado em outros contextos
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
