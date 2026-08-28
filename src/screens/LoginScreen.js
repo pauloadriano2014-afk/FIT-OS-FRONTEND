@@ -203,7 +203,12 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const BG_IMAGE = 'https://i.postimg.cc/pLbCQ1GT/AB61F751-5B87-45B5-B142-0DDC109AAAFC.png';
+  // 🔥 Antes era uma URL remota (postimg.cc) — toda vez que a tela abria, o
+  // app tinha que baixar a imagem de novo pela internet, o que causava aquele
+  // atraso perceptível. Agora é um asset local (require), embutido no próprio
+  // pacote do app/PWA — carrega instantâneo, sem depender de rede nem de o
+  // postimg.cc estar no ar.
+  const BG_IMAGE = require('../../assets/login_bg_elitefit.png');
 
   const containerStyle = isWebPC
     ? { height: windowHeight, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }
@@ -219,7 +224,7 @@ export default function LoginScreen({ navigation }) {
       {/* FUNDO CHUMBADO */}
       <View style={[StyleSheet.absoluteFill, isWeb && { position: 'fixed' }]}>
         <Image
-          source={{ uri: BG_IMAGE }}
+          source={BG_IMAGE}
           style={StyleSheet.absoluteFill}
           resizeMode="cover"
         />
