@@ -1,8 +1,9 @@
 // src/utils/raioxUtils.js
+import { authHeaders } from './authToken';
 
 export const fetchAndProcessRaioxData = async (alunoId, activeWorkouts, archivedWorkouts) => {
     try {
-        const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${alunoId}&t=${Date.now()}`);
+        const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${alunoId}&t=${Date.now()}`, { headers: { ...(await authHeaders()) } });
         if (!res.ok) return [];
         const historyList = await res.json();
 

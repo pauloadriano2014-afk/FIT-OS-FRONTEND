@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, Platform, ActivityIndicator, ScrollView, Switch } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { CATEGORIAS_OFFLINE, calcularProximaData } from '../../utils/financeUtils';
+import { authHeaders } from '../../utils/authToken';
 
 export default function FinanceEditModal({
     theme, isWebPC, editingAluno, closeEditModal,
@@ -63,7 +64,7 @@ export default function FinanceEditModal({
         if (updateCoachLocal) updateCoachLocal(editingAluno.id, { coachPlan: newPlan, financeCategory: newPlan });
         try {
             await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ coachId: editingAluno.id, action: 'SET_PLAN', coachPlan: newPlan })
             });
         } catch (e) { console.log(e); }
@@ -79,7 +80,7 @@ export default function FinanceEditModal({
         if (updateCoachLocal) updateCoachLocal(editingAluno.id, { accountStatus: newStatus });
         try {
             await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
-                method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+                method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({ coachId: editingAluno.id, action })
             });
         } catch (e) { 

@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 // IDs que pertencem ao time Master (Você e a Adri)
 const MASTER_IDS = [
@@ -63,9 +64,10 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
                             // 🔑 Busca o inviteCode atual do coach (pode ter sido
                             // definido na aprovação ou editado depois) junto com os planos
+                            const authHdrs = await authHeaders();
                             const [planRes, userRes] = await Promise.all([
-                                fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${user.id}`),
-                                fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}`),
+                                fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${user.id}`, { headers: { ...authHdrs } }),
+                                fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}`, { headers: { ...authHdrs } }),
                             ]);
 
                             if (planRes.ok) {

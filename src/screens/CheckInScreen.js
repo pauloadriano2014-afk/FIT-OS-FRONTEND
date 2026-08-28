@@ -10,6 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 export default function CheckInScreen({ navigation }) {
   const [weight, setWeight] = useState('');
@@ -43,9 +44,15 @@ export default function CheckInScreen({ navigation }) {
               const resolvedPlan = ['LOW_COST', 'PERFORMANCE', 'standard', 'CHALLENGE_21', 'FICHA_8S', 'FICHAS'].includes(dbPlan) ? dbPlan : 'PREMIUM';
               setUserPlan(resolvedPlan);
 
+              // 🔒 Essas duas rotas passaram a exigir login verificado (JWT) e essa
+              // tela nunca tinha sido atualizada pra mandar o token — por isso
+              // vinha 401 aqui, a trava de "já enviou, aguarde X dias" nunca
+              // carregava, e o app parecia dizer que o check-in não tinha sido
+              // enviado (quando na verdade só essa checagem é que estava falhando).
+              const authHdrs = await authHeaders();
               const [statusRes, historyRes] = await Promise.all([
-                  fetch(`https://fitos-final.onrender.com/api/checkin/status?userId=${userObj.id}`),
-                  fetch(`https://fitos-final.onrender.com/api/checkin?userId=${userObj.id}&t=${Date.now()}`)
+                  fetch(`https://fitos-final.onrender.com/api/checkin/status?userId=${userObj.id}`, { headers: { ...authHdrs } }),
+                  fetch(`https://fitos-final.onrender.com/api/checkin?userId=${userObj.id}&t=${Date.now()}`, { headers: { ...authHdrs } })
               ]);
 
               if (statusRes.ok && historyRes.ok) {
@@ -214,7 +221,7 @@ export default function CheckInScreen({ navigation }) {
 
         const res = await fetch('https://fitos-final.onrender.com/api/checkin', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
             body: JSON.stringify(payload)
         });
 

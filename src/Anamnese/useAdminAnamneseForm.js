@@ -2,6 +2,7 @@
 // Hook de estado para o AdminUserAnamneseTab
 import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
+import { authHeaders } from '../utils/authToken';
 
 // ─── LISTAS (MANTIDAS INTACTAS PARA O MOTOR LEGADO E UI) ──────────────────────
 export const OBJETIVOS_LIST   = ['Hipertrofia','Emagrecimento','Definição'];
@@ -151,7 +152,8 @@ export default function useAdminAnamneseForm({ aluno }) {
             setLoading(true);
 
             // 1. Busca os dados de registro (Nome, Email, etc)
-            const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${aluno.id}&t=${Date.now()}`);
+            const authHdrs = await authHeaders();
+            const resUser = await fetch(`https://fitos-final.onrender.com/api/admin/user?userId=${aluno.id}&t=${Date.now()}`, { headers: { ...authHdrs } });
             if (resUser.ok) {
                 const u = await resUser.json();
                 setF(prev => ({ ...prev, name:u?.name||'', email:u?.email||'', phone:u?.phone||'', gender:u?.gender||'', birthDate:u?.birthDate||'' }));
@@ -181,7 +183,7 @@ export default function useAdminAnamneseForm({ aluno }) {
             }
 
             // 🔥 TENTATIVA 2: MOTOR LEGADO (PA ELITE TEAM) 🔥
-            const resA = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}`);
+            const resA = await fetch(`https://fitos-final.onrender.com/api/anamnese?userId=${aluno.id}`, { headers: { ...authHdrs } });
             if (resA.ok) {
                 const d = await resA.json();
                 if (d?.id) setF(prev => ({
@@ -269,8 +271,9 @@ export default function useAdminAnamneseForm({ aluno }) {
             setSaving(true);
             
             // 1. Atualiza Cadastro (Comum)
+            const saveAuthHdrs = await authHeaders();
             await fetch('https://fitos-final.onrender.com/api/admin/user', {
-                method:'PUT', headers:{'Content-Type':'application/json'},
+                method:'PUT', headers:{'Content-Type':'application/json', ...saveAuthHdrs},
                 body:JSON.stringify({
                     id:aluno.id, name:f.name.trim(),
                     email:f.email.trim().toLowerCase(),
@@ -292,7 +295,7 @@ export default function useAdminAnamneseForm({ aluno }) {
                 });
             } else {
                 res = await fetch('https://fitos-final.onrender.com/api/anamnese', {
-                    method:'POST', headers:{'Content-Type':'application/json'},
+                    method:'POST', headers:{'Content-Type':'application/json', ...saveAuthHdrs},
                     body:JSON.stringify({
                         userId:aluno.id,
                         peso:f.peso.replace(',','.'), altura:f.altura.replace(',','.'),

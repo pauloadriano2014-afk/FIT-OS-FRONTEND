@@ -17,7 +17,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ThemeProvider, useTheme } from './src/contexts/ThemeContext';
 import { MASTER_IDS as MASTER_COACH_IDS } from './src/constants/masterIds';
-import { authHeaders } from './src/utils/authToken';
+import { authHeaders, getAuthToken, clearAuthToken } from './src/utils/authToken';
 
 import InstallScreen from './src/screens/InstallScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -207,13 +207,28 @@ function RootNavigator() {
         const userJson = await AsyncStorage.getItem('user');
         const role = await AsyncStorage.getItem('role');
         if (userJson) {
-          const user = JSON.parse(userJson);
-          const finalRole = role || user.role || user.type || 'ALUNO';
-          setSavedUser(user);
-          if (finalRole.toLowerCase() === 'admin' || finalRole.toLowerCase() === 'coach') {
-            setInitialRoute('AdminDashboard');
+          // 🔐 MIGRAÇÃO JWT (27 ago 2026): sessões salvas ANTES dessa atualização
+          // têm o usuário no AsyncStorage mas nunca ganharam um token (ele só é
+          // emitido no login). Sem token, toda rota protegida (treino, checkin,
+          // financeiro...) responde 401 e as telas ficam com dado "vazio" —
+          // foi isso que pareceu "treino/checkin sumiu" pros alunos depois do
+          // deploy. Em vez de deixar entrar sem token e quebrar em silêncio,
+          // detectamos essa sessão órfã aqui e mandamos pra tela de Login pra
+          // ela renovar (o próprio login já assina e salva o token novo).
+          const token = await getAuthToken();
+          if (!token) {
+            await clearAuthToken();
+            await AsyncStorage.multiRemove(['user', 'role']);
+            setInitialRoute('Login');
           } else {
-            setInitialRoute('Main');
+            const user = JSON.parse(userJson);
+            const finalRole = role || user.role || user.type || 'ALUNO';
+            setSavedUser(user);
+            if (finalRole.toLowerCase() === 'admin' || finalRole.toLowerCase() === 'coach') {
+              setInitialRoute('AdminDashboard');
+            } else {
+              setInitialRoute('Main');
+            }
           }
         }
       } catch (e) {

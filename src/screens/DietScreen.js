@@ -10,6 +10,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 // ─── COMPONENTES ─────────────────────────────────────────────────────────────
 import WaterTracker      from '../components/ClientDiet/WaterTracker';
@@ -117,8 +118,13 @@ export default function DietScreen({ route }) {
 
     // 🔥 BUSCA INTELIGENTE — guarda BASE e ESTRATÉGIA separadamente
     const fetchDiet = async (userId) => {
+        // 🔒 As duas rotas abaixo (admin/strategies e diet) passaram a exigir
+        // login verificado (JWT) e essa tela nunca tinha sido atualizada pra
+        // mandar o token — por isso a dieta sumia mesmo deslogando e logando
+        // de novo (o token novo existia, mas a tela nunca chegava a usá-lo).
+        const authHdrs = await authHeaders();
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/strategies/${userId}?t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/strategies/${userId}?t=${Date.now()}`, { headers: { ...authHdrs } });
             if (res.ok) {
                 const data = await res.json();
                 const strategies = data.strategies || [];
@@ -154,7 +160,7 @@ export default function DietScreen({ route }) {
 
         // Fallback blindado caso a rota de estratégias falhe (para não quebrar o app do aluno)
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/diet/${userId}?t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/diet/${userId}?t=${Date.now()}`, { headers: { ...authHdrs } });
             if (res.ok) {
                 const data = await res.json();
                 if (data?.meals?.length > 0) {

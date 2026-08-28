@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TextInput, TouchableOpacity, Alert, ScrollView, KeyboardAvoidingView, Platform, SafeAreaView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { calculateBodyFat, getAgeFromDate } from '../utils/calculations';
+import { authHeaders } from '../utils/authToken';
 
 export default function AddAssessmentModal({ visible, onClose, onSuccess, theme, aluno, isWeb }) {
     const [method, setMethod] = useState('BASICO');
@@ -54,7 +55,7 @@ export default function AddAssessmentModal({ visible, onClose, onSuccess, theme,
         try {
             const res = await fetch('https://fitos-final.onrender.com/api/assessment', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {'Content-Type': 'application/json', ...(await authHeaders())},
                 body: JSON.stringify(payload)
             });
             if (res.ok) {

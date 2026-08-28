@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
+import { authHeaders } from '../utils/authToken';
 
 export default function ImportDietModal({ visible, onClose, theme, onImportSuccess }) {
     const [isLoading, setIsLoading] = useState(false);
@@ -52,6 +53,7 @@ export default function ImportDietModal({ visible, onClose, theme, onImportSucce
             // Manda pro seu backend processar com a IA (Rota atualizada)
             const response = await fetch('https://fitos-final.onrender.com/api/admin/import-diet-pdf', {
                 method: 'POST',
+                headers: { ...(await authHeaders()) },
                 body: formData,
             });
 

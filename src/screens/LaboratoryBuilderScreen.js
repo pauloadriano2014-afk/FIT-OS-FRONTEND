@@ -7,6 +7,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 const MUSCLE_GROUPS = [
     { category: "PEITORAL", items: [{ id: 'Superior', label: 'Superior', time: 10 }, { id: 'Medial', label: 'Medial', time: 10 }, { id: 'Inferior', label: 'Inferior', time: 10 }] },
@@ -57,7 +58,7 @@ export default function LaboratoryBuilderScreen({ route, navigation }) {
                 const userJson = await AsyncStorage.getItem('user');
                 if (userJson) {
                     const adminId = JSON.parse(userJson).id;
-                    const res = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${Date.now()}`);
+                    const res = await fetch(`https://fitos-final.onrender.com/api/exercise?adminId=${adminId}&t=${Date.now()}`, { headers: { ...(await authHeaders()) } });
                     if (res.ok) {
                         const data = await res.json();
                         setFetchedExercises(data);

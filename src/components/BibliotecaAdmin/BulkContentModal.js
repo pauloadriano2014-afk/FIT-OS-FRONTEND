@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, Modal, ActivityIndicator, ScrollView, Platform, KeyboardAvoidingView, SafeAreaView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 // Modal para colar um JSON com conteúdo de execução (howToExecute,
 // commonMistakes, maleFocus, femaleFocus) gerado fora do app — ex: pedido
@@ -46,7 +47,7 @@ export default function BulkContentModal({ visible, onClose, theme }) {
     try {
       const res = await fetch('https://fitos-final.onrender.com/api/admin/bulk-update-exercise-content', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ items }),
       });
       const data = await res.json();

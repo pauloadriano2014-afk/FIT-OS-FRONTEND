@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 export default function SatisfactionSurveyModal({ visible, onClose, theme, userId, isPremium = false }) {
     const [appExperience, setAppExperience] = useState('');
@@ -69,7 +70,7 @@ export default function SatisfactionSurveyModal({ visible, onClose, theme, userI
 
             const res = await fetch('https://fitos-final.onrender.com/api/survey', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify(payload)
             });
 

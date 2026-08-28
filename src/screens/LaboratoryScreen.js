@@ -7,6 +7,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 const LEVELS = ['INICIANTE', 'INTERMEDIÁRIO', 'AVANÇADO'];
 const OBJECTIVES = ['EMAGRECIMENTO', 'HIPERTROFIA'];
@@ -57,7 +58,7 @@ export default function LaboratoryScreen({ navigation }) {
                     if (parsedCache.cacheAtivos) setStudents(parsedCache.cacheAtivos);
                 }
 
-                const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminObj.id}&t=${Date.now()}`);
+                const res = await fetch(`https://fitos-final.onrender.com/api/admin/data?adminId=${adminObj.id}&t=${Date.now()}`, { headers: { ...(await authHeaders()) } });
                 if (res.ok) {
                     const data = await res.json();
                     const ativos = data.activeUsers || data.users || [];
@@ -86,7 +87,7 @@ export default function LaboratoryScreen({ navigation }) {
         let foundLimitations = []; 
 
         try {
-            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${student.id}?t=${Date.now()}`);
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/user/${student.id}?t=${Date.now()}`, { headers: { ...(await authHeaders()) } });
             if (res.ok) {
                 const fullStudent = await res.json();
                 

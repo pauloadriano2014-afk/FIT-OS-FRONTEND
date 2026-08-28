@@ -7,6 +7,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 export default function SetupTreinoScreen({ navigation, route }) {
   const { theme } = useTheme();
@@ -153,11 +154,11 @@ export default function SetupTreinoScreen({ navigation, route }) {
           // 🔥 AGORA ESTÁ ALINHADO: Bate em /api/user e manda o userId no body
           await fetch(`https://fitos-final.onrender.com/api/user`, {
               method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ 
+              headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+              body: JSON.stringify({
                   userId: user.id, // O segredo está aqui
-                  goal: finalGoal, 
-                  level: finalLevel 
+                  goal: finalGoal,
+                  level: finalLevel
               })
           });
 
@@ -167,7 +168,7 @@ export default function SetupTreinoScreen({ navigation, route }) {
 
               const res = await fetch('https://fitos-final.onrender.com/api/workout', {
                   method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
+                  headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                   body: JSON.stringify({
                       userId: user.id,
                       name: placeholderName,

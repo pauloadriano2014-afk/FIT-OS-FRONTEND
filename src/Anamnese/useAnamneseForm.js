@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../utils/authToken';
 
 // 🔥 MÁGICA: O formulário base agora mora aqui. Sem depender do constants.js (fim do form undefined)
 const DEFAULT_FORM = {
@@ -135,7 +136,7 @@ export default function useAnamneseForm({ routeParams, navigation }) {
 
       const res = await fetch(
         `https://fitos-final.onrender.com/api/anamnese?userId=${userId}`,
-        { signal: controller.signal }
+        { signal: controller.signal, headers: { ...(await authHeaders()) } }
       );
       clearTimeout(timeout);
       
@@ -458,7 +459,7 @@ export default function useAnamneseForm({ routeParams, navigation }) {
       };
 
       const res  = await fetch('https://fitos-final.onrender.com/api/anamnese', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha ao salvar.');

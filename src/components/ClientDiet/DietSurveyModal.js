@@ -5,6 +5,7 @@ import {
     TextInput, ActivityIndicator, Alert, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 export default function DietSurveyModal({ visible, onClose, theme, userId }) {
     const [saciedade,   setSaciedade]   = useState('');
@@ -23,7 +24,7 @@ export default function DietSurveyModal({ visible, onClose, theme, userId }) {
         try {
             const res = await fetch('https://fitos-final.onrender.com/api/diet/feedback', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     userId,
                     satiety:          saciedade,

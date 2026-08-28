@@ -21,6 +21,7 @@ import useRunning from '../hooks/useRunning';
 
 // 🔥 LÓGICA FINANCEIRA CENTRALIZADA
 import { useFinanceLock } from '../hooks/useFinanceLock';
+import { authHeaders } from '../utils/authToken';
 
 export default function TrainingScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -177,10 +178,15 @@ export default function TrainingScreen({ navigation }) {
           return;
         }
 
+        // 🔒 As 3 rotas abaixo passaram a exigir login verificado (JWT) e essa
+        // tela (a aba "Treinos" do aluno) nunca tinha sido atualizada pra
+        // mandar o token — por isso vinham 401 e o treino/checkin pareciam
+        // ter sumido (a tela só mostrava o que já estava salvo em cache).
+        const authHdrs = await authHeaders();
         const [response, historyRes, checkinRes] = await Promise.all([
-          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`),
-          fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`),
-          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&t=${Date.now()}`, { headers: { ...authHdrs } }),
+          fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`, { headers: { ...authHdrs } }),
+          fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`, { headers: { ...authHdrs } })
         ]);
 
         if (checkinRes.ok) {

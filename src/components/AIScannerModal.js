@@ -7,6 +7,7 @@ import { uploadAsync } from 'expo-file-system/legacy';
 import { Video } from 'react-native-compressor'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../utils/authToken';
 
 const { height } = Dimensions.get('window');
 
@@ -172,8 +173,12 @@ export default function ScannerIA({ navigation, route }) {
         
         formData.append('referenceVideoUrl', referenceVideoUrl);
 
+        // 🔒 /api/analyze passou a exigir login verificado (JWT) e esse upload
+        // nunca tinha sido atualizado pra mandar o token — sem isso o Scanner
+        // de Movimento vinha rejeitando toda análise com 401.
         const response = await fetch('https://fitos-final.onrender.com/api/analyze', {
           method: 'POST',
+          headers: { ...(await authHeaders()) },
           body: formData,
         });
 
@@ -184,12 +189,13 @@ export default function ScannerIA({ navigation, route }) {
         const uploadResult = await uploadAsync('https://fitos-final.onrender.com/api/analyze', finalVideoUri, {
           fieldName: 'video',
           httpMethod: 'POST',
-          uploadType: 1, 
-          parameters: { 
-            'exerciseName': enhancedExerciseName, 
+          uploadType: 1,
+          headers: { ...(await authHeaders()) },
+          parameters: {
+            'exerciseName': enhancedExerciseName,
             'userLevel': 'Geral',
             'alunoName': alunoName,
-            'referenceVideoUrl': referenceVideoUrl 
+            'referenceVideoUrl': referenceVideoUrl
           },
         });
 

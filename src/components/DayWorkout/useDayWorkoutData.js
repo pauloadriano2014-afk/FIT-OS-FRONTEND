@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getInitialTechGuide } from './techGuideData';
 import { applyMaskToString, applyIntensityMaskToBlocks } from './workoutMaskUtils';
+import { authHeaders } from '../../utils/authToken';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
@@ -127,7 +128,13 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
       // 2. TENTA BUSCAR DADOS FRESCOS DA INTERNET (ATUALIZA O CACHE)
       // ==================================================================
       try {
-        const sysVideosRes = await fetch(`https://fitos-final.onrender.com/api/admin/system-technique-videos?coachId=${coachIdToUse}`);
+        // 🔒 As rotas abaixo (system-technique-videos, techniques, workout,
+        // checkin, workout/finish) passaram a exigir login verificado (JWT) e
+        // esse arquivo nunca tinha sido atualizado pra mandar o token — por
+        // isso vinham 401 em silêncio (o treino caía pro cache antigo) e o
+        // "FIM DE TREINO" dava "Falha ao salvar no servidor".
+        const authHdrs = await authHeaders();
+        const sysVideosRes = await fetch(`https://fitos-final.onrender.com/api/admin/system-technique-videos?coachId=${coachIdToUse}`, { headers: { ...authHdrs } });
         if (sysVideosRes.ok) {
           const sysVideos = await sysVideosRes.json();
           sysVideos.forEach(v => {
@@ -136,7 +143,7 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
           if (!isPreviewMode) await AsyncStorage.setItem(sysVideoCacheKey, JSON.stringify(wrapWithTimestamp(sysVideos)));
         }
 
-        const techRes = await fetch(`https://fitos-final.onrender.com/api/admin/techniques?coachId=${coachIdToUse}`);
+        const techRes = await fetch(`https://fitos-final.onrender.com/api/admin/techniques?coachId=${coachIdToUse}`, { headers: { ...authHdrs } });
         if (techRes.ok) {
           const customTechs = await techRes.json();
           customTechs.forEach(t => {
@@ -150,8 +157,8 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
         setTechGuide({ ...currentTechGuide });
 
         const [resWorkout, resCheckin] = await Promise.all([
-          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`),
-          isPreviewMode ? Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: 'mock' }]) }) : fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`)
+          fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${Date.now()}`, { headers: { ...authHdrs } }),
+          isPreviewMode ? Promise.resolve({ ok: true, json: () => Promise.resolve([{ id: 'mock' }]) }) : fetch(`https://fitos-final.onrender.com/api/checkin?userId=${user.id}`, { headers: { ...authHdrs } })
         ]);
 
         if (resWorkout.ok) {
@@ -344,7 +351,7 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
       const durationInMinutes = Math.ceil(elapsedSeconds / 60);
 
       const res = await fetch('https://fitos-final.onrender.com/api/workout/finish', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
         body: JSON.stringify({ userId: userData.id, workoutId: workoutId, day: day, workoutName: (workoutName || 'TREINO').toUpperCase(), exercisesData: exercisesDone, duration: durationInMinutes, rpe: rpe, feedback: feedbackText })
       });
 

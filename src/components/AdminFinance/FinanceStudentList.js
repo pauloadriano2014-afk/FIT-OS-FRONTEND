@@ -3,13 +3,14 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Platform, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getDueDateStatus, formatCurrency } from '../../utils/financeUtils';
+import { authHeaders } from '../../utils/authToken';
 
 async function resolvePaymentClaim(userId, action, onSuccess, onError, setResolvingId) {
     setResolvingId(`${userId}_${action}`);
     try {
         const res = await fetch('https://fitos-final.onrender.com/api/admin/resolve-payment-claim', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
             body: JSON.stringify({ userId, action })
         });
         const data = await res.json().catch(() => ({}));

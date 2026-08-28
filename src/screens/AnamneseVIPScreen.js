@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, 
-  SafeAreaView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform 
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
+  SafeAreaView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform
 } from 'react-native';
+import { authHeaders } from '../utils/authToken';
 
 // OPÇÕES FIXAS (VIP COMPLETO)
 const LIMITACOES = ['Joelho', 'Lombar', 'Ombro', 'Punho', 'Quadril', 'Tornozelo', 'Cervical', 'Cotovelos', 'Nenhuma'];
@@ -74,9 +75,10 @@ export default function AnamneseVIPScreen({ route, navigation }) {
 
       console.log("Enviando VIP Payload:", payload);
 
+      const authHdrs = await authHeaders();
       const res = await fetch('https://fitos-final.onrender.com/api/anamnese', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...authHdrs },
         body: JSON.stringify(payload)
       });
 
@@ -84,7 +86,7 @@ export default function AnamneseVIPScreen({ route, navigation }) {
         // Gera o treino OCULTO (isVisible: false)
         await fetch('https://fitos-final.onrender.com/api/generate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHdrs },
             body: JSON.stringify({ userId: userData.id })
         });
 

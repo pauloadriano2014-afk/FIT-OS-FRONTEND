@@ -10,6 +10,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Shadow } from 'react-native-shadow-2'; 
 
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 const { width } = Dimensions.get('window');
 
@@ -46,7 +47,7 @@ export default function RoutineDetailsScreen({ route, navigation }) {
       let completedDays = localCompleted ? JSON.parse(localCompleted) : [];
       completedDays = completedDays.map(d => String(d).trim().toUpperCase()); 
       
-      const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${new Date().getTime()}`);
+      const response = await fetch(`https://fitos-final.onrender.com/api/workout?userId=${user.id}&workoutId=${workoutId}&t=${new Date().getTime()}`, { headers: { ...(await authHeaders()) } });
       const data = await response.json();
 
       if (response.ok && data && data.exercises) {

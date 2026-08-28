@@ -6,6 +6,7 @@ import {
     FlatList, Switch, Alert 
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../utils/authToken';
 
 export default function SendNoticeModal({ visible, onClose, alunos, adminId, theme }) {
     const [title, setTitle] = useState('');
@@ -50,7 +51,7 @@ export default function SendNoticeModal({ visible, onClose, alunos, adminId, the
             // Certifique-se de que sua API de notices esteja preparada para receber targetUsers se for usar o envio segmentado!
             const response = await fetch('https://fitos-final.onrender.com/api/notices', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify(payload)
             });
 

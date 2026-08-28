@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /* 🔥 IMPORTAÇÃO DO TEMA GLOBAL */
 import { useTheme } from '../contexts/ThemeContext';
+import { authHeaders } from '../utils/authToken';
 
 export default function UserHistoryScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
@@ -27,7 +28,7 @@ export default function UserHistoryScreen({ navigation }) {
       if (!storedUser) return;
       const user = JSON.parse(storedUser);
       
-      const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`);
+      const res = await fetch(`https://fitos-final.onrender.com/api/user/history?userId=${user.id}&t=${Date.now()}`, { headers: { ...(await authHeaders()) } });
       const data = await res.json();
       
       if (Array.isArray(data)) setHistory(data);
