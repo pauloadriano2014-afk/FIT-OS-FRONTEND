@@ -203,11 +203,6 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  // 🔥 Antes era uma URL remota (postimg.cc) — toda vez que a tela abria, o
-  // app tinha que baixar a imagem de novo pela internet, o que causava aquele
-  // atraso perceptível. Agora é um asset local (require), embutido no próprio
-  // pacote do app/PWA — carrega instantâneo, sem depender de rede nem de o
-  // postimg.cc estar no ar.
   const BG_IMAGE = require('../../assets/login_bg_elitefit.png');
 
   const containerStyle = isWebPC
@@ -225,8 +220,8 @@ export default function LoginScreen({ navigation }) {
       <View style={[StyleSheet.absoluteFill, isWeb && { position: 'fixed' }]}>
         <Image
           source={BG_IMAGE}
-          style={StyleSheet.absoluteFill}
-          resizeMode="cover"
+          style={{ position: 'absolute', top: 0, left: 0, width: windowWidth, height: windowHeight }}
+          resizeMode={isWebPC ? 'contain' : 'cover'}
         />
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.97)']}
@@ -257,8 +252,9 @@ export default function LoginScreen({ navigation }) {
               },
             ]}
           >
-            {/* 🔥 CORREÇÃO: O espaço superior agora exige no mínimo 50% da tela dinamicamente, liberando a logo! 🔥 */}
-            {!isWebPC && <View style={{ flex: 1, minHeight: windowHeight * 0.50 }} />}
+            {/* Espaço reservado em cima do card pra logo (embutida no fundo)
+                ficar visível. */}
+            <View style={{ flex: 1, minHeight: windowHeight * 0.50 }} />
 
             {/* Botão voltar ao admin (impersonation) */}
             {hasOriginalAdmin && (
