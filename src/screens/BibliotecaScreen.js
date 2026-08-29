@@ -136,6 +136,12 @@ export default function BibliotecaScreen({ navigation, route }) {
   const RootComponent = isWeb ? View : SafeAreaView;
   const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 
+  // 🔥 Compliance App Store: venda avulsa de conteúdo digital (PIX/cartão)
+  // dentro do app só é permitida fora do iOS (Guideline 3.1.1). No iOS,
+  // some o botão "COMPRAR AGORA" e sobra só o "CHAMAR NO WHATSAPP" — que não
+  // processa pagamento nenhum dentro do app, então não tem restrição.
+  const canBuyInApp = Platform.OS !== 'ios';
+
   useFocusEffect(
       useCallback(() => {
           fetchBibliotecaData();
@@ -445,17 +451,19 @@ export default function BibliotecaScreen({ navigation, route }) {
                     </Text>
 
                     <View style={[styles.upsellBenefits, { backgroundColor: theme.bg, borderColor: theme.border }]}>
-                        <View style={styles.upsellBenefitRow}>
-                            <MaterialCommunityIcons name="check-circle" size={18} color="#FFCC00" />
-                            <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso Imediato via PIX (Avulso)</Text>
-                        </View>
+                        {canBuyInApp && (
+                            <View style={styles.upsellBenefitRow}>
+                                <MaterialCommunityIcons name="check-circle" size={18} color="#FFCC00" />
+                                <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Acesso Imediato via PIX (Avulso)</Text>
+                            </View>
+                        )}
                         <View style={styles.upsellBenefitRow}>
                             <MaterialCommunityIcons name="check-circle" size={18} color="#FFCC00" />
                             <Text style={[styles.upsellBenefitText, { color: theme.text }]}>Ou Liberado no Plano Premium</Text>
                         </View>
                     </View>
 
-                    {upsellContent?.valor > 0 && (
+                    {upsellContent?.valor > 0 && canBuyInApp && (
                         <TouchableOpacity
                             style={[styles.upsellBtn, { backgroundColor: theme.accent, shadowColor: theme.accent, marginBottom: 12 }]}
                             onPress={() => {

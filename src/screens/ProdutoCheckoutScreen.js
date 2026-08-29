@@ -295,6 +295,36 @@ export default function ProdutoCheckoutScreen({ route }) {
         );
     }
 
+    // 🔥 Compliance App Store: essa tela gera PIX/cartão (Asaas) dentro do
+    // app pra conteúdo digital avulso (ebook/audiobook/curso) — a Apple exige
+    // IAP nativa pra isso (Guideline 3.1.1). No app nativo iOS, em vez de
+    // rodar o checkout aqui dentro, manda o cliente pra mesma página no
+    // navegador (site/PWA), onde essa restrição não se aplica. Se o pedido
+    // já foi pago (retomado por link de e-mail, ex: boleto), deixa passar
+    // normal — só mostra os botões de acesso ao material, sem pagamento.
+    if (Platform.OS === 'ios' && step !== 'sucesso') {
+        const webUrl = `${SITE_URL}/Produto?id=${encodeURIComponent(slug)}${vendaParam ? `&venda=${encodeURIComponent(vendaParam)}` : ''}`;
+        return (
+            <RootComponent style={styles.container}>
+                <View style={styles.centerBox}>
+                    {produto.capaUrl ? (
+                        <Image source={{ uri: produto.capaUrl }} style={{ width: 120, height: 160, borderRadius: 8, marginBottom: 16 }} />
+                    ) : null}
+                    <MaterialCommunityIcons name="open-in-new" size={40} color={MAIN_COLOR} style={{ marginBottom: 12 }} />
+                    <Text style={styles.notFoundTitle}>FINALIZE NO NAVEGADOR</Text>
+                    <Text style={[styles.modernPixHelper, { textAlign: 'center', marginTop: 8, marginBottom: 20 }]}>
+                        Pra concluir a compra de "{produto.nome}", toque no botão abaixo — você vai completar o pagamento numa página segura no seu navegador.
+                    </Text>
+                    <TouchableOpacity onPress={() => Linking.openURL(webUrl)} activeOpacity={0.85} style={{ width: '100%', maxWidth: 320 }}>
+                        <LinearGradient colors={[MAIN_COLOR, DARK_COLOR]} style={styles.submitBtn}>
+                            <Text style={styles.submitBtnText}>ABRIR PÁGINA DE PAGAMENTO</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            </RootComponent>
+        );
+    }
+
     const provaSocial = vendasRecentes[provaSocialIndex] || null;
 
     const orderBumpItens = produto.orderBumpItens || [];
