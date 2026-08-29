@@ -31,8 +31,6 @@ export default function ProfileScreen({ route }) {
   const [userData, setUserData] = useState(paramsUser); 
   const [userXP, setUserXP] = useState(0);
 
-  const [selectedColor, setSelectedColor] = useState('verde');
-
   // 🔥 RECORRÊNCIA (pagamento automático com cartão salvo via Asaas Checkout)
   const [recurrence, setRecurrence] = useState(null); // null = ainda carregando
   const [recurrenceBusy, setRecurrenceBusy] = useState(false);
@@ -79,10 +77,12 @@ export default function ProfileScreen({ route }) {
       setEmail(userObj.email || ""); 
       setPhone(userObj.phone || "");
 
-      const [xp, savedImage, savedThemeObj] = await Promise.all([
+      // 🔥 A cor do tema não precisa mais ser lida/derivada aqui — ela já vem
+      // direto de theme.colorKey (ThemeContext), sempre em sincronia com o
+      // que está persistido, sem duplicar a leitura do AsyncStorage.
+      const [xp, savedImage] = await Promise.all([
         AsyncStorage.getItem(`@user_xp_${userId}`),
         AsyncStorage.getItem(`@user_profile_image_${userId}`),
-        AsyncStorage.getItem('app_theme')
       ]);
 
       if (xp) setUserXP(parseInt(xp));
@@ -91,15 +91,6 @@ export default function ProfileScreen({ route }) {
       if (savedImage) setProfileImage(savedImage);
 
       fetchRecurrenceStatus(userId);
-
-      if (savedThemeObj) {
-          const parsedTheme = JSON.parse(savedThemeObj);
-          if (parsedTheme.accent === '#FF2D55') setSelectedColor('rosa');
-          else if (parsedTheme.accent === '#AF52DE') setSelectedColor('roxo');
-          else if (parsedTheme.accent === '#007AFF') setSelectedColor('azul');
-          else if (parsedTheme.accent === '#FF3B30') setSelectedColor('vermelho');
-          else setSelectedColor('verde');
-      }
 
     } catch (e) {
       console.log("Erro Load:", e);
@@ -328,13 +319,17 @@ export default function ProfileScreen({ route }) {
       try {
           // 🔥 LÓGICA ANTI-BUG FANTASMA ADICIONADA AQUI 🔥
           // Ao deslogar, garante que apagará QUALQUER rastro de impersonation (Modo Aluno Fantasma)
+          // 'app_theme' NÃO entra aqui de propósito — é preferência do
+          // dispositivo/navegador, não da conta, e não deve resetar a cada
+          // logout/expiração de sessão (bug reportado: tema voltava pro
+          // escuro sozinho ao reabrir a página).
           await AsyncStorage.multiRemove([
-              'user', 'token', 'app_theme', 'role', 
+              'user', 'token', 'role',
               'original_admin_user', 'original_admin_role'
-          ]); 
+          ]);
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
-      } catch (e) { 
-          Alert.alert("Erro", "Falha ao sair."); 
+      } catch (e) {
+          Alert.alert("Erro", "Falha ao sair.");
       }
   };
 
@@ -367,8 +362,9 @@ export default function ProfileScreen({ route }) {
               throw new Error(data?.error || 'Falha ao excluir a conta.');
           }
           await clearAuthToken();
+          // 'app_theme' fora daqui de propósito — ver comentário em executeLogout.
           await AsyncStorage.multiRemove([
-              'user', 'token', 'app_theme', 'role',
+              'user', 'token', 'role',
               'original_admin_user', 'original_admin_role'
           ]);
           navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
@@ -399,9 +395,13 @@ export default function ProfileScreen({ route }) {
       }
   };
 
+  // 🔥 A cor escolhida vive dentro do próprio `theme` persistido (theme.colorKey)
+  // em vez de um estado local à parte — assim ela sobrevive a reload/F5 igual
+  // ao resto do tema, sem resetar pra "verde" sozinha.
+  const selectedColor = theme.colorKey || 'verde';
+
   const toggleDarkMode = (newValue) => {
       if (newValue) {
-          setSelectedColor('verde');
           changeTheme(true, 'verde');
       } else {
           changeTheme(false, selectedColor);
@@ -409,7 +409,6 @@ export default function ProfileScreen({ route }) {
   };
 
   const selectThemeColor = (colorKey) => {
-      setSelectedColor(colorKey);
       changeTheme(theme.isDark, colorKey);
   };
 

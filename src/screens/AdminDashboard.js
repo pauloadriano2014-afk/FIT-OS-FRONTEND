@@ -222,8 +222,6 @@ export default function AdminDashboard({ navigation }) {
 
   const [isNpsModalOpen,    setIsNpsModalOpen]    = useState(false);
 
-  const [selectedColor,     setSelectedColor]     = useState('verde');
-
   const [inviteModalVisible,setInviteModalVisible]= useState(false);
 
 
@@ -500,9 +498,14 @@ export default function AdminDashboard({ navigation }) {
 
 
 
+  // 🔥 A cor escolhida vive dentro do próprio `theme` persistido (theme.colorKey)
+  // em vez de um estado local à parte — assim ela sobrevive a reload/F5 igual
+  // ao resto do tema, sem resetar pra "verde" sozinha.
+  const selectedColor     = theme.colorKey || 'verde';
+
   const toggleDarkMode    = () => changeTheme(!theme.isDark, selectedColor);
 
-  const selectThemeColor  = (colorKey) => { setSelectedColor(colorKey); changeTheme(theme.isDark, colorKey); };
+  const selectThemeColor  = (colorKey) => changeTheme(theme.isDark, colorKey);
 
   const switchSubTab      = (tab) => { setSubTabAlunos(tab); setSearch(''); setVisibleCount(15); };
 
