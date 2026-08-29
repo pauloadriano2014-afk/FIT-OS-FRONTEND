@@ -28,12 +28,17 @@ export default function useAdminEvolution(aluno) {
     const [currentAge, setCurrentAge] = useState('');
     const [currentGender, setCurrentGender] = useState(aluno?.gender ? aluno.gender.toUpperCase().trim() : '');
     
-    const [measures, setMeasures] = useState({ 
-        waist: '', abdomen: '', chestMeasure: '', shoulders: '', hips: '', 
-        armRight: '', armLeft: '', forearmRight: '', forearmLeft: '', 
-        legRight: '', legLeft: '', calfRight: '', calfLeft: '' 
+    const [measures, setMeasures] = useState({
+        waist: '', abdomen: '', chestMeasure: '', shoulders: '', hips: '',
+        armRight: '', armLeft: '', forearmRight: '', forearmLeft: '',
+        legRight: '', legLeft: '', calfRight: '', calfLeft: ''
     });
     const [folds, setFolds] = useState({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
+
+    // 🔥 NOVO: objetivo/contexto que o coach escreve pra orientar o laudo de IA
+    // (ex.: "foco em definição e pernas/glúteos, não busca superior musculoso").
+    // Salvo no campo "notes" da avaliação, que já existia no banco mas nunca era usado.
+    const [goalNote, setGoalNote] = useState('');
 
     const [photos, setPhotos] = useState({ front: null, back: null, side: null });
 
@@ -216,7 +221,8 @@ export default function useAdminEvolution(aluno) {
         setEditingId(null); setWeight(''); setCustomDate(''); setMethod('BASICO');
         setMeasures({ waist:'', abdomen:'', chestMeasure: '', shoulders: '', hips: '', armRight: '', armLeft: '', forearmRight: '', forearmLeft: '', legRight: '', legLeft: '', calfRight: '', calfLeft: '' });
         setFolds({ foldChest:'', foldAxillary:'', foldTriceps:'', foldSubscapular:'', foldAbdominal:'', foldSuprailiac:'', foldThigh:'' });
-        setPhotos({ front: null, back: null, side: null }); 
+        setPhotos({ front: null, back: null, side: null });
+        setGoalNote('');
         
         // Retorna a idade para Hoje ao fechar
         if (studentBirthDate) {
@@ -230,7 +236,8 @@ export default function useAdminEvolution(aluno) {
         setEditingId(item.id);
         setMethod(item.method || 'BASICO');
         setWeight(String(item.weight));
-        
+        setGoalNote(item.notes || '');
+
         const d = new Date(item.date);
         const formattedDate = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
         setCustomDate(formattedDate);
@@ -325,9 +332,10 @@ export default function useAdminEvolution(aluno) {
                 userId: aluno.id, 
                 date: isoDate,
                 age: currentAge ? parseInt(currentAge, 10) : null, // 🔥 O GRANDE PASSO: A Idade agora vai pro Banco de Dados!
-                weight: safeReplace(weight), 
-                method, 
+                weight: safeReplace(weight),
+                method,
                 bodyFat: calculatedBF,
+                notes: goalNote || null, // 🔥 objetivo do aluno, usado pelo laudo de IA
                 waist: cleanMeasures.waist, 
                 abdomen: cleanMeasures.abdomen,
                 chest: method === 'POLLOCK' ? cleanMeasures.chestMeasure : null, 
@@ -338,7 +346,7 @@ export default function useAdminEvolution(aluno) {
                 forearms: method === 'POLLOCK' ? cleanMeasures.forearmRight : null, 
                 forearmLeft: method === 'POLLOCK' ? cleanMeasures.forearmLeft : null, 
                 thighs: method === 'POLLOCK' ? cleanMeasures.legRight : null, 
-                thighLeft: method === 'POLLOCK' ? cleanMeasures.thighLeft : null, 
+                thighLeft: method === 'POLLOCK' ? cleanMeasures.legLeft : null,
                 calves: method === 'POLLOCK' ? cleanMeasures.calfRight : null, 
                 calfLeft: method === 'POLLOCK' ? cleanMeasures.calfLeft : null,
                 foldChest: method === 'POLLOCK' ? cleanFolds.foldChest : null, 
@@ -455,6 +463,7 @@ export default function useAdminEvolution(aluno) {
         method, setMethod, customDate, setCustomDate, weight, setWeight,
         currentAge, setCurrentAge, currentGender, setCurrentGender,
         measures, setMeasures, folds, setFolds, photos, setPhotos,
+        goalNote, setGoalNote,
         loadData, handleDelete, openDetails, handleDateChange, resetForm,
         handleEdit, handleSaveAssessment,
         generatingAI, generateAIReport,

@@ -53,6 +53,7 @@ export default function AdminEvolutionScreen({ route, navigation }) {
         measures, setMeasures,
         folds, setFolds,
         photos, setPhotos,
+        goalNote, setGoalNote,
         handleDelete,
         openDetails,
         handleDateChange,
@@ -203,10 +204,11 @@ export default function AdminEvolutionScreen({ route, navigation }) {
                 currentAge={currentAge} setCurrentAge={setCurrentAge} 
                 currentGender={currentGender} setCurrentGender={setCurrentGender} 
                 folds={folds} setFolds={setFolds} 
-                measures={measures} setMeasures={setMeasures} 
-                onSave={handleSaveAssessment} 
-                theme={theme} isWeb={isWeb} webOuterBg={webOuterBg} 
-                photos={photos} setPhotos={setPhotos} 
+                measures={measures} setMeasures={setMeasures}
+                onSave={handleSaveAssessment}
+                theme={theme} isWeb={isWeb} webOuterBg={webOuterBg}
+                photos={photos} setPhotos={setPhotos}
+                goalNote={goalNote} setGoalNote={setGoalNote} showGoalField
             />
 
             {/* 🔥 REPASSE DO GÊNERO CORRIGIDO PARA O LAUDO ÚNICO + IA (GERAR/EDITAR) 🔥 */}

@@ -8,7 +8,11 @@ export default function AssessmentFormModal({
     visible, onClose, editingId, customDate, handleDateChange, method, setMethod,
     weight, setWeight, currentAge, setCurrentAge, currentGender, setCurrentGender,
     folds, setFolds, measures, setMeasures, onSave, theme, isWeb, webOuterBg,
-    photos, setPhotos
+    photos, setPhotos,
+    // 🔥 NOVO: objetivo do aluno, usado pra orientar o laudo de IA (só aparece
+    // quando showGoalField=true, ou seja, no fluxo do coach — não no
+    // auto-acompanhamento do aluno).
+    goalNote, setGoalNote, showGoalField = false
 }) {
     const [pollockTab, setPollockTab] = useState('DOBRAS'); 
     
@@ -206,6 +210,25 @@ export default function AssessmentFormModal({
                                     </View>
                                 )}
 
+                                {showGoalField && (
+                                    <>
+                                        <Text style={[styles.label, { color: theme.textSecondary, marginTop: 25 }]}>OBJETIVO DO ALUNO (Opcional — orienta o laudo de IA)</Text>
+                                        <TextInput
+                                            style={[styles.input, styles.goalInput, { backgroundColor: theme.surface, color: theme.text, borderColor: theme.border }]}
+                                            multiline
+                                            numberOfLines={3}
+                                            value={getStr(goalNote)}
+                                            onChangeText={setGoalNote}
+                                            placeholder='Ex: "Foco em definição e pernas/glúteos, não busca deixar o superior musculoso"'
+                                            placeholderTextColor={theme.textSecondary}
+                                            outlineStyle="none"
+                                        />
+                                        <Text style={[styles.hint, { color: theme.textSecondary, marginTop: 4, textAlign: 'left' }]}>
+                                            A IA usa esse texto como referência principal pra decidir o que apontar como ponto de atenção/prioridade no laudo gerado a partir das fotos.
+                                        </Text>
+                                    </>
+                                )}
+
                                 <Text style={[styles.label, { color: theme.textSecondary, marginTop: 25 }]}>FOTOS DA AVALIAÇÃO (Opcional)</Text>
                                 <View style={styles.photosRow}>
                                     {renderPhotoBox("FRENTE", "front", "account")}
@@ -235,7 +258,8 @@ const styles = StyleSheet.create({
     scrollArea: { flex: 1, width: '100%' },
     
     label: { fontSize: 11, fontWeight: '800', marginBottom: 8, marginTop: 20, letterSpacing: 1 },
-    input: { padding: 16, borderRadius: 16, borderWidth: 1, fontSize: 16, fontWeight: '600' }, 
+    input: { padding: 16, borderRadius: 16, borderWidth: 1, fontSize: 16, fontWeight: '600' },
+    goalInput: { minHeight: 80, textAlignVertical: 'top', fontWeight: '400', fontSize: 14 },
     
     switchRow: { flexDirection: 'row', borderRadius: 16, padding: 4, marginBottom: 10 },
     switchBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
