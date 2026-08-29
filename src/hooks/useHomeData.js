@@ -205,9 +205,17 @@ export function useHomeData() {
                     fetch(`https://fitos-final.onrender.com/api/notices?userId=${user.id}&t=${t}`, { headers: { ...authHdrs } }),
                     fetch(`https://fitos-final.onrender.com/api/admin/user/${user.id}?t=${t}&omit=diets,anamneses`, { headers: { ...authHdrs } }),
                     fetch(`https://fitos-final.onrender.com/api/contents?adminId=${fetchCoachId}&global=true&t=${t}`, { headers: { ...authHdrs } }),
+                    // 🔥 BUG CRÍTICO CORRIGIDO: essa chamada usava /api/admin/user/[id],
+                    // uma rota só pra admin ver dados de aluno — desde a migração pra
+                    // JWT real, ela passou a checar "esse coachId pertence a você?" e
+                    // um ALUNO nunca é dono do próprio coach, então sempre voltava 403
+                    // e a marca do coach nunca aparecia (caía no fallback genérico
+                    // "ELITE FIT"). A rota certa pra isso é /api/coach-brand/[id], já
+                    // construída exatamente pra aluno ler a marca (nome/logo) do
+                    // próprio coach.
                     skipCoachFetch
                         ? Promise.resolve(null)
-                        : fetch(`https://fitos-final.onrender.com/api/admin/user/${fetchCoachId}?t=${t}&omit=diets,workouts,anamneses`, { headers: { ...authHdrs } })
+                        : fetch(`https://fitos-final.onrender.com/api/coach-brand/${fetchCoachId}?t=${t}`, { headers: { ...authHdrs } })
                 ]);
 
                 let fetchedUser     = { ...user };

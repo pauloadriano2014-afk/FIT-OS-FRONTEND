@@ -23,7 +23,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import { LinearGradient } from 'expo-linear-gradient';
-import { saveAuthToken } from '../utils/authToken';
+import { saveAuthToken, authHeaders } from '../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -176,7 +176,13 @@ export default function LoginScreen({ navigation }) {
         const isMasterCoach = MASTER_IDS.includes(user.coachId);
         if (!isMasterCoach) {
           try {
-            const coachRes = await fetch(`${BASE_URL}/api/admin/user/${user.coachId}`);
+            // 🔥 BUG CORRIGIDO: usava /api/admin/user/[id] (exige que o CALLER
+            // seja dono do alvo — o inverso do que é preciso aqui, aluno lendo
+            // o próprio coach), então desde a migração JWT voltava 403 sempre
+            // e esse bloqueio de coach inadimplente ficou desativado sem
+            // avisar. /api/coach-brand/[id] já permite explicitamente essa
+            // direção (aluno → próprio coach).
+            const coachRes = await fetch(`${BASE_URL}/api/coach-brand/${user.coachId}`, { headers: { ...(await authHeaders()) } });
             if (coachRes.ok) {
               const coachData   = await coachRes.json();
               const coachStatus = coachData.coachBillingStatus;
