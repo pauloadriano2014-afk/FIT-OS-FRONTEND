@@ -21,7 +21,7 @@ const QUICK_QUESTIONS = [
     "🔑 Esqueci minha senha, e agora?",
 ];
 
-const getAssistantName = (coachId) => MASTER_TEAM.includes(coachId) ? 'PA ELITE COACH' : 'ASSISTENTE ELITE';
+const getAssistantName = (coachId) => MASTER_TEAM.includes(coachId) ? 'ELITE FIT COACH' : 'ASSISTENTE ELITE';
 
 export function useHomeData() {
     const [loading, setLoading]           = useState(true);
@@ -76,7 +76,7 @@ export function useHomeData() {
     const [messages, setMessages]   = useState([]);
     const [chatInput, setChatInput] = useState('');
     const [isTyping, setIsTyping]   = useState(false);
-    const [assistantName, setAssistantName] = useState('PA ELITE COACH'); 
+    const [assistantName, setAssistantName] = useState('ELITE FIT COACH'); 
     const flatListRef               = useRef(null);
 
     // ─── Derivações de nível ───────────────────────────────────────────────

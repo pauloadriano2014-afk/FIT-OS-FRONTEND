@@ -60,7 +60,7 @@ export default function AssessmentDetailsModal({ visible, assessment, onClose, o
                                 style={[styles.pdfButton, { borderColor: '#4DE38F' }]}
                             >
                                 <MaterialCommunityIcons name="file-pdf-box" size={24} color="#4DE38F" />
-                                <Text style={styles.pdfButtonText}>GERAR LAUDO PA ELITE</Text>
+                                <Text style={styles.pdfButtonText}>GERAR LAUDO ELITE FIT</Text>
                             </TouchableOpacity>
                         )}
 

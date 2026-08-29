@@ -12,8 +12,8 @@ export default function SubscriptionScreen() {
   ];
 
   const openWhatsApp = () => {
-    const msg = "Olá Paulo! Vim pelo app Fit OS e quero saber mais sobre a Consultoria Premium.";
-    Linking.openURL(`https://wa.me/SEUNUMERO?text=${encodeURIComponent(msg)}`);
+    const msg = "Olá! Vim pelo app ELITE FIT e quero saber mais sobre a Consultoria Premium.";
+    Linking.openURL(`https://wa.me/5541997991346?text=${encodeURIComponent(msg)}`);
   };
 
   return (

@@ -4,8 +4,10 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet, 
   ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, Modal
 } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons'; 
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { saveAuthToken } from '../utils/authToken';
 
 export default function RegisterScreen({ navigation, route }) {
   const { theme } = useTheme();
@@ -125,9 +127,21 @@ export default function RegisterScreen({ navigation, route }) {
       const data = await response.json();
 
       if (response.ok) {
+        // 🔥 BUG CRÍTICO CORRIGIDO: essa tela nunca salvava a sessão do aluno
+        // recém-cadastrado (token/user/role) — igual o LoginScreen.js já faz.
+        // Resultado: o aluno entrava direto na Anamnese/SetupTreino sem token
+        // válido, e a chamada final de "concluir" (que agora exige login
+        // verificado no servidor) caía com "Não autenticado", perdendo a
+        // anamnese preenchida sem avisar direito (o alerta deixava fechar e
+        // seguir usando o app, escondendo que os dados não foram salvos).
+        const role = data.user?.role || 'USER';
+        await AsyncStorage.setItem('user', JSON.stringify(data.user));
+        await AsyncStorage.setItem('role', role);
+        await saveAuthToken(data.token);
+
         if(Platform.OS === 'web') window.alert("Bem-vindo ao Time! Vamos configurar seu perfil agora.");
         else Alert.alert("Sucesso! 🦁", "Bem-vindo ao Time! Vamos configurar seu perfil agora.");
-        
+
         // 🔥 LÓGICA DE ROTEAMENTO (Agora ciente da sua tela unificada) 🔥
         const isAutoPlan = ['LOW_COST', 'FICHA_8S', 'CHALLENGE_21'].includes(studentPlan);
 

@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ELITE FIT",
-    "slug": "pa-team-app",
+    "slug": "elite-fit-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/elitefit_icon.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.pauloadriano.team",
+      "bundleIdentifier": "br.com.elitefitapp.app",
       "infoPlist": {
         "UIBackgroundModes": [
           "audio"
@@ -26,7 +26,7 @@
         "foregroundImage": "./assets/elitefit_icon_adaptive.png",
         "backgroundColor": "#000000"
       },
-      "package": "com.pauloadriano.team",
+      "package": "br.com.elitefitapp.app",
       "permissions": [
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO",
@@ -36,17 +36,17 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "icon": "./assets/pateam_icon.png",
+      "icon": "./assets/elitefit_icon.png",
       "bundler": "metro",
       "output": "single",
       "publicPath": "/",
       "splash": {
         "backgroundColor": "#000000",
         "resizeMode": "contain",
-        "image": "./assets/pateam_splash.png"
+        "image": "./assets/elitefit_splash.png"
       },
       "manifest": {
-        "name": "Elite Fit",
+        "name": "ELITE FIT",
         "short_name": "ELITE FIT",
         "description": "Consultoria de Performance",
         "start_url": ".",
@@ -73,6 +73,14 @@
           "photosPermission": "Permitir acesso às suas fotos para enviar foto de perfil, fotos de evolução física e imagens de conteúdo.",
           "cameraPermission": "Permitir acesso à câmera para tirar a foto do dia nos desafios e gravar o vídeo de execução do exercício no Scanner de Movimento (análise por IA).",
           "microphonePermission": "Permitir acesso ao microfone para gravar o áudio junto ao vídeo de execução do exercício no Scanner de Movimento."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir acesso à câmera para tirar a foto do dia nos desafios e gravar o vídeo de execução do exercício no Scanner de Movimento (análise por IA).",
+          "microphonePermission": "Permitir acesso ao microfone para gravar o áudio junto ao vídeo de execução do exercício no Scanner de Movimento.",
+          "recordAudioAndroid": true
         }
       ],
       "react-native-compressor",
