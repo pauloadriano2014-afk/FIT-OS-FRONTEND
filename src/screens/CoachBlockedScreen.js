@@ -191,7 +191,7 @@ export default function CoachBlockedScreen({ navigation, route }) {
 
 const styles = StyleSheet.create({
     root:        { flex: 1 },
-    content:     { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 28 },
+    content:     { flex: 1, width: '100%', maxWidth: 960, alignSelf: 'center', alignItems: 'center', justifyContent: 'center', padding: 28 },
     iconCircle:  { width: 100, height: 100, borderRadius: 50, alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
     title:       { fontSize: 26, fontWeight: '900', textAlign: 'center', marginBottom: 12 },
     subtitle:    { fontSize: 14, textAlign: 'center', lineHeight: 22, marginBottom: 20 },

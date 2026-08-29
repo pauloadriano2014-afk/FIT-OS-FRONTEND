@@ -40,7 +40,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
     const { width: windowWidth } = Dimensions.get('window');
     const isWebPC = Platform.OS === 'web' && windowWidth > 768;
     const isWeb = Platform.OS === 'web';
-    const containerMaxWidth = isWebPC ? 1200 : '100%'; 
+    const containerMaxWidth = isWebPC ? 1200 : '100%';
     const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
     const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
 

@@ -30,7 +30,7 @@ export default function GerenciarTemplates({ navigation }) {
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
 
       <View style={{
-        flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', alignSelf: 'center',
+        flex: 1, width: '100%', maxWidth: isWeb ? 960 : '100%', alignSelf: 'center',
         backgroundColor: theme.bg,
         ...(isWeb ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}),
       }}>

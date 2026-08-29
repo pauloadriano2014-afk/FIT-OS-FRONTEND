@@ -16,6 +16,11 @@ export default function DietHeaderWidgets({
     setShowRaioX,
     anamnese,
     setImportModalVisible,
+    // 🔥 Painel de contexto clínico (DietContextPanel) — no PC ele já aparece
+    // sozinho como barra lateral fixa; no celular não tem espaço pra isso,
+    // então mostramos este botão pra abrir o mesmo painel numa bottom sheet.
+    isWebPC = false,
+    onOpenContext,
 }) {
     const handlePressImport = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -25,6 +30,11 @@ export default function DietHeaderWidgets({
     const handlePressRaioX = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setShowRaioX(prev => !prev);
+    };
+
+    const handlePressContext = () => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        if (typeof onOpenContext === 'function') onOpenContext();
     };
 
     return (
@@ -102,6 +112,24 @@ export default function DietHeaderWidgets({
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
+
+            {/* CONTEXTO DO ALUNO — só no celular. No PC o mesmo conteúdo já */}
+            {/* fica sempre visível na barra lateral (DietContextPanel).      */}
+            {!isWebPC && (
+                <View style={[styles.assistantRow, { marginTop: -4 }]}>
+                    <TouchableOpacity style={{ flex: 1 }} onPress={handlePressContext} activeOpacity={0.8}>
+                        <LinearGradient
+                            colors={theme.isDark ? ['#2C2C2E', '#1C1C1E'] : ['#FFFFFF', '#F2F2F7']}
+                            style={styles.pillBtn}
+                        >
+                            <LinearGradient colors={['#34C759', '#248A3D']} style={styles.iconCircle}>
+                                <MaterialCommunityIcons name="clipboard-pulse-outline" size={18} color="#FFF" />
+                            </LinearGradient>
+                            <Text style={[styles.pillBtnText, { color: theme.text }]}>CONTEXTO DO ALUNO</Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* PAINEL RAIO-X (resumo da anamnese pra consulta rápida) */}
             {showRaioX && (

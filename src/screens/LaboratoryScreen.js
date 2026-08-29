@@ -241,7 +241,7 @@ export default function LaboratoryScreen({ navigation }) {
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
             
             <View style={{ flex: 1, width: '100%', alignItems: 'center' }}>
-                <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 480 : '100%', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+                <View style={{ flex: 1, width: '100%', maxWidth: isWeb ? 960 : '100%', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
                     
                     <View style={[styles.header, { borderBottomColor: theme.border }]}>
                         <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.backButton, { backgroundColor: theme.surface }]}>

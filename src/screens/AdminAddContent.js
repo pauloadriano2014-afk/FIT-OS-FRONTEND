@@ -311,7 +311,7 @@ export default function AdminAddContent({ navigation }) {
     return (
         <RootComponent style={isWeb ? { height: '100vh', width: '100%', backgroundColor: webOuterBg } : { flex: 1, backgroundColor: theme.bg }}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
-            <View style={{ flex: 1, width: '100%', maxWidth: 480, alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
+            <View style={{ flex: 1, width: '100%', maxWidth: 960, alignSelf: 'center', backgroundColor: theme.bg, ...(isWeb ? {borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border} : {}) }}>
                 <View style={styles.header}>
                     <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 5 }}><MaterialCommunityIcons name="arrow-left" size={24} color={theme.text}/></TouchableOpacity>
                     <Text style={[styles.title, { color: theme.text }]}>GERENCIAR <Text style={{color: theme.accent}}>PA FLIX</Text></Text><View style={{width: 24}}/>

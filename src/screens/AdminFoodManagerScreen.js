@@ -20,8 +20,11 @@ function useDebounce(value, delay) {
 
 export default function AdminFoodManagerScreen({ navigation }) {
     const { theme } = useTheme();
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
+    const isWebPC = isWeb && windowWidth > 768;
+    const containerMaxWidth = isWebPC ? 960 : '100%';
+    const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
 
     const [coachId,       setCoachId]       = useState('');
     const [search,        setSearch]        = useState('');
@@ -172,6 +175,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
 
     return (
         <RootView style={rootStyle}>
+          <View style={{ flex: 1, width: '100%', maxWidth: containerMaxWidth, alignSelf: 'center', ...containerBorders }}>
             {/* HEADER */}
             <View style={[s.header, { backgroundColor:theme.surface, borderBottomColor:theme.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={[s.iconBtn, { backgroundColor:theme.bg, borderColor:theme.border }]}>
@@ -321,6 +325,7 @@ export default function AdminFoodManagerScreen({ navigation }) {
                     />
                 </View>
             )}
+          </View>
 
             <CreateFoodModal
                 visible={createVisible}

@@ -1,6 +1,8 @@
 // src/components/AdminDiet/DietContextPanel.js
-// Painel lateral direito (web/PC) com contexto clínico em tempo real
-// Aparece apenas quando isWebPC = isWeb && windowWidth > 768
+// Painel com contexto clínico em tempo real (anamnese, macros, alertas).
+// No PC (isWebPC) aparece sempre, fixo como barra lateral direita (variant="sidebar").
+// No celular aparece sob demanda, dentro de uma bottom sheet (variant="mobileSheet"),
+// aberta pelo botão "CONTEXTO DO ALUNO" no DietHeaderWidgets.
 import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -128,7 +130,11 @@ export default function DietContextPanel({
     currentMacros,   // { kcal, prot, carb, fat } — calculado em tempo real pelo useDietActions
     macroTargets,    // { kcal, prot, carb, fat } — vindos do macroPlanner para o dayType ativo
     visibleMeals,
+    // 'sidebar' (padrão, PC — largura fixa de 260px encostada na borda) ou
+    // 'mobileSheet' (celular — ocupa 100% da largura de dentro de uma bottom sheet)
+    variant = 'sidebar',
 }) {
+    const isMobileSheet = variant === 'mobileSheet';
     const softBg  = theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
     const cardBg  = theme.isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF';
 
@@ -163,7 +169,11 @@ export default function DietContextPanel({
     const dayColor = DAY_COLOR[activeDayType] ?? theme.accent;
 
     return (
-        <View style={[p.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[
+            p.panel,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+            isMobileSheet && p.panelMobileSheet,
+        ]}>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
                 {/* ── CABEÇALHO DO DIA ─────────────────────────────────────── */}
@@ -276,6 +286,7 @@ export default function DietContextPanel({
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const p = StyleSheet.create({
     panel:         { width: 260, borderLeftWidth: 1, paddingHorizontal: 14, paddingTop: 16 },
+    panelMobileSheet: { width: '100%', borderLeftWidth: 0, paddingHorizontal: 16, paddingTop: 4 },
     dayBadge:      { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, padding: 12, marginBottom: 12 },
     dayLabel:      { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
     alunoName:     { fontSize: 11, fontWeight: '700', marginTop: 2 },

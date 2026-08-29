@@ -306,7 +306,7 @@ export default function AdminIALabScreen({ navigation }) {
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
             
             <View style={{ 
-                flex: 1, minHeight: 0, width: '100%', maxWidth: isWeb ? 550 : '100%', 
+                flex: 1, minHeight: 0, width: '100%', maxWidth: isWeb ? 960 : '100%',
                 alignSelf: 'center', backgroundColor: theme.bg, overflow: 'hidden',
                 ...(isWeb ? { display: 'flex', flexDirection: 'column', borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {}) 
             }}>

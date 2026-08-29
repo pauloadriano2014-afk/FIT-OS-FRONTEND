@@ -100,8 +100,11 @@ function GroupFormModal({ visible, onClose, onSave, editing, theme }) {
 // ─── TELA PRINCIPAL ───────────────────────────────────────────────────────────
 export default function AdminSubstitutionGroupsScreen({ navigation }) {
     const { theme } = useTheme();
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
+    const isWebPC = isWeb && windowWidth > 768;
+    const containerMaxWidth = isWebPC ? 960 : '100%';
+    const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
 
     const [coachId,      setCoachId]      = useState('');
     const [groups,       setGroups]       = useState([]);
@@ -233,6 +236,7 @@ export default function AdminSubstitutionGroupsScreen({ navigation }) {
 
     return (
         <RootView style={rootStyle}>
+          <View style={{ flex: 1, width: '100%', maxWidth: containerMaxWidth, alignSelf: 'center', ...containerBorders }}>
             {/* HEADER */}
             <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
                 <TouchableOpacity
@@ -305,6 +309,7 @@ export default function AdminSubstitutionGroupsScreen({ navigation }) {
                     )}
                 />
             )}
+          </View>
 
             <GroupFormModal
                 visible={formVisible}

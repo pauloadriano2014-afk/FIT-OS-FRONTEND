@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
     Platform, KeyboardAvoidingView, useWindowDimensions,
-    ActivityIndicator, Animated, Alert, ScrollView
+    ActivityIndicator, Animated, Alert, ScrollView, Modal
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -54,7 +54,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const isWebPC = isWeb && windowWidth > 768;
 
-    const contentMaxWidth  = isWebPC ? 960 : '100%';
+    const contentMaxWidth  = isWebPC ? 1200 : '100%';
     const containerBorders = isWebPC
         ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border }
         : {};
@@ -63,6 +63,7 @@ export default function AdminDietScreen({ route, navigation }) {
     const fadeAnim = useRef(new Animated.Value(1)).current;
 
     const [showRaioX,               setShowRaioX]             = useState(false);
+    const [contextPanelVisible,     setContextPanelVisible]   = useState(false); // 🔥 Painel de contexto (DietContextPanel) no celular, via bottom sheet
     const [initialCategoryFilter, setInitialCategoryFilter] = useState('Todas');
     const [modelSelectorVisible,  setModelSelectorVisible]  = useState(false);
     const [generateProgress,      setGenerateProgress]      = useState('');
@@ -383,6 +384,8 @@ export default function AdminDietScreen({ route, navigation }) {
                                 setImportModalVisible={modals.setImportModalVisible}
                                 activeDayType={actions.activeDayType}
                                 activeAccent={activeAccent}
+                                isWebPC={isWebPC}
+                                onOpenContext={() => setContextPanelVisible(true)}
                             />
 
                             <View style={{ paddingHorizontal: 16 }}>
@@ -529,6 +532,45 @@ export default function AdminDietScreen({ route, navigation }) {
                     <DietContextPanel theme={theme} anamnese={data.anamnese} aluno={aluno}
                         activeDayType={actions.activeDayType} currentMacros={actions.currentMacros}
                         macroTargets={macroTargets} visibleMeals={actions.visibleMeals} />
+                )}
+
+                {/* 🔥 CONTEXTO DO ALUNO NO CELULAR: mesmo painel do PC, mas como */}
+                {/* bottom sheet aberta pelo botão em DietHeaderWidgets.          */}
+                {!isWebPC && (
+                    <Modal
+                        visible={contextPanelVisible}
+                        transparent
+                        animationType="slide"
+                        onRequestClose={() => setContextPanelVisible(false)}
+                    >
+                        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+                            <TouchableOpacity
+                                style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+                                activeOpacity={1}
+                                onPress={() => setContextPanelVisible(false)}
+                            />
+                            <View style={{
+                                maxHeight: '88%', backgroundColor: theme.bg,
+                                borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden',
+                            }}>
+                                <View style={{
+                                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                                    padding: 16, borderBottomWidth: 1, borderBottomColor: theme.border,
+                                }}>
+                                    <Text style={{ color: theme.text, fontWeight: '900', fontSize: 14 }}>
+                                        CONTEXTO DO ALUNO
+                                    </Text>
+                                    <TouchableOpacity onPress={() => setContextPanelVisible(false)} style={{ padding: 4 }}>
+                                        <MaterialCommunityIcons name="close" size={22} color={theme.text} />
+                                    </TouchableOpacity>
+                                </View>
+                                <DietContextPanel theme={theme} anamnese={data.anamnese} aluno={aluno}
+                                    activeDayType={actions.activeDayType} currentMacros={actions.currentMacros}
+                                    macroTargets={macroTargets} visibleMeals={actions.visibleMeals}
+                                    variant="mobileSheet" />
+                            </View>
+                        </View>
+                    </Modal>
                 )}
             </View>
 

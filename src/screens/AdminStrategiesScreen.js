@@ -510,6 +510,16 @@ export default function AdminStrategiesScreen({ route, navigation }) {
     const { theme } = useTheme();
     const { width: windowWidth } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
+    const isWebPC = isWeb && windowWidth > 768;
+    const containerMaxWidth = isWebPC ? 960 : '100%';
+    const containerBorders = isWebPC
+        ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border }
+        : {};
+    const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+    const RootComponent = isWeb ? View : SafeAreaView;
+    const rootStyle = isWeb
+        ? { height: '100vh', width: '100%', backgroundColor: isWebPC ? webOuterBg : theme.bg }
+        : { flex: 1, backgroundColor: theme.bg };
 
     const rawAluno = route.params?.aluno;
     const aluno    = (typeof rawAluno === 'string' && rawAluno.startsWith('{')) ? JSON.parse(rawAluno) : rawAluno;
@@ -613,7 +623,8 @@ export default function AdminStrategiesScreen({ route, navigation }) {
     const baseIsHidden = !!(activeStrategy && activeStrategy.strategyExclusive);
 
     return (
-        <SafeAreaView style={[styles.root, { backgroundColor: theme.bg }]}>
+        <RootComponent style={rootStyle}>
+          <View style={{ flex: 1, width: '100%', maxWidth: containerMaxWidth, alignSelf: 'center', backgroundColor: theme.bg, ...containerBorders }}>
             <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.iconBtn, { backgroundColor: theme.bg, borderColor: theme.border }]}>
                     <MaterialCommunityIcons name="arrow-left" size={22} color={theme.text} />
@@ -724,6 +735,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
                     )}
                 </ScrollView>
             )}
+          </View>
 
             <CreateStrategyModal
                 visible={createVisible}
@@ -740,7 +752,7 @@ export default function AdminStrategiesScreen({ route, navigation }) {
                 onSave={handleEditSave}
                 theme={theme}
             />
-        </SafeAreaView>
+        </RootComponent>
     );
 }
 

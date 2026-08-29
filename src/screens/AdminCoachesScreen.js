@@ -41,8 +41,11 @@ const STATUS_TABS = [
 
 export default function AdminCoachesScreen({ navigation }) {
     const { theme } = useTheme();
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
+    const isWebPC = isWeb && windowWidth > 768;
+    const containerMaxWidth = isWebPC ? 960 : '100%';
+    const containerBorders = isWebPC ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border } : {};
 
     const [coaches,     setCoaches]     = useState([]);
     const [loading,     setLoading]     = useState(true);
@@ -310,6 +313,7 @@ export default function AdminCoachesScreen({ navigation }) {
 
     return (
         <RootView style={rootStyle}>
+          <View style={{ flex: 1, width: '100%', maxWidth: containerMaxWidth, alignSelf: 'center', ...containerBorders }}>
             {/* Header */}
             <View style={[styles.header, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
                 <TouchableOpacity
@@ -377,6 +381,7 @@ export default function AdminCoachesScreen({ navigation }) {
                     )}
                 />
             )}
+          </View>
 
             {/* Modal de edição de plano manual */}
             <Modal visible={!!editingCoach} transparent animationType="fade" onRequestClose={() => setEditingCoach(null)}>

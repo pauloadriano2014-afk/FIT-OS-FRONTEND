@@ -1,14 +1,27 @@
 // src/screens/AdminAnamneseBuilderScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator, Alert, Platform, TextInput, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
 import { authHeaders } from '../utils/authToken';
+import { getDefaultAnamneseSchema } from '../Anamnese/defaultAnamneseSchema';
 
 export default function AdminAnamneseBuilderScreen({ navigation }) {
     const { theme } = useTheme();
+    const { width: windowWidth } = useWindowDimensions();
+    const isWeb = Platform.OS === 'web';
+    const isWebPC = isWeb && windowWidth > 768;
+    const containerMaxWidth = isWebPC ? 960 : '100%';
+    const containerBorders = isWebPC
+        ? { borderLeftWidth: 1, borderRightWidth: 1, borderColor: theme.border }
+        : {};
+    const webOuterBg = theme.isDark ? '#0a0a0a' : '#E5E5EA';
+    const RootComponent = isWeb ? View : SafeAreaView;
+    const rootStyle = isWeb
+        ? { height: '100vh', width: '100%', backgroundColor: isWebPC ? webOuterBg : theme.bg }
+        : { flex: 1, backgroundColor: theme.bg };
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [coachId, setCoachId] = useState(null);
@@ -41,9 +54,11 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
                 setTemplateId(data.id);
                 setSchema(data.schema || { steps: [] });
             } else if (res.status === 404) {
-                // Coach ainda não tem um formulário customizado deste tipo — começa do zero de verdade.
+                // Coach ainda não tem um formulário customizado deste tipo — mostra a anamnese
+                // ATUAL (a mesma que já roda hoje pros alunos) pronta pra ele customizar,
+                // em vez de uma tela vazia.
                 setTemplateId(null);
-                setSchema({ steps: [] });
+                setSchema(getDefaultAnamneseSchema(type));
             } else {
                 // 401/403/500 etc: falha ao CARREGAR, não é "formulário vazio" — não mexe no
                 // schema atual (pra não fazer parecer que um formulário já existente sumiu).
@@ -119,6 +134,14 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
     };
 
     const removeStep = (stepIndex) => {
+        const step = schema.steps[stepIndex];
+        if (step.questions.some((q) => q.locked)) {
+            Alert.alert(
+                "Seção protegida",
+                "Essa seção tem pelo menos um campo que alimenta o cálculo de dieta ou os alertas de segurança do aluno, por isso não pode ser removida inteira. Você pode remover as perguntas não-protegidas dela, editar os textos, ou adicionar novas perguntas à vontade."
+            );
+            return;
+        }
         const newSteps = schema.steps.filter((_, i) => i !== stepIndex);
         setSchema({ ...schema, steps: newSteps });
     };
@@ -126,10 +149,11 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
     const addQuestion = (stepIndex) => {
         const newQuestion = {
             id: `q_${Date.now()}`,
-            type: 'TEXT', // TEXT, TEXTAREA, BOOLEAN, SELECT
+            type: 'TEXT', // TEXT, TEXTAREA, BOOLEAN, SELECT, MULTI_SELECT
             label: 'Nova Pergunta',
             required: false,
-            options: [] // Usado apenas se for SELECT
+            locked: false,
+            options: [] // Usado se for SELECT ou MULTI_SELECT
         };
         const newSteps = [...schema.steps];
         newSteps[stepIndex].questions.push(newQuestion);
@@ -137,19 +161,59 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
     };
 
     const updateQuestion = (stepIndex, qIndex, field, value) => {
+        const target = schema.steps[stepIndex].questions[qIndex];
+        if (target.locked && field === 'type') {
+            Alert.alert(
+                "Campo protegido",
+                "O tipo desse campo não pode ser alterado porque ele alimenta o cálculo de dieta ou os alertas de segurança do aluno. Você pode editar o texto da pergunta normalmente."
+            );
+            return;
+        }
         const newSteps = [...schema.steps];
         newSteps[stepIndex].questions[qIndex][field] = value;
         setSchema({ ...schema, steps: newSteps });
     };
 
     const removeQuestion = (stepIndex, qIndex) => {
+        const target = schema.steps[stepIndex].questions[qIndex];
+        if (target.locked) {
+            Alert.alert(
+                "Campo protegido",
+                "Esse campo alimenta diretamente o cálculo de macros da dieta ou os alertas de segurança do aluno, por isso não pode ser removido. Você pode editar o texto da pergunta à vontade."
+            );
+            return;
+        }
         const newSteps = [...schema.steps];
         newSteps[stepIndex].questions.splice(qIndex, 1);
         setSchema({ ...schema, steps: newSteps });
     };
 
+    const addOption = (stepIndex, qIndex) => {
+        const newSteps = [...schema.steps];
+        const q = newSteps[stepIndex].questions[qIndex];
+        q.options = [...(q.options || []), 'Nova opção'];
+        setSchema({ ...schema, steps: newSteps });
+    };
+
+    const updateOption = (stepIndex, qIndex, oIndex, value) => {
+        const newSteps = [...schema.steps];
+        const q = newSteps[stepIndex].questions[qIndex];
+        const newOptions = [...(q.options || [])];
+        newOptions[oIndex] = value;
+        q.options = newOptions;
+        setSchema({ ...schema, steps: newSteps });
+    };
+
+    const removeOption = (stepIndex, qIndex, oIndex) => {
+        const newSteps = [...schema.steps];
+        const q = newSteps[stepIndex].questions[qIndex];
+        q.options = (q.options || []).filter((_, i) => i !== oIndex);
+        setSchema({ ...schema, steps: newSteps });
+    };
+
     return (
-        <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <RootComponent style={rootStyle}>
+          <View style={{ flex: 1, width: '100%', maxWidth: containerMaxWidth, alignSelf: 'center', backgroundColor: theme.bg, ...containerBorders }}>
             {/* CABEÇALHO */}
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
@@ -203,19 +267,26 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
                         </View>
                     )}
 
-                    {schema.steps.map((step, sIndex) => (
+                    {schema.steps.map((step, sIndex) => {
+                        const stepHasLocked = step.questions.some((q) => q.locked);
+                        return (
                         <View key={step.id} style={[styles.stepCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                             {/* CABEÇALHO DA SEÇÃO */}
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                <TextInput 
-                                    style={[styles.inputTitle, { color: theme.text }]}
-                                    value={step.title}
-                                    onChangeText={(val) => updateStep(sIndex, 'title', val)}
-                                    placeholder="Ex: Dados Pessoais"
-                                    placeholderTextColor={theme.textSecondary}
-                                />
+                                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                    {stepHasLocked && (
+                                        <MaterialCommunityIcons name="lock" size={16} color={theme.accent} />
+                                    )}
+                                    <TextInput
+                                        style={[styles.inputTitle, { color: theme.text, flex: 1 }]}
+                                        value={step.title}
+                                        onChangeText={(val) => updateStep(sIndex, 'title', val)}
+                                        placeholder="Ex: Dados Pessoais"
+                                        placeholderTextColor={theme.textSecondary}
+                                    />
+                                </View>
                                 <TouchableOpacity onPress={() => removeStep(sIndex)}>
-                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                                    <MaterialCommunityIcons name="trash-can-outline" size={20} color={stepHasLocked ? theme.textSecondary : '#FF3B30'} />
                                 </TouchableOpacity>
                             </View>
 
@@ -229,24 +300,37 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
 
                             {/* PERGUNTAS DESTA SEÇÃO */}
                             <View style={{ marginTop: 20, gap: 15 }}>
-                                {step.questions.map((q, qIndex) => (
-                                    <View key={q.id} style={[styles.questionCard, { borderColor: theme.border, backgroundColor: theme.bg }]}>
+                                {step.questions.map((q, qIndex) => {
+                                    const isOptionsType = q.type === 'SELECT' || q.type === 'MULTI_SELECT';
+                                    return (
+                                    <View key={q.id} style={[styles.questionCard, { borderColor: q.locked ? theme.accent + '55' : theme.border, backgroundColor: theme.bg }]}>
                                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                            <TextInput 
-                                                style={[styles.inputQuestion, { color: theme.text, flex: 1 }]}
-                                                value={q.label}
-                                                onChangeText={(val) => updateQuestion(sIndex, qIndex, 'label', val)}
-                                                placeholder="Sua pergunta..."
-                                                placeholderTextColor={theme.textSecondary}
-                                            />
+                                            <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                {q.locked && (
+                                                    <MaterialCommunityIcons name="lock" size={14} color={theme.accent} />
+                                                )}
+                                                <TextInput
+                                                    style={[styles.inputQuestion, { color: theme.text, flex: 1 }]}
+                                                    value={q.label}
+                                                    onChangeText={(val) => updateQuestion(sIndex, qIndex, 'label', val)}
+                                                    placeholder="Sua pergunta..."
+                                                    placeholderTextColor={theme.textSecondary}
+                                                />
+                                            </View>
                                             <TouchableOpacity onPress={() => removeQuestion(sIndex, qIndex)} style={{ paddingLeft: 10 }}>
                                                 <MaterialCommunityIcons name="close-circle-outline" size={20} color={theme.textSecondary} />
                                             </TouchableOpacity>
                                         </View>
 
+                                        {q.locked && (
+                                            <Text style={{ color: theme.accent, fontSize: 10, fontWeight: 'bold', marginBottom: 10 }}>
+                                                CAMPO PROTEGIDO — alimenta o cálculo de dieta / alertas de segurança. Pode editar o texto, mas não remover ou mudar o tipo.
+                                            </Text>
+                                        )}
+
                                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                                             {/* SELETOR DE TIPO */}
-                                            <View style={[styles.pickerFalso, { borderColor: theme.border }]}>
+                                            <View style={[styles.pickerFalso, { borderColor: theme.border, opacity: q.locked ? 0.5 : 1, flexWrap: 'wrap' }]}>
                                                 <Text style={{ color: theme.text, fontSize: 11, fontWeight: 'bold' }}>TIPO:</Text>
                                                 <TouchableOpacity onPress={() => updateQuestion(sIndex, qIndex, 'type', 'TEXT')} style={[styles.miniBtn, q.type === 'TEXT' && { backgroundColor: theme.accent }]}>
                                                     <Text style={{ color: q.type === 'TEXT' ? '#000' : theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>CURTA</Text>
@@ -257,10 +341,16 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
                                                 <TouchableOpacity onPress={() => updateQuestion(sIndex, qIndex, 'type', 'BOOLEAN')} style={[styles.miniBtn, q.type === 'BOOLEAN' && { backgroundColor: theme.accent }]}>
                                                     <Text style={{ color: q.type === 'BOOLEAN' ? '#000' : theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>SIM/NÃO</Text>
                                                 </TouchableOpacity>
+                                                <TouchableOpacity onPress={() => updateQuestion(sIndex, qIndex, 'type', 'SELECT')} style={[styles.miniBtn, q.type === 'SELECT' && { backgroundColor: theme.accent }]}>
+                                                    <Text style={{ color: q.type === 'SELECT' ? '#000' : theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>ÚNICA ESCOLHA</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity onPress={() => updateQuestion(sIndex, qIndex, 'type', 'MULTI_SELECT')} style={[styles.miniBtn, q.type === 'MULTI_SELECT' && { backgroundColor: theme.accent }]}>
+                                                    <Text style={{ color: q.type === 'MULTI_SELECT' ? '#000' : theme.textSecondary, fontSize: 10, fontWeight: 'bold' }}>MÚLTIPLA ESCOLHA</Text>
+                                                </TouchableOpacity>
                                             </View>
 
                                             {/* OBRIGATÓRIO */}
-                                            <TouchableOpacity 
+                                            <TouchableOpacity
                                                 style={[styles.miniBtn, { borderWidth: 1, borderColor: q.required ? theme.accent : theme.border, backgroundColor: q.required ? theme.accent + '22' : 'transparent' }]}
                                                 onPress={() => updateQuestion(sIndex, qIndex, 'required', !q.required)}
                                             >
@@ -269,8 +359,33 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
                                                 </Text>
                                             </TouchableOpacity>
                                         </View>
+
+                                        {isOptionsType && (
+                                            <View style={{ marginTop: 12, gap: 8 }}>
+                                                <Text style={{ color: theme.textSecondary, fontSize: 10, fontWeight: 'bold', letterSpacing: 0.5 }}>OPÇÕES</Text>
+                                                {(q.options || []).map((opt, oIndex) => (
+                                                    <View key={oIndex} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                                        <TextInput
+                                                            style={[styles.inputOption, { color: theme.text, borderColor: theme.border, flex: 1 }]}
+                                                            value={opt}
+                                                            onChangeText={(val) => updateOption(sIndex, qIndex, oIndex, val)}
+                                                            placeholder="Opção..."
+                                                            placeholderTextColor={theme.textSecondary}
+                                                        />
+                                                        <TouchableOpacity onPress={() => removeOption(sIndex, qIndex, oIndex)}>
+                                                            <MaterialCommunityIcons name="minus-circle-outline" size={18} color={theme.textSecondary} />
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                ))}
+                                                <TouchableOpacity style={[styles.addOptionBtn, { borderColor: theme.border }]} onPress={() => addOption(sIndex, qIndex)}>
+                                                    <MaterialCommunityIcons name="plus" size={14} color={theme.accent} />
+                                                    <Text style={{ color: theme.accent, fontWeight: 'bold', fontSize: 11 }}>ADICIONAR OPÇÃO</Text>
+                                                </TouchableOpacity>
+                                            </View>
+                                        )}
                                     </View>
-                                ))}
+                                    );
+                                })}
                             </View>
 
                             <TouchableOpacity style={[styles.addBtn, { borderColor: theme.accent, backgroundColor: theme.accent + '11', marginTop: 15 }]} onPress={() => addQuestion(sIndex)}>
@@ -278,7 +393,8 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
                                 <Text style={{ color: theme.accent, fontWeight: 'bold', fontSize: 12 }}>ADICIONAR PERGUNTA</Text>
                             </TouchableOpacity>
                         </View>
-                    ))}
+                        );
+                    })}
 
                     <TouchableOpacity style={[styles.addBtn, { borderColor: theme.text, backgroundColor: theme.surface, paddingVertical: 16 }]} onPress={addStep}>
                         <MaterialCommunityIcons name="plus-circle-outline" size={20} color={theme.text} />
@@ -286,7 +402,8 @@ export default function AdminAnamneseBuilderScreen({ navigation }) {
                     </TouchableOpacity>
                 </ScrollView>
             )}
-        </SafeAreaView>
+          </View>
+        </RootComponent>
     );
 }
 
@@ -306,9 +423,12 @@ const styles = StyleSheet.create({
     
     questionCard: { padding: 15, borderRadius: 12, borderWidth: 1 },
     inputQuestion: { fontSize: 14, fontWeight: 'bold', outlineStyle: 'none' },
-    
+
     pickerFalso: { flexDirection: 'row', alignItems: 'center', gap: 5, borderWidth: 1, padding: 5, borderRadius: 8 },
     miniBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6 },
+
+    inputOption: { fontSize: 13, outlineStyle: 'none', borderWidth: 1, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10 },
+    addOptionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8, borderRadius: 8, borderWidth: 1, borderStyle: 'dashed', alignSelf: 'flex-start', paddingHorizontal: 12 },
     
     addBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderStyle: 'dashed' }
 });

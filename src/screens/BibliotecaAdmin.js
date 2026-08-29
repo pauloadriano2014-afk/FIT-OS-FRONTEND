@@ -81,10 +81,16 @@ export default function BibliotecaAdmin({ navigation }) {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }, [filteredList.length, selectedCat, selectedSubCat, activeTab]);
 
-    const getNumColumns = () => (width > 800 && isWeb) ? 2 : 1; 
+    // 🔥 Em telas bem largas (PC grande) usa 3 colunas em vez de esticar 2 colunas gigantes
+    const getNumColumns = () => {
+        if (!isWeb) return 1;
+        if (width > 1100) return 3;
+        if (width > 800) return 2;
+        return 1;
+    };
     const numColumns = getNumColumns();
-    const containerWidth = isWeb ? (width > 800 ? 800 : (width > 480 ? 480 : width)) : width;
-    const itemWidth = numColumns > 1 ? (containerWidth - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / 2 : (containerWidth - (HORIZONTAL_PADDING * 2));
+    const containerWidth = isWeb ? (width > 768 ? 1200 : (width > 480 ? 480 : width)) : width;
+    const itemWidth = numColumns > 1 ? (containerWidth - (HORIZONTAL_PADDING * 2) - (SPACING * (numColumns - 1))) / numColumns : (containerWidth - (HORIZONTAL_PADDING * 2));
     const lateralSpace = (width - containerWidth) / 2;
 
     const openVideoPreview = useCallback((url) => {
