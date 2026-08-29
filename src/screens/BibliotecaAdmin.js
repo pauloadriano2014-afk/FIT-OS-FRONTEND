@@ -20,6 +20,7 @@ import CategoryFilterModal from '../components/BibliotecaAdmin/CategoryFilterMod
 import VideoPreviewModal from '../components/VideoPreviewModal';
 import BulkContentModal from '../components/BibliotecaAdmin/BulkContentModal';
 import { MASTER_IDS } from '../constants/masterIds';
+import { authHeaders } from '../utils/authToken';
 
 // Habilita animações no Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -48,6 +49,10 @@ export default function BibliotecaAdmin({ navigation }) {
     const [activeTab, setActiveTab] = useState('MEUS'); // 'MEUS' | 'ELITE'
     const [isMaster, setIsMaster] = useState(false); // Default true para não piscar a tela
     const [coachId, setCoachId] = useState(null);
+    // 🔥 LOGO LATERAL DO COACH PARCEIRO (mesma lógica do AdminDashboard): antes
+    // as laterais mostravam sempre a logo antiga fixa (logopaelite.png),
+    // inclusive pra coach parceiro logado — agora busca a marca própria dele.
+    const [partnerLogoUrl, setPartnerLogoUrl] = useState(null);
 
     // 🔥 FUNDO EXTERNO (LATERAIS NO PC) AGORA É SEMPRE ESCURO INDEPENDENTE DO TEMA 🔥
     const webOuterBg = '#0a0a0a';
@@ -64,6 +69,16 @@ export default function BibliotecaAdmin({ navigation }) {
         };
         checkUser();
     }, []);
+
+    // Busca a marca (logo) do coach parceiro logado, pra usar nas laterais
+    useEffect(() => {
+        if (!coachId || isMaster) return;
+        authHeaders()
+            .then(hdrs => fetch(`https://fitos-final.onrender.com/api/admin/saas-meta?coachId=${coachId}`, { headers: hdrs }))
+            .then(res => res.json())
+            .then(data => { if (data && data.brandLogoUrl) setPartnerLogoUrl(data.brandLogoUrl); })
+            .catch(e => console.log('Erro ao buscar logo parceiro:', e));
+    }, [coachId, isMaster]);
 
     // Ocultar scrollbar no Web
     useEffect(() => {
@@ -178,14 +193,22 @@ export default function BibliotecaAdmin({ navigation }) {
         <RootComponent style={rootStyle}>
             <StatusBar barStyle={theme.isDark ? "light-content" : "dark-content"} backgroundColor={theme.bg} />
 
-            {/* LOGOS LATERAIS RESTAURADAS */}
+            {/* 🔥 LOGOS LATERAIS: ELITE FIT pro master, marca do próprio coach pro parceiro */}
             {isWeb && lateralSpace > 10 && (
-                <View style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
+                <View key={`lateral-${isMaster}-${partnerLogoUrl}`} style={[StyleSheet.absoluteFill, { zIndex: -1, pointerEvents: 'none' }]}>
                     <View style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
-                        <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        {isMaster ? (
+                            <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        ) : partnerLogoUrl ? (
+                            <Image source={{ uri: partnerLogoUrl }} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        ) : null}
                     </View>
                     <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: lateralSpace, justifyContent: 'center', alignItems: 'center' }}>
-                        <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        {isMaster ? (
+                            <Image source={require('../../assets/logopaelite.png')} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        ) : partnerLogoUrl ? (
+                            <Image source={{ uri: partnerLogoUrl }} style={{ width: '85%', height: '60%', resizeMode: 'contain' }} />
+                        ) : null}
                     </View>
                 </View>
             )}
@@ -301,8 +324,11 @@ export default function BibliotecaAdmin({ navigation }) {
 
                             {/* 🔥 BANNER MANTIDO EXATAMENTE IGUAL 🔥 */}
                             <View style={{ marginBottom: 20, borderRadius: 24, overflow: 'hidden', height: 220, backgroundColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.2, shadowRadius: 15 }}>
-                                <Image 
-                                    source={{ uri: categoryCovers[selectedCat] || categoryCovers["TODOS"] }} 
+                                {/* 🔥 Capa de "TODOS" trocada: era uma arte antiga com a marca PA ELITE
+                                    TEAM (hospedada fora do projeto); agora é um asset local com a marca
+                                    ELITE FIT, já que essa capa é fixa/genérica (não é por coach). */}
+                                <Image
+                                    source={selectedCat === 'TODOS' || !categoryCovers[selectedCat] ? require('../../assets/biblioteca_banner_todos.png') : { uri: categoryCovers[selectedCat] }}
                                     style={{ width: '100%', height: '100%', resizeMode: 'contain', position: 'absolute' }}
                                 />
                                 

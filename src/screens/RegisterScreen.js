@@ -1,8 +1,8 @@
 // src/screens/RegisterScreen.js
 import React, { useState, useEffect } from 'react';
-import { 
-  View, Text, TextInput, TouchableOpacity, StyleSheet, 
-  ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, Modal
+import {
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ScrollView, SafeAreaView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, Modal, Linking
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -570,6 +570,10 @@ export default function RegisterScreen({ navigation, route }) {
                     <Text style={{color: theme.textSecondary, fontSize: 12, lineHeight: 18}}>Li e concordo com a </Text>
                     <TouchableOpacity onPress={() => setTermsModalVisible(true)}>
                         <Text style={{color: theme.accent, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline', lineHeight: 18}}>Responsabilidade Técnica e Termos de Uso</Text>
+                    </TouchableOpacity>
+                    <Text style={{color: theme.textSecondary, fontSize: 12, lineHeight: 18}}> e a </Text>
+                    <TouchableOpacity onPress={() => Linking.openURL('https://fitos-final.onrender.com/privacidade')}>
+                        <Text style={{color: theme.accent, fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline', lineHeight: 18}}>Política de Privacidade</Text>
                     </TouchableOpacity>
                     <Text style={{color: theme.textSecondary, fontSize: 12, lineHeight: 18}}>.</Text>
                 </View>

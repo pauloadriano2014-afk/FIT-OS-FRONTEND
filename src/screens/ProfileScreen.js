@@ -737,6 +737,16 @@ export default function ProfileScreen({ route }) {
               </TouchableOpacity>
             </View>
 
+            {/* 🔥 EXIGÊNCIA APPLE/GOOGLE: política de privacidade acessível de
+                dentro do app, não só na ficha da loja */}
+            <TouchableOpacity
+              style={[styles.logoutBtn, { borderColor: theme.border }]}
+              onPress={() => Linking.openURL('https://fitos-final.onrender.com/privacidade')}
+            >
+              <MaterialCommunityIcons name="shield-lock-outline" size={20} color={theme.textSecondary} />
+              <Text style={[styles.logoutBtnText, { color: theme.textSecondary }]}>POLÍTICA DE PRIVACIDADE</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
               <MaterialCommunityIcons name="logout" size={20} color="#FF4444" />
               <Text style={styles.logoutBtnText}>SAIR DA CONTA</Text>
