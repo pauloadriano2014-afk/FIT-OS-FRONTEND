@@ -2,7 +2,7 @@
 import { Platform, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { getCoachBrandForPdf, renderBrandBlockHtml } from './brandForPdf';
+import { getCoachBrandForPdf, renderBrandBlockHtml, renderPlatformSealHtml } from './brandForPdf';
 
 const getStyles = () => `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
@@ -68,7 +68,7 @@ export const generateComparePDF = async (selectedData, userData, customFeedback 
     // padrão ELITE FIT se o coach ainda não subiu a própria logo.
     const coachBrand = await getCoachBrandForPdf(userData?.coachId);
     const headerBrandHtml = renderBrandBlockHtml(coachBrand, { boxWidthPx: 180, align: 'left', textColor: '#111' });
-    const footerSealHtml = renderBrandBlockHtml(null, { boxWidthPx: 260, align: 'center', textColor: '#888' });
+    const footerSealHtml = renderPlatformSealHtml({ boxWidthPx: 170, align: 'center' });
 
     const sortedData = [...selectedData].sort((a, b) => new Date(a.date) - new Date(b.date));
     const oldest = sortedData[0];

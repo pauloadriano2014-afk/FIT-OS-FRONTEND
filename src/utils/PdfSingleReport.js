@@ -2,7 +2,7 @@
 import { Platform, Alert } from 'react-native';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import { getCoachBrandForPdf, renderBrandBlockHtml } from './brandForPdf';
+import { getCoachBrandForPdf, renderBrandBlockHtml, renderPlatformSealHtml } from './brandForPdf';
 
 // 🔥 FAREJADOR DE GÊNERO DEFINITIVO: Busca direto na avaliação (onde o backend injeta) ou no userData 🔥
 const isFemaleDetector = (userData, assessment) => {
@@ -107,7 +107,7 @@ export const generateSinglePDF = async (assessment, userData, customFeedback = n
     // padrão ELITE FIT se o coach ainda não subiu a própria logo.
     const coachBrand = await getCoachBrandForPdf(userData?.coachId);
     const headerBrandHtml = renderBrandBlockHtml(coachBrand, { boxWidthPx: 180, align: 'left', textColor: '#111' });
-    const footerSealHtml = renderBrandBlockHtml(null, { boxWidthPx: 260, align: 'center', textColor: '#888' });
+    const footerSealHtml = renderPlatformSealHtml({ boxWidthPx: 170, align: 'center' });
 
     const d = new Date(assessment.date).toLocaleDateString('pt-BR');
     const leanMassRaw = assessment.bodyFat ? (assessment.weight * (1 - assessment.bodyFat / 100)) : null;

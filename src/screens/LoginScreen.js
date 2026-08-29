@@ -203,10 +203,14 @@ export default function LoginScreen({ navigation }) {
     }
   };
 
-  const BG_IMAGE = require('../../assets/login_bg_elitefit.png');
+  const BG_IMAGE = 'https://i.postimg.cc/pLbCQ1GT/AB61F751-5B87-45B5-B142-0DDC109AAAFC.png';
 
   const containerStyle = isWebPC
-    ? { height: windowHeight, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }
+    // 🔥 CORREÇÃO: sem "width" explícito, esse container encolhia para caber
+    // no conteúdo (o form de 420px), e o fundo (que é absoluteFill DELE)
+    // ficava preso nessa coluna estreita — daí o efeito de "colagem" com
+    // faixas pretas nas laterais em qualquer largura de janela.
+    ? { width: '100%', height: windowHeight, backgroundColor: '#0a0a0a', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }
     : isWeb
       ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, overflow: 'hidden' }
       : { flex: 1, backgroundColor: theme.bg };
@@ -217,18 +221,72 @@ export default function LoginScreen({ navigation }) {
     <RootComponent style={containerStyle}>
       
       {/* FUNDO CHUMBADO */}
-      <View style={[StyleSheet.absoluteFill, isWeb && { position: 'fixed' }]}>
-        <Image
-          source={BG_IMAGE}
-          style={{ position: 'absolute', top: 0, left: 0, width: windowWidth, height: windowHeight }}
-          resizeMode={isWebPC ? 'contain' : 'cover'}
-        />
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.97)']}
-          locations={[0.25, 0.55, 1]}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
+      {isWebPC ? (
+        // 🔥 PC: gradiente de cor gerado por código — cobre a janela inteira
+        // (meia tela ou tela cheia, sem "colagem"), com a logo desenhada
+        // separadamente por cima, sempre centralizada. Usamos position:
+        // 'absolute' (não 'fixed') porque agora é o próprio RootComponent
+        // quem define a área da tela — assim não dependemos do viewport
+        // "fixed" do navegador, que pode quebrar se algum ancestral (ex.:
+        // animação de transição do React Navigation na web) criar um novo
+        // "containing block" pro position:fixed.
+        <View style={StyleSheet.absoluteFill}>
+          {/* 🔥 Correção 2: as cores agora são extraídas de verdade do
+              login_bg_elitefit.png (verde #126C33 à esquerda → roxo #4C2181
+              à direita), e a logo embaixo é um recorte real da própria arte
+              (login_wordmark_elitefit.png, fundo transparente) — não é mais
+              um texto digitado por mim. */}
+          <LinearGradient
+            colors={['#126C33', '#243645', '#4C2181']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <View style={styles.pcLogoWrap} pointerEvents="none">
+            {/* 🔥 Correção 3: glow escuro atrás do badge, pra dar contraste.
+                🔥 Correção 4: elitefit_splash.png tem o hexágono TODO com
+                opacidade parcial (~50%, não só as bordas) — por isso o preto
+                do hexágono deixava o gradiente vazar por trás. Criei
+                login_badge_elitefit.png: mesma arte, mas com o interior do
+                hexágono (borda preta + fundo preto) 100% opaco, e só a área
+                de fora dele (fora do hexágono) transparente. */}
+            <Image
+              source={require('../../assets/login_glow_vignette.png')}
+              style={styles.pcGlow}
+              resizeMode="stretch"
+            />
+            <Image
+              source={require('../../assets/login_badge_elitefit.png')}
+              style={styles.pcLogoImg}
+              resizeMode="contain"
+            />
+            <Image
+              source={require('../../assets/login_wordmark_elitefit.png')}
+              style={styles.pcWordmarkImg}
+              resizeMode="contain"
+            />
+          </View>
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.97)']}
+            locations={[0.25, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      ) : (
+        // 📱 Mobile e web em janela estreita: 100% como já era, intocado.
+        <View style={[StyleSheet.absoluteFill, isWeb && { position: 'fixed' }]}>
+          <Image
+            source={{ uri: BG_IMAGE }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.7)', 'rgba(0,0,0,0.97)']}
+            locations={[0.25, 0.55, 1]}
+            style={StyleSheet.absoluteFill}
+          />
+        </View>
+      )}
 
       {/* GESTÃO DO TECLADO */}
       <KeyboardAvoidingView 
@@ -252,9 +310,8 @@ export default function LoginScreen({ navigation }) {
               },
             ]}
           >
-            {/* Espaço reservado em cima do card pra logo (embutida no fundo)
-                ficar visível. */}
-            <View style={{ flex: 1, minHeight: windowHeight * 0.50 }} />
+            {/* 🔥 CORREÇÃO: O espaço superior agora exige no mínimo 50% da tela dinamicamente, liberando a logo! 🔥 */}
+            {!isWebPC && <View style={{ flex: 1, minHeight: windowHeight * 0.50 }} />}
 
             {/* Botão voltar ao admin (impersonation) */}
             {hasOriginalAdmin && (
@@ -384,6 +441,12 @@ export default function LoginScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
+  // 🔥 Logo do fundo no PC — centralizada, tamanho fixo (não estica),
+  // independente da largura da janela.
+  pcLogoWrap:       { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'flex-start', paddingTop: 64 },
+  pcGlow:            { position: 'absolute', top: -40, left: '50%', width: 900, height: 620, marginLeft: -450 },
+  pcLogoImg:         { width: 180, height: 180 },
+  pcWordmarkImg:     { width: 320, height: 320 / (1080 / 174), marginTop: 8 },
   content:          { padding: 24, paddingBottom: 20, flex: 1, justifyContent: 'flex-end' },
   restoreAdminBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 14, borderWidth: 1, marginBottom: 16 },
   formCard:         { borderRadius: 20, borderWidth: 1, padding: 20, gap: 4 },

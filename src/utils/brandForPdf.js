@@ -5,6 +5,7 @@
 // marca certa do parceiro), com a assinatura "ELITE FIT CONSULTORIA" da
 // plataforma sempre presente também.
 import { authHeaders } from './authToken';
+import { PLATFORM_LOGO_BASE64 } from './pdfFooterLogoBase64';
 
 // Mesma proporção usada no upload da marca (TabMarca.js: ImagePicker aspect
 // [3,1]) — a logo do coach já é recortada 3:1 (largura:altura) na hora do
@@ -73,5 +74,19 @@ export function renderBrandBlockHtml(brand, { boxWidthPx = 280, align = 'center'
           <span style="font-weight:700; font-size:${subSize}px; letter-spacing:1px; opacity:0.65; color:${textColor};">CONSULTORIA DE PERFORMANCE</span>
           <span style="display:inline-block; width:10px; height:1px; background:${BRAND_PURPLE}; opacity:0.7;"></span>
         </div>
+      </div>`;
+}
+
+// 🔥 Selo da plataforma pro RODAPÉ dos PDFs — sempre a logo real da ELITE FIT
+// (hexágono + wordmark, imagem embutida em base64, funciona offline/sem URL
+// pública), independente da marca do coach. A marca do coach continua
+// aparecendo em destaque no CABEÇALHO do documento via renderBrandBlockHtml
+// acima — o rodapé é a assinatura da plataforma, não editável pelo coach,
+// igual "Powered by" em qualquer SaaS white-label.
+export function renderPlatformSealHtml({ boxWidthPx = 170, align = 'center' } = {}) {
+    const justifyContent = align === 'center' ? 'center' : (align === 'right' ? 'flex-end' : 'flex-start');
+    return `
+      <div style="display:flex; justify-content:${justifyContent}; width:100%; box-sizing:border-box;">
+        <img src="${PLATFORM_LOGO_BASE64}" style="width:${boxWidthPx}px; max-width:100%; object-fit:contain; display:block;" />
       </div>`;
 }
