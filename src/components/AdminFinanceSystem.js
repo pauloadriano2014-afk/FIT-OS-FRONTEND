@@ -11,7 +11,9 @@ import FinanceStudentList from './AdminFinance/FinanceStudentList';
 import FinanceEditModal from './AdminFinance/FinanceEditModal';
 import FinanceAddModal from './AdminFinance/FinanceAddModal';
 import FinanceChargeModal from './AdminFinance/FinanceChargeModal';
+import FinanceManualReceiptModal from './AdminFinance/FinanceManualReceiptModal';
 import AsaasPaymentsPanel from './AdminFinance/AsaasPaymentsPanel';
+import FinanceInvoicesPanel from './AdminFinance/FinanceInvoicesPanel'; // 🧾 EMISSÃO DE NOTA FISCAL (NFS-e)
 import FinanceWithdrawalPanel from './AdminFinance/FinanceWithdrawalPanel'; // 🚀 NOVO PAINEL DE SAQUE IMPORTADO
 
 // Hook de Inteligência que modularizamos
@@ -37,7 +39,8 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
         newDueDate, setNewDueDate, isSavingNew, totalAtivosNoMes, percRetidos, percNovos, retidosNoMes, novosNoMes,
         handleTogglePagamento, openWhatsApp, openEditModal, closeEditModal, handlePickEditImage, handlePickImage,
         handleSaveModalContract, handleReverterPagamento, handleSaveNewOfflineClient, handleDeleteOfflineClient,
-        openChargeModal, updateCoachLocal
+        openChargeModal, updateCoachLocal,
+        manualReceiptAluno, closeManualReceiptModal, confirmManualReceipt, isSavingManualReceipt
     } = useAdminFinance(alunos, coachFilter, getLogCoach, theme);
 
     return (
@@ -127,11 +130,19 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
                     <FinanceWithdrawalPanel theme={theme} isWebPC={isWebPC} isMaster={isMaster} />
                     
                     {/* 🔥 AGORA O PAINEL DE PAGAMENTOS RECEBE O MÊS E O ANO */}
-                    <AsaasPaymentsPanel 
-                        theme={theme} 
-                        isWebPC={isWebPC} 
-                        selectedMonth={selectedMonth} 
-                        currentYear={currentYear} 
+                    <AsaasPaymentsPanel
+                        theme={theme}
+                        isWebPC={isWebPC}
+                        selectedMonth={selectedMonth}
+                        currentYear={currentYear}
+                    />
+
+                    {/* 🧾 NOTA FISCAL -- emissão manual por pagamento/recebimento */}
+                    <FinanceInvoicesPanel
+                        theme={theme}
+                        isWebPC={isWebPC}
+                        selectedMonth={selectedMonth}
+                        currentYear={currentYear}
                     />
                 </>
             )}
@@ -171,6 +182,13 @@ export default function AdminFinanceSystem({ theme, alunos, coachFilter, getLogC
             <FinanceChargeModal
                 theme={theme} isWebPC={isWebPC} aluno={chargeAluno}
                 visible={!!chargeAluno} onClose={() => setChargeAluno(null)}
+            />
+
+            <FinanceManualReceiptModal
+                theme={theme} isWebPC={isWebPC} aluno={manualReceiptAluno}
+                visible={!!manualReceiptAluno} defaultValue={manualReceiptAluno?.contractValue}
+                onConfirm={confirmManualReceipt} onClose={closeManualReceiptModal}
+                isSaving={isSavingManualReceipt}
             />
         </View>
     );

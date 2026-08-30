@@ -7,6 +7,7 @@ import {
     ActivityIndicator, ScrollView, Platform, Alert, Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { authHeaders } from '../../utils/authToken';
 
 const API_URL = 'https://fitos-final.onrender.com';
 
@@ -91,7 +92,8 @@ export default function FinanceChargeModal({ theme, isWebPC, aluno, visible, onC
         try {
             const res = await fetch(`${API_URL}/api/payments/create-charge`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // 🔐 precisa do token de login -- sem ele o servidor devolve 401 (requireAuth)
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     userId: aluno.id,
                     value: parsedValue,

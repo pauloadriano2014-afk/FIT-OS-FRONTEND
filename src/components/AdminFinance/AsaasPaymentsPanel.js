@@ -6,6 +6,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { authHeaders } from '../../utils/authToken';
+import { generateFinanceReportPDF } from '../../utils/financeReportPdfUtils';
 
 const API_URL = 'https://fitos-final.onrender.com';
 
@@ -51,6 +53,7 @@ export default function AsaasPaymentsPanel({ theme, isWebPC, selectedMonth, curr
     const [payments, setPayments] = useState([]);
     const [filter, setFilter] = useState('TODOS');
     const [expanded, setExpanded] = useState(true);
+    const [generatingReport, setGeneratingReport] = useState(null); // 'annual' | 'monthly' | null
 
     const notify = (msg) => {
         if (Platform.OS === 'web') window.alert(msg);
@@ -73,7 +76,10 @@ export default function AsaasPaymentsPanel({ theme, isWebPC, selectedMonth, curr
             }
             if (currentYear) query += `&year=${currentYear}`;
 
-            const res = await fetch(`${API_URL}/api/admin/payments?${query}`);
+            // 🔐 precisa do token de login -- sem ele o servidor devolve 401 (requireAuth)
+            const res = await fetch(`${API_URL}/api/admin/payments?${query}`, {
+                headers: { ...(await authHeaders()) }
+            });
             if (res.ok) {
                 const data = await res.json();
                 setMetrics(data.metrics || null);
@@ -99,7 +105,7 @@ export default function AsaasPaymentsPanel({ theme, isWebPC, selectedMonth, curr
 
                 const res = await fetch(`${API_URL}/api/admin/payments`, {
                     method: 'DELETE',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                     body: JSON.stringify({ paymentId })
                 });
 
@@ -120,6 +126,25 @@ export default function AsaasPaymentsPanel({ theme, isWebPC, selectedMonth, curr
                 { text: "Não", style: "cancel" },
                 { text: "Sim, Cancelar", style: "destructive", onPress: runDelete }
             ]);
+        }
+    };
+
+    // 🔥 RELATÓRIO PARA O CONTADOR / IMPOSTO DE RENDA -- gera um PDF com só o
+    // que foi efetivamente recebido (nada de pendente/vencido), no formato
+    // anual (resumo mês a mês) ou mensal (pagamento por pagamento).
+    const handleGenerateReport = async (mode) => {
+        try {
+            setGeneratingReport(mode);
+            const userStr = await AsyncStorage.getItem('user');
+            const coachId = userStr ? JSON.parse(userStr).id : null;
+            const year = currentYear || new Date().getFullYear();
+            const month = (selectedMonth !== undefined && selectedMonth !== null) ? selectedMonth + 1 : (new Date().getMonth() + 1);
+            await generateFinanceReportPDF({ mode, year, month, coachId });
+        } catch (e) {
+            console.error('Erro ao gerar relatório financeiro:', e);
+            notify(e.message || 'Erro ao gerar o relatório. Tente novamente.');
+        } finally {
+            setGeneratingReport(null);
         }
     };
 
@@ -211,6 +236,38 @@ export default function AsaasPaymentsPanel({ theme, isWebPC, selectedMonth, curr
                                     </View>
                                 </View>
                             )}
+
+                            {/* 🔥 RELATÓRIO PARA O CONTADOR (IMPOSTO DE RENDA) */}
+                            <View style={{ marginTop: 15, backgroundColor: c.bg2, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: c.border }}>
+                                <Text style={{ fontSize: 11, fontWeight: '900', color: c.text, textTransform: 'uppercase', letterSpacing: 0.3 }}>
+                                    📄 Relatório para o Contador
+                                </Text>
+                                <Text style={{ fontSize: 10.5, color: c.sub, marginTop: 3, marginBottom: 10 }}>
+                                    PDF com só os valores já recebidos — use pra declarar o Imposto de Renda.
+                                </Text>
+                                <View style={{ flexDirection: 'row', gap: 8 }}>
+                                    <TouchableOpacity
+                                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: c.bg, borderWidth: 1, borderColor: c.primary, borderRadius: 8, paddingVertical: 10, gap: 6 }}
+                                        onPress={() => handleGenerateReport('monthly')}
+                                        disabled={!!generatingReport}
+                                    >
+                                        {generatingReport === 'monthly'
+                                            ? <ActivityIndicator size="small" color={c.primary} />
+                                            : <><Ionicons name="document-text-outline" size={15} color={c.primary} /><Text style={{ color: c.primary, fontWeight: 'bold', fontSize: 11 }}>DO MÊS</Text></>
+                                        }
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: c.primary, borderRadius: 8, paddingVertical: 10, gap: 6 }}
+                                        onPress={() => handleGenerateReport('annual')}
+                                        disabled={!!generatingReport}
+                                    >
+                                        {generatingReport === 'annual'
+                                            ? <ActivityIndicator size="small" color="#FFF" />
+                                            : <><Ionicons name="document-text-outline" size={15} color="#FFF" /><Text style={{ color: '#FFF', fontWeight: 'bold', fontSize: 11 }}>ANUAL ({currentYear || new Date().getFullYear()})</Text></>
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
 
                             {/* FILTROS */}
                             <View style={{ flexDirection: 'row', gap: 6, marginTop: 15, flexWrap: 'wrap' }}>

@@ -252,47 +252,107 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
         setChargeAluno(aluno);
     };
 
+    // 🔥 Resolve o id REAL do coach dono da tela financeira atual. Pro time
+    // master, coachFilter guarda só o sentinel 'PAULO'/'ADRI' (ver
+    // useAdminDashboard.js); pro coach parceiro logado, coachFilter já é o
+    // próprio id dele. Usado pra saber de QUEM é o recebimento manual.
+    const resolveCoachId = (filter) => {
+        if (filter === 'ADRI') return ADRI_ID;
+        if (filter === 'PAULO') return PAULO_ID;
+        return filter;
+    };
+
+    // Só avança/recua a data de vencimento (comportamento original, sem
+    // registro nenhum) — usado pra reverter pagamento e pra alunos/coaches
+    // que pagam pela Asaas (o pagamento em si já vira um Payment sozinho).
+    const applyDueDateShift = async (aluno, isCurrentlyPaid) => {
+        setLoadingId(aluno.id);
+        try {
+            const tipoContrato = aluno.contractType || 'Mensal';
+            const dataBase = aluno.paymentDueDate ? aluno.paymentDueDate : new Date().toISOString();
+            const novaDataISO = isCurrentlyPaid ? calcularDataAnterior(dataBase, tipoContrato) : calcularProximaData(dataBase, tipoContrato);
+            const updatedData = { paymentDueDate: novaDataISO };
+
+            if (viewMode === 'COACHES') {
+                setCoachesData(prev => prev.map(c => c.id === aluno.id ? { ...c, paymentDueDate: novaDataISO } : c));
+            } else if (aluno.isOffline) {
+                const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
+                setOfflineClients([...newList]);
+                await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
+            } else {
+                setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
+            }
+
+            if (viewMode === 'COACHES') {
+                await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
+                    method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                    body: JSON.stringify({ coachId: aluno.id, action: 'SET_PLAN', coachBillingEnd: novaDataISO, paymentDueDate: novaDataISO }),
+                });
+            } else {
+                await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                    body: JSON.stringify({ userId: aluno.id, contractType: tipoContrato, contractValue: parseFloat(aluno.contractValue) || 0, paymentDueDate: novaDataISO, financeCategory: aluno.financeCategory || 'Consultoria Online', isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true }),
+                });
+            }
+        } finally { setLoadingId(null); }
+    };
+
+    // 🔥 Aluno/coach pendente de confirmação no FinanceManualReceiptModal —
+    // só é setado quando estamos MARCANDO como pago (não ao reverter) e fora
+    // da view COACHES (assinatura do coach com a plataforma não é renda dele).
+    const [manualReceiptAluno, setManualReceiptAluno] = useState(null);
+    const [isSavingManualReceipt, setIsSavingManualReceipt] = useState(false);
+
     const handleTogglePagamento = async (aluno) => {
         const isCurrentlyPaid = aluno.isPaid;
+
+        // Marcando como PAGO e é um aluno de verdade (não a assinatura do
+        // coach parceiro com a plataforma) → confirma valor/data/forma antes,
+        // pra esse recebimento entrar no relatório de Imposto de Renda.
+        if (!isCurrentlyPaid && viewMode !== 'COACHES') {
+            setManualReceiptAluno(aluno);
+            return;
+        }
+
         const msg = isCurrentlyPaid ? `Deseja CANCELAR o pagamento de ${aluno.name}?` : `Deseja REGISTRAR o pagamento de ${aluno.name}?`;
-
         const confirmAction = async () => {
-            setLoadingId(aluno.id);
             try {
-                const tipoContrato = aluno.contractType || 'Mensal';
-                const dataBase = aluno.paymentDueDate ? aluno.paymentDueDate : new Date().toISOString();
-                const novaDataISO = isCurrentlyPaid ? calcularDataAnterior(dataBase, tipoContrato) : calcularProximaData(dataBase, tipoContrato);
-                const updatedData = { paymentDueDate: novaDataISO };
-
-                if (viewMode === 'COACHES') {
-                    setCoachesData(prev => prev.map(c => c.id === aluno.id ? { ...c, paymentDueDate: novaDataISO } : c));
-                } else if (aluno.isOffline) {
-                    const newList = offlineClients.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a);
-                    setOfflineClients([...newList]);
-                    await AsyncStorage.setItem('@offline_clients', JSON.stringify(newList));
-                } else {
-                    setLocalAlunos(prev => prev.map(a => a.id === aluno.id ? { ...a, ...updatedData } : a));
-                }
-
-                if (viewMode === 'COACHES') {
-                    await fetch('https://fitos-final.onrender.com/api/admin/coaches', {
-                        method: 'PATCH', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-                        body: JSON.stringify({ coachId: aluno.id, action: 'SET_PLAN', coachBillingEnd: novaDataISO, paymentDueDate: novaDataISO }),
-                    });
-                } else {
-                    await fetch('https://fitos-final.onrender.com/api/admin/update-contract', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-                        body: JSON.stringify({ userId: aluno.id, contractType: tipoContrato, contractValue: parseFloat(aluno.contractValue) || 0, paymentDueDate: novaDataISO, financeCategory: aluno.financeCategory || 'Consultoria Online', isFinanceActive: aluno.isFinanceActive !== undefined ? aluno.isFinanceActive : true }),
-                    });
-                }
+                await applyDueDateShift(aluno, isCurrentlyPaid);
                 if (Platform.OS === 'web') window.alert(isCurrentlyPaid ? "Pagamento estornado!" : "Pagamento registrado!");
             } catch (error) {
                 if (Platform.OS === 'web') window.alert("Erro ao processar.");
-            } finally { setLoadingId(null); }
+            }
         };
 
-        if (Platform.OS === 'web') { if (window.confirm(msg)) confirmAction(); } 
+        if (Platform.OS === 'web') { if (window.confirm(msg)) confirmAction(); }
         else { Alert.alert(isCurrentlyPaid ? "Estornar" : "Confirmar", msg, [{ text: "Cancelar", style: "cancel" }, { text: "Sim", style: isCurrentlyPaid ? 'destructive' : 'default', onPress: confirmAction }]); }
+    };
+
+    const closeManualReceiptModal = () => setManualReceiptAluno(null);
+
+    // Confirmação do FinanceManualReceiptModal: avança a data de vencimento
+    // igual sempre e, além disso, registra o ManualReceipt (valor/data/forma)
+    // que entra no Relatório Financeiro.
+    const confirmManualReceipt = async ({ value, method, receivedAt, note }) => {
+        const aluno = manualReceiptAluno;
+        if (!aluno) return;
+        setIsSavingManualReceipt(true);
+        try {
+            await applyDueDateShift(aluno, false);
+            await fetch('https://fitos-final.onrender.com/api/finance/manual-receipt', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({
+                    coachId: resolveCoachId(coachFilter),
+                    studentId: aluno.isOffline ? null : aluno.id,
+                    studentName: aluno.name,
+                    value, method, receivedAt, note,
+                }),
+            });
+            if (Platform.OS === 'web') window.alert("Pagamento registrado!");
+            setManualReceiptAluno(null);
+        } catch (error) {
+            if (Platform.OS === 'web') window.alert("Erro ao registrar pagamento.");
+        } finally { setIsSavingManualReceipt(false); }
     };
 
     const openWhatsApp = (phone, name) => {
@@ -569,6 +629,7 @@ export default function useAdminFinance(alunos, coachFilter, getLogCoach, theme)
         newDueDate, setNewDueDate, isSavingNew, totalAtivosNoMes, percRetidos, percNovos, retidosNoMes, novosNoMes,
         handleTogglePagamento, openWhatsApp, openEditModal, closeEditModal, handlePickEditImage, handlePickImage,
         handleSaveModalContract, handleReverterPagamento, handleSaveNewOfflineClient, handleDeleteOfflineClient,
-        openChargeModal, updateCoachLocal
+        openChargeModal, updateCoachLocal,
+        manualReceiptAluno, closeManualReceiptModal, confirmManualReceipt, isSavingManualReceipt
     };
 }
