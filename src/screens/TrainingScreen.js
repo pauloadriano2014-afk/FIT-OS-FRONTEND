@@ -101,7 +101,33 @@ export default function TrainingScreen({ navigation }) {
           return true;
         });
 
-        const processedPrograms = await Promise.all(activeList.map(async (workout) => {
+        // 🔥 ALTERNÂNCIA SEMANAL: entre os treinos que já passaram no filtro
+        // acima, os marcados com "alternateSlot" (1, 2...) revezam por semana
+        // em vez de aparecerem todos juntos pro aluno -- só o slot da semana
+        // atual fica visível. A "semana 1" da dupla começa no startDate mais
+        // antigo entre os marcados (não depende de cair numa segunda-feira).
+        // Quem não usa essa marcação (alternateSlot null/undefined) continua
+        // aparecendo sempre, como já era antes dessa funcionalidade existir.
+        const alwaysVisible = activeList.filter(w => w.alternateSlot === null || w.alternateSlot === undefined);
+        const alternatingGroup = activeList.filter(w => w.alternateSlot !== null && w.alternateSlot !== undefined);
+
+        let visibleAlternating = alternatingGroup;
+        if (alternatingGroup.length > 0) {
+          const anchor = alternatingGroup.reduce((min, w) => {
+            const d = new Date(w.startDate); d.setHours(0, 0, 0, 0);
+            return (!min || d < min) ? d : min;
+          }, null);
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const daysSince = Math.floor((today - anchor) / (1000 * 60 * 60 * 24));
+          const weekIndex = Math.floor(daysSince / 7);
+          const slots = [...new Set(alternatingGroup.map(w => w.alternateSlot))].sort((a, b) => a - b);
+          const activeSlot = slots[((weekIndex % slots.length) + slots.length) % slots.length];
+          visibleAlternating = alternatingGroup.filter(w => w.alternateSlot === activeSlot);
+        }
+
+        const finalActiveList = [...alwaysVisible, ...visibleAlternating];
+
+        const processedPrograms = await Promise.all(finalActiveList.map(async (workout) => {
           let localCompleted = null;
           try { localCompleted = await AsyncStorage.getItem(`@completed_days_${workout.id}`); } catch(e){}
           let completedDays = localCompleted ? JSON.parse(localCompleted) : [];

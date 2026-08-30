@@ -126,6 +126,38 @@ export default function WorkoutSettingsCard({ state, setters, theme }) {
                         />
                     </View>
 
+                    {/* 🔥 ALTERNÂNCIA SEMANAL: pra revezar 2 rotinas do mesmo aluno (uma nas
+                        semanas ímpares, outra nas pares) sem as duas aparecerem juntas pra
+                        ele. A contagem da semana 1 começa no "Início" da rotina mais antiga
+                        entre as marcadas — não precisa ser numa segunda-feira. */}
+                    <Text style={[S.label, { color: theme.textSecondary }]}>ALTERNÂNCIA SEMANAL (OPCIONAL)</Text>
+                    <Text style={[S.archiveSub, { color: theme.textSecondary, marginBottom: 10 }]}>
+                        Use se esse aluno tem 2 rotinas revezando por semana. Marque "Semana 1 e 3" numa e "Semana 2 e 4" na outra — só uma aparece por vez pro aluno.
+                    </Text>
+                    <View style={[S.group, S.altRow]}>
+                        {[
+                            { value: null, label: 'Sempre visível', icon: 'eye-outline' },
+                            { value: 1, label: 'Semana 1 e 3', icon: 'numeric-1-box-outline' },
+                            { value: 2, label: 'Semana 2 e 4', icon: 'numeric-2-box-outline' },
+                        ].map((opt) => {
+                            const isSelected = (state.alternateSlot ?? null) === opt.value;
+                            return (
+                                <TouchableOpacity
+                                    key={String(opt.value)}
+                                    style={[S.altBtn,
+                                        isSelected
+                                            ? { backgroundColor: theme.accent, borderColor: theme.accent }
+                                            : { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)', borderColor: theme.isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)' }
+                                    ]}
+                                    onPress={() => setters.setAlternateSlot(opt.value)}
+                                >
+                                    <MaterialCommunityIcons name={opt.icon} size={18} color={isSelected ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary} />
+                                    <Text style={[S.altText, { color: isSelected ? (theme.isDark ? '#000' : '#FFF') : theme.textSecondary }]}>{opt.label}</Text>
+                                </TouchableOpacity>
+                            );
+                        })}
+                    </View>
+
                     <View style={[S.separator, { backgroundColor: theme.isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }]} />
 
                     {/* ESTRUTURA */}
@@ -184,4 +216,7 @@ const S = StyleSheet.create({
     separator:     { height: 1, marginVertical: 20 },
     modelBtn:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 12, borderWidth: 1, gap: 7 },
     modelText:     { fontSize: 12, fontWeight: '800' },
+    altRow:        { flexDirection: 'row', flexWrap: 'wrap' },
+    altBtn:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 11, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, gap: 6, flexGrow: 1, flexBasis: '30%' },
+    altText:       { fontSize: 11, fontWeight: '800', textAlign: 'center' },
 });

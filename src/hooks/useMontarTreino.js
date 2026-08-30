@@ -47,8 +47,14 @@ export function useMontarTreino(route, navigation) {
     const [isArchived, setIsArchived] = useState(false);
     const [isReordering, setIsReordering] = useState(false);
 
-    const [workoutModel, setWorkoutModel] = useState('CARGA'); 
+    const [workoutModel, setWorkoutModel] = useState('CARGA');
     const [workoutEnvironment, setWorkoutEnvironment] = useState('UNIVERSAL'); // 🔥 NOVO
+
+    // 🔥 ALTERNÂNCIA SEMANAL: null = sempre visível pro aluno (comportamento de
+    // sempre). 1 ou 2 = só aparece nas semanas "1 e 3" ou "2 e 4" da dupla,
+    // contando em blocos de 7 dias a partir do início da rotina mais antiga
+    // entre as que estiverem marcadas (ver TrainingScreen.js).
+    const [alternateSlot, setAlternateSlot] = useState(null);
 
     const [intensityMultiplier, setIntensityMultiplier] = useState(1.0);
     const [intensityEndDate, setIntensityEndDate] = useState(null);
@@ -310,6 +316,7 @@ export function useMontarTreino(route, navigation) {
                 else if (isEditing && workoutToEdit) {
                     setCustomWorkoutName(workoutToEdit.name);
                     setWorkoutModel(workoutToEdit.workoutModel || 'CARGA');
+                    setAlternateSlot(workoutToEdit.alternateSlot ?? null);
                     setIntensityMultiplier(workoutToEdit.intensityMultiplier || 1.0);
                     if (workoutToEdit.intensityEndDate) setIntensityEndDate(new Date(workoutToEdit.intensityEndDate));
                     if (workoutToEdit.startDate) setStartDate(new Date(workoutToEdit.startDate));
@@ -331,6 +338,7 @@ export function useMontarTreino(route, navigation) {
                                 if (freshWorkout.intensityEndDate) setIntensityEndDate(new Date(freshWorkout.intensityEndDate));
                                 else setIntensityEndDate(null);
                                 if (freshWorkout.workoutModel) setWorkoutModel(freshWorkout.workoutModel);
+                                setAlternateSlot(freshWorkout.alternateSlot ?? null);
                             }
                         }
                     } catch(e) {}
@@ -1116,13 +1124,14 @@ export function useMontarTreino(route, navigation) {
 
             const response = await fetch(endpoint, {
                 method, headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     userId: aluno?.id, name: customWorkoutName, workoutModel,
                     intensityMultiplier, intensityEndDate: finalIntensityEndDate ? finalIntensityEndDate.toISOString() : null,
                     exercises: flatExercises, startDate: startDate.toISOString(), endDate: finalEndDate.toISOString(), archiveCurrent: false,
+                    alternateSlot: alternateSlot || null,
                     // 🔥 ADICIONANDO ADMIN ID AQUI PARA PASSAR PELA MURALHA DO BACKEND 🔥
                     adminId: adminId
-                }) 
+                })
             });
             if (!response.ok) throw new Error("Erro");
             await AsyncStorage.removeItem(draftKey);
@@ -1200,7 +1209,7 @@ export function useMontarTreino(route, navigation) {
             templateGoal, templateLevel, templatesList, saveTemplateName, categories, goals, levels, 
             tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, 
             isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, 
-            selectedLevelTab, workoutModel, workoutEnvironment, intensityMultiplier, intensityEndDate, showCalendarIntensity,
+            selectedLevelTab, workoutModel, workoutEnvironment, alternateSlot, intensityMultiplier, intensityEndDate, showCalendarIntensity,
             smartSubstitutesModal, smartSubstitutesList,
         },
         setters: {
@@ -1213,7 +1222,7 @@ export function useMontarTreino(route, navigation) {
             setSearchText, setSelectedCategory, setSelectedSubCat, setShowCatDropdown, setIndexExercicioAtual, 
             setIndexBlocoAtual, setIsSwapping, setSwapIndex, setTemplateGoal, setTemplateLevel, setSaveTemplateName, 
             setSaveTemplateCollectionId, setSelectedLibraryCollection, setSelectedPillar, setSelectedLevelTab,
-            setWorkoutModel, setWorkoutEnvironment, setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
+            setWorkoutModel, setWorkoutEnvironment, setAlternateSlot, setIntensityMultiplier, setIntensityEndDate, setShowCalendarIntensity,
             setWorkoutTabs, setExercisesByDay, setSmartSubstitutesModal,
         },
         actions: {

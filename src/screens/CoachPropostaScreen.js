@@ -183,7 +183,7 @@ export default function CoachPropostaScreen({ navigation }) {
 
     const handleWhatsApp = () => {
         const msg = 'Olá! Tenho interesse em ser coach parceiro no ELITE FIT.';
-        Linking.openURL(`whatsapp://send?phone=5541999999999&text=${encodeURIComponent(msg)}`).catch(() => {});
+        Linking.openURL(`whatsapp://send?phone=5541997991346&text=${encodeURIComponent(msg)}`).catch(() => {});
     };
 
     return (
@@ -205,8 +205,10 @@ export default function CoachPropostaScreen({ navigation }) {
                         style={[styles.hero, { paddingTop: Platform.OS === 'ios' ? 60 : 40 }]}
                     >
                         <FadeIn delay={0}>
+                            {/* 🔥 Era a mesma arte antiga (PA ELITE TEAM) hospedada fora do projeto;
+                                trocada pelo asset local ELITE FIT usado nos outros banners genéricos. */}
                             <Image
-                                source={{ uri:'https://i.postimg.cc/wxZqp84Z/Design-sem-nome.png' }}
+                                source={require('../../assets/elitefit_banner_generic.png')}
                                 style={styles.heroLogo}
                                 resizeMode="contain"
                             />

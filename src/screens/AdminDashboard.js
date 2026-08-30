@@ -707,7 +707,11 @@ export default function AdminDashboard({ navigation }) {
 
                   ) : (
 
-                      <Image source={{ uri: 'https://i.postimg.cc/wxZqp84Z/Design-sem-nome.png' }} style={{ width: '100%', height: '100%', resizeMode: 'cover', zIndex: 2 }} />
+                      // 🔥 Banner genérico do coach parceiro (não é a marca individual dele --
+                      // essa já aparece nas laterais via partnerLogoUrl). Era uma arte antiga
+                      // hospedada fora do projeto (postimg) com a marca PA ELITE TEAM; trocado
+                      // pelo mesmo asset local ELITE FIT usado na capa "TODOS" da Biblioteca.
+                      <Image source={require('../../assets/elitefit_banner_generic.png')} style={{ width: '100%', height: '100%', resizeMode: 'cover', zIndex: 2 }} />
 
                   )}
 
