@@ -324,12 +324,12 @@ export default function BibliotecaAdmin({ navigation }) {
 
                             {/* 🔥 BANNER MANTIDO EXATAMENTE IGUAL 🔥 */}
                             <View style={{ marginBottom: 20, borderRadius: 24, overflow: 'hidden', height: 220, backgroundColor: '#000000', elevation: 5, shadowColor: '#000', shadowOffset: {width: 0, height: 10}, shadowOpacity: 0.2, shadowRadius: 15 }}>
-                                {/* 🔥 Capa de "TODOS" trocada: era uma arte antiga com a marca PA ELITE
-                                    TEAM (hospedada fora do projeto); agora é um asset local com a marca
-                                    ELITE FIT, já que essa capa é fixa/genérica (não é por coach). Mesmo
-                                    arquivo usado no banner genérico do Dashboard/CoachProposta. */}
+                                {/* 🔥 Capas de categoria trocadas de links do Imgur (hospedagem externa,
+                                    demorava pra carregar) pra assets locais -- ver bibliotecaData.js.
+                                    "TODOS" continua sendo a arte genérica local (elitefit_banner_generic.png),
+                                    mesmo arquivo usado no banner do Dashboard/CoachProposta. */}
                                 <Image
-                                    source={selectedCat === 'TODOS' || !categoryCovers[selectedCat] ? require('../../assets/elitefit_banner_generic.png') : { uri: categoryCovers[selectedCat] }}
+                                    source={selectedCat === 'TODOS' || !categoryCovers[selectedCat] ? require('../../assets/elitefit_banner_generic.png') : categoryCovers[selectedCat]}
                                     style={{ width: '100%', height: '100%', resizeMode: 'contain', position: 'absolute' }}
                                 />
                                 

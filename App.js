@@ -22,6 +22,7 @@ import { authHeaders, getAuthToken, clearAuthToken } from './src/utils/authToken
 import InstallScreen from './src/screens/InstallScreen';
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import ForgotPasswordScreen from './src/screens/ForgotPasswordScreen';
 import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
 import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
@@ -253,6 +254,7 @@ function RootNavigator() {
       <Stack.Screen name="Install" component={InstallScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="EsqueciSenha" component={ForgotPasswordScreen} />
       <Stack.Screen name="RedefinirSenha" component={ResetPasswordScreen} />
       <Stack.Screen name="Anamnese" component={AnamneseScreen} options={{ headerShown: false, tabBarVisible: false }} />
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
@@ -362,6 +364,7 @@ const linking = {
         parse: { coachId: (v) => String(v) },
         stringify: { coachId: (v) => v },
       },
+      EsqueciSenha: { path: 'esqueci-senha' },
       RedefinirSenha: {
         path: 'redefinir-senha',
         parse: { token: (v) => String(v) },

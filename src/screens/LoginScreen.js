@@ -388,8 +388,12 @@ export default function LoginScreen({ navigation }) {
               </View>
 
               {/* Esqueci senha */}
+              {/* 🔥 CORRIGIDO: ia direto pra RedefinirSenha (tela que consome
+                  o token do e-mail) sem token nenhum -- sempre caía em "LINK
+                  INVÁLIDO" na hora. Agora vai pro passo que faltava: pedir o
+                  e-mail e disparar o link de verdade. */}
               <TouchableOpacity
-                onPress={() => navigation.navigate('RedefinirSenha')}
+                onPress={() => navigation.navigate('EsqueciSenha')}
                 style={{ alignSelf: 'flex-end', marginBottom: 20, marginTop: 4 }}
               >
                 <Text style={{ color: theme.accent, fontSize: 12, fontWeight: '700' }}>
