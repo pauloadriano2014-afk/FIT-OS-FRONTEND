@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image'; // 🔥 Trocado de react-native → expo-image (cache em disco automático)
 import { Video, ResizeMode } from 'expo-av';
 import { ExerciseCard } from '../ExerciseCard';
+import { isGroupTechnique } from '../../utils/groupTechniques';
 
 // 🔥 IDs MASTER PARA BLINDAGEM DO BOTÃO DE IA
 const MASTER_IDS = [
@@ -20,7 +21,12 @@ export default function ExpandableExerciseBlock({
   isVoiceEnabled, colors, userData,
   resolveAsset, // 🔥 NOVO: função de resolução de asset (local ou remoto)
 }) {
-  const isBiSet = block.type === 'BISET';
+  // 🔥 GENERALIZADO: antes só existia BI-SET (isBiSet). Agora block.type pode
+  // ser qualquer técnica de agrupamento (BISET, TRISET, ...) — isGroup cobre
+  // todas, e groupType guarda qual delas é, pra badge/label.
+  const isGroup = isGroupTechnique(block.type);
+  const groupType = isGroup ? block.type : null;
+  const isBiSet = isGroup; // mantido por clareza no restante do arquivo (nome legado)
   const mainItem = block.items[0];
 
   const exerciseNumber = (mainItem?.originalIndex || 0) + 1;
@@ -52,7 +58,7 @@ export default function ExpandableExerciseBlock({
   let firstRep = '';
   let hasVaryingReps = false;
   let techAlertTexts = [];
-  let topBadgeTech = isBiSet ? 'BISET' : 'NORMAL';
+  let topBadgeTech = isGroup ? groupType : 'NORMAL';
 
   if (mainItem?.blocks && Array.isArray(mainItem.blocks)) {
     const totalExerciseSets = mainItem.blocks.reduce((a, blk) => a + (parseInt(blk.sets) || 1), 0);
@@ -184,15 +190,20 @@ export default function ExpandableExerciseBlock({
           </View>
 
           <View style={{ flex: 1, marginLeft: 15 }}>
-            {isBiSet ? (
+            {isGroup ? (
               <>
-                <Text style={[styles.techBadge, { color: theme.accent }]}>BI-SET</Text>
-                <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
-                  {block.items[0]?.exercise?.name || block.items[0]?.name}
+                <Text style={[styles.techBadge, { color: theme.accent }]}>
+                  {TECH_GUIDE[groupType]?.title || groupType}
                 </Text>
-                <Text style={[styles.title, { color: theme.textSecondary }]} numberOfLines={1}>
-                  + {block.items[1]?.exercise?.name || block.items[1]?.name}
-                </Text>
+                {block.items.map((it, idx) => (
+                  <Text
+                    key={it.id || idx}
+                    style={[styles.title, { color: idx === 0 ? theme.text : theme.textSecondary }]}
+                    numberOfLines={1}
+                  >
+                    {idx === 0 ? '' : '+ '}{it?.exercise?.name || it?.name}
+                  </Text>
+                ))}
               </>
             ) : (
               <>
@@ -235,8 +246,17 @@ export default function ExpandableExerciseBlock({
           isBiSet && { borderLeftWidth: 3, borderLeftColor: theme.accent, paddingLeft: 12, marginLeft: 5 },
         ]}>
           {block.items.map((item, idx) => {
+            // 🔥 GENERALIZADO (TRI-SET): antes era binário (start/end, só 2
+            // itens possíveis). Agora o item do meio (quando existe, ex: o
+            // 2º de 3 no TRI-SET) usa 'middle' — se comporta como 'start'
+            // pra descanso (sem pausa, direto pro próximo), mas visualmente
+            // precisa emendar tanto em cima quanto embaixo.
             let biSetType = null;
-            if (isBiSet) biSetType = idx === 0 ? 'start' : 'end';
+            if (isGroup) {
+              if (idx === 0) biSetType = 'start';
+              else if (idx === block.items.length - 1) biSetType = 'end';
+              else biSetType = 'middle';
+            }
 
             const substitutesList = [];
             if (item.substitutes && Array.isArray(item.substitutes)) substitutesList.push(...item.substitutes);
@@ -248,7 +268,7 @@ export default function ExpandableExerciseBlock({
               : (item.exercise?.videoUrl || item.videoUrl);
 
             return (
-              <View key={item.id} style={{ marginBottom: isBiSet && idx === 0 ? 15 : 0 }}>
+              <View key={item.id} style={{ marginBottom: isGroup && idx < block.items.length - 1 ? 15 : 0 }}>
                 <ExerciseCard
                   item={{ ...item, technique: item.safeTechnique, videoUrl: itemVideoUrl }}
                   totalSets={item.sets}

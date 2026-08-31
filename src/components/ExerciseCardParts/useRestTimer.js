@@ -87,11 +87,15 @@ export default function useRestTimer({
       setIsResting(false);
       clearInterval(interval);
       cancelNotification();
+      // 🔥 GENERALIZADO (TRI-SET): 'middle' também não conta como fim de
+      // descanso de verdade (segue direto pro próximo da sequência) — só
+      // 'end' (ou nenhum, exercício solo) dispara aviso de fim/conclusão.
+      const isGroupContinuing = biSetType === 'start' || biSetType === 'middle';
       const isLastOfAll = (activeSetIndex === calculateTotalSets() && isLastExercise);
-      if (isLastOfAll && biSetType !== 'start') {
+      if (isLastOfAll && !isGroupContinuing) {
         if (Platform.OS === 'web') window.alert("🔥 TREINO FINALIZADO!\nParabéns!");
         else Alert.alert("🔥 TREINO FINALIZADO!", "Parabéns!");
-      } else if (biSetType !== 'start') {
+      } else if (!isGroupContinuing) {
         playVoiceAlert('alerta_fim_descanso');
       }
     }
@@ -101,7 +105,7 @@ export default function useRestTimer({
   const startRestTimer = async (setNum, type = 'NORMAL', blockRestTime, blockTechKey, isLastSet = false) => {
     await safeStopVoice();
     await cancelNotification();
-    if (biSetType === 'start') {
+    if (biSetType === 'start' || biSetType === 'middle') {
       setTimerMessage({ title: '🔥 SEM DESCANSO!', desc: 'Vá direto para o exercício de baixo agora!' });
       setSeconds(3); setActiveSetIndex(setNum); setIsResting(true);
       playVoiceAlert('alerta_biset');

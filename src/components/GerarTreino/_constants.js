@@ -62,6 +62,7 @@ export const TECHNIQUES = [
   { id: 'DROPSET',    label: 'Drop-set'   },
   { id: 'RESTPAUSE',  label: 'Rest-Pause' },
   { id: 'BISET',      label: 'Bi-set'     },
+  { id: 'TRISET',     label: 'Tri-set'    },
   { id: '21',         label: 'Método 21'  },
   { id: 'CLUSTERSET', label: 'Cluster'    },
   { id: '1_5_REPS',   label: '1.5 Reps'  },

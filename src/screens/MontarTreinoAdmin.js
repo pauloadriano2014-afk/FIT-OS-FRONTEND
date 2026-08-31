@@ -1,5 +1,5 @@
 // src/screens/MontarTreinoAdmin.js
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
     KeyboardAvoidingView, Platform, StatusBar, Dimensions, Alert
@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useMontarTreino } from '../hooks/useMontarTreino';
+import { GROUP_SIZES } from '../utils/groupTechniques';
 import ExerciseCardAdmin from '../components/MontarTreino/ExerciseCardAdmin';
 import CustomCalendar from '../components/CustomCalendar';
 import LibraryModals from '../components/MontarTreino/Modals/LibraryModals';
@@ -317,6 +318,38 @@ export default function MontarTreinoAdmin({ route, navigation }) {
         finally { setIsSyncingCargas(false); }
     };
 
+    // 🔥 NOVO: indicador ao vivo de BI-SET/TRI-SET enquanto o coach monta o
+    // treino -- antes só dava pra saber se o par/trinca "pegou" olhando como
+    // aluno depois de salvar. Roda a mesma lógica de "cadeia consecutiva da
+    // mesma técnica" usada na tela do aluno e no reparo da IA (GROUP_SIZES é
+    // a fonte única disso), mas aqui não corrige nada sozinho -- só avisa
+    // quando o grupo está incompleto (ex: só 2 de um TRI-SET), pra o coach
+    // corrigir na hora, arrastando o próximo exercício pra perto.
+    const groupInfoByIndex = useMemo(() => {
+        const list = state.currentExercises || [];
+        const info = new Array(list.length).fill(null);
+        let i = 0;
+        while (i < list.length) {
+            const tech = (list[i]?.blocks?.[0]?.technique || '').toUpperCase();
+            const size = GROUP_SIZES[tech];
+            if (!size) { i++; continue; }
+            let j = i;
+            while (j < list.length && (list[j]?.blocks?.[0]?.technique || '').toUpperCase() === tech) j++;
+            let k = i;
+            while (k < j) {
+                const remaining = j - k;
+                const take = Math.min(size, remaining);
+                const complete = remaining >= size;
+                for (let m = 0; m < take; m++) {
+                    info[k + m] = { technique: tech, size, position: m, complete, groupLen: take };
+                }
+                k += take;
+            }
+            i = j;
+        }
+        return info;
+    }, [state.currentExercises]);
+
     const renderExercise = useCallback(({ item, drag, isActive, getIndex }) => {
         const index = getIndex ? getIndex() : state.currentExercises.findIndex(ex => ex.tempId === item.tempId);
         return (
@@ -337,10 +370,12 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     collapseSignal={collapseSignal}
                     // 🔥 PROP INJETADA PARA O SELECT DE TÉCNICAS
                     listaTecnicas={tecnicasLaboratorio}
+                    // 🔥 NOVO: indicador ao vivo de BI-SET/TRI-SET (grupo formado/incompleto)
+                    groupInfo={groupInfoByIndex[index] || null}
                 />
             </View>
         );
-    }, [theme, state, setters, actions, moveExerciseWeb, collapseSignal, handleSetIsSelectingSubstitute, handleSetTargetIndexForSubstitute, handleSetModalBuscaVisible, safeSetInitialCategoryFilter, tecnicasLaboratorio]);
+    }, [theme, state, setters, actions, moveExerciseWeb, collapseSignal, handleSetIsSelectingSubstitute, handleSetTargetIndexForSubstitute, handleSetModalBuscaVisible, safeSetInitialCategoryFilter, tecnicasLaboratorio, groupInfoByIndex]);
 
     const renderSettings = () => {
         if (!state.isTemplateMode) return <WorkoutSettingsCard state={state} setters={setters} actions={actions} theme={theme} />;

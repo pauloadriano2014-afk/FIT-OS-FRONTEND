@@ -4,8 +4,10 @@ import { View, Text } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function RestIntervalLabel({ categoryType, biSetType, blocks, standardRestTime, colors }) {
+  // 🔥 GENERALIZADO (TRI-SET): 'middle' (item do meio de um grupo de 3+)
+  // também não tem descanso de verdade -- só o último ('end') descansa.
   const label = categoryType === 'MOBILITY' ? 'Execução contínua' :
-    biSetType === 'start' ? 'Sem descanso' :
+    (biSetType === 'start' || biSetType === 'middle') ? 'Sem descanso' :
       `${blocks[0].restTime || standardRestTime}s intervalo`;
 
   return (

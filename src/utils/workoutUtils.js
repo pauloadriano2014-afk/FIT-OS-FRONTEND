@@ -31,7 +31,14 @@ export const identifyTechnique = (rawName) => {
     if (clean.includes('GVT')) return { key: 'GVT', color: '#00FF7F', label: 'GVT' };
     if (clean.includes('21')) return { key: '21', color: '#32ADE6', label: 'MÉTODO 21' };
     if (clean.includes('BI') || clean.includes('BI-SET') || clean.includes('BISET')) return { key: 'BISET', color: '#CCFF00', label: 'BI-SET' };
-    
+    // 🔥 NOVO: TRI-SET -- sem isso, a badge "① TRI-SET" (que abre a explicação
+    // de execução) nunca aparecia no card do aluno, porque essa função é quem
+    // decide o actualTechId usado pra abrir o modal (ver useTechInfo.js).
+    // Comparado ANTES do 'TUT'/'1_5_REPS' só por organização; a ordem não
+    // importa aqui porque nenhum outro clean.includes() acima daria match em
+    // "TRISET".
+    if (clean.includes('TRISET') || clean.includes('TRI-SET') || clean.includes('TRI SET')) return { key: 'TRISET', color: '#CCFF00', label: 'TRI-SET' };
+
     // 🔥 CORREÇÃO APLICADA: Agora ele reconhece a ID '1_5_REPS' que vem do banco de dados!
     if (clean.includes('1_5_REPS') || clean.includes('MEIO') || clean.includes('1.5') || clean.includes('1 E 1/2')) return { key: '1_5_REPS', color: '#FF2D55', label: '1 E MEIO' };
     

@@ -1,8 +1,14 @@
 // src/components/MontarTreino/ExerciseCardAdmin.js
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { ScaleDecorator } from 'react-native-draggable-flatlist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// 🔥 NOVO: rótulo curto pras técnicas que agrupam exercícios, só pro
+// indicador ao vivo do admin (BISET/TRISET já têm nome bonito completo no
+// techGuideData.js do lado do aluno -- aqui é só um label compacto).
+const GROUP_LABELS = { BISET: 'BI-SET', TRISET: 'TRI-SET' };
 
 // ─── SUBCOMPONENTES ───
 import ExerciseCardHeader from './ExerciseCard/ExerciseCardHeader';
@@ -29,6 +35,7 @@ export default function ExerciseCardAdmin({
     workoutModel, moveExercise, setInitialCategoryFilter,
     collapseSignal,
     listaTecnicas = [], // 🔥 NOVA PROP: Recebe os combos criados
+    groupInfo = null, // 🔥 NOVO: { technique, size, position, complete, groupLen } ou null
 }) {
     const isWeb = Platform.OS === 'web';
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
@@ -118,6 +125,11 @@ export default function ExerciseCardAdmin({
         onMoveDown: () => moveExercise(item.tempId, 'down'),
     };
 
+    // 🔥 NOVO: cor do indicador ao vivo -- verde/acento quando o grupo está
+    // fechado certinho (tamanho bate), laranja de aviso quando falta gente
+    // no grupo (ex: só 2 de um TRI-SET marcado).
+    const groupColor = groupInfo ? (groupInfo.complete ? theme.accent : '#FF9500') : null;
+
     const cardContent = (
         <View style={[S.card, {
             backgroundColor: theme.surface,
@@ -128,7 +140,28 @@ export default function ExerciseCardAdmin({
                 web: { boxShadow: isActive ? `0 0 0 2px ${theme.accent}` : '0 2px 10px rgba(0,0,0,0.05)', overflow: 'hidden', borderRadius: 18 },
                 default: { elevation: isActive ? 8 : 2 },
             }),
+            ...(groupInfo ? { borderLeftWidth: 4, borderLeftColor: groupColor } : {}),
         }]}>
+            {/* 🔥 NOVO: indicador ao vivo de BI-SET/TRI-SET -- mostra na hora se o
+                grupo já fechou (ex: "BI-SET 1/2") ou se falta gente (ex: "TRI-SET
+                INCOMPLETO — 2/3, falta 1"), sem precisar abrir como aluno pra
+                conferir. */}
+            {groupInfo && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingTop: 10 }}>
+                    <MaterialCommunityIcons
+                        name={groupInfo.complete ? 'link-variant' : 'alert-circle-outline'}
+                        size={13}
+                        color={groupColor}
+                    />
+                    <Text style={{ fontSize: 10, fontWeight: '900', letterSpacing: 0.5, color: groupColor }}>
+                        {GROUP_LABELS[groupInfo.technique] || groupInfo.technique}
+                        {groupInfo.complete
+                            ? ` (${groupInfo.position + 1}/${groupInfo.size})`
+                            : ` INCOMPLETO (${groupInfo.groupLen}/${groupInfo.size}) — falta ${groupInfo.size - groupInfo.groupLen}`}
+                    </Text>
+                </View>
+            )}
+
             {/* HEADER: drag handle + thumbnail + título */}
             {!isGhost && (
                 <ExerciseCardHeader

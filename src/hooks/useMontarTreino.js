@@ -122,8 +122,9 @@ export function useMontarTreino(route, navigation) {
         { id: 'GVT', title: 'GVT (10x10)' }, 
         { id: 'DROPSET', title: 'DROP-SET' }, 
         { id: 'RESTPAUSE', title: 'REST-PAUSE' }, 
-        { id: 'BISET', title: 'BI-SET' }, 
-        { id: '21', title: 'MÉTODO 21' }, 
+        { id: 'BISET', title: 'BI-SET' },
+        { id: 'TRISET', title: 'TRI-SET' },
+        { id: '21', title: 'MÉTODO 21' },
         { id: 'CLUSTERSET', title: 'CLUSTER' },
         { id: '1_5_REPS', title: '1 E MEIO (1.5 REPS)' },
         { id: 'TUT', title: 'T.U.T. (TEMPO SOB TENSÃO)' }

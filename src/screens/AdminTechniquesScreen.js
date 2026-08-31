@@ -28,6 +28,7 @@ const SYSTEM_TECHNIQUES = [
     { key: 'DROPSET', label: 'DROP-SET', icon: 'arrow-down-bold', color: '#FF3B30' },
     { key: 'RESTPAUSE', label: 'REST-PAUSE', icon: 'timer-sand', color: '#FF9500' },
     { key: 'BISET', label: 'BI-SET', icon: 'link-variant', color: '#32ADE6' },
+    { key: 'TRISET', label: 'TRI-SET', icon: 'link-variant', color: '#32ADE6' },
     { key: '21', label: 'MÉTODO 21', icon: 'numeric-7-box-multiple-outline', color: '#32ADE6' },
     { key: 'CLUSTERSET', label: 'CLUSTER SET', icon: 'chart-bar', color: '#BF5AF2' },
     { key: 'GVT', label: 'GVT (10x10)', icon: 'numeric-10-box-multiple', color: '#00FF7F' },

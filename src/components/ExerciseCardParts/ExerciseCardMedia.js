@@ -41,8 +41,10 @@ export default function ExerciseCardMedia({
               {topTechInfo.actualTechId && topTechInfo.actualTechId !== 'NORMAL' && (
                 <TouchableOpacity style={{ alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, elevation: 3, backgroundColor: topTechInfo.color }} onPress={() => { if (setSelectedTech && setTechModalVisible) { setSelectedTech(topTechInfo.actualTechId); setTechModalVisible(true); } }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <MaterialCommunityIcons name="information-outline" size={12} color={colors.bg === '#000000' && (topTechInfo.actualTechId === 'BISET' || topTechInfo.actualTechId === '21') ? '#000' : '#FFF'} />
-                    <Text style={{ fontSize: 10, fontWeight: '900', color: colors.bg === '#000000' && (topTechInfo.actualTechId === 'BISET' || topTechInfo.actualTechId === '21') ? '#000' : '#FFF', includeFontPadding: false }}>{topTechInfo.label}</Text>
+                    {/* 🔥 TRISET usa a mesma cor neon do BISET (#CCFF00, clara demais
+                        pro texto branco) -- incluído aqui pro mesmo contraste. */}
+                    <MaterialCommunityIcons name="information-outline" size={12} color={colors.bg === '#000000' && (topTechInfo.actualTechId === 'BISET' || topTechInfo.actualTechId === 'TRISET' || topTechInfo.actualTechId === '21') ? '#000' : '#FFF'} />
+                    <Text style={{ fontSize: 10, fontWeight: '900', color: colors.bg === '#000000' && (topTechInfo.actualTechId === 'BISET' || topTechInfo.actualTechId === 'TRISET' || topTechInfo.actualTechId === '21') ? '#000' : '#FFF', includeFontPadding: false }}>{topTechInfo.label}</Text>
                   </View>
                 </TouchableOpacity>
               )}

@@ -146,12 +146,16 @@ export const ExerciseCard = ({
   if (categoryType === 'CARDIO') topVideoText = `${blocks[0]?.sets} Minutos | ${blocks[0]?.reps} Kcal`;
   else topVideoText = `${calculateTotalSets()} Séries Totais`;
 
+  // 🔥 GENERALIZADO (TRI-SET): biSetType agora também pode ser 'middle'
+  // (exercício do meio de um grupo de 3+) -- ele precisa emendar tanto
+  // embaixo (como 'start') quanto em cima (como 'end'), pra virar um
+  // "sanduíche" visual contínuo entre os 3 cards.
   return (
-    <View style={{ marginBottom: biSetType === 'start' ? 0 : 20 }}>
+    <View style={{ marginBottom: (biSetType === 'start' || biSetType === 'middle') ? 0 : 20 }}>
       <View style={[
         { backgroundColor: colors.surface, borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: colors.border },
-        biSetType === 'start' && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
-        biSetType === 'end' && { borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0 },
+        (biSetType === 'start' || biSetType === 'middle') && { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, borderBottomWidth: 0 },
+        (biSetType === 'end' || biSetType === 'middle') && { borderTopLeftRadius: 0, borderTopRightRadius: 0, borderTopWidth: 0 },
         (biSetType) && { borderColor: colors.primary, borderWidth: 2 }
       ]}>
 
@@ -187,7 +191,7 @@ export const ExerciseCard = ({
         />
       </View>
 
-      {biSetType === 'start' &&
+      {(biSetType === 'start' || biSetType === 'middle') &&
         <View style={{ alignSelf: 'center', height: 34, width: 54, backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center', borderRadius: 17, marginTop: -17, marginBottom: -17, zIndex: 10, borderWidth: 4, borderColor: colors.bg }}>
           <MaterialCommunityIcons name="link-variant" size={20} color={colors.primaryText} />
         </View>

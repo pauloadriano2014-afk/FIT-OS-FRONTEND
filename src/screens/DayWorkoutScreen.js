@@ -9,6 +9,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { formatTime, calculate1RM } from '../utils/workoutUtils';
+import { GROUP_SIZES } from '../utils/groupTechniques';
 import { useTheme } from '../contexts/ThemeContext';
 
 import ExpandableExerciseBlock from '../components/Training/ExpandableExerciseBlock';
@@ -267,8 +268,22 @@ export default function DayWorkoutScreen({ route, navigation }) {
   }, [data.loading, data.exercisesToShow]);
 
   const groupedExercises = useMemo(() => {
+    // 🔥 GENERALIZADO (TRI-SET): antes só existia BI-SET, então o buffer
+    // fechava sempre em 2. Agora qualquer técnica listada em GROUP_SIZES
+    // (BISET=2, TRISET=3, ...) abre/fecha o grupo pelo próprio tamanho —
+    // e se a técnica mudar no meio de um grupo aberto (ex: veio BISET e o
+    // próximo já é TRISET), fecha o grupo anterior como "pendurado" em vez
+    // de misturar os dois.
     const groups = [];
     let tempGroup = [];
+    let tempTech = null;
+    const flushHanging = (idxForKey) => {
+      if (tempGroup.length > 0) {
+        groups.push({ id: `group_hanging_${idxForKey}`, type: tempTech, items: tempGroup });
+        tempGroup = [];
+        tempTech = null;
+      }
+    };
     data.exercisesToShow.forEach((item, index) => {
       let rawTech = item.blocks?.[0]?.technique || item.technique || 'NORMAL';
       let safeTechnique = 'NORMAL';
@@ -278,23 +293,23 @@ export default function DayWorkoutScreen({ route, navigation }) {
         let normalized = typeof rawTech === 'string' ? rawTech.trim().toUpperCase() : 'NORMAL';
         if (data.techGuide[normalized]) safeTechnique = normalized;
       }
-      let isBiSet = safeTechnique.includes('BISET');
+      const groupSize = GROUP_SIZES[safeTechnique];
       const itemWithMeta = { ...item, safeTechnique, originalIndex: index };
-      if (isBiSet) {
+      if (groupSize) {
+        if (tempTech && tempTech !== safeTechnique) flushHanging(index);
+        tempTech = safeTechnique;
         tempGroup.push(itemWithMeta);
-        if (tempGroup.length === 2) {
-          groups.push({ id: `group_${index}`, type: 'BISET', items: tempGroup });
+        if (tempGroup.length === groupSize) {
+          groups.push({ id: `group_${index}`, type: safeTechnique, items: tempGroup });
           tempGroup = [];
+          tempTech = null;
         }
       } else {
-        if (tempGroup.length > 0) {
-          groups.push({ id: `group_hanging_${index}`, type: 'BISET', items: tempGroup });
-          tempGroup = [];
-        }
+        flushHanging(index);
         groups.push({ id: `group_${index}`, type: 'NORMAL', items: [itemWithMeta] });
       }
     });
-    if (tempGroup.length > 0) groups.push({ id: `group_end`, type: 'BISET', items: tempGroup });
+    if (tempGroup.length > 0) groups.push({ id: `group_end`, type: tempTech, items: tempGroup });
     return groups;
   }, [data.exercisesToShow, data.techGuide]);
 
