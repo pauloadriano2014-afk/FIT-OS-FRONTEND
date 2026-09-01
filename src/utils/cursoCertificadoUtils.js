@@ -57,7 +57,7 @@ body {
     <div class="texto">concluiu com sucesso todos os módulos e aulas do curso</div>
     <div class="curso">${produtoNome}</div>
     <div class="data">Emitido em ${today}</div>
-    <div class="rodape">ELITE FIT CONSULTORIA · elitefitapp.com.br</div>
+    <div class="rodape">ELITE FIT CONSULTORIA · pauloadrianoteam.com.br</div>
 </div>
 
 </body>

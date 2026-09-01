@@ -1,6 +1,7 @@
 // src/screens/ResetPasswordScreen.js
 // 🔑 TELA DE REDEFINIÇÃO DE SENHA
-// Aberta pelo link do e-mail: https://www.elitefitapp.com.br/redefinir-senha?token=...
+// Aberta pelo link do e-mail: https://www.pauloadrianoteam.com.br/redefinir-senha?token=...
+// (🔥 TEMPORÁRIO: elitefitapp.com.br ainda não tem DNS configurado)
 
 import React, { useState } from 'react';
 import {

@@ -120,7 +120,8 @@ export default function TabProdutos({ theme, currentUserId, navigation }) {
 
     useEffect(() => { fetchProdutos(); fetchDashboard(); }, [fetchProdutos, fetchDashboard]);
 
-    const getBaseUrl = () => 'https://www.elitefitapp.com.br';
+    // 🔥 TEMPORÁRIO: revertido pra pauloadrianoteam.com.br -- ver CoachOnboarding.js
+    const getBaseUrl = () => 'https://www.pauloadrianoteam.com.br';
     const getProdutoLink = (produto) => `${getBaseUrl()}/Produto?id=${encodeURIComponent(produto.slug)}`;
 
     const handleCopyLink = async (produto) => {

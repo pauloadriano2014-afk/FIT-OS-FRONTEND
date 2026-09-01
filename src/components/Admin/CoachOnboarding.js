@@ -241,7 +241,9 @@ export default function CoachOnboarding({ theme, navigation, setActiveTab, setSu
     };
 
     const copyInviteLink = () => {
-        const link = `https://www.elitefitapp.com.br/registro?coach=${inviteCode}`;
+        // 🔥 TEMPORÁRIO: revertido pra pauloadrianoteam.com.br -- elitefitapp.com.br
+        // ainda não tem DNS configurado. Voltar assim que propagar.
+        const link = `https://www.pauloadrianoteam.com.br/registro?coach=${inviteCode}`;
         if (Platform.OS === 'web') {
             navigator.clipboard?.writeText(link);
             window.alert('Link copiado!');

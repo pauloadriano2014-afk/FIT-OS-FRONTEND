@@ -13,7 +13,8 @@ const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 
 const API_BASE = 'https://fitos-final.onrender.com';
-const SITE_URL = 'https://www.elitefitapp.com.br';
+// 🔥 TEMPORÁRIO: revertido pra pauloadrianoteam.com.br -- ver CoachOnboarding.js
+const SITE_URL = 'https://www.pauloadrianoteam.com.br';
 
 const MAIN_COLOR = '#8B5CF6';
 const LIGHT_COLOR = '#C4B5FD';
