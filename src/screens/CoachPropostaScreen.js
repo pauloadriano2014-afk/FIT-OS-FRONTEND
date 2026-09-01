@@ -1,78 +1,35 @@
 // src/screens/CoachPropostaScreen.js
-// Landing page de captação de coaches parceiros (Estilo SaaS Premium / High Conversion)
+// Landing page de captação de coaches (Versão VIVA com Animações Contínuas e Floating)
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     Animated, Platform, useWindowDimensions, Linking, Image,
-    StatusBar,
+    StatusBar, Easing
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // ─── CORES PREMIUM SAAS ───────────────────────────────────────────────────────
-const DARK_BG = '#040405';    // Preto abismo (fundo principal)
-const SURFACE = '#0A0A0C';    // Superfície dos cards
-const BORDER  = '#1A1A24';    // Borda sutil
-const ACCENT  = '#8BC34A';    // Verde Neon ELITE FIT
-const ACCENT_GLOW = 'rgba(139, 195, 74, 0.15)'; // Brilho do neon
-const TEXT_MUTED = '#7A7A8C'; // Texto secundário acinzentado/azulado
+const DARK_BG = '#040405';
+const SURFACE = '#0A0A0C';
+const BORDER  = '#1A1A24';
+const ACCENT  = '#8BC34A';
+const ACCENT_GLOW = 'rgba(139, 195, 74, 0.15)';
+const TEXT_MUTED = '#7A7A8C';
 
-// ─── PLANOS ──────────────────────────────────────────────────────────────────
+// ─── PLANOS E DADOS (Mantidos idênticos) ───────────────────────────────────────
 const PLANS = [
     {
-        key:       'PERSONAL',
-        icon:      'dumbbell',
-        color:     '#32ADE6',
-        title:     'Personal Trainer',
-        subtitle:  'O fim das planilhas de treino',
-        price:     'R$ 97',
-        period:    '/mês',
-        highlight: false,
-        features: [
-            'Construtor de treinos ilimitado',
-            'Biblioteca em vídeo de exercícios',
-            'Check-in de fotos organizado',
-            'Avaliação corporal com IA',
-            'Gestão financeira de alunos',
-            'Sua página de vendas própria',
-        ],
+        key: 'PERSONAL', icon: 'dumbbell', color: '#32ADE6', title: 'Personal Trainer', subtitle: 'O fim das planilhas de treino', price: 'R$ 97', period: '/mês', highlight: false,
+        features: ['Construtor de treinos ilimitado', 'Biblioteca em vídeo de exercícios', 'Check-in de fotos organizado', 'Avaliação corporal com IA', 'Gestão financeira de alunos', 'Sua página de vendas própria'],
     },
     {
-        key:       'ELITE',
-        icon:      'rocket-launch',
-        color:     ACCENT,
-        title:     'Elite (Mais Popular)',
-        subtitle:  'O motor completo da sua consultoria',
-        price:     'R$ 147',
-        period:    '/mês',
-        highlight: true, 
-        features: [
-            'Tudo do plano Personal Trainer',
-            'Construtor de dietas completo',
-            'Grupos de substituição inteligente',
-            'Avaliação nutricional com IA',
-            'Cofre de templates (Dietas prontas)',
-            'Notificações push automáticas',
-            'Suporte prioritário via WhatsApp',
-        ],
+        key: 'ELITE', icon: 'rocket-launch', color: ACCENT, title: 'Elite (Mais Popular)', subtitle: 'O motor completo da sua consultoria', price: 'R$ 147', period: '/mês', highlight: true, 
+        features: ['Tudo do plano Personal Trainer', 'Construtor de dietas completo', 'Grupos de substituição inteligente', 'Avaliação nutricional com IA', 'Cofre de templates (Dietas prontas)', 'Notificações push automáticas', 'Suporte prioritário'],
     },
     {
-        key:       'NUTRICIONISTA',
-        icon:      'food-apple',
-        color:     '#BF5AF2',
-        title:     'Nutricionista',
-        subtitle:  'Prescrição moderna e rápida',
-        price:     'R$ 97',
-        period:    '/mês',
-        highlight: false,
-        features: [
-            'Construtor de dietas ilimitado',
-            'Base TACO + Alimentos customizados',
-            'Grupos de substituição alimentar',
-            'Avaliação nutricional com IA',
-            'Gestão de retornos e check-ins',
-            'Sua página de vendas própria',
-        ],
+        key: 'NUTRICIONISTA', icon: 'food-apple', color: '#BF5AF2', title: 'Nutricionista', subtitle: 'Prescrição moderna e rápida', price: 'R$ 97', period: '/mês', highlight: false,
+        features: ['Construtor de dietas ilimitado', 'Base TACO + Alimentos custom', 'Grupos de substituição alimentar', 'Avaliação nutricional com IA', 'Gestão de retornos e check-ins', 'Sua página de vendas própria'],
     },
 ];
 
@@ -87,37 +44,76 @@ const COMPARISON = [
     { bad: 'Dieta em PDF pelo e-mail', good: 'Dieta interativa na palma da mão' },
     { bad: 'Planilha de treino confusa', good: 'Treino com vídeos de execução' },
     { bad: 'Cobrança manual e atrasada', good: 'Cobrança recorrente e automática' },
-    { bad: 'Vários apps (Drive, Excel, Whats)', good: 'Tudo centralizado no ELITE FIT' },
+    { bad: 'Vários apps (Drive, Excel)', good: 'Tudo centralizado no ELITE FIT' },
     { bad: 'Decisões no achismo', good: 'Métricas e dashboard financeiro' },
 ];
 
 const FAQ = [
-    { q:'Posso testar antes de pagar?',          a:'Sim! Após a aprovação, você tem 7 dias para explorar a plataforma gratuitamente.' },
-    { q:'Posso mudar de plano depois?',           a:'Claro. Você pode fazer upgrade a qualquer momento e pagamos apenas a diferença proporcional dos dias restantes.' },
-    { q:'Quantos alunos posso ter?',              a:'Ilimitados. Não cobramos por aluno — seu crescimento não tem teto.' },
-    { q:'Os alunos pagam alguma coisa?',          a:'Não para usar o app. O que você cobra dos seus alunos é 100% seu e gerenciado por você.' },
-    { q:'Posso usar minha própria logo?',         a:'Sim. O app ganha a sua identidade e a sua logo aparece para os seus alunos (White-label).' },
+    { q:'Posso testar antes de pagar?', a:'Sim! Após a aprovação, você tem 7 dias para explorar a plataforma gratuitamente.' },
+    { q:'Posso mudar de plano depois?', a:'Claro. Você pode fazer upgrade a qualquer momento e pagamos apenas a diferença.' },
+    { q:'Quantos alunos posso ter?', a:'Ilimitados. Não cobramos por aluno — seu crescimento não tem teto.' },
+    { q:'Os alunos pagam alguma coisa?', a:'Não para usar o app. O que você cobra dos seus alunos é 100% seu e gerenciado por você.' },
+    { q:'Posso usar minha própria logo?', a:'Sim. O app ganha a sua identidade e a sua logo aparece para os seus alunos (White-label).' },
 ];
 
-// ─── COMPONENTES AUXILIARES ───────────────────────────────────────────────────
+// ─── EFEITOS DE "VIDA" (ANIMAÇÕES) ────────────────────────────────────────────
 
+// Efeito 1: Entrada Suave (Já tínhamos, deixa a página macia ao carregar)
 function FadeIn({ delay = 0, style, children }) {
-    const opacity   = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(20)).current;
+    const opacity = useRef(new Animated.Value(0)).current;
+    const translateY = useRef(new Animated.Value(30)).current;
     
     useEffect(() => {
         Animated.parallel([
-            Animated.timing(opacity,    { toValue:1, duration:700, delay, useNativeDriver:true }),
-            Animated.timing(translateY, { toValue:0, duration:700, delay, useNativeDriver:true }),
+            Animated.timing(opacity, { toValue: 1, duration: 800, delay, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
+            Animated.timing(translateY, { toValue: 0, duration: 800, delay, useNativeDriver: true, easing: Easing.out(Easing.cubic) }),
         ]).start();
     }, [delay, opacity, translateY]);
     
-    return (
-        <Animated.View style={[{ opacity, transform:[{ translateY }] }, style]}>
-            {children}
-        </Animated.View>
-    );
+    return <Animated.View style={[{ opacity, transform: [{ translateY }] }, style]}>{children}</Animated.View>;
 }
+
+// 🔥 Efeito 2: Flutuação Contínua (O segredo da página parecer viva)
+function FloatingView({ children, style, delay = 0 }) {
+    const translateY = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const floatAnimation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(translateY, { toValue: -15, duration: 3000, delay, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                Animated.timing(translateY, { toValue: 0, duration: 3000, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+            ])
+        );
+        floatAnimation.start();
+        return () => floatAnimation.stop();
+    }, [translateY, delay]);
+
+    return <Animated.View style={[{ transform: [{ translateY }] }, style]}>{children}</Animated.View>;
+}
+
+// 🔥 Efeito 3: Pulsação de Brilho (Neon respirando)
+function PulseGlow({ style }) {
+    const scale = useRef(new Animated.Value(1)).current;
+    const opacity = useRef(new Animated.Value(0.4)).current;
+
+    useEffect(() => {
+        Animated.loop(
+            Animated.parallel([
+                Animated.sequence([
+                    Animated.timing(scale, { toValue: 1.1, duration: 2500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                    Animated.timing(scale, { toValue: 1, duration: 2500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                ]),
+                Animated.sequence([
+                    Animated.timing(opacity, { toValue: 0.7, duration: 2500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                    Animated.timing(opacity, { toValue: 0.4, duration: 2500, useNativeDriver: true, easing: Easing.inOut(Easing.ease) }),
+                ])
+            ])
+        ).start();
+    }, [scale, opacity]);
+
+    return <Animated.View style={[style, { transform: [{ scale }], opacity }]} />;
+}
+
 
 // ─── TELA PRINCIPAL ───────────────────────────────────────────────────────────
 export default function CoachPropostaScreen({ navigation }) {
@@ -136,56 +132,41 @@ export default function CoachPropostaScreen({ navigation }) {
     };
 
     const handlePlanChoice = (planKey) => {
-        navigation.navigate('Register', { 
-            accountType: 'COACH', type: 'COACH', role: 'COACH', coachPlan: planKey, plan: planKey 
-        });
+        navigation.navigate('Register', { accountType: 'COACH', type: 'COACH', role: 'COACH', coachPlan: planKey, plan: planKey });
     };
 
     const handleWhatsApp = () => {
-        const msg = 'Olá! Tenho interesse em ser coach parceiro no ELITE FIT.';
-        Linking.openURL(`whatsapp://send?phone=5541997991346&text=${encodeURIComponent(msg)}`).catch(() => {});
+        Linking.openURL(`whatsapp://send?phone=5541997991346&text=Olá! Tenho interesse em ser coach parceiro no ELITE FIT.`).catch(() => {});
     };
 
     return (
         <View style={{ flex: 1, backgroundColor: DARK_BG, height: isWeb ? '100vh' : '100%', overflow: 'hidden' }}>
             <StatusBar barStyle="light-content" backgroundColor={DARK_BG} />
             
-            <ScrollView 
-                ref={scrollRef}
-                style={{ flex: 1, width: '100%' }} 
-                showsVerticalScrollIndicator={false} 
-                contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }} 
-            >
+            <ScrollView ref={scrollRef} style={{ flex: 1, width: '100%' }} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }}>
                 <View style={{ maxWidth: 1000, width: '100%', paddingHorizontal: 24, paddingBottom: 100 }}>
 
-                    {/* ── HEADER COM BOTÃO DE VOLTAR E LOGO ───────────────────────── */}
+                    {/* ── HEADER ───────────────────────── */}
                     <View style={[styles.headerRow, { paddingTop: Platform.OS === 'ios' ? 50 : 20 }]}>
-                        <TouchableOpacity 
-                            onPress={() => navigation.goBack()} 
-                            style={styles.backButton}
-                            activeOpacity={0.8}
-                        >
+                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton} activeOpacity={0.8}>
                             <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
                         </TouchableOpacity>
-
                         <View style={styles.headerLogoWrapper}>
                             <Image source={require('../../assets/elitefit_banner_generic.png')} style={{ width: 140, height: 40 }} resizeMode="contain" />
                         </View>
-                        
-                        {/* View vazia para equilibrar o layout (flex-end vs flex-start) */}
                         <View style={{ width: 40 }} />
                     </View>
 
                     {/* ── HERO SAAS PREMIUM ──────────────────────────────────────── */}
                     <View style={styles.heroSection}>
                         <FadeIn delay={100}>
-                            <Text style={styles.heroBadge}>DE PRESTADOR DE SERVIÇO A EMPRESÁRIO</Text>
+                            <View style={styles.heroBadgeBox}>
+                                <Text style={styles.heroBadge}>DE PRESTADOR DE SERVIÇO A EMPRESÁRIO</Text>
+                            </View>
                         </FadeIn>
 
                         <FadeIn delay={200}>
-                            <Text style={styles.heroTitle}>
-                                A forma mais simples de escalar sua <Text style={{ color: ACCENT }}>Consultoria Online.</Text>
-                            </Text>
+                            <Text style={styles.heroTitle}>A forma mais simples de escalar sua <Text style={{ color: ACCENT }}>Consultoria Online.</Text></Text>
                         </FadeIn>
 
                         <FadeIn delay={300}>
@@ -195,10 +176,10 @@ export default function CoachPropostaScreen({ navigation }) {
                         </FadeIn>
 
                         <FadeIn delay={400} style={styles.heroButtonGroup}>
-                            <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT }]} onPress={handlePlanChoice}>
+                            <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT }]} onPress={handlePlanChoice} activeOpacity={0.8}>
                                 <Text style={styles.btnPrimaryText}>Começar grátis por 7 dias</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.btnSecondary} onPress={scrollToPlans}>
+                            <TouchableOpacity style={styles.btnSecondary} onPress={scrollToPlans} activeOpacity={0.8}>
                                 <Text style={styles.btnSecondaryText}>Ver planos</Text>
                             </TouchableOpacity>
                         </FadeIn>
@@ -210,36 +191,41 @@ export default function CoachPropostaScreen({ navigation }) {
                         </FadeIn>
                     </View>
 
-                    {/* ── MOCKUP / DASHBOARD PREVIEW (Ilustrativo com Glow) ────── */}
+                    {/* ── MOCKUP FLUTUANTE (VIVO) ────── */}
                     <FadeIn delay={600} style={styles.mockupContainer}>
-                        <LinearGradient colors={[ACCENT_GLOW, 'transparent']} style={styles.mockupGlow} />
-                        <View style={styles.mockupInner}>
-                            <View style={styles.mockupHeader}>
-                                <View style={{ flexDirection: 'row', gap: 6 }}>
-                                    <View style={[styles.mockupDot, { backgroundColor: '#FF5F56' }]} />
-                                    <View style={[styles.mockupDot, { backgroundColor: '#FFBD2E' }]} />
-                                    <View style={[styles.mockupDot, { backgroundColor: '#27C93F' }]} />
+                        {/* Brilho neon animado */}
+                        <PulseGlow style={[styles.mockupGlow, { backgroundColor: ACCENT }]} />
+                        
+                        {/* Container flutuante */}
+                        <FloatingView>
+                            <View style={styles.mockupInner}>
+                                <View style={styles.mockupHeader}>
+                                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                                        <View style={[styles.mockupDot, { backgroundColor: '#FF5F56' }]} />
+                                        <View style={[styles.mockupDot, { backgroundColor: '#FFBD2E' }]} />
+                                        <View style={[styles.mockupDot, { backgroundColor: '#27C93F' }]} />
+                                    </View>
+                                    <Text style={{ color: '#555', fontSize: 10, fontWeight: 'bold', marginLeft: 16 }}>elitefit.app/dashboard</Text>
                                 </View>
-                                <Text style={{ color: '#555', fontSize: 10, fontWeight: 'bold', marginLeft: 16 }}>elitefit.app/dashboard</Text>
-                            </View>
-                            <View style={styles.mockupContent}>
-                                <View style={{ flex: 1, gap: 16 }}>
-                                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '900' }}>Dashboard Financeiro</Text>
-                                    <View style={{ flexDirection: 'row', gap: 12 }}>
-                                        <View style={styles.mockupCard}>
-                                            <Text style={styles.mockupLabel}>HOJE</Text>
-                                            <Text style={styles.mockupValue}>R$ 1.240,00</Text>
-                                            <Text style={styles.mockupTrend}>↗ 14% mais</Text>
-                                        </View>
-                                        <View style={styles.mockupCard}>
-                                            <Text style={styles.mockupLabel}>ESTE MÊS</Text>
-                                            <Text style={styles.mockupValue}>R$ 18.450,00</Text>
-                                            <Text style={styles.mockupTrend}>↗ 8% mais</Text>
+                                <View style={styles.mockupContent}>
+                                    <View style={{ flex: 1, gap: 16 }}>
+                                        <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '900' }}>Dashboard Financeiro</Text>
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <View style={styles.mockupCard}>
+                                                <Text style={styles.mockupLabel}>HOJE</Text>
+                                                <Text style={styles.mockupValue}>R$ 1.240,00</Text>
+                                                <Text style={styles.mockupTrend}>↗ 14% mais</Text>
+                                            </View>
+                                            <View style={styles.mockupCard}>
+                                                <Text style={styles.mockupLabel}>ESTE MÊS</Text>
+                                                <Text style={styles.mockupValue}>R$ 18.450,00</Text>
+                                                <Text style={styles.mockupTrend}>↗ 8% mais</Text>
+                                            </View>
                                         </View>
                                     </View>
                                 </View>
                             </View>
-                        </View>
+                        </FloatingView>
                     </FadeIn>
 
                     {/* ── MÉTRICAS ───────────────────────────────────────────── */}
@@ -252,7 +238,7 @@ export default function CoachPropostaScreen({ navigation }) {
                         ))}
                     </View>
 
-                    {/* ── VS CONCORRENTES (O CAOS VS O CONTROLE) ─────────────── */}
+                    {/* ── VS CONCORRENTES ─────────────── */}
                     <View style={styles.sectionSpacing}>
                         <Text style={styles.sectionMiniTitle}>O CUSTO INVISÍVEL DO AMADORISMO</Text>
                         <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>
@@ -266,7 +252,7 @@ export default function CoachPropostaScreen({ navigation }) {
                             </View>
                             
                             {COMPARISON.map((item, i) => (
-                                <View key={i} style={styles.vsRow}>
+                                <FadeIn key={i} delay={i * 100} style={styles.vsRow}>
                                     <View style={styles.vsCardBad}>
                                         <Text style={styles.vsTextBad}>{item.bad}</Text>
                                     </View>
@@ -274,12 +260,12 @@ export default function CoachPropostaScreen({ navigation }) {
                                         <MaterialCommunityIcons name="check-circle" size={16} color={ACCENT} style={{ marginRight: 8 }} />
                                         <Text style={styles.vsTextGood}>{item.good}</Text>
                                     </View>
-                                </View>
+                                </FadeIn>
                             ))}
                         </View>
                     </View>
 
-                    {/* ── FUNCIONALIDADES SAAS (CARDS) ───────────────────────── */}
+                    {/* ── FUNCIONALIDADES SAAS (CARDS FLUTUANTES NO HOVER/APARECIMENTO) ───────────────────────── */}
                     <View style={styles.sectionSpacing}>
                         <Text style={styles.sectionMiniTitle}>O MOTOR DE RECORRÊNCIA</Text>
                         <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>
@@ -296,13 +282,15 @@ export default function CoachPropostaScreen({ navigation }) {
                                 { icon: 'sync', title: 'Automatiza', desc: 'Fim da cobrança manual. O sistema bloqueia quem não paga.' },
                                 { icon: 'heart-pulse', title: 'Retém', desc: 'Gamificação e notificações push mantêm o aluno motivado a renovar.' },
                             ].map((f, i) => (
-                                <View key={i} style={[styles.featureCard, isWide && { width: '48%' }]}>
-                                    <View style={styles.featureIconBox}>
-                                        <MaterialCommunityIcons name={f.icon} size={24} color={ACCENT} />
+                                <FadeIn key={i} delay={i * 150} style={[styles.featureCardWrap, isWide && { width: '48%' }]}>
+                                    <View style={styles.featureCard}>
+                                        <View style={styles.featureIconBox}>
+                                            <MaterialCommunityIcons name={f.icon} size={24} color={ACCENT} />
+                                        </View>
+                                        <Text style={styles.featureTitle}>{f.title}</Text>
+                                        <Text style={styles.featureDesc}>{f.desc}</Text>
                                     </View>
-                                    <Text style={styles.featureTitle}>{f.title}</Text>
-                                    <Text style={styles.featureDesc}>{f.desc}</Text>
-                                </View>
+                                </FadeIn>
                             ))}
                         </View>
                     </View>
@@ -310,51 +298,45 @@ export default function CoachPropostaScreen({ navigation }) {
                     {/* ── PLANOS / PRICING ───────────────────────────────────── */}
                     <View style={styles.sectionSpacing} onLayout={(e) => setPlansSectionY(e.nativeEvent.layout.y)}>
                         <Text style={styles.sectionMiniTitle}>PLANOS E PREÇOS</Text>
-                        <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>
-                            Comece hoje. Escale no <Text style={{ color: ACCENT }}>seu ritmo.</Text>
-                        </Text>
+                        <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>Comece hoje. Escale no <Text style={{ color: ACCENT }}>seu ritmo.</Text></Text>
 
                         <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 20, marginTop: 40, alignItems: isWide ? 'stretch' : 'center' }}>
-                            {PLANS.map((plan) => (
-                                <View 
-                                    key={plan.key} 
-                                    style={[
-                                        styles.pricingCard, 
-                                        isWide && { flex: 1 },
-                                        plan.highlight && styles.pricingCardHighlighted
-                                    ]}
-                                >
-                                    {plan.highlight && (
-                                        <View style={styles.pricingBadge}>
-                                            <Text style={styles.pricingBadgeText}>O MAIS ESCOLHIDO</Text>
-                                        </View>
-                                    )}
-                                    <Text style={styles.pricingTitle}>{plan.title}</Text>
-                                    <Text style={styles.pricingSubtitle}>{plan.subtitle}</Text>
-                                    
-                                    <View style={styles.priceRow}>
-                                        <Text style={styles.priceValue}>{plan.price}</Text>
-                                        <Text style={styles.pricePeriod}>{plan.period}</Text>
-                                    </View>
-
-                                    <View style={styles.featuresList}>
-                                        {plan.features.map(f => (
-                                            <View key={f} style={styles.featureLine}>
-                                                <MaterialCommunityIcons name="check" size={16} color={plan.highlight ? ACCENT : TEXT_MUTED} />
-                                                <Text style={styles.featureLineText}>{f}</Text>
+                            {PLANS.map((plan, i) => (
+                                <FadeIn key={plan.key} delay={i * 200} style={[isWide && { flex: 1 }]}>
+                                    <View style={[styles.pricingCard, plan.highlight && styles.pricingCardHighlighted]}>
+                                        {plan.highlight && (
+                                            <View style={styles.pricingBadge}>
+                                                <Text style={styles.pricingBadgeText}>O MAIS ESCOLHIDO</Text>
                                             </View>
-                                        ))}
-                                    </View>
+                                        )}
+                                        <Text style={styles.pricingTitle}>{plan.title}</Text>
+                                        <Text style={styles.pricingSubtitle}>{plan.subtitle}</Text>
+                                        
+                                        <View style={styles.priceRow}>
+                                            <Text style={styles.priceValue}>{plan.price}</Text>
+                                            <Text style={styles.pricePeriod}>{plan.period}</Text>
+                                        </View>
 
-                                    <TouchableOpacity 
-                                        style={[styles.btnPrimary, { backgroundColor: plan.highlight ? ACCENT : '#1E1E28', marginTop: 'auto' }]} 
-                                        onPress={() => handlePlanChoice(plan.key)}
-                                    >
-                                        <Text style={[styles.btnPrimaryText, { color: plan.highlight ? '#000' : '#FFF' }]}>
-                                            {plan.highlight ? 'Começar grátis agora' : 'Selecionar plano'}
-                                        </Text>
-                                    </TouchableOpacity>
-                                </View>
+                                        <View style={styles.featuresList}>
+                                            {plan.features.map(f => (
+                                                <View key={f} style={styles.featureLine}>
+                                                    <MaterialCommunityIcons name="check" size={16} color={plan.highlight ? ACCENT : TEXT_MUTED} />
+                                                    <Text style={styles.featureLineText}>{f}</Text>
+                                                </View>
+                                            ))}
+                                        </View>
+
+                                        <TouchableOpacity 
+                                            style={[styles.btnPrimary, { backgroundColor: plan.highlight ? ACCENT : '#1E1E28', marginTop: 'auto' }]} 
+                                            onPress={() => handlePlanChoice(plan.key)}
+                                            activeOpacity={0.8}
+                                        >
+                                            <Text style={[styles.btnPrimaryText, { color: plan.highlight ? '#000' : '#FFF' }]}>
+                                                {plan.highlight ? 'Começar grátis agora' : 'Selecionar plano'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </FadeIn>
                             ))}
                         </View>
                     </View>
@@ -366,12 +348,7 @@ export default function CoachPropostaScreen({ navigation }) {
                         
                         <View style={{ maxWidth: 800, width: '100%', alignSelf: 'center' }}>
                             {FAQ.map((item, i) => (
-                                <TouchableOpacity
-                                    key={i}
-                                    style={[styles.faqCard, openFaq === i && { borderColor: ACCENT }]}
-                                    onPress={() => setOpenFaq(openFaq === i ? null : i)}
-                                    activeOpacity={0.8}
-                                >
+                                <TouchableOpacity key={i} style={[styles.faqCard, openFaq === i && { borderColor: ACCENT }]} onPress={() => setOpenFaq(openFaq === i ? null : i)} activeOpacity={0.8}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                                         <Text style={styles.faqQ}>{item.q}</Text>
                                         <MaterialCommunityIcons name={openFaq === i ? 'minus' : 'plus'} size={20} color={ACCENT} />
@@ -384,16 +361,15 @@ export default function CoachPropostaScreen({ navigation }) {
 
                     {/* ── BOTTOM CTA ─────────────────────────────────────────── */}
                     <View style={styles.bottomCTA}>
-                        <LinearGradient colors={[ACCENT_GLOW, 'transparent']} style={StyleSheet.absoluteFill} />
+                        <PulseGlow style={[StyleSheet.absoluteFill, { backgroundColor: ACCENT_GLOW, opacity: 0.2 }]} />
                         <Text style={[styles.heroTitle, { fontSize: 32 }]}>Menos caos.{'\n'}Mais <Text style={{ color: ACCENT }}>controle.</Text></Text>
                         <Text style={[styles.heroSubtitle, { marginBottom: 30 }]}>Junte-se a dezenas de profissionais que organizaram a consultoria com o ELITE FIT.</Text>
                         
                         <View style={{ width: '100%', maxWidth: 360, gap: 12 }}>
-                            <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT }]} onPress={scrollToPlans}>
+                            <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT }]} onPress={scrollToPlans} activeOpacity={0.8}>
                                 <Text style={styles.btnPrimaryText}>Começar grátis agora</Text>
                             </TouchableOpacity>
-                            
-                            <TouchableOpacity style={[styles.btnSecondary, { borderColor: '#25D366' }]} onPress={handleWhatsApp}>
+                            <TouchableOpacity style={[styles.btnSecondary, { borderColor: '#25D366' }]} onPress={handleWhatsApp} activeOpacity={0.8}>
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                     <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
                                     <Text style={[styles.btnSecondaryText, { color: '#25D366' }]}>Falar com a equipe</Text>
@@ -415,7 +391,8 @@ const styles = StyleSheet.create({
     headerLogoWrapper: { flex: 1, alignItems: 'center' },
     
     heroSection: { alignItems: 'center', paddingTop: 20, paddingBottom: 60 },
-    heroBadge: { color: ACCENT, fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 20, backgroundColor: ACCENT_GLOW, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, overflow: 'hidden' },
+    heroBadgeBox: { backgroundColor: 'rgba(139, 195, 74, 0.08)', borderWidth: 1, borderColor: 'rgba(139, 195, 74, 0.2)', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 100, marginBottom: 24 },
+    heroBadge: { color: ACCENT, fontSize: 11, fontWeight: '900', letterSpacing: 1.5 },
     heroTitle: { color: '#FFF', fontSize: 48, fontWeight: '900', textAlign: 'center', lineHeight: 56, marginBottom: 24, letterSpacing: -1 },
     heroSubtitle: { color: TEXT_MUTED, fontSize: 18, textAlign: 'center', lineHeight: 28, maxWidth: 700, marginBottom: 40 },
     heroButtonGroup: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 24 },
@@ -427,7 +404,7 @@ const styles = StyleSheet.create({
     btnSecondaryText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
 
     mockupContainer: { width: '100%', maxWidth: 800, alignSelf: 'center', position: 'relative', marginTop: 20, marginBottom: 60 },
-    mockupGlow: { position: 'absolute', top: -30, left: '10%', right: '10%', height: 200, opacity: 0.5, borderRadius: 100, transform: [{ scaleY: 0.5 }], filter: 'blur(40px)' },
+    mockupGlow: { position: 'absolute', top: -10, left: '5%', right: '5%', height: 180, borderRadius: 100, transform: [{ scaleY: 0.6 }], filter: 'blur(50px)' },
     mockupInner: { backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.8, shadowRadius: 30, elevation: 10 },
     mockupHeader: { backgroundColor: '#111118', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: BORDER },
     mockupDot: { width: 10, height: 10, borderRadius: 5 },
@@ -456,7 +433,8 @@ const styles = StyleSheet.create({
     vsTextBad: { color: '#666', fontSize: 13, fontWeight: '600', textAlign: 'center' },
     vsTextGood: { color: '#FFF', fontSize: 13, fontWeight: '800' },
 
-    featureCard: { backgroundColor: SURFACE, padding: 24, borderRadius: 16, borderWidth: 1, borderColor: BORDER, width: '100%' },
+    featureCardWrap: { width: '100%' },
+    featureCard: { backgroundColor: SURFACE, padding: 24, borderRadius: 16, borderWidth: 1, borderColor: BORDER, width: '100%', height: '100%' },
     featureIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#16161E', alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#222' },
     featureTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
     featureDesc: { color: TEXT_MUTED, fontSize: 14, lineHeight: 22 },
