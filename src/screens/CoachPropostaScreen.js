@@ -141,6 +141,11 @@ export default function CoachPropostaScreen({ navigation }) {
         });
     };
 
+    const handleWhatsApp = () => {
+        const msg = 'Olá! Tenho interesse em ser coach parceiro no ELITE FIT.';
+        Linking.openURL(`whatsapp://send?phone=5541997991346&text=${encodeURIComponent(msg)}`).catch(() => {});
+    };
+
     return (
         <View style={{ flex: 1, backgroundColor: DARK_BG, height: isWeb ? '100vh' : '100%', overflow: 'hidden' }}>
             <StatusBar barStyle="light-content" backgroundColor={DARK_BG} />
@@ -153,9 +158,22 @@ export default function CoachPropostaScreen({ navigation }) {
             >
                 <View style={{ maxWidth: 1000, width: '100%', paddingHorizontal: 24, paddingBottom: 100 }}>
 
-                    {/* ── LOGO TOPO ─────────────────────────────────────────────── */}
-                    <View style={styles.headerLogo}>
-                        <Image source={require('../../assets/elitefit_banner_generic.png')} style={{ width: 140, height: 40 }} resizeMode="contain" />
+                    {/* ── HEADER COM BOTÃO DE VOLTAR E LOGO ───────────────────────── */}
+                    <View style={[styles.headerRow, { paddingTop: Platform.OS === 'ios' ? 50 : 20 }]}>
+                        <TouchableOpacity 
+                            onPress={() => navigation.goBack()} 
+                            style={styles.backButton}
+                            activeOpacity={0.8}
+                        >
+                            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFF" />
+                        </TouchableOpacity>
+
+                        <View style={styles.headerLogoWrapper}>
+                            <Image source={require('../../assets/elitefit_banner_generic.png')} style={{ width: 140, height: 40 }} resizeMode="contain" />
+                        </View>
+                        
+                        {/* View vazia para equilibrar o layout (flex-end vs flex-start) */}
+                        <View style={{ width: 40 }} />
                     </View>
 
                     {/* ── HERO SAAS PREMIUM ──────────────────────────────────────── */}
@@ -369,9 +387,19 @@ export default function CoachPropostaScreen({ navigation }) {
                         <LinearGradient colors={[ACCENT_GLOW, 'transparent']} style={StyleSheet.absoluteFill} />
                         <Text style={[styles.heroTitle, { fontSize: 32 }]}>Menos caos.{'\n'}Mais <Text style={{ color: ACCENT }}>controle.</Text></Text>
                         <Text style={[styles.heroSubtitle, { marginBottom: 30 }]}>Junte-se a dezenas de profissionais que organizaram a consultoria com o ELITE FIT.</Text>
-                        <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT, paddingHorizontal: 40 }]} onPress={scrollToPlans}>
-                            <Text style={styles.btnPrimaryText}>Começar grátis agora</Text>
-                        </TouchableOpacity>
+                        
+                        <View style={{ width: '100%', maxWidth: 360, gap: 12 }}>
+                            <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT }]} onPress={scrollToPlans}>
+                                <Text style={styles.btnPrimaryText}>Começar grátis agora</Text>
+                            </TouchableOpacity>
+                            
+                            <TouchableOpacity style={[styles.btnSecondary, { borderColor: '#25D366' }]} onPress={handleWhatsApp}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                    <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" />
+                                    <Text style={[styles.btnSecondaryText, { color: '#25D366' }]}>Falar com a equipe</Text>
+                                </View>
+                            </TouchableOpacity>
+                        </View>
                     </View>
 
                 </View>
@@ -382,9 +410,11 @@ export default function CoachPropostaScreen({ navigation }) {
 
 // ─── STYLES SAAS PREMIUM ──────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    headerLogo: { width: '100%', alignItems: 'center', paddingTop: 30, paddingBottom: 20 },
+    headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 },
+    backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
+    headerLogoWrapper: { flex: 1, alignItems: 'center' },
     
-    heroSection: { alignItems: 'center', paddingTop: 40, paddingBottom: 60 },
+    heroSection: { alignItems: 'center', paddingTop: 20, paddingBottom: 60 },
     heroBadge: { color: ACCENT, fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 20, backgroundColor: ACCENT_GLOW, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, overflow: 'hidden' },
     heroTitle: { color: '#FFF', fontSize: 48, fontWeight: '900', textAlign: 'center', lineHeight: 56, marginBottom: 24, letterSpacing: -1 },
     heroSubtitle: { color: TEXT_MUTED, fontSize: 18, textAlign: 'center', lineHeight: 28, maxWidth: 700, marginBottom: 40 },
