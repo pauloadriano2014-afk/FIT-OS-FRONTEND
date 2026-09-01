@@ -1,6 +1,5 @@
 // src/screens/CoachPropostaScreen.js
-// Landing page de captação de coaches parceiros
-// Layout 100% Responsivo e Alinhado com Carrossel e Scroll Âncora
+// Landing page de captação de coaches parceiros (Estilo SaaS Premium / High Conversion)
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -10,117 +9,106 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
-// ─── CORES ────────────────────────────────────────────────────────────────────
-const DARK   = '#0a0a0a';
-const ACCENT = '#8BC34A'; // verde ELITE FIT
-const GOLD   = '#FFCC00';
-const BLUE   = '#32ADE6';
-const PURPLE = '#BF5AF2';
+// ─── CORES PREMIUM SAAS ───────────────────────────────────────────────────────
+const DARK_BG = '#040405';    // Preto abismo (fundo principal)
+const SURFACE = '#0A0A0C';    // Superfície dos cards
+const BORDER  = '#1A1A24';    // Borda sutil
+const ACCENT  = '#8BC34A';    // Verde Neon ELITE FIT
+const ACCENT_GLOW = 'rgba(139, 195, 74, 0.15)'; // Brilho do neon
+const TEXT_MUTED = '#7A7A8C'; // Texto secundário acinzentado/azulado
 
 // ─── PLANOS ──────────────────────────────────────────────────────────────────
 const PLANS = [
     {
         key:       'PERSONAL',
         icon:      'dumbbell',
-        color:     BLUE,
+        color:     '#32ADE6',
         title:     'Personal Trainer',
-        subtitle:  'Módulo de treinos completo',
-        price:     'R$97',
+        subtitle:  'O fim das planilhas de treino',
+        price:     'R$ 97',
         period:    '/mês',
         highlight: false,
         features: [
-            'Montagem de treinos ilimitada',
-            'Biblioteca de exercícios completa',
-            'Templates e técnicas avançadas',
-            'Check-in de fotos dos alunos',
-            'Avaliação com IA',
-            'Gamificação e XP',
-            'Gestão financeira dos alunos',
-            'Página de vendas própria',
+            'Construtor de treinos ilimitado',
+            'Biblioteca em vídeo de exercícios',
+            'Check-in de fotos organizado',
+            'Avaliação corporal com IA',
+            'Gestão financeira de alunos',
+            'Sua página de vendas própria',
         ],
     },
     {
         key:       'ELITE',
-        icon:      'trophy',
-        color:     GOLD,
-        title:     'Elite',
-        subtitle:  'Personal + Nutricionista',
-        price:     'R$147',
+        icon:      'rocket-launch',
+        color:     ACCENT,
+        title:     'Elite (Mais Popular)',
+        subtitle:  'O motor completo da sua consultoria',
+        price:     'R$ 147',
         period:    '/mês',
-        highlight: true, // Mantém o destaque visual premium permanente
+        highlight: true, 
         features: [
-            'Tudo do Personal Trainer',
-            'Montagem de dietas completa',
-            'Grupos de substituição alimentar',
-            'Catálogo TACO + alimentos custom',
+            'Tudo do plano Personal Trainer',
+            'Construtor de dietas completo',
+            'Grupos de substituição inteligente',
             'Avaliação nutricional com IA',
-            'Cofre de dietas (templates)',
-            'Módulo de corrida',
-            'Suporte prioritário',
+            'Cofre de templates (Dietas prontas)',
+            'Notificações push automáticas',
+            'Suporte prioritário via WhatsApp',
         ],
     },
     {
         key:       'NUTRICIONISTA',
         icon:      'food-apple',
-        color:     ACCENT,
+        color:     '#BF5AF2',
         title:     'Nutricionista',
-        subtitle:  'Módulo de dietas completo',
-        price:     'R$97',
+        subtitle:  'Prescrição moderna e rápida',
+        price:     'R$ 97',
         period:    '/mês',
         highlight: false,
         features: [
-            'Montagem de dietas ilimitada',
-            'Catálogo TACO + alimentos custom',
+            'Construtor de dietas ilimitado',
+            'Base TACO + Alimentos customizados',
             'Grupos de substituição alimentar',
-            'Check-in de fotos dos alunos',
             'Avaliação nutricional com IA',
-            'Cofre de dietas (templates)',
-            'Gestão financeira dos alunos',
-            'Página de vendas própria',
+            'Gestão de retornos e check-ins',
+            'Sua página de vendas própria',
         ],
     },
 ];
 
-const DIFERENCIAIS = [
-    { icon:'robot-outline',        color:ACCENT,  title:'IA que trabalha por você',     desc:'Análise de fotos, avaliação escrita e laudo completo gerado em segundos. Você só revisa e envia.' },
-    { icon:'camera-timer',         color:BLUE,    title:'Check-in sem WhatsApp',         desc:'O aluno envia as fotos direto pelo app. Chegam organizadas, por data, prontas para avaliar.' },
-    { icon:'cash-multiple',        color:GOLD,    title:'Financeiro integrado',          desc:'Controle de contratos, vencimentos e cobranças dos seus alunos. Tudo em um lugar.' },
-    { icon:'storefront-outline',   color:PURPLE,  title:'Sua marca, sua página',         desc:'Página de vendas profissional com sua foto, planos e depoimentos. Pronta para captar alunos.' },
-    { icon:'account-group',        color:ACCENT,  title:'Gestão completa dos alunos',    desc:'Dashboard com alertas, filtros, anotações privadas, histórico de treinos e muito mais.' },
-    { icon:'palette-swatch',       color:BLUE,    title:'White-label total',             desc:'Sua logo no app dos seus alunos. A plataforma é sua, com a sua identidade.' },
+const METRICS = [
+    { value: '+10h', label: 'LIVRES POR SEMANA' },
+    { value: 'ZERO', label: 'CALOTES DE ALUNOS' },
+    { value: '100%', label: 'CONTROLE NO APP' },
 ];
 
-const STEPS = [
-    { num:'01', title:'Escolha seu plano',   desc:'Personal, Nutricionista ou Elite. Você decide o que precisa.',          icon:'clipboard-check-outline' },
-    { num:'02', title:'Faça o cadastro',     desc:'Preencha seus dados e envie para análise. Aprovação em até 24 horas.',    icon:'account-plus-outline'    },
-    { num:'03', title:'Receba seu acesso',   desc:'Código de convite liberado. Comece a cadastrar seus alunos agora.',       icon:'rocket-launch-outline'   },
-];
-
-const TESTIMONIALS = [
-    { name:'Coach Ana Lima',    role:'Personal Trainer — SP',   text:'Economizei 3 horas por semana só com as avaliações automáticas. A IA escreve o laudo, eu só personalizo e envio.' },
-    { name:'Coach Rafael Neto', role:'Nutricionista — RJ',      text:'Meus alunos adoraram o app. O check-in sem WhatsApp foi um divisor de águas na minha organização.' },
-    { name:'Coach Fernanda S.', role:'Personal + Nutri — MG',   text:'Nunca imaginei ter uma plataforma assim por esse preço. Valeu cada centavo desde o primeiro mês.' },
+const COMPARISON = [
+    { bad: 'Anamnese perdida no WhatsApp', good: 'Anamnese automatizada no app' },
+    { bad: 'Dieta em PDF pelo e-mail', good: 'Dieta interativa na palma da mão' },
+    { bad: 'Planilha de treino confusa', good: 'Treino com vídeos de execução' },
+    { bad: 'Cobrança manual e atrasada', good: 'Cobrança recorrente e automática' },
+    { bad: 'Vários apps (Drive, Excel, Whats)', good: 'Tudo centralizado no ELITE FIT' },
+    { bad: 'Decisões no achismo', good: 'Métricas e dashboard financeiro' },
 ];
 
 const FAQ = [
     { q:'Posso testar antes de pagar?',          a:'Sim! Após a aprovação, você tem 7 dias para explorar a plataforma gratuitamente.' },
     { q:'Posso mudar de plano depois?',           a:'Claro. Você pode fazer upgrade a qualquer momento e pagamos apenas a diferença proporcional dos dias restantes.' },
     { q:'Quantos alunos posso ter?',              a:'Ilimitados. Não cobramos por aluno — seu crescimento não tem teto.' },
-    { q:'Como funciona o suporte?',               a:'Você tem acesso ao ELITE Assistant dentro do painel (IA de suporte) e WhatsApp direto com a equipe ELITE FIT.' },
-    { q:'Os alunos pagam alguma coisa?',          a:'Não para usar o app. O que você cobra dos seus alunos é gerenciado por você dentro da plataforma.' },
-    { q:'Posso usar minha própria logo?',         a:'Sim. Upload da sua logo nas configurações e ela aparece no app dos seus alunos.' },
+    { q:'Os alunos pagam alguma coisa?',          a:'Não para usar o app. O que você cobra dos seus alunos é 100% seu e gerenciado por você.' },
+    { q:'Posso usar minha própria logo?',         a:'Sim. O app ganha a sua identidade e a sua logo aparece para os seus alunos (White-label).' },
 ];
 
 // ─── COMPONENTES AUXILIARES ───────────────────────────────────────────────────
 
 function FadeIn({ delay = 0, style, children }) {
     const opacity   = useRef(new Animated.Value(0)).current;
-    const translateY = useRef(new Animated.Value(30)).current;
+    const translateY = useRef(new Animated.Value(20)).current;
     
     useEffect(() => {
         Animated.parallel([
-            Animated.timing(opacity,    { toValue:1, duration:600, delay, useNativeDriver:true }),
-            Animated.timing(translateY, { toValue:0, duration:600, delay, useNativeDriver:true }),
+            Animated.timing(opacity,    { toValue:1, duration:700, delay, useNativeDriver:true }),
+            Animated.timing(translateY, { toValue:0, duration:700, delay, useNativeDriver:true }),
         ]).start();
     }, [delay, opacity, translateY]);
     
@@ -131,405 +119,260 @@ function FadeIn({ delay = 0, style, children }) {
     );
 }
 
-function Section({ children, style, onLayout }) {
-    return <View onLayout={onLayout} style={[{ paddingHorizontal:20, paddingVertical:40, width: '100%' }, style]}>{children}</View>;
-}
-
-function SectionTitle({ children, accent, center }) {
-    return (
-        <Text style={[styles.sectionTitle, center && { textAlign:'center' }]}>
-            {children}{accent ? <Text style={{ color: ACCENT }}>{accent}</Text> : null}
-        </Text>
-    );
-}
-
-function FeatureCheck({ text, color }) {
-    return (
-        <View style={{ flexDirection:'row', alignItems:'flex-start', marginBottom:10 }}>
-            <MaterialCommunityIcons name="check-circle" size={16} color={color ?? ACCENT} style={{ marginTop:2, marginRight: 8 }} />
-            <Text style={{ color:'#ccc', fontSize:13, lineHeight:20, flex:1 }}>{text}</Text>
-        </View>
-    );
-}
-
 // ─── TELA PRINCIPAL ───────────────────────────────────────────────────────────
 export default function CoachPropostaScreen({ navigation }) {
     const { width: W } = useWindowDimensions();
     const isWeb = Platform.OS === 'web';
-    const isWide = W > 768;
+    const isWide = W > 850;
     const [openFaq, setOpenFaq] = useState(null);
     
-    // 🔥 Referências para gerenciar o Scroll Automático
     const scrollRef = useRef(null);
     const [plansSectionY, setPlansSectionY] = useState(0);
 
-    // Desliza suavemente até a seção de planos
     const scrollToPlans = () => {
         if (scrollRef.current && plansSectionY > 0) {
             scrollRef.current.scrollTo({ y: plansSectionY, animated: true });
         }
     };
 
-    // Navega direto para a tela de registro com o plano selecionado
     const handlePlanChoice = (planKey) => {
         navigation.navigate('Register', { 
-            accountType: 'COACH', 
-            type: 'COACH', 
-            role: 'COACH', 
-            coachPlan: planKey, 
-            plan: planKey 
+            accountType: 'COACH', type: 'COACH', role: 'COACH', coachPlan: planKey, plan: planKey 
         });
     };
 
-    const handleWhatsApp = () => {
-        const msg = 'Olá! Tenho interesse em ser coach parceiro no ELITE FIT.';
-        Linking.openURL(`whatsapp://send?phone=5541997991346&text=${encodeURIComponent(msg)}`).catch(() => {});
-    };
-
     return (
-        <View style={{ flex: 1, backgroundColor: DARK, height: isWeb ? '100vh' : '100%', maxHeight: isWeb ? '100vh' : '100%', overflow: 'hidden' }}>
-            <StatusBar barStyle="light-content" backgroundColor={DARK} />
+        <View style={{ flex: 1, backgroundColor: DARK_BG, height: isWeb ? '100vh' : '100%', overflow: 'hidden' }}>
+            <StatusBar barStyle="light-content" backgroundColor={DARK_BG} />
             
             <ScrollView 
                 ref={scrollRef}
                 style={{ flex: 1, width: '100%' }} 
                 showsVerticalScrollIndicator={false} 
-                contentContainerStyle={{ flexGrow: 1, paddingBottom: 80, alignItems: 'center' }} 
-                bounces={true}
+                contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }} 
             >
-                <View style={{ maxWidth:960, width:'100%' }}>
+                <View style={{ maxWidth: 1000, width: '100%', paddingHorizontal: 24, paddingBottom: 100 }}>
 
-                    {/* ── HERO ─────────────────────────────────────────────── */}
-                    <LinearGradient
-                        colors={['#111', DARK]}
-                        style={[styles.hero, { paddingTop: Platform.OS === 'ios' ? 60 : 40 }]}
-                    >
-                        <FadeIn delay={0}>
-                            {/* 🔥 Era a mesma arte antiga (PA ELITE TEAM) hospedada fora do projeto;
-                                trocada pelo asset local ELITE FIT usado nos outros banners genéricos. */}
-                            <Image
-                                source={require('../../assets/elitefit_banner_generic.png')}
-                                style={styles.heroLogo}
-                                resizeMode="contain"
-                            />
+                    {/* ── LOGO TOPO ─────────────────────────────────────────────── */}
+                    <View style={styles.headerLogo}>
+                        <Image source={require('../../assets/elitefit_banner_generic.png')} style={{ width: 140, height: 40 }} resizeMode="contain" />
+                    </View>
+
+                    {/* ── HERO SAAS PREMIUM ──────────────────────────────────────── */}
+                    <View style={styles.heroSection}>
+                        <FadeIn delay={100}>
+                            <Text style={styles.heroBadge}>DE PRESTADOR DE SERVIÇO A EMPRESÁRIO</Text>
                         </FadeIn>
 
                         <FadeIn delay={200}>
-                            <View style={styles.heroBadge}>
-                                <MaterialCommunityIcons name="shield-check" size={14} color={ACCENT} style={{ marginRight: 6 }}/>
-                                <Text style={{ color: ACCENT, fontSize:12, fontWeight:'900', letterSpacing:0.5 }}>
-                                    PLATAFORMA PARA COACHES
-                                </Text>
-                            </View>
+                            <Text style={styles.heroTitle}>
+                                A forma mais simples de escalar sua <Text style={{ color: ACCENT }}>Consultoria Online.</Text>
+                            </Text>
                         </FadeIn>
 
                         <FadeIn delay={300}>
-                            <Text style={styles.heroTitle}>
-                                Gerencie seus alunos{'\n'}
-                                <Text style={{ color: ACCENT }}>de forma profissional</Text>
-                            </Text>
                             <Text style={styles.heroSubtitle}>
-                                A plataforma que unifica treinos, dietas, check-ins, financeiro e IA em um único app. Tudo com a sua marca.
+                                A plataforma que gerencia alunos, treino, dieta e financeiro no automático. Mais previsibilidade, menos caos. <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Bye bye Excel, PDF e Google Drive.</Text>
                             </Text>
                         </FadeIn>
 
-                        <FadeIn delay={500}>
-                            <View style={[styles.heroStats, { flexDirection: isWide ? 'row' : 'column' }]}>
-                                {[
-                                    { value:'IA',          label:'Avaliação automática'  },
-                                    { value:'∞',           label:'Alunos ilimitados'     },
-                                    { value:'100%',        label:'Sua marca no app'      },
-                                    { value:'24h',         label:'Aprovação rápida'      },
-                                ].map(({ value, label }, index) => (
-                                    <View key={label} style={[styles.heroStat, !isWide && index < 3 && { borderRightWidth: 0, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' }]}>
-                                        <Text style={{ color: ACCENT, fontSize:22, fontWeight:'900' }}>{value}</Text>
-                                        <Text style={{ color:'#888', fontSize:11, fontWeight:'700', marginTop:2 }}>{label}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </FadeIn>
-
-                        <FadeIn delay={600} style={{ width: '100%', maxWidth: 360, alignItems: 'center' }}>
-                            <TouchableOpacity
-                                style={[styles.heroCTA, { backgroundColor: ACCENT }]}
-                                onPress={scrollToPlans}
-                            >
-                                <Text style={{ color:'#000', fontWeight:'900', fontSize:16, letterSpacing:0.5, marginRight: 8 }}>
-                                    QUERO SER COACH PARCEIRO
-                                </Text>
-                                <MaterialCommunityIcons name="arrow-down" size={20} color="#000" />
+                        <FadeIn delay={400} style={styles.heroButtonGroup}>
+                            <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT }]} onPress={handlePlanChoice}>
+                                <Text style={styles.btnPrimaryText}>Começar grátis por 7 dias</Text>
                             </TouchableOpacity>
-                            <Text style={{ color:'#555', fontSize:12, textAlign:'center', marginTop:12 }}>
-                                Aprovação em até 24 horas · Sem fidelidade
+                            <TouchableOpacity style={styles.btnSecondary} onPress={scrollToPlans}>
+                                <Text style={styles.btnSecondaryText}>Ver planos</Text>
+                            </TouchableOpacity>
+                        </FadeIn>
+                        
+                        <FadeIn delay={500}>
+                            <Text style={styles.heroMicrocopy}>
+                                <MaterialCommunityIcons name="check" size={14} color={ACCENT} /> Grátis, sem cartão · Cancele quando quiser
                             </Text>
                         </FadeIn>
-                    </LinearGradient>
+                    </View>
 
-                    {/* ── DIFERENCIAIS ─────────────────────────────────────── */}
-                    <Section style={{ borderTopWidth:1, borderTopColor:'#1a1a1a' }}>
-                        <SectionTitle accent=" tudo que você precisa">Uma plataforma,</SectionTitle>
-                        <Text style={styles.sectionSub}>
-                            Chega de WhatsApp para fotos, planilha para financeiro e outro sistema para treinos. Tudo em um lugar.
-                        </Text>
-                        
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                            {DIFERENCIAIS.map((d, i) => (
-                                <FadeIn 
-                                    key={d.title} 
-                                    delay={i * 80} 
-                                    style={{ width: isWide ? '31%' : '100%', marginBottom: 20 }}
-                                >
-                                    <View style={styles.diferencialCard}>
-                                        <View style={[styles.diferencialIcon, { backgroundColor: d.color + '18' }]}>
-                                            <MaterialCommunityIcons name={d.icon} size={24} color={d.color} />
+                    {/* ── MOCKUP / DASHBOARD PREVIEW (Ilustrativo com Glow) ────── */}
+                    <FadeIn delay={600} style={styles.mockupContainer}>
+                        <LinearGradient colors={[ACCENT_GLOW, 'transparent']} style={styles.mockupGlow} />
+                        <View style={styles.mockupInner}>
+                            <View style={styles.mockupHeader}>
+                                <View style={{ flexDirection: 'row', gap: 6 }}>
+                                    <View style={[styles.mockupDot, { backgroundColor: '#FF5F56' }]} />
+                                    <View style={[styles.mockupDot, { backgroundColor: '#FFBD2E' }]} />
+                                    <View style={[styles.mockupDot, { backgroundColor: '#27C93F' }]} />
+                                </View>
+                                <Text style={{ color: '#555', fontSize: 10, fontWeight: 'bold', marginLeft: 16 }}>elitefit.app/dashboard</Text>
+                            </View>
+                            <View style={styles.mockupContent}>
+                                <View style={{ flex: 1, gap: 16 }}>
+                                    <Text style={{ color: '#FFF', fontSize: 16, fontWeight: '900' }}>Dashboard Financeiro</Text>
+                                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                                        <View style={styles.mockupCard}>
+                                            <Text style={styles.mockupLabel}>HOJE</Text>
+                                            <Text style={styles.mockupValue}>R$ 1.240,00</Text>
+                                            <Text style={styles.mockupTrend}>↗ 14% mais</Text>
                                         </View>
-                                        <Text style={styles.diferencialTitle}>{d.title}</Text>
-                                        <Text style={styles.diferencialDesc}>{d.desc}</Text>
+                                        <View style={styles.mockupCard}>
+                                            <Text style={styles.mockupLabel}>ESTE MÊS</Text>
+                                            <Text style={styles.mockupValue}>R$ 18.450,00</Text>
+                                            <Text style={styles.mockupTrend}>↗ 8% mais</Text>
+                                        </View>
                                     </View>
-                                </FadeIn>
+                                </View>
+                            </View>
+                        </View>
+                    </FadeIn>
+
+                    {/* ── MÉTRICAS ───────────────────────────────────────────── */}
+                    <View style={[styles.metricsRow, { flexDirection: isWide ? 'row' : 'column' }]}>
+                        {METRICS.map((m, i) => (
+                            <View key={i} style={styles.metricCard}>
+                                <Text style={styles.metricValue}>{m.value}</Text>
+                                <Text style={styles.metricLabel}>{m.label}</Text>
+                            </View>
+                        ))}
+                    </View>
+
+                    {/* ── VS CONCORRENTES (O CAOS VS O CONTROLE) ─────────────── */}
+                    <View style={styles.sectionSpacing}>
+                        <Text style={styles.sectionMiniTitle}>O CUSTO INVISÍVEL DO AMADORISMO</Text>
+                        <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>
+                            Sua consultoria não cabe mais em <Text style={{ color: '#4285F4' }}>Google Drive</Text>
+                        </Text>
+
+                        <View style={styles.vsContainer}>
+                            <View style={styles.vsHeaderRow}>
+                                <Text style={styles.vsHeaderBad}>O que os outros fazem</Text>
+                                <Text style={styles.vsHeaderGood}>O que você faz aqui</Text>
+                            </View>
+                            
+                            {COMPARISON.map((item, i) => (
+                                <View key={i} style={styles.vsRow}>
+                                    <View style={styles.vsCardBad}>
+                                        <Text style={styles.vsTextBad}>{item.bad}</Text>
+                                    </View>
+                                    <View style={styles.vsCardGood}>
+                                        <MaterialCommunityIcons name="check-circle" size={16} color={ACCENT} style={{ marginRight: 8 }} />
+                                        <Text style={styles.vsTextGood}>{item.good}</Text>
+                                    </View>
+                                </View>
                             ))}
                         </View>
-                    </Section>
+                    </View>
 
-                    {/* ── VS CONCORRENTES ──────────────────────────────────── */}
-                    <Section style={{ backgroundColor:'#0d0d0d' }}>
-                        <SectionTitle center accent=" o ELITE FIT?">Por que</SectionTitle>
-                        
-                        <ScrollView 
-                            horizontal 
-                            showsHorizontalScrollIndicator={false} 
-                            style={{ width: '100%', marginTop: 20 }}
-                            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}
-                        >
-                            <View style={[styles.vsTable, { borderColor:'#222', minWidth: 760, maxWidth: 960, width: '100%' }]}>
-                                {/* Header */}
-                                <View style={[styles.vsRow, { backgroundColor:'#111' }]}>
-                                    <Text style={[styles.vsCell, { flex:2, color:'#555' }]}>RECURSO</Text>
-                                    <Text style={[styles.vsCell, { color: ACCENT, fontWeight:'900' }]}>ELITE FIT</Text>
-                                    <Text style={[styles.vsCell, { color:'#555' }]}>MFIT</Text>
-                                    <Text style={[styles.vsCell, { color:'#555' }]}>Nutrium</Text>
-                                    <Text style={[styles.vsCell, { color:'#555' }]}>Dietbox</Text>
+                    {/* ── FUNCIONALIDADES SAAS (CARDS) ───────────────────────── */}
+                    <View style={styles.sectionSpacing}>
+                        <Text style={styles.sectionMiniTitle}>O MOTOR DE RECORRÊNCIA</Text>
+                        <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>
+                            Uma engrenagem de <Text style={{ color: ACCENT }}>receita recorrente</Text>
+                        </Text>
+                        <Text style={[styles.heroSubtitle, { maxWidth: 600, alignSelf: 'center', marginBottom: 40 }]}>
+                            Não é só organização. É um sistema de IA que faz o seu faturamento crescer e parar de vazar.
+                        </Text>
+
+                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, justifyContent: 'center' }}>
+                            {[
+                                { icon: 'robot', title: 'Avaliação com IA', desc: 'A IA lê as fotos, cruza com a anamnese e escreve o laudo pra você revisar.' },
+                                { icon: 'layers', title: 'Centraliza', desc: 'Adeus PDF e links perdidos. Treino, dieta e boletos no app do aluno.' },
+                                { icon: 'sync', title: 'Automatiza', desc: 'Fim da cobrança manual. O sistema bloqueia quem não paga.' },
+                                { icon: 'heart-pulse', title: 'Retém', desc: 'Gamificação e notificações push mantêm o aluno motivado a renovar.' },
+                            ].map((f, i) => (
+                                <View key={i} style={[styles.featureCard, isWide && { width: '48%' }]}>
+                                    <View style={styles.featureIconBox}>
+                                        <MaterialCommunityIcons name={f.icon} size={24} color={ACCENT} />
+                                    </View>
+                                    <Text style={styles.featureTitle}>{f.title}</Text>
+                                    <Text style={styles.featureDesc}>{f.desc}</Text>
                                 </View>
-                                {[
-                                    ['Avaliação com IA + foto',    true,  false, false, false],
-                                    ['Check-in sem WhatsApp',      true,  false, false, false],
-                                    ['Módulo de treinos',          true,  true,  false, false],
-                                    ['Módulo de dietas',           true,  false, true,  true ],
-                                    ['Financeiro integrado',       true,  true,  false, false],
-                                    ['Página de vendas própria',   true,  true,  false, false],
-                                    ['White-label (sua logo)',     true,  false, false, true ],
-                                    ['Alunos ilimitados',          true,  false, false, false],
-                                ].map(([label, ef, mf, nu, db]) => (
-                                    <View key={label} style={[styles.vsRow, { borderTopWidth:1, borderTopColor:'#1a1a1a' }]}>
-                                        <Text style={[styles.vsCell, { flex:2, color:'#aaa', fontSize:12, textAlign: 'left', paddingLeft: 20 }]}>{label}</Text>
-                                        {[ef, mf, nu, db].map((v, i) => (
-                                            <View key={i} style={[styles.vsCell, { alignItems:'center' }]}>
-                                                <MaterialCommunityIcons
-                                                    name={v ? 'check-circle' : 'close-circle'}
-                                                    size={18}
-                                                    color={v ? (i === 0 ? ACCENT : '#555') : '#333'}
-                                                />
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* ── PLANOS / PRICING ───────────────────────────────────── */}
+                    <View style={styles.sectionSpacing} onLayout={(e) => setPlansSectionY(e.nativeEvent.layout.y)}>
+                        <Text style={styles.sectionMiniTitle}>PLANOS E PREÇOS</Text>
+                        <Text style={[styles.sectionTitle, { textAlign: 'center' }]}>
+                            Comece hoje. Escale no <Text style={{ color: ACCENT }}>seu ritmo.</Text>
+                        </Text>
+
+                        <View style={{ flexDirection: isWide ? 'row' : 'column', gap: 20, marginTop: 40, alignItems: isWide ? 'stretch' : 'center' }}>
+                            {PLANS.map((plan) => (
+                                <View 
+                                    key={plan.key} 
+                                    style={[
+                                        styles.pricingCard, 
+                                        isWide && { flex: 1 },
+                                        plan.highlight && styles.pricingCardHighlighted
+                                    ]}
+                                >
+                                    {plan.highlight && (
+                                        <View style={styles.pricingBadge}>
+                                            <Text style={styles.pricingBadgeText}>O MAIS ESCOLHIDO</Text>
+                                        </View>
+                                    )}
+                                    <Text style={styles.pricingTitle}>{plan.title}</Text>
+                                    <Text style={styles.pricingSubtitle}>{plan.subtitle}</Text>
+                                    
+                                    <View style={styles.priceRow}>
+                                        <Text style={styles.priceValue}>{plan.price}</Text>
+                                        <Text style={styles.pricePeriod}>{plan.period}</Text>
+                                    </View>
+
+                                    <View style={styles.featuresList}>
+                                        {plan.features.map(f => (
+                                            <View key={f} style={styles.featureLine}>
+                                                <MaterialCommunityIcons name="check" size={16} color={plan.highlight ? ACCENT : TEXT_MUTED} />
+                                                <Text style={styles.featureLineText}>{f}</Text>
                                             </View>
                                         ))}
                                     </View>
-                                ))}
-                            </View>
-                        </ScrollView>
-                    </Section>
 
-                    {/* ── PLANOS ───────────────────────────────────────────── */}
-                    <Section onLayout={(e) => setPlansSectionY(e.nativeEvent.layout.y)}>
-                        <SectionTitle center>Escolha seu <Text style={{ color:ACCENT }}>plano</Text></SectionTitle>
-                        <Text style={[styles.sectionSub, { textAlign:'center', marginBottom: 20 }]}>
-                            Comece com o que você precisa. Faça upgrade a qualquer momento.
-                        </Text>
-
-                        {!isWide && (
-                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, opacity: 0.6 }}>
-                                <MaterialCommunityIcons name="gesture-swipe-horizontal" size={20} color="#fff" />
-                                <Text style={{ color: '#fff', fontSize: 12, marginLeft: 8 }}>Deslize para ver os planos</Text>
-                            </View>
-                        )}
-
-                        <ScrollView 
-                            horizontal 
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: isWide ? 0 : 10 }}
-                            style={{ width: '100%' }}
-                        >
-                            {PLANS.map((plan, i) => (
-                                <FadeIn 
-                                    key={plan.key} 
-                                    delay={i * 100} 
-                                    style={{ width: 320, marginRight: i === PLANS.length - 1 ? 0 : 20, marginBottom: 20 }}
-                                >
-                                    <TouchableOpacity
-                                        style={[
-                                            styles.planCard,
-                                            { borderColor: plan.highlight ? plan.color : '#222' },
-                                            { borderWidth: plan.highlight ? 2 : 1 }
-                                        ]}
+                                    <TouchableOpacity 
+                                        style={[styles.btnPrimary, { backgroundColor: plan.highlight ? ACCENT : '#1E1E28', marginTop: 'auto' }]} 
                                         onPress={() => handlePlanChoice(plan.key)}
-                                        activeOpacity={0.85}
                                     >
-                                        {plan.highlight && (
-                                            <View style={[styles.planBadge, { backgroundColor: plan.color }]}>
-                                                <Text style={{ color:'#000', fontSize:10, fontWeight:'900' }}>MAIS COMPLETO</Text>
-                                            </View>
-                                        )}
-                                        <View style={[styles.planIconBox, { backgroundColor: plan.color + '18' }]}>
-                                            <MaterialCommunityIcons name={plan.icon} size={32} color={plan.color} />
-                                        </View>
-                                        <Text style={[styles.planTitle, { color: plan.color }]}>{plan.title}</Text>
-                                        <Text style={styles.planSub}>{plan.subtitle}</Text>
-                                        <View style={{ flexDirection:'row', alignItems:'flex-end', marginTop:16, marginBottom: 20 }}>
-                                            <Text style={{ color:'#fff', fontWeight:'900', fontSize:36, marginRight: 2, lineHeight: 40 }}>{plan.price}</Text>
-                                            <Text style={{ color:'#555', fontSize:14, marginBottom:6 }}>{plan.period}</Text>
-                                        </View>
-                                        <View style={{ marginBottom:24, flex: 1 }}>
-                                            {plan.features.map(f => (
-                                                <FeatureCheck key={f} text={f} color={plan.color} />
-                                            ))}
-                                        </View>
-                                        <TouchableOpacity
-                                            style={[styles.planCTA, { backgroundColor: plan.color }]}
-                                            onPress={() => handlePlanChoice(plan.key)}
-                                        >
-                                            <Text style={{ color:'#000', fontWeight:'900', fontSize:14 }}>
-                                                QUERO ESTE PLANO
-                                            </Text>
-                                        </TouchableOpacity>
+                                        <Text style={[styles.btnPrimaryText, { color: plan.highlight ? '#000' : '#FFF' }]}>
+                                            {plan.highlight ? 'Começar grátis agora' : 'Selecionar plano'}
+                                        </Text>
                                     </TouchableOpacity>
-                                </FadeIn>
+                                </View>
                             ))}
-                        </ScrollView>
-
-                        {/* Promoção lançamento */}
-                        <View style={[styles.promoCard, { borderColor: GOLD + '40', backgroundColor: GOLD + '08' }]}>
-                            <MaterialCommunityIcons name="fire" size={24} color={GOLD} style={{ marginRight: 14 }} />
-                            <View style={{ flex:1 }}>
-                                <Text style={{ color: GOLD, fontWeight:'900', fontSize:15, marginBottom: 4 }}>Oferta de lançamento</Text>
-                                <Text style={{ color:'#aaa', fontSize:13, lineHeight:20 }}>
-                                    Os primeiros 10 coaches pagam apenas <Text style={{ color:GOLD, fontWeight:'900' }}>R$69,90/mês</Text> (Personal/Nutri) ou <Text style={{ color:GOLD, fontWeight:'900' }}>R$109,90/mês</Text> (Elite) pelos primeiros 3 meses. Vagas limitadas!
-                                </Text>
-                            </View>
                         </View>
-                    </Section>
+                    </View>
 
-                    {/* ── COMO FUNCIONA ────────────────────────────────────── */}
-                    <Section style={{ backgroundColor:'#0d0d0d' }}>
-                        <SectionTitle center>Como <Text style={{ color:ACCENT }}>funciona</Text></SectionTitle>
+                    {/* ── FAQ ACCORDION ──────────────────────────────────────── */}
+                    <View style={styles.sectionSpacing}>
+                        <Text style={styles.sectionMiniTitle}>DÚVIDAS</Text>
+                        <Text style={[styles.sectionTitle, { textAlign: 'center', marginBottom: 30 }]}>Perguntas frequentes</Text>
                         
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 20 }}>
-                            {STEPS.map((step, i) => (
-                                <FadeIn 
-                                    key={step.num} 
-                                    delay={i * 120} 
-                                    style={{ width: isWide ? '31%' : '100%', marginBottom: 20 }}
-                                >
-                                    <View style={styles.stepCard}>
-                                        <View style={[styles.stepNum, { borderColor: ACCENT + '40' }]}>
-                                            <Text style={{ color: ACCENT, fontWeight:'900', fontSize:18 }}>{step.num}</Text>
-                                        </View>
-                                        <MaterialCommunityIcons name={step.icon} size={32} color={ACCENT} style={{ marginVertical:14 }} />
-                                        <Text style={styles.stepTitle}>{step.title}</Text>
-                                        <Text style={styles.stepDesc}>{step.desc}</Text>
-                                        {i < STEPS.length - 1 && isWide && (
-                                            <MaterialCommunityIcons name="arrow-right" size={24} color="#333" style={styles.stepArrow} />
-                                        )}
-                                    </View>
-                                </FadeIn>
-                            ))}
-                        </View>
-                    </Section>
-
-                    {/* ── DEPOIMENTOS ──────────────────────────────────────── */}
-                    <Section>
-                        <SectionTitle center>O que dizem os <Text style={{ color:ACCENT }}>coaches</Text></SectionTitle>
-                        
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 20 }}>
-                            {TESTIMONIALS.map((t, i) => (
-                                <FadeIn 
-                                    key={t.name} 
-                                    delay={i * 100} 
-                                    style={{ width: isWide ? '31%' : '100%', marginBottom: 20 }}
-                                >
-                                    <View style={styles.testimonialCard}>
-                                        <MaterialCommunityIcons name="format-quote-open" size={28} color={ACCENT + '60'} />
-                                        <Text style={styles.testimonialText}>{t.text}</Text>
-                                        <View style={{ flexDirection:'row', alignItems:'center', marginTop:16 }}>
-                                            <View style={[styles.testimonialAvatar, { backgroundColor: ACCENT + '20', marginRight: 12 }]}>
-                                                <MaterialCommunityIcons name="account" size={20} color={ACCENT} />
-                                            </View>
-                                            <View>
-                                                <Text style={{ color:'#fff', fontWeight:'900', fontSize:14 }}>{t.name}</Text>
-                                                <Text style={{ color:'#555', fontSize:12, marginTop: 2 }}>{t.role}</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                </FadeIn>
-                            ))}
-                        </View>
-                    </Section>
-
-                    {/* ── FAQ ──────────────────────────────────────────────── */}
-                    <Section style={{ backgroundColor:'#0d0d0d' }}>
-                        <SectionTitle center>Perguntas <Text style={{ color:ACCENT }}>frequentes</Text></SectionTitle>
-                        <View style={{ marginTop: 20 }}>
+                        <View style={{ maxWidth: 800, width: '100%', alignSelf: 'center' }}>
                             {FAQ.map((item, i) => (
                                 <TouchableOpacity
                                     key={i}
-                                    style={[styles.faqItem, { borderColor: openFaq === i ? ACCENT + '40' : '#1a1a1a' }]}
+                                    style={[styles.faqCard, openFaq === i && { borderColor: ACCENT }]}
                                     onPress={() => setOpenFaq(openFaq === i ? null : i)}
                                     activeOpacity={0.8}
                                 >
-                                    <View style={{ flexDirection:'row', alignItems:'center', justifyContent:'space-between' }}>
-                                        <Text style={[styles.faqQ, { flex:1, paddingRight:12 }]}>{item.q}</Text>
-                                        <MaterialCommunityIcons
-                                            name={openFaq === i ? 'chevron-up' : 'chevron-down'}
-                                            size={22}
-                                            color={openFaq === i ? ACCENT : '#555'}
-                                        />
+                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Text style={styles.faqQ}>{item.q}</Text>
+                                        <MaterialCommunityIcons name={openFaq === i ? 'minus' : 'plus'} size={20} color={ACCENT} />
                                     </View>
-                                    {openFaq === i && (
-                                        <Text style={styles.faqA}>{item.a}</Text>
-                                    )}
+                                    {openFaq === i && <Text style={styles.faqA}>{item.a}</Text>}
                                 </TouchableOpacity>
                             ))}
                         </View>
-                    </Section>
+                    </View>
 
-                    {/* ── CTA FINAL ────────────────────────────────────────── */}
-                    <LinearGradient colors={[DARK, '#0f1a0a']} style={styles.ctaFinal}>
-                        <FadeIn style={{ alignItems: 'center' }}>
-                            <MaterialCommunityIcons name="trophy" size={56} color={ACCENT} style={{ marginBottom:20 }} />
-                            <Text style={[styles.heroTitle, { textAlign:'center' }]}>
-                                Pronto para <Text style={{ color:ACCENT }}>começar?</Text>
-                            </Text>
-                            <Text style={[styles.sectionSub, { textAlign:'center', maxWidth: 400 }]}>
-                                Faça seu cadastro agora e receba aprovação em até 24 horas.
-                            </Text>
-                            <View style={{ marginTop:30, width: '100%', maxWidth: 360 }}>
-                                <TouchableOpacity
-                                    style={[styles.heroCTA, { backgroundColor: ACCENT, marginBottom: 16 }]}
-                                    onPress={scrollToPlans}
-                                >
-                                    <Text style={{ color:'#000', fontWeight:'900', fontSize:16, marginRight: 8 }}>FAZER CADASTRO AGORA</Text>
-                                    <MaterialCommunityIcons name="arrow-up" size={20} color="#000" />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.heroCTA, { backgroundColor:'transparent', borderWidth:1, borderColor:'#25D366' }]}
-                                    onPress={handleWhatsApp}
-                                >
-                                    <MaterialCommunityIcons name="whatsapp" size={20} color="#25D366" style={{ marginRight: 8 }} />
-                                    <Text style={{ color:'#25D366', fontWeight:'900', fontSize:14 }}>FALAR COM A EQUIPE</Text>
-                                </TouchableOpacity>
-                            </View>
-                            <Text style={{ color:'#444', fontSize:12, textAlign:'center', marginTop:20 }}>
-                                Sem fidelidade · Cancele quando quiser · Suporte humano
-                            </Text>
-                        </FadeIn>
-                    </LinearGradient>
+                    {/* ── BOTTOM CTA ─────────────────────────────────────────── */}
+                    <View style={styles.bottomCTA}>
+                        <LinearGradient colors={[ACCENT_GLOW, 'transparent']} style={StyleSheet.absoluteFill} />
+                        <Text style={[styles.heroTitle, { fontSize: 32 }]}>Menos caos.{'\n'}Mais <Text style={{ color: ACCENT }}>controle.</Text></Text>
+                        <Text style={[styles.heroSubtitle, { marginBottom: 30 }]}>Junte-se a dezenas de profissionais que organizaram a consultoria com o ELITE FIT.</Text>
+                        <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: ACCENT, paddingHorizontal: 40 }]} onPress={scrollToPlans}>
+                            <Text style={styles.btnPrimaryText}>Começar grátis agora</Text>
+                        </TouchableOpacity>
+                    </View>
 
                 </View>
             </ScrollView>
@@ -537,50 +380,73 @@ export default function CoachPropostaScreen({ navigation }) {
     );
 }
 
-// ─── STYLES ──────────────────────────────────────────────────────────────────
+// ─── STYLES SAAS PREMIUM ──────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-    hero:              { padding:32, alignItems:'center', paddingBottom:60 },
-    heroLogo:          { width:240, height:88, marginBottom:24 },
-    heroBadge:         { flexDirection:'row', alignItems:'center', backgroundColor:'#8BC34A18', borderWidth:1, borderColor:'#8BC34A40', paddingHorizontal:16, paddingVertical:8, borderRadius:24, marginBottom:24 },
-    heroTitle:         { color:'#fff', fontSize:36, fontWeight:'900', textAlign:'center', lineHeight:44, marginBottom:16 },
-    heroSubtitle:      { color:'#888', fontSize:16, textAlign:'center', lineHeight:26, marginBottom:32, maxWidth: 600 },
-    heroStats:         { backgroundColor:'#111', borderRadius:16, borderWidth:1, borderColor:'#1a1a1a', overflow:'hidden', marginBottom: 32 },
-    heroStat:          { flex:1, alignItems:'center', paddingVertical:16, paddingHorizontal: 20, borderRightWidth:1, borderRightColor:'#1a1a1a' },
-    heroCTA:           { flexDirection:'row', alignItems:'center', justifyContent:'center', paddingVertical:18, paddingHorizontal:32, borderRadius:16, width:'100%' },
+    headerLogo: { width: '100%', alignItems: 'center', paddingTop: 30, paddingBottom: 20 },
     
-    sectionTitle:      { color:'#fff', fontSize:28, fontWeight:'900', marginBottom:10, lineHeight:36 },
-    sectionSub:        { color:'#888', fontSize:15, lineHeight:24, marginBottom:32 },
+    heroSection: { alignItems: 'center', paddingTop: 40, paddingBottom: 60 },
+    heroBadge: { color: ACCENT, fontSize: 11, fontWeight: '900', letterSpacing: 1.5, marginBottom: 20, backgroundColor: ACCENT_GLOW, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, overflow: 'hidden' },
+    heroTitle: { color: '#FFF', fontSize: 48, fontWeight: '900', textAlign: 'center', lineHeight: 56, marginBottom: 24, letterSpacing: -1 },
+    heroSubtitle: { color: TEXT_MUTED, fontSize: 18, textAlign: 'center', lineHeight: 28, maxWidth: 700, marginBottom: 40 },
+    heroButtonGroup: { flexDirection: 'row', gap: 16, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 24 },
+    heroMicrocopy: { color: TEXT_MUTED, fontSize: 12, fontWeight: '600' },
     
-    diferencialCard:   { backgroundColor:'#111', borderRadius:20, borderWidth:1, borderColor:'#1a1a1a', padding:24, flex: 1 },
-    diferencialIcon:   { width:56, height:56, borderRadius:16, alignItems:'center', justifyContent:'center', marginBottom:16 },
-    diferencialTitle:  { color:'#fff', fontWeight:'900', fontSize:16, marginBottom:8 },
-    diferencialDesc:   { color:'#777', fontSize:14, lineHeight:22 },
-    
-    vsTable:           { borderRadius:20, borderWidth:1, overflow:'hidden' },
-    vsRow:             { flexDirection:'row', alignItems:'center' },
-    vsCell:            { flex:1, padding:16, color:'#aaa', fontSize:12, fontWeight:'700', textAlign:'center' },
-    
-    planCard:          { backgroundColor:'#111', borderRadius:24, padding:28, position:'relative', display: 'flex', flexDirection: 'column', height: '100%' },
-    planBadge:         { position:'absolute', top:-1, right:24, paddingHorizontal:12, paddingVertical:6, borderBottomLeftRadius:8, borderBottomRightRadius:8 },
-    planIconBox:       { width:64, height:64, borderRadius:20, alignItems:'center', justifyContent:'center', marginBottom:16 },
-    planTitle:         { fontSize:22, fontWeight:'900', marginBottom:4 },
-    planSub:           { color:'#777', fontSize:14, marginBottom:8 },
-    planCTA:           { padding:16, borderRadius:14, alignItems:'center', marginTop: 'auto' },
-    promoCard:         { flexDirection:'row', alignItems:'flex-start', padding:20, borderRadius:20, borderWidth:1, marginTop:24 },
-    
-    stepCard:          { backgroundColor:'#111', borderRadius:20, borderWidth:1, borderColor:'#1a1a1a', padding:28, alignItems:'center', position:'relative', flex: 1 },
-    stepNum:           { width:56, height:56, borderRadius:28, borderWidth:1, alignItems:'center', justifyContent:'center', marginBottom:8 },
-    stepTitle:         { color:'#fff', fontWeight:'900', fontSize:17, textAlign:'center', marginBottom:8 },
-    stepDesc:          { color:'#777', fontSize:14, textAlign:'center', lineHeight:22 },
-    stepArrow:         { position:'absolute', right:-26, top:'50%' },
-    
-    testimonialCard:   { backgroundColor:'#111', borderRadius:20, borderWidth:1, borderColor:'#1a1a1a', padding:24, flex: 1, justifyContent: 'space-between' },
-    testimonialText:   { color:'#aaa', fontSize:14, lineHeight:24, marginTop:12, fontStyle:'italic' },
-    testimonialAvatar: { width:44, height:44, borderRadius:22, alignItems:'center', justifyContent:'center' },
-    
-    faqItem:           { borderWidth:1, borderRadius:16, padding:20, marginBottom:12, backgroundColor: '#111' },
-    faqQ:              { color:'#fff', fontWeight:'900', fontSize:15 },
-    faqA:              { color:'#888', fontSize:14, lineHeight:22, marginTop:12 },
-    
-    ctaFinal:          { paddingHorizontal: 32, paddingVertical: 60, alignItems:'center' },
+    btnPrimary: { backgroundColor: ACCENT, paddingVertical: 16, paddingHorizontal: 28, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    btnPrimaryText: { color: '#000', fontSize: 15, fontWeight: '900', letterSpacing: 0.5 },
+    btnSecondary: { backgroundColor: 'transparent', borderWidth: 1, borderColor: '#333', paddingVertical: 16, paddingHorizontal: 28, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+    btnSecondaryText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+
+    mockupContainer: { width: '100%', maxWidth: 800, alignSelf: 'center', position: 'relative', marginTop: 20, marginBottom: 60 },
+    mockupGlow: { position: 'absolute', top: -30, left: '10%', right: '10%', height: 200, opacity: 0.5, borderRadius: 100, transform: [{ scaleY: 0.5 }], filter: 'blur(40px)' },
+    mockupInner: { backgroundColor: SURFACE, borderWidth: 1, borderColor: BORDER, borderRadius: 16, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.8, shadowRadius: 30, elevation: 10 },
+    mockupHeader: { backgroundColor: '#111118', paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: BORDER },
+    mockupDot: { width: 10, height: 10, borderRadius: 5 },
+    mockupContent: { padding: 24, minHeight: 200 },
+    mockupCard: { flex: 1, backgroundColor: '#16161E', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#222' },
+    mockupLabel: { color: TEXT_MUTED, fontSize: 10, fontWeight: '900', letterSpacing: 1, marginBottom: 8 },
+    mockupValue: { color: '#FFF', fontSize: 22, fontWeight: 'bold', marginBottom: 4 },
+    mockupTrend: { color: ACCENT, fontSize: 11, fontWeight: 'bold' },
+
+    metricsRow: { flexDirection: 'row', gap: 20, justifyContent: 'center', marginBottom: 60 },
+    metricCard: { flex: 1, alignItems: 'center', padding: 24, backgroundColor: SURFACE, borderRadius: 16, borderWidth: 1, borderColor: BORDER },
+    metricValue: { color: '#FFF', fontSize: 36, fontWeight: '900', marginBottom: 8 },
+    metricLabel: { color: ACCENT, fontSize: 10, fontWeight: '900', letterSpacing: 1.5 },
+
+    sectionSpacing: { marginTop: 80, width: '100%' },
+    sectionMiniTitle: { color: TEXT_MUTED, fontSize: 11, fontWeight: '900', letterSpacing: 1.5, textAlign: 'center', marginBottom: 12 },
+    sectionTitle: { color: '#FFF', fontSize: 32, fontWeight: '900', letterSpacing: -0.5, marginBottom: 40 },
+
+    vsContainer: { maxWidth: 700, width: '100%', alignSelf: 'center' },
+    vsHeaderRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: 16 },
+    vsHeaderBad: { flex: 1, textAlign: 'center', color: TEXT_MUTED, fontSize: 12, fontWeight: 'bold', marginRight: 10 },
+    vsHeaderGood: { flex: 1, textAlign: 'center', color: ACCENT, fontSize: 12, fontWeight: 'bold', marginLeft: 10 },
+    vsRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'center' },
+    vsCardBad: { flex: 1, backgroundColor: '#111', padding: 16, borderRadius: 12, marginRight: 10, opacity: 0.7 },
+    vsCardGood: { flex: 1, backgroundColor: 'rgba(139, 195, 74, 0.08)', padding: 16, borderRadius: 12, marginLeft: 10, borderWidth: 1, borderColor: 'rgba(139, 195, 74, 0.2)', flexDirection: 'row', alignItems: 'center' },
+    vsTextBad: { color: '#666', fontSize: 13, fontWeight: '600', textAlign: 'center' },
+    vsTextGood: { color: '#FFF', fontSize: 13, fontWeight: '800' },
+
+    featureCard: { backgroundColor: SURFACE, padding: 24, borderRadius: 16, borderWidth: 1, borderColor: BORDER, width: '100%' },
+    featureIconBox: { width: 48, height: 48, borderRadius: 12, backgroundColor: '#16161E', alignItems: 'center', justifyContent: 'center', marginBottom: 16, borderWidth: 1, borderColor: '#222' },
+    featureTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', marginBottom: 8 },
+    featureDesc: { color: TEXT_MUTED, fontSize: 14, lineHeight: 22 },
+
+    pricingCard: { backgroundColor: SURFACE, padding: 32, borderRadius: 20, borderWidth: 1, borderColor: BORDER, width: '100%', maxWidth: 350 },
+    pricingCardHighlighted: { borderColor: ACCENT, backgroundColor: '#0B1008', shadowColor: ACCENT, shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
+    pricingBadge: { position: 'absolute', top: -12, alignSelf: 'center', backgroundColor: ACCENT, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 100 },
+    pricingBadgeText: { color: '#000', fontSize: 9, fontWeight: '900', letterSpacing: 1 },
+    pricingTitle: { color: '#FFF', fontSize: 20, fontWeight: '900', marginBottom: 4 },
+    pricingSubtitle: { color: TEXT_MUTED, fontSize: 13, marginBottom: 24 },
+    priceRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 24, borderBottomWidth: 1, borderBottomColor: BORDER, paddingBottom: 24 },
+    priceValue: { color: '#FFF', fontSize: 36, fontWeight: '900', lineHeight: 40 },
+    pricePeriod: { color: TEXT_MUTED, fontSize: 14, fontWeight: 'bold', marginBottom: 6, marginLeft: 4 },
+    featuresList: { gap: 12, marginBottom: 32, flex: 1 },
+    featureLine: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+    featureLineText: { color: '#CCC', fontSize: 13 },
+
+    faqCard: { backgroundColor: SURFACE, padding: 20, borderRadius: 12, borderWidth: 1, borderColor: BORDER, marginBottom: 12 },
+    faqQ: { color: '#FFF', fontSize: 15, fontWeight: 'bold', flex: 1, paddingRight: 10 },
+    faqA: { color: TEXT_MUTED, fontSize: 14, lineHeight: 22, marginTop: 12 },
+
+    bottomCTA: { marginTop: 100, alignItems: 'center', backgroundColor: SURFACE, paddingVertical: 60, paddingHorizontal: 20, borderRadius: 24, borderWidth: 1, borderColor: BORDER, position: 'relative', overflow: 'hidden' },
 });
