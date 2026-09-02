@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getInitialTechGuide } from './techGuideData';
 import { applyMaskToString, applyIntensityMaskToBlocks } from './workoutMaskUtils';
-import { authHeaders } from '../../utils/authToken';
+import { authHeaders, clearAuthToken } from '../../utils/authToken';
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
@@ -387,6 +387,22 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
         });
 
         return { success: true };
+      } else if (res.status === 401) {
+        // 🔥 CORRIGIDO: alunos que fizeram login ANTES da rota exigir token
+        // (JWT) nunca tinham um authToken salvo -- ficavam presos aqui pra
+        // sempre em "Falha ao salvar no servidor", sem saber que precisavam
+        // logar de novo (o app nunca pedia, achava que já estavam logados
+        // por causa do 'user' salvo). O rascunho do treino (pesos/reps já
+        // preenchidos) fica salvo em draftKey e não depende de login, então
+        // ao logar de novo o aluno volta pro mesmo dia e finaliza sem perder
+        // nada.
+        const msg = "Sua sessão expirou. Faça login novamente pra continuar -- os pesos e séries que você já preencheu neste treino não serão perdidos.";
+        if (Platform.OS === 'web') window.alert(msg);
+        else Alert.alert("Sessão expirada", msg);
+        await AsyncStorage.multiRemove(['user', 'token', 'role', 'original_admin_user', 'original_admin_role']);
+        await clearAuthToken();
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        return { success: false };
       } else {
         if (Platform.OS === 'web') window.alert("Falha ao salvar no servidor.");
         else Alert.alert("Erro", "Falha ao salvar no servidor.");
