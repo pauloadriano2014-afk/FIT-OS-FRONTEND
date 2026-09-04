@@ -6,6 +6,7 @@ import {
     useWindowDimensions, ActivityIndicator, TouchableWithoutFeedback
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { authHeaders } from '../utils/authToken';
 
 const BASE_URL = 'https://fitos-final.onrender.com';
 
@@ -86,7 +87,10 @@ export default function FoodSearchModal({
             
             params.set('t', Date.now().toString());
 
-            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal });
+            // 🔥 CORRIGIDO: essa rota passou a exigir login verificado (JWT) e
+            // esse fetch nunca mandava o token -- toda busca (por nome ou por
+            // categoria) vinha 401 e caía sempre em "Nenhum alimento encontrado".
+            const res  = await fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal, headers: { ...(await authHeaders()) } });
             const data = await res.json();
             const newFoods = data.foods ?? [];
             setFoods(prev => append ? [...prev, ...newFoods] : newFoods);

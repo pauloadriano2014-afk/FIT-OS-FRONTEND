@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BASE_URL, MC, CATEGORIES } from '../../utils/dietBuilderUtils';
+import { authHeaders } from '../../utils/authToken';
 
 function useDebounce(value, delay) {
     const [dv, setDv] = useState(value);
@@ -39,7 +40,10 @@ export default function FoodSearchPanel({ coachId, onSelect, theme, groupFoodIds
         if (debouncedSearch.length >= 2) params.set('q', debouncedSearch);
         if (category !== 'Todas') params.set('category', category);
 
-        fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal })
+        // 🔥 CORRIGIDO: rota exige JWT desde a trava de auth -- faltava mandar
+        // o token aqui, então toda busca (nome/categoria) vinha 401 em silêncio
+        // e a lista sempre ficava vazia.
+        authHeaders().then(authHdrs => fetch(`${BASE_URL}/api/food/search?${params}`, { signal: ctrl.signal, headers: { ...authHdrs } })
             .then(r => r.json())
             .then(async d => {
                 const foods = d.foods ?? [];
@@ -53,7 +57,7 @@ export default function FoodSearchPanel({ coachId, onSelect, theme, groupFoodIds
                             const p2 = new URLSearchParams({ coachId, limit:'500', page:String(p), favorites: tab==='favorites' ? 'true' : 'false' });
                             if (debouncedSearch.length >= 2) p2.set('q', debouncedSearch);
                             if (category !== 'Todas') p2.set('category', category);
-                            const r2 = await fetch(`${BASE_URL}/api/food/search?${p2}`);
+                            const r2 = await fetch(`${BASE_URL}/api/food/search?${p2}`, { headers: { ...authHdrs } });
                             const d2 = await r2.json();
                             all = [...all, ...(d2.foods ?? [])];
                             setResults([...all]);
@@ -62,7 +66,7 @@ export default function FoodSearchPanel({ coachId, onSelect, theme, groupFoodIds
                 }
             })
             .catch(e => { if (e.name !== 'AbortError') console.error('[FoodSearchPanel]', e); })
-            .finally(() => setLoading(false));
+            .finally(() => setLoading(false)));
     }, [debouncedSearch, tab, coachId, category]);
 
     return (

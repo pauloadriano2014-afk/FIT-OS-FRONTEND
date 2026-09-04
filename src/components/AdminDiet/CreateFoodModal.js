@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { BASE_URL, CATEGORIES } from '../../constants/foodManagerConstants';
+import { authHeaders } from '../../utils/authToken';
 
 export default function CreateFoodModal({ visible, onClose, onCreated, coachId, theme }) {
     const EMPTY = { name:'', category:'Carnes e Proteínas', subcategory:'', baseUnit:'g', kcal:'', protein:'', carbs:'', fat:'', fiber:'' };
@@ -30,9 +31,11 @@ export default function CreateFoodModal({ visible, onClose, onCreated, coachId, 
         if (!validate()) return;
         setSaving(true);
         try {
+            // 🔥 CORRIGIDO: faltava o token JWT -- rota travada por auth, dava 401
+            // e "cadastrar alimento" nunca salvava.
             const res = await fetch(`${BASE_URL}/api/food`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
                 body: JSON.stringify({
                     coachId,
                     name:        form.name,
