@@ -1,10 +1,10 @@
 // src/screens/CoachPropostaScreen.js
-// Landing page de captação de coaches (Versão Otimizada com SmartBanners)
+// Landing page de captação de coaches (Estrutura raiz 100% original restaurada)
 import React, { useEffect, useRef, useState } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, TouchableOpacity,
     Platform, useWindowDimensions, Linking, Image,
-    StatusBar, Dimensions, SafeAreaView
+    StatusBar, Dimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -16,9 +16,8 @@ const ACCENT  = '#8BC34A';
 const TEXT_MUTED = '#7A7A8C';
 
 const isWeb = Platform.OS === 'web';
-const RootComponent = isWeb ? View : SafeAreaView;
 
-// ─── PLANOS E DADOS (Mantidos em código para interação) ────────────────────────
+// ─── PLANOS E DADOS ────────────────────────────────────────────────────────────
 const PLANS = [
     {
         key: 'PERSONAL', icon: 'dumbbell', color: '#32ADE6', title: 'Personal Trainer', subtitle: 'O fim das planilhas de treino', price: 'R$ 97', period: '/mês', highlight: false,
@@ -49,7 +48,7 @@ const SmartBanner = ({ source, children, style }) => {
     const screenWidth = Dimensions.get('window').width;
     const maxWidth = 1000; 
     const availableWidth = screenWidth > maxWidth ? maxWidth : screenWidth;
-    const paddingHorizontal = 48; // 24 de cada lado
+    const paddingHorizontal = 48; 
     const containerWidth = availableWidth - paddingHorizontal;
 
     useEffect(() => {
@@ -74,7 +73,7 @@ const SmartBanner = ({ source, children, style }) => {
     return (
         <View style={[styles.smartBannerContainer, style, { height: imageHeight }]}>
             <Image source={source} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} resizeMode="cover" />
-            {children && (<View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>{children}</View>)}
+            {children && (<View pointerEvents="box-none" style={StyleSheet.absoluteFill}>{children}</View>)}
         </View>
     );
 };
@@ -102,17 +101,13 @@ export default function CoachPropostaScreen({ navigation }) {
         Linking.openURL(`whatsapp://send?phone=5541997991346&text=Olá! Tenho interesse em ser coach parceiro no ELITE FIT - Consultoria de alta performance.`).catch(() => {});
     };
 
+    // AQUI: Usando EXATAMENTE a estrutura raiz que você enviou antes de começarmos a mexer nas artes
     return (
-        <RootComponent style={styles.container}>
+        <View style={{ flex: 1, backgroundColor: DARK_BG, height: isWeb ? '100vh' : '100%', overflow: 'hidden' }}>
             <StatusBar barStyle="light-content" backgroundColor={DARK_BG} />
             
-            <ScrollView 
-                ref={scrollRef} 
-                style={{ flex: 1, width: '100%' }} 
-                showsVerticalScrollIndicator={false} 
-                contentContainerStyle={styles.scrollContent}
-            >
-                <View style={styles.webWrapper}>
+            <ScrollView ref={scrollRef} style={{ flex: 1, width: '100%' }} showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1, alignItems: 'center' }}>
+                <View style={{ maxWidth: 1000, width: '100%', paddingHorizontal: 24, paddingBottom: 100 }}>
 
                     {/* ── HEADER ───────────────────────── */}
                     <View style={[styles.headerRow, { paddingTop: Platform.OS === 'ios' ? 50 : 20 }]}>
@@ -126,9 +121,9 @@ export default function CoachPropostaScreen({ navigation }) {
                     </View>
 
                     {/* ── HERO BANNER ────────────────────────────────────────────── */}
-                    <SmartBanner source={require('../../assets/hero-coach-app.png')} style={{ marginBottom: 20 }}>
-                        <TouchableOpacity activeOpacity={0.8} onPress={scrollToPlans} style={styles.invisibleButtonHero} />
-                    </SmartBanner>
+                    <TouchableOpacity activeOpacity={0.9} onPress={scrollToPlans} style={{ width: '100%' }}>
+                        <SmartBanner source={require('../../assets/hero-coach-app.png')} style={{ marginBottom: 20 }} />
+                    </TouchableOpacity>
 
                     {/* ── MOCKUP & MÉTRICAS ──────────────────────────────────────── */}
                     <SmartBanner source={require('../../assets/mockup-coach-app.png')} style={{ marginBottom: 20 }} />
@@ -205,9 +200,9 @@ export default function CoachPropostaScreen({ navigation }) {
 
                     {/* ── CTA FINAL BANNER ───────────────────────────────────────── */}
                     <View style={{ marginTop: 60, width: '100%', alignItems: 'center' }}>
-                        <SmartBanner source={require('../../assets/cta-final-coach-app.png')} style={{ marginBottom: 0, width: '100%' }}>
-                            <TouchableOpacity activeOpacity={0.8} onPress={scrollToPlans} style={styles.invisibleButtonCTA} />
-                        </SmartBanner>
+                        <TouchableOpacity activeOpacity={0.9} onPress={scrollToPlans} style={{ width: '100%' }}>
+                            <SmartBanner source={require('../../assets/cta-final-coach-app.png')} style={{ marginBottom: 0 }} />
+                        </TouchableOpacity>
                         
                         <TouchableOpacity style={[styles.btnSecondary, { borderColor: '#25D366', marginTop: 20 }]} onPress={handleWhatsApp} activeOpacity={0.8}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -219,16 +214,12 @@ export default function CoachPropostaScreen({ navigation }) {
 
                 </View>
             </ScrollView>
-        </RootComponent>
+        </View>
     );
 }
 
 // ─── STYLES SAAS PREMIUM OTIMIZADOS ───────────────────────────────────────────
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: DARK_BG, height: isWeb ? '100vh' : '100%' },
-    scrollContent: { flexGrow: 1 },
-    webWrapper: { maxWidth: 1000, width: '100%', alignSelf: 'center', paddingHorizontal: 24, paddingBottom: 100 },
-
     headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 20 },
     backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', justifyContent: 'center', alignItems: 'center' },
     headerLogoWrapper: { flex: 1, alignItems: 'center' },
@@ -241,24 +232,6 @@ const styles = StyleSheet.create({
         borderWidth: 1, 
         borderColor: BORDER,
         alignSelf: 'center'
-    },
-
-    // Botões invisíveis aplicados diretamente onde você desenhou os CTAs nas imagens
-    invisibleButtonHero: {
-        position: 'absolute',
-        bottom: '5%',
-        left: '10%',
-        right: '10%',
-        height: '20%',
-        zIndex: 20
-    },
-    invisibleButtonCTA: {
-        position: 'absolute',
-        bottom: '10%',
-        left: '10%',
-        right: '10%',
-        height: '35%',
-        zIndex: 20
     },
 
     sectionSpacing: { marginTop: 80, width: '100%' },
