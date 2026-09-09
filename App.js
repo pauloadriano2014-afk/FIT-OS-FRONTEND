@@ -27,6 +27,7 @@ import AnamneseScreen from './src/screens/AnamneseScreen';
 import AnamneseVIPScreen from './src/screens/AnamneseVIPScreen';
 import SetupTreinoScreen from './src/screens/SetupTreinoScreen';
 import PropostaScreen from './src/screens/PropostaScreen';
+import PropostaBioScreen from './src/screens/PropostaBioScreen';
 import PropostaStartScreen from './src/screens/PropostaStartScreen';
 import PropostaMaesScreen from './src/screens/PropostaMaesScreen';
 import PropostaNavegantesScreen from './src/screens/PropostaNavegantesScreen';
@@ -260,6 +261,7 @@ function RootNavigator() {
       <Stack.Screen name="AnamneseVIP" component={AnamneseVIPScreen} />
       <Stack.Screen name="SetupTreino" component={SetupTreinoScreen} />
       <Stack.Screen name="Proposta" component={PropostaScreen} />
+      <Stack.Screen name="PropostaBio" component={PropostaBioScreen} />
       <Stack.Screen name="PropostaStart" component={PropostaStartScreen} />
       <Stack.Screen name="PropostaMaes" component={PropostaMaesScreen} />
       <Stack.Screen name="PropostaNavegantes" component={PropostaNavegantesScreen} />
@@ -330,6 +332,7 @@ const linking = {
     screens: {
       Install: { path: 'registro' },
       Proposta: { path: 'Proposta' },
+      PropostaBio: { path: 'consultoria' },
       PropostaStart: { path: 'PropostaStart' },
       PropostaMaes: { path: 'PropostaMaes' },
       PropostaNavegantes: { path: 'PropostaNavegantes' },

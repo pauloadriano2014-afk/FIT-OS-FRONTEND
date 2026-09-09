@@ -1,7 +1,7 @@
 // src/screens/PropostaStartScreen.js
 import React, { useState, useEffect } from 'react';
-import { 
-    View, Text, StyleSheet, ScrollView, TouchableOpacity, 
+import {
+    View, Text, StyleSheet, ScrollView, TouchableOpacity,
     Linking, Platform, SafeAreaView, Animated, Image, Dimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,10 +9,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { linksAlunos } from '../utils/linksAlunos';
-import ModernResultCard from '../components/ModernResultCard';
-import FeedbackCard from '../components/FeedbackCard';
 import FaqAccordion from '../components/FaqAccordion';
-import BonusCard from '../components/BonusCard';
+import ExpandableBeforeAfterGrid from '../components/ExpandableBeforeAfterGrid';
+import ExpandableWhatsAppGrid from '../components/ExpandableWhatsAppGrid';
 
 const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
@@ -28,6 +27,78 @@ const faqList = [
     { q: "Como funciona a Ficha de 8 Semanas?", a: "É um protocolo de 56 dias focado num objetivo específico (como pernas, hipertrofia ou emagrecimento). Você faz uma avaliação no dia 1 e outra no dia 56 para medirmos sua evolução." },
     { q: "Posso evoluir para a consultoria completa depois?", a: "Sim, e é exatamente assim que funciona para muitos alunos. Você começa pelo Start, aplica o método, sente a diferença — e quando estiver pronto, a migração para o plano Elite VIP ou Performance é simples e sem burocracia." }
 ];
+
+// 🔥 SmartBanner: mede a proporção real da imagem (Image.resolveAssetSource,
+// API pública do RN) e calcula a altura pra caber a largura do container sem
+// cortar nem esticar. Mesmo padrão usado na PropostaScreen/CoachProposta.
+const SmartBanner = ({ source, children, style }) => {
+    const [imageHeight, setImageHeight] = useState(200);
+
+    const screenWidth = Dimensions.get('window').width;
+    const maxWidth = 600;
+    const availableWidth = screenWidth > maxWidth ? maxWidth : screenWidth;
+    const paddingHorizontal = 50; // acompanha o padding 25 do scrollContent (25 de cada lado)
+    const containerWidth = availableWidth - paddingHorizontal;
+
+    useEffect(() => {
+        let isMounted = true;
+        const updateHeight = (w, h) => {
+            if (isMounted && w && h) {
+                setImageHeight((containerWidth * h) / w);
+            }
+        };
+
+        if (typeof source === 'number') {
+            const sourceAsset = Image.resolveAssetSource(source);
+            if (sourceAsset) { updateHeight(sourceAsset.width, sourceAsset.height); }
+        } else if (source && source.uri) {
+            Image.getSize(source.uri, (w, h) => { updateHeight(w, h); }, () => {});
+        }
+        return () => { isMounted = false; };
+    }, [source, containerWidth]);
+
+    return (
+        <View style={[styles.smartBannerContainer, style, { height: imageHeight }]}>
+            <Image source={source} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }} resizeMode="cover" />
+            {children && (<View style={[StyleSheet.absoluteFill, { zIndex: 10 }]}>{children}</View>)}
+        </View>
+    );
+};
+
+// 🔥 MentorCarousel: mesmo carrossel (e mesmas artes) usado na Proposta —
+// texto e fotos são genéricos, não falam de plano nenhum, então dá pra
+// reaproveitar 100% aqui na página do Start.
+const MentorCarousel = () => {
+    const screenWidth = Dimensions.get('window').width;
+    const maxWidth = 600;
+    const availableWidth = screenWidth > maxWidth ? maxWidth : screenWidth;
+    const containerWidth = availableWidth - 50;
+
+    return (
+        <View style={styles.smartBannerContainer}>
+            <ScrollView
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                bounces={true}
+                nestedScrollEnabled={true}
+            >
+                <View style={{ width: containerWidth }}>
+                    <SmartBanner
+                        source={require('../../assets/mentor-app.png')}
+                        style={{ marginBottom: 0, borderWidth: 0, borderRadius: 0 }}
+                    />
+                </View>
+                <View style={{ width: containerWidth }}>
+                    <SmartBanner
+                        source={require('../../assets/mentor-transformacao.jpg')}
+                        style={{ marginBottom: 0, borderWidth: 0, borderRadius: 0 }}
+                    />
+                </View>
+            </ScrollView>
+        </View>
+    );
+};
 
 export default function PropostaStartScreen({ route }) {
     const rawName = route?.params?.nome?.trim() || '';
@@ -156,14 +227,8 @@ export default function PropostaStartScreen({ route }) {
                             <Text style={styles.timerText}>ESTE LINK EXPIRA EM: {formatTime(timeLeft)}</Text>
                         </View>
                         <Text style={styles.heroGreeting}>FALA, {displayName}! ⚡</Text>
-                        <Text style={styles.heroTitle}>
-                            O MÉTODO É O MESMO.{"\n"}
-                            <Text style={{ color: MAIN_COLOR }}>O PONTO DE ENTRADA É O SEU.</Text>
-                        </Text>
-                        <Text style={styles.heroSub}>
-                            Não importa por onde você começa — o que importa é que você começa com direção.
-                            Aqui você aplica a mesma metodologia do Campeão Natural no plano que cabe no seu momento agora.
-                        </Text>
+
+                        <SmartBanner source={require('../../assets/hero-start-app.png')} />
 
                         {/* Reframe: não é produto de segunda linha */}
                         <View style={styles.reframeBox}>
@@ -176,6 +241,8 @@ export default function PropostaStartScreen({ route }) {
                     </View>
 
                     {/* ── PLANOS — PREÇO NO TOPO ────────────────────────────────── */}
+                    {/* 🔜 Pendente: virar banner (comparativo-start-app.png) — mantido em
+                        código por enquanto até a arte ficar pronta. */}
                     <Text style={styles.sectionTitle}>ESCOLHA SEU PONTO DE PARTIDA</Text>
                     <Text style={styles.sectionSub}>
                         Dois formatos. Um método. Escolha o que faz sentido para o seu momento agora.
@@ -265,126 +332,47 @@ export default function PropostaStartScreen({ route }) {
                         </View>
                     </View>
 
-                    {/* ── ARSENAL ───────────────────────────────────────────────── */}
-                    <Text style={[styles.sectionTitle, { marginTop: 40 }]}>A RESPOSTA PARA SEUS PROBLEMAS</Text>
-                    <Text style={styles.sectionSub}>Nós eliminamos as falhas ocultas que te impedem de chegar ao shape dos sonhos.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="shield-check" size={32} color={MAIN_COLOR} /></View>
-                            <Text style={styles.arsenalTitle}>Treino Seguro e Sem Dor</Text>
-                            <Text style={styles.arsenalDesc}>Você finalmente vai sentir o músculo trabalhando — sem dor nas articulações e sem ficar perdido tentando lembrar como executar a série.</Text>
-                        </View>
-                        <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="trending-up" size={32} color={MAIN_COLOR} /></View>
-                            <Text style={styles.arsenalTitle}>O Fim da Estagnação</Text>
-                            <Text style={styles.arsenalDesc}>Toda vez que o peso ou os músculos pararem de responder, ajustamos a estratégia antes que você desanime.</Text>
-                        </View>
-                        <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="chat-processing-outline" size={32} color={MAIN_COLOR} /></View>
-                            <Text style={styles.arsenalTitle}>Você Nunca Estará Sozinho</Text>
-                            <Text style={styles.arsenalDesc}>Tem uma dúvida? O suporte garante que você sempre saiba qual é o próximo passo. Nunca mais fica preso sem resposta.</Text>
-                        </View>
-                        <View style={styles.arsenalCard}>
-                            <View style={styles.featureIconBox}><MaterialCommunityIcons name="chart-areaspline" size={32} color={MAIN_COLOR} /></View>
-                            <Text style={styles.arsenalTitle}>Progresso Incontestável</Text>
-                            <Text style={styles.arsenalDesc}>Acompanhe cada quilo perdido e cada centímetro ganho no seu Painel Evolutivo. Sua evolução nunca mais será esquecida.</Text>
-                        </View>
-                    </ScrollView>
+                    {/* ── ARSENAL / A RESPOSTA PARA SEUS PROBLEMAS ──────────────── */}
+                    <SmartBanner source={require('../../assets/resposta-problemas-start-app.png')} style={{ marginTop: 15, marginBottom: 15 }} />
 
-                    {/* ── IA HIGHLIGHT ──────────────────────────────────────────── */}
-                    <View style={styles.aiHighlightSection}>
-                        <Text style={styles.sectionTitle}>NUNCA MAIS DESPERDICE TEMPO FAZENDO ERRADO</Text>
-                        <Text style={styles.sectionSub}>A maioria das pessoas treina errado e nem percebe — por isso o corpo não muda. Aqui, cada repetição sua é ajustada para realmente gerar resultado.</Text>
-                        <View style={styles.videoContainer9x16}>
-                            {renderYouTubeVideo(linksAlunos.ai_video_id, true)}
-                        </View>
-                    </View>
+                    {/* 🔥 SEM demo de IA aqui de propósito: Ficha 8 Semanas e Plano Start
+                        excluem explicitamente a Análise Biomecânica por IA (ver planCard
+                        acima) — esse banner é exclusivo dos planos Performance/Elite VIP. */}
 
                     {/* ── MENTOR ────────────────────────────────────────────────── */}
-                    <View style={[styles.mentorSection, { marginTop: 40 }]}>
-                        <LinearGradient colors={['rgba(26,26,26,0)', 'rgba(26,26,26,1)']} style={styles.mentorGradientBg} />
-                        <View style={styles.mentorContent}>
-                            <View style={styles.mentorBadgeRow}>
-                                <View style={styles.featureIconBox}>
-                                    <MaterialCommunityIcons name="card-account-details-star-outline" size={28} color={MAIN_COLOR} />
-                                </View>
-                                <View style={{ flex: 1 }}>
-                                    <Text style={styles.mentorSub}>EU JÁ ESTIVE DO OUTRO LADO</Text>
-                                    <Text style={styles.mentorLabelHeader}>O CRIADOR DO MÉTODO:</Text>
-                                    <Text style={styles.mentorNameStrong}>PAULO ADRIANO</Text>
-                                </View>
-                            </View>
-                            <Text style={styles.mentorDesc}>
-                                "Eu sei o que é carregar peso extra e treinar errado. Eu já fui um 'ex-gordo' com 97kg e usei a ciência para me transformar em um Campeão Natural com 77kg. A metodologia que utilizei está toda detalhada no aplicativo."
-                            </Text>
-                            <View style={styles.swipeHintContainer}>
-                                <MaterialCommunityIcons name="gesture-swipe-horizontal" size={24} color={MAIN_COLOR} />
-                                <Text style={styles.swipeHintText}>ARRASTE PARA O LADO E VEJA A TRANSFORMAÇÃO</Text>
-                            </View>
-                            <ScrollView horizontal snapToInterval={340} snapToAlignment="center" decelerationRate="fast" showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainerMentor}>
-                                <View style={styles.imageColMentor}>
-                                    <View style={[styles.imagePlaceholderMentor, { filter: 'grayscale(100%)' }]}>
-                                        <Image source={{ uri: linksAlunos.mentor_desafio_9x16 }} style={styles.resultImageMentorContain} />
-                                    </View>
-                                </View>
-                                <View style={styles.imageColMentor}>
-                                    <View style={styles.imagePlaceholderMentor}>
-                                        <Image source={{ uri: linksAlunos.mentor_vitoria_9x16 }} style={styles.resultImageMentorContain} />
-                                    </View>
-                                </View>
-                            </ScrollView>
-                        </View>
+                    <View style={{ marginTop: 15 }}>
+                        <MentorCarousel />
                     </View>
 
                     {/* ── PROVA SOCIAL ──────────────────────────────────────────── */}
-                    <Text style={[styles.sectionTitle, { marginTop: 40 }]}>A SUA DOR TEM SOLUÇÃO</Text>
-                    <Text style={styles.sectionSub}>Essas pessoas não tinham genética melhor... elas só pararam de tentar sozinhas.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <ModernResultCard goal="🔥 O FIM DA FLACIDEZ: DE UM CORPO SEM FORMA À DEFINIÇÃO ESCULPIDA (Bernard)" montageUri={linksAlunos.bernard_montagem} />
-                        <ModernResultCard goal="🏆 VENCENDO O SOBREPESO: A VIRADA DE CHAVE QUE DERRETEU A GORDURA (Paulo)" montageUri={linksAlunos.paulo_montagem} />
-                        <ModernResultCard goal="🔥 DESTRUINDO A GORDURA VISCERAL: O FIM DA BARRIGA TEIMOSA (Allan)" montageUri={linksAlunos.allan_montagem} />
-                        <ModernResultCard goal="⏳ O FIM DA GORDURINHA NAS COSTAS: CINTURA FINA E CONFIANÇA PARA VESTIR QUALQUER ROUPA (Evelyn)" montageUri={linksAlunos.evelyn_montagem} />
-                        <ModernResultCard goal="💪 DA OBESIDADE À PERFORMANCE: O CORPO QUE ELE ACHOU QUE NUNCA TERIA (Pedro)" montageUri={linksAlunos.pedro_montagem} />
-                        <ModernResultCard goal="⚡️ O FIM DA INSEGURANÇA: UM FÍSICO TOTALMENTE RECONSTRUÍDO (Ana)" montageUri={linksAlunos.ana_montagem} />
-                        <ModernResultCard goal="💣 VENCENDO A GENÉTICA: DE UM CORPO MAGRO A UMA DENSIDADE REAL (Jean)" montageUri={linksAlunos.jean_montagem} />
-                        <ModernResultCard goal="⏱️ A PROVA DE QUE NÃO PRECISA DEMORAR: CHOQUE VISUAL EM 11 DIAS (Yasmin)" montageUri={linksAlunos.yasmin_montagem} />
-                        <ModernResultCard goal="⚖️ VENCENDO A LUTA CONTRA A BALANÇA: UM EMAGRECIMENTO REAL, VISÍVEL E DEFINITIVO (Vane)" montageUri={linksAlunos.vane_montagem} />
-                        <ModernResultCard goal="🥊 MUITO MAIS QUE QUILOS ELIMINADOS: O RESGATE ABSOLUTO DA AUTOESTIMA E QUALIDADE DE VIDA (Bruno)" montageUri={linksAlunos.bruno_montagem} />
-                        <ModernResultCard goal="🔥 O RESGATE DA AUTOESTIMA: SILHUETA NOVA E BARRIGA CHAPADA (Bruna)" montageUri={linksAlunos.bruna_montagem} />
-                        <ModernResultCard goal="🏆 QUEBRANDO PLATÔS: DO TREINO COMUM AO PADRÃO DE PALCO (Adri)" montageUri={linksAlunos.adri_montagem} />
-                    </ScrollView>
+                    <SmartBanner source={require('../../assets/dor-tem-solucao-app.png')} style={{ marginBottom: 5, marginTop: 15 }} />
+                    <SmartBanner source={require('../../assets/subtitulo-resultados-app.png')} style={{ marginBottom: 25, borderWidth: 0, backgroundColor: 'transparent' }} />
+                    <View style={styles.listPadding}>
+                        <ExpandableBeforeAfterGrid />
+                    </View>
 
                     {/* ── FEEDBACKS WHATSAPP ────────────────────────────────────── */}
-                    <Text style={[styles.sectionTitle, { marginTop: 40 }]}>O QUE ELES DIZEM NO WHATSAPP</Text>
-                    <Text style={styles.sectionSub}>A realidade de quem vive o método todos os dias.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <FeedbackCard uri={linksAlunos.feedback_paloma} legend="🤫 10KG ELIMINADOS: CONTRA FATOS NÃO HÁ ARGUMENTOS (Paloma)" />
-                        <FeedbackCard uri={linksAlunos.feedback_eduardo} legend="🚀 A CHAVE VIROU: 5KG ELIMINADOS EM APENAS 42 DIAS (Eduardo)" />
-                        <FeedbackCard uri={linksAlunos.feedback_anne} legend="👖 MEDIDAS DESPENCANDO: A FELICIDADE DA CALÇA LARGONA (Anne)" />
-                        <FeedbackCard uri={linksAlunos.feedback_juliana} legend="🥗 DIETA SEM SOFRIMENTO E RESULTADOS RÁPIDOS (Juliana)" />
-                        <FeedbackCard uri={linksAlunos.feedback_thiago} legend="🎯 DISCIPLINA QUE GERA RESULTADO: QUASE 4KG OFF (Thiago)" />
-                        <FeedbackCard uri={linksAlunos.feedback_yasmin} legend="🔥 DERRETENDO GORDURA E RECUPERANDO O GUARDA-ROUPA (Yasmin)" />
-                        <FeedbackCard uri={linksAlunos.feedback_gleiber} legend="⚡ SHAPE RESPONDENDO E ABDÔMEN SECANDO (Gleiber)" />
-                    </ScrollView>
+                    <SmartBanner source={require('../../assets/feedbacks-app.png')} style={{ marginBottom: 5 }} />
+                    <SmartBanner source={require('../../assets/subtitulo-feedbacks-app.png')} style={{ marginBottom: 25, borderWidth: 0, backgroundColor: 'transparent' }} />
+                    <View style={styles.listPadding}>
+                        <ExpandableWhatsAppGrid />
+                    </View>
 
                     {/* ── BÔNUS ─────────────────────────────────────────────────── */}
-                    <Text style={[styles.sectionTitle, { marginTop: 40 }]}>BÔNUS INCLUSO</Text>
-                    <Text style={styles.sectionSub}>Você ganha acesso gratuito a este material complementar.</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.carouselContainer}>
-                        <BonusCard uri={linksAlunos.ebook_5dicas} title="E-book: 5 Dicas de Emagrecimento" subtitle="O pontapé inicial para a queima." isAudio={false} price="14,90" unlockText="INCLUSO NOS PLANOS" />
-                    </ScrollView>
-                    <Text style={styles.bonusLockedText}>
-                        🔒 Os e-books de Receitas, Guias de Hipertrofia e Audiobooks são exclusivos para assinantes dos planos Elite VIP e Performance.
-                    </Text>
+                    <SmartBanner source={require('../../assets/bonus-start-app.png')} />
 
                     {/* ── FAQ ───────────────────────────────────────────────────── */}
-                    <Text style={[styles.sectionTitle, { marginTop: 40, marginBottom: 20 }]}>AINDA TEM DÚVIDAS?</Text>
+                    <SmartBanner source={require('../../assets/titulo-faq.png')} style={{ marginBottom: 20 }} />
                     <FaqAccordion faqs={faqList} />
 
                     {/* ── FECHAMENTO ────────────────────────────────────────────── */}
-                    <Text style={styles.finalClosingText}>
-                        "A única diferença entre quem muda o corpo... e quem continua no mesmo lugar... é começar."
-                    </Text>
+                    <SmartBanner source={require('../../assets/cta-final-app.png')} style={{ marginTop: 30, marginBottom: 20 }}>
+                        <TouchableOpacity activeOpacity={0.7} onPress={() => handleWhatsAppCTA('Plano Start')} style={styles.absoluteCtaBox}>
+                            <Animated.Text adjustsFontSizeToFit numberOfLines={1} style={[styles.absoluteCtaText, { transform: [{ scale: pulseAnim }] }]}>
+                                QUERO COMEÇAR DO JEITO CERTO
+                            </Animated.Text>
+                        </TouchableOpacity>
+                    </SmartBanner>
 
                     <View style={styles.footer}>
                         <Text style={styles.footerText}>ELITE FIT © 2026</Text>
@@ -406,46 +394,30 @@ const styles = StyleSheet.create({
     heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
     timerBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF3B3015', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 25 },
     timerText: { color: '#FF3B30', fontWeight: '900', fontSize: 12, marginLeft: 8, letterSpacing: 1 },
-    heroGreeting: { color: '#888', fontWeight: '900', fontSize: 14, letterSpacing: 2, marginBottom: 10 },
-    heroTitle: { color: '#FFF', fontSize: 30, fontWeight: '900', textAlign: 'center', lineHeight: 36, letterSpacing: -1, marginBottom: 15 },
-    heroSub: { color: '#AAA', fontSize: 15, textAlign: 'center', lineHeight: 24, paddingHorizontal: 10, marginBottom: 16 },
-    reframeBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: `${MAIN_COLOR}10`, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, marginTop: 4 },
+    heroGreeting: { color: '#888', fontWeight: '900', fontSize: 14, letterSpacing: 2, marginBottom: 15 },
+    reframeBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, backgroundColor: `${MAIN_COLOR}10`, padding: 15, borderRadius: 16, borderWidth: 1, borderColor: `${MAIN_COLOR}25`, marginTop: 20, width: '100%' },
     reframeText: { flex: 1, color: '#AAA', fontSize: 13, lineHeight: 20, fontStyle: 'italic' },
+
+    // ── Banners (mesmo padrão de altura automática da PropostaScreen)
+    smartBannerContainer: {
+        width: '100%',
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginBottom: 25,
+        backgroundColor: '#111',
+        borderWidth: 1,
+        borderColor: '#1a1a1a',
+        alignSelf: 'center',
+    },
 
     // ── Seções genéricas
     sectionTitle: { color: '#FFF', fontSize: 22, fontWeight: '900', textAlign: 'center', letterSpacing: 0.5, marginBottom: 5 },
     sectionSub: { color: '#888', fontSize: 13, textAlign: 'center', marginBottom: 20, paddingHorizontal: 10 },
-    carouselContainer: { paddingLeft: 0, paddingRight: 20, paddingBottom: 20 },
-    bonusLockedText: { color: '#555', fontSize: 11, fontStyle: 'italic', textAlign: 'center', marginTop: 8, paddingHorizontal: 20, marginBottom: 10 },
+    listPadding: { width: '100%', marginBottom: 30 },
 
     // ── Vídeo
     videoSection: { marginTop: 40, marginBottom: 50 },
     videoContainer9x16: { width: '100%', maxWidth: 280, aspectRatio: 9 / 16, backgroundColor: '#222', borderRadius: 16, overflow: 'hidden', alignSelf: 'center', marginTop: 20, borderWidth: 1, borderColor: '#333', position: 'relative' },
-
-    // ── Arsenal
-    arsenalCard: { width: width > 600 ? 250 : width * 0.7, backgroundColor: '#1A1A1A', padding: 20, borderRadius: 20, borderWidth: 1, borderColor: '#2A2A2A', marginRight: 15, alignItems: 'flex-start' },
-    featureIconBox: { width: 54, height: 54, borderRadius: 27, backgroundColor: `${MAIN_COLOR}15`, justifyContent: 'center', alignItems: 'center', marginBottom: 15, borderWidth: 1, borderColor: `${MAIN_COLOR}30` },
-    arsenalTitle: { color: '#FFF', fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
-    arsenalDesc: { color: '#888', fontSize: 13, lineHeight: 20 },
-
-    // ── IA Highlight
-    aiHighlightSection: { marginTop: 20, marginBottom: 40, paddingHorizontal: 15, paddingVertical: 30, backgroundColor: '#111', borderRadius: 24, borderWidth: 1, borderColor: `${MAIN_COLOR}30` },
-
-    // ── Mentor
-    mentorSection: { marginBottom: 40, borderRadius: 24, overflow: 'hidden', backgroundColor: '#1A1A1A', borderWidth: 1, borderColor: '#333' },
-    mentorGradientBg: { ...StyleSheet.absoluteFillObject },
-    mentorContent: { padding: 20, flexDirection: 'column' },
-    mentorBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 15, marginBottom: 5, width: '100%' },
-    mentorSub: { color: '#888', fontWeight: '900', fontSize: 11, letterSpacing: 1 },
-    mentorLabelHeader: { color: MAIN_COLOR, fontSize: 14, fontWeight: '900', letterSpacing: 0.5 },
-    mentorNameStrong: { color: '#FFF', fontSize: 24, fontWeight: '900', marginTop: 2 },
-    mentorDesc: { color: '#BBB', fontSize: 15, lineHeight: 24, fontStyle: 'italic', textAlign: 'left', marginTop: 15, marginBottom: 20, paddingHorizontal: 5, width: '100%' },
-    swipeHintContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 20, gap: 8, backgroundColor: `${MAIN_COLOR}15`, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 20, alignSelf: 'center', borderWidth: 1, borderColor: `${MAIN_COLOR}30` },
-    swipeHintText: { color: MAIN_COLOR, fontSize: 12, fontWeight: '900', letterSpacing: 1, textAlign: 'center' },
-    carouselContainerMentor: { paddingHorizontal: 10, paddingBottom: 20 },
-    imageColMentor: { width: 330, alignItems: 'center', justifyContent: 'center', marginRight: 10 },
-    imagePlaceholderMentor: { width: '100%', aspectRatio: 9 / 16, borderRadius: 14, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', backgroundColor: 'transparent' },
-    resultImageMentorContain: { width: '100%', height: '100%', resizeMode: 'contain', borderRadius: 14 },
 
     // ── Planos
     plansContainer: { gap: 25, marginTop: 10, marginBottom: 40 },
@@ -468,6 +440,27 @@ const styles = StyleSheet.create({
     buyBtnGradient: { padding: 18, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
     buyBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
 
+    // ── CTA final (texto escrito por código sobre o banner)
+    absoluteCtaBox: {
+        position: 'absolute',
+        bottom: isWeb ? '10%' : '12%',
+        left: '5%',
+        right: '5%',
+        height: '18%',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 20,
+    },
+    absoluteCtaText: {
+        color: '#FFFFFF',
+        fontWeight: '900',
+        fontSize: isWeb ? 20 : 14,
+        textShadowColor: 'rgba(77, 227, 143, 0.8)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 15,
+        letterSpacing: isWeb ? 1 : 0,
+    },
+
     // ── Expirado
     expiredBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: '#0a0a0a' },
     expiredTitle: { color: '#FFF', fontSize: 24, fontWeight: '900', marginTop: 20, marginBottom: 10, letterSpacing: 1 },
@@ -475,8 +468,7 @@ const styles = StyleSheet.create({
     expiredBtn: { backgroundColor: '#222', padding: 18, borderRadius: 16, width: '100%', alignItems: 'center', borderWidth: 1, borderColor: '#444' },
     expiredBtnText: { color: '#FFF', fontWeight: '900', fontSize: 14, letterSpacing: 1 },
 
-    // ── Fechamento e rodapé
-    finalClosingText: { color: MAIN_COLOR, fontSize: 16, fontWeight: '900', textAlign: 'center', marginTop: 40, marginBottom: 10, paddingHorizontal: 20, lineHeight: 26, fontStyle: 'italic' },
+    // ── Rodapé
     footer: { marginTop: 30, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#222', paddingTop: 20 },
     footerText: { color: '#666', fontWeight: '900', fontSize: 12, letterSpacing: 1 },
     footerSubText: { color: '#444', fontSize: 10, marginTop: 5 },

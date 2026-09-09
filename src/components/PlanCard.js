@@ -18,7 +18,11 @@ function formatBRL(value) {
     return Number(value).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
-export default function PlanCard({ card, pulseAnim, onBuy }) {
+// 🔥 hidePricing: usado na versão "sem preço" (link da bio) -- mantém a
+// comparação de recursos do plano, mas troca a grade de valores por só o
+// botão de contato, pra não expor preço num link público/frio e preservar
+// a negociação direta com o coach.
+export default function PlanCard({ card, pulseAnim, onBuy, hidePricing = false }) {
     const periodosComPreco = Object.keys(PERIOD_LABELS).filter(p => getPeriodoPreco(card, p)?.valor);
 
     const cardContent = (
@@ -61,37 +65,41 @@ export default function PlanCard({ card, pulseAnim, onBuy }) {
                 </View>
             ) : null}
 
-            <View style={styles.pricingGrid}>
-                {periodosComPreco.map((periodo) => {
-                    const p = getPeriodoPreco(card, periodo);
-                    const hasDiscount = p.descontoPerc > 0;
-                    const precoFinal = hasDiscount ? p.valor * (1 - p.descontoPerc / 100) : p.valor;
-                    return (
-                        <View key={periodo} style={styles.priceRow}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Text style={[styles.pricePeriod, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
-                                    {PERIOD_LABELS[periodo]}
-                                </Text>
-                                {hasDiscount ? (
-                                    <View style={styles.discountBadge}>
-                                        <Text style={styles.discountBadgeText}>{p.descontoPerc}% OFF</Text>
+            {!hidePricing && (
+                <>
+                    <View style={styles.pricingGrid}>
+                        {periodosComPreco.map((periodo) => {
+                            const p = getPeriodoPreco(card, periodo);
+                            const hasDiscount = p.descontoPerc > 0;
+                            const precoFinal = hasDiscount ? p.valor * (1 - p.descontoPerc / 100) : p.valor;
+                            return (
+                                <View key={periodo} style={styles.priceRow}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                        <Text style={[styles.pricePeriod, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
+                                            {PERIOD_LABELS[periodo]}
+                                        </Text>
+                                        {hasDiscount ? (
+                                            <View style={styles.discountBadge}>
+                                                <Text style={styles.discountBadgeText}>{p.descontoPerc}% OFF</Text>
+                                            </View>
+                                        ) : null}
                                     </View>
-                                ) : null}
-                            </View>
-                            <View style={{ alignItems: 'flex-end' }}>
-                                {hasDiscount ? (
-                                    <Text style={styles.priceStriked}>De: R$ {formatBRL(p.valor)}</Text>
-                                ) : null}
-                                <Text style={[styles.priceValue, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
-                                    R$ {formatBRL(precoFinal)}
-                                </Text>
-                            </View>
-                        </View>
-                    );
-                })}
-            </View>
+                                    <View style={{ alignItems: 'flex-end' }}>
+                                        {hasDiscount ? (
+                                            <Text style={styles.priceStriked}>De: R$ {formatBRL(p.valor)}</Text>
+                                        ) : null}
+                                        <Text style={[styles.priceValue, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
+                                            R$ {formatBRL(precoFinal)}
+                                        </Text>
+                                    </View>
+                                </View>
+                            );
+                        })}
+                    </View>
 
-            <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
+                    <Text style={styles.urgencyText}>⏳ Depois que o tempo acabar, essa condição não volta.</Text>
+                </>
+            )}
         </>
     );
 
