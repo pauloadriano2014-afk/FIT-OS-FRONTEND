@@ -703,10 +703,7 @@ export default function AdminDashboard({ navigation }) {
 
                   {isMaster ? (
 
-                      // 🔥 Trocada a arte antiga hospedada fora do projeto (postimg, logo
-                      // pequena "perdida" num fundo preto grande demais -- parecia colagem)
-                      // por um banner local full-bleed com o logo ocupando o espaço direito.
-                      <Image source={require('../../assets/banner-admin-master.png')} style={{ width: '100%', height: '100%', resizeMode: 'cover', zIndex: 2 }} />
+                      <Image source={{ uri: 'https://i.postimg.cc/DZb2WxSn/Design-sem-nome-(1).png' }} style={{ width: '100%', height: '100%', resizeMode: 'cover', zIndex: 2 }} />
 
                   ) : (
 

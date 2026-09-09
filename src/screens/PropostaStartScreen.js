@@ -304,10 +304,12 @@ export default function PropostaStartScreen({ route }) {
 
                     {/* ── HERO ─────────────────────────────────────────────────── */}
                     <View style={styles.heroSection}>
-                        <Image
-                            source={require('../../assets/pa-elite-team-logo-transparente.png')}
-                            style={styles.brandLogo}
-                            resizeMode="contain"
+                        {/* 🔥 Banner full-bleed (mesmo espírito do banner "coach" da
+                            Biblioteca/elitefit_banner_generic.png), substitui o logo
+                            pequeno flutuante que deixava espaço vazio sobrando. */}
+                        <SmartBanner
+                            source={require('../../assets/pa-elite-team-hero-banner.png')}
+                            style={styles.brandBanner}
                         />
                         <View style={styles.timerBadge}>
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
@@ -412,7 +414,7 @@ const styles = StyleSheet.create({
 
     // ── Hero
     heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
-    brandLogo: { width: 240, height: 240 * (761 / 2066), marginBottom: 10 },
+    brandBanner: { marginBottom: 20 },
     timerBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF3B3015', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 25 },
     timerText: { color: '#FF3B30', fontWeight: '900', fontSize: 12, marginLeft: 8, letterSpacing: 1 },
     heroGreeting: { color: '#888', fontWeight: '900', fontSize: 14, letterSpacing: 2, marginBottom: 15 },
