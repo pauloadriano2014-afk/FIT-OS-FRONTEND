@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { categories } from '../../data/bibliotecaData';
+import { categories, getCategoryLabel } from '../../data/bibliotecaData';
 
 export default function CategoryFilterModal({ visible, onClose, selectedCat, onSelect, theme }) {
     return (
@@ -17,7 +17,7 @@ export default function CategoryFilterModal({ visible, onClose, selectedCat, onS
                                 onPress={() => { onSelect(cat); onClose(); }}
                             >
                                 <Text style={[styles.catOptionText, { color: theme.text }, selectedCat === cat && { color: theme.accent, fontWeight: '800' }]}>
-                                    {cat}
+                                    {getCategoryLabel(cat)}
                                 </Text>
                                 {selectedCat === cat && <MaterialCommunityIcons name="check-decagram" size={20} color={theme.accent} />}
                             </TouchableOpacity>

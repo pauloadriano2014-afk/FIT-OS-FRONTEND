@@ -8,7 +8,7 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as DocumentPicker from 'expo-document-picker';
-import { categories, subCategoriesMap } from '../../data/bibliotecaData';
+import { categories, subCategoriesMap, getCategoryLabel } from '../../data/bibliotecaData';
 import { authHeaders } from '../../utils/authToken';
 
 const ENVIRONMENTS = [
@@ -214,7 +214,7 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
                                 <TouchableOpacity style={[S.selector, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={() => setShowFormDropdown(!showFormDropdown)}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                                         <MaterialCommunityIcons name="format-list-bulleted" size={18} color={theme.textSecondary} />
-                                        <Text style={[S.selectorText, { color: theme.text }]}>{formExercise.category.toUpperCase()}</Text>
+                                        <Text style={[S.selectorText, { color: theme.text }]}>{getCategoryLabel(formExercise.category).toUpperCase()}</Text>
                                     </View>
                                     <MaterialCommunityIcons name={showFormDropdown ? "chevron-up" : "chevron-down"} size={20} color={theme.textSecondary} />
                                 </TouchableOpacity>
@@ -223,7 +223,7 @@ export default function ExerciseFormModal({ visible, onClose, initialData, onSav
                                         <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={{ maxHeight: 180 }}>
                                             {categories.filter(c => c !== 'TODOS').map(cat => (
                                                 <TouchableOpacity key={cat} style={[S.dropItem, formExercise.category === cat && { backgroundColor: theme.accent + '15' }]} onPress={() => { setFormExercise({ ...formExercise, category: cat, subCategory: 'Geral' }); setShowFormDropdown(false); }}>
-                                                    <Text style={{ color: formExercise.category === cat ? theme.accent : theme.text, fontWeight: formExercise.category === cat ? '800' : '500' }}>{cat}</Text>
+                                                    <Text style={{ color: formExercise.category === cat ? theme.accent : theme.text, fontWeight: formExercise.category === cat ? '800' : '500' }}>{getCategoryLabel(cat)}</Text>
                                                     {formExercise.category === cat && <MaterialCommunityIcons name="check" size={16} color={theme.accent} />}
                                                 </TouchableOpacity>
                                             ))}

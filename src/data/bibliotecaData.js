@@ -3,22 +3,36 @@
 // empacotados junto com o app. "TODOS" não entra aqui de propósito: já é
 // tratado à parte em BibliotecaAdmin.js (usa elitefit_banner_generic.png).
 export const categoryCovers = {
-    "Peito": require('../../assets/categoria_peito.png'),
-    "Costas": require('../../assets/categoria_costas.png'),
-    "Pernas": require('../../assets/categoria_pernas.png'),
-    "Ombros": require('../../assets/categoria_ombros.png'),
-    "Bíceps": require('../../assets/categoria_biceps.png'),
-    "Tríceps": require('../../assets/categoria_triceps.png'),
-    "Abdômen": require('../../assets/categoria_abdomen.png'),
-    "Cardio": require('../../assets/categoria_cardio.png'),
-    "Antebraço": require('../../assets/categoria_antebraco.png'),
-    "Mobilidade": require('../../assets/categoria_mobilidade.png'),
+    "Peito": require('../../assets/categoria_peito.jpg'),
+    "Costas": require('../../assets/categoria_costas.jpg'),
+    "Pernas": require('../../assets/categoria_pernas.jpg'),
+    "Ombros": require('../../assets/categoria_ombros.jpg'),
+    "Bíceps": require('../../assets/categoria_biceps.jpg'),
+    "Tríceps": require('../../assets/categoria_triceps.jpg'),
+    "Abdômen": require('../../assets/categoria_abdomen.jpg'),
+    "Cardio": require('../../assets/categoria_cardio.jpg'),
+    "Antebraço": require('../../assets/categoria_antebraco.jpg'),
+    "Mobilidade": require('../../assets/categoria_mobilidade.jpg'),
 };
 
 export const categories = [
-    'TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros', 
+    'TODOS', 'Peito', 'Costas', 'Pernas', 'Ombros',
     'Bíceps', 'Antebraço', 'Tríceps', 'Abdômen', 'Mobilidade', 'Cardio'
 ];
+
+// 🔥 Rótulo de exibição -- "Mobilidade" continua sendo o valor gravado no
+// banco (exercise.category) e usado em todas as comparações de filtro pelo
+// app inteiro; só o TEXTO mostrado pro usuário virou "Alongamento e
+// Mobilidade". Trocar o valor gravado exigiria migrar os 40 exercícios já
+// cadastrados (e tudo que compara com a string "Mobilidade" direto, tipo o
+// gerador de treino) -- sem necessidade, já que é só um ajuste de nome.
+export const categoryLabels = {
+    "Mobilidade": "Alongamento e Mobilidade",
+};
+
+export function getCategoryLabel(cat) {
+    return categoryLabels[cat] || cat;
+}
 
 export const subCategoriesMap = {
     "Peito": ["Todos", "Superior", "Medial", "Inferior"],

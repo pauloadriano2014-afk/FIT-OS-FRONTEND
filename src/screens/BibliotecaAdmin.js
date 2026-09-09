@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { useTheme } from '../contexts/ThemeContext';
 import { useBibliotecaAdmin } from '../hooks/useBibliotecaAdmin';
-import { categoryCovers, subCategoriesMap, SPACING, HORIZONTAL_PADDING } from '../data/bibliotecaData';
+import { categoryCovers, subCategoriesMap, getCategoryLabel, SPACING, HORIZONTAL_PADDING } from '../data/bibliotecaData';
 
 import ExerciseCard from '../components/BibliotecaAdmin/ExerciseCard';
 import ExerciseFormModal from '../components/BibliotecaAdmin/ExerciseFormModal';
@@ -133,8 +133,18 @@ export default function BibliotecaAdmin({ navigation }) {
         return true;
     });
 
-    // 🔥 FILTRO ANTI-DUPLICATAS GLOBAL (PARA MASTERS E BASE ELITE) 🔥
-    if (isMaster || activeTab === 'ELITE') {
+    // 🔥 FILTRO ANTI-DUPLICATAS (só pro parceiro navegando a base ELITE
+    // herdada -- ali é só consulta pra montar treino, ele não edita/exclui
+    // esses itens mesmo, então esconder um nome repetido é só estética).
+    // ANTES também rodava pro master (isMaster), e isso escondia exercícios
+    // de verdade da tela de gerenciamento sempre que duas linhas tinham o
+    // mesmo nome (ex: uma global antiga + uma recriada depois) -- daí o
+    // "cadastrei 40, só aparecem 30": os outros 10 existiam no banco, editáveis
+    // e exclusíveis, só que escondidos da lista por coincidência de nome.
+    // Master precisa ver TODA a própria biblioteca pra poder gerenciar
+    // (inclusive achar e apagar duplicatas de verdade, agora que o botão
+    // de excluir foi corrigido).
+    if (!isMaster && activeTab === 'ELITE') {
         const uniqueExercises = [];
         const seenNames = new Set();
 
@@ -282,7 +292,7 @@ export default function BibliotecaAdmin({ navigation }) {
                                     <View style={[styles.filterIconBox, { backgroundColor: theme.accent + '20' }]}>
                                         <MaterialCommunityIcons name="filter-variant" size={18} color={theme.accent} />
                                     </View>
-                                    <Text style={[styles.catSelectorVal, { color: theme.text }]}>{selectedCat.toUpperCase()}</Text>
+                                    <Text style={[styles.catSelectorVal, { color: theme.text }]}>{getCategoryLabel(selectedCat).toUpperCase()}</Text>
                                 </View>
                                 <MaterialCommunityIcons name="chevron-down" size={24} color={theme.textSecondary} />
                             </TouchableOpacity>
@@ -348,7 +358,7 @@ export default function BibliotecaAdmin({ navigation }) {
                                 />
 
                                 <View style={[styles.coverOverlay, { backgroundColor: 'transparent' }]}>
-                                    <Text style={styles.coverTitle}>{selectedCat.toUpperCase()}</Text>
+                                    <Text style={styles.coverTitle}>{getCategoryLabel(selectedCat).toUpperCase()}</Text>
                                     <View style={[styles.coverBadge, { backgroundColor: theme.accent }]}>
                                         <Text style={[styles.coverCount, { color: theme.isDark ? '#000' : '#FFF' }]}>{displayList.length} EXERCÍCIOS</Text>
                                     </View>

@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Video, ResizeMode } from 'expo-av';
 import SmartThumbnail from '../SmartThumbnail';
 import WorkoutPreviewPanel from '../WorkoutPreviewPanel';
+import { getCategoryLabel } from '../../../data/bibliotecaData';
 
 // 🔥 MAPA DE SUBCATEGORIAS ATUALIZADO 🔥
 const subCategoriesMap = {
@@ -88,7 +89,7 @@ export default function LibraryModals({
                             <TouchableOpacity style={[styles.catSelector, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: (selectedCategory !== 'TODOS' && subCategoriesMap[selectedCategory]) ? 10 : 0 }]} onPress={() => setShowCatDropdown(!showCatDropdown)}>
                                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 10}}>
                                     <MaterialCommunityIcons name="filter-variant" size={20} color={theme.textSecondary} />
-                                    <Text style={[styles.catSelectorVal, { color: theme.text }]}>{selectedCategory.toUpperCase()}</Text>
+                                    <Text style={[styles.catSelectorVal, { color: theme.text }]}>{getCategoryLabel(selectedCategory).toUpperCase()}</Text>
                                 </View>
                                 <MaterialCommunityIcons name={showCatDropdown ? "chevron-up" : "chevron-down"} size={22} color={theme.textSecondary} />
                             </TouchableOpacity>
@@ -102,7 +103,7 @@ export default function LibraryModals({
                                                 style={[styles.dropdownItem, selectedCategory === cat && { backgroundColor: theme.accent + '22' }]} 
                                                 onPress={() => { setSelectedCategory(cat); setSelectedSubCat('Todos'); setShowCatDropdown(false); }}
                                             >
-                                                <Text style={{ color: selectedCategory === cat ? theme.accent : theme.text, fontWeight: selectedCategory === cat ? 'bold' : '500' }}>{cat}</Text>
+                                                <Text style={{ color: selectedCategory === cat ? theme.accent : theme.text, fontWeight: selectedCategory === cat ? 'bold' : '500' }}>{getCategoryLabel(cat)}</Text>
                                                 {selectedCategory === cat && <MaterialCommunityIcons name="check" size={18} color={theme.accent} />}
                                             </TouchableOpacity>
                                         ))}

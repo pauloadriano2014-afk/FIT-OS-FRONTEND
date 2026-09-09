@@ -49,7 +49,13 @@ export function useBibliotecaAdmin() {
 
     const deleteItem = async (id) => {
         try {
-            const url = `https://fitos-final.onrender.com/api/exercise?id=${id}`;
+            // 🔥 Faltava o adminId aqui -- a rota exige ele pra checar
+            // permissão (canActAsCoach) e, sem ele, rejeita TODO MUNDO com
+            // 403 antes mesmo de checar se é master. Por isso ninguém
+            // conseguia excluir, nem Paulo nem a Adri.
+            const userJson = await AsyncStorage.getItem('user');
+            const adminId = userJson ? JSON.parse(userJson).id : '';
+            const url = `https://fitos-final.onrender.com/api/exercise?id=${id}&adminId=${adminId}`;
             const res = await fetch(url, { method: 'DELETE', headers: { ...(await authHeaders()) } });
 
             if (res.ok) {
