@@ -20,8 +20,20 @@ import { authHeaders } from '../../utils/authToken';
 
 const API_BASE = 'https://fitos-final.onrender.com';
 
-const PERIODOS = ['mensal', 'trimestral', 'semestral', 'anual'];
-const PERIOD_LABELS_PT = { mensal: 'Mensal', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
+// 🔥 "unico" cobre planos de pagamento avulso (ex: Ficha de 8 Semanas da
+// Proposta Start) -- ver mesmo campo em PlanCard.js.
+const PERIODOS = ['unico', 'mensal', 'trimestral', 'semestral', 'anual'];
+const PERIOD_LABELS_PT = { unico: 'Pagamento Único', mensal: 'Mensal', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
+
+// ─── Telas que já têm gestão de ofertas por aqui. `screen` é o nome da rota
+// (navigation.navigate) usada no preview; `pagina` é o valor salvo no banco
+// pra filtrar/isolar as ofertas de cada tela. Adicionar uma tela nova aqui é
+// só isso + (se quiser) um defaultsPrefill próprio -- nada mais no arquivo
+// precisa mudar. ─────────────────────────────────────────────────────────
+const TELAS = [
+    { pagina: 'proposta', label: 'PROPOSTA (ELITE/PERFORMANCE)', screen: 'Proposta' },
+    { pagina: 'start', label: 'PROPOSTA START', screen: 'PropostaStart' },
+];
 
 // ─── Card vazio padrão ao adicionar um novo plano dentro de uma oferta ─────
 const emptyPeriodoPreco = () => ({ valor: '', descontoPerc: '0' });
@@ -38,6 +50,7 @@ const emptyCard = () => ({
     bonusTitulo: '',
     bonusItens: [],
     precos: {
+        unico: emptyPeriodoPreco(),
         mensal: emptyPeriodoPreco(),
         trimestral: emptyPeriodoPreco(),
         semestral: emptyPeriodoPreco(),
@@ -120,6 +133,67 @@ const defaultCardsForPrefill = () => ([
     },
 ]);
 
+// ─── Planos padrão da Proposta Start (Ficha 8 Semanas + Plano Start) usados
+// como ponto de partida ao criar uma oferta nova pra essa tela — mantenha em
+// sincronia com DEFAULT_CARDS_START em PropostaStartScreen.js se os textos
+// mudarem lá. ─────────────────────────────────────────────────────────────
+const defaultCardsForPrefillStart = () => ([
+    {
+        id: `card_${Date.now()}_ficha`,
+        nome: 'FICHA 8 SEMANAS',
+        descricao: 'Protocolo direto ao ponto: 56 dias com objetivo definido, avaliação no dia 1 e no dia 56. Ideal pra quem quer resultado concreto em prazo determinado.',
+        destaque: false,
+        badgeTexto: 'PROTOCOLO FIXO',
+        itensInclusos: [
+            'Direção exata em cada treino — sem dúvida, sem improviso',
+            'Vídeos de execução para acertar cada repetição',
+            'Avaliação física no Dia 1 e no Dia 56 para medir a evolução',
+            'Suporte no app para não ficar perdido no processo',
+            'E-book: 5 Dicas Infalíveis de Emagrecimento incluso',
+        ],
+        itensExcluidos: [
+            'Análise Biomecânica de Vídeo por IA',
+            'Calculadora de Cargas (1RM)',
+            'Catálogo de Audiobooks e Bônus',
+        ],
+        itemDestaque: '',
+        bonusTitulo: '',
+        bonusItens: [],
+        precos: { unico: { valor: '97', descontoPerc: '0' } },
+        ctaTexto: 'QUERO A FICHA DE 8 SEMANAS',
+    },
+    {
+        id: `card_${Date.now()}_start`,
+        nome: 'PLANO START',
+        descricao: 'Acompanhamento mensal renovável. O método aplicado no seu ritmo, com suporte contínuo e reavaliação a cada 30 dias — sem prazo para parar de evoluir.',
+        destaque: true,
+        badgeTexto: 'MAIS ESCOLHIDO',
+        itensInclusos: [
+            'Direção exata em cada treino — sem dúvida, sem improviso',
+            'Reavaliação a cada 30 dias para ajustar a rota antes de estagnar',
+            'Suporte (Fila Standard) — você nunca fica sozinho no processo',
+            'Vídeos de execução para acertar cada repetição',
+            'E-book: 5 Dicas Infalíveis de Emagrecimento incluso',
+            'Migração facilitada para Elite VIP quando você quiser evoluir',
+        ],
+        itensExcluidos: [
+            'Análise Biomecânica de Vídeo por IA',
+            'Calculadora de Cargas (1RM)',
+            'Catálogo de Audiobooks e Bônus',
+        ],
+        itemDestaque: '',
+        bonusTitulo: '',
+        bonusItens: [],
+        precos: { mensal: { valor: '69.90', descontoPerc: '0' } },
+        ctaTexto: 'QUERO COMEÇAR DO JEITO CERTO',
+    },
+]);
+
+// Dá o conjunto de planos padrão certo pra tela selecionada no momento.
+function defaultCardsForPagina(pagina) {
+    return pagina === 'start' ? defaultCardsForPrefillStart() : defaultCardsForPrefill();
+}
+
 function slugifyLocal(input) {
     return (input || '')
         .trim()
@@ -151,6 +225,12 @@ function calcPrecoFinal(valorStr, descontoStr) {
 }
 
 export default function TabPropostaOfertas({ theme, currentUserId, navigation }) {
+    // Qual tela de proposta está selecionada agora (ver array TELAS no topo
+    // do arquivo). Cada tela tem sua própria lista de ofertas, isolada pelo
+    // campo `pagina` no banco.
+    const [paginaAtual, setPaginaAtual] = useState(TELAS[0].pagina);
+    const telaAtual = TELAS.find(t => t.pagina === paginaAtual) || TELAS[0];
+
     const [ofertas, setOfertas] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -163,7 +243,7 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
     const fetchOfertas = useCallback(async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API_BASE}/api/admin/proposta-ofertas`, {
+            const res = await fetch(`${API_BASE}/api/admin/proposta-ofertas?pagina=${paginaAtual}`, {
                 headers: { ...(await authHeaders()) },
             });
             if (res.ok) {
@@ -175,25 +255,33 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [paginaAtual]);
 
     useEffect(() => { fetchOfertas(); }, [fetchOfertas]);
 
+    // Trocar de tela sempre volta pra lista — evita ficar editando uma
+    // oferta enquanto o filtro embaixo muda de página.
+    const selecionarTela = (pagina) => {
+        setPaginaAtual(pagina);
+        setView('lista');
+        setEditingOferta(null);
+    };
+
     // ── Preview da página de vendas ──────────────────────────────────────
     // Usa navegação INTERNA (navigation.navigate) em vez de Linking.openURL.
-    // Isso empilha a Proposta por cima da tela de admin na mesma stack do
-    // app — essencial no PWA instalado, onde window.open/Linking abre na
-    // MESMA janela (sem abas) e deixa o usuário sem como voltar.
-    // O parâmetro preview=true faz a PropostaScreen mostrar um botão
-    // flutuante de "Voltar" que nunca aparece pra alunos reais.
+    // Isso empilha a página de proposta por cima da tela de admin na mesma
+    // stack do app — essencial no PWA instalado, onde window.open/Linking
+    // abre na MESMA janela (sem abas) e deixa o usuário sem como voltar.
+    // O parâmetro preview=true faz a tela mostrar um botão flutuante de
+    // "Voltar" que nunca aparece pra alunos reais.
     const openPreviewPadrao = () => {
         const previewId = `preview_${Date.now().toString(36)}`;
-        navigation?.navigate('Proposta', { preview: true, id: previewId });
+        navigation?.navigate(telaAtual.screen, { preview: true, id: previewId });
     };
 
     const openPreviewOferta = (oferta) => {
         const previewId = `preview_${Date.now().toString(36)}`;
-        navigation?.navigate('Proposta', { oferta: oferta.slug, preview: true, id: previewId });
+        navigation?.navigate(telaAtual.screen, { oferta: oferta.slug, preview: true, id: previewId });
     };
 
     // ── Abrir formulário (novo em branco, novo a partir do padrão, ou edição) ─
@@ -204,7 +292,7 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
     };
 
     const openNewOfertaFromDefaults = () => {
-        const cards = defaultCardsForPrefill();
+        const cards = defaultCardsForPagina(paginaAtual);
         setEditingOferta({ id: null, slug: '', nome: '', ativa: true, cards });
         setExpandedCardId(cards[0].id);
         setView('form');
@@ -360,6 +448,7 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
                     slug: editingOferta.slug || slugifyLocal(editingOferta.nome),
                     cards: cardsParaSalvar,
                     criadoPorId: currentUserId,
+                    pagina: paginaAtual, // 🔥 pagina é fixa na criação, assim como o slug
                 };
 
             const res = await fetch(url, {
@@ -439,12 +528,33 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
                 <Text style={[styles.bigCardTitle, { color: theme.text }]}>OFERTAS DE PROPOSTA</Text>
                 <Text style={[styles.pageDesc, { color: theme.textSecondary }]}>
                     Crie conjuntos de preços diferentes (ex: Padrão, High-Ticket) e use o slug de cada um
-                    no link de proposta (?oferta=slug) pra mostrar valores diferentes sem mexer no código.
+                    no link da tela (?oferta=slug) pra mostrar valores diferentes sem mexer no código.
                 </Text>
+
+                {/* Seletor de tela — cada uma tem sua própria lista de ofertas */}
+                <View style={styles.telaSelectorRow}>
+                    {TELAS.map((tela) => {
+                        const ativa = tela.pagina === paginaAtual;
+                        return (
+                            <TouchableOpacity
+                                key={tela.pagina}
+                                style={[
+                                    styles.telaPill,
+                                    { borderColor: ativa ? theme.accent : theme.border, backgroundColor: ativa ? `${theme.accent}20` : theme.bg },
+                                ]}
+                                onPress={() => selecionarTela(tela.pagina)}
+                            >
+                                <Text style={[styles.telaPillText, { color: ativa ? theme.accent : theme.textSecondary }]}>
+                                    {tela.label}
+                                </Text>
+                            </TouchableOpacity>
+                        );
+                    })}
+                </View>
 
                 <TouchableOpacity style={styles.previewLink} onPress={openPreviewPadrao}>
                     <MaterialCommunityIcons name="eye-outline" size={14} color={theme.accent} />
-                    <Text style={[styles.previewLinkText, { color: theme.accent }]}>VER PÁGINA DE VENDAS PADRÃO ATUAL</Text>
+                    <Text style={[styles.previewLinkText, { color: theme.accent }]}>VER PÁGINA "{telaAtual.label}" ATUAL</Text>
                 </TouchableOpacity>
 
                 <View style={styles.newBtnRow}>
@@ -809,6 +919,10 @@ const styles = StyleSheet.create({
     bigCard: { padding: 24, borderRadius: 20, borderWidth: 1, width: '100%' },
     bigCardTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 6 },
     pageDesc: { fontSize: 12, lineHeight: 18, marginBottom: 14 },
+
+    telaSelectorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+    telaPill: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1 },
+    telaPillText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },
 
     previewLink: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 18 },
     previewLinkText: { fontSize: 11, fontWeight: '900', letterSpacing: 0.3 },

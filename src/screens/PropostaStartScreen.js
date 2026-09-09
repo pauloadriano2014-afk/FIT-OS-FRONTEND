@@ -5,11 +5,11 @@ import {
     Linking, Platform, SafeAreaView, Animated, Image, Dimensions
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { linksAlunos } from '../utils/linksAlunos';
 import FaqAccordion from '../components/FaqAccordion';
+import PlanCard from '../components/PlanCard';
 import ExpandableBeforeAfterGrid from '../components/ExpandableBeforeAfterGrid';
 import ExpandableWhatsAppGrid from '../components/ExpandableWhatsAppGrid';
 
@@ -17,8 +17,66 @@ const isWeb = Platform.OS === 'web';
 const RootComponent = isWeb ? View : SafeAreaView;
 const { width } = Dimensions.get('window');
 
+const API_BASE = 'https://fitos-final.onrender.com';
+
 // Verde original do Start
 const MAIN_COLOR = '#4DE38F';
+
+// 🔥 Planos padrão (usados até você criar uma oferta em Sistema > Vendas,
+// e como fallback se a oferta não carregar). Mesmo formato de card da
+// PropostaScreen (PlanCard) — a Ficha usa "unico" (pagamento avulso) em vez
+// da grade mensal/trimestral/semestral/anual.
+const DEFAULT_CARDS_START = [
+    {
+        id: 'default-ficha',
+        nome: 'FICHA 8 SEMANAS',
+        descricao: 'Protocolo direto ao ponto: 56 dias com objetivo definido, avaliação no dia 1 e no dia 56. Ideal pra quem quer resultado concreto em prazo determinado.',
+        destaque: false,
+        badgeTexto: 'PROTOCOLO FIXO',
+        itensInclusos: [
+            'Direção exata em cada treino — sem dúvida, sem improviso',
+            'Vídeos de execução para acertar cada repetição',
+            'Avaliação física no Dia 1 e no Dia 56 para medir a evolução',
+            'Suporte no app para não ficar perdido no processo',
+            'E-book: 5 Dicas Infalíveis de Emagrecimento incluso',
+        ],
+        itensExcluidos: [
+            'Análise Biomecânica de Vídeo por IA',
+            'Calculadora de Cargas (1RM)',
+            'Catálogo de Audiobooks e Bônus',
+        ],
+        itemDestaque: '',
+        bonusTitulo: '',
+        bonusItens: [],
+        precos: { unico: { valor: 97, descontoPerc: 0 } },
+        ctaTexto: 'QUERO A FICHA DE 8 SEMANAS',
+    },
+    {
+        id: 'default-start',
+        nome: 'PLANO START',
+        descricao: 'Acompanhamento mensal renovável. O método aplicado no seu ritmo, com suporte contínuo e reavaliação a cada 30 dias — sem prazo para parar de evoluir.',
+        destaque: true,
+        badgeTexto: 'MAIS ESCOLHIDO',
+        itensInclusos: [
+            'Direção exata em cada treino — sem dúvida, sem improviso',
+            'Reavaliação a cada 30 dias para ajustar a rota antes de estagnar',
+            'Suporte (Fila Standard) — você nunca fica sozinho no processo',
+            'Vídeos de execução para acertar cada repetição',
+            'E-book: 5 Dicas Infalíveis de Emagrecimento incluso',
+            'Migração facilitada para Elite VIP quando você quiser evoluir',
+        ],
+        itensExcluidos: [
+            'Análise Biomecânica de Vídeo por IA',
+            'Calculadora de Cargas (1RM)',
+            'Catálogo de Audiobooks e Bônus',
+        ],
+        itemDestaque: '',
+        bonusTitulo: '',
+        bonusItens: [],
+        precos: { mensal: { valor: 69.90, descontoPerc: 0 } },
+        ctaTexto: 'QUERO COMEÇAR DO JEITO CERTO',
+    },
+];
 
 const faqList = [
     { q: "Para quem são os planos Start e Fichas?", a: "Para quem tem disciplina para treinar sozinho, mas cansou de seguir treinos genéricos entregues em papéis de academia. No nosso app, você tem a direção exata com a metodologia de um Campeão Natural." },
@@ -123,6 +181,30 @@ export default function PropostaStartScreen({ route }) {
         waNumber = '5541998465582'; // Redireciona para a Adri
     }
 
+    // 🔥 Oferta dinâmica (Sistema > Vendas > Proposta Start no admin) — se
+    // existir uma oferta ativa com esse slug pra "pagina=start", ela
+    // substitui os cards padrão. Mesmo mecanismo da PropostaScreen.
+    const ofertaSlug = route?.params?.oferta?.trim() || '';
+    const [cards, setCards] = useState(DEFAULT_CARDS_START);
+
+    useEffect(() => {
+        if (!ofertaSlug) return;
+        let cancelado = false;
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/api/proposta-ofertas?pagina=start&slug=${encodeURIComponent(ofertaSlug)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!cancelado && data?.oferta?.cards?.length) {
+                    setCards(data.oferta.cards);
+                }
+            } catch (e) {
+                console.log('Erro ao buscar oferta do Start, usando preços padrão', e);
+            }
+        })();
+        return () => { cancelado = true; };
+    }, [ofertaSlug]);
+
     const [timeLeft, setTimeLeft] = useState(null);
     const pulseAnim = React.useRef(new Animated.Value(1)).current;
 
@@ -222,6 +304,11 @@ export default function PropostaStartScreen({ route }) {
 
                     {/* ── HERO ─────────────────────────────────────────────────── */}
                     <View style={styles.heroSection}>
+                        <Image
+                            source={require('../../assets/pa-elite-team-logo-transparente.png')}
+                            style={styles.brandLogo}
+                            resizeMode="contain"
+                        />
                         <View style={styles.timerBadge}>
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
                             <Text style={styles.timerText}>ESTE LINK EXPIRA EM: {formatTime(timeLeft)}</Text>
@@ -242,85 +329,18 @@ export default function PropostaStartScreen({ route }) {
 
                     {/* ── PLANOS — PREÇO NO TOPO ────────────────────────────────── */}
                     {/* 🔜 Pendente: virar banner (comparativo-start-app.png) — mantido em
-                        código por enquanto até a arte ficar pronta. */}
+                        código por enquanto até a arte ficar pronta. Preço/conteúdo dos
+                        cards agora vem de "cards" (editável em Sistema > Vendas > Proposta
+                        Start no admin), com DEFAULT_CARDS_START como fallback. */}
                     <Text style={styles.sectionTitle}>ESCOLHA SEU PONTO DE PARTIDA</Text>
                     <Text style={styles.sectionSub}>
                         Dois formatos. Um método. Escolha o que faz sentido para o seu momento agora.
                     </Text>
 
                     <View style={styles.plansContainer}>
-
-                        {/* FICHAS 8 SEMANAS */}
-                        <View style={[styles.planCard, { borderColor: '#333' }]}>
-                            <View style={[styles.recommendedBadge, { backgroundColor: '#333' }]}>
-                                <Text style={[styles.recommendedText, { color: '#FFF' }]}>PROTOCOLO FIXO</Text>
-                            </View>
-                            <Text style={[styles.planName, { color: '#FFF', marginTop: 10 }]}>FICHA 8 SEMANAS</Text>
-                            <Text style={styles.planDesc}>
-                                Protocolo direto ao ponto: 56 dias com objetivo definido, avaliação no dia 1 e no dia 56. Ideal pra quem quer resultado concreto em prazo determinado.
-                            </Text>
-
-                            <View style={styles.planItems}>
-                                <Text style={styles.planItem}>✓ Direção exata em cada treino — sem dúvida, sem improviso</Text>
-                                <Text style={styles.planItem}>✓ Vídeos de execução para acertar cada repetição</Text>
-                                <Text style={styles.planItem}>✓ Avaliação física no Dia 1 e no Dia 56 para medir a evolução</Text>
-                                <Text style={styles.planItem}>✓ Suporte no app para não ficar perdido no processo</Text>
-                                <Text style={styles.planItem}>✓ E-book: 5 Dicas Infalíveis de Emagrecimento incluso</Text>
-                                <Text style={[styles.planItem, { color: '#555', textDecorationLine: 'line-through', marginTop: 8 }]}>✗ Análise Biomecânica de Vídeo por IA</Text>
-                                <Text style={[styles.planItem, { color: '#555', textDecorationLine: 'line-through' }]}>✗ Calculadora de Cargas (1RM)</Text>
-                                <Text style={[styles.planItem, { color: '#555', textDecorationLine: 'line-through' }]}>✗ Catálogo de Audiobooks e Bônus</Text>
-                            </View>
-
-                            <View style={styles.pricingGrid}>
-                                <View style={[styles.priceRowSingle, { borderBottomWidth: 0 }]}>
-                                    <Text style={[styles.pricePeriod, { color: '#FFF' }]}>Pagamento Único</Text>
-                                    <Text style={[styles.priceValue, { color: '#FFF', fontSize: 24 }]}>R$ 97,00</Text>
-                                </View>
-                            </View>
-
-                            <TouchableOpacity
-                                style={[styles.buyBtn, { backgroundColor: '#222', borderColor: '#444', borderWidth: 1 }]}
-                                onPress={() => handleWhatsAppCTA('Ficha de 8 Semanas')}
-                            >
-                                <Text style={[styles.buyBtnText, { color: '#FFF' }]}>QUERO A FICHA DE 8 SEMANAS</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* PLANO START */}
-                        <Animated.View style={[styles.planCard, { borderColor: MAIN_COLOR, borderWidth: 2, transform: [{ scale: pulseAnim }] }]}>
-                            <View style={[styles.recommendedBadge, { backgroundColor: MAIN_COLOR }]}>
-                                <Text style={[styles.recommendedText, { color: '#000' }]}>MAIS ESCOLHIDO</Text>
-                            </View>
-                            <Text style={[styles.planName, { color: MAIN_COLOR, marginTop: 10 }]}>PLANO START</Text>
-                            <Text style={[styles.planDesc, { color: '#CCC' }]}>
-                                Acompanhamento mensal renovável. O método aplicado no seu ritmo, com suporte contínuo e reavaliação a cada 30 dias — sem prazo para parar de evoluir.
-                            </Text>
-
-                            <View style={styles.planItems}>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Direção exata em cada treino — sem dúvida, sem improviso</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Reavaliação a cada 30 dias para ajustar a rota antes de estagnar</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Suporte (Fila Standard) — você nunca fica sozinho no processo</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Vídeos de execução para acertar cada repetição</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ E-book: 5 Dicas Infalíveis de Emagrecimento incluso</Text>
-                                <Text style={[styles.planItem, { color: '#FFF' }]}>✓ Migração facilitada para Elite VIP quando você quiser evoluir</Text>
-                                <Text style={[styles.planItem, { color: '#555', textDecorationLine: 'line-through', marginTop: 8 }]}>✗ Análise Biomecânica de Vídeo por IA</Text>
-                                <Text style={[styles.planItem, { color: '#555', textDecorationLine: 'line-through' }]}>✗ Calculadora de Cargas (1RM)</Text>
-                                <Text style={[styles.planItem, { color: '#555', textDecorationLine: 'line-through' }]}>✗ Catálogo de Audiobooks e Bônus</Text>
-                            </View>
-
-                            <View style={[styles.pricingGrid, { borderColor: `${MAIN_COLOR}30`, borderWidth: 1 }]}>
-                                <View style={[styles.priceRowSingle, { borderBottomWidth: 0 }]}>
-                                    <Text style={[styles.pricePeriod, { color: MAIN_COLOR }]}>Mensal</Text>
-                                    <Text style={[styles.priceValue, { color: MAIN_COLOR, fontSize: 24 }]}>R$ 69,90</Text>
-                                </View>
-                            </View>
-
-                            <TouchableOpacity onPress={() => handleWhatsAppCTA('Plano Start')}>
-                                <LinearGradient colors={[MAIN_COLOR, '#2bb368']} style={styles.buyBtnGradient}>
-                                    <Text style={[styles.buyBtnText, { color: '#000' }]}>QUERO COMEÇAR DO JEITO CERTO</Text>
-                                </LinearGradient>
-                            </TouchableOpacity>
-                        </Animated.View>
+                        {cards.map((card) => (
+                            <PlanCard key={card.id} card={card} pulseAnim={pulseAnim} onBuy={handleWhatsAppCTA} />
+                        ))}
                     </View>
 
                     {/* ── VÍDEO PRINCIPAL ───────────────────────────────────────── */}
@@ -392,6 +412,7 @@ const styles = StyleSheet.create({
 
     // ── Hero
     heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
+    brandLogo: { width: 240, height: 240 * (761 / 2066), marginBottom: 10 },
     timerBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF3B3015', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 25 },
     timerText: { color: '#FF3B30', fontWeight: '900', fontSize: 12, marginLeft: 8, letterSpacing: 1 },
     heroGreeting: { color: '#888', fontWeight: '900', fontSize: 14, letterSpacing: 2, marginBottom: 15 },
@@ -419,26 +440,8 @@ const styles = StyleSheet.create({
     videoSection: { marginTop: 40, marginBottom: 50 },
     videoContainer9x16: { width: '100%', maxWidth: 280, aspectRatio: 9 / 16, backgroundColor: '#222', borderRadius: 16, overflow: 'hidden', alignSelf: 'center', marginTop: 20, borderWidth: 1, borderColor: '#333', position: 'relative' },
 
-    // ── Planos
+    // ── Planos (cards em si são renderizados pelo PlanCard, com estilos próprios)
     plansContainer: { gap: 25, marginTop: 10, marginBottom: 40 },
-    planCard: { backgroundColor: '#161616', padding: 25, borderRadius: 24, borderWidth: 1, position: 'relative' },
-    planName: { fontSize: 24, fontWeight: '900', letterSpacing: 1, marginBottom: 5, textAlign: 'center' },
-    planDesc: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 25 },
-    planItems: { gap: 12, marginBottom: 25 },
-    planItem: { fontSize: 14, color: '#AAA', fontWeight: '500' },
-    recommendedBadge: { position: 'absolute', top: -12, alignSelf: 'center', paddingHorizontal: 15, paddingVertical: 4, borderRadius: 12 },
-    recommendedText: { fontWeight: '900', fontSize: 10, letterSpacing: 1 },
-
-    // ── Grade de preços (simplificada para plano único)
-    pricingGrid: { backgroundColor: '#0a0a0a', borderRadius: 16, padding: 15, marginBottom: 25 },
-    priceRowSingle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-    pricePeriod: { color: '#888', fontSize: 14, fontWeight: '900', textTransform: 'uppercase' },
-    priceValue: { color: '#FFF', fontSize: 18, fontWeight: '900' },
-
-    // ── Botões
-    buyBtn: { padding: 18, borderRadius: 16, alignItems: 'center' },
-    buyBtnGradient: { padding: 18, borderRadius: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-    buyBtnText: { fontWeight: '900', fontSize: 14, letterSpacing: 0.5 },
 
     // ── CTA final (texto escrito por código sobre o banner)
     absoluteCtaBox: {

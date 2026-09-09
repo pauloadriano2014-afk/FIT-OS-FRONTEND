@@ -5,7 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 const isWeb = Platform.OS === 'web';
 
-const PERIOD_LABELS = { mensal: 'Mensal', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
+// 🔥 "unico" cobre planos de pagamento avulso (ex: Ficha de 8 Semanas da
+// PropostaStart) -- fica ANTES dos demais na ordem de exibição porque um
+// card com preço único normalmente não tem mais nenhum outro período preenchido.
+const PERIOD_LABELS = { unico: 'Pagamento Único', mensal: 'Mensal', trimestral: 'Trimestral', semestral: 'Semestral', anual: 'Anual' };
 
 function getPeriodoPreco(card, periodo) {
     const raw = card?.precos?.[periodo];
@@ -75,7 +78,7 @@ export default function PlanCard({ card, pulseAnim, onBuy, hidePricing = false }
                             return (
                                 <View key={periodo} style={styles.priceRow}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                        <Text style={[styles.pricePeriod, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
+                                        <Text style={[styles.pricePeriod, (periodo === 'anual' || periodo === 'unico') && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
                                             {PERIOD_LABELS[periodo]}
                                         </Text>
                                         {hasDiscount ? (
@@ -88,7 +91,7 @@ export default function PlanCard({ card, pulseAnim, onBuy, hidePricing = false }
                                         {hasDiscount ? (
                                             <Text style={styles.priceStriked}>De: R$ {formatBRL(p.valor)}</Text>
                                         ) : null}
-                                        <Text style={[styles.priceValue, periodo === 'anual' && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
+                                        <Text style={[styles.priceValue, (periodo === 'anual' || periodo === 'unico') && { color: card.destaque ? '#4DE38F' : '#FFF' }]}>
                                             R$ {formatBRL(precoFinal)}
                                         </Text>
                                     </View>
