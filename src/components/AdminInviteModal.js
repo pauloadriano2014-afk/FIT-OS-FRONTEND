@@ -29,10 +29,13 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
     const [isPromoNavegantes, setIsPromoNavegantes] = useState(false);
 
     // 💎 Ofertas dinâmicas de preço (criadas em TabPropostaOfertas) — só
-    // fazem sentido pro MASTER, no tipo ELITE, sem campanha Mães/Namorados
-    // ativa (essas campanhas usam suas próprias telas fixas).
-    const [ofertas, setOfertas]               = useState([]);
+    // fazem sentido pro MASTER, nos tipos ELITE e START, sem campanha
+    // Mães/Namorados ativa (essas campanhas usam suas próprias telas
+    // fixas). Guarda separado por página porque cada uma tem seu próprio
+    // conjunto de ofertas (mesmo slug pode existir em telas diferentes).
+    const [ofertasPorPagina, setOfertasPorPagina] = useState({ proposta: [], start: [] });
     const [selectedOferta, setSelectedOferta] = useState(''); // '' = preço padrão
+    const ofertasAtuais = propostaType === 'START' ? ofertasPorPagina.start : ofertasPorPagina.proposta;
 
     // 🔥 Estados do SAAS / White-Label 🔥
     const [isMasterCoach, setIsMasterCoach] = useState(true);
@@ -85,13 +88,26 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
                             setLoadingSaaS(false);
                         } else {
-                            // 💎 Master: busca as Ofertas de Proposta ativas para o seletor
+                            // 💎 Master: busca as Ofertas de Proposta ativas pra cada
+                            // tela (Proposta e Start) em paralelo, pro seletor.
+                            // 🔥 Faltava o header de autenticação -- a rota admin exige
+                            // requireMaster (Bearer token), então sem isso toda chamada
+                            // caía em 401 e o seletor nunca tinha nada pra mostrar (bug
+                            // que já existia antes, pro ELITE também).
                             try {
-                                const ofertasRes = await fetch('https://fitos-final.onrender.com/api/admin/proposta-ofertas');
-                                if (ofertasRes.ok) {
-                                    const data = await ofertasRes.json();
-                                    setOfertas((data.ofertas || []).filter(o => o.ativa));
-                                }
+                                const authHdrs = await authHeaders();
+                                const [propostaRes, startRes] = await Promise.all([
+                                    fetch('https://fitos-final.onrender.com/api/admin/proposta-ofertas?pagina=proposta', { headers: { ...authHdrs } }),
+                                    fetch('https://fitos-final.onrender.com/api/admin/proposta-ofertas?pagina=start', { headers: { ...authHdrs } }),
+                                ]);
+                                const [propostaData, startData] = await Promise.all([
+                                    propostaRes.ok ? propostaRes.json() : { ofertas: [] },
+                                    startRes.ok ? startRes.json() : { ofertas: [] },
+                                ]);
+                                setOfertasPorPagina({
+                                    proposta: (propostaData.ofertas || []).filter(o => o.ativa),
+                                    start: (startData.ofertas || []).filter(o => o.ativa),
+                                });
                             } catch (e) {
                                 console.log('Erro ao buscar ofertas de proposta', e);
                             }
@@ -204,9 +220,10 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
 
         const uniqueId = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
-        // 💎 Oferta de preço customizada — só entra na URL quando a rota é a
-        // "Proposta" padrão (ELITE, sem campanha ativa) e uma oferta foi escolhida.
-        const ofertaParam = (routeName === 'Proposta' && selectedOferta)
+        // 💎 Oferta de preço customizada — entra na URL quando a rota é
+        // "Proposta" (ELITE, sem campanha ativa) ou "PropostaStart", e uma
+        // oferta foi escolhida no seletor.
+        const ofertaParam = ((routeName === 'Proposta' || routeName === 'PropostaStart') && selectedOferta)
             ? `&oferta=${encodeURIComponent(selectedOferta)}`
             : '';
 
@@ -436,8 +453,10 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                             </View>
                                         )}
 
-                                        {/* 💎 Seletor de Oferta de preço (só ELITE, sem campanha ativa) */}
-                                        {propostaType === 'ELITE' && !isPromoMaes && !isPromoNavegantes && ofertas.length > 0 && (
+                                        {/* 💎 Seletor de Oferta de preço (ELITE ou START, sem campanha ativa --
+                                            Mães/Namorados só existem pro ELITE mesmo, daí o !isPromoMaes/!isPromoNavegantes
+                                            não atrapalhar o START, que nunca ativa essas flags). */}
+                                        {(propostaType === 'ELITE' || propostaType === 'START') && !isPromoMaes && !isPromoNavegantes && ofertasAtuais.length > 0 && (
                                             <View style={styles.promosWrapper}>
                                                 <Text style={[styles.promosLabel, { color: theme.textSecondary }]}>OFERTA DE PREÇO:</Text>
                                                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4 }}>
@@ -454,7 +473,7 @@ export default function AdminInviteModal({ visible, onClose, adminEmail, theme }
                                                         </Text>
                                                     </TouchableOpacity>
 
-                                                    {ofertas.map((oferta) => (
+                                                    {ofertasAtuais.map((oferta) => (
                                                         <TouchableOpacity
                                                             key={oferta.id}
                                                             style={[

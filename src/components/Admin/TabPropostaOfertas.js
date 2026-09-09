@@ -306,6 +306,9 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
             itensExcluidos: c.itensExcluidos || [],
             bonusItens: c.bonusItens || [],
             precos: {
+                // 🔥 "unico" faltava aqui também -- ao reabrir pra editar uma
+                // oferta salva, o preço da Ficha 8 Semanas sumiria do form.
+                unico: normalizePeriodoPreco(c.precos?.unico),
                 mensal: normalizePeriodoPreco(c.precos?.mensal),
                 trimestral: normalizePeriodoPreco(c.precos?.trimestral),
                 semestral: normalizePeriodoPreco(c.precos?.semestral),
@@ -340,7 +343,7 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
             ...prev,
             cards: prev.cards.map(c =>
                 c.id === cardId
-                    ? { ...c, precos: { ...c.precos, [periodo]: { ...c.precos[periodo], [field]: value } } }
+                    ? { ...c, precos: { ...c.precos, [periodo]: { ...(c.precos[periodo] || emptyPeriodoPreco()), [field]: value } } }
                     : c
             ),
         }));
@@ -401,7 +404,9 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
 
     // ── Salvar (criar ou atualizar) ──────────────────────────────────────
     const buildPeriodoPayload = (p) => {
-        if (!p.valor) return null;
+        // 🔥 p pode vir undefined -- nem todo card preenche todos os 5
+        // períodos (ex: Ficha 8 Semanas só tem "unico").
+        if (!p || !p.valor) return null;
         return {
             valor: parseFloat(p.valor.replace(',', '.')),
             descontoPerc: parseInt(p.descontoPerc) || 0,
@@ -426,6 +431,9 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
             itensExcluidos: c.itensExcluidos.filter(i => i.trim() !== ''),
             bonusItens: c.bonusItens.filter(i => i.trim() !== ''),
             precos: {
+                // 🔥 "unico" faltava aqui -- sem isso, o preço da Ficha 8
+                // Semanas (que só usa "unico") nunca era salvo.
+                unico: buildPeriodoPayload(c.precos.unico),
                 mensal: buildPeriodoPayload(c.precos.mensal),
                 trimestral: buildPeriodoPayload(c.precos.trimestral),
                 semestral: buildPeriodoPayload(c.precos.semestral),
@@ -829,7 +837,11 @@ export default function TabPropostaOfertas({ theme, currentUserId, navigation })
                                 </Text>
                                 <View style={styles.pricesGrid}>
                                     {PERIODOS.map((periodo) => {
-                                        const p = card.precos[periodo];
+                                        // 🔥 Nem todo card preenche os 5 períodos (ex: Ficha 8
+                                        // Semanas só tem "unico") -- sem esse fallback, o .map
+                                        // quebrava com "Cannot read properties of undefined"
+                                        // pros períodos que o card não define.
+                                        const p = card.precos[periodo] || emptyPeriodoPreco();
                                         const desconto = parseInt(p.descontoPerc) || 0;
                                         const precoFinal = calcPrecoFinal(p.valor, p.descontoPerc);
                                         return (
