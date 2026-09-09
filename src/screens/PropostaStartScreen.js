@@ -304,12 +304,18 @@ export default function PropostaStartScreen({ route }) {
 
                     {/* ── HERO ─────────────────────────────────────────────────── */}
                     <View style={styles.heroSection}>
-                        {/* 🔥 Banner full-bleed (mesmo espírito do banner "coach" da
-                            Biblioteca/elitefit_banner_generic.png), substitui o logo
-                            pequeno flutuante que deixava espaço vazio sobrando. */}
+                        {/* 🔥 Logo com fundo transparente (arte final feita pelo Paulo),
+                            flutuando direto no fundo da página -- sem banner/card
+                            atrás. Usa o SmartBanner (mede a altura real via JS, não
+                            via CSS aspectRatio) pra ocupar a largura toda do
+                            container com o tamanho que o Paulo já tinha aprovado,
+                            sem reproduzir o bug de espaço vazio no RN Web visto
+                            antes -- só cancela o fundo/borda escuros do container
+                            padrão, que reintroduziriam o "card" que ele pediu pra
+                            tirar. */}
                         <SmartBanner
-                            source={require('../../assets/pa-elite-team-hero-banner.png')}
-                            style={styles.brandBanner}
+                            source={require('../../assets/pa-elite-team-logo-final.png')}
+                            style={styles.brandLogo}
                         />
                         <View style={styles.timerBadge}>
                             <MaterialCommunityIcons name="timer-sand" size={16} color="#FF3B30" />
@@ -414,7 +420,10 @@ const styles = StyleSheet.create({
 
     // ── Hero
     heroSection: { alignItems: 'center', marginTop: 20, marginBottom: 40 },
-    brandBanner: { marginBottom: 20 },
+    // 🔥 Sobrescreve o fundo/borda escuros do smartBannerContainer -- sem
+    // isso o SmartBanner reintroduziria visualmente o "card" atrás da logo
+    // que o Paulo acabou de pedir pra tirar.
+    brandLogo: { backgroundColor: 'transparent', borderWidth: 0, marginBottom: 20 },
     timerBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF3B3015', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: '#FF3B30', marginBottom: 25 },
     timerText: { color: '#FF3B30', fontWeight: '900', fontSize: 12, marginLeft: 8, letterSpacing: 1 },
     heroGreeting: { color: '#888', fontWeight: '900', fontSize: 14, letterSpacing: 2, marginBottom: 15 },
