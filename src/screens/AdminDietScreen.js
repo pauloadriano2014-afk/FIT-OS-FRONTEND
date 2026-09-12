@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import {
     View, Text, StyleSheet, SafeAreaView, TouchableOpacity,
     Platform, KeyboardAvoidingView, useWindowDimensions,
-    ActivityIndicator, Animated, Alert, ScrollView, Modal
+    ActivityIndicator, Animated, Alert, ScrollView, Modal, Keyboard
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -82,6 +82,23 @@ export default function AdminDietScreen({ route, navigation }) {
             }
         });
     }, []);
+
+    // 🔥 FIX (12/set/2026): a barra flutuante (Ajuste Fino/Clonar/Bases/Salvar/
+    // Alimentos) é posicionada absoluta por cima da tela. Quando o teclado abre
+    // (ex: digitando nas OBSERVAÇÕES DESTA REFEIÇÃO), ela some junto com o
+    // scroll automático que o RN faz pra trazer o campo focado pra cima do
+    // teclado, sobrando um vão em branco no meio e dando a impressão de que a
+    // tela "pula" — escondendo a barra enquanto o teclado está aberto tira essa
+    // barra do caminho e deixa o campo de texto visível sem precisar rolar.
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+    useEffect(() => {
+        if (isWeb) return;
+        const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const subShow = Keyboard.addListener(showEvt, () => setIsKeyboardVisible(true));
+        const subHide = Keyboard.addListener(hideEvt, () => setIsKeyboardVisible(false));
+        return () => { subShow.remove(); subHide.remove(); };
+    }, [isWeb]);
 
     const rawAluno = route.params?.aluno;
     const aluno = (typeof rawAluno === 'string' && rawAluno.startsWith('{'))
@@ -506,6 +523,8 @@ export default function AdminDietScreen({ route, navigation }) {
                     </KeyboardAvoidingView>
 
                     {/* 🔥 FAB - REFEITO COM SCROLLVIEW HORIZONTAL */}
+                    {/* 🔥 FIX (12/set/2026): escondida enquanto o teclado está aberto, ver comentário lá em cima */}
+                    {!isKeyboardVisible && (
                     <View style={styles.fabContainer}>
                         <View style={[styles.fabPill, { backgroundColor: theme.isDark ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)', paddingHorizontal: 0, maxWidth: '95%' }]}>
                             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center' }}>
@@ -556,6 +575,7 @@ export default function AdminDietScreen({ route, navigation }) {
                             </ScrollView>
                         </View>
                     </View>
+                    )}
                 </View>
 
                 {isWebPC && (

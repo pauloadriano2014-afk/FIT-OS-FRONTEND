@@ -39,18 +39,39 @@ export const enrichMealsWithDatabase = (mealsArray) => {
     return mealsArray.map(meal => ({
         ...meal,
         items: meal.items.map(item => {
-            let query = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-            if (query.endsWith('s')) query = query.slice(0, -1);
-
-            let dbFood = FOOD_DATABASE.find(f => {
-                const dbName = f.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-                return dbName === query || dbName.includes(query) || query.includes(dbName);
-            });
+            // \ud83d\udd25 FIX (12/set/2026): se o item j\u00e1 tem um id que aponta pra um
+            // alimento real do banco \u2014 caso de "Clonar" de outro aluno ou
+            // aplicar uma "Base" (modelo), onde o item j\u00e1 foi enriquecido
+            // antes \u2014 usa esse alimento direto por ID, sem buscar por nome de
+            // novo. Buscar de novo por nome arriscava casar com um alimento
+            // errado mas parecido (ex: "Banana" virando "Banana da Terra",
+            // porque o nome dela CONT\u00c9M "banana"), j\u00e1 que v\u00e1rios nomes do
+            // banco compartilham a mesma palavra.
+            let dbFood = item.id ? FOOD_DATABASE.find(f => f.id === item.id) : null;
 
             if (!dbFood) {
-                const firstWord = query.split(' ')[0];
-                if (firstWord.length > 2) {
-                    dbFood = FOOD_DATABASE.find(f => f.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(firstWord));
+                let query = item.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                if (query.endsWith('s')) query = query.slice(0, -1);
+
+                // 1) match exato tem prioridade sobre qualquer substring
+                dbFood = FOOD_DATABASE.find(f => {
+                    const dbName = f.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                    return dbName === query;
+                });
+
+                // 2) substring s\u00f3 entra se n\u00e3o achou nenhum nome exato
+                if (!dbFood) {
+                    dbFood = FOOD_DATABASE.find(f => {
+                        const dbName = f.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+                        return dbName.includes(query) || query.includes(dbName);
+                    });
+                }
+
+                if (!dbFood) {
+                    const firstWord = query.split(' ')[0];
+                    if (firstWord.length > 2) {
+                        dbFood = FOOD_DATABASE.find(f => f.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(firstWord));
+                    }
                 }
             }
 

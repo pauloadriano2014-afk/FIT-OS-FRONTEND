@@ -34,6 +34,12 @@ export default function MealCardAdmin({
     handleDeleteNoteSnippet,
 }) {
     const [isExpanded, setIsExpanded] = useState(meal.items.length === 0);
+    // 🔥 FIX (12/set/2026): no PC (web) a lista de atalhos de observação virou
+    // um dropdown que abre/fecha, em vez de uma linha horizontal que só rola
+    // segurando Shift + scroll do mouse. No celular continua a rolagem
+    // horizontal normal (funciona bem por toque).
+    const isWebPlatform = Platform.OS === 'web';
+    const [showSnippetsWeb, setShowSnippetsWeb] = useState(false);
 
     const toggleExpand = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -322,31 +328,71 @@ export default function MealCardAdmin({
                                 </TouchableOpacity>
                             )}
                         </View>
-                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
-                            {MEAL_NOTE_SUGGESTIONS.map(sug => (
+                        {isWebPlatform ? (
+                            <View style={{ marginBottom: 10 }}>
                                 <TouchableOpacity
-                                    key={sug.label}
-                                    onPress={() => appendNoteSuggestion(sug.text)}
-                                    style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.border }]}
+                                    onPress={() => setShowSnippetsWeb(v => !v)}
+                                    style={[styles.snippetsDropdownToggle, { backgroundColor: softBg, borderColor: theme.border }]}
                                 >
-                                    <MaterialCommunityIcons name={sug.icon} size={13} color={theme.textSecondary} />
-                                    <Text style={[styles.noteSuggestionText, { color: theme.textSecondary }]}>{sug.label}</Text>
+                                    <MaterialCommunityIcons name="text-box-multiple-outline" size={14} color={theme.textSecondary} />
+                                    <Text style={[styles.noteSuggestionText, { color: theme.textSecondary }]}>Atalhos de observação</Text>
+                                    <MaterialCommunityIcons name={showSnippetsWeb ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textSecondary} />
                                 </TouchableOpacity>
-                            ))}
-                            {(noteSnippetsList || []).map(sug => (
-                                <TouchableOpacity
-                                    key={sug.id}
-                                    onPress={() => appendNoteSuggestion(sug.text)}
-                                    onLongPress={() => confirmDeleteSnippet(sug)}
-                                    style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.accent + '50' }]}
-                                >
-                                    <MaterialCommunityIcons name="bookmark" size={13} color={theme.accent} />
-                                    <Text style={[styles.noteSuggestionText, { color: theme.accent }]} numberOfLines={1}>
-                                        {sug.text.length > 22 ? `${sug.text.slice(0, 22)}…` : sug.text}
-                                    </Text>
-                                </TouchableOpacity>
-                            ))}
-                        </ScrollView>
+                                {showSnippetsWeb && (
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
+                                        {MEAL_NOTE_SUGGESTIONS.map(sug => (
+                                            <TouchableOpacity
+                                                key={sug.label}
+                                                onPress={() => { appendNoteSuggestion(sug.text); setShowSnippetsWeb(false); }}
+                                                style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.border }]}
+                                            >
+                                                <MaterialCommunityIcons name={sug.icon} size={13} color={theme.textSecondary} />
+                                                <Text style={[styles.noteSuggestionText, { color: theme.textSecondary }]}>{sug.label}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                        {(noteSnippetsList || []).map(sug => (
+                                            <View key={sug.id} style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.accent + '50', paddingRight: 6 }]}>
+                                                <TouchableOpacity onPress={() => { appendNoteSuggestion(sug.text); setShowSnippetsWeb(false); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                                                    <MaterialCommunityIcons name="bookmark" size={13} color={theme.accent} />
+                                                    <Text style={[styles.noteSuggestionText, { color: theme.accent }]} numberOfLines={1}>
+                                                        {sug.text.length > 22 ? `${sug.text.slice(0, 22)}…` : sug.text}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity onPress={() => confirmDeleteSnippet(sug)} hitSlop={{ top: 8, bottom: 8, left: 6, right: 6 }} style={{ marginLeft: 6 }}>
+                                                    <MaterialCommunityIcons name="close" size={13} color={theme.accent} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                )}
+                            </View>
+                        ) : (
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
+                                {MEAL_NOTE_SUGGESTIONS.map(sug => (
+                                    <TouchableOpacity
+                                        key={sug.label}
+                                        onPress={() => appendNoteSuggestion(sug.text)}
+                                        style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.border }]}
+                                    >
+                                        <MaterialCommunityIcons name={sug.icon} size={13} color={theme.textSecondary} />
+                                        <Text style={[styles.noteSuggestionText, { color: theme.textSecondary }]}>{sug.label}</Text>
+                                    </TouchableOpacity>
+                                ))}
+                                {(noteSnippetsList || []).map(sug => (
+                                    <TouchableOpacity
+                                        key={sug.id}
+                                        onPress={() => appendNoteSuggestion(sug.text)}
+                                        onLongPress={() => confirmDeleteSnippet(sug)}
+                                        style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.accent + '50' }]}
+                                    >
+                                        <MaterialCommunityIcons name="bookmark" size={13} color={theme.accent} />
+                                        <Text style={[styles.noteSuggestionText, { color: theme.accent }]} numberOfLines={1}>
+                                            {sug.text.length > 22 ? `${sug.text.slice(0, 22)}…` : sug.text}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        )}
                         <TextInput
                             style={[styles.notesInput, { backgroundColor: softBg, color: theme.text }]}
                             placeholder="Ex: Bater tudo no liquidificador com gelo."
@@ -400,6 +446,7 @@ const styles = StyleSheet.create({
     notesLabel:     { fontSize:11, fontWeight:'900', letterSpacing:1 },
     saveSnippetBtn: { flexDirection:'row', alignItems:'center', gap:4 },
     saveSnippetText:{ fontSize:9, fontWeight:'900', letterSpacing:0.3 },
+    snippetsDropdownToggle: { flexDirection:'row', alignItems:'center', gap:6, alignSelf:'flex-start', paddingVertical:8, paddingHorizontal:12, borderRadius:12, borderWidth:1 },
     noteSuggestionChip: { flexDirection:'row', alignItems:'center', gap:5, paddingVertical:7, paddingHorizontal:12, borderRadius:20, borderWidth:1 },
     noteSuggestionText: { fontSize:11, fontWeight:'700' },
     notesInput:     { padding:16, borderRadius:16, fontSize:16, minHeight:80, textAlignVertical:'top', outlineStyle:'none' },
