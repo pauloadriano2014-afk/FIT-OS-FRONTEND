@@ -11,6 +11,7 @@ export const useDietData = (userId) => {
     const [studentsList,    setStudentsList]    = useState([]);
     const [templatesList,   setTemplatesList]   = useState([]);
     const [mealTemplatesList, setMealTemplatesList] = useState([]);
+    const [noteSnippetsList, setNoteSnippetsList] = useState([]);
     const [initialMeals,    setInitialMeals]    = useState([]);
 
     useEffect(() => {
@@ -87,14 +88,16 @@ export const useDietData = (userId) => {
 
                 // ── Listas auxiliares ───────────────────────────────────────
                 try {
-                    const [sData, tData, mData] = await Promise.all([
+                    const [sData, tData, mData, nData] = await Promise.all([
                         DietService.fetchStudentsList(),
                         DietService.fetchDietTemplates(),
                         DietService.fetchMealTemplates(),
+                        DietService.fetchNoteSnippets(),
                     ]);
                     setStudentsList(sData.users   || sData || []);
                     setTemplatesList(tData.templates || tData || []);
                     setMealTemplatesList(mData.templates || []);
+                    setNoteSnippetsList(nData.snippets || []);
                 } catch (e) { console.error('Listas:', e); }
 
             } catch (error) {
@@ -111,6 +114,7 @@ export const useDietData = (userId) => {
         anamnese, dietConfig, setDietConfig, isLoadingDiet,
         isSaving, setIsSaving, isGenerating, setIsGenerating,
         studentsList, templatesList, setTemplatesList,
-        mealTemplatesList, setMealTemplatesList, initialMeals,
+        mealTemplatesList, setMealTemplatesList,
+        noteSnippetsList, setNoteSnippetsList, initialMeals,
     };
 };

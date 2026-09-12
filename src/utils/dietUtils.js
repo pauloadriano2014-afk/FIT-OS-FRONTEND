@@ -8,10 +8,21 @@ import { FOOD_PORTIONS } from '../data/foodPortions';
 export const UNITS = ['g', 'ml', 'unid', 'colher', 'fatia', 'xícara'];
 export const UNIT_GRAM_FACTOR = { 'g': 1, 'ml': 1, 'fatia': 25, 'unid': 50, 'colher': 15, 'xícara': 200 };
 
-export const toGrams = (amount, unit, food) => {
+// 🔥 FIX (12/set/2026): "un" é sinônimo de "unid" (unidade) — alguns alimentos
+// antigos do banco (ex: Ovos Inteiros) e importações por IA usam "un", que não
+// existe nem em FOOD_PORTIONS nem em UNIT_GRAM_FACTOR. Sem essa normalização,
+// o fator de conversão caía no fallback de 1 (tratando a quantidade como se já
+// fosse em gramas), fazendo "3 unidades" de ovo virar "3g" e mostrar ~4kcal em
+// vez de ~250kcal. Centralizado aqui pra proteger todo mundo que calcula
+// gramas a partir de quantidade+unidade.
+export const getUnitFactor = (unit, food) => {
+    const normUnit = unit === 'un' ? 'unid' : unit;
     const portions = food ? FOOD_PORTIONS[food.id] : null;
-    const factor = portions?.[unit] ?? UNIT_GRAM_FACTOR[unit] ?? 1;
-    return (parseFloat(amount) || 0) * factor;
+    return portions?.[normUnit] ?? UNIT_GRAM_FACTOR[normUnit] ?? 1;
+};
+
+export const toGrams = (amount, unit, food) => {
+    return (parseFloat(amount) || 0) * getUnitFactor(unit, food);
 };
 
 // 🔥 NOVA FUNÇÃO ROBUSTA: Pega o macro independente do nome que vier do banco

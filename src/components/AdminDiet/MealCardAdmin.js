@@ -1,12 +1,23 @@
 // src/components/AdminDiet/MealCardAdmin.js
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, TextInput, ScrollView, StyleSheet, Alert, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { getMacro } from '../../utils/dietUtils';
 import AlternativeMealManager from './AlternativeMealManager';
 
-export default function MealCardAdmin({ 
+// 🔥 NOVO: atalhos de observações mais usadas, pra não precisar redigitar
+// sempre a mesma coisa. Toque adiciona o texto à observação já existente.
+const MEAL_NOTE_SUGGESTIONS = [
+    { icon: 'blender',            label: 'Liquidificador',     text: 'Bater tudo no liquidificador com gelo.' },
+    { icon: 'silverware-variant', label: 'Sem óleo',           text: 'Preparo sem óleo (grelhado, cozido ou na airfryer).' },
+    { icon: 'leaf',                label: 'Folhas à vontade',   text: 'Pode adicionar folhas verdes à vontade (alface, rúcula, agrião).' },
+    { icon: 'shaker-outline',      label: 'Temperar à vontade', text: 'Temperar à vontade com ervas, limão e temperos naturais (evitar excesso de sal).' },
+    { icon: 'sync',                label: 'Versão zero/diet',   text: 'Pode substituir por versão zero açúcar / diet, se preferir.' },
+    { icon: 'clock-fast',          label: 'Consumir na hora',   text: 'Consumir logo após o preparo.' },
+];
+
+export default function MealCardAdmin({
     meal, index, totalMeals, theme, toGrams,
     handleOpenNameSelect, handleOpenTimeSelect, 
     handleDeleteMeal, handleMoveMeal, handleUpdateFoodAmount, handleToggleUnit, 
@@ -17,12 +28,57 @@ export default function MealCardAdmin({
     mealTemplatesList,
     allMeals,
     onApplyAsAlternative,
+    // 🔥 NOVO: atalhos de observação salvos pelo coach (persistidos no backend)
+    noteSnippetsList,
+    handleSaveNoteSnippet,
+    handleDeleteNoteSnippet,
 }) {
     const [isExpanded, setIsExpanded] = useState(meal.items.length === 0);
 
     const toggleExpand = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         setIsExpanded(!isExpanded);
+    };
+
+    // 🔥 NOVO: adiciona um atalho de observação ao texto já digitado, sem apagar
+    // o que já estava lá (nem duplicar se o atalho já tiver sido usado).
+    const appendNoteSuggestion = (textToAdd) => {
+        Haptics.selectionAsync();
+        const current = (meal.notes ?? meal.observacoes ?? meal.generalNotes ?? '').trim();
+        if (current.includes(textToAdd)) return;
+        handleUpdateMeal(meal.id, 'notes', current ? `${current} ${textToAdd}` : textToAdd);
+    };
+
+    // 🔥 NOVO: pega o texto já digitado no campo de observações e salva como
+    // um atalho novo (persistido no backend), pra reusar em qualquer dieta depois.
+    const currentNotesTrimmed = (meal.notes ?? meal.observacoes ?? meal.generalNotes ?? '').trim();
+
+    const handleSaveCurrentAsSnippet = () => {
+        if (!handleSaveNoteSnippet || !currentNotesTrimmed) return;
+        const lower = currentNotesTrimmed.toLowerCase();
+        const alreadyDefault = MEAL_NOTE_SUGGESTIONS.some(s => s.text.toLowerCase() === lower);
+        const alreadySaved   = (noteSnippetsList || []).some(s => (s.text || '').trim().toLowerCase() === lower);
+        if (alreadyDefault || alreadySaved) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            return;
+        }
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        handleSaveNoteSnippet(currentNotesTrimmed);
+    };
+
+    // 🔥 NOVO: apagar um atalho salvo (toque longo no chip)
+    const confirmDeleteSnippet = (sug) => {
+        if (!handleDeleteNoteSnippet) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        const doDelete = () => handleDeleteNoteSnippet(sug.id);
+        if (Platform.OS === 'web') {
+            if (window.confirm(`Apagar o atalho "${sug.text}"?`)) doDelete();
+        } else {
+            Alert.alert('Apagar Atalho', `Apagar "${sug.text}"?`, [
+                { text: 'Cancelar' },
+                { text: 'Apagar', style: 'destructive', onPress: doDelete },
+            ]);
+        }
     };
 
     const grouped = meal.items.reduce((acc, item) => {
@@ -254,10 +310,43 @@ export default function MealCardAdmin({
                     </TouchableOpacity>
 
                     <View style={styles.notesContainer}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                            <MaterialCommunityIcons name="text-box-outline" size={16} color={theme.textSecondary} />
-                            <Text style={[styles.notesLabel, { color: theme.textSecondary }]}>OBSERVAÇÕES DESTA REFEIÇÃO</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                <MaterialCommunityIcons name="text-box-outline" size={16} color={theme.textSecondary} />
+                                <Text style={[styles.notesLabel, { color: theme.textSecondary }]}>OBSERVAÇÕES DESTA REFEIÇÃO</Text>
+                            </View>
+                            {!!handleSaveNoteSnippet && !!currentNotesTrimmed && (
+                                <TouchableOpacity onPress={handleSaveCurrentAsSnippet} style={styles.saveSnippetBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                    <MaterialCommunityIcons name="content-save-plus-outline" size={14} color={theme.accent} />
+                                    <Text style={[styles.saveSnippetText, { color: theme.accent }]}>SALVAR ATALHO</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
+                        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} contentContainerStyle={{ gap: 8 }}>
+                            {MEAL_NOTE_SUGGESTIONS.map(sug => (
+                                <TouchableOpacity
+                                    key={sug.label}
+                                    onPress={() => appendNoteSuggestion(sug.text)}
+                                    style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.border }]}
+                                >
+                                    <MaterialCommunityIcons name={sug.icon} size={13} color={theme.textSecondary} />
+                                    <Text style={[styles.noteSuggestionText, { color: theme.textSecondary }]}>{sug.label}</Text>
+                                </TouchableOpacity>
+                            ))}
+                            {(noteSnippetsList || []).map(sug => (
+                                <TouchableOpacity
+                                    key={sug.id}
+                                    onPress={() => appendNoteSuggestion(sug.text)}
+                                    onLongPress={() => confirmDeleteSnippet(sug)}
+                                    style={[styles.noteSuggestionChip, { backgroundColor: softBg, borderColor: theme.accent + '50' }]}
+                                >
+                                    <MaterialCommunityIcons name="bookmark" size={13} color={theme.accent} />
+                                    <Text style={[styles.noteSuggestionText, { color: theme.accent }]} numberOfLines={1}>
+                                        {sug.text.length > 22 ? `${sug.text.slice(0, 22)}…` : sug.text}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
                         <TextInput
                             style={[styles.notesInput, { backgroundColor: softBg, color: theme.text }]}
                             placeholder="Ex: Bater tudo no liquidificador com gelo."
@@ -296,7 +385,7 @@ const styles = StyleSheet.create({
     diffRow:        { flexDirection:'row', flexWrap:'wrap', gap:6, marginTop:6 },
     diffChip:       { fontSize:10, fontWeight:'800' },
     amountBox:      { flexDirection:'row', alignItems:'center', marginLeft:4 },
-    amountInput:    { width:60, paddingVertical:10, paddingHorizontal:4, borderRadius:12, textAlign:'center', fontSize:14, fontWeight:'800', outlineStyle:'none' },
+    amountInput:    { width:60, paddingVertical:10, paddingHorizontal:4, borderRadius:12, textAlign:'center', fontSize:16, fontWeight:'800', outlineStyle:'none' },
     unitBtn:        { paddingHorizontal:10, paddingVertical:10, borderRadius:12, marginLeft:6, alignItems:'center' },
     unitText:       { fontSize:11, fontWeight:'800' },
     ouRow:          { flexDirection:'row', alignItems:'center', marginVertical:14 },
@@ -309,5 +398,9 @@ const styles = StyleSheet.create({
     addFoodText:    { fontSize:12, fontWeight:'900', letterSpacing:1 },
     notesContainer: { paddingHorizontal:16, paddingBottom:24 },
     notesLabel:     { fontSize:11, fontWeight:'900', letterSpacing:1 },
-    notesInput:     { padding:16, borderRadius:16, fontSize:14, minHeight:80, textAlignVertical:'top', outlineStyle:'none' },
+    saveSnippetBtn: { flexDirection:'row', alignItems:'center', gap:4 },
+    saveSnippetText:{ fontSize:9, fontWeight:'900', letterSpacing:0.3 },
+    noteSuggestionChip: { flexDirection:'row', alignItems:'center', gap:5, paddingVertical:7, paddingHorizontal:12, borderRadius:20, borderWidth:1 },
+    noteSuggestionText: { fontSize:11, fontWeight:'700' },
+    notesInput:     { padding:16, borderRadius:16, fontSize:16, minHeight:80, textAlignVertical:'top', outlineStyle:'none' },
 });

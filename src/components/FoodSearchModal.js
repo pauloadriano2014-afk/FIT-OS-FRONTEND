@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     tabText:     { fontSize:13, fontWeight:'800' },
     tabBadge:    { paddingHorizontal:6, paddingVertical:2, borderRadius:8 },
     searchBox:   { flexDirection:'row', alignItems:'center', gap:10, padding:14, borderRadius:16, borderWidth:1, marginBottom:12 },
-    searchInput: { flex:1, fontSize:14, outlineStyle:'none' },
+    searchInput: { flex:1, fontSize:16, outlineStyle:'none' },
     backBtn:     { flexDirection:'row', alignItems:'center', gap:6, paddingVertical:8, paddingHorizontal:12, borderRadius:10, alignSelf:'flex-start', marginBottom:10, borderWidth:1 },
     backText:    { fontSize:12, fontWeight:'800' },
     resultCount: { fontSize:11, fontWeight:'700', marginBottom:10, letterSpacing:0.3 },

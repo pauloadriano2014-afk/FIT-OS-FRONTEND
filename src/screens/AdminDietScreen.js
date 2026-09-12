@@ -232,6 +232,32 @@ export default function AdminDietScreen({ route, navigation }) {
         } catch { Alert.alert('Erro', 'Falha ao salvar.'); }
     };
 
+    // 🔥 NOVO: duplica a refeição selecionada no menu de 3 pontinhos
+    const handleDuplicateMeal = () => {
+        if (!actions.selectedMealForAction) return;
+        actions.handleDuplicateMeal(actions.selectedMealForAction.id);
+        modals.setModalMealOptionsVisible(false);
+    };
+
+    // 🔥 NOVO: salva um texto de observação como atalho reutilizável em qualquer dieta
+    const handleSaveNoteSnippet = async (text) => {
+        try {
+            const newSnippet = await DietService.saveNoteSnippet({ text });
+            data.setNoteSnippetsList(prev => [newSnippet, ...prev]);
+        } catch { Alert.alert('Erro', 'Falha ao salvar o atalho de observação.'); }
+    };
+
+    const handleDeleteNoteSnippet = async (id) => {
+        const prevList = data.noteSnippetsList;
+        data.setNoteSnippetsList(prev => prev.filter(s => s.id !== id)); // otimista
+        try {
+            await DietService.deleteNoteSnippet(id);
+        } catch {
+            data.setNoteSnippetsList(prevList); // reverte se falhar
+            Alert.alert('Erro', 'Falha ao apagar o atalho.');
+        }
+    };
+
     const handleApplyMealTemplate = (template) => {
         const parsedItems = typeof template.items === 'string' ? JSON.parse(template.items) : template.items;
         actions.setMeals(prev => prev.map(m =>
@@ -434,6 +460,8 @@ export default function AdminDietScreen({ route, navigation }) {
                                                     handleMealOptions={handleMealOptions} handleSwapBaseFood={handleSwapBaseFood}
                                                     handleUpdateMeal={actions.handleUpdateMeal}
                                                     mealTemplatesList={data.mealTemplatesList} allMeals={actions.visibleMeals}
+                                                    noteSnippetsList={data.noteSnippetsList} handleSaveNoteSnippet={handleSaveNoteSnippet}
+                                                    handleDeleteNoteSnippet={handleDeleteNoteSnippet}
                                                     onApplyAsAlternative={actions.handleApplyAsAlternative} />
                                                 {myAlts.map((alt, aIdx) => (
                                                     <View key={alt.id} style={{ paddingLeft: 16 }}>
@@ -451,6 +479,8 @@ export default function AdminDietScreen({ route, navigation }) {
                                                             handleMealOptions={handleMealOptions} handleSwapBaseFood={handleSwapBaseFood}
                                                             handleUpdateMeal={actions.handleUpdateMeal}
                                                             mealTemplatesList={data.mealTemplatesList} allMeals={actions.visibleMeals}
+                                                            noteSnippetsList={data.noteSnippetsList} handleSaveNoteSnippet={handleSaveNoteSnippet}
+                                                            handleDeleteNoteSnippet={handleDeleteNoteSnippet}
                                                             onApplyAsAlternative={actions.handleApplyAsAlternative} />
                                                     </View>
                                                 ))}
@@ -586,6 +616,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 modalTemplatesVisible={modals.modalTemplatesVisible} setModalTemplatesVisible={modals.setModalTemplatesVisible} templatesList={data.templatesList} handleApplyTemplate={handleApplyTemplate}
                 modalSaveTemplateVisible={modals.modalSaveTemplateVisible} setModalSaveTemplateVisible={modals.setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate}
                 modalMealOptionsVisible={modals.modalMealOptionsVisible} setModalMealOptionsVisible={modals.setModalMealOptionsVisible}
+                handleDuplicateMeal={handleDuplicateMeal}
                 modalSaveMealVisible={modals.modalSaveMealVisible} setModalSaveMealVisible={modals.setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate}
                 modalImportMealVisible={modals.modalImportMealVisible} setModalImportMealVisible={modals.setModalImportMealVisible} mealTemplatesList={data.mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
 

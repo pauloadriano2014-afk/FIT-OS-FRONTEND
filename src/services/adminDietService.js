@@ -60,6 +60,28 @@ export const saveMealTemplate    = async (payload) => {
     if (!res.ok) throw new Error('Falha ao guardar modelo de refeição');
     return res.json();
 };
+// 🔥 NOVO: atalhos de observação salvos pelo coach (reusáveis em qualquer dieta)
+export const fetchNoteSnippets   = async () => {
+    const res = await fetch(`${BASE_URL}/note-snippets`, {
+        headers: { ...(await authHeaders()) },
+    });
+    if (!res.ok) throw new Error('Erro ao buscar atalhos de observação');
+    return res.json();
+};
+export const saveNoteSnippet     = async (payload) => {
+    const res = await fetch(`${BASE_URL}/note-snippets`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error('Falha ao guardar atalho de observação');
+    return res.json();
+};
+export const deleteNoteSnippet   = async (id) => {
+    const res = await fetch(`${BASE_URL}/note-snippets?id=${id}`, {
+        method: 'DELETE', headers: { ...(await authHeaders()) },
+    });
+    if (!res.ok) throw new Error('Falha ao apagar atalho de observação');
+    return res.json();
+};
 export const saveDiet            = async (payload) => {
     const res = await fetch(`${BASE_URL}/diet`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', ...(await authHeaders()) }, body: JSON.stringify(payload),

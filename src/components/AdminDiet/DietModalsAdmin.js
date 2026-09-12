@@ -76,6 +76,6 @@ const styles = StyleSheet.create({
     listModalTitle: { fontSize: 11, fontWeight: '900', letterSpacing: 1.2, textAlign: 'center', marginBottom: 12 },
     listOption: { paddingVertical: 16, borderBottomWidth: 1 },
     customBox: { width: '100%', maxWidth: 380, borderRadius: 28, padding: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 24, elevation: 10 },
-    customInput: { padding: 16, borderRadius: 16, fontSize: 15, outlineStyle: 'none' },
+    customInput: { padding: 16, borderRadius: 16, fontSize: 16, outlineStyle: 'none' },
     customBtn: { flex: 1, padding: 16, borderRadius: 16, alignItems: 'center' }
 });

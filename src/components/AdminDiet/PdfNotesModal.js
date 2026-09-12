@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     itemLabel:        { fontSize: 12, marginBottom: 2 },
     itemDesc:         { fontSize: 10.5, lineHeight: 15 },
     checkbox:         { width: 22, height: 22, borderRadius: 6, borderWidth: 2, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 },
-    extraInput:       { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 13, minHeight: 90, maxHeight: 130 },
+    extraInput:       { borderWidth: 1, borderRadius: 12, padding: 12, fontSize: 16, minHeight: 90, maxHeight: 130 },
     footer:           { flexDirection: 'row', gap: 10, paddingTop: 14, paddingBottom: 34, borderTopWidth: 1, marginTop: 4 },
     btnSecondary:     { flex: 1, padding: 14, borderRadius: 14, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
     btnSecondaryText: { fontSize: 12, fontWeight: '700' },

@@ -8,7 +8,7 @@ export default function DietActionModals({
     modalCloneVisible, setModalCloneVisible, studentsList, handleCloneFromStudent,
     modalTemplatesVisible, setModalTemplatesVisible, templatesList, handleApplyTemplate,
     modalSaveTemplateVisible, setModalSaveTemplateVisible, handleSaveAsTemplate,
-    modalMealOptionsVisible, setModalMealOptionsVisible, 
+    modalMealOptionsVisible, setModalMealOptionsVisible, handleDuplicateMeal,
     modalSaveMealVisible, setModalSaveMealVisible, handleSaveMealTemplate,
     modalImportMealVisible, setModalImportMealVisible, mealTemplatesList, handleApplyMealTemplate
 }) {
@@ -144,6 +144,12 @@ export default function DietActionModals({
                             </View>
                             <Text style={[styles.actionOptionText, { color: theme.text }]}>Substituir por um Modelo Guardado</Text>
                         </TouchableOpacity>
+                        <TouchableOpacity style={[styles.actionOptionRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={handleDuplicateMeal}>
+                            <View style={[styles.iconCircle, { backgroundColor: softBg, width: 40, height: 40 }]}>
+                                <MaterialCommunityIcons name="content-copy" size={20} color={theme.text} />
+                            </View>
+                            <Text style={[styles.actionOptionText, { color: theme.text }]}>Duplicar Refeição</Text>
+                        </TouchableOpacity>
                         <TouchableOpacity style={styles.actionOptionRow} onPress={() => { setModalMealOptionsVisible(false); setTimeout(() => setModalSaveMealVisible(true), 300); }}>
                             <View style={[styles.iconCircle, { backgroundColor: theme.accent + '20', width: 40, height: 40 }]}>
                                 <MaterialCommunityIcons name="content-save-outline" size={20} color={theme.accent} />
@@ -221,7 +227,7 @@ const styles = StyleSheet.create({
     iconCircle: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
     title: { fontSize: 15, fontWeight: '900', letterSpacing: 1, flex: 1 },
     closeBtn: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-    searchInput: { padding: 16, borderRadius: 16, fontSize: 15, marginBottom: 16, outlineStyle: 'none' },
+    searchInput: { padding: 16, borderRadius: 16, fontSize: 16, marginBottom: 16, outlineStyle: 'none' },
     listItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1 },
     actionPill: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
     emptyText: { textAlign: 'center', padding: 24, fontStyle: 'italic', fontSize: 13 },

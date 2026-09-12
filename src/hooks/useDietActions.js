@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Platform, Alert } from 'react-native';
 import { FOOD_PORTIONS } from '../data/foodPortions';
-import { calculateMacros, calculateCurrentMacros, toGrams, UNIT_GRAM_FACTOR, UNITS } from '../utils/dietUtils';
+import { calculateMacros, calculateCurrentMacros, toGrams, getUnitFactor, UNITS } from '../utils/dietUtils';
 
 export const useDietActions = (aluno, anamnese, initialMeals) => {
     const [meals, setMeals] = useState([]);
@@ -42,6 +42,41 @@ export const useDietActions = (aluno, anamnese, initialMeals) => {
     }]);
 
     const handleDeleteMeal = (mealId) => setMeals(prev => prev.filter(m => m.id !== mealId));
+
+    // 🔥 NOVO: duplica uma refeição inteira (com todos os alimentos-base e
+    // substitutos), inserindo a cópia logo depois da original no mesmo dia.
+    // Gera uniqueId/groupId novos pra cada item (preservando o agrupamento
+    // entre alimento-base e seus substitutos), pra não colidir com a original.
+    const handleDuplicateMeal = (mealId) => {
+        setMeals(prev => {
+            const original = prev.find(m => m.id === mealId);
+            if (!original) return prev;
+
+            const groupIdMap = new Map();
+            const newItems = original.items.map(item => {
+                if (!groupIdMap.has(item.groupId)) {
+                    groupIdMap.set(item.groupId, Date.now().toString() + Math.random().toString(36).slice(2, 7));
+                }
+                return {
+                    ...item,
+                    uniqueId: Date.now().toString() + Math.random().toString(36).slice(2, 7),
+                    groupId: groupIdMap.get(item.groupId),
+                };
+            });
+
+            const duplicated = {
+                ...original,
+                id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
+                name: `${original.name} (Cópia)`,
+                items: newItems,
+                isMainVersion: true,
+                alternativeGroupId: null,
+                alternativeLabel: null,
+            };
+
+            return prev.flatMap(m => m.id === mealId ? [m, duplicated] : [m]);
+        });
+    };
 
     const handleUpdateMeal = (mealId, field, value) =>
         setMeals(prev => prev.map(m => m.id === mealId ? { ...m, [field]: value } : m));
@@ -160,7 +195,7 @@ export const useDietActions = (aluno, anamnese, initialMeals) => {
                     const itemKcal       = parseFloat(food.calories_per_100 ?? food.calories ?? 1);
                     let neededGrams      = (targetKcal * 100) / itemKcal;
                     if (neededGrams === Infinity || isNaN(neededGrams) || neededGrams === 0) neededGrams = 100;
-                    const factor    = (portions?.[initialUnit]) ?? UNIT_GRAM_FACTOR[initialUnit] ?? 1;
+                    const factor    = getUnitFactor(initialUnit, food);
                     initialAmount   = Math.max(0.5, Math.round((neededGrams / factor) * 2) / 2).toString();
                 }
             }
@@ -196,7 +231,7 @@ export const useDietActions = (aluno, anamnese, initialMeals) => {
                         if (item.groupId === targetFood.groupId) {
                             const itemKcal    = parseFloat(item.calories_per_100 ?? item.calories ?? 1);
                             const neededGrams = (targetKcal * 100) / itemKcal;
-                            const factor      = (FOOD_PORTIONS[item.id]?.[item.unit]) ?? UNIT_GRAM_FACTOR[item.unit] ?? 1;
+                            const factor      = getUnitFactor(item.unit, item);
                             return { ...item, amount: Math.round(neededGrams / factor).toString() };
                         }
                         return item;
@@ -231,7 +266,7 @@ export const useDietActions = (aluno, anamnese, initialMeals) => {
         smartPrincipalAmount, setSmartPrincipalAmount, customNameInput, setCustomNameInput,
         selectedMealForAction, setSelectedMealForAction,
         visibleMeals, macros, currentMacros,
-        handleAddMeal, handleDeleteMeal, handleUpdateMeal, handleMoveMeal, handleClearDay,
+        handleAddMeal, handleDeleteMeal, handleDuplicateMeal, handleUpdateMeal, handleMoveMeal, handleClearDay,
         handleAddFoodToMeal, handleUpdateFoodAmount, handleToggleUnit, handleDeleteFood,
         // 🔥 Versões alternativas
         handleApplyAsAlternative,

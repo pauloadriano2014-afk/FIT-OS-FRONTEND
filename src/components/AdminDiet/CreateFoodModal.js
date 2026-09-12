@@ -133,7 +133,11 @@ export default function CreateFoodModal({ visible, onClose, onCreated, coachId, 
                         {/* Unidade */}
                         <Text style={[s.label, { color:theme.textSecondary }]}>UNIDADE BASE</Text>
                         <View style={{ flexDirection:'row', gap:8, marginBottom:14 }}>
-                            {['g','ml','un'].map(u => (
+                            {/* 🔥 FIX (12/set/2026): era 'un', mas o resto do app (FOOD_PORTIONS,
+                                UNIT_GRAM_FACTOR) usa 'unid' — salvar como 'un' fazia a conversão
+                                pra gramas cair no fallback de fator 1 e a comida ficar com kcal
+                                errada (ex: Ovos Inteiros mostrando 4kcal em vez de ~250kcal) */}
+                            {['g','ml','unid'].map(u => (
                                 <TouchableOpacity key={u}
                                     style={[s.unitPill, { borderColor: form.baseUnit===u ? theme.accent : theme.border, backgroundColor: form.baseUnit===u ? theme.accent+'20' : theme.surface }]}
                                     onPress={() => field('baseUnit')(u)}
@@ -196,7 +200,7 @@ const s = StyleSheet.create({
     header:    { flexDirection:'row', justifyContent:'space-between', alignItems:'flex-start', marginBottom:20 },
     title:     { fontSize:16, fontWeight:'900', letterSpacing:1 },
     label:     { fontSize:11, fontWeight:'800', marginBottom:5, letterSpacing:0.5 },
-    input:     { borderWidth:1, borderRadius:12, padding:14, fontSize:14, marginBottom:14 },
+    input:     { borderWidth:1, borderRadius:12, padding:14, fontSize:16, marginBottom:14 },
     macroInput:{ borderWidth:1, borderRadius:12, padding:12, fontSize:16, fontWeight:'900', textAlign:'center' },
     catPill:   { paddingHorizontal:12, paddingVertical:7, borderRadius:20, borderWidth:1 },
     unitPill:  { flex:1, paddingVertical:10, borderRadius:12, borderWidth:1, alignItems:'center', justifyContent:'center' },
