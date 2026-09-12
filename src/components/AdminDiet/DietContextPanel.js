@@ -3,10 +3,11 @@
 // No PC (isWebPC) aparece sempre, fixo como barra lateral direita (variant="sidebar").
 // No celular aparece sob demanda, dentro de uma bottom sheet (variant="mobileSheet"),
 // aberta pelo botão "CONTEXTO DO ALUNO" no DietHeaderWidgets.
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { calcWeeklyPlan } from '../../utils/macroPlanner';
+import DietInfoModal from './DietInfoModal';
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 function ProgressBar({ current, target, color, theme }) {
@@ -138,6 +139,9 @@ export default function DietContextPanel({
     const softBg  = theme.isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)';
     const cardBg  = theme.isDark ? 'rgba(255,255,255,0.06)' : '#FFFFFF';
 
+    // 🔥 NOVO: explicações pro coach (TMB/TDEE e déficit-superávit semanal)
+    const [infoTopic, setInfoTopic] = useState(null);
+
     const objetivo  = anamnese?.objetivo ?? '—';
     const frequencia = anamnese?.frequencia ?? '?';
     const isHomem   = (aluno?.gender ?? anamnese?.gender ?? '').toLowerCase().includes('masc');
@@ -196,16 +200,30 @@ export default function DietContextPanel({
                     <View style={[p.resumoDivider, { backgroundColor: theme.border }]} />
                     <View style={p.resumoItem}>
                         <Text style={[p.resumoVal, { color: theme.text }]}>{tdee}</Text>
-                        <Text style={[p.resumoLbl, { color: theme.textSecondary }]}>TDEE</Text>
+                        <TouchableOpacity
+                            style={p.resumoLblRow}
+                            onPress={() => setInfoTopic('TMB_TDEE')}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <Text style={[p.resumoLbl, { color: theme.textSecondary }]}>TDEE</Text>
+                            <MaterialCommunityIcons name="information-outline" size={10} color={theme.textSecondary} />
+                        </TouchableOpacity>
                     </View>
                     <View style={[p.resumoDivider, { backgroundColor: theme.border }]} />
                     <View style={p.resumoItem}>
                         <Text style={[p.resumoVal, { color: isDeficit ? '#34C759' : '#FF9500' }]}>
                             {isDeficit ? '-' : '+'}{kgSemana}kg
                         </Text>
-                        <Text style={[p.resumoLbl, { color: theme.textSecondary }]}>
-                            {isDeficit ? 'PERDA/SEM' : 'GANHO/SEM'}
-                        </Text>
+                        <TouchableOpacity
+                            style={p.resumoLblRow}
+                            onPress={() => setInfoTopic('DEFICIT_SUPERAVIT')}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        >
+                            <Text style={[p.resumoLbl, { color: theme.textSecondary }]}>
+                                {isDeficit ? 'PERDA/SEM' : 'GANHO/SEM'}
+                            </Text>
+                            <MaterialCommunityIcons name="information-outline" size={10} color={theme.textSecondary} />
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -279,6 +297,13 @@ export default function DietContextPanel({
                 </>}
 
             </ScrollView>
+
+            <DietInfoModal
+                visible={!!infoTopic}
+                onClose={() => setInfoTopic(null)}
+                theme={theme}
+                topicKey={infoTopic}
+            />
         </View>
     );
 }
@@ -297,6 +322,7 @@ const p = StyleSheet.create({
     resumoVal:     { fontSize: 13, fontWeight: '900' },
     resumoLbl:     { fontSize: 8, fontWeight: '800', marginTop: 2, letterSpacing: 0.3 },
     resumoDivider: { width: 1, marginHorizontal: 4 },
+    resumoLblRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 2 },
     sectionTitle:  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingBottom: 8, marginBottom: 8, borderBottomWidth: 1 },
     sectionTitleText: { fontSize: 10, fontWeight: '900', letterSpacing: 0.8 },
     card:          { borderRadius: 14, borderWidth: 1, padding: 12, marginBottom: 14 },

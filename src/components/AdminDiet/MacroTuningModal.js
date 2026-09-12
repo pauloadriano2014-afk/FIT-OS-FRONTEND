@@ -3,13 +3,17 @@ import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, StyleSheet, Platform, TextInput } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import DietInfoModal from './DietInfoModal';
 
 export default function MacroTuningModal({ visible, onClose, theme, visibleMeals, onApply, canUndo, onUndo }) {
     const [scope, setScope] = useState('ALL'); // 'ALL' ou meal.id
     const [targetMacro, setTargetMacro] = useState('ALL'); // 'ALL', 'CARB', 'PROT', 'FAT'
-    
+
     // 🔥 Transformado em String para o campo de digitação fluir perfeitamente
-    const [percentage, setPercentage] = useState('10'); 
+    const [percentage, setPercentage] = useState('10');
+
+    // 🔥 NOVO: explicação pro coach de por que o ajuste só afeta alguns alimentos
+    const [showInfo, setShowInfo] = useState(false);
 
     // Inteligência que identifica a vocação principal do alimento (fonte de quê?)
     const getDominantMacro = (item) => {
@@ -94,15 +98,19 @@ export default function MacroTuningModal({ visible, onClose, theme, visibleMeals
     };
 
     return (
+      <>
         <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
             <View style={styles.overlay}>
                 <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={styles.header}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                             <View style={[styles.iconBox, { backgroundColor: theme.accent + '20' }]}>
                                 <MaterialCommunityIcons name="tune" size={24} color={theme.accent} />
                             </View>
                             <Text style={[styles.title, { color: theme.text }]}>AJUSTE FINO (Tuning)</Text>
+                            <TouchableOpacity onPress={() => setShowInfo(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                                <MaterialCommunityIcons name="information-outline" size={18} color={theme.textSecondary} />
+                            </TouchableOpacity>
                         </View>
                         <TouchableOpacity onPress={onClose} style={{ padding: 5 }}>
                             <MaterialCommunityIcons name="close" size={24} color={theme.textSecondary} />
@@ -208,6 +216,14 @@ export default function MacroTuningModal({ visible, onClose, theme, visibleMeals
                 </View>
             </View>
         </Modal>
+
+        <DietInfoModal
+            visible={showInfo}
+            onClose={() => setShowInfo(false)}
+            theme={theme}
+            topicKey="AJUSTE_FINO"
+        />
+      </>
     );
 }
 

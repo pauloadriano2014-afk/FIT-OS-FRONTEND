@@ -4,11 +4,15 @@
 // construtor manual (Montagem Rápida, removida a pedido do Paulo), mas ele
 // pediu pra preservar essa função — então ficou independente, acessível
 // direto pelo cabeçalho da tela de dieta.
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import DietInfoModal from './DietInfoModal';
 
 export default function DietRaioX({ anamnese, macros, theme, onClose }) {
+    // 🔥 NOVO: explicação pro coach do que é esse painel
+    const [showInfo, setShowInfo] = useState(false);
+
     if (!anamnese) return null;
 
     const m = macros ?? { kcal: 2000, prot: 120, carb: 220, fat: 60 };
@@ -60,9 +64,14 @@ export default function DietRaioX({ anamnese, macros, theme, onClose }) {
     return (
         <View style={[s.panel, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>
-                    ☢️ RAIO-X DO ALUNO
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+                    <Text style={{ color: theme.text, fontWeight: '900', fontSize: 13, letterSpacing: 0.5 }}>
+                        ☢️ RAIO-X DO ALUNO
+                    </Text>
+                    <TouchableOpacity onPress={() => setShowInfo(true)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <MaterialCommunityIcons name="information-outline" size={14} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                </View>
                 <TouchableOpacity onPress={onClose}>
                     <MaterialCommunityIcons name="close" size={18} color={theme.textSecondary} />
                 </TouchableOpacity>
@@ -79,6 +88,13 @@ export default function DietRaioX({ anamnese, macros, theme, onClose }) {
                     </View>
                 ))}
             </ScrollView>
+
+            <DietInfoModal
+                visible={showInfo}
+                onClose={() => setShowInfo(false)}
+                theme={theme}
+                topicKey="RAIO_X"
+            />
         </View>
     );
 }

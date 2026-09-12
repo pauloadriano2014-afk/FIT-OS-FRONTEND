@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authHeaders } from '../utils/authToken';
+import { normalizeAlturaCm } from '../utils/heightUtils';
 
 // 🔥 MÁGICA: O formulário base agora mora aqui. Sem depender do constants.js (fim do form undefined)
 const DEFAULT_FORM = {
@@ -389,8 +390,20 @@ export default function useAnamneseForm({ routeParams, navigation }) {
 
     // 🔥 MOTOR LEGADO DE SUBMIT PA ELITE TEAM 🔥
     try {
-      const p    = parseFloat(form.peso.replace(',', '.'));
-      const a    = parseFloat(form.altura.replace(',', '.'));
+      const p = parseFloat(form.peso.replace(',', '.'));
+
+      // 🔥 FIX (12/set/2026): corrige altura digitada em metros (ex: "1.74")
+      // em vez de centímetros (ex: "174") — sem isso o TDEE/macros saem
+      // completamente errados. O backend também corrige na gravação; aqui é
+      // só pra avisar na hora. Nada é apagado, só ajustado.
+      const alturaNorm = normalizeAlturaCm(form.altura);
+      if (alturaNorm.corrected) {
+        const msg = `A altura foi digitada como "${alturaNorm.original}" (parece estar em metros) — ajustei automaticamente para ${alturaNorm.value}cm antes de salvar. Confira se está certo.`;
+        if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Altura ajustada', msg);
+        setForm(prev => ({ ...prev, altura: alturaNorm.value }));
+      }
+
+      const a    = parseFloat(alturaNorm.value);
       const altM = a / 100;
 
       const payload = {

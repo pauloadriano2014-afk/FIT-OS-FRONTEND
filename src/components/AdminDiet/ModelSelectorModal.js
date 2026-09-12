@@ -10,6 +10,7 @@ import {
     calcWeeklyPlan, suggestWeekDistribution,
     DAY_TYPES, DAY_TYPE_LABELS
 } from '../../utils/macroPlanner';
+import DietInfoModal from './DietInfoModal';
 
 // ─── MODELOS DISPONÍVEIS ──────────────────────────────────────────────────────
 export const AI_MODELS = [
@@ -54,6 +55,8 @@ export default function ModelSelectorModal({
     const [selectedModel, setSelectedModel]   = useState('anthropic');
     const [activeTab, setActiveTab]           = useState('plan');  // 'plan' | 'model' | 'xray'
     const [weekDist, setWeekDist]             = useState(null);    // editado pelo coach
+    // 🔥 NOVO: explicações pro coach (TMB/TDEE, déficit-superávit, modelo de IA/Raio-X)
+    const [infoTopic, setInfoTopic]           = useState(null);
 
     const softBg = theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
 
@@ -112,6 +115,7 @@ export default function ModelSelectorModal({
     const isDeficit = weekly.deficitSemanal >= 0;
 
     return (
+      <>
         <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
             <View style={styles.backdrop}>
                 <View style={[styles.sheet, { backgroundColor: theme.bg, borderColor: theme.border }]}>
@@ -173,7 +177,14 @@ export default function ModelSelectorModal({
                                     <View style={[styles.tdeeDivider, { backgroundColor: theme.border }]} />
                                     <View style={styles.tdeeItem}>
                                         <Text style={[styles.tdeeValue, { color: theme.text }]}>{plan.tdee}</Text>
-                                        <Text style={[styles.tdeeLabel, { color: theme.textSecondary }]}>TDEE</Text>
+                                        <TouchableOpacity
+                                            style={styles.tdeeLabelRow}
+                                            onPress={() => setInfoTopic('TMB_TDEE')}
+                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        >
+                                            <Text style={[styles.tdeeLabel, { color: theme.textSecondary }]}>TDEE</Text>
+                                            <MaterialCommunityIcons name="information-outline" size={9} color={theme.textSecondary} />
+                                        </TouchableOpacity>
                                     </View>
                                     <View style={[styles.tdeeDivider, { backgroundColor: theme.border }]} />
                                     <View style={styles.tdeeItem}>
@@ -188,9 +199,16 @@ export default function ModelSelectorModal({
                                         ]}>
                                             {isDeficit ? '-' : '+'}{Math.abs(weekly.kgEstimadoSemana)}kg
                                         </Text>
-                                        <Text style={[styles.tdeeLabel, { color: theme.textSecondary }]}>
-                                            {isDeficit ? 'PERDA/SEM' : 'GANHO/SEM'}
-                                        </Text>
+                                        <TouchableOpacity
+                                            style={styles.tdeeLabelRow}
+                                            onPress={() => setInfoTopic('DEFICIT_SUPERAVIT')}
+                                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                        >
+                                            <Text style={[styles.tdeeLabel, { color: theme.textSecondary }]}>
+                                                {isDeficit ? 'PERDA/SEM' : 'GANHO/SEM'}
+                                            </Text>
+                                            <MaterialCommunityIcons name="information-outline" size={9} color={theme.textSecondary} />
+                                        </TouchableOpacity>
                                     </View>
                                 </View>
 
@@ -315,7 +333,7 @@ export default function ModelSelectorModal({
                                 <Text style={[styles.xrayHeaderDesc, { color: theme.textSecondary }]}>
                                     Dossiê Completo: Estes são todos os dados que a IA lerá na ficha do aluno antes de calcular a dieta.
                                 </Text>
-                                
+
                                 <XRayItem icon="account-details" title="Perfil & Objetivo" value={`${anamnese.objetivo} (${anamnese.nivel}) | ${anamnese.peso}kg | ${anamnese.altura}cm`} />
                                 
                                 <XRayItem icon="dumbbell" title="Rotina de Treino" value={`${anamnese.frequencia}x/sem (${anamnese.tempoDisponivel}min) | Treina em Jejum: ${anamnese.trainFasted ? 'Sim' : 'Não'}`} />
@@ -392,6 +410,14 @@ export default function ModelSelectorModal({
                 </View>
             </View>
         </Modal>
+
+        <DietInfoModal
+            visible={!!infoTopic}
+            onClose={() => setInfoTopic(null)}
+            theme={theme}
+            topicKey={infoTopic}
+        />
+      </>
     );
 }
 
@@ -415,6 +441,7 @@ const styles = StyleSheet.create({
     tdeeItem: { flex: 1, alignItems: 'center' },
     tdeeValue:{ fontSize: 15, fontWeight: '900' },
     tdeeLabel:{ fontSize: 9,  fontWeight: '800', marginTop: 2, letterSpacing: 0.5 },
+    tdeeLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 2, marginTop: 2 },
     tdeeDivider: { width: 1, marginHorizontal: 4 },
 
     sectionTitle: { fontSize: 13, fontWeight: '900', letterSpacing: 0.5 },

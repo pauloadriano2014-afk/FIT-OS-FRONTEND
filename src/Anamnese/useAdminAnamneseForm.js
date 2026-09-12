@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import { authHeaders } from '../utils/authToken';
+import { normalizeAlturaCm } from '../utils/heightUtils';
 
 // ─── LISTAS (MANTIDAS INTACTAS PARA O MOTOR LEGADO E UI) ──────────────────────
 export const OBJETIVOS_LIST   = ['Hipertrofia','Emagrecimento','Definição'];
@@ -267,6 +268,19 @@ export default function useAdminAnamneseForm({ aluno }) {
             if (miss.length > 0) { setMissingFields(miss); setMissingModal(true); return; }
         }
 
+        // 🔥 FIX (12/set/2026): corrige altura digitada em metros (ex: "1.74")
+        // em vez de centímetros (ex: "174") — sem isso o TDEE/macros do aluno
+        // saem completamente errados. O backend também corrige na gravação;
+        // aqui é só pra avisar na hora e manter o formulário em tela coerente
+        // com o que vai ser salvo. Nada é apagado, só ajustado.
+        const alturaNorm = normalizeAlturaCm(f.altura);
+        if (alturaNorm.corrected) {
+            const msg = `A altura foi digitada como "${alturaNorm.original}" (parece estar em metros) — ajustei automaticamente para ${alturaNorm.value}cm antes de salvar. Confira se está certo.`;
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Altura ajustada', msg);
+            setF(prev => ({ ...prev, altura: alturaNorm.value }));
+        }
+        const alturaParaSalvar = alturaNorm.value;
+
         try {
             setSaving(true);
             
@@ -298,7 +312,7 @@ export default function useAdminAnamneseForm({ aluno }) {
                     method:'POST', headers:{'Content-Type':'application/json', ...saveAuthHdrs},
                     body:JSON.stringify({
                         userId:aluno.id,
-                        peso:f.peso.replace(',','.'), altura:f.altura.replace(',','.'),
+                        peso:f.peso.replace(',','.'), altura:alturaParaSalvar.replace(',','.'),
                         objetivo:f.objetivo, nivel:f.nivel,
                         frequencia:parseInt(f.frequencia)||3,
                         tempoDisponivel:parseInt(f.tempoDisponivel)||60,
