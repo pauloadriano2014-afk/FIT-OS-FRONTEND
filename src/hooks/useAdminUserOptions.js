@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 import { fetchAndProcessRaioxData } from '../utils/raioxUtils';
 import { authHeaders } from '../utils/authToken';
+import { setItemSafely } from '../utils/safeStorage';
 
 const formatToBRDate = (isoString) => {
     if (!isoString) return '';
@@ -155,7 +156,14 @@ export default function useAdminUserOptions(aluno, navigation) {
                     activeWk.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
                     archivedWk.sort((a,b) => new Date(b.endDate||b.createdAt) - new Date(a.endDate||a.createdAt));
                     setActiveWorkouts(activeWk); setArchivedWorkouts(archivedWk);
-                    AsyncStorage.setItem(`@useroptionscache_${aluno.id}`, JSON.stringify({ workouts: { active: activeWk, archived: archivedWk }, freshness: aluno }));
+                    // 🔥 FIX: gravação de cache disparada sem await (de propósito,
+                    // não deve travar a tela) -- mas se a cota do localStorage já
+                    // estivesse cheia, virava um "Uncaught (in promise)
+                    // QuotaExceededError" solto no console. setItemSafely tenta
+                    // liberar espaço automaticamente; o .catch final é só pra
+                    // garantir que, mesmo falhando de vez, não sobra promise
+                    // rejeitada sem tratamento (é só cache, sem impacto real).
+                    setItemSafely(`@useroptionscache_${aluno.id}`, JSON.stringify({ workouts: { active: activeWk, archived: archivedWk }, freshness: aluno })).catch(() => {});
                 }
             }
 

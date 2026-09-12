@@ -13,6 +13,7 @@ import BlockDivider from './ExerciseCardParts/BlockDivider';
 import SetRow from './ExerciseCardParts/SetRow';
 import RestIntervalLabel from './ExerciseCardParts/RestIntervalLabel';
 import CoachObservation from './ExerciseCardParts/CoachObservation';
+import StudentNoteInput from './ExerciseCardParts/StudentNoteInput';
 import SubstitutesPanel from './ExerciseCardParts/SubstitutesPanel';
 import RestTimerModal from './ExerciseCardParts/RestTimerModal';
 
@@ -27,6 +28,7 @@ export const ExerciseCard = ({
   workoutModel,
   substitutes = [],
   studentGender,
+  studentNote, onChangeStudentNote,
 }) => {
 
   const exerciseTitle = item.exercise?.name || item.name || "Exercício";
@@ -181,6 +183,10 @@ export const ExerciseCard = ({
           />
 
           <CoachObservation realObservation={realObservation} colors={colors} />
+
+          {typeof onChangeStudentNote === 'function' && (
+            <StudentNoteInput value={studentNote || ''} onChangeText={onChangeStudentNote} colors={colors} />
+          )}
 
           <SubstitutesPanel onSwap={onSwap} substitutes={substitutes} colors={colors} />
         </View>

@@ -469,7 +469,7 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                 <Modal visible={state.showCalendarEnd} transparent animationType="fade"><View style={S.overlay}><CustomCalendar selectedDate={state.endDate} onSelect={actions.onSelectEndDate} onClose={() => setters.setShowCalendarEnd(false)} theme={theme} /></View></Modal>
                 <Modal visible={state.showCalendarIntensity} transparent animationType="fade"><View style={S.overlay}><CustomCalendar selectedDate={state.intensityEndDate || new Date()} onSelect={actions.onSelectIntensityEndDate} onClose={() => setters.setShowCalendarIntensity(false)} theme={theme} /></View></Modal>
                 <TecnicaModal
-                    visible={state.modalTecnicaVisible} onClose={() => setters.setModalTecnicaVisible(false)} theme={theme}
+                    visible={state.modalTecnicaVisible} onClose={() => setters.setModalTecnicaVisible(false)} theme={theme} isWeb={isWeb}
                     modalTitle={isCurrentCardio ? 'Intensidade' : 'Técnica'}
                     options={isCurrentCardio ? state.intensidadesCardio : state.tecnicasDisponiveis}
                     listaTecnicas={tecnicasLaboratorio}

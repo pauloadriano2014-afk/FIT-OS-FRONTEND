@@ -20,6 +20,7 @@ export default function ExpandableExerciseBlock({
   TECH_GUIDE, setTechModalVisible, setSelectedTech, handleSwap, isTimerRunning,
   isVoiceEnabled, colors, userData,
   resolveAsset, // 🔥 NOVO: função de resolução de asset (local ou remoto)
+  exerciseNotes, onChangeExerciseNote, // 🔥 NOVO: observação do aluno por exercício
 }) {
   // 🔥 GENERALIZADO: antes só existia BI-SET (isBiSet). Agora block.type pode
   // ser qualquer técnica de agrupamento (BISET, TRISET, ...) — isGroup cobre
@@ -298,6 +299,8 @@ export default function ExpandableExerciseBlock({
                   isVoiceEnabled={isVoiceEnabled}
                   colors={colors}
                   studentGender={userData?.gender}
+                  studentNote={exerciseNotes?.[item.id] || ''}
+                  onChangeStudentNote={typeof onChangeExerciseNote === 'function' ? (text) => onChangeExerciseNote(item.id, text) : undefined}
                 />
               </View>
             );

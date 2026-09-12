@@ -507,6 +507,8 @@ export default function DayWorkoutScreen({ route, navigation }) {
         resolveAsset={resolveAsset}
         isTimerRunning={timer.isTimerRunning}
         isVoiceEnabled={voice.isVoiceEnabled}
+        exerciseNotes={data.exerciseNotes}
+        onChangeExerciseNote={data.handleSetExerciseNote}
         colors={{
           bg: theme.bg, surface: theme.surface, border: theme.border,
           text: theme.text, textMuted: theme.textSecondary, primary: theme.accent,

@@ -42,6 +42,13 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
   const [activeIntensityMultiplier, setActiveIntensityMultiplier] = useState(1.0);
   const [isIntensityMaskActive, setIsIntensityMaskActive] = useState(false);
   const [hasSentInitialPhotos, setHasSentInitialPhotos] = useState(true);
+  // 🔥 NOVO: observação do aluno por exercício (ex: "não consegui fazer o
+  // agachamento"), separada do feedback geral de fim de treino. Chave é o
+  // mesmo item.id usado em lastWeights/checkedSets.
+  const [exerciseNotes, setExerciseNotes] = useState({});
+  const handleSetExerciseNote = (exerciseId, text) => {
+    setExerciseNotes(prev => ({ ...prev, [exerciseId]: text }));
+  };
 
   const fetchWorkoutData = async () => {
     try {
@@ -344,7 +351,7 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
               setsData.push({ index: isNaN(cleanIndex) ? 1 : cleanIndex, weight: realWeightToSave, reps: String(repsVal) });
             }
           });
-          if (setsData.length > 0) exercisesDone.push({ exerciseId: ex.exerciseId, name: ex.exercise?.name || ex.name, sets: setsData });
+          if (setsData.length > 0) exercisesDone.push({ exerciseId: ex.exerciseId, name: ex.exercise?.name || ex.name, sets: setsData, note: exerciseNotes[ex.id] || '' });
         }
       });
 
@@ -428,6 +435,8 @@ export default function useDayWorkoutData({ workoutId, day, isPreviewMode, theme
     activeIntensityMultiplier,
     isIntensityMaskActive,
     hasSentInitialPhotos,
+    exerciseNotes,
+    handleSetExerciseNote,
     fetchWorkoutData,
     handleSaveWeight,
     handleCheckSet,

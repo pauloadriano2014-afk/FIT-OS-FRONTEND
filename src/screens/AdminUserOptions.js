@@ -2,8 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, StatusBar, Platform, Dimensions, Modal, Alert } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../contexts/ThemeContext';
+import { setItemSafely } from '../utils/safeStorage';
 
 import useAdminUserOptions from '../hooks/useAdminUserOptions';
 
@@ -89,13 +90,22 @@ export default function AdminUserOptions({ route, navigation }) {
 
             const executeImpersonation = async () => {
                 try {
-                    await AsyncStorage.setItem('original_admin_user', currentAdminStr);
-                    await AsyncStorage.setItem('original_admin_role', currentRole || 'ADMIN');
-                    
+                    // 🔥 FIX: no web o AsyncStorage roda em cima do localStorage,
+                    // que tem uma cota total por origem. Depois de meses de uso
+                    // acumulando cache (dashboard, opções de aluno, treinos...),
+                    // a cota estourava e QUALQUER gravação -- inclusive essas
+                    // pequenas e críticas de troca de sessão -- falhava com
+                    // QuotaExceededError, dando "Falha ao efetuar o login na
+                    // conta do aluno" mesmo estando tudo certo. setItemSafely
+                    // limpa os caches descartáveis e tenta de novo automaticamente
+                    // quando isso acontece.
+                    await setItemSafely('original_admin_user', currentAdminStr);
+                    await setItemSafely('original_admin_role', currentRole || 'ADMIN');
+
                     const { diets, workouts, anamneses, ...leanStudentData } = targetStudent;
 
-                    await AsyncStorage.setItem('user', JSON.stringify(leanStudentData));
-                    await AsyncStorage.setItem('role', 'USER');
+                    await setItemSafely('user', JSON.stringify(leanStudentData));
+                    await setItemSafely('role', 'USER');
                     
                     if (Platform.OS === 'web') {
                         window.location.replace('/');
@@ -104,11 +114,11 @@ export default function AdminUserOptions({ route, navigation }) {
                     }
                 } catch (err) {
                     console.log("Erro na troca de dados:", err);
-                    
+
                     await AsyncStorage.removeItem('original_admin_user');
                     await AsyncStorage.removeItem('original_admin_role');
-                    await AsyncStorage.setItem('user', currentAdminStr);
-                    if (currentRole) await AsyncStorage.setItem('role', currentRole);
+                    await setItemSafely('user', currentAdminStr);
+                    if (currentRole) await setItemSafely('role', currentRole);
 
                     if (Platform.OS === 'web') window.alert("Falha ao efetuar o login na conta do aluno.");
                     else Alert.alert("Erro", "Falha ao efetuar o login na conta do aluno.");

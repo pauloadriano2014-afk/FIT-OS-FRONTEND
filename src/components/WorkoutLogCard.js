@@ -5,7 +5,19 @@ import { getRpeInfo } from '../utils/calculations';
 
 export default function WorkoutLogCard({ item, theme }) {
     const rpeInfo = item.rpe ? getRpeInfo(item.rpe) : null;
-    
+
+    // 🔥 NOVO: observação do aluno por exercício. Vem duplicada em cada
+    // série (mesmo padrão de exerciseName), então aqui pegamos só a
+    // primeira ocorrência não-vazia por exercício, na ordem em que aparecem.
+    const exerciseNotes = [];
+    const seenExerciseIds = new Set();
+    (item.details || []).forEach(d => {
+        if (d.note && d.note.trim() !== '' && !seenExerciseIds.has(d.exerciseId)) {
+            seenExerciseIds.add(d.exerciseId);
+            exerciseNotes.push({ exerciseId: d.exerciseId, exerciseName: d.exerciseName, note: d.note });
+        }
+    });
+
     return (
         <View style={[styles.logCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.logHeader}>
@@ -36,6 +48,20 @@ export default function WorkoutLogCard({ item, theme }) {
                     <Text style={styles.noFeedback}>Sem observações.</Text>
                 </View>
             )}
+
+            {exerciseNotes.length > 0 && (
+                <View style={{ marginTop: 10, gap: 8 }}>
+                    {exerciseNotes.map(n => (
+                        <View key={n.exerciseId} style={[styles.exerciseNoteContainer, { backgroundColor: theme.bg, borderColor: theme.border }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                                <MaterialCommunityIcons name="comment-alert-outline" size={13} color="#FF9500" />
+                                <Text style={styles.exerciseNoteLabel}>{n.exerciseName}</Text>
+                            </View>
+                            <Text style={[styles.feedbackText, { color: theme.text }]}>{n.note}</Text>
+                        </View>
+                    ))}
+                </View>
+            )}
         </View>
     );
 }
@@ -52,4 +78,6 @@ const styles = StyleSheet.create({
     feedbackLabel: { color:'#888', fontSize:9, fontWeight:'bold' },
     feedbackText: { fontSize:13, fontStyle:'italic', lineHeight: 18 },
     noFeedback: { color:'#888', fontSize:12, fontStyle:'italic' },
+    exerciseNoteContainer: { padding:10, borderRadius:8, borderWidth:1, borderLeftWidth:3, borderLeftColor:'#FF9500' },
+    exerciseNoteLabel: { color:'#FF9500', fontSize:10, fontWeight:'900' },
 });

@@ -10,7 +10,7 @@ const TABS = {
     VIDEO: 'VIDEO',
 };
 
-export default function TechGuideModal({ visible, onClose, theme, selectedTech, TECH_GUIDE, isPlayingTechVoice, handlePlayTechVoice, isWeb }) {
+export default function TechGuideModal({ visible, onClose, theme, selectedTech, TECH_GUIDE, isPlayingTechVoice, handlePlayTechVoice, isWeb, closeLabel }) {
     const techData = selectedTech && TECH_GUIDE[selectedTech] ? TECH_GUIDE[selectedTech] : null;
     const accentColor = techData?.color === theme.accent && !theme.isDark ? theme.accent : techData?.color;
 
@@ -26,14 +26,17 @@ export default function TechGuideModal({ visible, onClose, theme, selectedTech, 
         if (visible) setActiveTab(TABS.TEXT);
     }, [selectedTech, visible]);
 
-    // 🔥 Função Mágica para Negrito e Quebra de Linha Automática (preservada
-    // exatamente como estava — nenhuma mudança na lógica de formatação)
+    // 🔥 Função Mágica para Negrito e Quebra de Linha Automática. Generalizada
+    // pra reconhecer QUALQUER cabeçalho em caixa alta terminado em ":" numa
+    // linha própria (não só "COMO EXECUTAR:"/"POR QUE FAZER:" do guia do
+    // aluno) — assim o mesmo componente also funciona com o guia do coach
+    // (TecnicaModal.js), que usa "COMO APLICAR:"/"QUANDO USAR:".
+    const HEADER_REGEX = /^[A-ZÀ-Ü0-9][A-ZÀ-Ü0-9\s\.\/\-]{1,50}:$/;
+
     const renderDescription = (desc, textColor) => {
         if (!desc) return null;
 
-        let textClean = desc.replace(/POR QUE FAZER:/g, '\n\nPOR QUE FAZER:');
-        textClean = textClean.replace(/\n{3,}/g, '\n\n');
-
+        const textClean = desc.replace(/\n{3,}/g, '\n\n');
         const paragraphs = textClean.split('\n');
 
         return paragraphs.map((p, idx) => {
@@ -41,17 +44,11 @@ export default function TechGuideModal({ visible, onClose, theme, selectedTech, 
                 return <View key={idx} style={{ height: 10 }} />;
             }
 
-            const regex = /(COMO EXECUTAR:|POR QUE FAZER:)/g;
-            const parts = p.split(regex);
+            const isHeader = HEADER_REGEX.test(p.trim());
 
             return (
-                <Text key={idx} style={[styles.desc, { color: textColor, marginBottom: 8 }]}>
-                    {parts.map((part, pIdx) => {
-                        if (part === 'COMO EXECUTAR:' || part === 'POR QUE FAZER:') {
-                            return <Text key={pIdx} style={{ fontWeight: '900', letterSpacing: 0.5 }}>{part}</Text>;
-                        }
-                        return <Text key={pIdx}>{part}</Text>;
-                    })}
+                <Text key={idx} style={[styles.desc, { color: textColor, marginBottom: 8 }, isHeader && { fontWeight: '900', letterSpacing: 0.5 }]}>
+                    {p}
                 </Text>
             );
         });
@@ -120,7 +117,7 @@ export default function TechGuideModal({ visible, onClose, theme, selectedTech, 
                     </ScrollView>
 
                     <TouchableOpacity style={[styles.closeBtn, { backgroundColor: accentColor || theme.accent }]} onPress={onClose}>
-                        <Text style={[styles.closeBtnText, { color: (techData && (techData.color === theme.accent || techData.color === '#00FF7F')) ? '#000' : '#FFF' }]}>ENTENDI, BORA MOER!</Text>
+                        <Text style={[styles.closeBtnText, { color: (techData && (techData.color === theme.accent || techData.color === '#00FF7F')) ? '#000' : '#FFF' }]}>{closeLabel || 'ENTENDI, BORA MOER!'}</Text>
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
