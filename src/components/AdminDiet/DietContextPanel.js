@@ -178,7 +178,7 @@ export default function DietContextPanel({
             { backgroundColor: theme.surface, borderColor: theme.border },
             isMobileSheet && p.panelMobileSheet,
         ]}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
                 {/* ── CABEÇALHO DO DIA ─────────────────────────────────────── */}
                 <View style={[p.dayBadge, { backgroundColor: dayColor + '18', borderColor: dayColor + '50' }]}>
@@ -311,7 +311,7 @@ export default function DietContextPanel({
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const p = StyleSheet.create({
     panel:         { width: 260, borderLeftWidth: 1, paddingHorizontal: 14, paddingTop: 16 },
-    panelMobileSheet: { width: '100%', borderLeftWidth: 0, paddingHorizontal: 16, paddingTop: 4 },
+    panelMobileSheet: { width: '100%', borderLeftWidth: 0, paddingHorizontal: 16, paddingTop: 4, flex: 1 },
     dayBadge:      { flexDirection: 'row', alignItems: 'center', borderRadius: 14, borderWidth: 1, padding: 12, marginBottom: 12 },
     dayLabel:      { fontSize: 12, fontWeight: '900', letterSpacing: 0.5 },
     alunoName:     { fontSize: 11, fontWeight: '700', marginTop: 2 },
