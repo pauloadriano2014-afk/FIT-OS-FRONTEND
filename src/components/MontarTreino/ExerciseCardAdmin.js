@@ -36,6 +36,8 @@ export default function ExerciseCardAdmin({
     collapseSignal,
     listaTecnicas = [], // 🔥 NOVA PROP: Recebe os combos criados
     groupInfo = null, // 🔥 NOVO: { technique, size, position, complete, groupLen } ou null
+    pyramidPresetsList = [], salvarPyramidPreset, apagarPyramidPreset, // 🔥 NOVO
+    observationPresetsList = [], salvarObservationPreset, apagarObservationPreset, // 🔥 NOVO
 }) {
     const isWeb = Platform.OS === 'web';
     const isCardio = item.category?.toUpperCase() === 'CARDIO';
@@ -207,12 +209,18 @@ export default function ExerciseCardAdmin({
                         setIndexBlocoAtual={setIndexBlocoAtual}
                         setModalTecnicaVisible={setModalTecnicaVisible}
                         listaTecnicas={listaTecnicas} // 🔥 PROP REPASSADA PARA ONDE REALMENTE IMPORTA
+                        pyramidPresetsList={pyramidPresetsList}
+                        salvarPyramidPreset={salvarPyramidPreset}
+                        apagarPyramidPreset={apagarPyramidPreset}
                     />
 
                     {/* Observação */}
                     <ObservationSection
                         item={item} index={index} theme={theme}
                         atualizarObservacao={atualizarObservacao}
+                        observationPresetsList={observationPresetsList}
+                        salvarObservationPreset={salvarObservationPreset}
+                        apagarObservationPreset={apagarObservationPreset}
                     />
                 </View>
             )}

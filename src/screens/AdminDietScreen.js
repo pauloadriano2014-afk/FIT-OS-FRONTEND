@@ -256,6 +256,25 @@ export default function AdminDietScreen({ route, navigation }) {
         modals.setModalMealOptionsVisible(false);
     };
 
+    // 🔥 FIX (12/set/2026): "Excluir Refeição" saiu do botão de lixeira solto no
+    // cabeçalho da refeição (que sumia em telas estreitas) e virou uma opção
+    // aqui no menu de 3 pontinhos — de brinde, ganhou uma confirmação antes de
+    // apagar, que o botão antigo não tinha.
+    const handleDeleteMealFromMenu = () => {
+        if (!actions.selectedMealForAction) return;
+        const mealId = actions.selectedMealForAction.id;
+        modals.setModalMealOptionsVisible(false);
+        const doDelete = () => actions.handleDeleteMeal(mealId);
+        if (isWeb) {
+            if (window.confirm('Excluir esta refeição? Essa ação não pode ser desfeita.')) doDelete();
+        } else {
+            Alert.alert('Excluir Refeição', 'Excluir esta refeição? Essa ação não pode ser desfeita.', [
+                { text: 'Cancelar' },
+                { text: 'Excluir', style: 'destructive', onPress: doDelete },
+            ]);
+        }
+    };
+
     // 🔥 NOVO: salva um texto de observação como atalho reutilizável em qualquer dieta
     const handleSaveNoteSnippet = async (text) => {
         try {
@@ -413,8 +432,20 @@ export default function AdminDietScreen({ route, navigation }) {
                         </TouchableOpacity>
                     </View>
 
-                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} enabled={!isWeb}>
-                        <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingBottom: 140 }} keyboardShouldPersistTaps="handled">
+                    {/* 🔥 FIX (13/set/2026): esconder a barra flutuante não bastou — o pulo
+                        continuava. Causa real: KeyboardAvoidingView com behavior="padding"
+                        E o auto-scroll nativo do ScrollView pra manter o campo focado visível
+                        são DOIS mecanismos tentando compensar o teclado ao mesmo tempo, e eles
+                        brigam entre si (um empurra o conteúdo, o outro rola o scroll, cada
+                        keystroke recalcula os dois de novo). No iOS a versão nova do RN tem
+                        automaticallyAdjustKeyboardInsets, que faz só o ScrollView se ajustar
+                        de forma nativa e suave — por isso o KeyboardAvoidingView fica
+                        desabilitado no iOS agora (só continua útil no Android). */}
+                    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }} enabled={Platform.OS === 'android'}>
+                        <Animated.ScrollView style={{ flex: 1, opacity: fadeAnim }} contentContainerStyle={{ paddingBottom: 140 }} keyboardShouldPersistTaps="handled"
+                            automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+                            contentInsetAdjustmentBehavior={Platform.OS === 'ios' ? 'automatic' : undefined}
+                        >
                             <DietHeaderWidgets
                                 theme={theme}
                                 currentMacros={actions.currentMacros}
@@ -636,7 +667,7 @@ export default function AdminDietScreen({ route, navigation }) {
                 modalTemplatesVisible={modals.modalTemplatesVisible} setModalTemplatesVisible={modals.setModalTemplatesVisible} templatesList={data.templatesList} handleApplyTemplate={handleApplyTemplate}
                 modalSaveTemplateVisible={modals.modalSaveTemplateVisible} setModalSaveTemplateVisible={modals.setModalSaveTemplateVisible} handleSaveAsTemplate={handleSaveAsTemplate}
                 modalMealOptionsVisible={modals.modalMealOptionsVisible} setModalMealOptionsVisible={modals.setModalMealOptionsVisible}
-                handleDuplicateMeal={handleDuplicateMeal}
+                handleDuplicateMeal={handleDuplicateMeal} handleDeleteMealFromMenu={handleDeleteMealFromMenu}
                 modalSaveMealVisible={modals.modalSaveMealVisible} setModalSaveMealVisible={modals.setModalSaveMealVisible} handleSaveMealTemplate={handleSaveMealTemplate}
                 modalImportMealVisible={modals.modalImportMealVisible} setModalImportMealVisible={modals.setModalImportMealVisible} mealTemplatesList={data.mealTemplatesList} handleApplyMealTemplate={handleApplyMealTemplate} />
 

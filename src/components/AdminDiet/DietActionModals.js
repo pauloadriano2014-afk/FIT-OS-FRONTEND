@@ -8,7 +8,7 @@ export default function DietActionModals({
     modalCloneVisible, setModalCloneVisible, studentsList, handleCloneFromStudent,
     modalTemplatesVisible, setModalTemplatesVisible, templatesList, handleApplyTemplate,
     modalSaveTemplateVisible, setModalSaveTemplateVisible, handleSaveAsTemplate,
-    modalMealOptionsVisible, setModalMealOptionsVisible, handleDuplicateMeal,
+    modalMealOptionsVisible, setModalMealOptionsVisible, handleDuplicateMeal, handleDeleteMealFromMenu,
     modalSaveMealVisible, setModalSaveMealVisible, handleSaveMealTemplate,
     modalImportMealVisible, setModalImportMealVisible, mealTemplatesList, handleApplyMealTemplate
 }) {
@@ -150,11 +150,19 @@ export default function DietActionModals({
                             </View>
                             <Text style={[styles.actionOptionText, { color: theme.text }]}>Duplicar Refeição</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.actionOptionRow} onPress={() => { setModalMealOptionsVisible(false); setTimeout(() => setModalSaveMealVisible(true), 300); }}>
+                        <TouchableOpacity style={[styles.actionOptionRow, { borderBottomColor: theme.isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)' }]} onPress={() => { setModalMealOptionsVisible(false); setTimeout(() => setModalSaveMealVisible(true), 300); }}>
                             <View style={[styles.iconCircle, { backgroundColor: theme.accent + '20', width: 40, height: 40 }]}>
                                 <MaterialCommunityIcons name="content-save-outline" size={20} color={theme.accent} />
                             </View>
                             <Text style={[styles.actionOptionText, { color: theme.accent }]}>Guardar como Novo Modelo</Text>
+                        </TouchableOpacity>
+                        {/* 🔥 FIX (12/set/2026): Excluir Refeição mudou do botão de lixeira solto
+                            no cabeçalho (que sumia em telas estreitas) pra cá, e ganhou confirmação */}
+                        <TouchableOpacity style={styles.actionOptionRow} onPress={handleDeleteMealFromMenu}>
+                            <View style={[styles.iconCircle, { backgroundColor: '#FF3B3015', width: 40, height: 40 }]}>
+                                <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
+                            </View>
+                            <Text style={[styles.actionOptionText, { color: '#FF3B30' }]}>Excluir Refeição</Text>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>

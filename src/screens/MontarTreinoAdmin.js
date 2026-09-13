@@ -372,6 +372,14 @@ export default function MontarTreinoAdmin({ route, navigation }) {
                     listaTecnicas={tecnicasLaboratorio}
                     // 🔥 NOVO: indicador ao vivo de BI-SET/TRI-SET (grupo formado/incompleto)
                     groupInfo={groupInfoByIndex[index] || null}
+                    // 🔥 NOVO: estruturas de pirâmide personalizadas salvas pelo coach
+                    pyramidPresetsList={state.pyramidPresetsList}
+                    salvarPyramidPreset={actions.salvarPyramidPreset}
+                    apagarPyramidPreset={actions.apagarPyramidPreset}
+                    // 🔥 NOVO: observações rápidas personalizadas salvas pelo coach
+                    observationPresetsList={state.observationPresetsList}
+                    salvarObservationPreset={actions.salvarObservationPreset}
+                    apagarObservationPreset={actions.apagarObservationPreset}
                 />
             </View>
         );

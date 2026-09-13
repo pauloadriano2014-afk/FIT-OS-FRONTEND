@@ -108,7 +108,17 @@ export function useMontarTreino(route, navigation) {
     
     const [collections, setCollections] = useState([]);
     const [saveTemplateCollectionId, setSaveTemplateCollectionId] = useState(null);
-    
+
+    // 🔥 NOVO: estruturas de pirâmide criadas pelo coach (ex: "20-15-12-10"),
+    // salvas no backend pra aparecer como botão de toque rápido em qualquer
+    // exercício, além das 8 fixas que já vêm no app.
+    const [pyramidPresetsList, setPyramidPresetsList] = useState([]);
+
+    // 🔥 NOVO: observações rápidas criadas pelo coach (ex: "Cuidado com o
+    // ombro"), salvas no backend pra aparecer no "Inserir rápido" de
+    // qualquer exercício, além das fixas que já vêm no app.
+    const [observationPresetsList, setObservationPresetsList] = useState([]);
+
     const [selectedLibraryCollection, setSelectedLibraryCollection] = useState(null);
     const [selectedPillar, setSelectedPillar] = useState(null);
     const [selectedLevelTab, setSelectedLevelTab] = useState('Iniciante');
@@ -177,12 +187,16 @@ export function useMontarTreino(route, navigation) {
 
             try {
                 const authHdrs = await authHeaders();
-                const [resCol, resTemp] = await Promise.all([
+                const [resCol, resTemp, resPyr, resObs] = await Promise.all([
                     fetch(`https://fitos-final.onrender.com/api/admin/collections?adminId=${currentAdminId}&t=${t}`, { headers: { ...authHdrs } }),
-                    fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${t}`, { headers: { ...authHdrs } })
+                    fetch(`https://fitos-final.onrender.com/api/admin/templates?adminId=${currentAdminId}&t=${t}`, { headers: { ...authHdrs } }),
+                    fetch(`https://fitos-final.onrender.com/api/admin/pyramid-presets?t=${t}`, { headers: { ...authHdrs } }),
+                    fetch(`https://fitos-final.onrender.com/api/admin/observation-presets?t=${t}`, { headers: { ...authHdrs } })
                 ]);
                 if (resCol.ok) setCollections(await resCol.json());
                 if (resTemp.ok) setTemplatesList(await resTemp.json());
+                if (resPyr.ok) setPyramidPresetsList((await resPyr.json()).presets || []);
+                if (resObs.ok) setObservationPresetsList((await resObs.json()).presets || []);
             } catch(e) {}
 
             let fetchedBib = [];
@@ -1042,10 +1056,82 @@ export function useMontarTreino(route, navigation) {
         setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
     };
     
-    const atualizarBloco = (exIndex, blockIndex, field, value) => { 
-        const l = [...exercisesByDay[selectedWorkoutTab]]; 
-        l[exIndex].blocks[blockIndex][field] = value; 
-        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l}); 
+    const atualizarBloco = (exIndex, blockIndex, field, value) => {
+        const l = [...exercisesByDay[selectedWorkoutTab]];
+        l[exIndex].blocks[blockIndex][field] = value;
+        setExercisesByDay({...exercisesByDay, [selectedWorkoutTab]: l});
+    };
+
+    // 🔥 NOVO: salva uma estrutura de pirâmide personalizada (ex: "20-15-12-10")
+    // no backend, pra virar um botão de toque rápido igual as 8 fixas.
+    const salvarPyramidPreset = async (structure) => {
+        try {
+            const res = await fetch('https://fitos-final.onrender.com/api/admin/pyramid-presets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ structure }),
+            });
+            if (!res.ok) throw new Error();
+            const newPreset = await res.json();
+            setPyramidPresetsList(prev => [newPreset, ...prev]);
+            return true;
+        } catch {
+            const msg = 'Não foi possível salvar essa estrutura.';
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Erro', msg);
+            return false;
+        }
+    };
+
+    const apagarPyramidPreset = async (id) => {
+        const prevList = pyramidPresetsList;
+        setPyramidPresetsList(prev => prev.filter(p => p.id !== id)); // otimista
+        try {
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/pyramid-presets?id=${id}`, {
+                method: 'DELETE',
+                headers: { ...(await authHeaders()) },
+            });
+            if (!res.ok) throw new Error();
+        } catch {
+            setPyramidPresetsList(prevList); // reverte se falhar
+            const msg = 'Não foi possível apagar essa estrutura.';
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Erro', msg);
+        }
+    };
+
+    // 🔥 NOVO: salva uma observação rápida personalizada no backend, pra
+    // virar um item de toque rápido no "Inserir rápido" de qualquer exercício.
+    const salvarObservationPreset = async (text) => {
+        try {
+            const res = await fetch('https://fitos-final.onrender.com/api/admin/observation-presets', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+                body: JSON.stringify({ text }),
+            });
+            if (!res.ok) throw new Error();
+            const newPreset = await res.json();
+            setObservationPresetsList(prev => [newPreset, ...prev]);
+            return true;
+        } catch {
+            const msg = 'Não foi possível salvar essa observação.';
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Erro', msg);
+            return false;
+        }
+    };
+
+    const apagarObservationPreset = async (id) => {
+        const prevList = observationPresetsList;
+        setObservationPresetsList(prev => prev.filter(p => p.id !== id)); // otimista
+        try {
+            const res = await fetch(`https://fitos-final.onrender.com/api/admin/observation-presets?id=${id}`, {
+                method: 'DELETE',
+                headers: { ...(await authHeaders()) },
+            });
+            if (!res.ok) throw new Error();
+        } catch {
+            setObservationPresetsList(prevList); // reverte se falhar
+            const msg = 'Não foi possível apagar essa observação.';
+            if (Platform.OS === 'web') window.alert(msg); else Alert.alert('Erro', msg);
+        }
     };
 
     const salvarTreinoFinal = async () => {
@@ -1211,7 +1297,7 @@ export function useMontarTreino(route, navigation) {
             tecnicasDisponiveis, intensidadesCardio, currentExercises, exerciciosFiltrados, hasInjury, 
             isTemplateMode, collections, saveTemplateCollectionId, selectedLibraryCollection, selectedPillar, 
             selectedLevelTab, workoutModel, workoutEnvironment, alternateSlot, intensityMultiplier, intensityEndDate, showCalendarIntensity,
-            smartSubstitutesModal, smartSubstitutesList,
+            smartSubstitutesModal, smartSubstitutesList, pyramidPresetsList, observationPresetsList,
         },
         setters: {
             setNewTabName, setRenameTabModalVisible, setSelectedWorkoutTab, setCustomWorkoutName, 
@@ -1230,8 +1316,10 @@ export function useMontarTreino(route, navigation) {
             handleImportPDF, handleDeleteTab, addNewTab, handleRenameTab, handleClearWorkout, 
             onSelectStartDate, onSelectEndDate, onSelectIntensityEndDate, fetchTemplates, applyTemplate, 
             fetchStudentsForClone, fetchWorkoutsOfStudent, applyClone, saveAsTemplate, addExercicioManual, 
-            removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco, 
+            removeSubstitute, removeExercicio, moveExercise, atualizarObservacao, adicionarBloco, removerBloco,
             atualizarBloco, salvarTreinoFinal, openPreview, moveTab, duplicateTabInline,
+            salvarPyramidPreset, apagarPyramidPreset,
+            salvarObservationPreset, apagarObservationPreset,
             triggerSmartSubstitute, confirmSmartSubstitute, safeSetInitialCategoryFilter,
             autoFillSubstitutes, autoFillSubstitutesAllDays, clearSubstitutes, clearSubstitutesAllDays,
         }

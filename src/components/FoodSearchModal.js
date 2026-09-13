@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     View, Text, StyleSheet, Modal, TouchableOpacity,
     TextInput, FlatList, KeyboardAvoidingView, Platform,
-    useWindowDimensions, ActivityIndicator, TouchableWithoutFeedback
+    useWindowDimensions, ActivityIndicator, TouchableWithoutFeedback, Keyboard
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { authHeaders } from '../utils/authToken';
@@ -56,8 +56,25 @@ export default function FoodSearchModal({
 
     const isWeb = Platform.OS === 'web';
     const { height: windowHeight } = useWindowDimensions();
-    const sheetHeight = Math.round(windowHeight * 0.88);
     const debouncedSearch = useDebounce(search, 350);
+
+    // 🔥 FIX (13/set/2026): essa folha (bottom sheet) tinha altura FIXA em 88%
+    // da tela, sem considerar o teclado. Quando o campo "Buscar alimento..."
+    // focava e o teclado abria, o KeyboardAvoidingView empurrava a folha toda
+    // pra cima (correto), mas como a altura dela continuava sendo 88% da tela
+    // INTEIRA, ela ficava maior que o espaço que sobrou — o topo (cabeçalho,
+    // abas) saía da tela por cima, dando a impressão de que tudo pulava/
+    // ficava cortado. Agora a altura da folha desconta a altura do teclado.
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+    useEffect(() => {
+        if (isWeb) return;
+        const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+        const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+        const subShow = Keyboard.addListener(showEvt, (e) => setKeyboardHeight(e?.endCoordinates?.height ?? 0));
+        const subHide = Keyboard.addListener(hideEvt, () => setKeyboardHeight(0));
+        return () => { subShow.remove(); subHide.remove(); };
+    }, [isWeb]);
+    const sheetHeight = Math.round(windowHeight * 0.88) - keyboardHeight;
 
     useEffect(() => {
         if (visible) {

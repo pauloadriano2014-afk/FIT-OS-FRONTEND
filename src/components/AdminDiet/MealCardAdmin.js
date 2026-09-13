@@ -20,7 +20,7 @@ const MEAL_NOTE_SUGGESTIONS = [
 export default function MealCardAdmin({
     meal, index, totalMeals, theme, toGrams,
     handleOpenNameSelect, handleOpenTimeSelect, 
-    handleDeleteMeal, handleMoveMeal, handleUpdateFoodAmount, handleToggleUnit, 
+    handleMoveMeal, handleUpdateFoodAmount, handleToggleUnit,
     handleDeleteFood, handleOpenSearch, handleMealOptions, handleSwapBaseFood,
     handleUpdateMeal,
     onAnalyzeMeal,
@@ -142,7 +142,11 @@ export default function MealCardAdmin({
                     </TouchableOpacity>
                 </View>
 
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 }}>
+                {/* 🔥 FIX (12/set/2026): flexWrap como rede de segurança — se um dia essa
+                    linha não couber de novo (tela muito estreita, muitos botões visíveis
+                    ao mesmo tempo), os botões quebram pra uma segunda linha em vez de
+                    ficarem cortados/inacessíveis por causa do overflow:hidden do card. */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20, flexWrap: 'wrap', rowGap: 8 }}>
                     <TouchableOpacity
                         style={[styles.timePill, { backgroundColor: theme.accent + '15' }]}
                         onPress={() => { Haptics.selectionAsync(); handleOpenTimeSelect(meal.id); }}
@@ -151,7 +155,7 @@ export default function MealCardAdmin({
                         <Text style={[styles.timePillText, { color: theme.accent }]}>{meal.time || '--:--'}</Text>
                     </TouchableOpacity>
 
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', rowGap: 8, justifyContent: 'flex-end' }}>
 
                         {/* Botão analisar */}
                         {hasItems && onAnalyzeMeal && (
@@ -193,12 +197,15 @@ export default function MealCardAdmin({
                             </TouchableOpacity>
                         </View>
 
+                        {/* 🔥 FIX (12/set/2026): o botão de excluir (lixeira) que ficava aqui
+                            sumia em telas de celular mais estreitas — a linha inteira (Analisar +
+                            Versão Alternativa + mover + menu + lixeira) não cabia e o mealCard
+                            tem overflow:hidden, então os últimos botões ficavam cortados/
+                            inacessíveis. Excluir Refeição virou uma opção dentro do menu de
+                            3 pontinhos (com confirmação, que antes não existia), liberando
+                            espaço nessa linha. */}
                         <TouchableOpacity onPress={() => { Haptics.selectionAsync(); handleMealOptions(meal.id, meal.name); }} style={[styles.actionIconBtn, { backgroundColor: softBg }]}>
                             <MaterialCommunityIcons name="dots-horizontal" size={20} color={theme.textSecondary} />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity onPress={() => { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); handleDeleteMeal(meal.id); }} style={[styles.actionIconBtn, { backgroundColor: '#FF3B3015' }]}>
-                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#FF3B30" />
                         </TouchableOpacity>
                     </View>
                 </View>
